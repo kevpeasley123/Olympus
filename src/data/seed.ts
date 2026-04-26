@@ -3,7 +3,7 @@ import type { OlympusState } from "../types";
 const today = new Date().toISOString().slice(0, 10);
 
 export const seedState: OlympusState = {
-  version: 6,
+  version: 7,
   settings: {
     vaultPath: "C:\\Users\\kevpe\\OneDrive\\Desktop\\Projects\\Obsidian vaults\\Olympus Obsidian Vault",
     projectsRootPath: "C:\\Users\\kevpe\\OneDrive\\Desktop\\Projects"
@@ -176,6 +176,7 @@ export const seedState: OlympusState = {
       title: "Starter Note: Market Structure Lens",
       sourceType: "note",
       createdAt: today,
+      sourceDate: today,
       tags: ["markets", "starter"],
       summary:
         "A placeholder record for the kind of research Olympus should store: concise, queryable, and tied to an operator workflow.",
@@ -187,6 +188,7 @@ export const seedState: OlympusState = {
       title: "Starter Note: Media Workflow Stack",
       sourceType: "note",
       createdAt: today,
+      sourceDate: today,
       tags: ["video", "workflow"],
       summary:
         "A placeholder record for tool-oriented research around transcription, asset generation, and production workflows.",

@@ -1,8 +1,8 @@
 import { seedState } from "../data/seed";
 import type { OlympusState, ResearchRecord, ToolDefinition } from "../types";
 
-const STORAGE_KEY = "olympus:v6";
-const LEGACY_KEYS = ["olympus:v1", "olympus:v2", "olympus:v3", "olympus:v4", "olympus:v5"];
+const STORAGE_KEY = "olympus:v7";
+const LEGACY_KEYS = ["olympus:v1", "olympus:v2", "olympus:v3", "olympus:v4", "olympus:v5", "olympus:v6"];
 
 export function loadState(): OlympusState {
   const stored = window.localStorage.getItem(STORAGE_KEY);
@@ -20,7 +20,10 @@ export function loadState(): OlympusState {
       tools: mergeById(seedState.tools, parsed.tools ?? []),
       quickApps: mergeById(seedState.quickApps, parsed.quickApps ?? []),
       projects: mergeById(seedState.projects, parsed.projects ?? []),
-      research: mergeById(seedState.research, parsed.research ?? []),
+      research: mergeById(seedState.research, parsed.research ?? []).map((record) => ({
+        ...record,
+        sourceDate: record.sourceDate ?? record.createdAt
+      })),
       conversation: mergeById(seedState.conversation, parsed.conversation ?? []),
       market: parsed.market ? { ...seedState.market, ...parsed.market } : seedState.market,
       weather: parsed.weather ? { ...seedState.weather, ...parsed.weather } : seedState.weather,

@@ -1,11 +1,21 @@
 import { ChevronRight, Compass } from "lucide-react";
+import { useState } from "react";
 import type { ConversationMessage } from "../../types";
 
 interface ChatPanelProps {
   messages: ConversationMessage[];
+  onSendMessage: (message: string) => void;
 }
 
-export function ChatPanel({ messages }: ChatPanelProps) {
+export function ChatPanel({ messages, onSendMessage }: ChatPanelProps) {
+  const [draft, setDraft] = useState("");
+
+  function submit() {
+    if (!draft.trim()) return;
+    onSendMessage(draft);
+    setDraft("");
+  }
+
   return (
     <section className="dashboard-panel conversation-panel">
       <div className="panel-header">
@@ -21,8 +31,18 @@ export function ChatPanel({ messages }: ChatPanelProps) {
         ))}
       </div>
       <div className="conversation-input-shell">
-        <input placeholder="Type a message..." disabled />
-        <button className="send-button" disabled>
+        <input
+          placeholder="Ask Chat about Pantheon knowledge..."
+          value={draft}
+          onChange={(event) => setDraft(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              submit();
+            }
+          }}
+        />
+        <button className="send-button" onClick={submit} disabled={!draft.trim()}>
           <ChevronRight size={16} />
         </button>
       </div>

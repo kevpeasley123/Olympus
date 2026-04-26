@@ -8,7 +8,8 @@ interface LibraryPanelProps {
   onAddResearch: (
     title: string,
     text: string,
-    sourceType: ResearchRecord["sourceType"]
+    sourceType: ResearchRecord["sourceType"],
+    sourceDate: string
   ) => Promise<ObsidianActionResult>;
   onViewDatabase: () => Promise<ObsidianActionResult>;
 }
@@ -76,6 +77,7 @@ export function LibraryPanel({ entries, onAddResearch, onViewDatabase }: Library
   const [databaseOpen, setDatabaseOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [text, setText] = useState("");
+  const [sourceDate, setSourceDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [sourceType, setSourceType] = useState<ResearchRecord["sourceType"]>("article");
   const [status, setStatus] = useState<ObsidianActionResult | null>(null);
   const [busyAction, setBusyAction] = useState<"save" | "view" | null>(null);
@@ -84,7 +86,7 @@ export function LibraryPanel({ entries, onAddResearch, onViewDatabase }: Library
 
   async function handleSubmit() {
     setBusyAction("save");
-    const result = await onAddResearch(title, text, sourceType);
+    const result = await onAddResearch(title, text, sourceType, sourceDate);
     setStatus(result);
     setBusyAction(null);
 
@@ -92,6 +94,7 @@ export function LibraryPanel({ entries, onAddResearch, onViewDatabase }: Library
 
     setTitle("");
     setText("");
+    setSourceDate(new Date().toISOString().slice(0, 10));
     setSourceType("article");
     setComposerOpen(false);
     setDatabaseOpen(true);
@@ -171,7 +174,7 @@ export function LibraryPanel({ entries, onAddResearch, onViewDatabase }: Library
                       <div className="pantheon-entry-top">
                         <strong>{entry.title}</strong>
                         <span className="pantheon-entry-meta">
-                          {entry.sourceType} · {estimateLength(entry)} · {entry.createdAt}
+                          {entry.sourceType} · source {entry.sourceDate} · {estimateLength(entry)}
                         </span>
                       </div>
                       <p className="section-copy pantheon-entry-summary">{entry.summary}</p>
@@ -201,6 +204,23 @@ export function LibraryPanel({ entries, onAddResearch, onViewDatabase }: Library
               <option value="note">Note</option>
               <option value="manual">Procedure</option>
             </select>
+          </div>
+          <div className="composer-grid pantheon-meta-grid">
+            <div className="composer-field">
+              <span>Source date</span>
+              <input
+                type="date"
+                value={sourceDate}
+                onChange={(event) => setSourceDate(event.target.value)}
+              />
+            </div>
+            <div className="composer-field">
+              <span>Why this matters</span>
+              <small>
+                Pantheon keeps the original source date so you and future AI agents can reason
+                about staleness.
+              </small>
+            </div>
           </div>
           <textarea
             value={text}

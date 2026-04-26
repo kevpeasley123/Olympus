@@ -49,6 +49,7 @@ title: ${yamlText(safeTitle)}
 type: research
 source_type: ${yamlText(record.sourceType)}
 created: ${yamlText(record.createdAt)}
+source_date: ${yamlText(record.sourceDate)}
 origin: ${yamlText("Olympus Pantheon")}
 tags:
 ${tags.map((tag) => `  - ${tag}`).join("\n")}
@@ -61,6 +62,9 @@ summary: ${yamlBlockText(record.summary)}
 
 > [!summary]
 > ${record.summary}
+
+> [!info]
+> Source date: ${record.sourceDate}
 
 ## Related
 
@@ -82,6 +86,7 @@ function createResearchBase(): string {
 formulas:
   est_words: '(file.size / 6).round(0)'
   read_time: 'if(file.size, ((file.size / 6) / 220).ceil().toString() + " min", "")'
+  age_days: 'if(source_date, (today() - date(source_date)).days, "")'
 
 properties:
   file.name:
@@ -90,6 +95,8 @@ properties:
     displayName: "Source"
   created:
     displayName: "Created"
+  source_date:
+    displayName: "Source Date"
   summary:
     displayName: "Summary"
   tags:
@@ -98,6 +105,8 @@ properties:
     displayName: "Words"
   formula.read_time:
     displayName: "Read"
+  formula.age_days:
+    displayName: "Age (days)"
 
 views:
   - type: table
@@ -105,9 +114,11 @@ views:
     order:
       - file.name
       - source_type
+      - source_date
       - created
       - formula.read_time
       - formula.est_words
+      - formula.age_days
       - tags
       - summary
     groupBy:

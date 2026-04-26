@@ -80,6 +80,7 @@ export interface ResearchRecord {
   title: string;
   sourceType: "article" | "transcript" | "note" | "manual";
   createdAt: string;
+  sourceDate: string;
   tags: string[];
   summary: string;
   content: string;
@@ -87,7 +88,7 @@ export interface ResearchRecord {
 
 export interface ConversationMessage {
   id: string;
-  role: "system" | "assistant";
+  role: "system" | "assistant" | "user";
   content: string;
   timestamp: string;
 }

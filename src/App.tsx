@@ -20,6 +20,7 @@ function App() {
     markets,
     weather,
     addResearch,
+    sendChatMessage,
     syncResearchBase,
     syncProjectsCanvas,
     refreshAll
@@ -53,7 +54,7 @@ function App() {
         <section className="right-stack">
           <WeatherPanel state={weather} onRetry={() => void refreshAll()} />
           <NowPlayingPanel nowPlaying={nowPlaying} />
-          <ChatPanel messages={chat} />
+          <ChatPanel messages={chat} onSendMessage={sendChatMessage} />
         </section>
       </section>
     </main>

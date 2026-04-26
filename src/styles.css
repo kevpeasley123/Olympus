@@ -963,6 +963,26 @@ small {
   gap: var(--space-12);
 }
 
+.pantheon-meta-grid {
+  grid-template-columns: 0.8fr 1.2fr;
+}
+
+.composer-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+
+.composer-field span {
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+
+.composer-field small {
+  color: var(--muted);
+  line-height: 1.45;
+}
+
 .tag-row {
   flex-wrap: wrap;
   gap: var(--space-8);
@@ -1123,6 +1143,11 @@ small {
   align-self: flex-start;
 }
 
+.conversation-bubble.user {
+  align-self: flex-end;
+  background: rgba(12, 31, 43, 0.72);
+}
+
 .conversation-bubble.assistant {
   align-self: flex-end;
   background: rgba(19, 51, 68, 0.72);
@@ -1143,6 +1168,7 @@ small {
   text-align: left;
 }
 
+.conversation-bubble.user small,
 .conversation-bubble.assistant small {
   text-align: right;
 }

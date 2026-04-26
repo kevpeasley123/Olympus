@@ -3,16 +3,19 @@ import type { ResearchRecord } from "../types";
 export function createResearchRecordFromText(
   title: string,
   sourceText: string,
-  sourceType: ResearchRecord["sourceType"]
+  sourceType: ResearchRecord["sourceType"],
+  sourceDate: string
 ): ResearchRecord {
   const normalized = sourceText.trim().replace(/\s+/g, " ");
   const sentences = normalized.split(/(?<=[.!?])\s+/).filter(Boolean);
+  const normalizedSourceDate = sourceDate || new Date().toISOString().slice(0, 10);
 
   return {
     id: `research-${Date.now()}`,
     title: title.trim() || "Untitled Research Record",
     sourceType,
     createdAt: new Date().toISOString().slice(0, 10),
+    sourceDate: normalizedSourceDate,
     tags: inferTags(normalized),
     summary: sentences.slice(0, 2).join(" ") || normalized.slice(0, 280),
     content: sourceText.trim()

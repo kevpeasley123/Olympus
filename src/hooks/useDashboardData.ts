@@ -6,6 +6,7 @@ import {
   syncResearchBaseToVault,
   syncResearchNoteToVault
 } from "../services/obsidian";
+import { buildPantheonReply, createUserMessage } from "../services/pantheonChat";
 import { createResearchRecordFromText } from "../services/research";
 import { addResearchRecord, loadState, saveState } from "../services/storage";
 import type { LoadableState } from "../types/dashboard";
@@ -138,7 +139,12 @@ export function useDashboardData() {
   }, [refreshMarkets, refreshProjects, refreshWeather]);
 
   const addResearch = useCallback(
-    async (title: string, text: string, sourceType: ResearchRecord["sourceType"]) => {
+    async (
+      title: string,
+      text: string,
+      sourceType: ResearchRecord["sourceType"],
+      sourceDate: string
+    ) => {
       if (!text.trim()) {
         return {
           tone: "warning" as const,
@@ -146,7 +152,7 @@ export function useDashboardData() {
         };
       }
 
-      const record = createResearchRecordFromText(title, text, sourceType);
+      const record = createResearchRecordFromText(title, text, sourceType, sourceDate);
       setDashboardState((current) => addResearchRecord(current, record));
 
       try {
@@ -160,6 +166,20 @@ export function useDashboardData() {
     },
     [dashboardState.settings.vaultPath]
   );
+
+  const sendChatMessage = useCallback((text: string) => {
+    const trimmed = text.trim();
+    if (!trimmed) return;
+
+    setDashboardState((current) => {
+      const user = createUserMessage(trimmed);
+      const assistant = buildPantheonReply(trimmed, current.research);
+      return {
+        ...current,
+        conversation: [...current.conversation, user, assistant]
+      };
+    });
+  }, []);
 
   const syncResearchBase = useCallback(async () => {
     try {
@@ -199,6 +219,7 @@ export function useDashboardData() {
       markets,
       weather,
       addResearch,
+      sendChatMessage,
       syncResearchBase,
       syncProjectsCanvas,
       refreshAll
@@ -209,6 +230,7 @@ export function useDashboardData() {
       markets,
       weather,
       addResearch,
+      sendChatMessage,
       syncResearchBase,
       syncProjectsCanvas,
       refreshAll
