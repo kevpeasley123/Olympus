@@ -1,3 +1,5 @@
+import { motion } from "motion/react";
+import type { ReactNode } from "react";
 import { ChatPanel } from "./components/panels/ChatPanel";
 import { HeaderBar } from "./components/panels/HeaderBar";
 import { LibraryPanel } from "./components/panels/LibraryPanel";
@@ -28,36 +30,72 @@ function App() {
 
   return (
     <main className="app-shell">
-      <HeaderBar onRefresh={() => void refreshAll()} />
+      <FadeInPanel index={0}>
+        <HeaderBar onRefresh={() => void refreshAll()} />
+      </FadeInPanel>
 
       <section className="main-grid">
         <aside className="tools-rail panel-shell">
-          <div className="strip-header compact">
-            <div>
-              <p className="eyebrow">Tools</p>
+          <FadeInPanel index={1}>
+            <div className="strip-header compact">
+              <div>
+                <p className="eyebrow">Tools</p>
+              </div>
             </div>
-          </div>
-          <ToolBelt tools={tools} />
-          <QuickbarPanel apps={quickApps} />
+            <ToolBelt tools={tools} />
+          </FadeInPanel>
+          <FadeInPanel index={6}>
+            <QuickbarPanel apps={quickApps} />
+          </FadeInPanel>
         </aside>
 
         <section className="center-stack">
-          <MarketsPanel state={markets} onRetry={() => void refreshAll()} />
-          <ProjectsPanel projects={projects} onSyncCanvas={syncProjectsCanvas} />
-          <LibraryPanel
-            entries={library}
-            onAddResearch={addResearch}
-            onViewDatabase={syncResearchBase}
-          />
+          <FadeInPanel index={2}>
+            <MarketsPanel state={markets} onRetry={() => void refreshAll()} />
+          </FadeInPanel>
+          <FadeInPanel index={4}>
+            <ProjectsPanel projects={projects} onSyncCanvas={syncProjectsCanvas} />
+          </FadeInPanel>
+          <FadeInPanel index={7}>
+            <LibraryPanel
+              entries={library}
+              onAddResearch={addResearch}
+              onViewDatabase={syncResearchBase}
+            />
+          </FadeInPanel>
         </section>
 
         <section className="right-stack">
-          <WeatherPanel state={weather} onRetry={() => void refreshAll()} />
-          <NowPlayingPanel nowPlaying={nowPlaying} />
-          <ChatPanel messages={chat} onSendMessage={sendChatMessage} />
+          <FadeInPanel index={3}>
+            <WeatherPanel state={weather} onRetry={() => void refreshAll()} />
+          </FadeInPanel>
+          <FadeInPanel index={5}>
+            <NowPlayingPanel nowPlaying={nowPlaying} />
+          </FadeInPanel>
+          <FadeInPanel index={8}>
+            <ChatPanel messages={chat} onSendMessage={sendChatMessage} />
+          </FadeInPanel>
         </section>
       </section>
     </main>
+  );
+}
+
+function FadeInPanel({
+  index,
+  children
+}: {
+  index: number;
+  children: ReactNode;
+}) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 4 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.2, delay: index * 0.05, ease: "easeOut" }}
+    >
+      {children}
+    </motion.div>
   );
 }
 
