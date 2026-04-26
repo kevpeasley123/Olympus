@@ -5,6 +5,8 @@ src-tauri/target/
 .vite/
 .env
 *.log
+tauri-run.err
+tauri-run.out
 *.sqlite
 *.sqlite3
 .DS_Store
