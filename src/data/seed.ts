@@ -1,6 +1,21 @@
 import type { OlympusState } from "../types";
+import { createResearchRecordFromText } from "../services/research";
 
 const today = new Date().toISOString().slice(0, 10);
+
+const marketStructureSeed = createResearchRecordFromText(
+  "Starter Note: Market Structure Lens",
+  "Use the research database to save ideas, articles, transcripts, and briefing notes that should remain available after the chat session ends.",
+  "note",
+  today
+);
+
+const mediaWorkflowSeed = createResearchRecordFromText(
+  "Starter Note: Media Workflow Stack",
+  "Store workflow experiments here so the tools section grows out of actual repeated needs instead of decorative ideas.",
+  "note",
+  today
+);
 
 export const seedState: OlympusState = {
   version: 7,
@@ -172,28 +187,12 @@ export const seedState: OlympusState = {
   ],
   research: [
     {
-      id: "research-starter-market-structure",
-      title: "Starter Note: Market Structure Lens",
-      sourceType: "note",
-      createdAt: today,
-      sourceDate: today,
-      tags: ["markets", "starter"],
-      summary:
-        "A placeholder record for the kind of research Olympus should store: concise, queryable, and tied to an operator workflow.",
-      content:
-        "Use the research database to save ideas, articles, transcripts, and briefing notes that should remain available after the chat session ends."
+      ...marketStructureSeed,
+      id: "research-starter-market-structure"
     },
     {
-      id: "research-starter-video-systems",
-      title: "Starter Note: Media Workflow Stack",
-      sourceType: "note",
-      createdAt: today,
-      sourceDate: today,
-      tags: ["video", "workflow"],
-      summary:
-        "A placeholder record for tool-oriented research around transcription, asset generation, and production workflows.",
-      content:
-        "Store workflow experiments here so the tools section grows out of actual repeated needs instead of decorative ideas."
+      ...mediaWorkflowSeed,
+      id: "research-starter-video-systems"
     }
   ],
   conversation: [

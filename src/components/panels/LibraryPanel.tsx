@@ -1,5 +1,10 @@
 import { FilePlus2, Layers3 } from "lucide-react";
 import { useMemo, useState } from "react";
+import {
+  categoryDescription,
+  categoryLabel,
+  orderedCategories
+} from "../../services/pantheonAnalysis";
 import type { ObsidianActionResult } from "../../services/obsidian";
 import type { ResearchRecord } from "../../types";
 
@@ -17,60 +22,9 @@ interface LibraryPanelProps {
 interface PantheonSection {
   title: string;
   description: string;
+  category: ResearchRecord["category"];
   entries: ResearchRecord[];
 }
-
-const sectionDefinitions: Array<{
-  title: string;
-  description: string;
-  matcher: (entry: ResearchRecord, haystack: string) => boolean;
-}> = [
-  {
-    title: "Agent Systems",
-    description: "Agentic orchestration, AI operator patterns, and project-manager intelligence.",
-    matcher: (entry, haystack) =>
-      haystack.includes("agent") ||
-      haystack.includes("orchestrat") ||
-      haystack.includes("project manager") ||
-      haystack.includes("multi-agent")
-  },
-  {
-    title: "Project Origination",
-    description: "Architecture thinking, scaffold patterns, and project-starting ideas worth reusing.",
-    matcher: (entry, haystack) =>
-      haystack.includes("project") ||
-      haystack.includes("scaffold") ||
-      haystack.includes("architecture") ||
-      haystack.includes("build")
-  },
-  {
-    title: "Research & References",
-    description: "Articles, notes, and supporting material that should stay queryable over time.",
-    matcher: (entry, haystack) =>
-      entry.sourceType === "article" ||
-      haystack.includes("research") ||
-      haystack.includes("reference") ||
-      haystack.includes("study")
-  },
-  {
-    title: "Media & Capture",
-    description: "Transcripts, video workflows, and media-oriented source material.",
-    matcher: (entry, haystack) =>
-      entry.sourceType === "transcript" ||
-      haystack.includes("video") ||
-      haystack.includes("youtube") ||
-      haystack.includes("media")
-  },
-  {
-    title: "Procedures & Playbooks",
-    description: "Instructions, workflows, and reusable operating procedures.",
-    matcher: (entry, haystack) =>
-      entry.sourceType === "manual" ||
-      haystack.includes("procedure") ||
-      haystack.includes("workflow") ||
-      haystack.includes("playbook")
-  }
-];
 
 export function LibraryPanel({ entries, onAddResearch, onViewDatabase }: LibraryPanelProps) {
   const [composerOpen, setComposerOpen] = useState(false);
@@ -172,12 +126,20 @@ export function LibraryPanel({ entries, onAddResearch, onViewDatabase }: Library
                   {section.entries.map((entry) => (
                     <article key={entry.id} className="pantheon-entry">
                       <div className="pantheon-entry-top">
-                        <strong>{entry.title}</strong>
+                        <div className="pantheon-entry-heading">
+                          <strong>{entry.title}</strong>
+                          <span className={`pantheon-category-chip ${entry.category}`}>{categoryLabel(entry.category)}</span>
+                        </div>
                         <span className="pantheon-entry-meta">
-                          {entry.sourceType} · source {entry.sourceDate} · {estimateLength(entry)}
+                          {entry.sourceType} {"·"} source {entry.sourceDate} {"·"} {entry.estReadMinutes} min {"·"}{" "}
+                          {entry.wordCount} words
                         </span>
                       </div>
                       <p className="section-copy pantheon-entry-summary">{entry.summary}</p>
+                      <div className="pantheon-entry-analysis">
+                        <span className={`pantheon-freshness-chip ${entry.freshness}`}>{freshnessLabel(entry.freshness)}</span>
+                        <p className="section-copy pantheon-entry-why">{entry.categoryReason}</p>
+                      </div>
                     </article>
                   ))}
                 </div>
@@ -236,44 +198,41 @@ export function LibraryPanel({ entries, onAddResearch, onViewDatabase }: Library
   );
 }
 
-function estimateLength(entry: ResearchRecord): string {
-  const words = entry.content.trim().split(/\s+/).filter(Boolean).length;
-  if (words === 0) return "empty";
-  const minutes = Math.max(1, Math.ceil(words / 220));
-  return `${minutes} min · ${words} words`;
-}
-
 function groupEntries(entries: ResearchRecord[]): PantheonSection[] {
-  const buckets = new Map<string, PantheonSection>();
+  const buckets = new Map<ResearchRecord["category"], PantheonSection>();
 
-  sectionDefinitions.forEach((definition) => {
-    buckets.set(definition.title, {
-      title: definition.title,
-      description: definition.description,
+  orderedCategories().forEach((category) => {
+    buckets.set(category, {
+      title: categoryLabel(category),
+      description: categoryDescription(category),
+      category,
       entries: []
     });
   });
 
-  const fallback: PantheonSection = {
-    title: "General Reference",
-    description: "Material worth keeping nearby even when it does not fit a sharper operating bucket yet.",
-    entries: []
-  };
-
   entries.forEach((entry) => {
-    const haystack = `${entry.title} ${entry.summary} ${entry.content} ${entry.tags.join(" ")}`.toLowerCase();
-    const match = sectionDefinitions.find((definition) => definition.matcher(entry, haystack));
-    if (match) {
-      buckets.get(match.title)?.entries.push(entry);
-    } else {
-      fallback.entries.push(entry);
-    }
+    buckets.get(entry.category)?.entries.push(entry);
   });
 
-  return [...Array.from(buckets.values()), fallback]
+  return Array.from(buckets.values())
     .map((section) => ({
       ...section,
-      entries: [...section.entries].sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      entries: [...section.entries].sort((a, b) => b.sourceDate.localeCompare(a.sourceDate))
     }))
     .filter((section) => section.entries.length > 0);
+}
+
+function freshnessLabel(freshness: ResearchRecord["freshness"]): string {
+  switch (freshness) {
+    case "recent":
+      return "Recent";
+    case "watch":
+      return "Watch Age";
+    case "dated":
+      return "Dated";
+    case "stale":
+      return "Stale";
+    default:
+      return "Undated";
+  }
 }

@@ -75,6 +75,16 @@ export interface NowPlayingSnapshot {
   detail: string;
 }
 
+export type PantheonCategory =
+  | "agent-systems"
+  | "project-origination"
+  | "research-references"
+  | "media-capture"
+  | "procedures-playbooks"
+  | "general-reference";
+
+export type PantheonFreshness = "recent" | "watch" | "dated" | "stale" | "undated";
+
 export interface ResearchRecord {
   id: string;
   title: string;
@@ -84,6 +94,12 @@ export interface ResearchRecord {
   tags: string[];
   summary: string;
   content: string;
+  category: PantheonCategory;
+  categoryReason: string;
+  themes: string[];
+  wordCount: number;
+  estReadMinutes: number;
+  freshness: PantheonFreshness;
 }
 
 export interface ConversationMessage {

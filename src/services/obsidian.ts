@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { ResearchRecord, TrackedProject } from "../types";
+import { categoryLabel } from "./pantheonAnalysis";
 
 type ActionTone = "success" | "warning" | "error";
 
@@ -50,12 +51,15 @@ type: research
 source_type: ${yamlText(record.sourceType)}
 created: ${yamlText(record.createdAt)}
 source_date: ${yamlText(record.sourceDate)}
+category: ${yamlText(record.category)}
+freshness: ${yamlText(record.freshness)}
 origin: ${yamlText("Olympus Pantheon")}
 tags:
 ${tags.map((tag) => `  - ${tag}`).join("\n")}
 aliases:
   - ${yamlText(safeTitle)}
 summary: ${yamlBlockText(record.summary)}
+category_reason: ${yamlBlockText(record.categoryReason)}
 ---
 
 # ${safeTitle}
@@ -65,11 +69,20 @@ summary: ${yamlBlockText(record.summary)}
 
 > [!info]
 > Source date: ${record.sourceDate}
+>
+> Category: ${categoryLabel(record.category)}
 
 ## Related
 
 - [[Project Olympus]]
 - [[Skill Index]]
+
+## Pantheon Analysis
+
+- Category: ${categoryLabel(record.category)}
+- Why here: ${record.categoryReason}
+- Freshness: ${record.freshness}
+- Themes: ${record.themes.join(", ") || "none captured"}
 
 ## Source Content
 
@@ -93,10 +106,16 @@ properties:
     displayName: "Title"
   source_type:
     displayName: "Source"
+  category:
+    displayName: "Category"
+  freshness:
+    displayName: "Freshness"
   created:
     displayName: "Created"
   source_date:
     displayName: "Source Date"
+  category_reason:
+    displayName: "Why Categorized Here"
   summary:
     displayName: "Summary"
   tags:
@@ -114,22 +133,28 @@ views:
     order:
       - file.name
       - source_type
+      - category
+      - freshness
       - source_date
       - created
       - formula.read_time
       - formula.est_words
       - formula.age_days
       - tags
+      - category_reason
       - summary
     groupBy:
-      property: source_type
+      property: category
       direction: ASC
 
   - type: cards
     name: "Pantheon Cards"
     order:
       - file.name
+      - category
+      - freshness
       - summary
+      - category_reason
       - tags
       - formula.read_time
 `;

@@ -1,3 +1,4 @@
+import { analyzeResearchRecord } from "./pantheonAnalysis";
 import type { ResearchRecord } from "../types";
 
 export function createResearchRecordFromText(
@@ -6,38 +7,31 @@ export function createResearchRecordFromText(
   sourceType: ResearchRecord["sourceType"],
   sourceDate: string
 ): ResearchRecord {
-  const normalized = sourceText.trim().replace(/\s+/g, " ");
-  const sentences = normalized.split(/(?<=[.!?])\s+/).filter(Boolean);
   const normalizedSourceDate = sourceDate || new Date().toISOString().slice(0, 10);
+  const normalizedText = sourceText.trim();
+  const createdAt = new Date().toISOString().slice(0, 10);
+  const analysis = analyzeResearchRecord({
+    title,
+    content: normalizedText,
+    sourceType,
+    sourceDate: normalizedSourceDate,
+    createdAt
+  });
 
   return {
     id: `research-${Date.now()}`,
     title: title.trim() || "Untitled Research Record",
     sourceType,
-    createdAt: new Date().toISOString().slice(0, 10),
+    createdAt,
     sourceDate: normalizedSourceDate,
-    tags: inferTags(normalized),
-    summary: sentences.slice(0, 2).join(" ") || normalized.slice(0, 280),
-    content: sourceText.trim()
+    tags: analysis.tags,
+    summary: analysis.summary,
+    content: normalizedText,
+    category: analysis.category,
+    categoryReason: analysis.categoryReason,
+    themes: analysis.themes,
+    wordCount: analysis.wordCount,
+    estReadMinutes: analysis.estReadMinutes,
+    freshness: analysis.freshness
   };
-}
-
-function inferTags(text: string): string[] {
-  const lower = text.toLowerCase();
-  const tags: string[] = [];
-
-  if (lower.includes("market") || lower.includes("rates") || lower.includes("bond")) {
-    tags.push("markets");
-  }
-  if (lower.includes("video") || lower.includes("youtube")) {
-    tags.push("video");
-  }
-  if (lower.includes("image") || lower.includes("visual")) {
-    tags.push("media");
-  }
-  if (tags.length === 0) {
-    tags.push("inbox");
-  }
-
-  return tags;
 }

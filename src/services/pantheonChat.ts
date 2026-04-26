@@ -1,4 +1,5 @@
 import type { ConversationMessage, ResearchRecord } from "../types";
+import { categoryLabel } from "./pantheonAnalysis";
 
 const STOP_WORDS = new Set([
   "a",
@@ -61,9 +62,10 @@ function composeReply(query: string, matches: ResearchRecord[], totalEntries: nu
 
   const best = matches[0];
   const staleNote = stalenessNote(best.sourceDate);
+  const bestCategory = categoryLabel(best.category);
 
   if (lower.includes("visual") || lower.includes("diagram") || lower.includes("picture")) {
-    return `Best Pantheon match: "${best.title}" (${best.sourceDate}). ${staleNote} It seems to focus on ${best.summary} If you want a visual representation, the clearest structure would be: 1) the core system or claim, 2) the major moving parts, and 3) the workflow or consequences it implies. I also found ${matches
+    return `Best Pantheon match: "${best.title}" (${best.sourceDate}) in ${bestCategory}. ${staleNote} It seems to focus on ${best.summary} Why it landed there: ${best.categoryReason} If you want a visual representation, the clearest structure would be: 1) the core system or claim, 2) the major moving parts, and 3) the workflow or consequences it implies. I also found ${matches
       .slice(1)
       .map((entry) => `"${entry.title}"`)
       .join(", ") || "no strong secondary companions"} as nearby context.`;
@@ -73,12 +75,12 @@ function composeReply(query: string, matches: ResearchRecord[], totalEntries: nu
     return matches
       .map(
         (entry, index) =>
-          `${index + 1}. "${entry.title}" — source date ${entry.sourceDate}. ${stalenessNote(entry.sourceDate)} ${entry.summary}`
+          `${index + 1}. "${entry.title}" - ${categoryLabel(entry.category)} - source date ${entry.sourceDate}. ${stalenessNote(entry.sourceDate)} ${entry.summary}`
       )
       .join("\n");
   }
 
-  return `Pantheon found ${matches.length} useful ${matches.length === 1 ? "entry" : "entries"} for that query. Start with "${best.title}" (${best.sourceDate}) — ${staleNote} ${best.summary} ${matches.length > 1 ? `Nearby context: ${matches
+  return `Pantheon found ${matches.length} useful ${matches.length === 1 ? "entry" : "entries"} for that query. Start with "${best.title}" (${best.sourceDate}) in ${bestCategory} - ${staleNote} ${best.summary} Why it was categorized there: ${best.categoryReason} ${matches.length > 1 ? `Nearby context: ${matches
     .slice(1)
     .map((entry) => `"${entry.title}"`)
     .join(", ")}.` : ""}`;
@@ -103,11 +105,17 @@ function scoreEntry(tokens: string[], entry: ResearchRecord): number {
   const summary = entry.summary.toLowerCase();
   const content = entry.content.toLowerCase();
   const tags = entry.tags.join(" ").toLowerCase();
+  const category = categoryLabel(entry.category).toLowerCase();
+  const reason = entry.categoryReason.toLowerCase();
+  const themes = entry.themes.join(" ").toLowerCase();
 
   return tokens.reduce((score, token) => {
     let next = score;
     if (title.includes(token)) next += 5;
     if (tags.includes(token)) next += 4;
+    if (category.includes(token)) next += 4;
+    if (themes.includes(token)) next += 3;
+    if (reason.includes(token)) next += 2;
     if (summary.includes(token)) next += 3;
     if (content.includes(token)) next += 1;
     return next;
