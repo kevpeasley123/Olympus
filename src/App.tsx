@@ -42,7 +42,7 @@ function App() {
 
   return (
     <main className={`app-shell ${focusMode ? "focus-mode" : ""}`}>
-      <FadeInPanel index={0}>
+      <FadeInPanel index={0} className="panel-slot panel-slot-header">
         <HeaderBar
           onRefresh={() => void refreshAll()}
           focusMode={focusMode}
@@ -53,7 +53,7 @@ function App() {
 
       <section className="main-grid">
         <aside className="tools-rail panel-shell">
-          <FadeInPanel index={1}>
+          <FadeInPanel index={1} className="panel-slot panel-slot-tools">
             <div className="strip-header compact">
               <div>
                 <p className="eyebrow">Tools</p>
@@ -61,19 +61,19 @@ function App() {
             </div>
             <ToolBelt tools={tools} compact={focusMode} />
           </FadeInPanel>
-          <FadeInPanel index={6}>
+          <FadeInPanel index={6} className="panel-slot panel-slot-quickbar">
             <QuickbarPanel apps={quickApps} />
           </FadeInPanel>
         </aside>
 
         <section className="center-stack">
-          <FadeInPanel index={2}>
+          <FadeInPanel index={2} className="panel-slot panel-slot-markets">
             <MarketsPanel state={markets} onRetry={() => void refreshAll()} compact={focusMode} />
           </FadeInPanel>
-          <FadeInPanel index={4}>
+          <FadeInPanel index={4} className="panel-slot panel-slot-projects">
             <ProjectsPanel projects={projects} onSyncCanvas={syncProjectsCanvas} focusMode={focusMode} />
           </FadeInPanel>
-          <FadeInPanel index={7}>
+          <FadeInPanel index={7} className="panel-slot panel-slot-library">
             <LibraryPanel
               entries={library}
               onAddResearch={addResearch}
@@ -83,13 +83,13 @@ function App() {
         </section>
 
         <section className="right-stack">
-          <FadeInPanel index={3}>
+          <FadeInPanel index={3} className="panel-slot panel-slot-weather">
             <WeatherPanel state={weather} onRetry={() => void refreshAll()} compact={focusMode} />
           </FadeInPanel>
-          <FadeInPanel index={5}>
+          <FadeInPanel index={5} className="panel-slot panel-slot-now-playing">
             <NowPlayingPanel nowPlaying={nowPlaying} compact={focusMode} />
           </FadeInPanel>
-          <FadeInPanel index={8}>
+          <FadeInPanel index={8} className="panel-slot panel-slot-chat">
             <ChatPanel messages={chat} onSendMessage={sendChatMessage} />
           </FadeInPanel>
         </section>
@@ -100,13 +100,16 @@ function App() {
 
 function FadeInPanel({
   index,
+  className,
   children
 }: {
   index: number;
+  className?: string;
   children: ReactNode;
 }) {
   return (
     <motion.div
+      className={className}
       layout
       initial={{ opacity: 0, y: 4 }}
       animate={{ opacity: 1, y: 0 }}
