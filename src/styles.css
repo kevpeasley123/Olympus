@@ -456,6 +456,15 @@ small {
   min-height: 0;
 }
 
+.center-stack > .panel-slot-markets {
+  flex: 0 0 auto;
+  overflow: visible;
+}
+
+.center-stack > .panel-slot-markets > * {
+  overflow: visible;
+}
+
 .tools-rail {
   display: flex;
   flex-direction: column;
