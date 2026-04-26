@@ -1,5 +1,5 @@
 import { ChevronDown, CircleHelp } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import type { MarketIndex, MarketNewsItem, MarketRate } from "../../types";
 import type { LoadableState } from "../../types/dashboard";
 import type { MarketPanelData } from "../../types/markets";
@@ -13,10 +13,6 @@ interface MarketsPanelProps {
 export function MarketsPanel({ state, onRetry, compact = false }: MarketsPanelProps) {
   const [expanded, setExpanded] = useState(false);
   const panelError = state.data?.overallError ?? state.error;
-  const metrics = useMemo(() => {
-    if (!state.data) return [];
-    return [...state.data.indexes, ...state.data.rates];
-  }, [state.data]);
 
   return (
     <section className={`dashboard-panel market-panel ${compact ? "compact-market" : ""}`}>
@@ -39,38 +35,40 @@ export function MarketsPanel({ state, onRetry, compact = false }: MarketsPanelPr
               Updated {state.data?.updatedAt ?? "--:--"}
             </div>
           )}
-          <button
-            className="market-toggle"
-            onClick={() => setExpanded((value) => !value)}
-            title={expanded ? "Collapse market detail" : "Expand market detail"}
-            disabled={!state.data || compact}
-          >
-            <ChevronDown size={16} className={expanded ? "is-expanded" : ""} />
-          </button>
         </div>
       </div>
 
       {state.loading && !state.data ? (
-        <div className="market-strip-grid market-strip-grid-loading">
-          {Array.from({ length: 6 }).map((_, index) => (
-            <div key={index} className="market-strip-metric">
-              <span className="skeleton-line skeleton-label"></span>
-              <span className="skeleton-line skeleton-value"></span>
-              <span className="skeleton-line skeleton-delta"></span>
-            </div>
-          ))}
+        <div className="market-groups market-strip-grid-loading">
+          <MarketMetricSkeletonGroup title="Indexes" count={3} />
+          <MarketMetricSkeletonGroup title="Rates" count={4} />
         </div>
       ) : (
         <>
-          <div className="market-strip-grid">
-            {metrics.map((item) => (
-              <MarketStripMetric
-                key={item.id}
-                item={item}
-                warning={item.id.startsWith("ust") ? state.data?.rateWarning : state.data?.indexWarning}
-              />
-            ))}
+          <div className="market-groups">
+            <MarketMetricGroup
+              title="Indexes"
+              items={state.data?.indexes ?? []}
+              warning={state.data?.indexWarning}
+              sectionClassName="indexes"
+            />
+            <MarketMetricGroup
+              title="Rates"
+              items={state.data?.rates ?? []}
+              warning={state.data?.rateWarning}
+              sectionClassName="rates"
+            />
           </div>
+          {!compact && state.data ? (
+            <button
+              className="market-news-toggle"
+              onClick={() => setExpanded((value) => !value)}
+              title={expanded ? "Hide market news" : "Show market news"}
+            >
+              <span>{expanded ? "Hide news" : "Show news"}</span>
+              <ChevronDown size={16} className={expanded ? "is-expanded" : ""} />
+            </button>
+          ) : null}
           <div className={expanded && !compact ? "market-detail is-expanded" : "market-detail"}>
             <div className="market-news-section">
               <p className="subhead">News</p>
@@ -85,26 +83,56 @@ export function MarketsPanel({ state, onRetry, compact = false }: MarketsPanelPr
   );
 }
 
-function MarketStripMetric({
-  item,
-  warning
+function MarketMetricGroup({
+  title,
+  items,
+  warning,
+  sectionClassName
 }: {
-  item: MarketIndex | MarketRate;
+  title: string;
+  items: Array<MarketIndex | MarketRate>;
   warning?: string | null;
+  sectionClassName: string;
 }) {
   return (
-    <div className="market-strip-metric">
-      <span className="market-strip-label">
-        {item.label}
+    <section className={`market-metric-group ${sectionClassName}`}>
+      <div className="market-group-header">
+        <p className="subhead">{title}</p>
         {warning ? (
           <span className="market-metric-help" title={warning}>
             <CircleHelp size={11} />
           </span>
         ) : null}
-      </span>
-      <span className="market-strip-value tabular-data">{item.value}</span>
-      <span className={`market-strip-delta ${item.direction} tabular-data`}>{item.change}</span>
-    </div>
+      </div>
+      <div className={`market-strip-grid ${sectionClassName}`}>
+        {items.map((item) => (
+          <div key={item.id} className="market-strip-metric">
+            <span className="market-strip-label">{item.label}</span>
+            <span className="market-strip-value tabular-data">{item.value}</span>
+            <span className={`market-strip-delta ${item.direction} tabular-data`}>{item.change}</span>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function MarketMetricSkeletonGroup({ title, count }: { title: string; count: number }) {
+  return (
+    <section className="market-metric-group">
+      <div className="market-group-header">
+        <p className="subhead">{title}</p>
+      </div>
+      <div className="market-strip-grid">
+        {Array.from({ length: count }).map((_, index) => (
+          <div key={`${title}-${index}`} className="market-strip-metric">
+            <span className="skeleton-line skeleton-label"></span>
+            <span className="skeleton-line skeleton-value"></span>
+            <span className="skeleton-line skeleton-delta"></span>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
 

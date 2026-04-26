@@ -109,6 +109,7 @@ pub fn fetch_market_quotes() -> Result<MarketQuotesResponse, String> {
             ("ust2", "2Y Treasury", "DGS2"),
             ("ust10", "10Y Treasury", "DGS10"),
             ("ust30", "30Y Treasury", "DGS30"),
+            ("mort30", "30Y Fixed Mortgage", "MORTGAGE30US"),
         ]
         .iter()
         .map(|(id, label, series_id)| fetch_treasury_rate(&client, &fred_key, id, label, series_id))
@@ -140,6 +141,7 @@ pub fn fetch_market_quotes() -> Result<MarketQuotesResponse, String> {
                     ("ust2", "2Y Treasury"),
                     ("ust10", "10Y Treasury"),
                     ("ust30", "30Y Treasury"),
+                    ("mort30", "30Y Fixed Mortgage"),
                 ]),
                 Some(if error.contains("FRED_API_KEY") {
                     error
