@@ -12,8 +12,21 @@ export function HeaderBar({ onRefresh, focusMode, onToggleFocusMode }: HeaderBar
   const [now, setNow] = useState(() => new Date());
 
   useEffect(() => {
-    const timer = window.setInterval(() => setNow(new Date()), 1000);
-    return () => window.clearInterval(timer);
+    const update = () => setNow(new Date());
+    const msUntilNextHalfMinute = 30_000 - (Date.now() % 30_000);
+    let interval: number | undefined;
+
+    const timeout = window.setTimeout(() => {
+      update();
+      interval = window.setInterval(update, 30_000);
+    }, msUntilNextHalfMinute);
+
+    return () => {
+      window.clearTimeout(timeout);
+      if (interval) {
+        window.clearInterval(interval);
+      }
+    };
   }, []);
 
   const timeLabel = now.toLocaleTimeString([], {
