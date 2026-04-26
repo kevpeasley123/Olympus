@@ -13,3 +13,12 @@ export async function launchQuickApp(appId: string, launchUri: string): Promise<
   window.open(launchUri, "_blank", "noopener,noreferrer");
   return "fallback";
 }
+
+export async function restartDesktopApp(): Promise<"native" | "unsupported"> {
+  if (!isTauriRuntime()) {
+    return "unsupported";
+  }
+
+  await invoke("restart_olympus");
+  return "native";
+}

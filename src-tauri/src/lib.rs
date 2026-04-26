@@ -104,6 +104,11 @@ fn launch_quick_app(app_id: String) -> Result<(), String> {
     Err("Quick app launching is only wired for Windows right now.".to_string())
 }
 
+#[tauri::command]
+fn restart_olympus(app: tauri::AppHandle) {
+    app.restart();
+}
+
 pub fn run() {
     dotenvy::from_filename("../.env")
         .or_else(|_| dotenvy::from_filename(".env"))
@@ -115,6 +120,7 @@ pub fn run() {
             initialize_database,
             write_memory_artifact,
             launch_quick_app,
+            restart_olympus,
             fetch_market_quotes,
             scan_tracked_projects,
             fetch_weather
