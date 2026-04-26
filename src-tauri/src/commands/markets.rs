@@ -25,6 +25,12 @@ pub struct MarketQuotesResponse {
     pub rates: Vec<MarketMetric>,
     #[serde(rename = "updatedAt")]
     pub updated_at: String,
+    #[serde(rename = "indexWarning")]
+    pub index_warning: Option<String>,
+    #[serde(rename = "rateWarning")]
+    pub rate_warning: Option<String>,
+    #[serde(rename = "overallError")]
+    pub overall_error: Option<String>,
 }
 
 #[derive(Clone)]
@@ -87,33 +93,75 @@ pub fn fetch_market_quotes() -> Result<MarketQuotesResponse, String> {
         return Ok(cached.payload);
     }
 
-    let fred_key = std::env::var("FRED_API_KEY")
-        .map_err(|_| "FRED_API_KEY is missing. Add it to your .env file.".to_string())?;
-
     let client = Client::new();
 
-    let indexes = [
+    let indexes_result = [
         ("spx", "S&P 500", "^GSPC"),
         ("ndx", "Nasdaq 100", "^NDX"),
         ("dji", "Dow", "^DJI"),
     ]
     .iter()
     .map(|(id, label, symbol)| fetch_index_quote(&client, id, label, symbol))
-    .collect::<Result<Vec<_>, _>>()?;
+    .collect::<Result<Vec<_>, _>>();
 
-    let rates = [
-        ("ust2", "2Y Treasury", "DGS2"),
-        ("ust10", "10Y Treasury", "DGS10"),
-        ("ust30", "30Y Treasury", "DGS30"),
-    ]
-    .iter()
-    .map(|(id, label, series_id)| fetch_treasury_rate(&client, &fred_key, id, label, series_id))
-    .collect::<Result<Vec<_>, _>>()?;
+    let rates_result = match std::env::var("FRED_API_KEY") {
+        Ok(fred_key) => [
+            ("ust2", "2Y Treasury", "DGS2"),
+            ("ust10", "10Y Treasury", "DGS10"),
+            ("ust30", "30Y Treasury", "DGS30"),
+        ]
+        .iter()
+        .map(|(id, label, series_id)| fetch_treasury_rate(&client, &fred_key, id, label, series_id))
+        .collect::<Result<Vec<_>, _>>(),
+        Err(_) => Err("Treasury rates require FRED_API_KEY in .env".to_string()),
+    };
+
+    let (indexes, index_warning) = match indexes_result {
+        Ok(indexes) => (indexes, None),
+        Err(error) => {
+            eprintln!("[Olympus::Markets] index quotes failed: {error}");
+            (
+                placeholder_metrics(&[
+                    ("spx", "S&P 500"),
+                    ("ndx", "Nasdaq 100"),
+                    ("dji", "Dow"),
+                ]),
+                Some("Index quotes unavailable right now.".to_string()),
+            )
+        }
+    };
+
+    let (rates, rate_warning) = match rates_result {
+        Ok(rates) => (rates, None),
+        Err(error) => {
+            eprintln!("[Olympus::Markets] treasury rates failed: {error}");
+            (
+                placeholder_metrics(&[
+                    ("ust2", "2Y Treasury"),
+                    ("ust10", "10Y Treasury"),
+                    ("ust30", "30Y Treasury"),
+                ]),
+                Some(if error.contains("FRED_API_KEY") {
+                    error
+                } else {
+                    "Treasury rates unavailable right now.".to_string()
+                }),
+            )
+        }
+    };
+
+    let overall_error = match (index_warning.as_ref(), rate_warning.as_ref()) {
+        (Some(_), Some(_)) => Some("Both index quotes and Treasury rates are unavailable right now.".to_string()),
+        _ => None,
+    };
 
     let payload = MarketQuotesResponse {
         indexes,
         rates,
         updated_at: Local::now().format("%-I:%M %p").to_string(),
+        index_warning,
+        rate_warning,
+        overall_error,
     };
 
     eprintln!("[Olympus::Markets] fetched live market snapshot from Yahoo and FRED");
@@ -124,6 +172,19 @@ pub fn fetch_market_quotes() -> Result<MarketQuotesResponse, String> {
     });
 
     Ok(payload)
+}
+
+fn placeholder_metrics(items: &[(&str, &str)]) -> Vec<MarketMetric> {
+    items
+        .iter()
+        .map(|(id, label)| MarketMetric {
+            id: id.to_string(),
+            label: label.to_string(),
+            value: "—".to_string(),
+            change: "—".to_string(),
+            direction: "flat".to_string(),
+        })
+        .collect()
 }
 
 fn fetch_index_quote(

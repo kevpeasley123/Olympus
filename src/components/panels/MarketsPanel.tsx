@@ -1,4 +1,4 @@
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, CircleHelp } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { MarketIndex, MarketNewsItem, MarketRate } from "../../types";
 import type { LoadableState } from "../../types/dashboard";
@@ -11,6 +11,7 @@ interface MarketsPanelProps {
 
 export function MarketsPanel({ state, onRetry }: MarketsPanelProps) {
   const [expanded, setExpanded] = useState(false);
+  const panelError = state.data?.overallError ?? state.error;
   const metrics = useMemo(() => {
     if (!state.data) return [];
     return [...state.data.indexes, ...state.data.rates];
@@ -23,10 +24,10 @@ export function MarketsPanel({ state, onRetry }: MarketsPanelProps) {
           <p className="eyebrow">Markets</p>
         </div>
         <div className="market-strip-actions">
-          {state.error ? (
+          {panelError ? (
             <>
-              <div className="panel-meta panel-error-text" title={state.error}>
-                Failed to load: {state.error}
+              <div className="panel-meta panel-error-text" title={panelError}>
+                Failed to load: {panelError}
               </div>
               <button className="ghost-action retry-action" onClick={onRetry}>
                 Retry
@@ -62,7 +63,11 @@ export function MarketsPanel({ state, onRetry }: MarketsPanelProps) {
         <>
           <div className="market-strip-grid">
             {metrics.map((item) => (
-              <MarketStripMetric key={item.id} item={item} />
+              <MarketStripMetric
+                key={item.id}
+                item={item}
+                warning={item.id.startsWith("ust") ? state.data?.rateWarning : state.data?.indexWarning}
+              />
             ))}
           </div>
           <div className={expanded ? "market-detail is-expanded" : "market-detail"}>
@@ -79,10 +84,23 @@ export function MarketsPanel({ state, onRetry }: MarketsPanelProps) {
   );
 }
 
-function MarketStripMetric({ item }: { item: MarketIndex | MarketRate }) {
+function MarketStripMetric({
+  item,
+  warning
+}: {
+  item: MarketIndex | MarketRate;
+  warning?: string | null;
+}) {
   return (
     <div className="market-strip-metric">
-      <span className="market-strip-label">{item.label}</span>
+      <span className="market-strip-label">
+        {item.label}
+        {warning ? (
+          <span className="market-metric-help" title={warning}>
+            <CircleHelp size={11} />
+          </span>
+        ) : null}
+      </span>
       <span className="market-strip-value tabular-data">{item.value}</span>
       <span className={`market-strip-delta ${item.direction} tabular-data`}>{item.change}</span>
     </div>

@@ -85,7 +85,10 @@ pub fn fetch_weather() -> Result<WeatherResponse, String> {
         return Ok(cached.payload);
     }
 
-    let client = Client::new();
+    let client = Client::builder()
+        .timeout(Duration::from_secs(10))
+        .build()
+        .map_err(|error| error.to_string())?;
     let response = client
         .get("https://api.open-meteo.com/v1/forecast")
         .query(&[
@@ -105,10 +108,20 @@ pub fn fetch_weather() -> Result<WeatherResponse, String> {
             ("forecast_days", "7".to_string()),
         ])
         .send()
-        .and_then(|response| response.error_for_status())
-        .map_err(|error| error.to_string())?
+        .map_err(|error| {
+            eprintln!("[Olympus::Weather] request send failed: {error}");
+            error.to_string()
+        })?
+        .error_for_status()
+        .map_err(|error| {
+            eprintln!("[Olympus::Weather] HTTP error: {error}");
+            error.to_string()
+        })?
         .json::<OpenMeteoResponse>()
-        .map_err(|error| error.to_string())?;
+        .map_err(|error| {
+            eprintln!("[Olympus::Weather] response parse failed: {error}");
+            error.to_string()
+        })?;
 
     eprintln!("[Olympus::Weather] fetched live Tucson forecast from Open-Meteo");
 

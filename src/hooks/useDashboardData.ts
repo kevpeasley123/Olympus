@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { seedState } from "../data/seed";
 import { fetchMarkets, fetchProjects, fetchWeather } from "../services/liveData";
+import { isTauriRuntime } from "../services/launcher";
 import {
   syncProjectsCanvasToVault,
   syncResearchBaseToVault,
@@ -39,7 +40,22 @@ function seedMarketData(): MarketPanelData {
     indexes: seedState.market.indexes,
     rates: seedState.market.rates,
     news: seedState.market.news,
-    updatedAt: new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit", hour12: true })
+    updatedAt: new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit", hour12: true }),
+    indexWarning: null,
+    rateWarning: null,
+    overallError: null
+  };
+}
+
+function emptyMarketData(error: string): MarketPanelData {
+  return {
+    indexes: seedState.market.indexes.map((item) => ({ ...item, value: "\u2014", change: "\u2014", direction: "flat" })),
+    rates: seedState.market.rates.map((item) => ({ ...item, value: "\u2014", change: "\u2014", direction: "flat" })),
+    news: seedState.market.news,
+    updatedAt: "--:--",
+    indexWarning: "Index quotes unavailable right now.",
+    rateWarning: "Treasury rates unavailable right now.",
+    overallError: error
   };
 }
 
@@ -92,7 +108,7 @@ export function useDashboardData() {
     } catch (error) {
       console.warn("[Olympus] Markets fell back to seeded preview data.", error);
       setMarkets((current) => ({
-        data: current.data ?? seedMarketData(),
+        data: isTauriRuntime() ? current.data ?? emptyMarketData(errorMessage(error)) : current.data ?? seedMarketData(),
         loading: false,
         error: errorMessage(error)
       }));
@@ -108,7 +124,7 @@ export function useDashboardData() {
     } catch (error) {
       console.warn("[Olympus] Weather fell back to seeded preview data.", error);
       setWeather((current) => ({
-        data: current.data ?? seedWeatherData(),
+        data: isTauriRuntime() ? current.data : current.data ?? seedWeatherData(),
         loading: false,
         error: errorMessage(error)
       }));

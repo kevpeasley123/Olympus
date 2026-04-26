@@ -125,10 +125,38 @@ fn restart_olympus(app: tauri::AppHandle) {
     app.restart();
 }
 
+fn load_olympus_env() {
+    let manifest_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let candidate_paths = [
+        manifest_root.join("../.env"),
+        manifest_root.join(".env"),
+        PathBuf::from("../.env"),
+        PathBuf::from(".env"),
+    ];
+
+    for path in candidate_paths {
+        if path.exists() {
+            match dotenvy::from_path(&path) {
+                Ok(_) => {
+                    eprintln!("[Olympus::Env] loaded .env from {}", path.display());
+                    return;
+                }
+                Err(error) => {
+                    eprintln!(
+                        "[Olympus::Env] found .env at {} but could not load it: {}",
+                        path.display(),
+                        error
+                    );
+                }
+            }
+        }
+    }
+
+    eprintln!("[Olympus::Env] no .env file found in expected Olympus paths");
+}
+
 pub fn run() {
-    dotenvy::from_filename("../.env")
-        .or_else(|_| dotenvy::from_filename(".env"))
-        .ok();
+    load_olympus_env();
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())

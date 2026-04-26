@@ -11,7 +11,10 @@ export async function fetchMarkets(): Promise<MarketPanelData> {
     indexes: response.indexes,
     rates: response.rates,
     news: seedState.market.news,
-    updatedAt: response.updatedAt
+    updatedAt: response.updatedAt,
+    indexWarning: response.indexWarning ?? null,
+    rateWarning: response.rateWarning ?? null,
+    overallError: response.overallError ?? null
   };
 }
 
