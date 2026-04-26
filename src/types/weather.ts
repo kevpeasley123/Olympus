@@ -1,3 +1,5 @@
+import type { WeatherForecastDay } from "../types";
+
 export interface WeatherPanelData {
   label: string;
   temperature: string;
@@ -5,6 +7,7 @@ export interface WeatherPanelData {
   humidity: string;
   wind: string;
   updatedAt: string;
+  forecast: WeatherForecastDay[];
 }
 
 export interface WeatherCommandResponse {
@@ -14,4 +17,5 @@ export interface WeatherCommandResponse {
   conditionLabel: string;
   locationLabel: string;
   updatedAt: string;
+  forecast: WeatherForecastDay[];
 }

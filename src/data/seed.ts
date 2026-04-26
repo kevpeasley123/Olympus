@@ -66,19 +66,25 @@ export const seedState: OlympusState = {
       id: "quick-spotify",
       name: "Spotify",
       category: "Music",
-      launchUri: "spotify:"
+      launchUri: "https://open.spotify.com"
     },
     {
       id: "quick-discord",
       name: "Discord",
       category: "Chat",
-      launchUri: "discord://"
+      launchUri: "https://discord.com/app"
     },
     {
-      id: "quick-chrome",
-      name: "Chrome",
+      id: "quick-x",
+      name: "X",
       category: "Browser",
-      launchUri: "https://www.google.com"
+      launchUri: "https://x.com"
+    },
+    {
+      id: "quick-youtube",
+      name: "YouTube",
+      category: "Video",
+      launchUri: "https://youtube.com"
     }
   ],
   market: {
@@ -124,7 +130,7 @@ export const seedState: OlympusState = {
       "Watch whether yields keep climbing into the close. If rates rise without equities fading, that is useful information about risk tolerance."
   },
   weather: {
-    label: "Phoenix, AZ",
+    label: "Tucson, AZ",
     temperature: "74 F",
     condition: "Clear and dry",
     humidity: "29%",

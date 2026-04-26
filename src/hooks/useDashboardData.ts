@@ -14,10 +14,6 @@ import type { OlympusState, ResearchRecord } from "../types";
 import type { MarketPanelData } from "../types/markets";
 import type { WeatherPanelData } from "../types/weather";
 
-const PHOENIX_LATITUDE = 33.4484;
-const PHOENIX_LONGITUDE = -112.074;
-const PHOENIX_LABEL = "Phoenix, AZ";
-
 function errorMessage(error: unknown): string {
   if (error instanceof Error) {
     return error.message;
@@ -54,7 +50,18 @@ function seedWeatherData(): WeatherPanelData {
     condition: seedState.weather.condition,
     humidity: `${seedState.weather.humidity} RH`,
     wind: seedState.weather.wind,
-    updatedAt: new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit", hour12: true })
+    updatedAt: new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit", hour12: true }),
+    forecast: Array.from({ length: 7 }).map((_, index) => {
+      const date = new Date();
+      date.setDate(date.getDate() + index);
+      return {
+        dayLabel: date.toLocaleDateString([], { weekday: "short" }).toUpperCase(),
+        weatherCode: index < 2 ? 0 : index < 4 ? 2 : index === 4 ? 61 : 3,
+        high: `${74 + index}\u00b0`,
+        low: `${54 + index}\u00b0`,
+        isToday: index === 0
+      };
+    })
   };
 }
 
@@ -83,6 +90,7 @@ export function useDashboardData() {
       const next = await fetchMarkets();
       setMarkets({ data: next, loading: false, error: null });
     } catch (error) {
+      console.warn("[Olympus] Markets fell back to seeded preview data.", error);
       setMarkets((current) => ({
         data: current.data ?? seedMarketData(),
         loading: false,
@@ -95,9 +103,10 @@ export function useDashboardData() {
     setWeather((current) => ({ ...current, loading: current.data === null, error: null }));
 
     try {
-      const next = await fetchWeather(PHOENIX_LATITUDE, PHOENIX_LONGITUDE, PHOENIX_LABEL);
+      const next = await fetchWeather();
       setWeather({ data: next, loading: false, error: null });
     } catch (error) {
+      console.warn("[Olympus] Weather fell back to seeded preview data.", error);
       setWeather((current) => ({
         data: current.data ?? seedWeatherData(),
         loading: false,

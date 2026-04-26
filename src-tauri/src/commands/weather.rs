@@ -10,14 +10,9 @@ use serde::{Deserialize, Serialize};
 static WEATHER_CACHE: Lazy<Mutex<HashMap<String, CachedWeatherResponse>>> =
     Lazy::new(|| Mutex::new(HashMap::new()));
 const WEATHER_CACHE_TTL: Duration = Duration::from_secs(300);
-
-#[derive(Debug, Deserialize)]
-pub struct WeatherRequest {
-    pub latitude: f64,
-    pub longitude: f64,
-    #[serde(rename = "locationLabel")]
-    pub location_label: String,
-}
+const TUCSON_LATITUDE: f64 = 32.2226;
+const TUCSON_LONGITUDE: f64 = -110.9747;
+const TUCSON_LABEL: &str = "Tucson, AZ";
 
 #[derive(Debug, Serialize, Clone)]
 pub struct WeatherResponse {
@@ -32,6 +27,19 @@ pub struct WeatherResponse {
     pub location_label: String,
     #[serde(rename = "updatedAt")]
     pub updated_at: String,
+    pub forecast: Vec<ForecastDay>,
+}
+
+#[derive(Debug, Serialize, Clone)]
+pub struct ForecastDay {
+    #[serde(rename = "dayLabel")]
+    pub day_label: String,
+    #[serde(rename = "weatherCode")]
+    pub weather_code: i32,
+    pub high: String,
+    pub low: String,
+    #[serde(rename = "isToday")]
+    pub is_today: bool,
 }
 
 #[derive(Clone)]
@@ -43,6 +51,7 @@ struct CachedWeatherResponse {
 #[derive(Debug, Deserialize)]
 struct OpenMeteoResponse {
     current: OpenMeteoCurrent,
+    daily: OpenMeteoDaily,
 }
 
 #[derive(Debug, Deserialize)]
@@ -53,12 +62,17 @@ struct OpenMeteoCurrent {
     weather_code: i32,
 }
 
+#[derive(Debug, Deserialize)]
+struct OpenMeteoDaily {
+    time: Vec<String>,
+    temperature_2m_max: Vec<f64>,
+    temperature_2m_min: Vec<f64>,
+    weather_code: Vec<i32>,
+}
+
 #[tauri::command]
-pub fn fetch_weather(request: WeatherRequest) -> Result<WeatherResponse, String> {
-    let cache_key = format!(
-        "{:.4}:{:.4}:{}",
-        request.latitude, request.longitude, request.location_label
-    );
+pub fn fetch_weather() -> Result<WeatherResponse, String> {
+    let cache_key = format!("{TUCSON_LATITUDE:.4}:{TUCSON_LONGITUDE:.4}:{TUCSON_LABEL}");
 
     if let Some(cached) = WEATHER_CACHE
         .lock()
@@ -67,6 +81,7 @@ pub fn fetch_weather(request: WeatherRequest) -> Result<WeatherResponse, String>
         .cloned()
         .filter(|entry| entry.fetched_at.elapsed() < WEATHER_CACHE_TTL)
     {
+        eprintln!("[Olympus::Weather] serving cached Tucson forecast");
         return Ok(cached.payload);
     }
 
@@ -74,14 +89,20 @@ pub fn fetch_weather(request: WeatherRequest) -> Result<WeatherResponse, String>
     let response = client
         .get("https://api.open-meteo.com/v1/forecast")
         .query(&[
-            ("latitude", request.latitude.to_string()),
-            ("longitude", request.longitude.to_string()),
+            ("latitude", TUCSON_LATITUDE.to_string()),
+            ("longitude", TUCSON_LONGITUDE.to_string()),
             (
                 "current",
                 "temperature_2m,relative_humidity_2m,wind_speed_10m,weather_code".to_string(),
             ),
+            (
+                "daily",
+                "temperature_2m_max,temperature_2m_min,weather_code".to_string(),
+            ),
             ("temperature_unit", "fahrenheit".to_string()),
             ("wind_speed_unit", "mph".to_string()),
+            ("timezone", "America/Phoenix".to_string()),
+            ("forecast_days", "7".to_string()),
         ])
         .send()
         .and_then(|response| response.error_for_status())
@@ -89,13 +110,51 @@ pub fn fetch_weather(request: WeatherRequest) -> Result<WeatherResponse, String>
         .json::<OpenMeteoResponse>()
         .map_err(|error| error.to_string())?;
 
+    eprintln!("[Olympus::Weather] fetched live Tucson forecast from Open-Meteo");
+
     let payload = WeatherResponse {
         temp_f: format!("{} F", response.current.temperature_2m.round() as i32),
         humidity: format!("{}%", response.current.relative_humidity_2m.round() as i32),
         wind_mph: format!("{} mph", response.current.wind_speed_10m.round() as i32),
         condition_label: weather_code_to_label(response.current.weather_code).to_string(),
-        location_label: request.location_label,
+        location_label: TUCSON_LABEL.to_string(),
         updated_at: Local::now().format("%-I:%M %p").to_string(),
+        forecast: response
+            .daily
+            .time
+            .iter()
+            .enumerate()
+            .map(|(index, date)| ForecastDay {
+                day_label: weekday_label(date),
+                weather_code: response
+                    .daily
+                    .weather_code
+                    .get(index)
+                    .copied()
+                    .unwrap_or_default(),
+                high: format!(
+                    "{}°",
+                    response
+                        .daily
+                        .temperature_2m_max
+                        .get(index)
+                        .copied()
+                        .unwrap_or_default()
+                        .round() as i32
+                ),
+                low: format!(
+                    "{}°",
+                    response
+                        .daily
+                        .temperature_2m_min
+                        .get(index)
+                        .copied()
+                        .unwrap_or_default()
+                        .round() as i32
+                ),
+                is_today: index == 0,
+            })
+            .collect(),
     };
 
     WEATHER_CACHE
@@ -130,4 +189,10 @@ fn weather_code_to_label(code: i32) -> &'static str {
         96 | 99 => "Thunderstorm with hail",
         _ => "Conditions unavailable",
     }
+}
+
+fn weekday_label(date: &str) -> String {
+    chrono::NaiveDate::parse_from_str(date, "%Y-%m-%d")
+        .map(|value| value.format("%a").to_string().to_uppercase())
+        .unwrap_or_else(|_| "DAY".to_string())
 }

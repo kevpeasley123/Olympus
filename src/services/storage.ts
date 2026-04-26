@@ -27,7 +27,7 @@ export function loadState(): OlympusState {
       ...seedState,
       ...parsed,
       tools: mergeById(seedState.tools, parsed.tools ?? []),
-      quickApps: mergeById(seedState.quickApps, parsed.quickApps ?? []),
+      quickApps: mergeKnownIds(seedState.quickApps, parsed.quickApps ?? []),
       projects: mergeById(seedState.projects, parsed.projects ?? []),
       research: mergeById(seedState.research, parsed.research ?? []).map((record) =>
         normalizeResearchRecord({
@@ -66,6 +66,19 @@ function mergeById<T extends { id: string }>(seedItems: T[], storedItems: T[]): 
   storedItems.forEach((item) => merged.set(item.id, { ...merged.get(item.id), ...item }));
 
   return Array.from(merged.values());
+}
+
+function mergeKnownIds<T extends { id: string }>(seedItems: T[], storedItems: T[]): T[] {
+  const merged = new Map<string, T>();
+
+  seedItems.forEach((item) => merged.set(item.id, item));
+  storedItems.forEach((item) => {
+    if (merged.has(item.id)) {
+      merged.set(item.id, { ...merged.get(item.id), ...item });
+    }
+  });
+
+  return seedItems.map((item) => merged.get(item.id) ?? item);
 }
 
 export function saveState(state: OlympusState): void {

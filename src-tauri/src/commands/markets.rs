@@ -83,6 +83,7 @@ pub fn fetch_market_quotes() -> Result<MarketQuotesResponse, String> {
         .clone()
         .filter(|entry| entry.fetched_at.elapsed() < MARKET_CACHE_TTL)
     {
+        eprintln!("[Olympus::Markets] serving cached market snapshot");
         return Ok(cached.payload);
     }
 
@@ -114,6 +115,8 @@ pub fn fetch_market_quotes() -> Result<MarketQuotesResponse, String> {
         rates,
         updated_at: Local::now().format("%-I:%M %p").to_string(),
     };
+
+    eprintln!("[Olympus::Markets] fetched live market snapshot from Yahoo and FRED");
 
     *MARKET_CACHE.lock().map_err(|error| error.to_string())? = Some(CachedMarketResponse {
         payload: payload.clone(),

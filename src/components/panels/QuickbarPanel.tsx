@@ -1,12 +1,13 @@
-import { Globe2, MessageCircle, Music2 } from "lucide-react";
-import { useEffect, useState, type KeyboardEvent } from "react";
+import { siDiscord, siSpotify, siX, siYoutube } from "simple-icons";
+import type { KeyboardEvent } from "react";
 import { launchQuickApp } from "../../services/launcher";
 import type { QuickApp } from "../../types";
 
-const quickAppIcons: Record<string, typeof Music2> = {
-  "quick-spotify": Music2,
-  "quick-discord": MessageCircle,
-  "quick-chrome": Globe2
+const quickAppIcons: Record<string, { path: string; color: string }> = {
+  "quick-spotify": { path: siSpotify.path, color: "#1DB954" },
+  "quick-discord": { path: siDiscord.path, color: "#5865F2" },
+  "quick-x": { path: siX.path, color: "#FFFFFF" },
+  "quick-youtube": { path: siYoutube.path, color: "#FF0000" }
 };
 
 interface QuickbarPanelProps {
@@ -14,38 +15,21 @@ interface QuickbarPanelProps {
 }
 
 export function QuickbarPanel({ apps }: QuickbarPanelProps) {
-  const [status, setStatus] = useState("");
-
-  useEffect(() => {
-    if (!status) return;
-    const timer = window.setTimeout(() => setStatus(""), 2800);
-    return () => window.clearTimeout(timer);
-  }, [status]);
-
   async function handleLaunch(app: QuickApp) {
     try {
-      const mode = await launchQuickApp(app.id, app.launchUri);
-      setStatus(
-        mode === "native"
-          ? `${app.name} opened from the desktop shell.`
-          : `${app.name} opened in preview mode with the best available route.`
-      );
+      await launchQuickApp(app.id, app.launchUri);
     } catch {
-      setStatus(`${app.name} could not be opened from this environment yet.`);
+      console.warn(`[Olympus] Could not launch ${app.name} from this environment yet.`);
     }
   }
 
   return (
     <div className="quickbar-block">
-      <p className="eyebrow">Quickbar</p>
       <div className="quickbar-grid">
         {apps.map((app) => (
           <QuickAppButton key={app.id} app={app} onLaunch={() => void handleLaunch(app)} />
         ))}
       </div>
-      <p className="quickbar-note">
-        {status || "Launch the apps you reach for most without leaving Olympus."}
-      </p>
     </div>
   );
 }
@@ -57,7 +41,7 @@ function QuickAppButton({
   app: QuickApp;
   onLaunch: () => void;
 }) {
-  const Icon = quickAppIcons[app.id] ?? Globe2;
+  const icon = quickAppIcons[app.id] ?? quickAppIcons["quick-x"];
 
   function handleKeyDown(event: KeyboardEvent<HTMLButtonElement>) {
     if (event.key === "Enter" || event.key === " ") {
@@ -75,8 +59,15 @@ function QuickAppButton({
       aria-label={`Open ${app.name}`}
       type="button"
     >
-      <Icon size={16} strokeWidth={1.8} />
-      <span>{app.name}</span>
+      <span className="quick-app-tooltip">{app.name}</span>
+      <svg
+        className="quick-app-logo"
+        viewBox="0 0 24 24"
+        aria-hidden="true"
+        style={{ color: icon.color }}
+      >
+        <path d={icon.path} fill="currentColor" />
+      </svg>
     </button>
   );
 }

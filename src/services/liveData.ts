@@ -15,14 +15,8 @@ export async function fetchMarkets(): Promise<MarketPanelData> {
   };
 }
 
-export async function fetchWeather(
-  latitude: number,
-  longitude: number,
-  locationLabel: string
-): Promise<WeatherPanelData> {
-  const response = await invoke<WeatherCommandResponse>("fetch_weather", {
-    request: { latitude, longitude, locationLabel }
-  });
+export async function fetchWeather(): Promise<WeatherPanelData> {
+  const response = await invoke<WeatherCommandResponse>("fetch_weather");
 
   return {
     label: response.locationLabel,
@@ -30,7 +24,8 @@ export async function fetchWeather(
     condition: response.conditionLabel,
     humidity: `${response.humidity} RH`,
     wind: response.windMph,
-    updatedAt: response.updatedAt
+    updatedAt: response.updatedAt,
+    forecast: response.forecast
   };
 }
 

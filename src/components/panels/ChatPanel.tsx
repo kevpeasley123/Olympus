@@ -32,7 +32,7 @@ export function ChatPanel({ messages, onSendMessage }: ChatPanelProps) {
       </div>
       <div className="conversation-input-shell">
         <input
-          placeholder="Ask Chat about Pantheon knowledge..."
+          placeholder="Ask Pantheon anything..."
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
           onKeyDown={(event) => {

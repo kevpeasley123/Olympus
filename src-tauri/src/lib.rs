@@ -85,17 +85,33 @@ fn write_memory_artifact(artifact: MemoryArtifact) -> Result<WriteResult, String
 fn launch_quick_app(app_id: String) -> Result<(), String> {
     #[cfg(target_os = "windows")]
     {
-        let launch_target = match app_id.as_str() {
-            "quick-spotify" => "spotify:",
-            "quick-discord" => "discord://",
-            "quick-chrome" => "chrome",
+        match app_id.as_str() {
+            "quick-spotify" => {
+                Command::new("cmd")
+                    .args(["/C", "start", "", "spotify:"])
+                    .spawn()
+                    .map_err(|error| error.to_string())?;
+            }
+            "quick-discord" => {
+                Command::new("cmd")
+                    .args(["/C", "start", "", "discord://"])
+                    .spawn()
+                    .map_err(|error| error.to_string())?;
+            }
+            "quick-x" => {
+                Command::new("cmd")
+                    .args(["/C", "start", "", "firefox", "https://x.com"])
+                    .spawn()
+                    .map_err(|error| error.to_string())?;
+            }
+            "quick-youtube" => {
+                Command::new("cmd")
+                    .args(["/C", "start", "", "firefox", "https://youtube.com"])
+                    .spawn()
+                    .map_err(|error| error.to_string())?;
+            }
             _ => return Err("Unknown quick app target.".to_string()),
-        };
-
-        Command::new("cmd")
-            .args(["/C", "start", "", launch_target])
-            .spawn()
-            .map_err(|error| error.to_string())?;
+        }
 
         return Ok(());
     }

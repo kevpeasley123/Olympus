@@ -14,7 +14,7 @@ export interface ToolDefinition {
 export interface QuickApp {
   id: string;
   name: string;
-  category: "Music" | "Chat" | "Browser";
+  category: "Music" | "Chat" | "Browser" | "Video";
   launchUri: string;
 }
 
@@ -65,6 +65,14 @@ export interface WeatherSnapshot {
   wind: string;
   feelsLike: string;
   source: "sample";
+}
+
+export interface WeatherForecastDay {
+  dayLabel: string;
+  weatherCode: number;
+  high: string;
+  low: string;
+  isToday: boolean;
 }
 
 export interface NowPlayingSnapshot {

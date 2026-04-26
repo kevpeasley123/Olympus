@@ -1,4 +1,4 @@
-import { FilePlus2, Layers3 } from "lucide-react";
+import { FilePlus2, Layers3, RotateCcw } from "lucide-react";
 import { useMemo, useState } from "react";
 import { restartDesktopApp } from "../../services/launcher";
 import {
@@ -36,8 +36,8 @@ export function LibraryPanel({ entries, onAddResearch, onViewDatabase }: Library
   const [sourceType, setSourceType] = useState<ResearchRecord["sourceType"]>("article");
   const [status, setStatus] = useState<ObsidianActionResult | null>(null);
   const [busyAction, setBusyAction] = useState<"save" | "view" | "restart" | null>(null);
-  const entryLabel = `${entries.length} ${entries.length === 1 ? "entry" : "entries"}`;
   const pantheonSections = useMemo(() => groupEntries(entries), [entries]);
+  const entryLabel = useMemo(() => buildEntryLabel(entries), [entries]);
 
   async function handleSubmit() {
     setBusyAction("save");
@@ -82,10 +82,9 @@ export function LibraryPanel({ entries, onAddResearch, onViewDatabase }: Library
 
   return (
     <section className="dashboard-panel research-panel pantheon-panel">
-      <div className="panel-header">
-        <div>
-          <p className="eyebrow">Pantheon</p>
-          <h2>Knowledge Base</h2>
+      <div className="panel-header pantheon-header">
+        <div className="pantheon-title-block">
+          <h2>Pantheon</h2>
           <p className="section-copy research-count">{entryLabel}</p>
         </div>
         <div className="panel-actions">
@@ -105,16 +104,17 @@ export function LibraryPanel({ entries, onAddResearch, onViewDatabase }: Library
             <FilePlus2 size={15} />
             {composerOpen ? "Close Entry" : "Add Entry"}
           </button>
-          <button className="ghost-action" onClick={() => void handleRestartApp()} disabled={busyAction !== null}>
-            {busyAction === "restart" ? "Restarting..." : "Restart App"}
+          <button
+            className="ghost-action icon-only-action"
+            onClick={() => void handleRestartApp()}
+            disabled={busyAction !== null}
+            title="Restart Olympus desktop app"
+            aria-label="Restart Olympus desktop app"
+          >
+            <RotateCcw size={15} />
           </button>
         </div>
       </div>
-      <p className="section-copy">
-        Pantheon is Olympus&apos;s curated memory surface for research, project origination, and
-        operating knowledge that future AI work should consult instead of rediscovering from
-        scratch.
-      </p>
 
       {status && <p className={`section-copy action-feedback ${status.tone}`}>{status.message}</p>}
 
@@ -216,6 +216,31 @@ export function LibraryPanel({ entries, onAddResearch, onViewDatabase }: Library
       )}
     </section>
   );
+}
+
+function buildEntryLabel(entries: ResearchRecord[]): string {
+  const countLabel = `${entries.length} ${entries.length === 1 ? "entry" : "entries"}`;
+  if (entries.length === 0) {
+    return countLabel;
+  }
+
+  const latest = [...entries]
+    .map((entry) => entry.createdAt ?? entry.sourceDate)
+    .filter(Boolean)
+    .sort();
+
+  const latestValue = latest.length > 0 ? latest[latest.length - 1] : undefined;
+
+  if (!latestValue) {
+    return countLabel;
+  }
+
+  const parsed = new Date(latestValue);
+  const updatedLabel = Number.isNaN(parsed.valueOf())
+    ? latestValue
+    : parsed.toLocaleDateString([], { month: "short", day: "numeric" });
+
+  return `${countLabel} \u00b7 Updated ${updatedLabel}`;
 }
 
 function groupEntries(entries: ResearchRecord[]): PantheonSection[] {
