@@ -10,8 +10,20 @@ import { WeatherPanel } from "./components/panels/WeatherPanel";
 import { useDashboardData } from "./hooks/useDashboardData";
 
 function App() {
-  const { tools, quickApps, projects, library, chat, nowPlaying, markets, weather, addResearch, refreshAll } =
-    useDashboardData();
+  const {
+    tools,
+    quickApps,
+    projects,
+    library,
+    chat,
+    nowPlaying,
+    markets,
+    weather,
+    addResearch,
+    syncResearchBase,
+    syncProjectsCanvas,
+    refreshAll
+  } = useDashboardData();
 
   return (
     <main className="app-shell">
@@ -30,8 +42,12 @@ function App() {
 
         <section className="center-stack">
           <MarketsPanel state={markets} onRetry={() => void refreshAll()} />
-          <ProjectsPanel projects={projects} />
-          <LibraryPanel entryCount={library.length} onAddResearch={addResearch} />
+          <ProjectsPanel projects={projects} onSyncCanvas={syncProjectsCanvas} />
+          <LibraryPanel
+            entryCount={library.length}
+            onAddResearch={addResearch}
+            onViewDatabase={syncResearchBase}
+          />
         </section>
 
         <section className="right-stack">

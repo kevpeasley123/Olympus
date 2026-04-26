@@ -1,26 +1,46 @@
 import { FilePlus2 } from "lucide-react";
 import { useState } from "react";
 import type { ResearchRecord } from "../../types";
+import type { ObsidianActionResult } from "../../services/obsidian";
 
 interface LibraryPanelProps {
   entryCount: number;
-  onAddResearch: (title: string, text: string, sourceType: ResearchRecord["sourceType"]) => void;
+  onAddResearch: (
+    title: string,
+    text: string,
+    sourceType: ResearchRecord["sourceType"]
+  ) => Promise<ObsidianActionResult>;
+  onViewDatabase: () => Promise<ObsidianActionResult>;
 }
 
-export function LibraryPanel({ entryCount, onAddResearch }: LibraryPanelProps) {
+export function LibraryPanel({ entryCount, onAddResearch, onViewDatabase }: LibraryPanelProps) {
   const [composerOpen, setComposerOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [text, setText] = useState("");
   const [sourceType, setSourceType] = useState<ResearchRecord["sourceType"]>("article");
+  const [status, setStatus] = useState<ObsidianActionResult | null>(null);
+  const [busyAction, setBusyAction] = useState<"save" | "view" | null>(null);
   const entryLabel = `${entryCount} ${entryCount === 1 ? "entry" : "entries"}`;
 
-  function handleSubmit() {
-    onAddResearch(title, text, sourceType);
-    if (!text.trim()) return;
+  async function handleSubmit() {
+    setBusyAction("save");
+    const result = await onAddResearch(title, text, sourceType);
+    setStatus(result);
+    setBusyAction(null);
+
+    if (result.tone === "error" || !text.trim()) return;
+
     setTitle("");
     setText("");
     setSourceType("article");
     setComposerOpen(false);
+  }
+
+  async function handleViewDatabase() {
+    setBusyAction("view");
+    const result = await onViewDatabase();
+    setStatus(result);
+    setBusyAction(null);
   }
 
   return (
@@ -32,10 +52,17 @@ export function LibraryPanel({ entryCount, onAddResearch }: LibraryPanelProps) {
           <p className="section-copy research-count">{entryLabel}</p>
         </div>
         <div className="panel-actions">
-          <button className="ghost-action">View Database</button>
+          <button
+            className="ghost-action"
+            onClick={() => void handleViewDatabase()}
+            disabled={busyAction !== null}
+          >
+            {busyAction === "view" ? "Updating Base..." : "View Database"}
+          </button>
           <button
             className={composerOpen ? "ghost-action is-active" : "ghost-action"}
             onClick={() => setComposerOpen((value) => !value)}
+            disabled={busyAction !== null}
           >
             <FilePlus2 size={15} />
             {composerOpen ? "Close Inbox" : "Add Research"}
@@ -46,6 +73,8 @@ export function LibraryPanel({ entryCount, onAddResearch }: LibraryPanelProps) {
         Add new sources here, then open the full database when you want to review or manage saved
         material.
       </p>
+
+      {status && <p className={`section-copy action-feedback ${status.tone}`}>{status.message}</p>}
 
       {composerOpen && (
         <div className="research-composer">
@@ -71,7 +100,7 @@ export function LibraryPanel({ entryCount, onAddResearch }: LibraryPanelProps) {
             placeholder="Paste article text, transcript text, or notes"
           />
           <button className="primary-action" onClick={handleSubmit}>
-            Save to Library
+            {busyAction === "save" ? "Saving..." : "Save to Library"}
           </button>
         </div>
       )}

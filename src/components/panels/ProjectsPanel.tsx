@@ -1,15 +1,34 @@
 import type { TrackedProject } from "../../types";
 import { formatPath } from "../../utils/formatPath";
+import type { ObsidianActionResult } from "../../services/obsidian";
+import { useState } from "react";
 
 interface ProjectsPanelProps {
   projects: TrackedProject[];
+  onSyncCanvas: () => Promise<ObsidianActionResult>;
 }
 
-export function ProjectsPanel({ projects }: ProjectsPanelProps) {
+export function ProjectsPanel({ projects, onSyncCanvas }: ProjectsPanelProps) {
+  const [status, setStatus] = useState<ObsidianActionResult | null>(null);
+  const [syncing, setSyncing] = useState(false);
+
+  async function handleSyncCanvas() {
+    setSyncing(true);
+    const result = await onSyncCanvas();
+    setStatus(result);
+    setSyncing(false);
+  }
+
   return (
     <section className="dashboard-panel projects-panel">
       <div className="projects-panel-top">
-        <p className="projects-title">Projects</p>
+        <div className="panel-header compact projects-header-row">
+          <p className="projects-title">Projects</p>
+          <button className="ghost-action" onClick={() => void handleSyncCanvas()} disabled={syncing}>
+            {syncing ? "Syncing..." : "Sync Canvas"}
+          </button>
+        </div>
+        {status && <p className={`section-copy action-feedback ${status.tone}`}>{status.message}</p>}
       </div>
       <div className="project-list">
         {projects.map((project) => (

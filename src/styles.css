@@ -699,6 +699,10 @@ small {
   flex: 0 0 auto;
 }
 
+.projects-header-row {
+  align-items: center;
+}
+
 .projects-title {
   margin: 0;
   color: var(--accent);
@@ -842,6 +846,22 @@ small {
 
 .research-count {
   margin-top: var(--space-4);
+}
+
+.action-feedback {
+  margin-top: var(--space-8);
+}
+
+.action-feedback.success {
+  color: #cbd5e1;
+}
+
+.action-feedback.warning {
+  color: var(--accent);
+}
+
+.action-feedback.error {
+  color: var(--negative);
 }
 
 .research-composer {

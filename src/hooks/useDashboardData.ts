@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { seedState } from "../data/seed";
 import { fetchMarkets, fetchProjects, fetchWeather } from "../services/liveData";
+import {
+  syncProjectsCanvasToVault,
+  syncResearchBaseToVault,
+  syncResearchNoteToVault
+} from "../services/obsidian";
 import { createResearchRecordFromText } from "../services/research";
 import { addResearchRecord, loadState, saveState } from "../services/storage";
 import type { LoadableState } from "../types/dashboard";
@@ -133,13 +138,50 @@ export function useDashboardData() {
   }, [refreshMarkets, refreshProjects, refreshWeather]);
 
   const addResearch = useCallback(
-    (title: string, text: string, sourceType: ResearchRecord["sourceType"]) => {
-      if (!text.trim()) return;
+    async (title: string, text: string, sourceType: ResearchRecord["sourceType"]) => {
+      if (!text.trim()) {
+        return {
+          tone: "warning" as const,
+          message: "Add some source text before saving research."
+        };
+      }
+
       const record = createResearchRecordFromText(title, text, sourceType);
       setDashboardState((current) => addResearchRecord(current, record));
+
+      try {
+        return await syncResearchNoteToVault(dashboardState.settings.vaultPath, record);
+      } catch (error) {
+        return {
+          tone: "error" as const,
+          message: `Research saved locally, but vault sync failed: ${errorMessage(error)}`
+        };
+      }
     },
-    []
+    [dashboardState.settings.vaultPath]
   );
+
+  const syncResearchBase = useCallback(async () => {
+    try {
+      return await syncResearchBaseToVault(dashboardState.settings.vaultPath);
+    } catch (error) {
+      return {
+        tone: "error" as const,
+        message: `Could not update the Obsidian Base: ${errorMessage(error)}`
+      };
+    }
+  }, [dashboardState.settings.vaultPath]);
+
+  const syncProjectsCanvas = useCallback(async () => {
+    try {
+      return await syncProjectsCanvasToVault(dashboardState.settings.vaultPath, dashboardState.projects);
+    } catch (error) {
+      return {
+        tone: "error" as const,
+        message: `Could not update the project canvas: ${errorMessage(error)}`
+      };
+    }
+  }, [dashboardState.projects, dashboardState.settings.vaultPath]);
 
   const refreshAll = useCallback(async () => {
     await Promise.allSettled([refreshMarkets(), refreshWeather(), refreshProjects()]);
@@ -157,8 +199,19 @@ export function useDashboardData() {
       markets,
       weather,
       addResearch,
+      syncResearchBase,
+      syncProjectsCanvas,
       refreshAll
     }),
-    [dashboardState, projectsError, markets, weather, addResearch, refreshAll]
+    [
+      dashboardState,
+      projectsError,
+      markets,
+      weather,
+      addResearch,
+      syncResearchBase,
+      syncProjectsCanvas,
+      refreshAll
+    ]
   );
 }
