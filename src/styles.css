@@ -728,6 +728,7 @@ small {
   letter-spacing: 0.08em;
   text-transform: uppercase;
   line-height: 1.35;
+  white-space: nowrap;
 }
 
 .market-metric-help {
@@ -1951,5 +1952,19 @@ small {
   .pantheon-section-description {
     grid-column: 2;
     text-align: left;
+  }
+}
+
+@media (max-width: 1560px) {
+  .market-strip-grid {
+    grid-template-columns: repeat(3, minmax(120px, 1fr));
+    column-gap: var(--space-16);
+    row-gap: var(--space-16);
+  }
+}
+
+@media (max-width: 1320px) {
+  .market-strip-grid {
+    grid-template-columns: repeat(2, minmax(140px, 1fr));
   }
 }
