@@ -11,6 +11,13 @@ export interface ToolDefinition {
   enabled: boolean;
 }
 
+export interface QuickApp {
+  id: string;
+  name: string;
+  category: "Music" | "Chat" | "Browser";
+  launchUri: string;
+}
+
 export interface MarketIndex {
   id: string;
   label: string;
@@ -60,6 +67,14 @@ export interface WeatherSnapshot {
   source: "sample";
 }
 
+export interface NowPlayingSnapshot {
+  source: string;
+  status: "playing" | "paused" | "idle";
+  track: string;
+  artist: string;
+  detail: string;
+}
+
 export interface ResearchRecord {
   id: string;
   title: string;
@@ -97,8 +112,10 @@ export interface OlympusSettings {
 export interface OlympusState {
   version: number;
   tools: ToolDefinition[];
+  quickApps: QuickApp[];
   market: MarketSnapshot;
   weather: WeatherSnapshot;
+  nowPlaying: NowPlayingSnapshot;
   projects: TrackedProject[];
   research: ResearchRecord[];
   conversation: ConversationMessage[];

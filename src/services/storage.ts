@@ -1,8 +1,8 @@
 import { seedState } from "../data/seed";
 import type { OlympusState, ResearchRecord, ToolDefinition } from "../types";
 
-const STORAGE_KEY = "olympus:v5";
-const LEGACY_KEYS = ["olympus:v1", "olympus:v2", "olympus:v3", "olympus:v4"];
+const STORAGE_KEY = "olympus:v6";
+const LEGACY_KEYS = ["olympus:v1", "olympus:v2", "olympus:v3", "olympus:v4", "olympus:v5"];
 
 export function loadState(): OlympusState {
   const stored = window.localStorage.getItem(STORAGE_KEY);
@@ -18,11 +18,15 @@ export function loadState(): OlympusState {
       ...seedState,
       ...parsed,
       tools: mergeById(seedState.tools, parsed.tools ?? []),
+      quickApps: mergeById(seedState.quickApps, parsed.quickApps ?? []),
       projects: mergeById(seedState.projects, parsed.projects ?? []),
       research: mergeById(seedState.research, parsed.research ?? []),
       conversation: mergeById(seedState.conversation, parsed.conversation ?? []),
       market: parsed.market ? { ...seedState.market, ...parsed.market } : seedState.market,
       weather: parsed.weather ? { ...seedState.weather, ...parsed.weather } : seedState.weather,
+      nowPlaying: parsed.nowPlaying
+        ? { ...seedState.nowPlaying, ...parsed.nowPlaying }
+        : seedState.nowPlaying,
       settings: parsed.settings
         ? { ...seedState.settings, ...parsed.settings }
         : seedState.settings,

@@ -3,6 +3,7 @@ dist/
 target/
 src-tauri/target/
 .vite/
+.env
 *.log
 *.sqlite
 *.sqlite3

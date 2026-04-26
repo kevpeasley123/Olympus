@@ -60,6 +60,28 @@ npm run dev
 
 Open the Vite URL shown in the terminal.
 
+## Live Markets and Weather Setup
+
+Olympus now expects two local environment variables for live market data in the Tauri desktop shell.
+
+1. Copy `.env.example` to `.env`
+2. Fill in:
+
+```text
+FINNHUB_API_KEY=
+FRED_API_KEY=
+```
+
+Where to get them:
+- Finnhub (free): `https://finnhub.io/register`
+- FRED (free): `https://fred.stlouisfed.org/docs/api/api_key.html`
+
+Notes:
+- Markets use **Finnhub** for S&P 500, Nasdaq 100, and Dow quote data
+- Treasury rates use **FRED** for `DGS2`, `DGS10`, and `DGS30`
+- Weather uses **Open-Meteo** and does not require an API key
+- `.env` is ignored by Git and should not be committed
+
 ## Desktop Build
 
 Tauri requires Rust and Cargo.

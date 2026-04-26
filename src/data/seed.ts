@@ -3,7 +3,7 @@ import type { OlympusState } from "../types";
 const today = new Date().toISOString().slice(0, 10);
 
 export const seedState: OlympusState = {
-  version: 5,
+  version: 6,
   settings: {
     vaultPath: "C:\\Users\\kevpe\\OneDrive\\Desktop\\Projects\\Obsidian vaults\\Olympus Obsidian Vault",
     projectsRootPath: "C:\\Users\\kevpe\\OneDrive\\Desktop\\Projects"
@@ -44,6 +44,26 @@ export const seedState: OlympusState = {
       description: "Start new projects from a preferred stack and a repeatable setup brief.",
       primaryAction: "Configure",
       enabled: true
+    }
+  ],
+  quickApps: [
+    {
+      id: "quick-spotify",
+      name: "Spotify",
+      category: "Music",
+      launchUri: "spotify:"
+    },
+    {
+      id: "quick-discord",
+      name: "Discord",
+      category: "Chat",
+      launchUri: "discord://"
+    },
+    {
+      id: "quick-chrome",
+      name: "Chrome",
+      category: "Browser",
+      launchUri: "https://www.google.com"
     }
   ],
   market: {
@@ -97,6 +117,13 @@ export const seedState: OlympusState = {
     feelsLike: "72 F",
     source: "sample"
   },
+  nowPlaying: {
+    source: "Spotify",
+    status: "idle",
+    track: "No active track",
+    artist: "Desktop media session not connected yet",
+    detail: "This widget is ready for live playback metadata once native media hooks are wired in."
+  },
   projects: [
     {
       id: "project-olympus-dashboard",
@@ -104,10 +131,10 @@ export const seedState: OlympusState = {
       path: "C:\\Users\\kevpe\\OneDrive\\Desktop\\Projects\\Olympus",
       status: "active",
       branch: "master",
-      lastCommit: "No commits yet",
+      lastCommit: "b02ed86 Initial Olympus dashboard build",
       repoState: "git-pending",
       summary: "Command center dashboard, Codex-native second-brain structure, and project coordination surface.",
-      nextStep: "Move the repo into the Desktop Projects directory and keep building the Projects panel around real Git signals."
+      nextStep: "Add the quickbar and desktop media widget cleanly, then wire project cards to real Git status."
     },
     {
       id: "project-pokedex",
