@@ -10,7 +10,7 @@ import {
 import { buildPantheonReply, createUserMessage } from "../services/pantheonChat";
 import { createResearchRecordFromText } from "../services/research";
 import { addResearchRecord, loadState, saveState } from "../services/storage";
-import type { LoadableState } from "../types/dashboard";
+import type { LiveSourceHealth, LiveSourceStatus, LoadableState } from "../types/dashboard";
 import type { OlympusState, ResearchRecord } from "../types";
 import type { MarketPanelData } from "../types/markets";
 import type { WeatherPanelData } from "../types/weather";
@@ -81,6 +81,67 @@ function seedWeatherData(): WeatherPanelData {
   };
 }
 
+interface SourceTracker {
+  label: string;
+  expectedIntervalMs: number;
+  lastSuccessAt: number | null;
+  lastAttemptAt: number | null;
+  consecutiveFailures: number;
+  lastError?: string;
+}
+
+const SOURCE_INTERVALS = {
+  marketIndexes: 60_000,
+  marketRates: 60_000,
+  weather: 300_000
+} as const;
+
+function nextSourceState(
+  current: SourceTracker,
+  outcome: "success" | "failed",
+  error?: string
+): SourceTracker {
+  const now = Date.now();
+  if (outcome === "success") {
+    return {
+      ...current,
+      lastSuccessAt: now,
+      lastAttemptAt: now,
+      consecutiveFailures: 0,
+      lastError: undefined
+    };
+  }
+
+  return {
+    ...current,
+    lastAttemptAt: now,
+    consecutiveFailures: current.consecutiveFailures + 1,
+    lastError: error
+  };
+}
+
+function deriveSourceHealth(source: SourceTracker): LiveSourceHealth {
+  const now = Date.now();
+  let status: LiveSourceStatus = "ok";
+
+  if (source.consecutiveFailures >= 3) {
+    status = "failed";
+  } else if (
+    source.consecutiveFailures > 0 ||
+    (source.lastSuccessAt !== null && now - source.lastSuccessAt > source.expectedIntervalMs * 2)
+  ) {
+    status = "stale";
+  }
+
+  return {
+    key: source.label.toLowerCase().replace(/\s+/g, "-"),
+    label: source.label,
+    status,
+    lastFetchAt: source.lastSuccessAt,
+    lastError: source.lastError
+  };
+}
+
 export function useDashboardData() {
   const [dashboardState, setDashboardState] = useState<OlympusState>(() => loadState());
   const [markets, setMarkets] = useState<LoadableState<MarketPanelData>>({
@@ -92,6 +153,29 @@ export function useDashboardData() {
     data: null,
     loading: true,
     error: null
+  });
+  const [sourceTrackers, setSourceTrackers] = useState<Record<string, SourceTracker>>({
+    marketIndexes: {
+      label: "Index feed",
+      expectedIntervalMs: SOURCE_INTERVALS.marketIndexes,
+      lastSuccessAt: null,
+      lastAttemptAt: null,
+      consecutiveFailures: 0
+    },
+    marketRates: {
+      label: "FRED",
+      expectedIntervalMs: SOURCE_INTERVALS.marketRates,
+      lastSuccessAt: null,
+      lastAttemptAt: null,
+      consecutiveFailures: 0
+    },
+    weather: {
+      label: "Open-Meteo",
+      expectedIntervalMs: SOURCE_INTERVALS.weather,
+      lastSuccessAt: null,
+      lastAttemptAt: null,
+      consecutiveFailures: 0
+    }
   });
   const [projectsError, setProjectsError] = useState<string | null>(null);
 
@@ -105,12 +189,31 @@ export function useDashboardData() {
     try {
       const next = await fetchMarkets();
       setMarkets({ data: next, loading: false, error: null });
+      setSourceTrackers((current) => ({
+        ...current,
+        marketIndexes: nextSourceState(
+          current.marketIndexes,
+          next.indexWarning ? "failed" : "success",
+          next.indexWarning ?? undefined
+        ),
+        marketRates: nextSourceState(
+          current.marketRates,
+          next.rateWarning ? "failed" : "success",
+          next.rateWarning ?? undefined
+        )
+      }));
     } catch (error) {
+      const message = errorMessage(error);
       console.warn("[Olympus] Markets fell back to seeded preview data.", error);
       setMarkets((current) => ({
-        data: isTauriRuntime() ? current.data ?? emptyMarketData(errorMessage(error)) : current.data ?? seedMarketData(),
+        data: isTauriRuntime() ? current.data ?? emptyMarketData(message) : current.data ?? seedMarketData(),
         loading: false,
-        error: errorMessage(error)
+        error: message
+      }));
+      setSourceTrackers((current) => ({
+        ...current,
+        marketIndexes: nextSourceState(current.marketIndexes, "failed", message),
+        marketRates: nextSourceState(current.marketRates, "failed", message)
       }));
     }
   }, []);
@@ -121,12 +224,21 @@ export function useDashboardData() {
     try {
       const next = await fetchWeather();
       setWeather({ data: next, loading: false, error: null });
+      setSourceTrackers((current) => ({
+        ...current,
+        weather: nextSourceState(current.weather, "success")
+      }));
     } catch (error) {
+      const message = errorMessage(error);
       console.warn("[Olympus] Weather fell back to seeded preview data.", error);
       setWeather((current) => ({
         data: isTauriRuntime() ? current.data : current.data ?? seedWeatherData(),
         loading: false,
-        error: errorMessage(error)
+        error: message
+      }));
+      setSourceTrackers((current) => ({
+        ...current,
+        weather: nextSourceState(current.weather, "failed", message)
       }));
     }
   }, []);
@@ -243,6 +355,7 @@ export function useDashboardData() {
       nowPlaying: dashboardState.nowPlaying,
       markets,
       weather,
+      sourceHealth: Object.values(sourceTrackers).map(deriveSourceHealth),
       addResearch,
       sendChatMessage,
       syncResearchBase,
@@ -254,6 +367,7 @@ export function useDashboardData() {
       projectsError,
       markets,
       weather,
+      sourceTrackers,
       addResearch,
       sendChatMessage,
       syncResearchBase,

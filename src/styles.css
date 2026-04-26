@@ -211,6 +211,83 @@ select:focus {
   background: rgba(255, 255, 255, 0.01);
 }
 
+.health-indicator {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+}
+
+.health-indicator-dot,
+.health-source-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+}
+
+.health-indicator-dot {
+  background: var(--positive);
+}
+
+.health-indicator.stale .health-indicator-dot {
+  background: #f59e0b;
+  animation: health-pulse 1s ease-in-out infinite;
+}
+
+.health-indicator.failed .health-indicator-dot {
+  background: var(--negative);
+  animation: health-pulse 1s ease-in-out infinite;
+}
+
+.health-popover {
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 0;
+  z-index: 10;
+  display: none;
+  min-width: 230px;
+  padding: var(--space-12);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgba(7, 20, 31, 0.96);
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.28);
+}
+
+.health-indicator:hover .health-popover,
+.health-indicator:focus-within .health-popover {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+
+.health-popover-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: var(--space-8);
+  color: var(--primary);
+  font-size: var(--text-sm);
+}
+
+.health-popover-row small {
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+
+.health-source-dot.ok {
+  background: var(--positive);
+}
+
+.health-source-dot.stale {
+  background: #f59e0b;
+}
+
+.health-source-dot.failed {
+  background: var(--negative);
+}
+
 .header-pill {
   justify-content: center;
   gap: var(--space-8);
@@ -1519,6 +1596,16 @@ small {
 
 .tabular-data {
   font-variant-numeric: tabular-nums;
+}
+
+@keyframes health-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
 }
 
 @keyframes skeleton-pulse {

@@ -24,6 +24,7 @@ function App() {
     nowPlaying,
     markets,
     weather,
+    sourceHealth,
     addResearch,
     sendChatMessage,
     syncResearchBase,
@@ -46,6 +47,7 @@ function App() {
           onRefresh={() => void refreshAll()}
           focusMode={focusMode}
           onToggleFocusMode={() => setFocusMode((value) => !value)}
+          sourceHealth={sourceHealth}
         />
       </FadeInPanel>
 

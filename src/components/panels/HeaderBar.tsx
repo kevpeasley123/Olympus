@@ -1,13 +1,20 @@
 import { Maximize2, Minimize2, RefreshCw, Settings2 } from "lucide-react";
 import { useEffect, useState } from "react";
+import type { LiveSourceHealth } from "../../types/dashboard";
 
 interface HeaderBarProps {
   onRefresh: () => void;
   focusMode: boolean;
   onToggleFocusMode: () => void;
+  sourceHealth: LiveSourceHealth[];
 }
 
-export function HeaderBar({ onRefresh, focusMode, onToggleFocusMode }: HeaderBarProps) {
+export function HeaderBar({
+  onRefresh,
+  focusMode,
+  onToggleFocusMode,
+  sourceHealth
+}: HeaderBarProps) {
   const [preferencesOpen, setPreferencesOpen] = useState(false);
   const [now, setNow] = useState(() => new Date());
 
@@ -38,6 +45,7 @@ export function HeaderBar({ onRefresh, focusMode, onToggleFocusMode }: HeaderBar
     month: "short",
     day: "numeric"
   });
+  const overallHealth = deriveOverallHealth(sourceHealth);
 
   return (
     <>
@@ -48,6 +56,18 @@ export function HeaderBar({ onRefresh, focusMode, onToggleFocusMode }: HeaderBar
         </div>
 
         <div className="topbar-actions">
+          <div className={`health-indicator ${overallHealth}`} title="Live data source health">
+            <span className="health-indicator-dot" aria-hidden="true"></span>
+            <div className="health-popover">
+              {sourceHealth.map((source) => (
+                <div key={source.key} className="health-popover-row">
+                  <span className={`health-source-dot ${source.status}`} aria-hidden="true"></span>
+                  <span>{source.label}</span>
+                  <small>{formatHealthMeta(source, now)}</small>
+                </div>
+              ))}
+            </div>
+          </div>
           <div className="header-pill tabular-data">
             <span>{timeLabel}</span>
             <span className="header-separator">&middot;</span>
@@ -104,4 +124,23 @@ export function HeaderBar({ onRefresh, focusMode, onToggleFocusMode }: HeaderBar
       )}
     </>
   );
+}
+
+function deriveOverallHealth(sources: LiveSourceHealth[]): LiveSourceHealth["status"] {
+  if (sources.some((source) => source.status === "failed")) return "failed";
+  if (sources.some((source) => source.status === "stale")) return "stale";
+  return "ok";
+}
+
+function formatHealthMeta(source: LiveSourceHealth, now: Date): string {
+  if (!source.lastFetchAt) {
+    return source.lastError ? source.lastError : "No successful fetch yet";
+  }
+
+  const secondsAgo = Math.max(0, Math.round((now.getTime() - source.lastFetchAt) / 1000));
+  if (source.status === "ok") {
+    return `OK · ${secondsAgo}s ago`;
+  }
+
+  return source.lastError ? `${source.status} · ${source.lastError}` : `${source.status} · ${secondsAgo}s ago`;
 }
