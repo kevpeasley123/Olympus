@@ -23,8 +23,10 @@
   --primary: #f4f6fa;
   --divider: rgba(255, 255, 255, 0.05);
   --border: rgba(255, 255, 255, 0.06);
+  --font-sans: "Inter", system-ui, -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", "SF Mono", Consolas, monospace;
   color: var(--primary);
-  font-family: "Segoe UI", "Aptos", "Trebuchet MS", sans-serif;
+  font-family: var(--font-sans);
   font-synthesis: none;
   text-rendering: geometricPrecision;
 }
@@ -43,6 +45,8 @@ body {
   margin: 0;
   min-width: 1180px;
   overflow: hidden;
+  font-family: var(--font-sans);
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   background:
     linear-gradient(rgba(8, 14, 24, 0.9), rgba(8, 14, 24, 0.92)),
     linear-gradient(rgba(15, 29, 44, 0.28) 1px, transparent 1px),
@@ -97,6 +101,13 @@ input:focus,
 textarea:focus,
 select:focus {
   border-color: rgba(255, 158, 44, 0.72);
+}
+
+.font-mono,
+.project-branch,
+.project-repo-state,
+.project-path {
+  font-family: var(--font-mono);
 }
 
 .app-shell {
@@ -793,7 +804,6 @@ small {
 
 .project-branch {
   color: #cbd5e1;
-  font-family: "Consolas", "SFMono-Regular", "Liberation Mono", monospace;
   font-size: var(--text-xs);
   line-height: 1.4;
 }
@@ -803,7 +813,6 @@ small {
   align-items: center;
   gap: 6px;
   color: var(--muted);
-  font-family: "Consolas", "SFMono-Regular", "Liberation Mono", monospace;
   font-size: var(--text-xs);
   line-height: 1.4;
 }
@@ -857,7 +866,6 @@ small {
 .project-path {
   margin-top: 6px;
   color: var(--label);
-  font-family: "Consolas", "SFMono-Regular", "Liberation Mono", monospace;
   font-size: var(--text-xs);
   line-height: 1.4;
   white-space: nowrap;
