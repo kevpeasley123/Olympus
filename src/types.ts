@@ -1,0 +1,106 @@
+export type ToolStatus = "ready" | "planned" | "draft";
+export type ToolCategory = "Media" | "Research" | "Workflow";
+
+export interface ToolDefinition {
+  id: string;
+  name: string;
+  category: ToolCategory;
+  status: ToolStatus;
+  description: string;
+  primaryAction: string;
+  enabled: boolean;
+}
+
+export interface MarketIndex {
+  id: string;
+  label: string;
+  value: string;
+  change: string;
+  direction: "up" | "down" | "flat";
+}
+
+export interface MarketRate {
+  id: string;
+  label: string;
+  value: string;
+  change: string;
+  direction: "up" | "down" | "flat";
+}
+
+export interface MarketSector {
+  id: string;
+  label: string;
+  tone: "risk-on" | "neutral" | "risk-off";
+}
+
+export interface MarketNewsItem {
+  id: string;
+  headline: string;
+  summary: string;
+  source: string;
+}
+
+export interface MarketSnapshot {
+  date: string;
+  indexes: MarketIndex[];
+  rates: MarketRate[];
+  sectors: MarketSector[];
+  news: MarketNewsItem[];
+  summary: string;
+  watchNote: string;
+}
+
+export interface WeatherSnapshot {
+  label: string;
+  temperature: string;
+  condition: string;
+  humidity: string;
+  wind: string;
+  feelsLike: string;
+  source: "sample";
+}
+
+export interface ResearchRecord {
+  id: string;
+  title: string;
+  sourceType: "article" | "transcript" | "note" | "manual";
+  createdAt: string;
+  tags: string[];
+  summary: string;
+  content: string;
+}
+
+export interface ConversationMessage {
+  id: string;
+  role: "system" | "assistant";
+  content: string;
+  timestamp: string;
+}
+
+export interface TrackedProject {
+  id: string;
+  name: string;
+  path: string;
+  status: "active" | "watching" | "setup";
+  branch: string;
+  lastCommit: string;
+  repoState: "git-active" | "git-pending" | "folder-only";
+  summary: string;
+  nextStep: string;
+}
+
+export interface OlympusSettings {
+  vaultPath: string;
+  projectsRootPath: string;
+}
+
+export interface OlympusState {
+  version: number;
+  tools: ToolDefinition[];
+  market: MarketSnapshot;
+  weather: WeatherSnapshot;
+  projects: TrackedProject[];
+  research: ResearchRecord[];
+  conversation: ConversationMessage[];
+  settings: OlympusSettings;
+}
