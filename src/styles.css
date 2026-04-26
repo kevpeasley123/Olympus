@@ -119,6 +119,19 @@ select:focus {
   overflow: hidden;
 }
 
+.main-grid,
+.tools-rail,
+.market-panel,
+.projects-panel,
+.weather-panel,
+.now-playing-panel {
+  transition:
+    grid-template-columns 300ms ease-out,
+    width 300ms ease-out,
+    flex-basis 300ms ease-out,
+    padding 300ms ease-out;
+}
+
 .topbar,
 .settings-panel,
 .panel-shell,
@@ -522,6 +535,15 @@ small {
   background: var(--positive);
 }
 
+.tool-column.is-compact .tool-row {
+  justify-content: center;
+  padding: var(--space-8);
+}
+
+.tool-column.is-compact .tool-area-dot {
+  display: none;
+}
+
 .panel-icon {
   color: var(--muted);
 }
@@ -641,6 +663,25 @@ small {
 
 .market-strip-delta.flat {
   color: var(--primary);
+}
+
+.compact-market {
+  padding-top: var(--space-12);
+  padding-bottom: var(--space-12);
+}
+
+.compact-market .market-strip-grid {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  column-gap: var(--space-12);
+  row-gap: var(--space-8);
+}
+
+.compact-market .market-strip-value {
+  font-size: 16px;
+}
+
+.compact-market .market-strip-label {
+  letter-spacing: 0.05em;
 }
 
 .market-detail {
@@ -882,6 +923,29 @@ small {
 .project-next-line {
   color: #cbd5e1;
   margin-top: 2px;
+}
+
+.focus-mode .main-grid {
+  grid-template-columns: 72px minmax(0, 1fr) 280px;
+}
+
+.focus-mode .tools-rail {
+  padding-left: var(--space-8);
+  padding-right: var(--space-8);
+}
+
+.focus-mode .project-card {
+  padding: var(--space-16) var(--space-20);
+}
+
+.focus-mode .project-card-header strong {
+  font-size: 18px;
+}
+
+.focus-mode .project-path {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
 }
 
 .research-panel {
@@ -1279,6 +1343,19 @@ small {
 .weather-forecast-skeleton-temp {
   width: 54px;
   height: 14px;
+}
+
+.compact-weather .weather-strip {
+  gap: var(--space-8);
+}
+
+.compact-now-playing .now-playing-body.compact-summary {
+  gap: var(--space-4);
+}
+
+.compact-now-playing .now-playing-body.compact-summary p {
+  margin: 0;
+  color: var(--muted);
 }
 
 .icon-only-action {

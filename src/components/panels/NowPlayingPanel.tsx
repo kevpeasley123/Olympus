@@ -3,11 +3,12 @@ import type { NowPlayingSnapshot } from "../../types";
 
 interface NowPlayingPanelProps {
   nowPlaying: NowPlayingSnapshot;
+  compact?: boolean;
 }
 
-export function NowPlayingPanel({ nowPlaying }: NowPlayingPanelProps) {
+export function NowPlayingPanel({ nowPlaying, compact = false }: NowPlayingPanelProps) {
   return (
-    <section className="dashboard-panel now-playing-panel">
+    <section className={`dashboard-panel now-playing-panel ${compact ? "compact-now-playing" : ""}`}>
       <div className="panel-header compact">
         <div>
           <p className="eyebrow">Now Playing</p>
@@ -18,11 +19,18 @@ export function NowPlayingPanel({ nowPlaying }: NowPlayingPanelProps) {
           {nowPlaying.status}
         </span>
       </div>
-      <div className="now-playing-body">
-        <strong>{nowPlaying.track}</strong>
-        <p>{nowPlaying.artist}</p>
-        <small>{nowPlaying.detail}</small>
-      </div>
+      {compact ? (
+        <div className="now-playing-body compact-summary">
+          <strong>{nowPlaying.source}</strong>
+          <p>{nowPlaying.status === "idle" ? "Idle" : nowPlaying.track}</p>
+        </div>
+      ) : (
+        <div className="now-playing-body">
+          <strong>{nowPlaying.track}</strong>
+          <p>{nowPlaying.artist}</p>
+          <small>{nowPlaying.detail}</small>
+        </div>
+      )}
     </section>
   );
 }

@@ -11,19 +11,20 @@ const toolIcons: Record<string, typeof ImagePlus> = {
 
 interface ToolBeltProps {
   tools: ToolDefinition[];
+  compact?: boolean;
 }
 
-export function ToolBelt({ tools }: ToolBeltProps) {
+export function ToolBelt({ tools, compact = false }: ToolBeltProps) {
   return (
-    <div className="tool-column">
+    <div className={`tool-column ${compact ? "is-compact" : ""}`}>
       {tools.map((tool) => (
-        <ToolRow key={tool.id} tool={tool} />
+        <ToolRow key={tool.id} tool={tool} compact={compact} />
       ))}
     </div>
   );
 }
 
-function ToolRow({ tool }: { tool: ToolDefinition }) {
+function ToolRow({ tool, compact }: { tool: ToolDefinition; compact: boolean }) {
   const Icon = toolIcons[tool.id];
   const areaClass = `tool-area-dot ${tool.category.toLowerCase()}`;
 
@@ -45,7 +46,7 @@ function ToolRow({ tool }: { tool: ToolDefinition }) {
       <span className="tool-row-icon" title={tool.category}>
         <Icon size={16} strokeWidth={1.8} />
       </span>
-      <strong>{tool.name}</strong>
+      {!compact ? <strong>{tool.name}</strong> : null}
       <span className={areaClass} title={tool.category} aria-hidden="true"></span>
     </div>
   );

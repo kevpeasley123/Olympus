@@ -6,9 +6,10 @@ import { useState } from "react";
 interface ProjectsPanelProps {
   projects: TrackedProject[];
   onSyncCanvas: () => Promise<ObsidianActionResult>;
+  focusMode?: boolean;
 }
 
-export function ProjectsPanel({ projects, onSyncCanvas }: ProjectsPanelProps) {
+export function ProjectsPanel({ projects, onSyncCanvas, focusMode = false }: ProjectsPanelProps) {
   const [status, setStatus] = useState<ObsidianActionResult | null>(null);
   const [syncing, setSyncing] = useState(false);
 
@@ -20,7 +21,7 @@ export function ProjectsPanel({ projects, onSyncCanvas }: ProjectsPanelProps) {
   }
 
   return (
-    <section className="dashboard-panel projects-panel">
+    <section className={`dashboard-panel projects-panel ${focusMode ? "focus-projects" : ""}`}>
       <div className="projects-panel-top">
         <div className="panel-header compact projects-header-row">
           <p className="projects-title">Projects</p>

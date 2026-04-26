@@ -7,9 +7,10 @@ import type { MarketPanelData } from "../../types/markets";
 interface MarketsPanelProps {
   state: LoadableState<MarketPanelData>;
   onRetry: () => void;
+  compact?: boolean;
 }
 
-export function MarketsPanel({ state, onRetry }: MarketsPanelProps) {
+export function MarketsPanel({ state, onRetry, compact = false }: MarketsPanelProps) {
   const [expanded, setExpanded] = useState(false);
   const panelError = state.data?.overallError ?? state.error;
   const metrics = useMemo(() => {
@@ -18,7 +19,7 @@ export function MarketsPanel({ state, onRetry }: MarketsPanelProps) {
   }, [state.data]);
 
   return (
-    <section className="dashboard-panel market-panel">
+    <section className={`dashboard-panel market-panel ${compact ? "compact-market" : ""}`}>
       <div className="market-strip-top">
         <div className="market-strip-title">
           <p className="eyebrow">Markets</p>
@@ -42,7 +43,7 @@ export function MarketsPanel({ state, onRetry }: MarketsPanelProps) {
             className="market-toggle"
             onClick={() => setExpanded((value) => !value)}
             title={expanded ? "Collapse market detail" : "Expand market detail"}
-            disabled={!state.data}
+            disabled={!state.data || compact}
           >
             <ChevronDown size={16} className={expanded ? "is-expanded" : ""} />
           </button>
@@ -70,7 +71,7 @@ export function MarketsPanel({ state, onRetry }: MarketsPanelProps) {
               />
             ))}
           </div>
-          <div className={expanded ? "market-detail is-expanded" : "market-detail"}>
+          <div className={expanded && !compact ? "market-detail is-expanded" : "market-detail"}>
             <div className="market-news-section">
               <p className="subhead">News</p>
               <div className="market-news-list">

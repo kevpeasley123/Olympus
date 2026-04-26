@@ -1,11 +1,13 @@
-import { RefreshCw, Settings2 } from "lucide-react";
+import { Maximize2, Minimize2, RefreshCw, Settings2 } from "lucide-react";
 import { useEffect, useState } from "react";
 
 interface HeaderBarProps {
   onRefresh: () => void;
+  focusMode: boolean;
+  onToggleFocusMode: () => void;
 }
 
-export function HeaderBar({ onRefresh }: HeaderBarProps) {
+export function HeaderBar({ onRefresh, focusMode, onToggleFocusMode }: HeaderBarProps) {
   const [preferencesOpen, setPreferencesOpen] = useState(false);
   const [now, setNow] = useState(() => new Date());
 
@@ -47,6 +49,13 @@ export function HeaderBar({ onRefresh }: HeaderBarProps) {
             title="Open preferences"
           >
             <Settings2 size={18} />
+          </button>
+          <button
+            className="icon-button"
+            onClick={onToggleFocusMode}
+            title={focusMode ? "Exit focus mode" : "Focus mode"}
+          >
+            {focusMode ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
           </button>
         </div>
       </header>

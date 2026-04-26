@@ -16,11 +16,12 @@ import type { WeatherPanelData } from "../../types/weather";
 interface WeatherPanelProps {
   state: LoadableState<WeatherPanelData>;
   onRetry: () => void;
+  compact?: boolean;
 }
 
-export function WeatherPanel({ state, onRetry }: WeatherPanelProps) {
+export function WeatherPanel({ state, onRetry, compact = false }: WeatherPanelProps) {
   return (
-    <section className="dashboard-panel weather-panel">
+    <section className={`dashboard-panel weather-panel ${compact ? "compact-weather" : ""}`}>
       <div className="weather-strip">
         <div className="weather-top-row">
           <div className="weather-heading">
@@ -67,9 +68,11 @@ export function WeatherPanel({ state, onRetry }: WeatherPanelProps) {
               <span className="weather-separator">&middot;</span>
               <span className="tabular-data">{state.data?.wind ?? "--"}</span>
             </div>
-            <div className="weather-forecast-grid">
-              {state.data?.forecast.map((day) => <ForecastDayCard key={day.dayLabel} day={day} />)}
-            </div>
+            {!compact ? (
+              <div className="weather-forecast-grid">
+                {state.data?.forecast.map((day) => <ForecastDayCard key={day.dayLabel} day={day} />)}
+              </div>
+            ) : null}
           </>
         )}
       </div>
