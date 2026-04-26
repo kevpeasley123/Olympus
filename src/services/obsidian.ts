@@ -49,6 +49,7 @@ title: ${yamlText(safeTitle)}
 type: research
 source_type: ${yamlText(record.sourceType)}
 created: ${yamlText(record.createdAt)}
+origin: ${yamlText("Olympus Pantheon")}
 tags:
 ${tags.map((tag) => `  - ${tag}`).join("\n")}
 aliases:
@@ -78,6 +79,10 @@ function createResearchBase(): string {
     - 'file.inFolder("02 - Research")'
     - 'file.hasTag("olympus/research")'
 
+formulas:
+  est_words: '(file.size / 6).round(0)'
+  read_time: 'if(file.size, ((file.size / 6) / 220).ceil().toString() + " min", "")'
+
 properties:
   file.name:
     displayName: "Title"
@@ -89,23 +94,33 @@ properties:
     displayName: "Summary"
   tags:
     displayName: "Tags"
+  formula.est_words:
+    displayName: "Words"
+  formula.read_time:
+    displayName: "Read"
 
 views:
   - type: table
-    name: "Research Library"
+    name: "Pantheon Library"
     order:
       - file.name
       - source_type
       - created
+      - formula.read_time
+      - formula.est_words
       - tags
       - summary
+    groupBy:
+      property: source_type
+      direction: ASC
 
   - type: cards
-    name: "Research Cards"
+    name: "Pantheon Cards"
     order:
       - file.name
       - summary
       - tags
+      - formula.read_time
 `;
 }
 
@@ -197,9 +212,9 @@ async function writeArtifact(
 ): Promise<WriteMemoryArtifactResult> {
   return invoke<WriteMemoryArtifactResult>("write_memory_artifact", {
     artifact: {
-      vaultPath,
+      vault_path: vaultPath,
       folder,
-      fileName,
+      file_name: fileName,
       content
     }
   });

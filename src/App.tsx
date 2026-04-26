@@ -44,7 +44,7 @@ function App() {
           <MarketsPanel state={markets} onRetry={() => void refreshAll()} />
           <ProjectsPanel projects={projects} onSyncCanvas={syncProjectsCanvas} />
           <LibraryPanel
-            entryCount={library.length}
+            entries={library}
             onAddResearch={addResearch}
             onViewDatabase={syncResearchBase}
           />
