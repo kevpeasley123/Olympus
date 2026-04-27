@@ -48,6 +48,8 @@ function App() {
           focusMode={focusMode}
           onToggleFocusMode={() => setFocusMode((value) => !value)}
           sourceHealth={sourceHealth}
+          projects={projects}
+          markets={markets}
         />
       </FadeInPanel>
 
