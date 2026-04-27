@@ -386,8 +386,6 @@ select:focus {
 .ring-outer,
 .ring-middle,
 .ring-inner {
-  transform-origin: 140px 140px;
-  transform-box: fill-box;
 }
 
 .ring-outer {

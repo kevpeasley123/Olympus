@@ -12,36 +12,39 @@ export function HeaderBar() {
           aria-hidden="true"
         >
           <svg width="280" height="280" viewBox="0 0 280 280" fill="none" className="olympus-sigil-backdrop-svg">
-            <circle
-              className="ring-outer"
-              cx="140"
-              cy="140"
-              r="135"
-              stroke="#d97706"
-              strokeWidth="0.8"
-              opacity="0.4"
-              fill="none"
-            />
-            <circle
-              className="ring-middle"
-              cx="140"
-              cy="140"
-              r="116"
-              stroke="#d97706"
-              strokeWidth="0.6"
-              opacity="0.45"
-              fill="none"
-            />
-            <circle
-              className="ring-inner"
-              cx="140"
-              cy="140"
-              r="97"
-              stroke="#d97706"
-              strokeWidth="0.6"
-              opacity="0.5"
-              fill="none"
-            />
+            <g className="ring-outer" style={{ transformOrigin: "140px 140px" }}>
+              <circle
+                cx="140"
+                cy="140"
+                r="135"
+                stroke="#d97706"
+                strokeWidth="0.8"
+                opacity="0.4"
+                fill="none"
+              />
+            </g>
+            <g className="ring-middle" style={{ transformOrigin: "140px 140px" }}>
+              <circle
+                cx="140"
+                cy="140"
+                r="116"
+                stroke="#d97706"
+                strokeWidth="0.6"
+                opacity="0.45"
+                fill="none"
+              />
+            </g>
+            <g className="ring-inner" style={{ transformOrigin: "140px 140px" }}>
+              <circle
+                cx="140"
+                cy="140"
+                r="97"
+                stroke="#d97706"
+                strokeWidth="0.6"
+                opacity="0.5"
+                fill="none"
+              />
+            </g>
             <text
               x="140"
               y="192"
