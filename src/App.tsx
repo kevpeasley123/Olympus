@@ -1,6 +1,7 @@
 import { motion } from "motion/react";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
+import { AmbientDock } from "./components/panels/AmbientDock";
 import { ChatPanel } from "./components/panels/ChatPanel";
 import { HeaderBar } from "./components/panels/HeaderBar";
 import { LibraryPanel } from "./components/panels/LibraryPanel";
@@ -43,14 +44,7 @@ function App() {
   return (
     <main className={`app-shell ${focusMode ? "focus-mode" : ""}`}>
       <FadeInPanel index={0} className="panel-slot panel-slot-header">
-        <HeaderBar
-          onRefresh={() => void refreshAll()}
-          focusMode={focusMode}
-          onToggleFocusMode={() => setFocusMode((value) => !value)}
-          sourceHealth={sourceHealth}
-          projects={projects}
-          markets={markets}
-        />
+        <HeaderBar />
       </FadeInPanel>
 
       <section className="main-grid">
@@ -96,6 +90,13 @@ function App() {
           </FadeInPanel>
         </section>
       </section>
+
+      <AmbientDock
+        onRefresh={() => void refreshAll()}
+        focusMode={focusMode}
+        onToggleFocusMode={() => setFocusMode((value) => !value)}
+        sourceHealth={sourceHealth}
+      />
     </main>
   );
 }

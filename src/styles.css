@@ -112,11 +112,12 @@ select:focus {
 }
 
 .app-shell {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: var(--space-16);
   height: 100vh;
-  padding: var(--space-16);
+  padding: var(--space-16) var(--space-16) 56px;
   overflow: hidden;
 }
 
@@ -149,13 +150,17 @@ select:focus {
 .topbar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
   gap: var(--space-16);
   position: relative;
-  min-height: 120px;
-  padding: var(--space-20) var(--space-24);
-  overflow: hidden;
-  border-bottom: 1px solid var(--border);
+  min-height: 140px;
+  padding: 56px 48px 40px;
+  overflow: visible;
+  border: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  background: transparent;
+  backdrop-filter: none;
+  box-shadow: none;
 }
 
 .topbar h1,
@@ -207,13 +212,6 @@ select:focus {
   border: 1px solid rgba(90, 216, 255, 0.22);
   background: rgba(7, 20, 31, 0.85);
   transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
-}
-
-.topbar-actions {
-  gap: var(--space-4);
-  padding: 0;
-  border: 0;
-  background: transparent;
 }
 
 .health-indicator {
@@ -338,33 +336,20 @@ select:focus {
 }
 
 .topbar-olympus {
-  align-items: flex-start;
-}
-
-.topbar-backdrop {
-  position: absolute;
-  inset: 0;
-  opacity: 0.12;
-  pointer-events: none;
-}
-
-.topbar-backdrop svg {
-  width: 100%;
-  height: 100%;
+  align-items: center;
 }
 
 .olympus-brand-block {
   position: relative;
-  z-index: 1;
   display: flex;
-  align-items: flex-start;
-  gap: 20px;
+  align-items: baseline;
+  justify-content: center;
+  gap: 24px;
   min-width: 0;
 }
 
 .olympus-sigil-shell {
   flex: 0 0 auto;
-  margin-top: 8px;
 }
 
 .olympus-sigil {
@@ -386,77 +371,13 @@ select:focus {
   animation: sigil-spin 8s linear infinite;
 }
 
-.olympus-brand-copy {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-
-.olympus-eyebrow {
-  margin: 0 0 6px;
-  color: var(--label);
-  font-size: 10px;
-  font-weight: var(--weight-medium);
-  letter-spacing: 0.32em;
-  text-transform: uppercase;
-}
-
-.olympus-wordmark-row {
-  display: flex;
-  align-items: baseline;
-  gap: 16px;
-  flex-wrap: wrap;
-}
-
 .olympus-wordmark {
   margin: 0;
   color: var(--primary);
-  font-size: 38px;
+  font-size: 56px;
   font-weight: var(--weight-medium);
-  letter-spacing: 0.08em;
+  letter-spacing: 0.14em;
   line-height: 1;
-}
-
-.olympus-tagline {
-  margin: 0;
-  color: var(--muted);
-  font-size: var(--text-sm);
-  font-style: italic;
-  line-height: 1.4;
-}
-
-.olympus-invocation {
-  margin: 10px 0 0;
-  color: var(--muted);
-  font-size: var(--text-sm);
-  line-height: 1.45;
-}
-
-.olympus-invocation .time-phrase {
-  color: var(--accent);
-}
-
-.olympus-invocation .project-phrase {
-  color: #cbd5e1;
-}
-
-.olympus-invocation .ambient-phrase {
-  color: var(--muted);
-}
-
-.olympus-topbar-actions {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  align-items: center;
-  align-self: center;
-  margin-left: auto;
-  gap: var(--space-8);
-}
-
-.olympus-time-pill {
-  min-height: 40px;
-  font-size: 13px;
 }
 
 .settings-panel,
@@ -706,6 +627,157 @@ small {
 .quick-app-button:focus-visible .quick-app-tooltip {
   opacity: 1;
   transform: translateX(-50%) translateY(4px);
+}
+
+.ambient-bottom-left,
+.ambient-bottom-right {
+  position: absolute;
+  bottom: var(--space-16);
+  z-index: 20;
+}
+
+.ambient-bottom-left {
+  left: 36px;
+}
+
+.ambient-bottom-right {
+  right: var(--space-16);
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+}
+
+.ambient-time-row {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-8);
+  color: #cbd5e1;
+  font-size: 13px;
+}
+
+.ambient-date,
+.ambient-separator {
+  color: var(--muted);
+}
+
+.ambient-focus-label {
+  color: var(--accent);
+  font-size: var(--text-xs);
+}
+
+.ambient-inline-button,
+.ambient-corner-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  color: #4a5568;
+  border: 0;
+  background: transparent;
+  transition: color 100ms ease, transform 100ms ease;
+}
+
+.ambient-inline-button:hover,
+.ambient-corner-button:hover {
+  color: var(--muted);
+}
+
+.ambient-inline-button.is-spinning svg {
+  animation: refresh-tick 200ms ease-out;
+}
+
+.ambient-floating-control {
+  position: relative;
+}
+
+.ambient-popover {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  right: 0;
+  z-index: 30;
+  min-width: 230px;
+  padding: var(--space-12);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgba(7, 20, 31, 0.96);
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.28);
+}
+
+.shortcut-popover {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+
+.shortcut-row {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: var(--space-12);
+  color: var(--primary);
+  font-size: var(--text-sm);
+}
+
+.shortcut-row span {
+  font-family: var(--font-mono);
+  color: #cbd5e1;
+}
+
+.shortcut-row small {
+  color: var(--muted);
+}
+
+.floating-preferences-panel {
+  position: absolute;
+  right: var(--space-16);
+  bottom: 52px;
+  z-index: 25;
+  width: min(520px, calc(100vw - 32px));
+}
+
+.status-edge {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 15;
+  height: 10px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.status-edge::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 1px;
+}
+
+.status-edge.is-hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.status-edge.status-stale::after {
+  background: #f59e0b;
+  opacity: 0.6;
+  animation: status-line-pulse 1.5s ease-in-out infinite;
+}
+
+.status-edge.status-failed::after {
+  background: var(--negative);
+  opacity: 0.8;
+  animation: status-line-pulse-fast 1s ease-in-out infinite;
+}
+
+.status-edge-popover {
+  right: var(--space-16);
+  bottom: calc(100% + 8px);
 }
 
 .tool-row {
@@ -2107,6 +2179,35 @@ small {
   }
 }
 
+@keyframes refresh-tick {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(180deg);
+  }
+}
+
+@keyframes status-line-pulse {
+  0%,
+  100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+
+@keyframes status-line-pulse-fast {
+  0%,
+  100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 0.95;
+  }
+}
+
 @media (max-width: 1280px) {
   body {
     min-width: 1020px;
@@ -2142,7 +2243,7 @@ small {
   }
 
   .olympus-wordmark {
-    font-size: 34px;
+    font-size: 48px;
   }
 }
 
