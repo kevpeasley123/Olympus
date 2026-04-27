@@ -11,22 +11,31 @@ export function HeaderBar() {
           transition={{ duration: 0.7, delay: 0.2, ease: "easeOut" }}
           aria-hidden="true"
         >
-          <div className="olympus-sigil-core">
-            <svg viewBox="0 0 220 220" fill="none" className="olympus-sigil-backdrop-svg">
-              <circle
-                cx="110"
-                cy="110"
-                r="108"
-                stroke="#d97706"
-                strokeWidth="0.5"
-                opacity="0.15"
-                className="olympus-ring-outer"
-              />
-              <circle cx="110" cy="110" r="92" stroke="#d97706" strokeWidth="0.4" opacity="0.2" />
-              <circle cx="110" cy="110" r="76" stroke="#d97706" strokeWidth="0.4" opacity="0.25" />
-            </svg>
-            <span className="olympus-sigil-watermark">{"\u03A9"}</span>
-          </div>
+          <svg width="260" height="260" viewBox="0 0 260 260" fill="none" className="olympus-sigil-backdrop-svg">
+            <circle
+              cx="130"
+              cy="130"
+              r="125"
+              stroke="#d97706"
+              strokeWidth="0.6"
+              opacity="0.25"
+              className="olympus-ring-outer"
+            />
+            <circle cx="130" cy="130" r="108" stroke="#d97706" strokeWidth="0.5" opacity="0.3" />
+            <circle cx="130" cy="130" r="90" stroke="#d97706" strokeWidth="0.5" opacity="0.35" />
+            <text
+              x="130"
+              y="178"
+              textAnchor="middle"
+              fontFamily="'Cinzel', 'Times New Roman', serif"
+              fontSize="170"
+              fontWeight="500"
+              fill="#d97706"
+              opacity="0.32"
+            >
+              {"\u03A9"}
+            </text>
+          </svg>
         </motion.div>
 
         <motion.h1

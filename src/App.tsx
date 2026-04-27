@@ -47,49 +47,51 @@ function App() {
         <HeaderBar />
       </FadeInPanel>
 
-      <section className="main-grid">
-        <aside className="tools-rail panel-shell">
-          <FadeInPanel index={1} className="panel-slot panel-slot-tools">
-            <div className="strip-header compact">
-              <div>
-                <p className="eyebrow">Tools</p>
+      <div className="dashboard-body">
+        <section className="main-grid">
+          <aside className="tools-rail panel-shell">
+            <FadeInPanel index={1} className="panel-slot panel-slot-tools">
+              <div className="strip-header compact">
+                <div>
+                  <p className="eyebrow">Tools</p>
+                </div>
               </div>
-            </div>
-            <ToolBelt tools={tools} compact={focusMode} />
-          </FadeInPanel>
-          <FadeInPanel index={6} className="panel-slot panel-slot-quickbar">
-            <QuickbarPanel apps={quickApps} />
-          </FadeInPanel>
-        </aside>
+              <ToolBelt tools={tools} compact={focusMode} />
+            </FadeInPanel>
+            <FadeInPanel index={6} className="panel-slot panel-slot-quickbar">
+              <QuickbarPanel apps={quickApps} />
+            </FadeInPanel>
+          </aside>
 
-        <section className="center-stack">
-          <FadeInPanel index={2} className="panel-slot panel-slot-markets">
-            <MarketsPanel state={markets} onRetry={() => void refreshAll()} compact={focusMode} />
-          </FadeInPanel>
-          <FadeInPanel index={4} className="panel-slot panel-slot-projects">
-            <ProjectsPanel projects={projects} onSyncCanvas={syncProjectsCanvas} focusMode={focusMode} />
-          </FadeInPanel>
-          <FadeInPanel index={7} className="panel-slot panel-slot-library">
-            <LibraryPanel
-              entries={library}
-              onAddResearch={addResearch}
-              onViewDatabase={syncResearchBase}
-            />
-          </FadeInPanel>
-        </section>
+          <section className="center-stack">
+            <FadeInPanel index={2} className="panel-slot panel-slot-markets">
+              <MarketsPanel state={markets} onRetry={() => void refreshAll()} compact={focusMode} />
+            </FadeInPanel>
+            <FadeInPanel index={4} className="panel-slot panel-slot-projects">
+              <ProjectsPanel projects={projects} onSyncCanvas={syncProjectsCanvas} focusMode={focusMode} />
+            </FadeInPanel>
+            <FadeInPanel index={7} className="panel-slot panel-slot-library">
+              <LibraryPanel
+                entries={library}
+                onAddResearch={addResearch}
+                onViewDatabase={syncResearchBase}
+              />
+            </FadeInPanel>
+          </section>
 
-        <section className="right-stack">
-          <FadeInPanel index={3} className="panel-slot panel-slot-weather">
-            <WeatherPanel state={weather} onRetry={() => void refreshAll()} compact={focusMode} />
-          </FadeInPanel>
-          <FadeInPanel index={5} className="panel-slot panel-slot-now-playing">
-            <NowPlayingPanel nowPlaying={nowPlaying} compact={focusMode} />
-          </FadeInPanel>
-          <FadeInPanel index={8} className="panel-slot panel-slot-chat">
-            <ChatPanel messages={chat} onSendMessage={sendChatMessage} />
-          </FadeInPanel>
+          <section className="right-stack">
+            <FadeInPanel index={3} className="panel-slot panel-slot-weather">
+              <WeatherPanel state={weather} onRetry={() => void refreshAll()} compact={focusMode} />
+            </FadeInPanel>
+            <FadeInPanel index={5} className="panel-slot panel-slot-now-playing">
+              <NowPlayingPanel nowPlaying={nowPlaying} compact={focusMode} />
+            </FadeInPanel>
+            <FadeInPanel index={8} className="panel-slot panel-slot-chat">
+              <ChatPanel messages={chat} onSendMessage={sendChatMessage} />
+            </FadeInPanel>
+          </section>
         </section>
-      </section>
+      </div>
 
       <AmbientDock
         onRefresh={() => void refreshAll()}

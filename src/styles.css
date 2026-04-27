@@ -121,6 +121,12 @@ select:focus {
   overflow: hidden;
 }
 
+.dashboard-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
 .main-grid,
 .tools-rail,
 .market-panel,
@@ -336,8 +342,9 @@ select:focus {
 }
 
 .olympus-header {
+  flex-shrink: 0;
   padding: clamp(28px, 6vh, 64px) 48px clamp(24px, 4.5vh, 48px);
-  min-height: clamp(160px, 27vh, 252px);
+  min-height: clamp(168px, 29vh, 272px);
   overflow: hidden;
 }
 
@@ -346,8 +353,9 @@ select:focus {
   display: flex;
   align-items: center;
   justify-content: center;
-  height: clamp(92px, 16vh, 140px);
+  height: clamp(108px, 18vh, 160px);
   width: 100%;
+  overflow: hidden;
 }
 
 .olympus-sigil-backdrop {
@@ -359,16 +367,13 @@ select:focus {
   z-index: 0;
 }
 
-.olympus-sigil-core {
-  position: relative;
-  width: clamp(132px, min(16vw, 22vh), 220px);
-  aspect-ratio: 1 / 1;
-}
-
 .olympus-sigil-backdrop-svg {
   display: block;
-  width: 100%;
-  height: 100%;
+  width: min(260px, 18vw, calc(100% - 8px), calc(100vh * 0.28));
+  height: auto;
+  max-width: calc(100% - 8px);
+  max-height: calc(100% - 8px);
+  overflow: visible;
 }
 
 .olympus-wordmark,
@@ -377,21 +382,8 @@ select:focus {
 }
 
 .olympus-sigil-backdrop .olympus-ring-outer {
-  transform-origin: 110px 110px;
+  transform-origin: 130px 130px;
   animation: slow-rotate 60s linear infinite;
-}
-
-.olympus-sigil-watermark {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  color: #d97706;
-  font-family: var(--font-display);
-  font-size: clamp(112px, min(13.5vw, 18vh), 184px);
-  font-weight: 500;
-  line-height: 1;
-  opacity: 0.26;
 }
 
 .olympus-wordmark {
@@ -401,8 +393,9 @@ select:focus {
   color: var(--primary);
   font-size: clamp(38px, min(4.8vw, 7.6vh), 60px);
   font-weight: var(--weight-medium);
-  letter-spacing: clamp(0.1em, 0.18em, 0.18em);
+  letter-spacing: 0.18em;
   line-height: 1;
+  white-space: nowrap;
 }
 
 .settings-panel,
@@ -525,7 +518,7 @@ small {
   grid-template-columns: 220px minmax(520px, 1fr) 340px;
   gap: var(--space-16);
   align-items: stretch;
-  flex: 1 1 auto;
+  height: 100%;
   min-height: 0;
   overflow: hidden;
 }
@@ -2285,10 +2278,6 @@ small {
   .olympus-wordmark {
     font-size: 44px;
   }
-
-  .olympus-sigil-core {
-    width: 160px;
-  }
 }
 
 @media (max-height: 820px) {
@@ -2300,20 +2289,11 @@ small {
   .olympus-header {
     padding-top: 24px;
     padding-bottom: 20px;
-    min-height: 148px;
+    min-height: 156px;
   }
 
   .olympus-emblem-stack {
-    height: 88px;
-  }
-
-  .olympus-sigil-core {
-    width: min(148px, 20vh);
-  }
-
-  .olympus-sigil-watermark {
-    font-size: min(126px, 16.5vh);
-    opacity: 0.28;
+    height: 104px;
   }
 
   .olympus-wordmark {
