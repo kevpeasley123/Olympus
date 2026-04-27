@@ -335,48 +335,52 @@ select:focus {
   border-radius: 8px;
 }
 
-.topbar-olympus {
-  align-items: center;
+.olympus-header {
+  padding: 64px 48px 48px;
+  min-height: 252px;
 }
 
-.olympus-brand-block {
+.olympus-emblem-stack {
   position: relative;
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: center;
-  gap: 24px;
-  min-width: 0;
+  height: 140px;
 }
 
-.olympus-sigil-shell {
-  flex: 0 0 auto;
+.olympus-sigil-backdrop {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 0;
 }
 
-.olympus-sigil {
+.olympus-sigil-backdrop-svg {
   display: block;
 }
 
-.olympus-sigil-glyph,
+.olympus-wordmark,
+.olympus-sigil-backdrop text,
+.olympus-sigil-backdrop-svg text,
 .olympus-wordmark {
   font-family: var(--font-display);
 }
 
-.olympus-sigil:hover .olympus-sigil-glyph {
-  fill: var(--primary);
-  transition: fill 300ms ease;
-}
-
-.olympus-sigil:hover .olympus-sigil-ring.outer {
-  transform-origin: center;
-  animation: sigil-spin 8s linear infinite;
+.olympus-sigil-backdrop .olympus-ring-outer {
+  transform-origin: 110px 110px;
+  animation: slow-rotate 60s linear infinite;
 }
 
 .olympus-wordmark {
+  position: relative;
+  z-index: 1;
   margin: 0;
   color: var(--primary);
-  font-size: 56px;
+  font-size: 60px;
   font-weight: var(--weight-medium);
-  letter-spacing: 0.14em;
+  letter-spacing: 0.18em;
   line-height: 1;
 }
 
@@ -2179,6 +2183,15 @@ small {
   }
 }
 
+@keyframes slow-rotate {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 @keyframes refresh-tick {
   from {
     transform: rotate(0deg);
@@ -2243,7 +2256,18 @@ small {
   }
 
   .olympus-wordmark {
-    font-size: 48px;
+    font-size: 52px;
+  }
+}
+
+@media (max-width: 900px) {
+  .olympus-wordmark {
+    font-size: 44px;
+  }
+
+  .olympus-sigil-backdrop-svg {
+    width: 160px;
+    height: 160px;
   }
 }
 
