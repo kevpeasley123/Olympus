@@ -11,24 +11,24 @@ export function HeaderBar() {
           transition={{ duration: 0.7, delay: 0.2, ease: "easeOut" }}
           aria-hidden="true"
         >
-          <svg width="260" height="260" viewBox="0 0 260 260" fill="none" className="olympus-sigil-backdrop-svg">
+          <svg width="280" height="280" viewBox="0 0 280 280" fill="none" className="olympus-sigil-backdrop-svg">
             <circle
-              cx="130"
-              cy="130"
-              r="125"
+              cx="140"
+              cy="140"
+              r="135"
               stroke="#d97706"
               strokeWidth="0.6"
               opacity="0.25"
               className="olympus-ring-outer"
             />
-            <circle cx="130" cy="130" r="108" stroke="#d97706" strokeWidth="0.5" opacity="0.3" />
-            <circle cx="130" cy="130" r="90" stroke="#d97706" strokeWidth="0.5" opacity="0.35" />
+            <circle cx="140" cy="140" r="116" stroke="#d97706" strokeWidth="0.5" opacity="0.3" />
+            <circle cx="140" cy="140" r="97" stroke="#d97706" strokeWidth="0.5" opacity="0.35" />
             <text
-              x="130"
-              y="178"
+              x="140"
+              y="192"
               textAnchor="middle"
               fontFamily="'Cinzel', 'Times New Roman', serif"
-              fontSize="170"
+              fontSize="180"
               fontWeight="500"
               fill="#d97706"
               opacity="0.32"

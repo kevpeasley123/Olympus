@@ -343,8 +343,8 @@ select:focus {
 
 .olympus-header {
   flex-shrink: 0;
-  padding: clamp(28px, 6vh, 64px) 48px clamp(24px, 4.5vh, 48px);
-  min-height: clamp(168px, 29vh, 272px);
+  padding: 48px 48px 56px;
+  min-height: 384px;
   overflow: hidden;
 }
 
@@ -353,7 +353,7 @@ select:focus {
   display: flex;
   align-items: center;
   justify-content: center;
-  height: clamp(108px, 18vh, 160px);
+  height: 280px;
   width: 100%;
   overflow: hidden;
 }
@@ -369,10 +369,10 @@ select:focus {
 
 .olympus-sigil-backdrop-svg {
   display: block;
-  width: min(260px, 18vw, calc(100% - 8px), calc(100vh * 0.28));
-  height: auto;
-  max-width: calc(100% - 8px);
-  max-height: calc(100% - 8px);
+  width: 280px;
+  height: 280px;
+  max-width: 100%;
+  max-height: 100%;
   overflow: visible;
 }
 
@@ -382,7 +382,7 @@ select:focus {
 }
 
 .olympus-sigil-backdrop .olympus-ring-outer {
-  transform-origin: 130px 130px;
+  transform-origin: 140px 140px;
   animation: slow-rotate 60s linear infinite;
 }
 
@@ -391,7 +391,7 @@ select:focus {
   z-index: 1;
   margin: 0;
   color: var(--primary);
-  font-size: clamp(38px, min(4.8vw, 7.6vh), 60px);
+  font-size: 60px;
   font-weight: var(--weight-medium);
   letter-spacing: 0.18em;
   line-height: 1;
@@ -534,6 +534,10 @@ small {
 
 .panel-slot {
   min-height: 0;
+}
+
+.panel-slot-header {
+  flex: 0 0 auto;
 }
 
 .center-stack > .panel-slot-markets {
@@ -2280,27 +2284,6 @@ small {
   }
 }
 
-@media (max-height: 820px) {
-  .app-shell {
-    gap: var(--space-12);
-    padding-bottom: 48px;
-  }
-
-  .olympus-header {
-    padding-top: 24px;
-    padding-bottom: 20px;
-    min-height: 156px;
-  }
-
-  .olympus-emblem-stack {
-    height: 104px;
-  }
-
-  .olympus-wordmark {
-    font-size: min(46px, 6.6vh);
-    letter-spacing: 0.14em;
-  }
-}
 
 @media (max-width: 1560px) {
   .market-groups {
