@@ -363,7 +363,7 @@ select:focus {
   position: absolute;
   left: 50%;
   top: 50%;
-  transform: translate(-50%, -50%);
+  translate: -50% -50%;
   pointer-events: none;
   z-index: 0;
   transform-style: preserve-3d;
@@ -403,7 +403,10 @@ select:focus {
 }
 
 .olympus-wordmark {
-  position: relative;
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  translate: -50% -50%;
   z-index: 1;
   margin: 0;
   color: var(--primary);
@@ -412,6 +415,7 @@ select:focus {
   letter-spacing: 0.18em;
   line-height: 1;
   white-space: nowrap;
+  text-align: center;
 }
 
 .settings-panel,
