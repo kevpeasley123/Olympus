@@ -13,16 +13,35 @@ export function HeaderBar() {
         >
           <svg width="280" height="280" viewBox="0 0 280 280" fill="none" className="olympus-sigil-backdrop-svg">
             <circle
+              className="ring-outer"
               cx="140"
               cy="140"
               r="135"
               stroke="#d97706"
-              strokeWidth="0.6"
-              opacity="0.25"
-              className="olympus-ring-outer"
+              strokeWidth="0.8"
+              opacity="0.4"
+              fill="none"
             />
-            <circle cx="140" cy="140" r="116" stroke="#d97706" strokeWidth="0.5" opacity="0.3" />
-            <circle cx="140" cy="140" r="97" stroke="#d97706" strokeWidth="0.5" opacity="0.35" />
+            <circle
+              className="ring-middle"
+              cx="140"
+              cy="140"
+              r="116"
+              stroke="#d97706"
+              strokeWidth="0.6"
+              opacity="0.45"
+              fill="none"
+            />
+            <circle
+              className="ring-inner"
+              cx="140"
+              cy="140"
+              r="97"
+              stroke="#d97706"
+              strokeWidth="0.6"
+              opacity="0.5"
+              fill="none"
+            />
             <text
               x="140"
               y="192"

@@ -356,15 +356,17 @@ select:focus {
   height: 280px;
   width: 100%;
   overflow: hidden;
+  perspective: 1200px;
 }
 
 .olympus-sigil-backdrop {
   position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
   pointer-events: none;
   z-index: 0;
+  transform-style: preserve-3d;
 }
 
 .olympus-sigil-backdrop-svg {
@@ -381,9 +383,25 @@ select:focus {
   font-family: var(--font-display);
 }
 
-.olympus-sigil-backdrop .olympus-ring-outer {
+.ring-outer,
+.ring-middle,
+.ring-inner {
   transform-origin: 140px 140px;
-  animation: slow-rotate 60s linear infinite;
+  transform-box: fill-box;
+}
+
+.ring-outer {
+  animation: tilt-x 12s ease-in-out infinite;
+}
+
+.ring-middle {
+  animation: tilt-x 9s ease-in-out infinite;
+  animation-delay: -3s;
+}
+
+.ring-inner {
+  animation: tilt-x 7s ease-in-out infinite;
+  animation-delay: -1.5s;
 }
 
 .olympus-wordmark {
@@ -2210,6 +2228,18 @@ small {
   }
 }
 
+@keyframes tilt-x {
+  0% {
+    transform: rotateX(0deg);
+  }
+  50% {
+    transform: rotateX(180deg);
+  }
+  100% {
+    transform: rotateX(360deg);
+  }
+}
+
 @keyframes refresh-tick {
   from {
     transform: rotate(0deg);
@@ -2288,6 +2318,14 @@ small {
 @media (max-width: 1560px) {
   .market-groups {
     grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ring-outer,
+  .ring-middle,
+  .ring-inner {
+    animation: none;
   }
 }
 
