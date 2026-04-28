@@ -6,7 +6,6 @@ import { ChatPanel } from "./components/panels/ChatPanel";
 import { HeaderBar } from "./components/panels/HeaderBar";
 import { LibraryPanel } from "./components/panels/LibraryPanel";
 import { MarketsPanel } from "./components/panels/MarketsPanel";
-import { NowPlayingPanel } from "./components/panels/NowPlayingPanel";
 import { ProjectsPanel } from "./components/panels/ProjectsPanel";
 import { QuickbarPanel } from "./components/panels/QuickbarPanel";
 import { ToolBelt } from "./components/panels/ToolBelt";
@@ -22,7 +21,6 @@ function App() {
     projects,
     library,
     chat,
-    nowPlaying,
     markets,
     weather,
     sourceHealth,
@@ -82,9 +80,6 @@ function App() {
           <section className="right-stack">
             <FadeInPanel index={3} className="panel-slot panel-slot-weather">
               <WeatherPanel state={weather} onRetry={() => void refreshAll()} compact={focusMode} />
-            </FadeInPanel>
-            <FadeInPanel index={5} className="panel-slot panel-slot-now-playing">
-              <NowPlayingPanel nowPlaying={nowPlaying} compact={focusMode} />
             </FadeInPanel>
             <FadeInPanel index={8} className="panel-slot panel-slot-chat">
               <ChatPanel messages={chat} onSendMessage={sendChatMessage} />

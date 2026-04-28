@@ -560,6 +560,21 @@ small {
   flex: 0 0 auto;
 }
 
+.right-stack > .panel-slot-weather {
+  flex: 0 0 auto;
+}
+
+.right-stack > .panel-slot-chat {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.right-stack > .panel-slot-chat > * {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
 .center-stack > .panel-slot-markets {
   flex: 0 0 auto;
   overflow: visible;
