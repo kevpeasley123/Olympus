@@ -26,7 +26,7 @@ export function ProjectsPanel({ projects, onSyncCanvas, focusMode = false }: Pro
         <div className="panel-header compact projects-header-row">
           <p className="projects-title">Projects</p>
           <button className="ghost-action" onClick={() => void handleSyncCanvas()} disabled={syncing}>
-            {syncing ? "Syncing..." : "Sync Canvas"}
+            {syncing ? "Updating..." : "Update Canvas"}
           </button>
         </div>
         {status && <p className={`section-copy action-feedback ${status.tone}`}>{status.message}</p>}
