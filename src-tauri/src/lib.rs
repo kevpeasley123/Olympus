@@ -7,6 +7,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use commands::markets::fetch_market_quotes;
+use commands::pantheon::fetch_pantheon_entries;
 use commands::projects::scan_tracked_projects;
 use commands::tasks::fetch_action_queue;
 use commands::weather::fetch_weather;
@@ -169,7 +170,8 @@ pub fn run() {
             fetch_market_quotes,
             scan_tracked_projects,
             fetch_weather,
-            fetch_action_queue
+            fetch_action_queue,
+            fetch_pantheon_entries
         ])
         .run(tauri::generate_context!())
         .expect("error while running Project Olympus");
