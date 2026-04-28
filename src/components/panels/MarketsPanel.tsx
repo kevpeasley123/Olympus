@@ -10,69 +10,140 @@ interface MarketsPanelProps {
   compact?: boolean;
 }
 
+const MINUS = "−";
+
+function normalizeDelta(change: string): string {
+  return change.replace(/^-/, MINUS);
+}
+
+interface MetricCellProps {
+  label: string;
+  value: string;
+  delta: string;
+  deltaPositive?: boolean;
+  deltaNegative?: boolean;
+}
+
+function MetricCell({ label, value, delta, deltaPositive, deltaNegative }: MetricCellProps) {
+  const deltaColor = deltaPositive
+    ? "var(--positive)"
+    : deltaNegative
+      ? "var(--negative)"
+      : "var(--muted)";
+
+  return (
+    <div className="metric-cell">
+      <div className="metric-cell-label">{label}</div>
+      <div className="metric-cell-row">
+        <div className="metric-cell-value">{value}</div>
+        <div className="metric-cell-delta" style={{ color: deltaColor }}>
+          {delta}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MarketCells({ items }: { items: Array<MarketIndex | MarketRate> }) {
+  return (
+    <>
+      {items.map((item) => (
+        <MetricCell
+          key={item.id}
+          label={item.label}
+          value={item.value}
+          delta={normalizeDelta(item.change)}
+          deltaPositive={item.direction === "up"}
+          deltaNegative={item.direction === "down"}
+        />
+      ))}
+    </>
+  );
+}
+
 export function MarketsPanel({ state, onRetry, compact = false }: MarketsPanelProps) {
   const [expanded, setExpanded] = useState(false);
   const panelError = state.data?.overallError ?? state.error;
+  const indexes = state.data?.indexes ?? [];
+  const rates = state.data?.rates ?? [];
+  const indexWarning = state.data?.indexWarning;
+  const rateWarning = state.data?.rateWarning;
 
   return (
-    <section className={`dashboard-panel market-panel ${compact ? "compact-market" : ""}`}>
-      <div className="market-strip-top">
-        <div className="market-strip-title">
-          <p className="eyebrow">Markets</p>
-        </div>
-        <div className="market-strip-actions">
-          {panelError ? (
-            <>
-              <div className="panel-meta panel-error-text" title={panelError}>
-                Failed to load: {panelError}
-              </div>
-              <button className="ghost-action retry-action" onClick={onRetry}>
-                Retry
-              </button>
-            </>
-          ) : (
-            <div className="panel-meta tabular-data">
-              Updated {state.data?.updatedAt ?? "--:--"}
-            </div>
-          )}
-        </div>
-      </div>
+    <section className={`dashboard-panel markets-panel ${compact ? "markets-panel--compact" : ""}`}>
+      <header className="markets-header">
+        <span className="markets-eyebrow">Markets</span>
+        {panelError ? (
+          <div className="markets-header-actions">
+            <span className="panel-error-text" title={panelError}>
+              Failed to load: {panelError}
+            </span>
+            <button className="ghost-action retry-action" onClick={onRetry}>
+              Retry
+            </button>
+          </div>
+        ) : (
+          <span className="markets-updated tabular-data">
+            Updated {state.data?.updatedAt ?? "--:--"}
+          </span>
+        )}
+      </header>
 
       {state.loading && !state.data ? (
-        <div className="market-groups market-strip-grid-loading">
-          <MarketMetricSkeletonGroup title="Indexes" count={3} />
-          <MarketMetricSkeletonGroup title="Rates" count={4} />
-        </div>
+        <>
+          <SkeletonGroup label="Indexes" count={3} variant="indexes" />
+          <div className="markets-divider" />
+          <SkeletonGroup label="Rates" count={4} variant="rates" />
+        </>
       ) : (
         <>
-          <div className="market-groups">
-            <MarketMetricGroup
-              title="Indexes"
-              items={state.data?.indexes ?? []}
-              warning={state.data?.indexWarning}
-              sectionClassName="indexes"
-            />
-            <MarketMetricGroup
-              title="Rates"
-              items={state.data?.rates ?? []}
-              warning={state.data?.rateWarning}
-              sectionClassName="rates"
-            />
+          <div className="markets-group">
+            <div className="markets-group-label">
+              <span>Indexes</span>
+              {indexWarning ? (
+                <span className="markets-group-warning" title={indexWarning}>
+                  <CircleHelp size={11} />
+                </span>
+              ) : null}
+            </div>
+            <div className="markets-grid markets-grid--indexes">
+              <MarketCells items={indexes} />
+            </div>
           </div>
+
+          <div className="markets-divider" />
+
+          <div className="markets-group">
+            <div className="markets-group-label">
+              <span>Rates</span>
+              {rateWarning ? (
+                <span className="markets-group-warning" title={rateWarning}>
+                  <CircleHelp size={11} />
+                </span>
+              ) : null}
+            </div>
+            <div className="markets-grid markets-grid--rates">
+              <MarketCells items={rates} />
+            </div>
+          </div>
+
           {!compact && state.data ? (
-            <button
-              className="market-news-toggle"
-              onClick={() => setExpanded((value) => !value)}
-              title={expanded ? "Hide market news" : "Show market news"}
-            >
-              <span>{expanded ? "Hide news" : "Show news"}</span>
-              <ChevronDown size={16} className={expanded ? "is-expanded" : ""} />
-            </button>
+            <footer className="markets-footer">
+              <button
+                className="markets-news-toggle"
+                onClick={() => setExpanded((value) => !value)}
+                title={expanded ? "Hide market news" : "Show market news"}
+              >
+                <span>{expanded ? "Hide news" : "Show news"}</span>
+                <ChevronDown size={14} className={expanded ? "is-expanded" : ""} />
+              </button>
+            </footer>
           ) : null}
-          <div className={expanded && !compact ? "market-detail is-expanded" : "market-detail"}>
-            <div className="market-news-section">
+
+          <div className={expanded && !compact ? "markets-detail is-expanded" : "markets-detail"}>
+            <div className="markets-news-section">
               <p className="subhead">News</p>
-              <div className="market-news-list">
+              <div className="markets-news-list">
                 {state.data?.news.map((item) => <MarketNewsRow key={item.id} item={item} />)}
               </div>
             </div>
@@ -83,63 +154,37 @@ export function MarketsPanel({ state, onRetry, compact = false }: MarketsPanelPr
   );
 }
 
-function MarketMetricGroup({
-  title,
-  items,
-  warning,
-  sectionClassName
+function SkeletonGroup({
+  label,
+  count,
+  variant
 }: {
-  title: string;
-  items: Array<MarketIndex | MarketRate>;
-  warning?: string | null;
-  sectionClassName: string;
+  label: string;
+  count: number;
+  variant: "indexes" | "rates";
 }) {
   return (
-    <section className={`market-metric-group ${sectionClassName}`}>
-      <div className="market-group-header">
-        <p className="subhead">{title}</p>
-        {warning ? (
-          <span className="market-metric-help" title={warning}>
-            <CircleHelp size={11} />
-          </span>
-        ) : null}
+    <div className="markets-group">
+      <div className="markets-group-label">
+        <span>{label}</span>
       </div>
-      <div className={`market-strip-grid ${sectionClassName}`}>
-        {items.map((item) => (
-          <div key={item.id} className="market-strip-metric">
-            <span className="market-strip-label">{item.label}</span>
-            <span className="market-strip-value tabular-data">{item.value}</span>
-            <span className={`market-strip-delta ${item.direction} tabular-data`}>{item.change}</span>
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function MarketMetricSkeletonGroup({ title, count }: { title: string; count: number }) {
-  return (
-    <section className="market-metric-group">
-      <div className="market-group-header">
-        <p className="subhead">{title}</p>
-      </div>
-      <div className="market-strip-grid">
+      <div className={`markets-grid markets-grid--${variant}`}>
         {Array.from({ length: count }).map((_, index) => (
-          <div key={`${title}-${index}`} className="market-strip-metric">
+          <div className="metric-cell" key={`${label}-${index}`}>
             <span className="skeleton-line skeleton-label"></span>
             <span className="skeleton-line skeleton-value"></span>
             <span className="skeleton-line skeleton-delta"></span>
           </div>
         ))}
       </div>
-    </section>
+    </div>
   );
 }
 
 function MarketNewsRow({ item }: { item: MarketNewsItem }) {
   return (
-    <article className="market-news-row">
-      <div className="market-news-head">
+    <article className="markets-news-row">
+      <div className="markets-news-head">
         <strong>{item.headline}</strong>
         <small>{item.source}</small>
       </div>

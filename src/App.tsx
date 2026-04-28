@@ -5,6 +5,7 @@ import { AmbientDock } from "./components/panels/AmbientDock";
 import { ChatPanel } from "./components/panels/ChatPanel";
 import { HeaderBar } from "./components/panels/HeaderBar";
 import { LibraryPanel } from "./components/panels/LibraryPanel";
+import { ActionQueuePanel } from "./components/panels/ActionQueuePanel";
 import { MarketsPanel } from "./components/panels/MarketsPanel";
 import { ProjectsPanel } from "./components/panels/ProjectsPanel";
 import { QuickbarPanel } from "./components/panels/QuickbarPanel";
@@ -62,6 +63,13 @@ function App() {
           </aside>
 
           <section className="center-stack dashboard-column">
+            <FadeInPanel index={1} className="panel-slot panel-slot-action-queue">
+              <ActionQueuePanel
+                projects={projects}
+                compact={focusMode}
+                onExitCompact={() => setFocusMode(false)}
+              />
+            </FadeInPanel>
             <FadeInPanel index={2} className="panel-slot panel-slot-markets">
               <MarketsPanel state={markets} onRetry={() => void refreshAll()} compact={focusMode} />
             </FadeInPanel>
