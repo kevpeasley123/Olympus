@@ -8,6 +8,7 @@ use std::process::Command;
 
 use commands::markets::fetch_market_quotes;
 use commands::projects::scan_tracked_projects;
+use commands::tasks::fetch_action_queue;
 use commands::weather::fetch_weather;
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
@@ -167,7 +168,8 @@ pub fn run() {
             restart_olympus,
             fetch_market_quotes,
             scan_tracked_projects,
-            fetch_weather
+            fetch_weather,
+            fetch_action_queue
         ])
         .run(tauri::generate_context!())
         .expect("error while running Project Olympus");
