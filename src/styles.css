@@ -115,15 +115,18 @@ select:focus {
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: var(--space-16);
   height: 100vh;
-  padding: var(--space-16) var(--space-16) 56px;
+  width: 100vw;
+  padding: 0 16px 24px;
   overflow: hidden;
 }
 
 .dashboard-body {
   flex: 1 1 auto;
   min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 0 0 12px;
   overflow: hidden;
 }
 
@@ -344,7 +347,7 @@ select:focus {
 .olympus-header {
   flex-shrink: 0;
   padding: 9px 48px 10px;
-  min-height: 219px;
+  min-height: 187px;
   overflow: hidden;
 }
 
@@ -535,19 +538,20 @@ small {
 
 .main-grid {
   display: grid;
-  grid-template-columns: 220px minmax(520px, 1fr) 340px;
+  grid-template-columns: 220px minmax(0, 1fr) 380px;
   gap: var(--space-16);
   align-items: stretch;
-  height: 100%;
+  flex: 1 1 auto;
   min-height: 0;
   overflow: hidden;
 }
 
+.dashboard-column,
 .center-stack,
 .right-stack {
   display: flex;
   flex-direction: column;
-  gap: var(--space-16);
+  gap: var(--space-12);
   min-height: 0;
   overflow: hidden;
 }
@@ -588,6 +592,7 @@ small {
   display: flex;
   flex-direction: column;
   min-height: 0;
+  overflow: hidden;
 }
 
 .center-stack > .panel-slot-projects {
@@ -602,6 +607,11 @@ small {
 }
 
 .center-stack > .panel-slot-library {
+  flex: 0 0 auto;
+}
+
+.tools-rail > .panel-slot-tools,
+.tools-rail > .panel-slot-quickbar {
   flex: 0 0 auto;
 }
 
@@ -925,8 +935,8 @@ small {
 
 .market-panel {
   flex: 0 0 auto;
-  padding-top: var(--space-12);
-  padding-bottom: var(--space-12);
+  padding-top: 8px;
+  padding-bottom: 8px;
 }
 
 .market-strip-top {
@@ -963,8 +973,8 @@ small {
 .market-groups {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
-  gap: var(--space-20);
-  margin-top: var(--space-8);
+  gap: 12px;
+  margin-top: 4px;
   align-items: start;
 }
 
@@ -976,7 +986,7 @@ small {
   display: inline-flex;
   align-items: center;
   gap: var(--space-8);
-  margin-bottom: var(--space-8);
+  margin-bottom: 4px;
 }
 
 .market-group-header .subhead {
@@ -985,8 +995,8 @@ small {
 
 .market-strip-grid {
   display: grid;
-  column-gap: var(--space-14);
-  row-gap: var(--space-12);
+  column-gap: 10px;
+  row-gap: 8px;
   align-items: start;
 }
 
@@ -1001,7 +1011,7 @@ small {
 .market-strip-metric {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: 2px;
   min-width: 0;
 }
 
@@ -1027,14 +1037,14 @@ small {
 
 .market-strip-value {
   color: var(--primary);
-  font-size: 18px;
+  font-size: 16px;
   font-weight: var(--weight-medium);
   line-height: 1.1;
   white-space: nowrap;
 }
 
 .market-strip-delta {
-  font-size: var(--text-sm);
+  font-size: 11px;
   font-weight: var(--weight-medium);
 }
 
@@ -1056,8 +1066,8 @@ small {
   justify-content: center;
   gap: var(--space-8);
   width: 100%;
-  margin-top: var(--space-12);
-  padding-top: var(--space-8);
+  margin-top: 8px;
+  padding-top: 4px;
   color: var(--muted);
   border: 0;
   border-top: 1px solid var(--divider);
@@ -1222,8 +1232,8 @@ small {
 
 .project-card {
   display: grid;
-  gap: var(--space-4);
-  padding: 14px var(--space-16);
+  gap: 2px;
+  padding: 10px 14px;
   border-bottom: 1px solid var(--divider);
   background: transparent;
 }
@@ -1236,7 +1246,7 @@ small {
   display: grid;
   grid-template-columns: 1fr auto;
   align-items: center;
-  gap: var(--space-12);
+  gap: var(--space-8);
 }
 
 .project-card-header strong {
@@ -1249,7 +1259,7 @@ small {
   display: grid;
   grid-auto-flow: column;
   align-items: center;
-  gap: var(--space-16);
+  gap: var(--space-12);
 }
 
 .project-branch {
@@ -1310,14 +1320,14 @@ small {
   gap: var(--space-4);
   min-width: 0;
   font-size: var(--text-sm);
-  line-height: 1.45;
+  line-height: 1.35;
 }
 
 .project-path {
-  margin-top: 6px;
+  margin-top: 2px;
   color: var(--label);
   font-size: var(--text-xs);
-  line-height: 1.4;
+  line-height: 1.3;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1331,7 +1341,7 @@ small {
 
 .project-next-line {
   color: #cbd5e1;
-  margin-top: 2px;
+  margin-top: 0;
 }
 
 .focus-mode .main-grid {
@@ -1395,8 +1405,11 @@ small {
 
 .pantheon-panel {
   display: flex;
+  flex: 0 0 auto;
   flex-direction: column;
   overflow: hidden;
+  padding-top: 10px;
+  padding-bottom: 10px;
 }
 
 .pantheon-title-block {
@@ -1901,8 +1914,8 @@ small {
 
 .weather-panel {
   flex: 0 0 auto;
-  padding-top: var(--space-16);
-  padding-bottom: var(--space-16);
+  padding-top: 14px;
+  padding-bottom: 14px;
 }
 
 .weather-top-row {
@@ -2135,6 +2148,7 @@ small {
   flex: 1 1 auto;
   flex-direction: column;
   min-height: 0;
+  overflow: hidden;
 }
 
 .conversation-thread {
@@ -2288,11 +2302,11 @@ small {
 
 @media (max-width: 1280px) {
   body {
-    min-width: 1020px;
+    min-width: 1280px;
   }
 
   .main-grid {
-    grid-template-columns: 208px minmax(440px, 1fr) 320px;
+    grid-template-columns: 220px minmax(0, 1fr) 380px;
   }
 
   .quickbar-grid {

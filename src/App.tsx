@@ -47,7 +47,7 @@ function App() {
 
       <div className="dashboard-body">
         <section className="main-grid">
-          <aside className="tools-rail panel-shell">
+          <aside className="tools-rail dashboard-column panel-shell">
             <FadeInPanel index={1} className="panel-slot panel-slot-tools">
               <div className="strip-header compact">
                 <div>
@@ -61,7 +61,7 @@ function App() {
             </FadeInPanel>
           </aside>
 
-          <section className="center-stack">
+          <section className="center-stack dashboard-column">
             <FadeInPanel index={2} className="panel-slot panel-slot-markets">
               <MarketsPanel state={markets} onRetry={() => void refreshAll()} compact={focusMode} />
             </FadeInPanel>
@@ -77,7 +77,7 @@ function App() {
             </FadeInPanel>
           </section>
 
-          <section className="right-stack">
+          <section className="right-stack dashboard-column">
             <FadeInPanel index={3} className="panel-slot panel-slot-weather">
               <WeatherPanel state={weather} onRetry={() => void refreshAll()} compact={focusMode} />
             </FadeInPanel>

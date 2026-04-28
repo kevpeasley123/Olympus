@@ -14,8 +14,8 @@
         "title": "Project Olympus",
         "width": 1440,
         "height": 960,
-        "minWidth": 1100,
-        "minHeight": 700,
+        "minWidth": 1280,
+        "minHeight": 800,
         "resizable": true,
         "fullscreen": false
       }
