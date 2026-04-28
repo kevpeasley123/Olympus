@@ -343,8 +343,8 @@ select:focus {
 
 .olympus-header {
   flex-shrink: 0;
-  padding: 18px 48px 20px;
-  min-height: 256px;
+  padding: 9px 48px 10px;
+  min-height: 219px;
   overflow: hidden;
 }
 
