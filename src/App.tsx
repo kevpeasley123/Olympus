@@ -20,7 +20,6 @@ function App() {
     tools,
     quickApps,
     projects,
-    library,
     chat,
     markets,
     weather,
@@ -77,7 +76,6 @@ function App() {
             </FadeInPanel>
             <FadeInPanel index={7} className="panel-slot panel-slot-library">
               <LibraryPanel
-                entries={library}
                 onAddResearch={addResearch}
                 onViewDatabase={syncResearchBase}
               />

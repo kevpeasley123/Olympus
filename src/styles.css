@@ -2439,6 +2439,266 @@ small {
   }
 }
 
+.pantheon-error {
+  margin: 0 0 var(--space-8);
+  font-size: 11px;
+  font-style: italic;
+  color: var(--muted);
+}
+
+/* Pantheon entry body — markdown rendering inside detail view */
+.pantheon-entry-body {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--secondary);
+  max-width: 720px;
+}
+
+.pantheon-entry-body h1,
+.pantheon-entry-body h2,
+.pantheon-entry-body h3 {
+  color: var(--primary);
+  font-weight: var(--weight-medium);
+  margin-top: 1.5em;
+  margin-bottom: 0.5em;
+  letter-spacing: -0.01em;
+}
+
+.pantheon-entry-body h1 {
+  font-size: 22px;
+}
+
+.pantheon-entry-body h2 {
+  font-size: 18px;
+}
+
+.pantheon-entry-body h3 {
+  font-size: 15px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+.pantheon-entry-body p {
+  margin: 0.8em 0;
+}
+
+.pantheon-entry-body ul,
+.pantheon-entry-body ol {
+  padding-left: 1.5em;
+  margin: 0.8em 0;
+}
+
+.pantheon-entry-body li {
+  margin: 0.3em 0;
+}
+
+.pantheon-entry-body code {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 1px 5px;
+  border-radius: 3px;
+  color: var(--primary);
+}
+
+.pantheon-entry-body pre {
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 6px;
+  padding: 12px 16px;
+  overflow-x: auto;
+  margin: 1em 0;
+}
+
+.pantheon-entry-body pre code {
+  background: transparent;
+  padding: 0;
+  color: var(--secondary);
+}
+
+.pantheon-entry-body blockquote {
+  border-left: 2px solid rgba(217, 119, 6, 0.4);
+  padding-left: 16px;
+  margin: 1em 0;
+  color: var(--muted);
+  font-style: italic;
+}
+
+.pantheon-entry-body blockquote strong:first-child {
+  display: block;
+  color: var(--accent);
+  font-weight: var(--weight-medium);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  font-style: normal;
+  margin-bottom: 4px;
+}
+
+.pantheon-entry-body a {
+  color: var(--accent);
+  text-decoration: none;
+  border-bottom: 1px solid rgba(217, 119, 6, 0.3);
+}
+
+.pantheon-entry-body a:hover {
+  border-bottom-color: var(--accent);
+}
+
+.pantheon-entry-body hr {
+  border: none;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  margin: 2em 0;
+}
+
+.pantheon-entry-body table {
+  border-collapse: collapse;
+  margin: 1em 0;
+  font-size: 13px;
+}
+
+.pantheon-entry-body th,
+.pantheon-entry-body td {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 6px 12px;
+  text-align: left;
+}
+
+.pantheon-entry-body th {
+  background: rgba(255, 255, 255, 0.03);
+  font-weight: var(--weight-medium);
+  color: var(--primary);
+}
+
+.pantheon-wikilink {
+  display: inline-block;
+  padding: 1px 6px;
+  background: rgba(217, 119, 6, 0.08);
+  border: 1px solid rgba(217, 119, 6, 0.2);
+  border-radius: 4px;
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+}
+
+/* Pantheon database modal (portaled to document.body) */
+.pantheon-modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1000;
+  background: rgba(10, 15, 26, 0.75);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: pantheon-modal-fade-in 200ms ease-out;
+}
+
+@keyframes pantheon-modal-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.pantheon-modal {
+  background: var(--panel-bg, #0d1626);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  width: 80vw;
+  max-width: 1200px;
+  height: 80vh;
+  max-height: 800px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6);
+  animation: pantheon-modal-scale-in 200ms ease-out;
+  overflow: hidden;
+}
+
+@keyframes pantheon-modal-scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.pantheon-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-16);
+  padding: 20px 28px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  flex-shrink: 0;
+}
+
+.pantheon-modal-title-group {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  min-width: 0;
+}
+
+.pantheon-modal-title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: var(--weight-medium);
+  color: var(--primary);
+}
+
+.pantheon-modal-meta {
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.pantheon-modal-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-8);
+  flex-shrink: 0;
+}
+
+.pantheon-modal-close {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 4px 8px;
+  margin-left: 4px;
+  transition: color 100ms ease;
+}
+
+.pantheon-modal-close:hover {
+  color: var(--primary);
+}
+
+.pantheon-modal-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  overflow: hidden;
+}
+
+.pantheon-modal-body > .pantheon-workspace {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+}
+
 /* ACTION QUEUE PANEL */
 .panel-eyebrow {
   font-size: 11px;

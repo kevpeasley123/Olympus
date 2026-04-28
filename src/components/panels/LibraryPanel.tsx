@@ -6,22 +6,26 @@ import {
   FilePlus2,
   Layers3,
   RotateCcw,
+  RotateCw,
   Search
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import ReactMarkdown from "react-markdown";
+import rehypeRaw from "rehype-raw";
 import remarkGfm from "remark-gfm";
+import { usePantheon, type PantheonEntry } from "../../hooks/usePantheon";
 import { restartDesktopApp } from "../../services/launcher";
 import {
   categoryDescription,
   categoryLabel,
+  normalizeResearchRecord,
   orderedCategories
 } from "../../services/pantheonAnalysis";
 import type { ObsidianActionResult } from "../../services/obsidian";
 import type { PantheonCategory, ResearchRecord } from "../../types";
 
 interface LibraryPanelProps {
-  entries: ResearchRecord[];
   onAddResearch: (
     title: string,
     text: string,
@@ -51,7 +55,8 @@ type AllEntriesSort = "date-desc" | "title-asc";
 const SECTION_STORAGE_PREFIX = "pantheon.sectionExpanded.";
 const SEARCH_DEBOUNCE_MS = 150;
 
-export function LibraryPanel({ entries, onAddResearch, onViewDatabase }: LibraryPanelProps) {
+export function LibraryPanel({ onAddResearch, onViewDatabase }: LibraryPanelProps) {
+  const { entries: pantheonEntries, loading, error, refresh: refreshPantheon } = usePantheon();
   const [composerOpen, setComposerOpen] = useState(false);
   const [databaseOpen, setDatabaseOpen] = useState(false);
   const [title, setTitle] = useState("");
@@ -78,9 +83,15 @@ export function LibraryPanel({ entries, onAddResearch, onViewDatabase }: Library
     buildCategoryRefRecord()
   );
 
-  const preparedEntries = useMemo(() => entries.map(prepareEntry), [entries]);
+  const preparedEntries = useMemo(
+    () => pantheonEntries.map(pantheonEntryToResearchRecord).map(prepareEntry),
+    [pantheonEntries]
+  );
   const pantheonSections = useMemo(() => buildSections(preparedEntries), [preparedEntries]);
-  const entryLabel = useMemo(() => buildEntryLabel(preparedEntries), [preparedEntries]);
+  const entryLabel = useMemo(() => {
+    if (loading && pantheonEntries.length === 0) return "Loading entries...";
+    return buildEntryLabel(preparedEntries);
+  }, [loading, pantheonEntries.length, preparedEntries]);
   const selectedEntry = useMemo(
     () => preparedEntries.find((entry) => entry.id === detailEntryId) ?? null,
     [detailEntryId, preparedEntries]
@@ -101,10 +112,15 @@ export function LibraryPanel({ entries, onAddResearch, onViewDatabase }: Library
         searchInputRef.current?.select();
       }
 
-      if (event.key === "Escape" && searchDraft) {
+      if (event.key === "Escape") {
         event.preventDefault();
-        setSearchDraft("");
-        setSearchQuery("");
+        if (searchDraft) {
+          setSearchDraft("");
+          setSearchQuery("");
+        } else {
+          setDatabaseOpen(false);
+          setDetailEntryId(null);
+        }
       }
     }
 
@@ -204,17 +220,26 @@ export function LibraryPanel({ entries, onAddResearch, onViewDatabase }: Library
   }
 
   async function handleViewDatabase() {
-    if (databaseOpen) {
-      setDatabaseOpen(false);
-      setDetailEntryId(null);
-      return;
-    }
-
     setBusyAction("view");
     const result = await onViewDatabase();
     setStatus(result);
     setBusyAction(null);
     setDatabaseOpen(true);
+  }
+
+  function handleCloseDatabase() {
+    setDatabaseOpen(false);
+    setDetailEntryId(null);
+  }
+
+  function handleAddEntryFromModal() {
+    handleCloseDatabase();
+    if (!composerOpen) {
+      console.warn(
+        "[pantheon] Add Entry currently writes to localStorage; will be migrated to vault writes in Round Pantheon-B"
+      );
+      setComposerOpen(true);
+    }
   }
 
   async function handleRestartApp() {
@@ -264,61 +289,168 @@ export function LibraryPanel({ entries, onAddResearch, onViewDatabase }: Library
         : categoryLabel(selectedEntry?.category ?? activeCategory);
 
   return (
-    <section className="dashboard-panel research-panel pantheon-panel">
-      <div className="panel-header pantheon-header-bar">
-        <div className="pantheon-title-block">
-          <h2>Pantheon</h2>
-          <p className="section-copy research-count">{entryLabel}</p>
-        </div>
+    <>
+      <section className="dashboard-panel research-panel pantheon-panel">
+        <div className="panel-header pantheon-header-bar">
+          <div className="pantheon-title-block">
+            <h2>Pantheon</h2>
+            <p className="section-copy research-count">{entryLabel}</p>
+          </div>
 
-        {databaseOpen ? (
-          <label className="pantheon-search-shell">
-            <Search size={14} className="pantheon-search-icon" />
-            <input
-              ref={searchInputRef}
-              value={searchDraft}
-              onChange={(event) => setSearchDraft(event.target.value)}
-              placeholder="Search entries..."
-              className="pantheon-search-input"
-            />
-          </label>
-        ) : (
           <div className="pantheon-search-spacer" aria-hidden="true"></div>
-        )}
 
-        <div className="panel-actions">
-          <button
-            className={`ghost-action ${databaseOpen ? "is-active" : ""}`}
-            onClick={() => void handleViewDatabase()}
-            disabled={busyAction === "save" || busyAction === "restart"}
-          >
-            <Layers3 size={15} />
-            {busyAction === "view" ? "Refreshing..." : databaseOpen ? "Hide Database" : "View Database"}
-          </button>
-          <button
-            className={composerOpen ? "ghost-action is-active" : "ghost-action"}
-            onClick={() => setComposerOpen((value) => !value)}
-            disabled={busyAction === "view" || busyAction === "restart"}
-          >
-            <FilePlus2 size={15} />
-            {composerOpen ? "Close Entry" : "Add Entry"}
-          </button>
-          <button
-            className="ghost-action icon-only-action"
-            onClick={() => void handleRestartApp()}
-            disabled={busyAction !== null}
-            title="Restart Olympus desktop app"
-            aria-label="Restart Olympus desktop app"
-          >
-            <RotateCcw size={15} />
-          </button>
+          <div className="panel-actions">
+            <button
+              className="ghost-action"
+              onClick={() => void handleViewDatabase()}
+              disabled={busyAction === "save" || busyAction === "restart"}
+            >
+              <Layers3 size={15} />
+              {busyAction === "view" ? "Refreshing..." : "View Database"}
+            </button>
+            <button
+              className={composerOpen ? "ghost-action is-active" : "ghost-action"}
+              onClick={() => {
+                if (!composerOpen) {
+                  console.warn(
+                    "[pantheon] Add Entry currently writes to localStorage; will be migrated to vault writes in Round Pantheon-B"
+                  );
+                }
+                setComposerOpen((value) => !value);
+              }}
+              disabled={busyAction === "view" || busyAction === "restart"}
+            >
+              <FilePlus2 size={15} />
+              {composerOpen ? "Close Entry" : "Add Entry"}
+            </button>
+            <button
+              className="ghost-action icon-only-action"
+              onClick={() => void refreshPantheon()}
+              disabled={loading}
+              title="Refresh Pantheon entries from vault"
+              aria-label="Refresh Pantheon entries from vault"
+            >
+              <RotateCw size={15} />
+            </button>
+            <button
+              className="ghost-action icon-only-action"
+              onClick={() => void handleRestartApp()}
+              disabled={busyAction !== null}
+              title="Restart Olympus desktop app"
+              aria-label="Restart Olympus desktop app"
+            >
+              <RotateCcw size={15} />
+            </button>
+          </div>
         </div>
-      </div>
 
-      {status && <p className={`section-copy action-feedback ${status.tone}`}>{status.message}</p>}
+        {status && <p className={`section-copy action-feedback ${status.tone}`}>{status.message}</p>}
 
-      {databaseOpen && (
-        <div className="pantheon-workspace">
+        {error && <p className="pantheon-error">Couldn't read vault entries: {error}</p>}
+
+        {composerOpen && (
+          <div className="research-composer">
+            <div className="composer-grid">
+              <input
+                value={title}
+                onChange={(event) => setTitle(event.target.value)}
+                placeholder="Entry title"
+              />
+              <select
+                value={sourceType}
+                onChange={(event) => setSourceType(event.target.value as ResearchRecord["sourceType"])}
+              >
+                <option value="article">Article</option>
+                <option value="transcript">Transcript</option>
+                <option value="note">Note</option>
+                <option value="manual">Procedure</option>
+              </select>
+            </div>
+            <div className="composer-grid pantheon-meta-grid">
+              <div className="composer-field">
+                <span>Source date</span>
+                <input
+                  type="date"
+                  value={sourceDate}
+                  onChange={(event) => setSourceDate(event.target.value)}
+                />
+              </div>
+              <div className="composer-field">
+                <span>Why this matters</span>
+                <small>
+                  Pantheon keeps the original source date so you and future AI agents can reason
+                  about staleness.
+                </small>
+              </div>
+            </div>
+            <textarea
+              value={text}
+              onChange={(event) => setText(event.target.value)}
+              placeholder="Paste article text, transcript text, procedures, or important research notes"
+            />
+            <button className="primary-action" onClick={handleSubmit}>
+              {busyAction === "save" ? "Saving..." : "Save to Pantheon"}
+            </button>
+          </div>
+        )}
+      </section>
+
+      {databaseOpen &&
+        createPortal(
+          <div className="pantheon-modal-backdrop" onClick={handleCloseDatabase}>
+            <div
+              className="pantheon-modal"
+              role="dialog"
+              aria-label="Pantheon Database"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <header className="pantheon-modal-header">
+                <div className="pantheon-modal-title-group">
+                  <h2 className="pantheon-modal-title">Pantheon Database</h2>
+                  <span className="pantheon-modal-meta">{entryLabel}</span>
+                </div>
+                <div className="pantheon-modal-actions">
+                  <label className="pantheon-search-shell">
+                    <Search size={14} className="pantheon-search-icon" />
+                    <input
+                      ref={searchInputRef}
+                      value={searchDraft}
+                      onChange={(event) => setSearchDraft(event.target.value)}
+                      placeholder="Search entries..."
+                      className="pantheon-search-input"
+                    />
+                  </label>
+                  <button
+                    className="ghost-action icon-only-action"
+                    onClick={() => void refreshPantheon()}
+                    disabled={loading}
+                    title="Refresh Pantheon entries from vault"
+                    aria-label="Refresh Pantheon entries from vault"
+                  >
+                    <RotateCw size={15} />
+                  </button>
+                  <button
+                    className="ghost-action"
+                    onClick={handleAddEntryFromModal}
+                    disabled={busyAction === "view" || busyAction === "restart"}
+                  >
+                    <FilePlus2 size={14} />
+                    Add Entry
+                  </button>
+                  <button
+                    type="button"
+                    className="pantheon-modal-close"
+                    onClick={handleCloseDatabase}
+                    aria-label="Close Pantheon Database"
+                    title="Close (Esc)"
+                  >
+                    ×
+                  </button>
+                </div>
+              </header>
+
+              <div className="pantheon-modal-body">
+                <div className="pantheon-workspace">
           <aside className="pantheon-sidebar">
             <div className="pantheon-sidebar-scroll">
               <div className="pantheon-sidebar-group">
@@ -399,8 +531,13 @@ export function LibraryPanel({ entries, onAddResearch, onViewDatabase }: Library
                       </p>
                     </div>
 
-                    <div className="pantheon-detail-content">
-                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{selectedEntry.markdownBody}</ReactMarkdown>
+                    <div className="pantheon-entry-body">
+                      <ReactMarkdown
+                        remarkPlugins={[remarkGfm]}
+                        rehypePlugins={[rehypeRaw]}
+                      >
+                        {preprocessForRendering(selectedEntry.markdownBody)}
+                      </ReactMarkdown>
                     </div>
                   </motion.div>
                 ) : searchQuery ? (
@@ -521,55 +658,13 @@ export function LibraryPanel({ entries, onAddResearch, onViewDatabase }: Library
               </AnimatePresence>
             </div>
           </div>
-        </div>
-      )}
-
-      {composerOpen && (
-        <div className="research-composer">
-          <div className="composer-grid">
-            <input
-              value={title}
-              onChange={(event) => setTitle(event.target.value)}
-              placeholder="Entry title"
-            />
-            <select
-              value={sourceType}
-              onChange={(event) => setSourceType(event.target.value as ResearchRecord["sourceType"])}
-            >
-              <option value="article">Article</option>
-              <option value="transcript">Transcript</option>
-              <option value="note">Note</option>
-              <option value="manual">Procedure</option>
-            </select>
-          </div>
-          <div className="composer-grid pantheon-meta-grid">
-            <div className="composer-field">
-              <span>Source date</span>
-              <input
-                type="date"
-                value={sourceDate}
-                onChange={(event) => setSourceDate(event.target.value)}
-              />
+                </div>
+              </div>
             </div>
-            <div className="composer-field">
-              <span>Why this matters</span>
-              <small>
-                Pantheon keeps the original source date so you and future AI agents can reason
-                about staleness.
-              </small>
-            </div>
-          </div>
-          <textarea
-            value={text}
-            onChange={(event) => setText(event.target.value)}
-            placeholder="Paste article text, transcript text, procedures, or important research notes"
-          />
-          <button className="primary-action" onClick={handleSubmit}>
-            {busyAction === "save" ? "Saving..." : "Save to Pantheon"}
-          </button>
-        </div>
-      )}
-    </section>
+          </div>,
+          document.body
+        )}
+    </>
   );
 }
 
@@ -827,4 +922,63 @@ function entryTypeLabel(sourceType: ResearchRecord["sourceType"]): string {
     default:
       return sourceType.toUpperCase();
   }
+}
+
+function mapPantheonSourceType(input: string): ResearchRecord["sourceType"] {
+  switch (input.toLowerCase()) {
+    case "transcript":
+      return "transcript";
+    case "note":
+      return "note";
+    case "manual":
+    case "procedure":
+    case "playbook":
+      return "manual";
+    default:
+      return "article";
+  }
+}
+
+function pantheonEntryToResearchRecord(entry: PantheonEntry): ResearchRecord {
+  const sourceType = mapPantheonSourceType(entry.sourceType ?? entry.entryType);
+  const createdAt = entry.created ?? entry.fileModifiedAt.slice(0, 10);
+  const sourceDate = entry.sourceDate ?? createdAt;
+  const wordCount = entry.wordCount;
+
+  const baseRecord: ResearchRecord = {
+    id: entry.id,
+    title: entry.title,
+    sourceType,
+    createdAt,
+    sourceDate,
+    tags: entry.tags,
+    summary: "",
+    content: entry.body || entry.bodyPreview,
+    category: "general-reference",
+    categoryReason: "",
+    themes: [],
+    wordCount,
+    estReadMinutes: Math.max(1, Math.ceil(wordCount / 220)),
+    freshness: "recent"
+  };
+
+  return normalizeResearchRecord(baseRecord);
+}
+
+function preprocessObsidianCallouts(body: string): string {
+  return body.replace(
+    /^> \[!(\w+)\](?: (.*))?$/gm,
+    (_, type, title) => `> **${(title || String(type)).toUpperCase()}**\n>`
+  );
+}
+
+function preprocessWikilinks(body: string): string {
+  return body.replace(/\[\[([^\]]+)\]\]/g, (_, target) => {
+    const display = String(target).split("|").pop() ?? String(target);
+    return `<span class="pantheon-wikilink">${display}</span>`;
+  });
+}
+
+function preprocessForRendering(body: string): string {
+  return preprocessWikilinks(preprocessObsidianCallouts(body));
 }
