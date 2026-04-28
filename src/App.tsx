@@ -65,7 +65,6 @@ function App() {
           <section className="center-stack dashboard-column">
             <FadeInPanel index={1} className="panel-slot panel-slot-action-queue">
               <ActionQueuePanel
-                projects={projects}
                 compact={focusMode}
                 onExitCompact={() => setFocusMode(false)}
               />
