@@ -1,6 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { ResearchRecord, TrackedProject } from "../types";
-import { categoryLabel } from "./pantheonAnalysis";
+import type { TrackedProject } from "../types";
 
 type ActionTone = "success" | "warning" | "error";
 
@@ -16,78 +15,6 @@ interface WriteMemoryArtifactResult {
 
 function isTauriRuntime(): boolean {
   return typeof window !== "undefined" && ("__TAURI_INTERNALS__" in window || "__TAURI__" in window);
-}
-
-function sanitizeFileName(value: string): string {
-  return value
-    .replace(/[<>:"/\\|?*\u0000-\u001F]/g, "")
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, 80);
-}
-
-function yamlText(value: string): string {
-  return `"${value.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
-}
-
-function yamlBlockText(value: string): string {
-  const normalized = value.trim().replace(/\r\n/g, "\n");
-  if (!normalized) return '""';
-  const indented = normalized.split("\n").map((line) => `  ${line}`).join("\n");
-  return `|-\n${indented}`;
-}
-
-function projectNoteName(projectName: string): string {
-  return sanitizeFileName(projectName) || "Untitled Project";
-}
-
-function createResearchMarkdown(record: ResearchRecord): string {
-  const tags = Array.from(new Set(["olympus/research", `research/${record.sourceType}`, ...record.tags]));
-  const safeTitle = record.title.trim() || "Untitled Research Record";
-
-  return `---
-title: ${yamlText(safeTitle)}
-type: research
-source_type: ${yamlText(record.sourceType)}
-created: ${yamlText(record.createdAt)}
-source_date: ${yamlText(record.sourceDate)}
-category: ${yamlText(record.category)}
-freshness: ${yamlText(record.freshness)}
-origin: ${yamlText("Olympus Pantheon")}
-tags:
-${tags.map((tag) => `  - ${tag}`).join("\n")}
-aliases:
-  - ${yamlText(safeTitle)}
-summary: ${yamlBlockText(record.summary)}
-category_reason: ${yamlBlockText(record.categoryReason)}
----
-
-# ${safeTitle}
-
-> [!summary]
-> ${record.summary}
-
-> [!info]
-> Source date: ${record.sourceDate}
->
-> Category: ${categoryLabel(record.category)}
-
-## Related
-
-- [[Project Olympus]]
-- [[Skill Index]]
-
-## Pantheon Analysis
-
-- Category: ${categoryLabel(record.category)}
-- Why here: ${record.categoryReason}
-- Freshness: ${record.freshness}
-- Themes: ${record.themes.join(", ") || "none captured"}
-
-## Source Content
-
-${record.content}
-`;
 }
 
 function createResearchBase(): string {
@@ -256,28 +183,6 @@ async function writeArtifact(
   });
 }
 
-export async function syncResearchNoteToVault(
-  vaultPath: string,
-  record: ResearchRecord
-): Promise<ObsidianActionResult> {
-  if (!isTauriRuntime()) {
-    return {
-      tone: "warning",
-      message: "Research saved locally. Obsidian sync is available in the desktop app."
-    };
-  }
-
-  const safeTitle = sanitizeFileName(record.title) || "Untitled Research Record";
-  const fileName = `${record.createdAt} ${safeTitle}.md`;
-  const result = await writeArtifact(vaultPath, "02 - Research", fileName, createResearchMarkdown(record));
-
-  return {
-    tone: "success",
-    message: `Saved Obsidian note to 02 - Research/${fileName}`,
-    path: result.path
-  };
-}
-
 export async function syncResearchBaseToVault(vaultPath: string): Promise<ObsidianActionResult> {
   if (!isTauriRuntime()) {
     return {
@@ -313,8 +218,4 @@ export async function syncProjectsCanvasToVault(
     message: `Updated JSON Canvas at 00 - Dashboard/${fileName}`,
     path: result.path
   };
-}
-
-export function projectNoteLink(projectName: string): string {
-  return `[[${projectNoteName(projectName)}]]`;
 }

@@ -24,7 +24,6 @@ function App() {
     markets,
     weather,
     sourceHealth,
-    addResearch,
     sendChatMessage,
     syncResearchBase,
     syncProjectsCanvas,
@@ -75,10 +74,7 @@ function App() {
               <ProjectsPanel projects={projects} onSyncCanvas={syncProjectsCanvas} focusMode={focusMode} />
             </FadeInPanel>
             <FadeInPanel index={7} className="panel-slot panel-slot-library">
-              <LibraryPanel
-                onAddResearch={addResearch}
-                onViewDatabase={syncResearchBase}
-              />
+              <LibraryPanel onViewDatabase={syncResearchBase} />
             </FadeInPanel>
           </section>
 

@@ -1,21 +1,6 @@
 import type { OlympusState } from "../types";
-import { createResearchRecordFromText } from "../services/research";
 
 const today = new Date().toISOString().slice(0, 10);
-
-const marketStructureSeed = createResearchRecordFromText(
-  "Starter Note: Market Structure Lens",
-  "Use the research database to save ideas, articles, transcripts, and briefing notes that should remain available after the chat session ends.",
-  "note",
-  today
-);
-
-const mediaWorkflowSeed = createResearchRecordFromText(
-  "Starter Note: Media Workflow Stack",
-  "Store workflow experiments here so the tools section grows out of actual repeated needs instead of decorative ideas.",
-  "note",
-  today
-);
 
 export const seedState: OlympusState = {
   version: 7,
@@ -189,16 +174,6 @@ export const seedState: OlympusState = {
       repoState: "folder-only",
       summary: "Desktop project folder present but not yet wired into Git tracking.",
       nextStep: "Decide whether this becomes an active build and, if so, initialize the workspace conventions."
-    }
-  ],
-  research: [
-    {
-      ...marketStructureSeed,
-      id: "research-starter-market-structure"
-    },
-    {
-      ...mediaWorkflowSeed,
-      id: "research-starter-video-systems"
     }
   ],
   conversation: [

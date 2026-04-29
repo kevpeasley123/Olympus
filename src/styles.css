@@ -1453,16 +1453,6 @@ small {
   color: var(--negative);
 }
 
-.research-composer {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-12);
-  margin-top: var(--space-16);
-  padding: 14px;
-  border: 1px solid rgba(90, 216, 255, 0.14);
-  background: rgba(4, 16, 26, 0.72);
-}
-
 .pantheon-panel {
   display: flex;
   flex: 0 0 auto;
@@ -1928,32 +1918,6 @@ small {
 
 .pantheon-detail-content a {
   color: #9dd7ff;
-}
-
-.composer-grid {
-  display: grid;
-  grid-template-columns: 1.2fr 0.7fr;
-  gap: var(--space-12);
-}
-
-.pantheon-meta-grid {
-  grid-template-columns: 0.8fr 1.2fr;
-}
-
-.composer-field {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-8);
-}
-
-.composer-field span {
-  color: var(--muted);
-  font-size: var(--text-sm);
-}
-
-.composer-field small {
-  color: var(--muted);
-  line-height: 1.45;
 }
 
 .tag-row {
@@ -2444,6 +2408,330 @@ small {
   font-size: 11px;
   font-style: italic;
   color: var(--muted);
+}
+
+.composer-error {
+  background: rgba(248, 113, 113, 0.08);
+  border: 1px solid rgba(248, 113, 113, 0.2);
+  border-radius: 6px;
+  padding: 10px 14px;
+  margin-bottom: 16px;
+  font-size: 12px;
+  color: rgba(248, 113, 113, 0.9);
+}
+
+/* Add Entry modal — narrower than database modal, fits centered with form */
+.pantheon-modal--add-entry {
+  width: 640px;
+  max-width: 90vw;
+  height: auto;
+  max-height: 90vh;
+}
+
+.pantheon-modal-body--form {
+  padding: 24px 28px;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+.add-entry-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.form-field--body {
+  flex: 1;
+  min-height: 0;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.form-label {
+  font-size: 11px;
+  font-weight: var(--weight-medium);
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+
+.form-optional {
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 400;
+  color: var(--label);
+  margin-left: 6px;
+}
+
+.form-input {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  padding: 10px 12px;
+  color: var(--secondary);
+  font-size: 13px;
+  font-family: inherit;
+  transition: border-color 100ms ease, background 100ms ease;
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: rgba(217, 119, 6, 0.4);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.form-input::placeholder {
+  color: var(--label);
+}
+
+.form-textarea {
+  font-family: inherit;
+  resize: vertical;
+  min-height: 200px;
+  line-height: 1.5;
+}
+
+.form-helper {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.form-helper code {
+  font-family: var(--font-mono);
+  background: rgba(255, 255, 255, 0.04);
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-size: 0.9em;
+  color: var(--accent);
+}
+
+.pantheon-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 28px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  flex-shrink: 0;
+}
+
+.form-button {
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: var(--weight-medium);
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 100ms ease, color 100ms ease, border-color 100ms ease;
+  border: 1px solid transparent;
+}
+
+.form-button--ghost {
+  background: transparent;
+  color: var(--muted);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.form-button--ghost:hover:not(:disabled) {
+  color: var(--secondary);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.form-button--primary {
+  background: rgba(217, 119, 6, 0.85);
+  color: #0a0f1a;
+  border-color: rgba(217, 119, 6, 1);
+}
+
+.form-button--primary:hover:not(:disabled) {
+  background: rgba(217, 119, 6, 1);
+}
+
+.form-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Attachment section inside Add Entry modal */
+.attachment-dropzone {
+  display: block;
+  width: 100%;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px dashed rgba(255, 255, 255, 0.18);
+  border-radius: 8px;
+  padding: 16px;
+  color: var(--muted);
+  font-size: 12px;
+  font-family: inherit;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 100ms ease, color 100ms ease, background 100ms ease;
+}
+
+.attachment-dropzone:hover:not(:disabled),
+.attachment-dropzone:focus-visible:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--secondary);
+  background: rgba(217, 119, 6, 0.04);
+  outline: none;
+}
+
+.attachment-dropzone:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.attachment-staged-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+}
+
+.attachment-staged-name {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.attachment-staged-ext {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: var(--accent);
+  padding: 2px 6px;
+  border: 1px solid rgba(217, 119, 6, 0.32);
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.attachment-remove {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 6px;
+  transition: color 100ms ease;
+  flex-shrink: 0;
+}
+
+.attachment-remove:hover:not(:disabled) {
+  color: var(--primary);
+}
+
+.attachment-remove:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.attachment-error-text {
+  color: var(--negative);
+}
+
+.attachment-preview {
+  margin-top: 10px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+}
+
+.attachment-preview-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  font-size: 10px;
+  font-weight: var(--weight-medium);
+  letter-spacing: 0.16em;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+
+.attachment-insert-button {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 4px;
+  padding: 4px 10px;
+  color: var(--secondary);
+  font-size: 11px;
+  font-family: inherit;
+  letter-spacing: 0;
+  text-transform: none;
+  cursor: pointer;
+  transition: color 100ms ease, border-color 100ms ease, background 100ms ease;
+}
+
+.attachment-insert-button:hover:not(:disabled) {
+  color: var(--primary);
+  border-color: rgba(217, 119, 6, 0.4);
+  background: rgba(217, 119, 6, 0.06);
+}
+
+.attachment-insert-button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.attachment-preview-body {
+  padding: 12px;
+  max-height: 240px;
+  overflow: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+}
+
+.attachment-preview-body::-webkit-scrollbar {
+  width: 4px;
+}
+
+.attachment-preview-body::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+}
+
+.attachment-preview-status {
+  font-size: 12px;
+  color: var(--muted);
+  font-style: italic;
+}
+
+.attachment-preview-error {
+  color: var(--negative);
+}
+
+.attachment-preview-text {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--secondary);
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 /* Pantheon entry body — markdown rendering inside detail view */

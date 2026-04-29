@@ -4,14 +4,12 @@ import { fetchMarkets, fetchProjects, fetchWeather } from "../services/liveData"
 import { isTauriRuntime } from "../services/launcher";
 import {
   syncProjectsCanvasToVault,
-  syncResearchBaseToVault,
-  syncResearchNoteToVault
+  syncResearchBaseToVault
 } from "../services/obsidian";
 import { buildPantheonReply, createUserMessage } from "../services/pantheonChat";
-import { createResearchRecordFromText } from "../services/research";
-import { addResearchRecord, loadState, saveState } from "../services/storage";
+import { loadState, saveState } from "../services/storage";
 import type { LiveSourceHealth, LiveSourceStatus, LoadableState } from "../types/dashboard";
-import type { OlympusState, ResearchRecord } from "../types";
+import type { OlympusState } from "../types";
 import type { MarketPanelData } from "../types/markets";
 import type { WeatherPanelData } from "../types/weather";
 
@@ -275,42 +273,13 @@ export function useDashboardData() {
     };
   }, [refreshMarkets, refreshProjects, refreshWeather]);
 
-  const addResearch = useCallback(
-    async (
-      title: string,
-      text: string,
-      sourceType: ResearchRecord["sourceType"],
-      sourceDate: string
-    ) => {
-      if (!text.trim()) {
-        return {
-          tone: "warning" as const,
-          message: "Add some source text before saving research."
-        };
-      }
-
-      const record = createResearchRecordFromText(title, text, sourceType, sourceDate);
-      setDashboardState((current) => addResearchRecord(current, record));
-
-      try {
-        return await syncResearchNoteToVault(dashboardState.settings.vaultPath, record);
-      } catch (error) {
-        return {
-          tone: "error" as const,
-          message: `Research saved locally, but vault sync failed: ${errorMessage(error)}`
-        };
-      }
-    },
-    [dashboardState.settings.vaultPath]
-  );
-
   const sendChatMessage = useCallback((text: string) => {
     const trimmed = text.trim();
     if (!trimmed) return;
 
     setDashboardState((current) => {
       const user = createUserMessage(trimmed);
-      const assistant = buildPantheonReply(trimmed, current.research);
+      const assistant = buildPantheonReply(trimmed, []);
       return {
         ...current,
         conversation: [...current.conversation, user, assistant]
@@ -350,13 +319,11 @@ export function useDashboardData() {
       quickApps: dashboardState.quickApps,
       projects: dashboardState.projects,
       projectsError,
-      library: dashboardState.research,
       chat: dashboardState.conversation,
       nowPlaying: dashboardState.nowPlaying,
       markets,
       weather,
       sourceHealth: Object.values(sourceTrackers).map(deriveSourceHealth),
-      addResearch,
       sendChatMessage,
       syncResearchBase,
       syncProjectsCanvas,
@@ -368,7 +335,6 @@ export function useDashboardData() {
       markets,
       weather,
       sourceTrackers,
-      addResearch,
       sendChatMessage,
       syncResearchBase,
       syncProjectsCanvas,

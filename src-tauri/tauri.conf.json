@@ -5,6 +5,7 @@
   "identifier": "com.projectolympus.commandstation",
   "build": {
     "devUrl": "http://127.0.0.1:31420",
+    "beforeDevCommand": "npm run dev",
     "beforeBuildCommand": "npm run build",
     "frontendDist": "../dist"
   },

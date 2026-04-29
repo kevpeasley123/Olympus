@@ -1,10 +1,12 @@
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::time::SystemTime;
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use walkdir::WalkDir;
+
+use super::get_vault_path;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ActionQueueTask {
@@ -44,13 +46,6 @@ impl TaskSource {
             Self::Projects => "01 - Projects",
         }
     }
-}
-
-const VAULT_PATH: &str =
-    r"C:\Users\kevpe\OneDrive\Desktop\Projects\Obsidian vaults\Olympus Obsidian Vault";
-
-fn get_vault_path() -> PathBuf {
-    PathBuf::from(VAULT_PATH)
 }
 
 fn parse_task_line(line: &str) -> Option<(bool, String)> {

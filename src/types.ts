@@ -142,7 +142,6 @@ export interface OlympusState {
   weather: WeatherSnapshot;
   nowPlaying: NowPlayingSnapshot;
   projects: TrackedProject[];
-  research: ResearchRecord[];
   conversation: ConversationMessage[];
   settings: OlympusSettings;
 }

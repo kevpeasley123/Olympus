@@ -2,7 +2,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Local, Utc};
 use serde::{Deserialize, Serialize};
 use walkdir::WalkDir;
 
@@ -24,15 +24,11 @@ pub struct PantheonEntry {
     pub body: String,
 }
 
-const VAULT_PATH: &str =
-    r"C:\Users\kevpe\OneDrive\Desktop\Projects\Obsidian vaults\Olympus Obsidian Vault";
+use super::get_vault_path;
+
 const RESEARCH_FOLDER: &str = "02 - Research";
 const REQUIRED_TAG: &str = "olympus/research";
 const PREVIEW_CHAR_LIMIT: usize = 200;
-
-fn get_vault_path() -> PathBuf {
-    PathBuf::from(VAULT_PATH)
-}
 
 fn iso8601(time: SystemTime) -> String {
     let datetime: DateTime<Utc> = time.into();
@@ -245,6 +241,202 @@ pub fn fetch_pantheon_entries() -> Result<Vec<PantheonEntry>, String> {
     parse_pantheon_from_vault()
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WritePantheonEntryRequest {
+    pub title: String,
+    pub body: String,
+    pub source_type: Option<String>,
+    pub source_url: Option<String>,
+    pub source_date: Option<String>,
+    pub additional_tags: Vec<String>,
+    #[serde(default)]
+    pub attachments: Vec<String>,
+}
+
+fn sanitize_filename(title: &str) -> String {
+    let cleaned: String = title
+        .chars()
+        .map(|c| match c {
+            '/' | '\\' | ':' | '*' | '?' | '"' | '<' | '>' | '|' => '-',
+            _ => c,
+        })
+        .collect();
+    let trimmed = cleaned.trim();
+    if trimmed.chars().count() > 100 {
+        trimmed.chars().take(100).collect::<String>().trim().to_string()
+    } else {
+        trimmed.to_string()
+    }
+}
+
+fn ensure_unique_path(path: PathBuf) -> PathBuf {
+    if !path.exists() {
+        return path;
+    }
+    let stem = path
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("entry")
+        .to_string();
+    let ext = path
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("md")
+        .to_string();
+    let parent = path
+        .parent()
+        .map(|p| p.to_path_buf())
+        .unwrap_or_else(|| PathBuf::from("."));
+    for n in 2..100 {
+        let candidate = parent.join(format!("{} ({}).{}", stem, n, ext));
+        if !candidate.exists() {
+            return candidate;
+        }
+    }
+    let ts = Local::now().format("%H%M%S").to_string();
+    parent.join(format!("{} ({}).{}", stem, ts, ext))
+}
+
+fn escape_yaml_string(s: &str) -> String {
+    s.replace('\\', "\\\\").replace('"', "\\\"")
+}
+
+fn build_entry_content(
+    title: &str,
+    body: &str,
+    req: &WritePantheonEntryRequest,
+    today: &str,
+) -> String {
+    let mut tags: Vec<String> = vec!["olympus/research".to_string()];
+
+    if let Some(source_type) = &req.source_type {
+        let trimmed = source_type.trim();
+        if !trimmed.is_empty() {
+            let combined = format!("research/{}", trimmed);
+            if !tags.contains(&combined) {
+                tags.push(combined);
+            }
+        }
+    }
+
+    for tag in &req.additional_tags {
+        let trimmed = tag.trim();
+        if !trimmed.is_empty() && !tags.iter().any(|existing| existing == trimmed) {
+            tags.push(trimmed.to_string());
+        }
+    }
+
+    let mut frontmatter = String::new();
+    frontmatter.push_str("---\n");
+    frontmatter.push_str(&format!("title: \"{}\"\n", escape_yaml_string(title)));
+    frontmatter.push_str("type: research\n");
+
+    if let Some(source_type) = &req.source_type {
+        let trimmed = source_type.trim();
+        if !trimmed.is_empty() {
+            frontmatter.push_str(&format!(
+                "source_type: \"{}\"\n",
+                escape_yaml_string(trimmed)
+            ));
+        }
+    }
+
+    frontmatter.push_str(&format!("created: \"{}\"\n", today));
+
+    if let Some(source_date) = &req.source_date {
+        let trimmed = source_date.trim();
+        if !trimmed.is_empty() {
+            frontmatter.push_str(&format!(
+                "source_date: \"{}\"\n",
+                escape_yaml_string(trimmed)
+            ));
+        }
+    }
+
+    if let Some(source_url) = &req.source_url {
+        let trimmed = source_url.trim();
+        if !trimmed.is_empty() {
+            frontmatter.push_str(&format!(
+                "source_url: \"{}\"\n",
+                escape_yaml_string(trimmed)
+            ));
+        }
+    }
+
+    frontmatter.push_str("origin: \"Olympus dashboard\"\n");
+    frontmatter.push_str("tags:\n");
+    for tag in &tags {
+        frontmatter.push_str(&format!("  - {}\n", tag));
+    }
+
+    let cleaned_attachments: Vec<String> = req
+        .attachments
+        .iter()
+        .map(|a| a.trim().to_string())
+        .filter(|a| !a.is_empty())
+        .collect();
+
+    if !cleaned_attachments.is_empty() {
+        frontmatter.push_str("attachments:\n");
+        for attachment in &cleaned_attachments {
+            frontmatter.push_str(&format!(
+                "  - \"{}\"\n",
+                escape_yaml_string(attachment)
+            ));
+        }
+    }
+
+    frontmatter.push_str("---\n\n");
+
+    let mut full = format!("{}{}", frontmatter, body);
+    for attachment in &cleaned_attachments {
+        full.push_str(&format!("\n\n![[{}]]\n", attachment));
+    }
+    full
+}
+
+fn perform_write_pantheon_entry(req: WritePantheonEntryRequest) -> Result<String, String> {
+    let title = req.title.trim().to_string();
+    if title.is_empty() {
+        return Err("Title is required".to_string());
+    }
+
+    let body = req.body.trim().to_string();
+    if body.is_empty() {
+        return Err("Body content is required".to_string());
+    }
+
+    let today = Local::now().format("%Y-%m-%d").to_string();
+    let safe_title = sanitize_filename(&title);
+    let filename = format!("{} {}.md", today, safe_title);
+
+    let vault_path = get_vault_path();
+    let target_dir = vault_path.join(RESEARCH_FOLDER);
+    let target_path = target_dir.join(&filename);
+
+    fs::create_dir_all(&target_dir)
+        .map_err(|e| format!("Failed to ensure research directory exists: {}", e))?;
+
+    let final_path = ensure_unique_path(target_path);
+    let final_filename = final_path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or(&filename)
+        .to_string();
+
+    let content = build_entry_content(&title, &body, &req, &today);
+
+    fs::write(&final_path, content).map_err(|e| format!("Failed to write entry: {}", e))?;
+
+    Ok(format!("{}/{}", RESEARCH_FOLDER, final_filename))
+}
+
+#[tauri::command]
+pub fn write_pantheon_entry(req: WritePantheonEntryRequest) -> Result<String, String> {
+    perform_write_pantheon_entry(req)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -345,5 +537,150 @@ mod tests {
                 );
             }
         }
+    }
+
+    fn make_request(title: &str, body: &str) -> WritePantheonEntryRequest {
+        WritePantheonEntryRequest {
+            title: title.to_string(),
+            body: body.to_string(),
+            source_type: None,
+            source_url: None,
+            source_date: None,
+            additional_tags: Vec::new(),
+            attachments: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn test_sanitize_filename_replaces_unsafe_chars() {
+        let cases = [
+            ("foo/bar", "foo-bar"),
+            ("foo\\bar", "foo-bar"),
+            ("foo:bar", "foo-bar"),
+            ("foo*bar", "foo-bar"),
+            ("foo?bar", "foo-bar"),
+            ("foo\"bar", "foo-bar"),
+            ("foo<bar>baz", "foo-bar-baz"),
+            ("foo|bar", "foo-bar"),
+            ("normal title — ok", "normal title — ok"),
+        ];
+        for (input, expected) in cases {
+            assert_eq!(sanitize_filename(input), expected, "for input {:?}", input);
+        }
+    }
+
+    #[test]
+    fn test_sanitize_filename_truncates_long_titles() {
+        let long = "a".repeat(150);
+        let sanitized = sanitize_filename(&long);
+        assert_eq!(sanitized.chars().count(), 100);
+    }
+
+    #[test]
+    fn test_build_entry_content_includes_required_fields() {
+        let req = make_request("Test Title", "Some body content.");
+        let content = build_entry_content("Test Title", "Some body content.", &req, "2026-04-28");
+        assert!(content.starts_with("---\n"), "must start with frontmatter");
+        assert!(content.contains("title: \"Test Title\""), "must include title");
+        assert!(content.contains("type: research"), "must include type");
+        assert!(content.contains("created: \"2026-04-28\""), "must include created date");
+        assert!(content.contains("origin: \"Olympus dashboard\""), "must include origin");
+        assert!(content.contains("- olympus/research"), "must include olympus/research tag");
+        assert!(content.contains("Some body content."), "must include body");
+    }
+
+    #[test]
+    fn test_build_entry_content_includes_optional_fields_when_provided() {
+        let req = WritePantheonEntryRequest {
+            title: "Test".to_string(),
+            body: "body".to_string(),
+            source_type: Some("transcript".to_string()),
+            source_url: Some("https://example.com/talk".to_string()),
+            source_date: Some("2025-01-15".to_string()),
+            additional_tags: vec!["ai".to_string(), "talks".to_string()],
+            attachments: Vec::new(),
+        };
+        let content = build_entry_content("Test", "body", &req, "2026-04-28");
+        assert!(content.contains("source_type: \"transcript\""));
+        assert!(content.contains("source_url: \"https://example.com/talk\""));
+        assert!(content.contains("source_date: \"2025-01-15\""));
+        assert!(content.contains("- research/transcript"));
+        assert!(content.contains("- ai"));
+        assert!(content.contains("- talks"));
+    }
+
+    #[test]
+    fn test_build_entry_content_omits_optional_fields_when_empty() {
+        let req = WritePantheonEntryRequest {
+            title: "Test".to_string(),
+            body: "body".to_string(),
+            source_type: Some("".to_string()),
+            source_url: None,
+            source_date: Some("   ".to_string()),
+            additional_tags: vec!["".to_string(), "  ".to_string()],
+            attachments: Vec::new(),
+        };
+        let content = build_entry_content("Test", "body", &req, "2026-04-28");
+        assert!(!content.contains("source_type:"), "should not include empty source_type");
+        assert!(!content.contains("source_url:"), "should not include missing source_url");
+        assert!(!content.contains("source_date:"), "should not include whitespace source_date");
+        // No attachments → no frontmatter list, no wikilink in body
+        assert!(!content.contains("attachments:"));
+        assert!(!content.contains("![["));
+        let tag_lines: Vec<&str> = content.lines().filter(|l| l.trim_start().starts_with("- ")).collect();
+        assert_eq!(tag_lines, vec!["  - olympus/research"]);
+    }
+
+    #[test]
+    fn test_build_entry_content_includes_attachments_frontmatter_and_wikilink() {
+        let req = WritePantheonEntryRequest {
+            title: "With File".to_string(),
+            body: "User-typed body content.".to_string(),
+            source_type: Some("paper".to_string()),
+            source_url: None,
+            source_date: None,
+            additional_tags: Vec::new(),
+            attachments: vec!["_attachments/foo-bar.pdf".to_string()],
+        };
+        let content = build_entry_content("With File", "User-typed body content.", &req, "2026-04-28");
+        assert!(
+            content.contains("attachments:\n  - \"_attachments/foo-bar.pdf\""),
+            "frontmatter should include attachments list"
+        );
+        // Wikilink appears AFTER the body, on its own line, with blank line before
+        assert!(
+            content.contains("User-typed body content.\n\n![[_attachments/foo-bar.pdf]]\n"),
+            "wikilink should follow body separated by a blank line"
+        );
+    }
+
+    #[test]
+    fn test_build_entry_content_skips_blank_attachment_paths() {
+        let req = WritePantheonEntryRequest {
+            title: "T".to_string(),
+            body: "b".to_string(),
+            source_type: None,
+            source_url: None,
+            source_date: None,
+            additional_tags: Vec::new(),
+            attachments: vec!["".to_string(), "   ".to_string()],
+        };
+        let content = build_entry_content("T", "b", &req, "2026-04-28");
+        assert!(!content.contains("attachments:"));
+        assert!(!content.contains("![["));
+    }
+
+    #[test]
+    fn test_perform_write_rejects_empty_title() {
+        let req = make_request("   ", "valid body");
+        let result = perform_write_pantheon_entry(req);
+        assert!(matches!(result, Err(ref msg) if msg.contains("Title")));
+    }
+
+    #[test]
+    fn test_perform_write_rejects_empty_body() {
+        let req = make_request("Valid title", "  \n  ");
+        let result = perform_write_pantheon_entry(req);
+        assert!(matches!(result, Err(ref msg) if msg.contains("Body")));
     }
 }

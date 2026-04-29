@@ -1,6 +1,5 @@
 import { seedState } from "../data/seed";
-import { normalizeResearchRecord } from "../services/pantheonAnalysis";
-import type { OlympusState, ResearchRecord, ToolDefinition } from "../types";
+import type { OlympusState, ToolDefinition } from "../types";
 
 const STORAGE_KEY = "olympus:v8";
 const LEGACY_KEYS = [
@@ -22,19 +21,20 @@ export function loadState(): OlympusState {
   }
 
   try {
-    const parsed = JSON.parse(stored) as Partial<OlympusState>;
+    const parsed = JSON.parse(stored) as Partial<OlympusState> & { research?: unknown[] };
+
+    if (Array.isArray(parsed.research) && parsed.research.length > 0) {
+      console.warn(
+        "[pantheon] Found legacy research entries in localStorage. These are no longer used; the vault is now the source of truth. Migrate any custom entries by re-creating them via Add Entry."
+      );
+    }
+
     const merged: OlympusState = {
       ...seedState,
       ...parsed,
       tools: mergeById(seedState.tools, parsed.tools ?? []),
       quickApps: mergeKnownIds(seedState.quickApps, parsed.quickApps ?? []),
       projects: mergeById(seedState.projects, parsed.projects ?? []),
-      research: mergeById(seedState.research, parsed.research ?? []).map((record) =>
-        normalizeResearchRecord({
-          ...record,
-          sourceDate: record.sourceDate ?? record.createdAt
-        })
-      ),
       conversation: mergeById(seedState.conversation, parsed.conversation ?? []),
       market: parsed.market ? { ...seedState.market, ...parsed.market } : seedState.market,
       weather: parsed.weather ? { ...seedState.weather, ...parsed.weather } : seedState.weather,
@@ -89,13 +89,6 @@ export function resetState(): OlympusState {
   clearLegacyState();
   saveState(seedState);
   return seedState;
-}
-
-export function addResearchRecord(state: OlympusState, item: ResearchRecord): OlympusState {
-  return {
-    ...state,
-    research: [item, ...state.research]
-  };
 }
 
 export function updateToolEnabled(

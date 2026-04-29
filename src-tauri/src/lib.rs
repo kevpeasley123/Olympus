@@ -6,8 +6,11 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
+use commands::attachments::{
+    extract_pdf_text, pick_attachment_file, save_attachment_to_vault,
+};
 use commands::markets::fetch_market_quotes;
-use commands::pantheon::fetch_pantheon_entries;
+use commands::pantheon::{fetch_pantheon_entries, write_pantheon_entry};
 use commands::projects::scan_tracked_projects;
 use commands::tasks::fetch_action_queue;
 use commands::weather::fetch_weather;
@@ -171,7 +174,11 @@ pub fn run() {
             scan_tracked_projects,
             fetch_weather,
             fetch_action_queue,
-            fetch_pantheon_entries
+            fetch_pantheon_entries,
+            write_pantheon_entry,
+            pick_attachment_file,
+            extract_pdf_text,
+            save_attachment_to_vault
         ])
         .run(tauri::generate_context!())
         .expect("error while running Project Olympus");

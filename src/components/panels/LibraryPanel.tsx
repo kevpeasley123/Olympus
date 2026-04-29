@@ -1,3 +1,4 @@
+import { invoke } from "@tauri-apps/api/core";
 import matter from "gray-matter";
 import { AnimatePresence, motion } from "motion/react";
 import {
@@ -26,13 +27,34 @@ import type { ObsidianActionResult } from "../../services/obsidian";
 import type { PantheonCategory, ResearchRecord } from "../../types";
 
 interface LibraryPanelProps {
-  onAddResearch: (
-    title: string,
-    text: string,
-    sourceType: ResearchRecord["sourceType"],
-    sourceDate: string
-  ) => Promise<ObsidianActionResult>;
   onViewDatabase: () => Promise<ObsidianActionResult>;
+}
+
+interface WritePantheonEntryRequest {
+  title: string;
+  body: string;
+  sourceType?: string;
+  sourceUrl?: string;
+  sourceDate?: string;
+  additionalTags: string[];
+  attachments: string[];
+}
+
+interface StagedAttachment {
+  sourcePath: string;
+  originalFilename: string;
+  sizeBytes: number;
+  extension: string;
+}
+
+interface AddEntryFormData {
+  title: string;
+  body: string;
+  sourceType: string;
+  sourceUrl: string;
+  sourceDate: string;
+  tagsRaw: string;
+  attachment: StagedAttachment | null;
 }
 
 interface PreparedPantheonEntry extends ResearchRecord {
@@ -55,16 +77,14 @@ type AllEntriesSort = "date-desc" | "title-asc";
 const SECTION_STORAGE_PREFIX = "pantheon.sectionExpanded.";
 const SEARCH_DEBOUNCE_MS = 150;
 
-export function LibraryPanel({ onAddResearch, onViewDatabase }: LibraryPanelProps) {
+export function LibraryPanel({ onViewDatabase }: LibraryPanelProps) {
   const { entries: pantheonEntries, loading, error, refresh: refreshPantheon } = usePantheon();
-  const [composerOpen, setComposerOpen] = useState(false);
+  const [addEntryModalOpen, setAddEntryModalOpen] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [databaseOpen, setDatabaseOpen] = useState(false);
-  const [title, setTitle] = useState("");
-  const [text, setText] = useState("");
-  const [sourceDate, setSourceDate] = useState(() => new Date().toISOString().slice(0, 10));
-  const [sourceType, setSourceType] = useState<ResearchRecord["sourceType"]>("article");
+  const [formError, setFormError] = useState<string | null>(null);
   const [status, setStatus] = useState<ObsidianActionResult | null>(null);
-  const [busyAction, setBusyAction] = useState<"save" | "view" | "restart" | null>(null);
+  const [busyAction, setBusyAction] = useState<"view" | "restart" | null>(null);
   const [searchDraft, setSearchDraft] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [viewMode, setViewMode] = useState<PantheonViewMode>("grouped");
@@ -101,6 +121,19 @@ export function LibraryPanel({ onAddResearch, onViewDatabase }: LibraryPanelProp
     const timer = window.setTimeout(() => setSearchQuery(searchDraft.trim()), SEARCH_DEBOUNCE_MS);
     return () => window.clearTimeout(timer);
   }, [searchDraft]);
+
+  useEffect(() => {
+    if (!addEntryModalOpen) return;
+    function handleEsc(event: KeyboardEvent) {
+      if (event.key === "Escape" && !submitting) {
+        event.preventDefault();
+        setAddEntryModalOpen(false);
+        setFormError(null);
+      }
+    }
+    window.addEventListener("keydown", handleEsc);
+    return () => window.removeEventListener("keydown", handleEsc);
+  }, [addEntryModalOpen, submitting]);
 
   useEffect(() => {
     if (!databaseOpen) return;
@@ -203,20 +236,67 @@ export function LibraryPanel({ onAddResearch, onViewDatabase }: LibraryPanelProp
     return next.sort(compareEntriesByDateDesc);
   }, [allEntriesSort, preparedEntries]);
 
-  async function handleSubmit() {
-    setBusyAction("save");
-    const result = await onAddResearch(title, text, sourceType, sourceDate);
-    setStatus(result);
-    setBusyAction(null);
+  async function handleAddEntrySave(formData: AddEntryFormData) {
+    setFormError(null);
+    if (!formData.title.trim()) {
+      setFormError("Title is required.");
+      return;
+    }
+    if (!formData.body.trim()) {
+      setFormError("Body content is required.");
+      return;
+    }
 
-    if (result.tone === "error" || !text.trim()) return;
+    setSubmitting(true);
+    try {
+      let attachments: string[] = [];
+      if (formData.attachment) {
+        try {
+          const writtenAttachmentPath = await invoke<string>("save_attachment_to_vault", {
+            sourcePath: formData.attachment.sourcePath,
+            targetFilename: formData.attachment.originalFilename
+          });
+          attachments = [writtenAttachmentPath];
+        } catch (err) {
+          setFormError(`Failed to save attachment: ${err}`);
+          setSubmitting(false);
+          return;
+        }
+      }
 
-    setTitle("");
-    setText("");
-    setSourceDate(new Date().toISOString().slice(0, 10));
-    setSourceType("article");
-    setComposerOpen(false);
-    setDatabaseOpen(true);
+      const request: WritePantheonEntryRequest = {
+        title: formData.title.trim(),
+        body: formData.body.trim(),
+        sourceType: formData.sourceType.trim() || undefined,
+        sourceUrl: formData.sourceUrl.trim() || undefined,
+        sourceDate: formData.sourceDate.trim() || undefined,
+        additionalTags: parseTagsInput(formData.tagsRaw),
+        attachments
+      };
+      const writtenPath = await invoke<string>("write_pantheon_entry", { req: request });
+      setStatus({
+        tone: "success",
+        message: `Saved to ${writtenPath}`,
+        path: writtenPath
+      });
+      setAddEntryModalOpen(false);
+      void refreshPantheon();
+    } catch (err) {
+      setFormError(`Failed to save entry: ${err}`);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  function openAddEntryModal() {
+    setFormError(null);
+    setAddEntryModalOpen(true);
+  }
+
+  function closeAddEntryModal() {
+    if (submitting) return;
+    setAddEntryModalOpen(false);
+    setFormError(null);
   }
 
   async function handleViewDatabase() {
@@ -234,12 +314,7 @@ export function LibraryPanel({ onAddResearch, onViewDatabase }: LibraryPanelProp
 
   function handleAddEntryFromModal() {
     handleCloseDatabase();
-    if (!composerOpen) {
-      console.warn(
-        "[pantheon] Add Entry currently writes to localStorage; will be migrated to vault writes in Round Pantheon-B"
-      );
-      setComposerOpen(true);
-    }
+    openAddEntryModal();
   }
 
   async function handleRestartApp() {
@@ -303,25 +378,18 @@ export function LibraryPanel({ onAddResearch, onViewDatabase }: LibraryPanelProp
             <button
               className="ghost-action"
               onClick={() => void handleViewDatabase()}
-              disabled={busyAction === "save" || busyAction === "restart"}
+              disabled={submitting || busyAction === "restart"}
             >
               <Layers3 size={15} />
               {busyAction === "view" ? "Refreshing..." : "View Database"}
             </button>
             <button
-              className={composerOpen ? "ghost-action is-active" : "ghost-action"}
-              onClick={() => {
-                if (!composerOpen) {
-                  console.warn(
-                    "[pantheon] Add Entry currently writes to localStorage; will be migrated to vault writes in Round Pantheon-B"
-                  );
-                }
-                setComposerOpen((value) => !value);
-              }}
+              className="ghost-action"
+              onClick={openAddEntryModal}
               disabled={busyAction === "view" || busyAction === "restart"}
             >
               <FilePlus2 size={15} />
-              {composerOpen ? "Close Entry" : "Add Entry"}
+              Add Entry
             </button>
             <button
               className="ghost-action icon-only-action"
@@ -348,52 +416,18 @@ export function LibraryPanel({ onAddResearch, onViewDatabase }: LibraryPanelProp
 
         {error && <p className="pantheon-error">Couldn't read vault entries: {error}</p>}
 
-        {composerOpen && (
-          <div className="research-composer">
-            <div className="composer-grid">
-              <input
-                value={title}
-                onChange={(event) => setTitle(event.target.value)}
-                placeholder="Entry title"
-              />
-              <select
-                value={sourceType}
-                onChange={(event) => setSourceType(event.target.value as ResearchRecord["sourceType"])}
-              >
-                <option value="article">Article</option>
-                <option value="transcript">Transcript</option>
-                <option value="note">Note</option>
-                <option value="manual">Procedure</option>
-              </select>
-            </div>
-            <div className="composer-grid pantheon-meta-grid">
-              <div className="composer-field">
-                <span>Source date</span>
-                <input
-                  type="date"
-                  value={sourceDate}
-                  onChange={(event) => setSourceDate(event.target.value)}
-                />
-              </div>
-              <div className="composer-field">
-                <span>Why this matters</span>
-                <small>
-                  Pantheon keeps the original source date so you and future AI agents can reason
-                  about staleness.
-                </small>
-              </div>
-            </div>
-            <textarea
-              value={text}
-              onChange={(event) => setText(event.target.value)}
-              placeholder="Paste article text, transcript text, procedures, or important research notes"
-            />
-            <button className="primary-action" onClick={handleSubmit}>
-              {busyAction === "save" ? "Saving..." : "Save to Pantheon"}
-            </button>
-          </div>
-        )}
       </section>
+
+      {addEntryModalOpen &&
+        createPortal(
+          <AddEntryModal
+            onClose={closeAddEntryModal}
+            onSubmit={handleAddEntrySave}
+            submitting={submitting}
+            formError={formError}
+          />,
+          document.body
+        )}
 
       {databaseOpen &&
         createPortal(
@@ -915,6 +949,14 @@ function formatWordCount(value: number): string {
   return new Intl.NumberFormat().format(value);
 }
 
+function parseTagsInput(raw: string): string[] {
+  if (!raw) return [];
+  return raw
+    .split(",")
+    .map((value) => value.trim())
+    .filter((value) => value.length > 0);
+}
+
 function entryTypeLabel(sourceType: ResearchRecord["sourceType"]): string {
   switch (sourceType) {
     case "manual":
@@ -937,6 +979,331 @@ function mapPantheonSourceType(input: string): ResearchRecord["sourceType"] {
     default:
       return "article";
   }
+}
+
+const ALLOWED_ATTACHMENT_EXTENSIONS = ["pdf", "png", "jpg", "jpeg", "webp", "txt", "md"];
+
+function AddEntryModal({
+  onClose,
+  onSubmit,
+  submitting,
+  formError
+}: {
+  onClose: () => void;
+  onSubmit: (formData: AddEntryFormData) => void | Promise<void>;
+  submitting: boolean;
+  formError: string | null;
+}) {
+  const [title, setTitle] = useState("");
+  const [body, setBody] = useState("");
+  const [sourceType, setSourceType] = useState("article");
+  const [sourceUrl, setSourceUrl] = useState("");
+  const [sourceDate, setSourceDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [tagsRaw, setTagsRaw] = useState("");
+  const [attachment, setAttachment] = useState<StagedAttachment | null>(null);
+  const [attachmentError, setAttachmentError] = useState<string | null>(null);
+  const [extracting, setExtracting] = useState(false);
+  const [extractedText, setExtractedText] = useState<string | null>(null);
+  const [extractError, setExtractError] = useState<string | null>(null);
+
+  async function handlePickAttachment() {
+    setAttachmentError(null);
+    try {
+      const picked = await invoke<string | null>("pick_attachment_file");
+      if (!picked) return;
+
+      const filename = picked.split(/[\\/]/).pop() ?? picked;
+      const ext = filename.includes(".")
+        ? filename.split(".").pop()?.toLowerCase() ?? ""
+        : "";
+      if (!ALLOWED_ATTACHMENT_EXTENSIONS.includes(ext)) {
+        setAttachmentError(
+          `File type not allowed. Allowed: ${ALLOWED_ATTACHMENT_EXTENSIONS.join(", ")}.`
+        );
+        return;
+      }
+
+      const staged: StagedAttachment = {
+        sourcePath: picked,
+        originalFilename: filename,
+        sizeBytes: 0,
+        extension: ext
+      };
+      setAttachment(staged);
+      setExtractedText(null);
+      setExtractError(null);
+
+      if (ext === "pdf") {
+        setExtracting(true);
+        try {
+          const text = await invoke<string>("extract_pdf_text", { filePath: picked });
+          if (!text || text.trim().length === 0) {
+            setExtractedText("");
+            setExtractError("No text extracted (likely a scanned PDF).");
+          } else {
+            setExtractedText(text);
+          }
+        } catch (err) {
+          setExtractedText(null);
+          setExtractError(String(err));
+        } finally {
+          setExtracting(false);
+        }
+      }
+    } catch (err) {
+      setAttachmentError(`Failed to pick file: ${err}`);
+    }
+  }
+
+  function handleRemoveAttachment() {
+    setAttachment(null);
+    setExtractedText(null);
+    setExtractError(null);
+    setAttachmentError(null);
+    setExtracting(false);
+  }
+
+  function handleInsertExtracted() {
+    if (!extractedText) return;
+    const trimmedBody = body.trim();
+    setBody(trimmedBody.length > 0 ? `${trimmedBody}\n\n${extractedText}` : extractedText);
+  }
+
+  function handleSave() {
+    void onSubmit({
+      title,
+      body,
+      sourceType,
+      sourceUrl,
+      sourceDate,
+      tagsRaw,
+      attachment
+    });
+  }
+
+  return (
+    <div className="pantheon-modal-backdrop" onClick={onClose}>
+      <div
+        className="pantheon-modal pantheon-modal--add-entry"
+        role="dialog"
+        aria-label="Add Pantheon entry"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <header className="pantheon-modal-header">
+          <div className="pantheon-modal-title-group">
+            <h2 className="pantheon-modal-title">Add Entry</h2>
+            <span className="pantheon-modal-meta">New Pantheon entry</span>
+          </div>
+          <button
+            type="button"
+            className="pantheon-modal-close"
+            onClick={onClose}
+            aria-label="Close"
+            title="Close (Esc)"
+            disabled={submitting}
+          >
+            ×
+          </button>
+        </header>
+
+        <div className="pantheon-modal-body pantheon-modal-body--form">
+          {formError ? <div className="composer-error">{formError}</div> : null}
+
+          <div className="add-entry-form">
+            <div className="form-field">
+              <label className="form-label" htmlFor="ae-title">
+                Title
+              </label>
+              <input
+                id="ae-title"
+                type="text"
+                className="form-input"
+                placeholder="Entry title"
+                value={title}
+                onChange={(event) => setTitle(event.target.value)}
+                autoFocus
+                disabled={submitting}
+              />
+            </div>
+
+            <div className="form-field">
+              <label className="form-label" htmlFor="ae-source-type">
+                Source type
+              </label>
+              <select
+                id="ae-source-type"
+                className="form-input"
+                value={sourceType}
+                onChange={(event) => setSourceType(event.target.value)}
+                disabled={submitting}
+              >
+                <option value="article">Article</option>
+                <option value="transcript">Transcript</option>
+                <option value="guide">Guide</option>
+                <option value="paper">Paper</option>
+                <option value="talk">Talk</option>
+                <option value="">Other / unspecified</option>
+              </select>
+            </div>
+
+            <div className="form-row">
+              <div className="form-field">
+                <label className="form-label" htmlFor="ae-source-url">
+                  Source URL <span className="form-optional">(optional)</span>
+                </label>
+                <input
+                  id="ae-source-url"
+                  type="url"
+                  className="form-input"
+                  placeholder="https://..."
+                  value={sourceUrl}
+                  onChange={(event) => setSourceUrl(event.target.value)}
+                  disabled={submitting}
+                />
+              </div>
+              <div className="form-field">
+                <label className="form-label" htmlFor="ae-source-date">
+                  Source date <span className="form-optional">(optional)</span>
+                </label>
+                <input
+                  id="ae-source-date"
+                  type="date"
+                  className="form-input"
+                  value={sourceDate}
+                  onChange={(event) => setSourceDate(event.target.value)}
+                  disabled={submitting}
+                />
+              </div>
+            </div>
+
+            <div className="form-field">
+              <label className="form-label" htmlFor="ae-tags">
+                Tags <span className="form-optional">(optional)</span>
+              </label>
+              <input
+                id="ae-tags"
+                type="text"
+                className="form-input"
+                placeholder="comma, separated, tags"
+                value={tagsRaw}
+                onChange={(event) => setTagsRaw(event.target.value)}
+                disabled={submitting}
+              />
+              <span className="form-helper">
+                <code>olympus/research</code> and <code>{`research/${sourceType || "TYPE"}`}</code>{" "}
+                are added automatically.
+              </span>
+            </div>
+
+            <div className="form-field">
+              <label className="form-label">
+                Attachment <span className="form-optional">(optional)</span>
+              </label>
+              {attachment ? (
+                <div className="attachment-staged-row">
+                  <span className="attachment-staged-name">{attachment.originalFilename}</span>
+                  <span className="attachment-staged-ext">{attachment.extension.toUpperCase()}</span>
+                  <button
+                    type="button"
+                    className="attachment-remove"
+                    onClick={handleRemoveAttachment}
+                    disabled={submitting}
+                    aria-label="Remove attachment"
+                    title="Remove attachment"
+                  >
+                    ×
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  className="attachment-dropzone"
+                  onClick={() => void handlePickAttachment()}
+                  disabled={submitting}
+                >
+                  Drop a file here, or click to browse
+                </button>
+              )}
+              {attachmentError ? (
+                <span className="form-helper attachment-error-text">{attachmentError}</span>
+              ) : (
+                <span className="form-helper">
+                  Allowed: {ALLOWED_ATTACHMENT_EXTENSIONS.join(", ")}. Files copy into{" "}
+                  <code>02 - Research/_attachments/</code>.
+                </span>
+              )}
+
+              {attachment && attachment.extension === "pdf" ? (
+                <div className="attachment-preview">
+                  <div className="attachment-preview-header">
+                    <span>PDF text preview</span>
+                    {extractedText && extractedText.length > 0 ? (
+                      <button
+                        type="button"
+                        className="attachment-insert-button"
+                        onClick={handleInsertExtracted}
+                        disabled={submitting}
+                        title="Append extracted text to body"
+                      >
+                        Insert into body
+                      </button>
+                    ) : null}
+                  </div>
+                  <div className="attachment-preview-body">
+                    {extracting ? (
+                      <span className="attachment-preview-status">Extracting…</span>
+                    ) : extractError ? (
+                      <span className="attachment-preview-status attachment-preview-error">
+                        {extractError}
+                      </span>
+                    ) : extractedText && extractedText.length > 0 ? (
+                      <pre className="attachment-preview-text">{extractedText}</pre>
+                    ) : (
+                      <span className="attachment-preview-status">No text yet.</span>
+                    )}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+
+            <div className="form-field form-field--body">
+              <label className="form-label" htmlFor="ae-body">
+                Body
+              </label>
+              <textarea
+                id="ae-body"
+                className="form-input form-textarea"
+                placeholder="Write your entry. Markdown supported."
+                value={body}
+                onChange={(event) => setBody(event.target.value)}
+                rows={12}
+                disabled={submitting}
+              />
+            </div>
+          </div>
+        </div>
+
+        <footer className="pantheon-modal-footer">
+          <button
+            type="button"
+            className="form-button form-button--ghost"
+            onClick={onClose}
+            disabled={submitting}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            className="form-button form-button--primary"
+            onClick={handleSave}
+            disabled={submitting || !title.trim() || !body.trim()}
+          >
+            {submitting ? "Saving..." : "Save Entry"}
+          </button>
+        </footer>
+      </div>
+    </div>
+  );
 }
 
 function pantheonEntryToResearchRecord(entry: PantheonEntry): ResearchRecord {
