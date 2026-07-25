@@ -3,6 +3,7 @@ pub mod attachments;
 pub mod markets;
 pub mod pantheon;
 pub mod persistence;
+pub mod profile;
 pub mod projects;
 pub mod tasks;
 pub mod vault_context;

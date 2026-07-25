@@ -42,7 +42,13 @@ fn relative_to_vault(vault: &Path, file: &Path) -> String {
         .replace('\\', "/")
 }
 
-fn split_frontmatter(content: &str) -> Option<(&str, &str)> {
+pub(crate) fn split_frontmatter(content: &str) -> Option<(&str, &str)> {
+    // Notes created by the PowerShell scaffold scripts carry a UTF-8 BOM;
+    // notes the app writes via fs::write do not. Without stripping it, the
+    // frontmatter is invisible and the note reads as unstructured prose — a
+    // scaffolded research note would simply never appear in the library.
+    let content = content.strip_prefix('\u{feff}').unwrap_or(content);
+
     if !content.starts_with("---") {
         return None;
     }
@@ -464,6 +470,16 @@ mod tests {
     #[test]
     fn split_frontmatter_no_frontmatter() {
         assert!(split_frontmatter("just body").is_none());
+    }
+
+    /// The scaffold scripts write UTF-8 with a BOM. Before this was handled,
+    /// every scaffolded note read as having no frontmatter and was skipped.
+    #[test]
+    fn split_frontmatter_tolerates_a_utf8_bom() {
+        let content = "\u{feff}---\ntitle: foo\n---\nbody here";
+        let (fm, body) = split_frontmatter(content).expect("BOM must not hide frontmatter");
+        assert_eq!(fm, "title: foo");
+        assert_eq!(body, "body here");
     }
 
     #[test]

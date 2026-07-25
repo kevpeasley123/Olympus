@@ -12,6 +12,7 @@ use commands::attachments::{
 use commands::assistant::send_assistant_message;
 use commands::markets::fetch_market_quotes;
 use commands::pantheon::{fetch_pantheon_entries, write_pantheon_entry};
+use commands::profile::fetch_operator_profile;
 use commands::persistence::{
     append_conversation_messages, clear_conversation, load_persisted_state, save_settings,
     save_tool_states, Db,
@@ -200,6 +201,7 @@ pub fn run() {
             fetch_weather,
             fetch_action_queue,
             fetch_pantheon_entries,
+            fetch_operator_profile,
             write_pantheon_entry,
             pick_attachment_file,
             extract_pdf_text,
