@@ -39,7 +39,7 @@ The SQLite connection is opened once during `setup()` and held in managed state,
 
 Dashboard panels compose from `src/App.tsx`. Live data sources:
 
-- **Markets** — Finnhub for S&P 500, Nasdaq 100, Dow; FRED for treasuries (`DGS2`, `DGS10`, `DGS30`)
+- **Markets** — Yahoo Finance chart API for S&P 500, Nasdaq 100, Dow (no key required); FRED for rates (`DGS2`, `DGS10`, `DGS30`, `MORTGAGE30US`)
 - **Weather** — Open-Meteo (no key required)
 - **Pantheon** — reads the Obsidian vault's `00 - Dashboard/Olympus Research.base`
 - **Projects / Git** — local repository inspection via Tauri commands
@@ -63,7 +63,6 @@ Copy `.env.example` to `.env` and fill in:
 
 ```
 ANTHROPIC_API_KEY=
-FINNHUB_API_KEY=
 FRED_API_KEY=
 ```
 

@@ -80,24 +80,23 @@ How it works:
 
 ## Live Markets and Weather Setup
 
-Olympus now expects two local environment variables for live market data in the Tauri desktop shell.
+Olympus expects one local environment variable for live market data in the Tauri desktop shell.
 
 1. Copy `.env.example` to `.env`
 2. Fill in:
 
 ```text
-FINNHUB_API_KEY=
 FRED_API_KEY=
 ```
 
-Where to get them:
-- Finnhub (free): `https://finnhub.io/register`
+Where to get it:
 - FRED (free): `https://fred.stlouisfed.org/docs/api/api_key.html`
 
 Notes:
-- Markets use **Finnhub** for S&P 500, Nasdaq 100, and Dow quote data
-- Treasury rates use **FRED** for `DGS2`, `DGS10`, and `DGS30`
+- Index quotes use the **Yahoo Finance** chart API for S&P 500, Nasdaq 100, and Dow — no API key required
+- Rates use **FRED** for `DGS2`, `DGS10`, `DGS30`, and `MORTGAGE30US` (30Y fixed mortgage)
 - Weather uses **Open-Meteo** and does not require an API key
+- Without `FRED_API_KEY`, index quotes still load and the rates row falls back to placeholders with a warning
 - `.env` is ignored by Git and should not be committed
 
 ## Desktop Build
