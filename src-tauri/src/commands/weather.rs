@@ -71,7 +71,13 @@ struct OpenMeteoDaily {
 }
 
 #[tauri::command]
-pub fn fetch_weather() -> Result<WeatherResponse, String> {
+pub async fn fetch_weather() -> Result<WeatherResponse, String> {
+    tauri::async_runtime::spawn_blocking(fetch_weather_blocking)
+        .await
+        .map_err(|error| format!("Weather fetch task panicked: {error}"))?
+}
+
+fn fetch_weather_blocking() -> Result<WeatherResponse, String> {
     let cache_key = format!("{TUCSON_LATITUDE:.4}:{TUCSON_LONGITUDE:.4}:{TUCSON_LABEL}");
 
     if let Some(cached) = WEATHER_CACHE

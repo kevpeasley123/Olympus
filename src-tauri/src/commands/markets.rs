@@ -82,7 +82,13 @@ struct YahooQuote {
 }
 
 #[tauri::command]
-pub fn fetch_market_quotes() -> Result<MarketQuotesResponse, String> {
+pub async fn fetch_market_quotes() -> Result<MarketQuotesResponse, String> {
+    tauri::async_runtime::spawn_blocking(fetch_market_quotes_blocking)
+        .await
+        .map_err(|error| format!("Market fetch task panicked: {error}"))?
+}
+
+fn fetch_market_quotes_blocking() -> Result<MarketQuotesResponse, String> {
     if let Some(cached) = MARKET_CACHE
         .lock()
         .map_err(|error| error.to_string())?
@@ -93,7 +99,10 @@ pub fn fetch_market_quotes() -> Result<MarketQuotesResponse, String> {
         return Ok(cached.payload);
     }
 
-    let client = Client::new();
+    let client = Client::builder()
+        .timeout(Duration::from_secs(10))
+        .build()
+        .map_err(|error| error.to_string())?;
 
     let indexes_result = [
         ("spx", "S&P 500", "^GSPC"),

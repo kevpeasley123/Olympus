@@ -40,7 +40,17 @@ struct CachedProjectsResponse {
 }
 
 #[tauri::command]
-pub fn scan_tracked_projects(request: ProjectsRequest) -> Result<Vec<TrackedProjectPayload>, String> {
+pub async fn scan_tracked_projects(
+    request: ProjectsRequest,
+) -> Result<Vec<TrackedProjectPayload>, String> {
+    tauri::async_runtime::spawn_blocking(move || scan_tracked_projects_blocking(request))
+        .await
+        .map_err(|error| format!("Project scan task panicked: {error}"))?
+}
+
+fn scan_tracked_projects_blocking(
+    request: ProjectsRequest,
+) -> Result<Vec<TrackedProjectPayload>, String> {
     if let Some(cached) = PROJECTS_CACHE
         .lock()
         .map_err(|error| error.to_string())?

@@ -208,8 +208,10 @@ pub fn parse_tasks_from_vault() -> Result<Vec<ActionQueueTask>, String> {
 }
 
 #[tauri::command]
-pub fn fetch_action_queue() -> Result<Vec<ActionQueueTask>, String> {
-    parse_tasks_from_vault()
+pub async fn fetch_action_queue() -> Result<Vec<ActionQueueTask>, String> {
+    tauri::async_runtime::spawn_blocking(parse_tasks_from_vault)
+        .await
+        .map_err(|error| format!("Action queue scan task panicked: {error}"))?
 }
 
 #[cfg(test)]

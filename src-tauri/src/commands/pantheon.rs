@@ -237,8 +237,10 @@ fn parse_pantheon_from_vault() -> Result<Vec<PantheonEntry>, String> {
 }
 
 #[tauri::command]
-pub fn fetch_pantheon_entries() -> Result<Vec<PantheonEntry>, String> {
-    parse_pantheon_from_vault()
+pub async fn fetch_pantheon_entries() -> Result<Vec<PantheonEntry>, String> {
+    tauri::async_runtime::spawn_blocking(parse_pantheon_from_vault)
+        .await
+        .map_err(|error| format!("Pantheon scan task panicked: {error}"))?
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -433,8 +435,10 @@ fn perform_write_pantheon_entry(req: WritePantheonEntryRequest) -> Result<String
 }
 
 #[tauri::command]
-pub fn write_pantheon_entry(req: WritePantheonEntryRequest) -> Result<String, String> {
-    perform_write_pantheon_entry(req)
+pub async fn write_pantheon_entry(req: WritePantheonEntryRequest) -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(move || perform_write_pantheon_entry(req))
+        .await
+        .map_err(|error| format!("Pantheon write task panicked: {error}"))?
 }
 
 #[cfg(test)]
