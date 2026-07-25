@@ -11,11 +11,16 @@ use commands::attachments::{
 };
 use commands::markets::fetch_market_quotes;
 use commands::pantheon::{fetch_pantheon_entries, write_pantheon_entry};
+use commands::persistence::{
+    append_conversation_messages, clear_conversation, load_persisted_state, save_settings,
+    save_tool_states, Db,
+};
 use commands::projects::scan_tracked_projects;
 use commands::tasks::fetch_action_queue;
 use commands::weather::fetch_weather;
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
+use std::sync::Mutex;
 use tauri::Manager;
 
 const SCHEMA: &str = include_str!("../schema.sql");
@@ -48,8 +53,9 @@ fn safe_join(base: &Path, folder: &str, file_name: &str) -> Result<PathBuf, Stri
     Ok(path)
 }
 
-#[tauri::command]
-fn initialize_database(app: tauri::AppHandle) -> Result<String, String> {
+/// Opens the local database and applies the schema. Runs once at startup so the
+/// frontend can assume persistence is ready by the time it can invoke anything.
+fn open_database(app: &tauri::AppHandle) -> Result<Connection, String> {
     let app_dir = app
         .path()
         .app_data_dir()
@@ -62,7 +68,8 @@ fn initialize_database(app: tauri::AppHandle) -> Result<String, String> {
         .execute_batch(SCHEMA)
         .map_err(|error| error.to_string())?;
 
-    Ok(db_path.to_string_lossy().to_string())
+    eprintln!("[Olympus::Db] opened {}", db_path.display());
+    Ok(connection)
 }
 
 #[tauri::command]
@@ -165,8 +172,17 @@ pub fn run() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .setup(|app| {
+            let connection = open_database(app.handle())?;
+            app.manage(Db(Mutex::new(connection)));
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
-            initialize_database,
+            load_persisted_state,
+            save_settings,
+            save_tool_states,
+            append_conversation_messages,
+            clear_conversation,
             write_memory_artifact,
             launch_quick_app,
             restart_olympus,

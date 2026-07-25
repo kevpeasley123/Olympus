@@ -7,7 +7,7 @@ import {
   syncResearchBaseToVault
 } from "../services/obsidian";
 import { buildPantheonReply, createUserMessage } from "../services/pantheonChat";
-import { loadState, saveState } from "../services/storage";
+import { appendConversationMessages, loadState, persistPreferences } from "../services/storage";
 import type { LiveSourceHealth, LiveSourceStatus, LoadableState } from "../types/dashboard";
 import type { OlympusState } from "../types";
 import type { MarketPanelData } from "../types/markets";
@@ -141,7 +141,8 @@ function deriveSourceHealth(source: SourceTracker): LiveSourceHealth {
 }
 
 export function useDashboardData() {
-  const [dashboardState, setDashboardState] = useState<OlympusState>(() => loadState());
+  const [dashboardState, setDashboardState] = useState<OlympusState>(seedState);
+  const [hydrated, setHydrated] = useState(false);
   const [markets, setMarkets] = useState<LoadableState<MarketPanelData>>({
     data: null,
     loading: true,
@@ -178,8 +179,26 @@ export function useDashboardData() {
   const [projectsError, setProjectsError] = useState<string | null>(null);
 
   useEffect(() => {
-    saveState(dashboardState);
-  }, [dashboardState]);
+    let cancelled = false;
+
+    void (async () => {
+      const stored = await loadState();
+      if (cancelled) return;
+      setDashboardState(stored);
+      setHydrated(true);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Gated on hydration so the seed defaults never overwrite stored state during
+  // the first render pass.
+  useEffect(() => {
+    if (!hydrated) return;
+    void persistPreferences(dashboardState);
+  }, [dashboardState, hydrated]);
 
   const refreshMarkets = useCallback(async () => {
     setMarkets((current) => ({ ...current, loading: current.data === null, error: null }));
@@ -277,14 +296,15 @@ export function useDashboardData() {
     const trimmed = text.trim();
     if (!trimmed) return;
 
-    setDashboardState((current) => {
-      const user = createUserMessage(trimmed);
-      const assistant = buildPantheonReply(trimmed, []);
-      return {
-        ...current,
-        conversation: [...current.conversation, user, assistant]
-      };
-    });
+    const user = createUserMessage(trimmed);
+    const assistant = buildPantheonReply(trimmed, []);
+
+    setDashboardState((current) => ({
+      ...current,
+      conversation: [...current.conversation, user, assistant]
+    }));
+
+    void appendConversationMessages([user, assistant]);
   }, []);
 
   const syncResearchBase = useCallback(async () => {

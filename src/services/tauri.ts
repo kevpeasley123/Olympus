@@ -7,10 +7,6 @@ export interface MemoryArtifactPayload {
   content: string;
 }
 
-export async function initializeDatabase(): Promise<string> {
-  return invoke<string>("initialize_database");
-}
-
 export async function writeMemoryArtifact(payload: MemoryArtifactPayload): Promise<string> {
   const result = await invoke<{ path: string }>("write_memory_artifact", {
     artifact: {

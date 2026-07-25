@@ -1,5 +1,7 @@
+import { invoke } from "@tauri-apps/api/core";
 import { seedState } from "../data/seed";
-import type { OlympusState, ToolDefinition } from "../types";
+import { isTauriRuntime } from "./launcher";
+import type { ConversationMessage, OlympusState, ToolDefinition } from "../types";
 
 const STORAGE_KEY = "olympus:v8";
 const LEGACY_KEYS = [
@@ -12,7 +14,146 @@ const LEGACY_KEYS = [
   "olympus:v7"
 ];
 
-export function loadState(): OlympusState {
+interface PersistedToolState {
+  toolId: string;
+  enabled: boolean;
+}
+
+interface PersistedState {
+  settings: Record<string, string>;
+  toolStates: PersistedToolState[];
+  conversation: ConversationMessage[];
+}
+
+/**
+ * Desktop builds persist to SQLite in the Tauri app data directory; the browser
+ * dev server keeps using localStorage. Each runtime has exactly one source of
+ * truth, so the two never have to be reconciled.
+ */
+export async function loadState(): Promise<OlympusState> {
+  if (!isTauriRuntime()) {
+    return readLocalState();
+  }
+
+  try {
+    const persisted = await invoke<PersistedState>("load_persisted_state");
+
+    if (isEmptyPersistedState(persisted) && hasLocalPayload()) {
+      const local = readLocalState();
+      await migrateLocalState(local);
+      return local;
+    }
+
+    clearLegacyState();
+    return applyPersistedState(persisted);
+  } catch (error) {
+    console.warn("[Olympus] Could not read the local database; falling back to localStorage.", error);
+    return readLocalState();
+  }
+}
+
+/**
+ * Writes the small, bounded slice of state worth keeping: settings and tool
+ * toggles. Conversation is deliberately excluded — it is appended at the point
+ * a message is sent so history never gets rewritten on unrelated updates.
+ */
+export async function persistPreferences(state: OlympusState): Promise<void> {
+  if (!isTauriRuntime()) {
+    writeLocalState(state);
+    return;
+  }
+
+  try {
+    await invoke("save_settings", {
+      settings: {
+        vaultPath: state.settings.vaultPath,
+        projectsRootPath: state.settings.projectsRootPath
+      }
+    });
+    await invoke("save_tool_states", {
+      states: state.tools.map((tool) => ({ toolId: tool.id, enabled: tool.enabled }))
+    });
+  } catch (error) {
+    console.warn("[Olympus] Could not save preferences to the local database.", error);
+  }
+}
+
+export async function appendConversationMessages(messages: ConversationMessage[]): Promise<void> {
+  if (messages.length === 0 || !isTauriRuntime()) return;
+
+  try {
+    await invoke("append_conversation_messages", { messages });
+  } catch (error) {
+    console.warn("[Olympus] Could not append conversation history.", error);
+  }
+}
+
+export async function resetState(): Promise<OlympusState> {
+  clearLegacyState();
+  window.localStorage.removeItem(STORAGE_KEY);
+
+  if (isTauriRuntime()) {
+    try {
+      await invoke("clear_conversation");
+    } catch (error) {
+      console.warn("[Olympus] Could not clear conversation history.", error);
+    }
+  }
+
+  await persistPreferences(seedState);
+  return seedState;
+}
+
+export function updateToolEnabled(
+  state: OlympusState,
+  toolId: ToolDefinition["id"],
+  enabled: boolean
+): OlympusState {
+  return {
+    ...state,
+    tools: state.tools.map((tool) => (tool.id === toolId ? { ...tool, enabled } : tool))
+  };
+}
+
+function applyPersistedState(persisted: PersistedState): OlympusState {
+  const toolStates = new Map(persisted.toolStates.map((state) => [state.toolId, state.enabled]));
+
+  return {
+    ...seedState,
+    settings: {
+      vaultPath: persisted.settings.vaultPath ?? seedState.settings.vaultPath,
+      projectsRootPath: persisted.settings.projectsRootPath ?? seedState.settings.projectsRootPath
+    },
+    tools: seedState.tools.map((tool) =>
+      toolStates.has(tool.id) ? { ...tool, enabled: toolStates.get(tool.id)! } : tool
+    ),
+    conversation:
+      persisted.conversation.length > 0 ? persisted.conversation : seedState.conversation,
+    version: seedState.version
+  };
+}
+
+function isEmptyPersistedState(persisted: PersistedState): boolean {
+  return (
+    Object.keys(persisted.settings).length === 0 &&
+    persisted.toolStates.length === 0 &&
+    persisted.conversation.length === 0
+  );
+}
+
+function hasLocalPayload(): boolean {
+  return window.localStorage.getItem(STORAGE_KEY) !== null;
+}
+
+/** One-time import so an existing localStorage install keeps its history. */
+async function migrateLocalState(local: OlympusState): Promise<void> {
+  console.info("[Olympus] Importing existing localStorage state into the local database.");
+  await persistPreferences(local);
+  await appendConversationMessages(local.conversation);
+  clearLegacyState();
+}
+
+function readLocalState(): OlympusState {
   const stored = window.localStorage.getItem(STORAGE_KEY);
 
   if (!stored) {
@@ -55,6 +196,10 @@ export function loadState(): OlympusState {
   }
 }
 
+function writeLocalState(state: OlympusState): void {
+  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+
 function clearLegacyState(): void {
   LEGACY_KEYS.forEach((key) => window.localStorage.removeItem(key));
 }
@@ -79,25 +224,4 @@ function mergeKnownIds<T extends { id: string }>(seedItems: T[], storedItems: T[
   });
 
   return seedItems.map((item) => merged.get(item.id) ?? item);
-}
-
-export function saveState(state: OlympusState): void {
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-}
-
-export function resetState(): OlympusState {
-  clearLegacyState();
-  saveState(seedState);
-  return seedState;
-}
-
-export function updateToolEnabled(
-  state: OlympusState,
-  toolId: ToolDefinition["id"],
-  enabled: boolean
-): OlympusState {
-  return {
-    ...state,
-    tools: state.tools.map((tool) => (tool.id === toolId ? { ...tool, enabled } : tool))
-  };
 }

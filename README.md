@@ -94,4 +94,19 @@ Rust is not bundled with this repo. Install it from `https://rustup.rs/` before 
 
 ## Current Persistence
 
-The frontend uses browser `localStorage` as a working V1 fallback. The Tauri shell includes a SQLite schema in `src-tauri/schema.sql` and commands for initializing the local database and writing approved Obsidian memory artifacts. Wiring the frontend to those commands is the next persistence step after the desktop runtime is available.
+Persistence has one source of truth per runtime:
+
+- **Desktop (Tauri):** SQLite, at `olympus.sqlite` in the platform app data directory. The connection is opened once at startup and the schema in `src-tauri/schema.sql` is applied on every launch, so the frontend can assume storage is ready.
+- **Browser (`npm run dev`):** `localStorage`, unchanged.
+
+What is stored, and how:
+
+| State | Storage | Write pattern |
+| --- | --- | --- |
+| Settings (vault path, projects root) | `settings` | Upsert on change |
+| Tool enabled flags | `tool_states` | Upsert on change |
+| Chat history | `conversation_messages` | Append-only, at send time |
+
+Market data, weather, and the project scan are refreshed live and deliberately not persisted.
+
+Conversation is appended when a message is sent rather than rewritten alongside other state, so a long history costs nothing on unrelated updates. The first desktop launch after an existing browser install imports any `localStorage` state into SQLite automatically.

@@ -1,6 +1,7 @@
 pub mod attachments;
 pub mod markets;
 pub mod pantheon;
+pub mod persistence;
 pub mod projects;
 pub mod tasks;
 pub mod weather;
