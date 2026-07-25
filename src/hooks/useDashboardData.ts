@@ -6,6 +6,7 @@ import {
   syncProjectsCanvasToVault,
   syncResearchBaseToVault
 } from "../services/obsidian";
+import { createAssistantMessage, requestAssistantReply } from "../services/assistant";
 import { buildPantheonReply, createUserMessage } from "../services/pantheonChat";
 import { appendConversationMessages, loadState, persistPreferences } from "../services/storage";
 import type { LiveSourceHealth, LiveSourceStatus, LoadableState } from "../types/dashboard";
@@ -177,6 +178,8 @@ export function useDashboardData() {
     }
   });
   const [projectsError, setProjectsError] = useState<string | null>(null);
+  const [chatPending, setChatPending] = useState(false);
+  const [chatError, setChatError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -292,20 +295,56 @@ export function useDashboardData() {
     };
   }, [refreshMarkets, refreshProjects, refreshWeather]);
 
-  const sendChatMessage = useCallback((text: string) => {
-    const trimmed = text.trim();
-    if (!trimmed) return;
+  const sendChatMessage = useCallback(
+    async (text: string) => {
+      const trimmed = text.trim();
+      if (!trimmed) return;
 
-    const user = createUserMessage(trimmed);
-    const assistant = buildPantheonReply(trimmed, []);
+      const user = createUserMessage(trimmed);
 
-    setDashboardState((current) => ({
-      ...current,
-      conversation: [...current.conversation, user, assistant]
-    }));
+      // The user's turn lands immediately and is part of the history the model
+      // sees, so it is captured before the request goes out.
+      const history = [...dashboardState.conversation, user];
+      setDashboardState((current) => ({
+        ...current,
+        conversation: [...current.conversation, user]
+      }));
+      void appendConversationMessages([user]);
 
-    void appendConversationMessages([user, assistant]);
-  }, []);
+      if (!isTauriRuntime()) {
+        // Browser dev server: no API key available, so fall back to the local
+        // keyword search over Pantheon entries.
+        const offline = buildPantheonReply(trimmed, []);
+        setDashboardState((current) => ({
+          ...current,
+          conversation: [...current.conversation, offline]
+        }));
+        return;
+      }
+
+      setChatPending(true);
+      setChatError(null);
+
+      try {
+        const reply = await requestAssistantReply(
+          history,
+          dashboardState.settings,
+          dashboardState.projects
+        );
+        const assistant = createAssistantMessage(reply.content);
+        setDashboardState((current) => ({
+          ...current,
+          conversation: [...current.conversation, assistant]
+        }));
+        void appendConversationMessages([assistant]);
+      } catch (error) {
+        setChatError(errorMessage(error));
+      } finally {
+        setChatPending(false);
+      }
+    },
+    [dashboardState.conversation, dashboardState.projects, dashboardState.settings]
+  );
 
   const syncResearchBase = useCallback(async () => {
     try {
@@ -340,6 +379,8 @@ export function useDashboardData() {
       projects: dashboardState.projects,
       projectsError,
       chat: dashboardState.conversation,
+      chatPending,
+      chatError,
       nowPlaying: dashboardState.nowPlaying,
       markets,
       weather,
@@ -352,6 +393,8 @@ export function useDashboardData() {
     [
       dashboardState,
       projectsError,
+      chatPending,
+      chatError,
       markets,
       weather,
       sourceTrackers,

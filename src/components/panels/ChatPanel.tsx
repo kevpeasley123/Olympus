@@ -5,13 +5,15 @@ import type { ConversationMessage } from "../../types";
 interface ChatPanelProps {
   messages: ConversationMessage[];
   onSendMessage: (message: string) => void;
+  pending?: boolean;
+  error?: string | null;
 }
 
-export function ChatPanel({ messages, onSendMessage }: ChatPanelProps) {
+export function ChatPanel({ messages, onSendMessage, pending = false, error = null }: ChatPanelProps) {
   const [draft, setDraft] = useState("");
 
   function submit() {
-    if (!draft.trim()) return;
+    if (!draft.trim() || pending) return;
     onSendMessage(draft);
     setDraft("");
   }
@@ -29,11 +31,22 @@ export function ChatPanel({ messages, onSendMessage }: ChatPanelProps) {
         {messages.map((message) => (
           <ConversationBubble key={message.id} message={message} />
         ))}
+        {pending && (
+          <article className="conversation-bubble assistant conversation-pending">
+            <p>Thinking...</p>
+          </article>
+        )}
+        {error && (
+          <article className="conversation-bubble assistant conversation-error">
+            <p>{error}</p>
+          </article>
+        )}
       </div>
       <div className="conversation-input-shell">
         <input
-          placeholder="Ask Pantheon anything..."
+          placeholder={pending ? "Waiting for a reply..." : "Ask Olympus anything..."}
           value={draft}
+          disabled={pending}
           onChange={(event) => setDraft(event.target.value)}
           onKeyDown={(event) => {
             if (event.key === "Enter") {
@@ -42,7 +55,7 @@ export function ChatPanel({ messages, onSendMessage }: ChatPanelProps) {
             }
           }}
         />
-        <button className="send-button" onClick={submit} disabled={!draft.trim()}>
+        <button className="send-button" onClick={submit} disabled={!draft.trim() || pending}>
           <ChevronRight size={16} />
         </button>
       </div>

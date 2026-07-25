@@ -21,6 +21,8 @@ function App() {
     quickApps,
     projects,
     chat,
+    chatPending,
+    chatError,
     markets,
     weather,
     sourceHealth,
@@ -83,7 +85,12 @@ function App() {
               <WeatherPanel state={weather} onRetry={() => void refreshAll()} compact={focusMode} />
             </FadeInPanel>
             <FadeInPanel index={8} className="panel-slot panel-slot-chat">
-              <ChatPanel messages={chat} onSendMessage={sendChatMessage} />
+              <ChatPanel
+                messages={chat}
+                onSendMessage={sendChatMessage}
+                pending={chatPending}
+                error={chatError}
+              />
             </FadeInPanel>
           </section>
         </section>

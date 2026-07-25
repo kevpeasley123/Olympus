@@ -1,3 +1,4 @@
+pub mod assistant;
 pub mod attachments;
 pub mod markets;
 pub mod pantheon;

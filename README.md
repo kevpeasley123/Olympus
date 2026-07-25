@@ -60,6 +60,24 @@ npm run dev
 
 Open the Vite URL shown in the terminal.
 
+## Assistant Setup
+
+The chat panel is backed by the Anthropic API. Add your key to `.env` in the repo root:
+
+```text
+ANTHROPIC_API_KEY=
+```
+
+Get one at `https://console.anthropic.com/settings/keys`. API usage is billed separately from any Claude subscription, so the account also needs credit.
+
+How it works:
+
+- The request is made from the Rust side (`src-tauri/src/commands/assistant.rs`), so the key never reaches the webview.
+- Model is `claude-opus-5` at `medium` effort. Thinking is on by default on this model; `max_tokens` covers thinking and response together.
+- History is capped at the last 40 turns per request to bound cost. The vault, not the message log, is the long-term memory.
+- Seeded system and assistant turns are dropped before sending, since the API requires the conversation to open on a user turn.
+- Without a key, the desktop app reports the missing key in the chat panel; the browser dev server falls back to the local keyword search over Pantheon entries.
+
 ## Live Markets and Weather Setup
 
 Olympus now expects two local environment variables for live market data in the Tauri desktop shell.

@@ -2224,6 +2224,36 @@ small {
   text-align: right;
 }
 
+/* Status bubbles carry no timestamp, so the paragraph's bottom margin would
+   otherwise leave a hanging gap. */
+.conversation-pending p,
+.conversation-error p {
+  margin-bottom: 0;
+}
+
+.conversation-pending {
+  animation: conversation-pulse 1.4s ease-in-out infinite;
+}
+
+.conversation-pending p {
+  color: var(--muted);
+}
+
+.conversation-error {
+  background: rgba(217, 119, 6, 0.16);
+  border-left: 2px solid var(--accent);
+}
+
+@keyframes conversation-pulse {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
 .conversation-input-shell {
   gap: var(--space-12);
   margin-top: auto;
@@ -2391,7 +2421,8 @@ small {
 @media (prefers-reduced-motion: reduce) {
   .ring-outer,
   .ring-middle,
-  .ring-inner {
+  .ring-inner,
+  .conversation-pending {
     animation: none;
   }
 }

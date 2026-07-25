@@ -9,6 +9,7 @@ use std::process::Command;
 use commands::attachments::{
     extract_pdf_text, pick_attachment_file, save_attachment_to_vault,
 };
+use commands::assistant::send_assistant_message;
 use commands::markets::fetch_market_quotes;
 use commands::pantheon::{fetch_pantheon_entries, write_pantheon_entry};
 use commands::persistence::{
@@ -178,6 +179,7 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            send_assistant_message,
             load_persisted_state,
             save_settings,
             save_tool_states,
