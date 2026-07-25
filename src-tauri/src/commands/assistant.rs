@@ -2,6 +2,8 @@ use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
 
+use super::vault_context::{load_vault_memory, VaultMemory};
+
 const ANTHROPIC_URL: &str = "https://api.anthropic.com/v1/messages";
 const ANTHROPIC_VERSION: &str = "2023-06-01";
 /// Routes a declined request to Anthropic's recommended fallback model rather
@@ -60,10 +62,35 @@ struct OutputConfig {
 }
 
 #[derive(Debug, Serialize)]
+struct CacheControl {
+    #[serde(rename = "type")]
+    control_type: &'static str,
+}
+
+impl CacheControl {
+    fn ephemeral() -> Self {
+        Self {
+            control_type: "ephemeral",
+        }
+    }
+}
+
+/// The system prompt is sent as blocks rather than one string so a cache
+/// breakpoint can be placed between the stable and volatile halves.
+#[derive(Debug, Serialize)]
+struct SystemBlock {
+    #[serde(rename = "type")]
+    block_type: &'static str,
+    text: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    cache_control: Option<CacheControl>,
+}
+
+#[derive(Debug, Serialize)]
 struct AnthropicRequest {
     model: &'static str,
     max_tokens: u32,
-    system: String,
+    system: Vec<SystemBlock>,
     messages: Vec<ApiMessage>,
     output_config: OutputConfig,
     fallbacks: &'static str,
@@ -109,7 +136,11 @@ struct ApiErrorEnvelope {
     error: ApiErrorBody,
 }
 
-fn build_system_prompt(context: &AssistantContext) -> String {
+/// The stable half: persona plus the vault notes that define the operator and
+/// the system. This sits in front of the cache breakpoint, so every byte of it
+/// must be deterministic — anything that varies per turn belongs in the
+/// volatile block instead.
+fn build_stable_system(memory: &VaultMemory) -> String {
     let mut prompt = String::from(
         "You are Olympus, a local-first command station for Kevin's projects, research, and \
          workflows. You run inside a desktop app alongside a live dashboard and an Obsidian vault.\n\n\
@@ -117,22 +148,48 @@ fn build_system_prompt(context: &AssistantContext) -> String {
          is needed, then stop. No enthusiasm you have not earned, no exclamation marks, no \
          restating the question back. Do not open with pleasantries like \"Great question\". If \
          something is a bad idea, say so in a sentence and then help anyway.\n\n\
-         You can see the operator's tracked projects and vault location below. Use them when they \
-         are relevant and ignore them when they are not. If you do not know something, say so \
-         rather than guessing — you cannot read files or run commands yet, so do not claim to \
-         have done either.\n\n",
+         The operator's durable memory from the vault is included below, along with live dashboard \
+         state. Treat the vault notes as authoritative about their preferences, standing \
+         instructions, and how this system is meant to work — they are the operator's own words, \
+         not suggestions. Use them when relevant and ignore them when they are not.\n\n\
+         You cannot read files or run commands. The research library is listed as an index of \
+         titles and metadata only; the entry bodies are not in your context. If answering well \
+         needs the contents of an entry, name the entry you would need rather than inventing what \
+         it says. If you do not know something, say so rather than guessing.\n\n",
     );
 
-    prompt.push_str("## Environment\n\n");
+    if memory.stable.is_empty() {
+        prompt.push_str(
+            "## Durable memory\n\nThe vault's System notes could not be read this turn.\n",
+        );
+        return prompt;
+    }
+
+    prompt.push_str("## Durable memory (Obsidian vault)\n\n");
+    prompt.push_str(&memory.stable);
+    prompt
+}
+
+/// The volatile half: everything that can change between turns. Rendered after
+/// the cache breakpoint so a new commit or a new research entry cannot
+/// invalidate the cached prefix.
+fn build_volatile_system(context: &AssistantContext, memory: &VaultMemory) -> String {
+    let mut prompt = String::from("## Environment\n\n");
     prompt.push_str(&format!("- Obsidian vault: {}\n", context.vault_path));
     prompt.push_str(&format!("- Projects root: {}\n", context.projects_root_path));
+
+    if !memory.pantheon_index.is_empty() {
+        prompt.push_str("\n## Research library index\n\n");
+        prompt.push_str(&memory.pantheon_index);
+    }
+
+    prompt.push_str("\n## Tracked projects\n\n");
 
     if context.projects.is_empty() {
         prompt.push_str("- No tracked projects were detected.\n");
         return prompt;
     }
 
-    prompt.push_str("\n## Tracked projects\n\n");
     for project in &context.projects {
         prompt.push_str(&format!(
             "- {} — status {}, branch {}, repo {}. Next: {}\n",
@@ -141,6 +198,21 @@ fn build_system_prompt(context: &AssistantContext) -> String {
     }
 
     prompt
+}
+
+fn build_system_blocks(context: &AssistantContext, memory: &VaultMemory) -> Vec<SystemBlock> {
+    vec![
+        SystemBlock {
+            block_type: "text",
+            text: build_stable_system(memory),
+            cache_control: Some(CacheControl::ephemeral()),
+        },
+        SystemBlock {
+            block_type: "text",
+            text: build_volatile_system(context, memory),
+            cache_control: None,
+        },
+    ]
 }
 
 /// The API requires the first message to be from the user, and accepts only
@@ -205,10 +277,16 @@ pub async fn send_assistant_message(
         return Err("There is no conversation to send yet.".to_string());
     }
 
+    // Reading the vault walks the filesystem, so it goes to the blocking pool
+    // rather than the event loop.
+    let memory = tauri::async_runtime::spawn_blocking(load_vault_memory)
+        .await
+        .map_err(|error| format!("Vault context task panicked: {error}"))?;
+
     let payload = AnthropicRequest {
         model: MODEL,
         max_tokens: MAX_TOKENS,
-        system: build_system_prompt(&context),
+        system: build_system_blocks(&context, &memory),
         messages,
         output_config: OutputConfig { effort: EFFORT },
         fallbacks: "default",
@@ -349,7 +427,7 @@ mod tests {
         let payload = AnthropicRequest {
             model: MODEL,
             max_tokens: MAX_TOKENS,
-            system: "system".to_string(),
+            system: build_system_blocks(&context_fixture(), &VaultMemory::default()),
             messages: vec![ApiMessage {
                 role: "user".to_string(),
                 content: "hello".to_string(),
@@ -364,6 +442,7 @@ mod tests {
         assert_eq!(json["output_config"]["effort"], EFFORT);
         assert_eq!(json["fallbacks"], "default");
         assert_eq!(json["messages"][0]["role"], "user");
+        assert_eq!(json["system"][0]["type"], "text");
 
         for rejected in ["temperature", "top_p", "top_k", "budget_tokens", "thinking", "effort"] {
             assert!(
@@ -387,9 +466,8 @@ mod tests {
         assert!(extract_text(&parsed.content).is_empty());
     }
 
-    #[test]
-    fn system_prompt_lists_tracked_projects() {
-        let prompt = build_system_prompt(&AssistantContext {
+    fn context_fixture() -> AssistantContext {
+        AssistantContext {
             vault_path: "C:/vault".to_string(),
             projects_root_path: "C:/projects".to_string(),
             projects: vec![ProjectSummary {
@@ -399,10 +477,56 @@ mod tests {
                 repo_state: "git-active".to_string(),
                 next_step: "wire the chat panel".to_string(),
             }],
-        });
+        }
+    }
+
+    #[test]
+    fn system_prompt_lists_tracked_projects() {
+        let prompt = build_volatile_system(&context_fixture(), &VaultMemory::default());
 
         assert!(prompt.contains("C:/vault"));
         assert!(prompt.contains("Olympus"));
         assert!(prompt.contains("wire the chat panel"));
+    }
+
+    /// Caching is a prefix match, so the breakpoint must sit on the stable block
+    /// and the volatile block must carry no marker. If these move, every turn
+    /// pays a full cache write instead of a read.
+    #[test]
+    fn only_the_stable_block_carries_the_cache_breakpoint() {
+        let blocks = build_system_blocks(&context_fixture(), &VaultMemory::default());
+        let json: serde_json::Value = serde_json::to_value(&blocks).unwrap();
+
+        assert_eq!(blocks.len(), 2);
+        assert_eq!(json[0]["cache_control"]["type"], "ephemeral");
+        assert!(json[1].get("cache_control").is_none());
+    }
+
+    /// Git state and the research index change between turns. Keeping them out
+    /// of the cached block is what makes the breakpoint worth having.
+    #[test]
+    fn volatile_state_stays_out_of_the_cached_block() {
+        let memory = VaultMemory {
+            stable: "### Operator profile\n\nPrefers dense interfaces.".to_string(),
+            pantheon_index: "- \"Some entry\" — talk, 2026-04-28, ~900 words".to_string(),
+        };
+        let blocks = build_system_blocks(&context_fixture(), &memory);
+
+        assert!(blocks[0].text.contains("Prefers dense interfaces"));
+        assert!(!blocks[0].text.contains("Some entry"));
+        assert!(!blocks[0].text.contains("git-active"));
+
+        assert!(blocks[1].text.contains("Some entry"));
+        assert!(blocks[1].text.contains("git-active"));
+    }
+
+    /// The index lists titles without bodies, which invites the model to invent
+    /// contents. The instruction against that must survive prompt edits.
+    #[test]
+    fn stable_prompt_warns_against_inventing_entry_contents() {
+        let prompt = build_stable_system(&VaultMemory::default());
+
+        assert!(prompt.contains("titles and metadata only"));
+        assert!(prompt.contains("rather than inventing"));
     }
 }

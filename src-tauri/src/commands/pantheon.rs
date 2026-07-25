@@ -94,7 +94,7 @@ fn make_preview(body: &str) -> String {
     }
 }
 
-fn parse_pantheon_from_vault() -> Result<Vec<PantheonEntry>, String> {
+pub(crate) fn parse_pantheon_from_vault() -> Result<Vec<PantheonEntry>, String> {
     let vault = get_vault_path();
     if !vault.exists() {
         eprintln!(
