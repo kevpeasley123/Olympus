@@ -23,7 +23,17 @@ package.json     Frontend dependencies and npm scripts
 .env.example     Required environment variables (copy to .env)
 ```
 
-Tauri commands exposed by the desktop shell: `initialize_database`, `write_memory_artifact`, `launch_quick_app`.
+Tauri commands exposed by the desktop shell:
+
+| Area | Commands |
+| --- | --- |
+| Assistant | `send_assistant_message` |
+| Persistence | `load_persisted_state`, `save_settings`, `save_tool_states`, `append_conversation_messages`, `clear_conversation` |
+| Vault | `write_memory_artifact`, `fetch_pantheon_entries`, `write_pantheon_entry`, `save_attachment_to_vault` |
+| Live data | `fetch_market_quotes`, `fetch_weather`, `scan_tracked_projects`, `fetch_action_queue` |
+| Shell | `launch_quick_app`, `restart_olympus`, `pick_attachment_file`, `extract_pdf_text` |
+
+The SQLite connection is opened once during `setup()` and held in managed state, so the frontend can assume persistence is ready before it can invoke anything.
 
 ## Data flow
 
@@ -34,7 +44,9 @@ Dashboard panels compose from `src/App.tsx`. Live data sources:
 - **Pantheon** — reads the Obsidian vault's `00 - Dashboard/Olympus Research.base`
 - **Projects / Git** — local repository inspection via Tauri commands
 
-Seeded fallbacks live in `src/data/seed.ts`. State is plain React (`useState` / `useEffect` / `useMemo`); persistence in development uses `localStorage` via `src/services/storage.ts`. Desktop-mode persistence and OS-level operations go through the Tauri commands listed above.
+- **Chat** — `send_assistant_message` calls the Anthropic API from Rust, so the API key never reaches the webview
+
+Seeded fallbacks live in `src/data/seed.ts`. State is plain React (`useState` / `useEffect` / `useMemo`). `src/services/storage.ts` selects a persistence backend per runtime: SQLite in the desktop shell, `localStorage` in the browser dev server, with one source of truth each. State hydrates asynchronously after mount, and the save effect is gated on hydration so seed defaults cannot overwrite stored state on first render.
 
 ## Build and run
 
@@ -50,11 +62,12 @@ npm run build        # Production build
 Copy `.env.example` to `.env` and fill in:
 
 ```
+ANTHROPIC_API_KEY=
 FINNHUB_API_KEY=
 FRED_API_KEY=
 ```
 
-`.env` is gitignored. Open-Meteo requires no key.
+`.env` is gitignored and loaded by `load_olympus_env()` in `src-tauri/src/lib.rs`, which resolves it relative to the Cargo manifest — so it belongs at the repo root, next to `package.json`. Open-Meteo requires no key.
 
 ---
 
