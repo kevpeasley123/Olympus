@@ -28,7 +28,6 @@ const SCHEMA: &str = include_str!("../schema.sql");
 
 #[derive(Debug, Deserialize)]
 struct MemoryArtifact {
-    vault_path: String,
     folder: String,
     file_name: String,
     content: String,
@@ -75,10 +74,18 @@ fn open_database(app: &tauri::AppHandle) -> Result<Connection, String> {
 
 #[tauri::command]
 fn write_memory_artifact(artifact: MemoryArtifact) -> Result<WriteResult, String> {
-    let vault = PathBuf::from(&artifact.vault_path);
+    // The vault root comes from Rust, not the caller. Accepting it from the
+    // frontend gave the app two sources of truth for where the vault lives:
+    // this command wrote to the configured path while the Pantheon and
+    // attachment writers used the constant, so a divergence would have split
+    // the vault in half.
+    let vault = commands::get_vault_path();
 
     if !vault.exists() || !vault.is_dir() {
-        return Err("Configured vault path does not exist or is not a directory.".to_string());
+        return Err(format!(
+            "Vault path does not exist or is not a directory: {}",
+            vault.display()
+        ));
     }
 
     let target = safe_join(&vault, &artifact.folder, &artifact.file_name)?;

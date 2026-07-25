@@ -66,7 +66,6 @@ export async function persistPreferences(state: OlympusState): Promise<void> {
   try {
     await invoke("save_settings", {
       settings: {
-        vaultPath: state.settings.vaultPath,
         projectsRootPath: state.settings.projectsRootPath
       }
     });
@@ -121,7 +120,6 @@ function applyPersistedState(persisted: PersistedState): OlympusState {
   return {
     ...seedState,
     settings: {
-      vaultPath: persisted.settings.vaultPath ?? seedState.settings.vaultPath,
       projectsRootPath: persisted.settings.projectsRootPath ?? seedState.settings.projectsRootPath
     },
     tools: seedState.tools.map((tool) =>

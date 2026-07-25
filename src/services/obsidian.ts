@@ -167,15 +167,16 @@ function createProjectsCanvas(projects: TrackedProject[]): string {
   return JSON.stringify({ nodes, edges }, null, 2);
 }
 
+/// The vault root lives in Rust — see `write_memory_artifact`. Passing it from
+/// here is what let the configured path drift from the one the Pantheon and
+/// attachment writers use.
 async function writeArtifact(
-  vaultPath: string,
   folder: string,
   fileName: string,
   content: string
 ): Promise<WriteMemoryArtifactResult> {
   return invoke<WriteMemoryArtifactResult>("write_memory_artifact", {
     artifact: {
-      vault_path: vaultPath,
       folder,
       file_name: fileName,
       content
@@ -183,7 +184,7 @@ async function writeArtifact(
   });
 }
 
-export async function syncResearchBaseToVault(vaultPath: string): Promise<ObsidianActionResult> {
+export async function syncResearchBaseToVault(): Promise<ObsidianActionResult> {
   if (!isTauriRuntime()) {
     return {
       tone: "warning",
@@ -192,7 +193,7 @@ export async function syncResearchBaseToVault(vaultPath: string): Promise<Obsidi
   }
 
   const fileName = "Olympus Research.base";
-  const result = await writeArtifact(vaultPath, "00 - Dashboard", fileName, createResearchBase());
+  const result = await writeArtifact("00 - Dashboard", fileName, createResearchBase());
   return {
     tone: "success",
     message: `Updated Obsidian Base at 00 - Dashboard/${fileName}`,
@@ -201,7 +202,6 @@ export async function syncResearchBaseToVault(vaultPath: string): Promise<Obsidi
 }
 
 export async function syncProjectsCanvasToVault(
-  vaultPath: string,
   projects: TrackedProject[]
 ): Promise<ObsidianActionResult> {
   if (!isTauriRuntime()) {
@@ -212,7 +212,7 @@ export async function syncProjectsCanvasToVault(
   }
 
   const fileName = "Olympus Projects.canvas";
-  const result = await writeArtifact(vaultPath, "00 - Dashboard", fileName, createProjectsCanvas(projects));
+  const result = await writeArtifact("00 - Dashboard", fileName, createProjectsCanvas(projects));
   return {
     tone: "success",
     message: `Updated JSON Canvas at 00 - Dashboard/${fileName}`,

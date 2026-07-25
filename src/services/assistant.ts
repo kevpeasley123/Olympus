@@ -35,7 +35,6 @@ export async function requestAssistantReply(
   return invoke<AssistantReply>("send_assistant_message", {
     history: turns,
     context: {
-      vaultPath: settings.vaultPath,
       projectsRootPath: settings.projectsRootPath,
       projects: projects.map((project) => ({
         name: project.name,

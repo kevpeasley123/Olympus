@@ -129,8 +129,10 @@ export interface TrackedProject {
   nextStep: string;
 }
 
+/// The vault root is owned by Rust (`commands::get_vault_path`) so the app has
+/// a single source of truth for where the vault lives. It is deliberately not
+/// a setting.
 export interface OlympusSettings {
-  vaultPath: string;
   projectsRootPath: string;
 }
 

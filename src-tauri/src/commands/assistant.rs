@@ -2,6 +2,7 @@ use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
 
+use super::get_vault_path;
 use super::vault_context::{load_vault_memory, VaultMemory};
 
 const ANTHROPIC_URL: &str = "https://api.anthropic.com/v1/messages";
@@ -30,7 +31,6 @@ pub struct ProjectSummary {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AssistantContext {
-    pub vault_path: String,
     pub projects_root_path: String,
     #[serde(default)]
     pub projects: Vec<ProjectSummary>,
@@ -175,7 +175,10 @@ fn build_stable_system(memory: &VaultMemory) -> String {
 /// invalidate the cached prefix.
 fn build_volatile_system(context: &AssistantContext, memory: &VaultMemory) -> String {
     let mut prompt = String::from("## Environment\n\n");
-    prompt.push_str(&format!("- Obsidian vault: {}\n", context.vault_path));
+    prompt.push_str(&format!(
+        "- Obsidian vault: {}\n",
+        get_vault_path().display()
+    ));
     prompt.push_str(&format!("- Projects root: {}\n", context.projects_root_path));
 
     if !memory.pantheon_index.is_empty() {
@@ -468,7 +471,6 @@ mod tests {
 
     fn context_fixture() -> AssistantContext {
         AssistantContext {
-            vault_path: "C:/vault".to_string(),
             projects_root_path: "C:/projects".to_string(),
             projects: vec![ProjectSummary {
                 name: "Olympus".to_string(),
@@ -484,9 +486,18 @@ mod tests {
     fn system_prompt_lists_tracked_projects() {
         let prompt = build_volatile_system(&context_fixture(), &VaultMemory::default());
 
-        assert!(prompt.contains("C:/vault"));
+        assert!(prompt.contains("C:/projects"));
         assert!(prompt.contains("Olympus"));
         assert!(prompt.contains("wire the chat panel"));
+    }
+
+    /// The vault path is Rust's to know. If it ever comes back from the caller,
+    /// the app has two sources of truth for where the vault lives again.
+    #[test]
+    fn vault_path_in_the_prompt_comes_from_rust() {
+        let prompt = build_volatile_system(&context_fixture(), &VaultMemory::default());
+
+        assert!(prompt.contains(&get_vault_path().display().to_string()));
     }
 
     /// Caching is a prefix match, so the breakpoint must sit on the stable block

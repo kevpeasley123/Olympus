@@ -5,7 +5,6 @@ const today = new Date().toISOString().slice(0, 10);
 export const seedState: OlympusState = {
   version: 7,
   settings: {
-    vaultPath: "C:\\Users\\kevpe\\OneDrive\\Desktop\\Projects\\Obsidian vaults\\Olympus Obsidian Vault",
     projectsRootPath: "C:\\Users\\kevpe\\OneDrive\\Desktop\\Projects"
   },
   tools: [

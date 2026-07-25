@@ -348,25 +348,25 @@ export function useDashboardData() {
 
   const syncResearchBase = useCallback(async () => {
     try {
-      return await syncResearchBaseToVault(dashboardState.settings.vaultPath);
+      return await syncResearchBaseToVault();
     } catch (error) {
       return {
         tone: "error" as const,
         message: `Could not update the Obsidian Base: ${errorMessage(error)}`
       };
     }
-  }, [dashboardState.settings.vaultPath]);
+  }, []);
 
   const syncProjectsCanvas = useCallback(async () => {
     try {
-      return await syncProjectsCanvasToVault(dashboardState.settings.vaultPath, dashboardState.projects);
+      return await syncProjectsCanvasToVault(dashboardState.projects);
     } catch (error) {
       return {
         tone: "error" as const,
         message: `Could not update the project canvas: ${errorMessage(error)}`
       };
     }
-  }, [dashboardState.projects, dashboardState.settings.vaultPath]);
+  }, [dashboardState.projects]);
 
   const refreshAll = useCallback(async () => {
     await Promise.allSettled([refreshMarkets(), refreshWeather(), refreshProjects()]);
