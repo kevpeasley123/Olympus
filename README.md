@@ -9,7 +9,7 @@ Project Olympus is a local-first AI command station for projects, research, work
 - Core screen: living project constellation
 - Modules: operator brief, active projects, research inbox, skills/scaffolds, personal profile, and next actions
 - Memory surface: Obsidian-flavored Markdown artifacts, with JSON Canvas and Bases export previews
-- Safety model: human-approved actions before writing memory artifacts or changing project state outside the app
+- Safety model: **intended** to require human approval before writing memory artifacts or changing project state outside the app. Not yet implemented — see "Vault writes" in `ARCHITECTURE.md` for what actually ships today
 
 ## Obsidian Skills Reference
 
