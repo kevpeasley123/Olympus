@@ -39,8 +39,13 @@ struct MemoryArtifact {
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 struct WriteResult {
     path: String,
+    /// False when the operator declined the overwrite. Declining is a correct
+    /// outcome, not a failure — the command did its job by asking and honouring
+    /// the answer — so it returns Ok and lets the caller phrase it neutrally.
+    written: bool,
 }
 
 /// Builds the vault-relative path for an artifact. Containment is proven by
@@ -121,9 +126,10 @@ async fn write_memory_artifact(
             write_confirm::request_confirmation(&app, key.clone(), reason, summary).await;
 
         if !approved {
-            return Err(
-                "Write cancelled. The file on disk was left exactly as it was.".to_string(),
-            );
+            return Ok(WriteResult {
+                path: target.to_string_lossy().to_string(),
+                written: false,
+            });
         }
     }
 
@@ -151,6 +157,7 @@ async fn write_memory_artifact(
 
     Ok(WriteResult {
         path: target.to_string_lossy().to_string(),
+        written: true,
     })
 }
 

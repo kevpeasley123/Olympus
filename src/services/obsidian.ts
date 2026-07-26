@@ -11,6 +11,8 @@ export interface ObsidianActionResult {
 
 interface WriteMemoryArtifactResult {
   path: string;
+  /** False when the write gate was shown and the overwrite was declined. */
+  written: boolean;
 }
 
 function isTauriRuntime(): boolean {
@@ -194,6 +196,16 @@ export async function syncResearchBaseToVault(): Promise<ObsidianActionResult> {
 
   const fileName = "Olympus Research.base";
   const result = await writeArtifact("00 - Dashboard", fileName, createResearchBase());
+
+  if (!result.written) {
+    // Declining is a deliberate, correct outcome — phrase it as one.
+    return {
+      tone: "warning",
+      message: `Kept your version of ${fileName}. Nothing was overwritten.`,
+      path: result.path
+    };
+  }
+
   return {
     tone: "success",
     message: `Updated Obsidian Base at 00 - Dashboard/${fileName}`,
@@ -213,6 +225,15 @@ export async function syncProjectsCanvasToVault(
 
   const fileName = "Olympus Projects.canvas";
   const result = await writeArtifact("00 - Dashboard", fileName, createProjectsCanvas(projects));
+
+  if (!result.written) {
+    return {
+      tone: "warning",
+      message: `Kept your version of ${fileName}. Nothing was overwritten.`,
+      path: result.path
+    };
+  }
+
   return {
     tone: "success",
     message: `Updated JSON Canvas at 00 - Dashboard/${fileName}`,
