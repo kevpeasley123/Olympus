@@ -1,4 +1,4 @@
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, ListChecks } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useActionQueue, type ActionQueueTask, type TaskSourceFolder } from "../../hooks/useActionQueue";
@@ -102,37 +102,52 @@ export function ActionQueuePanel({ compact = false, onExitCompact }: ActionQueue
     );
   }
 
+  // Nothing to say collapses to one line rather than rendering emptiness at
+  // full height.
+  if (!hasTasks) {
+    return (
+      <section className="dashboard-panel action-queue-panel is-collapsed surface-chrome">
+        <div className="panel-head">
+          <span className="panel-head__icon">
+            <ListChecks size={15} />
+          </span>
+          <p className="panel-head__title">Action Queue</p>
+          <span className="panel-head__meta">
+            {error ? "Couldn't reach the vault parser" : "No open tasks"}
+          </span>
+        </div>
+      </section>
+    );
+  }
+
   return (
     <>
       <section ref={panelRef} className="dashboard-panel action-queue-panel">
-        <header className="action-queue-header">
-          <div className="action-queue-eyebrow-group">
-            <span className="panel-eyebrow">Action Queue</span>
-            <span className="action-queue-date tabular-data">{formatTodayDate(now)}</span>
-          </div>
+        <header className="panel-head">
+          <span className="panel-head__icon">
+            <ListChecks size={15} />
+          </span>
+          <p className="panel-head__title">Action Queue</p>
+          <span className="panel-head__meta tabular-data">{formatTodayDate(now)}</span>
         </header>
 
         <div className="action-queue-rows">
-          {hasTasks ? (
-            visibleTasks.map((task) => <TaskRow key={task.id} task={task} />)
-          ) : (
-            <EmptyState hasError={Boolean(error)} />
-          )}
+          {visibleTasks.map((task) => (
+            <TaskRow key={task.id} task={task} />
+          ))}
         </div>
 
-        {hasTasks ? (
-          <footer className="action-queue-footer">
-            <button
-              type="button"
-              className="action-queue-footer-toggle"
-              onClick={() => setExpanded((value) => !value)}
-              title={expanded ? "Hide all tasks" : "Show all tasks"}
-            >
-              <span>{expanded ? "Hide" : "Show all"}</span>
-              <ChevronDown size={14} className={expanded ? "is-expanded" : ""} />
-            </button>
-          </footer>
-        ) : null}
+        <footer className="action-queue-footer">
+          <button
+            type="button"
+            className="action-queue-footer-toggle"
+            onClick={() => setExpanded((value) => !value)}
+            title={expanded ? "Hide all tasks" : "Show all tasks"}
+          >
+            <span>{expanded ? "Hide" : "Show all"}</span>
+            <ChevronDown size={14} className={expanded ? "is-expanded" : ""} />
+          </button>
+        </footer>
       </section>
 
       {expanded && overlayRect
@@ -189,12 +204,3 @@ function TaskRow({ task }: { task: ActionQueueTask }) {
   );
 }
 
-function EmptyState({ hasError }: { hasError: boolean }) {
-  return (
-    <div className="action-queue-empty-state">
-      <div className="action-queue-empty-text">
-        {hasError ? "Couldn't reach the vault parser." : "No open tasks in the vault."}
-      </div>
-    </div>
-  );
-}

@@ -1,6 +1,7 @@
-import { motion } from "motion/react";
+import { MotionConfig, motion, useReducedMotion } from "motion/react";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
+import { BackgroundLayer } from "./components/BackgroundLayer";
 import { AmbientDock } from "./components/panels/AmbientDock";
 import { ChatPanel } from "./components/panels/ChatPanel";
 import { HeaderBar } from "./components/panels/HeaderBar";
@@ -44,21 +45,24 @@ function App() {
   }, [focusMode]);
 
   return (
-    <main className={`app-shell ${focusMode ? "focus-mode" : ""}`}>
+    // `reducedMotion="user"` makes every `motion` component in the tree honour
+    // the OS setting, including AnimatePresence inside LibraryPanel. Wiring it
+    // per component would leave the ones nobody remembered to touch animating.
+    <MotionConfig reducedMotion="user">
+      <BackgroundLayer />
+      <main className={`app-shell ${focusMode ? "focus-mode" : ""}`}>
       <FadeInPanel index={0} className="panel-slot panel-slot-header">
         <HeaderBar />
       </FadeInPanel>
 
       <div className="dashboard-body">
         <section className="main-grid">
-          <aside className="tools-rail dashboard-column panel-shell">
+          {/* An icon rail. The "Tools" heading and the labels came out with the
+              column width — at 44px the icons are the whole affordance, and
+              each row already carries a title attribute. */}
+          <aside className="tools-rail dashboard-column panel-shell surface-chrome">
             <FadeInPanel index={1} className="panel-slot panel-slot-tools">
-              <div className="strip-header compact">
-                <div>
-                  <p className="eyebrow">Tools</p>
-                </div>
-              </div>
-              <ToolBelt tools={tools} compact={focusMode} />
+              <ToolBelt tools={tools} compact />
             </FadeInPanel>
             <FadeInPanel index={6} className="panel-slot panel-slot-quickbar">
               <QuickbarPanel apps={quickApps} />
@@ -112,7 +116,8 @@ function App() {
         sourceHealth={sourceHealth}
       />
       <WriteConfirmDialog />
-    </main>
+      </main>
+    </MotionConfig>
   );
 }
 
@@ -125,13 +130,21 @@ function FadeInPanel({
   className?: string;
   children: ReactNode;
 }) {
+  // MotionConfig already strips the transform from `animate`, but the stagger
+  // delay is not motion — it would still hold each panel invisible in sequence.
+  const reducedMotion = useReducedMotion();
+
   return (
     <motion.div
       className={className}
       layout
       initial={{ opacity: 0, y: 4 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.2, delay: index * 0.05, ease: "easeOut" }}
+      transition={
+        reducedMotion
+          ? { duration: 0 }
+          : { duration: 0.2, delay: index * 0.05, ease: "easeOut" }
+      }
     >
       {children}
     </motion.div>

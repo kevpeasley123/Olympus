@@ -7,6 +7,7 @@ import {
   CloudRain,
   CloudSnow,
   CloudSun,
+  MapPin,
   Sun
 } from "lucide-react";
 import type { WeatherForecastDay } from "../../types";
@@ -23,20 +24,27 @@ export function WeatherPanel({ state, onRetry, compact = false }: WeatherPanelPr
   return (
     <section className={`dashboard-panel weather-panel ${compact ? "compact-weather" : ""}`}>
       <div className="weather-strip">
-        <div className="weather-top-row">
-          <div className="weather-heading">
-            <p className="eyebrow">Weather</p>
-            <strong>{state.data?.label ?? "Tucson, AZ"}</strong>
-          </div>
+        <div className="panel-head">
+          <span className="panel-head__icon">
+            <MapPin size={15} />
+          </span>
+          {/* The location comes from Rust, which owns the coordinates. No
+              literal fallback here — a hardcoded city that disagrees with the
+              one actually fetched is worse than a dash. */}
+          <p className="panel-head__title">{state.data?.label ?? "Weather"}</p>
           {state.error ? (
-            <div className="inline-panel-error">
-              <span>Failed to load</span>
-              <button className="ghost-action retry-action" onClick={onRetry}>
-                Retry
-              </button>
-            </div>
+            <>
+              <span className="panel-head__meta">Failed to load</span>
+              <div className="panel-head__actions">
+                <button className="ghost-action retry-action" onClick={onRetry}>
+                  Retry
+                </button>
+              </div>
+            </>
           ) : (
-            <span className="panel-meta tabular-data">Updated {state.data?.updatedAt ?? "--:--"}</span>
+            <span className="panel-head__meta tabular-data">
+              {state.data?.updatedAt ?? "--:--"}
+            </span>
           )}
         </div>
 

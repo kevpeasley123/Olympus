@@ -23,6 +23,22 @@
   --primary: #f4f6fa;
   --divider: rgba(255, 255, 255, 0.05);
   --border: rgba(255, 255, 255, 0.06);
+
+  /* One padding for every panel. Seven different values used to be in here,
+     which is most of why the layout read as clutter at any density. */
+  --panel-pad: 24px;
+  --panel-pad-tight: 10px 16px;
+
+  /* Translucency is tiered by how dense the surface is, not applied globally.
+     Chrome and short-label surfaces let the background image read through the
+     layout's structure; anything carrying prose or numerals stays near-opaque,
+     because a photograph behind body text is unreadable at any blur radius. */
+  --surface-chrome: rgba(12, 18, 30, 0.55);
+  --surface-chrome-blur: blur(14px);
+  --surface-panel: rgba(11, 17, 28, 0.82);
+  --surface-panel-blur: blur(12px);
+  --surface-dense: rgba(10, 15, 26, 0.94);
+  --surface-dense-blur: blur(10px);
   --font-sans: "Inter", system-ui, -apple-system, sans-serif;
   --font-display: "Cinzel", "Cormorant Garamond", Georgia, serif;
   --font-mono: "JetBrains Mono", "SF Mono", Consolas, monospace;
@@ -48,15 +64,56 @@ body {
   overflow: hidden;
   font-family: var(--font-sans);
   font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  /* The image moved to `BackgroundLayer`, which can be transformed for parallax
+     without repainting a fixed body background every frame. What stays here is
+     the base colour and the grid.
+
+     The veil that used to sit on the image was 0.90/0.92 alpha — that, not the
+     hue, is why the background was invisible. The base was already dark navy
+     rather than black. */
   background:
-    linear-gradient(rgba(8, 14, 24, 0.9), rgba(8, 14, 24, 0.92)),
     linear-gradient(rgba(15, 29, 44, 0.28) 1px, transparent 1px),
     linear-gradient(90deg, rgba(15, 29, 44, 0.28) 1px, transparent 1px),
-    url("./assets/Olympus background asset.png");
-  background-position: center, center, center, center;
-  background-repeat: no-repeat, repeat, repeat, no-repeat;
-  background-size: auto, 48px 48px, 48px 48px, cover;
+    rgb(7, 13, 26);
+  background-position: center, center, center;
+  background-repeat: repeat, repeat, no-repeat;
+  background-size: 48px 48px, 48px 48px, auto;
   background-attachment: fixed;
+}
+
+/* Sits between the image and the app. Darkest over the centre column, so the
+   busiest region stays legible no matter which image is loaded — the inverse of
+   a conventional vignette, which darkens the edges. */
+.background-vignette {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: radial-gradient(
+    ellipse 55% 65% at 50% 50%,
+    rgba(4, 7, 14, 0.62) 0%,
+    rgba(4, 7, 14, 0.25) 55%,
+    transparent 100%
+  );
+}
+
+/* Overscanned so the parallax translation never exposes an edge. */
+.background-image {
+  position: fixed;
+  inset: -24px;
+  z-index: -1;
+  pointer-events: none;
+  /* The veil rides on the image rather than on `body`, so it dims the picture
+     without dimming the panels stacked above it. It was 0.90/0.92 before, which
+     is why the image was invisible; at this strength the structure reads
+     through without the picture competing with text. */
+  background-image:
+    linear-gradient(rgba(7, 13, 26, 0.78), rgba(7, 13, 26, 0.84)),
+    url("./assets/Olympus background asset.png");
+  background-position: center, center;
+  background-repeat: no-repeat, no-repeat;
+  background-size: cover, cover;
+  will-change: transform;
 }
 
 button,
@@ -144,16 +201,31 @@ select:focus {
     padding 300ms ease-out;
 }
 
+/* The default tier. Everything that used to be 0.96 alpha over a 10px blur —
+   which transmitted about 4% and made the blur decorative — now sits here. */
 .topbar,
 .settings-panel,
 .panel-shell,
 .dashboard-panel {
+  position: relative;
+  z-index: 1;
   border: 1px solid var(--border);
-  background:
-    linear-gradient(180deg, rgba(14, 21, 34, 0.96), rgba(10, 15, 26, 0.96)),
-    rgba(10, 15, 26, 0.94);
-  backdrop-filter: blur(10px);
+  background: var(--surface-panel);
+  backdrop-filter: var(--surface-panel-blur);
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.34), inset 0 1px 0 rgba(255, 255, 255, 0.02);
+}
+
+/* Prose and tabular numerals. The image must not read behind either. */
+.surface-dense {
+  background: var(--surface-dense);
+  backdrop-filter: var(--surface-dense-blur);
+}
+
+/* Short labels only — chrome, rails, and collapsed rows. This is the tier that
+   actually lets the background through. */
+.surface-chrome {
+  background: var(--surface-chrome);
+  backdrop-filter: var(--surface-chrome-blur);
 }
 
 .topbar {
@@ -367,11 +439,15 @@ select:focus {
   perspective: 800px;
 }
 
+/* The only glowing object in the app. One reads as intentional; glow on text at
+   this density causes fatigue within a week, so nothing else gets one. */
 .olympus-sigil-svg {
   display: block;
   width: 100px;
   height: 100px;
   overflow: visible;
+  filter: drop-shadow(0 0 10px rgba(217, 119, 6, 0.35))
+    drop-shadow(0 0 26px rgba(217, 119, 6, 0.16));
 }
 
 .olympus-wordmark,
@@ -412,7 +488,67 @@ select:focus {
 .settings-panel,
 .panel-shell,
 .dashboard-panel {
-  padding: var(--space-20);
+  padding: var(--panel-pad);
+}
+
+/* A panel with nothing to say is one line, not a full-height panel rendering
+   emptiness. */
+.dashboard-panel.is-collapsed {
+  flex: 0 0 auto;
+  padding: var(--panel-pad-tight);
+}
+
+/* One header row for every panel: icon, title, actions. Seven different
+   constructions used to be in here, with four different title treatments. */
+.panel-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  flex: 0 0 auto;
+  min-height: 20px;
+}
+
+.panel-head__icon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  color: var(--accent);
+  opacity: 0.75;
+}
+
+.panel-head__title {
+  margin: 0;
+  color: var(--accent);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+/* Pushes the actions to the right and gives the title room to sit next to a
+   meta value without the two colliding. */
+.panel-head__meta {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: var(--muted);
+  font-size: var(--text-xs);
+  text-align: right;
+}
+
+.panel-head__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  flex: 0 0 auto;
+}
+
+.panel-body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  margin-top: var(--space-16);
 }
 
 .settings-panel {
@@ -524,9 +660,11 @@ small {
   font-weight: var(--weight-medium);
 }
 
+/* The left column is an icon rail. It was 220px of mostly empty space holding
+   four labels. */
 .main-grid {
   display: grid;
-  grid-template-columns: 220px minmax(0, 1fr) 380px;
+  grid-template-columns: 44px minmax(0, 1fr) 380px;
   gap: var(--space-16);
   align-items: stretch;
   flex: 1 1 auto;
@@ -615,20 +753,31 @@ small {
 .tool-column {
   display: flex;
   flex-direction: column;
-  margin-top: var(--space-8);
-  border-top: 1px solid var(--divider);
+  gap: var(--space-4);
 }
 
 .quickbar-block {
   margin-top: auto;
-  padding-top: var(--space-16);
+  padding-top: var(--space-12);
   border-top: 1px solid var(--divider);
 }
 
+/* Single file at rail width — four across no longer fits in 44px. */
 .quickbar-grid {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
+  align-items: center;
   gap: var(--space-8);
+}
+
+/* The rail carries icons only, so it is chrome: this is the surface the
+   background image is meant to read through. */
+.tools-rail {
+  padding: var(--space-12) 0;
+}
+
+.tools-rail .panel-slot-tools .strip-header {
+  display: none;
 }
 
 .quick-app-button {
@@ -913,7 +1062,12 @@ small {
 
 .tool-column.is-compact .tool-row {
   justify-content: center;
+  min-height: 36px;
   padding: var(--space-8);
+  /* The divider was there to separate labelled rows. Centred icons read as a
+     rail without it. */
+  border-bottom: 0;
+  border-radius: 6px;
 }
 
 .tool-column.is-compact .tool-area-dot {
@@ -930,11 +1084,6 @@ small {
   font-size: var(--text-xs);
 }
 
-.panel-meta {
-  color: var(--muted);
-  font-size: 10px;
-  line-height: 1.4;
-}
 
 .panel-error-text {
   max-width: 260px;
@@ -948,36 +1097,11 @@ small {
   flex: 0 0 auto;
   display: flex;
   flex-direction: column;
-  padding: 16px 24px;
 }
 
-.markets-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: var(--space-12);
-  margin-bottom: 12px;
-}
 
-.markets-eyebrow {
-  font-size: 11px;
-  font-weight: var(--weight-medium);
-  letter-spacing: 0.16em;
-  color: var(--accent);
-  text-transform: uppercase;
-}
 
-.markets-updated {
-  font-size: 11px;
-  color: var(--muted);
-  font-variant-numeric: tabular-nums;
-}
 
-.markets-header-actions {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-8);
-}
 
 .markets-group {
   min-width: 0;
@@ -1111,7 +1235,7 @@ small {
 }
 
 .markets-panel--compact {
-  padding: 14px 18px;
+  padding: var(--panel-pad-tight);
 }
 
 .markets-panel--compact .markets-grid--indexes,
@@ -1268,9 +1392,15 @@ small {
   flex: 0 0 auto;
 }
 
-.projects-header-row {
-  align-items: center;
+.projects-footer {
+  display: flex;
+  justify-content: flex-end;
+  flex: 0 0 auto;
+  margin-top: var(--space-12);
+  padding-top: var(--space-12);
+  border-top: 1px solid var(--divider);
 }
+
 
 .projects-title {
   margin: 0;
@@ -1423,13 +1553,10 @@ small {
   margin-top: 0;
 }
 
+/* The rail is 44px in every mode now, so focus mode only narrows the chat
+   column. */
 .focus-mode .main-grid {
-  grid-template-columns: 72px minmax(0, 1fr) 280px;
-}
-
-.focus-mode .tools-rail {
-  padding-left: var(--space-8);
-  padding-right: var(--space-8);
+  grid-template-columns: 44px minmax(0, 1fr) 280px;
 }
 
 .focus-mode .project-card {
@@ -1446,15 +1573,13 @@ small {
   text-overflow: clip;
 }
 
+/* Header-only in residence — the library itself opens as a modal — so it is a
+   single strip rather than a panel reporting a count at full height. */
 .research-panel {
   flex: 0 0 auto;
-  padding-top: var(--space-16);
-  padding-bottom: var(--space-16);
+  padding: var(--panel-pad-tight);
 }
 
-.research-count {
-  margin-top: var(--space-4);
-}
 
 .action-feedback {
   margin-top: var(--space-8);
@@ -1481,20 +1606,8 @@ small {
   padding-bottom: 10px;
 }
 
-.pantheon-title-block {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-  min-width: 0;
-}
 
-.pantheon-title-block h2 {
-  font-size: var(--text-xl);
-}
 
-.pantheon-header-bar {
-  align-items: center;
-}
 
 .pantheon-panel .panel-actions {
   flex-wrap: wrap;
@@ -1531,9 +1644,6 @@ small {
   color: var(--muted);
 }
 
-.pantheon-search-spacer {
-  min-width: 200px;
-}
 
 .pantheon-workspace {
   display: grid;
@@ -1957,28 +2067,10 @@ small {
 
 .weather-panel {
   flex: 0 0 auto;
-  padding-top: 14px;
-  padding-bottom: 14px;
 }
 
-.weather-top-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-12);
-}
 
-.weather-heading {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-}
 
-.weather-heading strong {
-  color: var(--primary);
-  font-size: var(--text-base);
-  font-weight: var(--weight-medium);
-}
 
 .weather-strip {
   display: flex;
@@ -1986,13 +2078,6 @@ small {
   gap: var(--space-12);
 }
 
-.inline-panel-error {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-8);
-  color: var(--muted);
-  font-size: var(--text-sm);
-}
 
 .weather-inline {
   flex-wrap: wrap;
@@ -2499,17 +2584,16 @@ small {
     min-width: 1280px;
   }
 
+  /* The rail is 44px at every width. This used to restore the 220px column and
+     silently undo the icon rail on a narrow window. */
   .main-grid {
-    grid-template-columns: 220px minmax(0, 1fr) 380px;
+    grid-template-columns: 44px minmax(0, 1fr) 380px;
   }
 
   .quickbar-grid {
     gap: var(--space-8);
   }
 
-  .pantheon-header-bar {
-    align-items: flex-start;
-  }
 
   .pantheon-search-shell {
     max-width: none;
@@ -2546,12 +2630,43 @@ small {
   }
 }
 
+/* This used to guard four selectors while every transition and every
+   `motion` animation ran regardless. `MotionConfig reducedMotion="user"` in
+   App.tsx covers the React side; this covers the CSS side. */
 @media (prefers-reduced-motion: reduce) {
   .ring-outer,
   .ring-middle,
   .ring-inner,
-  .conversation-pending {
+  .conversation-pending,
+  .skeleton-line,
+  .health-source-dot,
+  .health-indicator,
+  .ambient-inline-button.is-spinning {
     animation: none;
+  }
+
+  .main-grid,
+  .tools-rail,
+  .markets-panel,
+  .projects-panel,
+  .weather-panel,
+  .panel-slot,
+  .markets-detail,
+  .tool-row,
+  .ghost-action,
+  .card-link,
+  .send-button,
+  .market-toggle,
+  .markets-news-toggle svg,
+  .observation-seed,
+  .background-image {
+    transition: none;
+  }
+
+  /* The parallax listener is also skipped in JS; this stops any in-flight
+     transform from being animated out. */
+  .background-image {
+    transform: none !important;
   }
 }
 
@@ -3159,28 +3274,10 @@ small {
   flex: 0 0 auto;
   display: flex;
   flex-direction: column;
-  padding: 18px 24px;
 }
 
-.action-queue-header {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--space-12);
-  margin-bottom: 12px;
-}
 
-.action-queue-eyebrow-group {
-  display: inline-flex;
-  align-items: baseline;
-  gap: var(--space-12);
-}
 
-.action-queue-date {
-  font-size: 11px;
-  color: var(--muted);
-  font-variant-numeric: tabular-nums;
-}
 
 .action-queue-rows {
   display: flex;
@@ -3326,18 +3423,7 @@ small {
   color: #6b7a90;
 }
 
-/* Empty state */
-.action-queue-empty-state {
-  text-align: center;
-  padding: 24px;
-  border: 1px dashed rgba(255, 255, 255, 0.1);
-  border-radius: 6px;
-}
 
-.action-queue-empty-text {
-  font-size: 13px;
-  color: var(--muted);
-}
 
 /* Footer (matches .markets-news-toggle pattern) */
 .action-queue-footer {
@@ -3378,7 +3464,7 @@ small {
   display: flex;
   align-items: center;
   gap: var(--space-8);
-  padding: 8px 16px;
+  padding: var(--panel-pad-tight);
   cursor: pointer;
   min-height: 36px;
   transition: background 120ms ease;

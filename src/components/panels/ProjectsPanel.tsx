@@ -1,3 +1,4 @@
+import { FolderGit2 } from "lucide-react";
 import type { ProjectStatus, TrackedProject } from "../../types";
 import { formatPath } from "../../utils/formatPath";
 import type { ObsidianActionResult } from "../../services/obsidian";
@@ -43,11 +44,14 @@ export function ProjectsPanel({
   return (
     <section className={`dashboard-panel projects-panel ${focusMode ? "focus-projects" : ""}`}>
       <div className="projects-panel-top">
-        <div className="panel-header compact projects-header-row">
-          <p className="projects-title">Projects</p>
-          <button className="ghost-action" onClick={() => void handleSyncCanvas()} disabled={syncing}>
-            {syncing ? "Updating..." : "Update Canvas"}
-          </button>
+        <div className="panel-head">
+          <span className="panel-head__icon">
+            <FolderGit2 size={15} />
+          </span>
+          <p className="panel-head__title">Projects</p>
+          <span className="panel-head__meta tabular-data">
+            {projects.length === 1 ? "1 project" : `${projects.length} projects`}
+          </span>
         </div>
         {status && <p className={`section-copy action-feedback ${status.tone}`}>{status.message}</p>}
         {warningCount > 0 && (
@@ -66,6 +70,20 @@ export function ProjectsPanel({
           <ProjectCard key={project.id} project={project} />
         ))}
       </div>
+      {/* Demoted out of the header. It rewrites a file wholesale, and it should
+          not be the most prominent affordance in the centrepiece panel. It has
+          been gated since c62018a — it prompts when the canvas diverged from
+          what Olympus last wrote — so this is about prominence, not safety. */}
+      <footer className="projects-footer">
+        <button
+          className="ghost-action"
+          onClick={() => void handleSyncCanvas()}
+          disabled={syncing}
+          title="Regenerate 00 - Dashboard/Olympus Projects.canvas from the current project list"
+        >
+          {syncing ? "Updating..." : "Update Canvas"}
+        </button>
+      </footer>
     </section>
   );
 }

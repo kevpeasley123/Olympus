@@ -66,13 +66,16 @@ export function ChatPanel({
   }
 
   return (
-    <section className="dashboard-panel conversation-panel">
-      <div className="panel-header">
-        <div>
-          <p className="eyebrow">Conversation</p>
-          <h2>Chat</h2>
-        </div>
-        <div className="conversation-header-actions">
+    // Dense: the thread is prose, and the background image must not read
+    // behind it.
+    <section className="dashboard-panel conversation-panel surface-dense">
+      <div className="panel-head">
+        <span className="panel-head__icon">
+          <Compass size={15} />
+        </span>
+        <p className="panel-head__title">Chat</p>
+        <span className="panel-head__meta" />
+        <div className="panel-head__actions">
           <button
             type="button"
             className="ghost-icon-action"
@@ -82,7 +85,6 @@ export function ChatPanel({
           >
             <NotebookPen size={15} />
           </button>
-          <Compass size={18} className="panel-icon" />
         </div>
       </div>
       <div className="conversation-thread">

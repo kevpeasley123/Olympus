@@ -1,4 +1,4 @@
-import { ChevronDown, CircleHelp } from "lucide-react";
+import { ChartCandlestick, ChevronDown, CircleHelp } from "lucide-react";
 import { useState } from "react";
 import type { MarketIndex, MarketNewsItem, MarketRate } from "../../types";
 import type { LoadableState } from "../../types/dashboard";
@@ -70,21 +70,32 @@ export function MarketsPanel({ state, onRetry, compact = false }: MarketsPanelPr
   const rateWarning = state.data?.rateWarning;
 
   return (
-    <section className={`dashboard-panel markets-panel ${compact ? "markets-panel--compact" : ""}`}>
-      <header className="markets-header">
-        <span className="markets-eyebrow">Markets</span>
+    // Dense: tabular numerals are the whole point of this panel and they need a
+    // flat surface behind them.
+    <section
+      className={`dashboard-panel markets-panel surface-dense ${
+        compact ? "markets-panel--compact" : ""
+      }`}
+    >
+      <header className="panel-head">
+        <span className="panel-head__icon">
+          <ChartCandlestick size={15} />
+        </span>
+        <p className="panel-head__title">Markets</p>
         {panelError ? (
-          <div className="markets-header-actions">
-            <span className="panel-error-text" title={panelError}>
-              Failed to load: {panelError}
+          <>
+            <span className="panel-head__meta panel-error-text" title={panelError}>
+              Failed to load
             </span>
-            <button className="ghost-action retry-action" onClick={onRetry}>
-              Retry
-            </button>
-          </div>
+            <div className="panel-head__actions">
+              <button className="ghost-action retry-action" onClick={onRetry}>
+                Retry
+              </button>
+            </div>
+          </>
         ) : (
-          <span className="markets-updated tabular-data">
-            Updated {state.data?.updatedAt ?? "--:--"}
+          <span className="panel-head__meta tabular-data">
+            {state.data?.updatedAt ?? "--:--"}
           </span>
         )}
       </header>

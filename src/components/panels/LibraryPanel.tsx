@@ -6,6 +6,7 @@ import {
   ChevronDown,
   FilePlus2,
   Layers3,
+  Library,
   RotateCcw,
   RotateCw,
   Search
@@ -365,16 +366,18 @@ export function LibraryPanel({ onViewDatabase }: LibraryPanelProps) {
 
   return (
     <>
-      <section className="dashboard-panel research-panel pantheon-panel">
-        <div className="panel-header pantheon-header-bar">
-          <div className="pantheon-title-block">
-            <h2>Pantheon</h2>
-            <p className="section-copy research-count">{entryLabel}</p>
-          </div>
+      {/* Header-only in residence: the library itself opens as a modal, so the
+          resident panel is a single strip rather than a full-height panel
+          reporting a count. */}
+      <section className="dashboard-panel research-panel pantheon-panel is-collapsed surface-chrome">
+        <div className="panel-head">
+          <span className="panel-head__icon">
+            <Library size={15} />
+          </span>
+          <p className="panel-head__title">Pantheon</p>
+          <span className="panel-head__meta">{entryLabel}</span>
 
-          <div className="pantheon-search-spacer" aria-hidden="true"></div>
-
-          <div className="panel-actions">
+          <div className="panel-head__actions">
             <button
               className="ghost-action"
               onClick={() => void handleViewDatabase()}
