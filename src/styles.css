@@ -3103,6 +3103,15 @@ small {
   flex-shrink: 0;
 }
 
+/* Pushed to the far edge so it reads as a status for the form, not a label on
+   the Cancel button next to it. */
+.pantheon-modal-footer-hint {
+  margin-right: auto;
+  font-size: 12px;
+  color: var(--muted);
+  opacity: 0.85;
+}
+
 .form-button {
   padding: 8px 16px;
   border-radius: 6px;

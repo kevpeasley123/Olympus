@@ -1222,6 +1222,13 @@ function AddEntryModal({
     setBody(trimmedBody.length > 0 ? `${trimmedBody}\n\n${extractedText}` : extractedText);
   }
 
+  // Named so the footer can say which one is holding it, rather than leaving a
+  // dead button and no explanation.
+  const missing = [
+    !title.trim() ? "Title" : null,
+    !body.trim() ? "Body" : null
+  ].filter((value): value is string => value !== null);
+
   function handleSave() {
     void onSubmit({
       title,
@@ -1278,6 +1285,26 @@ function AddEntryModal({
                 value={title}
                 onChange={(event) => setTitle(event.target.value)}
                 autoFocus
+                disabled={submitting}
+              />
+            </div>
+
+            {/* Second, not last. This is the entry — the metadata below it
+                describes the thing typed here. It used to sit under nine other
+                fields including the attachment dropzone, far enough below the
+                fold that the form read as upload-only and Save looked
+                permanently dead. */}
+            <div className="form-field form-field--body">
+              <label className="form-label" htmlFor="ae-body">
+                Body
+              </label>
+              <textarea
+                id="ae-body"
+                className="form-input form-textarea"
+                placeholder="Write or paste the entry. Markdown supported. An attachment below can be extracted into this field, but typing here is the normal path."
+                value={body}
+                onChange={(event) => setBody(event.target.value)}
+                rows={10}
                 disabled={submitting}
               />
             </div>
@@ -1487,25 +1514,20 @@ function AddEntryModal({
                 </div>
               ) : null}
             </div>
-
-            <div className="form-field form-field--body">
-              <label className="form-label" htmlFor="ae-body">
-                Body
-              </label>
-              <textarea
-                id="ae-body"
-                className="form-input form-textarea"
-                placeholder="Write your entry. Markdown supported."
-                value={body}
-                onChange={(event) => setBody(event.target.value)}
-                rows={12}
-                disabled={submitting}
-              />
-            </div>
           </div>
         </div>
 
         <footer className="pantheon-modal-footer">
+          {/* A disabled button that will not say what it is waiting for is the
+              worst affordance in the form. The footer is pinned, so this was
+              visible and inert while the field it wanted sat below the fold. */}
+          {missing.length > 0 && !submitting ? (
+            <span className="pantheon-modal-footer-hint">
+              {missing.length === 1
+                ? `${missing[0]} is required`
+                : `${missing.join(" and ")} are required`}
+            </span>
+          ) : null}
           <button
             type="button"
             className="form-button form-button--ghost"
@@ -1518,7 +1540,8 @@ function AddEntryModal({
             type="button"
             className="form-button form-button--primary"
             onClick={handleSave}
-            disabled={submitting || !title.trim() || !body.trim()}
+            disabled={submitting || missing.length > 0}
+            title={missing.length > 0 ? `Still needed: ${missing.join(", ")}` : undefined}
           >
             {submitting ? "Saving..." : "Save Entry"}
           </button>
