@@ -1,10 +1,15 @@
 # Project Olympus — Session Handoff
 
-_Current as of 2026-07-26. `master` @ `55e11f8`. The visual system (`58206a1`) is
+_Current as of 2026-07-26. `master` @ `4e8f04c`. The visual system (`58206a1`) is
 merged; `claude/visual-system`, `claude/project-status-tiering`, and
 `claude/olympus-project-overview-b949xw` are all ancestors of `master` and safe
 to delete. Read `ARCHITECTURE.md` alongside this; it is the authority on
 anything they disagree about._
+
+_**Check this file against the code before trusting it.** It has carried stale
+claims three sessions running: it said the visual system was unmerged when it
+was, that task 6b had no data when 10 of 17 tasks were attributable, and that
+the test count was 133 when it was 145. Line numbers quoted here drift too._
 
 ## What it is
 
@@ -67,6 +72,15 @@ vault-path split was masked only by the absence of a settings UI.
 - **The visual system, in Chrome against the dev server.** Parallax measured at
   `+9.95px` / `−9.89px` at the pointer extremes; density tiers and the uniform
   24px padding read back from the live DOM.
+- **The header restructure, in Chrome against the dev server.** Band 96px, sigil
+  56px, wordmark 32px, switcher centred at x=960 in a 1920 viewport, rail flush
+  right. All three modes switched and their layouts confirmed; both overlays
+  opened and closed by button and by Escape; Ctrl+\ cycled and wrapped;
+  `focusMode: "true"` migrated to Project with the legacy key removed, and a
+  garbage value landed on Command. **At 1184px the icon rail held at 44px and the
+  header held at 96px with no overflow** — the media query that shipped a bug
+  once did not this time. The omega's poll pulse was watched: event ring appears,
+  holds 700ms, clears.
 
 **Still test-only — nobody has run these:**
 
@@ -78,6 +92,9 @@ vault-path split was masked only by the absence of a settings UI.
   appended to. The observation path exercised the no-recorded-fingerprint branch
   and the migration exercised divergence under `ModifyAuthored`, but not the two
   together.
+- **The omega's vault-write pulse.** The poll tick is confirmed and shares the
+  same subscriber path, but the write branch needs the Tauri gate and has never
+  fired. Watch it during an approval dialog.
 - **Reduced motion.** `MotionConfig reducedMotion="user"` and a 23-selector CSS
   block are in, but nobody has toggled the OS setting and watched motion stop.
 - **The visual system against the real background image**, at the real window
@@ -121,6 +138,7 @@ Ordered; each is one commit.
 | `f290e66` | Rust build output moved out of OneDrive — see the hazard under Housekeeping |
 | `6a70f3a` | **The Pantheon capture schema** — stance, why_kept, origin, written_by |
 | `55e11f8` | The migration trigger, and the migration run against the real vault |
+| `4e8f04c` | **The header restructure** — three zones, three modes, status rail, omega |
 
 ### Tiering (`c77838e`)
 
@@ -152,6 +170,45 @@ numerals `0.94` — where before every panel was `0.96` over a blur that
 transmitted about 4%. The image moved off `body` onto a transformed layer so
 parallax is GPU-composited. Also landed: the 44px icon rail, empty panels
 collapsing to one line, and Update Canvas demoted out of the Projects header.
+
+### The header restructure (`4e8f04c`)
+
+Tasks 2, 3, and 4 shipped as one change, because all three wanted the same
+140px band. It is now a three-zone bar at 96px — omega instrument left, mode
+switcher centre, status rail right. Sigil 100px → 56px, wordmark 56px → 32px.
+
+**Markets and Weather are residents of the rail, not rewrites of it.** One
+monospace line; a click opens the unchanged panel as an overlay. The rail
+summarises those panels and must never reimplement them, or the two drift. The
+weather label reads `state.data?.label` with no literal fallback.
+
+**`focusMode` is gone, not siblinged.** Project mode subsumes it; keeping both
+would have made a 2×3 state matrix. `olympus.focusMode` migrates (`"true"` →
+Project, anything unrecognised → Command) and the old key is **deleted** rather
+than left as inert config. Ctrl+\ cycles as an accelerator; the segmented
+control is the affordance.
+
+**The omega is the next-action sentence plus event animation.** The sentence is
+a real `next_step` or nothing — never generated. It pulses on poll ticks and on
+approved vault writes. Rust emits nothing on write *completion*, only
+`vault-write-pending`, so approval is the honest moment and the pulse is a
+frontend bus (`services/instrumentEvents.ts`). Tier arcs were dropped: three
+numbers lose to a text line.
+
+**Research mode gives the centre column to the library.** `LibraryPanel` takes a
+`resident` prop and swaps only the *wrapper* around the database surface — in
+place instead of a portal — so the 270 lines inside cannot drift between the two
+presentations. Search now covers tags.
+
+Two things nothing but running it would have found:
+
+- **`.topbar` carries `min-height: 140px`, and a min-height beats a height.** The
+  band stayed 140px while every zone inside it measured correctly. Anything
+  changing the header's height must override `min-height` too.
+- **The overlay's close button collided with the panel's own header actions.**
+  Absolutely positioned top-right, it landed on `WeatherPanel`'s Retry —
+  invisible, and swallowing its own click. It has its own row now. Both of these
+  panels put actions in that corner; don't float anything over it.
 
 ## The Pantheon capture schema (`6a70f3a`, `55e11f8`)
 
@@ -223,42 +280,20 @@ false positive — expect it before concluding something is broken.
 
 ## Next work — the dashboard redesign
 
-The operator wrote a six-task redesign brief on 2026-07-26. Tasks 1, 5, and the
-visual parts of 6 are built. **Tasks 2, 3, 4, and 6b are next**, planned and
-approved in `~/.claude/plans/distributed-forging-charm.md` but not started.
+The operator wrote a six-task redesign brief on 2026-07-26. Tasks 1, 2, 3, 4, 5,
+and the visual parts of 6 are built. **Only task 6b remains**, planned and
+approved in `~/.claude/plans/distributed-forging-charm.md` (Part C) but not
+started.
 
-**Tasks 2, 3, and 4 are one header restructure, not three.** `.olympus-header`
-(`styles.css` l.419) is a centered 140px ceremonial band with no side slots; all
-three want to live in it. Agreed shape: a three-zone bar at ~96px — emblem and
-wordmark left, mode switcher centre, status rail right. Sigil 100px → 56px,
-wordmark 56px → 32px.
+Research mode shipped thin, as agreed: Pantheon resident in the centre column,
+chat still right, search over title and tags. No links, provenance, or
+contradiction views — those get designed once entries exist. **Ctrl+K does not
+open the library and never has** — it is gated on the database already being
+open (`LibraryPanel.tsx`) and only focuses the search box. The shortcut popover
+used to claim otherwise; it now says what the key does.
 
-**Research mode ships thin**: Pantheon resident in the centre column replacing
-Projects, chat stays right, search over title and tags, modal stays for Ctrl+K.
-No links, provenance, or contradiction views — those get designed once entries
-exist.
+The remaining decision:
 
-The four decisions settled earlier still hold:
-
-- **Task 2 — status rail.** Collapse Markets and Weather into one monospace line
-  in the header band; clicking a segment opens the existing panel as an overlay.
-  Both components stay intact — this is residency, not a rewrite. The weather
-  location comes from Rust constants (`weather.rs`), and `WeatherPanel` now
-  renders `state.data.label` with no hardcoded fallback. The rail must do the
-  same, or it bakes in a location that may not be the one fetched.
-- **Task 3 — mode switcher.** Command / Project / Research, as a visible
-  segmented control; the keyboard shortcut is an accelerator, never the only
-  affordance. **Replace `focusMode` rather than adding a sibling** — Project mode
-  subsumes it, and keeping both makes a 2×3 state matrix. `focusMode` currently
-  lives in `App.tsx` and raw `localStorage` under `olympus.focusMode`; migrate
-  `"true"` → `project`, and fall back to Command on an unrecognised value.
-- **Task 4 — the omega instrument.** Ships as **the next-action sentence plus
-  event animation only** — vault-write pulse and poll tick. The brief's outer
-  ring of count-proportional tier arcs was dropped: with ~8 projects across 3–4
-  tiers it encodes three numbers, and three numbers lose to a text line. Events
-  are the part a static list genuinely cannot show. Note that the poll tick will
-  **fire twice at startup in dev** — StrictMode's double-invoke was confirmed in
-  the logs, with weather, markets, and the Pantheon scan each fetching twice.
 - **Task 6b — dissolve the Action Queue.** Attribute tasks to projects by which
   note the checkbox lives under. `tasks.rs` already records `source_folder` and a
   vault-relative `source_file`, so `01 - Projects/<note>.md` is the join. **The
@@ -267,8 +302,9 @@ The four decisions settled earlier still hold:
   `03 - Tasks/Olympus Next Actions.md`, 1 in a daily brief. The unattributed
   bucket is 41%, not 100%. Surface it, do not hide it.
 
-Task 5's translucency tiering only pays off once 2 and 3 exist — the open
-Command-mode centre is what the background is meant to read through.
+Task 5's translucency tiering now has the open Command-mode centre it was
+waiting for — with Markets and Weather moved into the header rail, the centre
+column is what the background reads through.
 
 **Flagged by the operator, deliberately not built.** These are dependencies of
 the library actually working, recorded so they are not rediscovered as bugs.
@@ -347,8 +383,21 @@ the library actually working, recorded so they are not rediscovered as bugs.
 - **Check the narrow-width media query when changing the grid.**
   `@media (max-width: 1280px)` carries its own `.main-grid` columns and will
   silently undo a layout change on any smaller window. That bug shipped once.
-- Rust tests pass (133); keep them passing. No frontend test infrastructure exists —
-  do not stand one up without being asked.
+- **`.topbar` sets `min-height: 140px`, and `.olympus-header` carries both
+  classes.** A `height` alone will not shrink the band — min-height wins. This
+  cost a debugging pass; `.olympus-header` now sets `min-height` too.
+- **Neither status panel tolerates anything floating over its top-right.**
+  Markets and Weather both put actions there, so an absolutely positioned control
+  in that corner lands on a real button and eats the click.
+- **Verifying UI in Chrome needs the window visible and un-maximized.** A hidden
+  or background tab has `requestAnimationFrame` throttled to zero, so every
+  `motion` animation freezes mid-fade and reads exactly like a broken component.
+  Chrome also ignores `resize` on a maximized window, which silently defeats the
+  narrow-width check. Confirm `document.visibilityState === "visible"` first.
+- Rust tests pass (**145** as of `4e8f04c`); keep them passing. No frontend test
+  infrastructure exists — do not stand one up without being asked. A pure
+  frontend function can still be checked by bundling it to a scratch directory
+  and running it under node, which adds nothing to the repo.
 - React StrictMode double-invokes effects in dev. No gated write is currently
   effect-reachable; if one becomes so, it will produce duplicate dialogs. Any
   scan-driven animation will fire twice at startup.
