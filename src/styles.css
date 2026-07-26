@@ -416,16 +416,81 @@ select:focus {
   border-radius: 8px;
 }
 
+/* Three zones, not a centred band. The middle column is the one that has to
+   stay put: `1fr auto 1fr` keeps the mode switcher optically centred even as
+   the status rail changes width with the quotes in it. */
 .olympus-header {
-  display: flex;
-  flex-direction: row;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  justify-content: center;
-  gap: 24px;
-  padding: 24px 48px;
-  height: 140px;
+  gap: var(--space-16);
+  padding: 12px 24px;
+  height: 96px;
+  /* `.topbar` carries `min-height: 140px` for the old ceremonial band, and a
+     min-height beats a height. Without this the bar silently stays 140px and
+     every zone inside it looks correct while the band is 46px too tall. */
+  min-height: 96px;
   flex-shrink: 0;
   overflow: hidden;
+}
+
+.olympus-header__zone {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.olympus-header__zone--center {
+  justify-content: center;
+}
+
+.olympus-header__zone--right {
+  justify-content: flex-end;
+}
+
+.omega-instrument {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  min-width: 0;
+}
+
+.omega-instrument__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+/* The operator's own words or nothing at all, so this line is allowed to be
+   absent — but never allowed to wrap the header taller. */
+.omega-next-action {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-8);
+  margin: 0;
+  min-width: 0;
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.omega-next-action__project {
+  color: var(--accent);
+  opacity: 0.85;
+  flex: 0 0 auto;
+}
+
+.omega-next-action__arrow {
+  flex: 0 0 auto;
+  opacity: 0.5;
+}
+
+.omega-next-action__step {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .olympus-emblem-stack {
@@ -433,8 +498,8 @@ select:focus {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 100px;
-  height: 100px;
+  width: 56px;
+  height: 56px;
   flex-shrink: 0;
   perspective: 800px;
 }
@@ -443,11 +508,24 @@ select:focus {
    this density causes fatigue within a week, so nothing else gets one. */
 .olympus-sigil-svg {
   display: block;
-  width: 100px;
-  height: 100px;
+  width: 56px;
+  height: 56px;
   overflow: visible;
-  filter: drop-shadow(0 0 10px rgba(217, 119, 6, 0.35))
-    drop-shadow(0 0 26px rgba(217, 119, 6, 0.16));
+  filter: drop-shadow(0 0 8px rgba(217, 119, 6, 0.35))
+    drop-shadow(0 0 18px rgba(217, 119, 6, 0.16));
+  transition: filter 300ms ease-out;
+}
+
+/* The glow lifts while an event is in flight. The ring inside the SVG carries
+   the motion; this is what makes it read at a glance from across the room. */
+.olympus-emblem-stack.is-pulsing .olympus-sigil-svg {
+  filter: drop-shadow(0 0 12px rgba(217, 119, 6, 0.55))
+    drop-shadow(0 0 30px rgba(217, 119, 6, 0.28));
+}
+
+.olympus-emblem-stack.pulse-vault-write .olympus-sigil-svg {
+  filter: drop-shadow(0 0 14px rgba(217, 119, 6, 0.75))
+    drop-shadow(0 0 36px rgba(217, 119, 6, 0.35));
 }
 
 .olympus-wordmark,
@@ -478,11 +556,175 @@ select:focus {
   margin: 0;
   color: var(--primary);
   font-family: var(--font-display);
-  font-size: 56px;
+  font-size: 32px;
   font-weight: var(--weight-medium);
   letter-spacing: 0.18em;
   line-height: 1;
   white-space: nowrap;
+}
+
+/* ---- Mode switcher ------------------------------------------------------ */
+
+.mode-switcher {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid rgba(255, 158, 44, 0.18);
+  background: rgba(9, 26, 40, 0.55);
+}
+
+.mode-switcher__segment {
+  padding: 6px 18px;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-family: inherit;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition:
+    color 160ms ease-out,
+    background 160ms ease-out;
+}
+
+.mode-switcher__segment:hover {
+  color: var(--primary);
+}
+
+.mode-switcher__segment.is-active {
+  background: rgba(255, 158, 44, 0.14);
+  color: var(--accent);
+}
+
+/* ---- Status rail -------------------------------------------------------- */
+
+.status-rail {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  min-width: 0;
+  font-size: 12px;
+}
+
+.status-rail__segment {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  padding: 6px 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--muted);
+  font-family: inherit;
+  font-size: inherit;
+  cursor: pointer;
+  min-width: 0;
+  transition:
+    border-color 160ms ease-out,
+    background 160ms ease-out;
+}
+
+.status-rail__segment:hover {
+  border-color: rgba(255, 158, 44, 0.35);
+  background: rgba(14, 42, 61, 0.6);
+}
+
+.status-rail__divider {
+  width: 1px;
+  height: 18px;
+  background: rgba(255, 158, 44, 0.18);
+  flex: 0 0 auto;
+}
+
+.status-rail__quote,
+.status-rail__weather {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-4);
+  white-space: nowrap;
+}
+
+.status-rail__quote-label {
+  color: var(--muted);
+  opacity: 0.7;
+}
+
+.status-rail__quote-value {
+  color: var(--primary);
+}
+
+.status-rail__quote-delta.is-up {
+  color: var(--positive);
+}
+
+.status-rail__quote-delta.is-down {
+  color: var(--negative);
+}
+
+.status-rail__quote-delta.is-flat {
+  color: var(--muted);
+}
+
+.status-rail__weather-condition {
+  color: var(--muted);
+  opacity: 0.8;
+}
+
+.status-rail__failed {
+  color: var(--negative);
+  opacity: 0.85;
+}
+
+.status-rail__pending {
+  opacity: 0.5;
+}
+
+/* ---- Status overlay ----------------------------------------------------- */
+
+.status-overlay-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 108px 24px 24px;
+  background: rgba(2, 10, 18, 0.55);
+  backdrop-filter: blur(2px);
+}
+
+/* Anchored under the header rather than centred, so the segment that opened it
+   stays visible above the panel it opened. */
+.status-overlay {
+  display: flex;
+  flex-direction: column;
+  width: min(720px, 100%);
+  max-height: calc(100vh - 140px);
+  min-height: 0;
+}
+
+.status-overlay__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-12);
+  padding: 0 2px 8px;
+  flex: 0 0 auto;
+}
+
+.status-overlay__label {
+  font-size: 11px;
+  font-weight: var(--weight-medium);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.status-overlay__content {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
 }
 
 .settings-panel,
@@ -743,6 +985,18 @@ small {
 
 .center-stack > .panel-slot-library {
   flex: 0 0 auto;
+}
+
+/* Research mode gives the column to the library. */
+.center-stack > .panel-slot-library-resident {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.center-stack > .panel-slot-library-resident > * {
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .tools-rail > .panel-slot-tools,
@@ -2655,14 +2909,28 @@ small {
     text-align: left;
   }
 
+  /* The header holds its three zones at every width. Only the wordmark gives
+     ground — the mode switcher and the rail are the reason the band exists. */
   .olympus-wordmark {
-    font-size: 48px;
+    font-size: 26px;
+  }
+
+  .status-rail {
+    gap: var(--space-8);
+  }
+
+  .status-rail__segment {
+    gap: var(--space-8);
+  }
+
+  .mode-switcher__segment {
+    padding: 6px 12px;
   }
 }
 
 @media (max-width: 900px) {
   .olympus-wordmark {
-    font-size: 40px;
+    font-size: 22px;
   }
 }
 
@@ -3302,6 +3570,37 @@ small {
   flex: 1;
   min-height: 0;
   min-width: 0;
+}
+
+/* ---- Resident library (Research mode) ----------------------------------- */
+
+/* The same surface as the modal, minus the modal. It fills the centre column
+   instead of floating over it, so it takes the panel construction every other
+   resident panel uses rather than the modal's radius and shadow. */
+.pantheon-resident-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+}
+
+.pantheon-resident {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  padding: 0;
+  animation: none;
+}
+
+.pantheon-resident > .pantheon-modal-header {
+  padding: var(--space-12) var(--panel-pad);
+}
+
+.pantheon-resident > .pantheon-modal-body {
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 /* ACTION QUEUE PANEL */

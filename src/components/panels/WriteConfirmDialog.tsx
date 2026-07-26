@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
+import { emitInstrumentEvent } from "../../services/instrumentEvents";
 
 /**
  * The operator half of the vault write gate.
@@ -81,6 +82,13 @@ export function WriteConfirmDialog() {
 
     const id = pending.id;
     setPending(null);
+
+    // The omega pulses on approval, which is the only write moment the webview
+    // knows about — Rust emits nothing on completion. A declined write is not
+    // an event, so nothing pulses for one.
+    if (approved) {
+      emitInstrumentEvent("vault-write");
+    }
 
     try {
       await invoke("resolve_vault_write", { id, approved });

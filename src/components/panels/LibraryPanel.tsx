@@ -12,6 +12,7 @@ import {
   Search
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { ReactElement, ReactNode } from "react";
 import { createPortal } from "react-dom";
 import ReactMarkdown from "react-markdown";
 import rehypeRaw from "rehype-raw";
@@ -36,6 +37,8 @@ import type { PantheonCategory, ResearchRecord } from "../../types";
 
 interface LibraryPanelProps {
   onViewDatabase: () => Promise<ObsidianActionResult>;
+  /** Research mode: the library lives in the centre column instead of a modal. */
+  resident?: boolean;
 }
 
 interface WritePantheonEntryRequest {
@@ -100,11 +103,16 @@ type AllEntriesSort = "date-desc" | "title-asc";
 const SECTION_STORAGE_PREFIX = "pantheon.sectionExpanded.";
 const SEARCH_DEBOUNCE_MS = 150;
 
-export function LibraryPanel({ onViewDatabase }: LibraryPanelProps) {
+export function LibraryPanel({ onViewDatabase, resident = false }: LibraryPanelProps) {
   const { entries: pantheonEntries, loading, error, refresh: refreshPantheon } = usePantheon();
   const [addEntryModalOpen, setAddEntryModalOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [databaseOpen, setDatabaseOpen] = useState(false);
+  const [databaseRequested, setDatabaseRequested] = useState(false);
+  // Research mode holds the library open in the centre column; every other mode
+  // opens it on request. Derived rather than an effect, so leaving the mode
+  // closes it without a second piece of state to keep in step.
+  const databaseOpen = resident || databaseRequested;
+  const setDatabaseOpen = setDatabaseRequested;
   const [formError, setFormError] = useState<string | null>(null);
   const [status, setStatus] = useState<ObsidianActionResult | null>(null);
   const [busyAction, setBusyAction] = useState<"view" | "restart" | null>(null);
@@ -423,7 +431,9 @@ export function LibraryPanel({ onViewDatabase }: LibraryPanelProps) {
     <>
       {/* Header-only in residence: the library itself opens as a modal, so the
           resident panel is a single strip rather than a full-height panel
-          reporting a count. */}
+          reporting a count. Research mode drops the strip — the full library is
+          already in the column below and would repeat every one of these. */}
+      {resident ? null : (
       <section className="dashboard-panel research-panel pantheon-panel is-collapsed surface-chrome">
         <div className="panel-head">
           <span className="panel-head__icon">
@@ -491,6 +501,7 @@ export function LibraryPanel({ onViewDatabase }: LibraryPanelProps) {
         {error && <p className="pantheon-error">Couldn't read vault entries: {error}</p>}
 
       </section>
+      )}
 
       {addEntryModalOpen &&
         createPortal(
@@ -504,12 +515,16 @@ export function LibraryPanel({ onViewDatabase }: LibraryPanelProps) {
         )}
 
       {databaseOpen &&
-        createPortal(
-          <div className="pantheon-modal-backdrop" onClick={handleCloseDatabase}>
+        inSurface(
+          resident,
+          <div
+            className={resident ? "pantheon-resident-shell" : "pantheon-modal-backdrop"}
+            onClick={resident ? undefined : handleCloseDatabase}
+          >
             <div
-              className="pantheon-modal"
-              role="dialog"
-              aria-label="Pantheon Database"
+              className={resident ? "dashboard-panel pantheon-resident" : "pantheon-modal"}
+              role={resident ? undefined : "dialog"}
+              aria-label={resident ? undefined : "Pantheon Database"}
               onClick={(event) => event.stopPropagation()}
             >
               <header className="pantheon-modal-header">
@@ -518,6 +533,22 @@ export function LibraryPanel({ onViewDatabase }: LibraryPanelProps) {
                   <span className="pantheon-modal-meta">{entryLabel}</span>
                 </div>
                 <div className="pantheon-modal-actions">
+                  {/* Resident mode has no strip above it to carry this, and an
+                      entry that still needs migrating should not go quiet just
+                      because the library changed where it lives. */}
+                  {resident && unmigratedCount > 0 ? (
+                    <button
+                      className="ghost-action"
+                      onClick={() => void handleMigrateSchema()}
+                      disabled={migrating || submitting}
+                      title="Move legacy origin values to written_by and state the fields these entries were written without"
+                    >
+                      <RotateCw size={15} />
+                      {migrating
+                        ? "Awaiting approval..."
+                        : `Migrate ${unmigratedCount} ${unmigratedCount === 1 ? "entry" : "entries"}`}
+                    </button>
+                  ) : null}
                   <label className="pantheon-search-shell">
                     <Search size={14} className="pantheon-search-icon" />
                     <input
@@ -545,17 +576,32 @@ export function LibraryPanel({ onViewDatabase }: LibraryPanelProps) {
                     <FilePlus2 size={14} />
                     Add Entry
                   </button>
-                  <button
-                    type="button"
-                    className="pantheon-modal-close"
-                    onClick={handleCloseDatabase}
-                    aria-label="Close Pantheon Database"
-                    title="Close (Esc)"
-                  >
-                    ×
-                  </button>
+                  {/* Nothing to close in residence — the mode switcher is what
+                      leaves. A close button that emptied the centre column
+                      would strand Research mode on a blank panel. */}
+                  {resident ? null : (
+                    <button
+                      type="button"
+                      className="pantheon-modal-close"
+                      onClick={handleCloseDatabase}
+                      aria-label="Close Pantheon Database"
+                      title="Close (Esc)"
+                    >
+                      ×
+                    </button>
+                  )}
                 </div>
               </header>
+
+              {/* In residence there is no strip above to report these, and a
+                  migration that says nothing about how it went is worse than
+                  one that never ran. */}
+              {resident && status ? (
+                <p className={`section-copy action-feedback ${status.tone}`}>{status.message}</p>
+              ) : null}
+              {resident && error ? (
+                <p className="pantheon-error">Couldn't read vault entries: {error}</p>
+              ) : null}
 
               <div className="pantheon-modal-body">
                 <div className="pantheon-workspace">
@@ -785,11 +831,19 @@ export function LibraryPanel({ onViewDatabase }: LibraryPanelProps) {
                 </div>
               </div>
             </div>
-          </div>,
-          document.body
+          </div>
         )}
     </>
   );
+}
+
+/**
+ * Resident renders in place; otherwise the library goes to a portal exactly as
+ * it always has. One wrapper decision, so the surface inside it has no idea
+ * which mode it is in and cannot drift between the two.
+ */
+function inSurface(resident: boolean, node: ReactElement): ReactNode {
+  return resident ? node : createPortal(node, document.body);
 }
 
 function PantheonSectionBlock({
@@ -991,13 +1045,17 @@ function compareEntriesByDateDesc(left: PreparedPantheonEntry, right: PreparedPa
   return rightTime - leftTime;
 }
 
+// Title and tags, plus what was already here. Bodies are deliberately not
+// searched: the assistant cannot read them either, and a search that reaches
+// further than the model does would suggest it knows more than it has seen.
 function matchesSearch(entry: PreparedPantheonEntry, query: string): boolean {
   const needle = query.toLowerCase();
   return [
     entry.title,
     categoryLabel(entry.category),
     entry.sourceType,
-    entry.sourceLabel
+    entry.sourceLabel,
+    ...(entry.tags ?? [])
   ].some((value) => value.toLowerCase().includes(needle));
 }
 

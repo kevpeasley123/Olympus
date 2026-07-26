@@ -1,18 +1,20 @@
 import { CircleHelp, RefreshCw, Settings2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { MODE_LABELS } from "../../hooks/useDashboardMode";
+import type { DashboardMode } from "../../hooks/useDashboardMode";
 import type { LiveSourceHealth } from "../../types/dashboard";
 
 interface AmbientDockProps {
   onRefresh: () => void;
-  focusMode: boolean;
-  onToggleFocusMode: () => void;
+  mode: DashboardMode;
+  onCycleMode: () => void;
   sourceHealth: LiveSourceHealth[];
 }
 
 export function AmbientDock({
   onRefresh,
-  focusMode,
-  onToggleFocusMode,
+  mode,
+  onCycleMode,
   sourceHealth
 }: AmbientDockProps) {
   const [preferencesOpen, setPreferencesOpen] = useState(false);
@@ -56,15 +58,17 @@ export function AmbientDock({
         handleRefresh();
       }
 
+      // An accelerator for the switcher in the header, never the only way to
+      // reach a mode.
       if (event.key === "\\") {
         event.preventDefault();
-        onToggleFocusMode();
+        onCycleMode();
       }
     }
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [onToggleFocusMode]);
+  }, [onCycleMode]);
 
   const overallHealth = deriveOverallHealth(sourceHealth);
   const timeLabel = now.toLocaleTimeString([], {
@@ -92,12 +96,8 @@ export function AmbientDock({
           <span className="ambient-time">{timeLabel}</span>
           <span className="ambient-separator">·</span>
           <span className="ambient-date">{dateLabel}</span>
-          {focusMode ? (
-            <>
-              <span className="ambient-separator">·</span>
-              <span className="ambient-focus-label">Focus</span>
-            </>
-          ) : null}
+          <span className="ambient-separator">·</span>
+          <span className="ambient-focus-label">{MODE_LABELS[mode]}</span>
           <button
             className={`ambient-inline-button ${refreshSpinning ? "is-spinning" : ""}`}
             onClick={handleRefresh}
@@ -129,11 +129,14 @@ export function AmbientDock({
               </div>
               <div className="shortcut-row">
                 <span>Ctrl/Cmd+\</span>
-                <small>Toggle focus mode</small>
+                <small>Cycle mode — Command, Project, Research</small>
               </div>
+              {/* Ctrl+K focuses the search box inside the library once it is
+                  open; it has never opened it. Saying otherwise taught the
+                  shortcut wrong. */}
               <div className="shortcut-row">
                 <span>Ctrl/Cmd+K</span>
-                <small>Search Pantheon</small>
+                <small>Focus search in the open library</small>
               </div>
               <div className="shortcut-row">
                 <span>Esc</span>

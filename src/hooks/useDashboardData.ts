@@ -8,6 +8,7 @@ import {
 } from "../services/obsidian";
 import { recordObservation as recordObservationInVault } from "../services/observations";
 import { createAssistantMessage, requestAssistantReply } from "../services/assistant";
+import { emitInstrumentEvent } from "../services/instrumentEvents";
 import { buildPantheonReply, createUserMessage } from "../services/pantheonChat";
 import { appendConversationMessages, loadState, persistPreferences } from "../services/storage";
 import type { LiveSourceHealth, LiveSourceStatus, LoadableState } from "../types/dashboard";
@@ -282,15 +283,16 @@ export function useDashboardData() {
     void refreshWeather();
     void refreshProjects();
 
-    const marketsTimer = window.setInterval(() => {
-      void refreshMarkets();
-    }, 60_000);
-    const weatherTimer = window.setInterval(() => {
-      void refreshWeather();
-    }, 300_000);
-    const projectsTimer = window.setInterval(() => {
-      void refreshProjects();
-    }, 60_000);
+    // The omega ticks on the polls themselves, not just on a manual refresh.
+    // StrictMode double-invokes this effect in dev, so the first tick lands
+    // twice at startup — expected, not a bug to chase.
+    const tick = (refresh: () => Promise<void>) => () => {
+      void refresh().then(() => emitInstrumentEvent("poll"));
+    };
+
+    const marketsTimer = window.setInterval(tick(refreshMarkets), 60_000);
+    const weatherTimer = window.setInterval(tick(refreshWeather), 300_000);
+    const projectsTimer = window.setInterval(tick(refreshProjects), 60_000);
 
     return () => {
       window.clearInterval(marketsTimer);
@@ -387,6 +389,7 @@ export function useDashboardData() {
 
   const refreshAll = useCallback(async () => {
     await Promise.allSettled([refreshMarkets(), refreshWeather(), refreshProjects()]);
+    emitInstrumentEvent("poll");
   }, [refreshMarkets, refreshProjects, refreshWeather]);
 
   return useMemo(
