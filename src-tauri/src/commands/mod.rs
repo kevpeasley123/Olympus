@@ -7,6 +7,7 @@ pub mod profile;
 pub mod projects;
 pub mod tasks;
 pub mod vault_context;
+pub mod vault_write;
 pub mod weather;
 
 use std::path::PathBuf;

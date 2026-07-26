@@ -1,7 +1,7 @@
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
-use super::get_vault_path;
+use super::vault_write::{classify, resolve_vault_path, WriteIntent};
 
 const ATTACHMENTS_FOLDER: &str = "02 - Research/_attachments";
 const ALLOWED_EXTENSIONS: &[&str] = &["pdf", "png", "jpg", "jpeg", "webp", "txt", "md"];
@@ -138,12 +138,19 @@ pub async fn save_attachment_to_vault(
 
     let safe_filename = sanitize_attachment_filename(&target_filename);
 
-    let vault = get_vault_path();
-    let target_dir = vault.join(ATTACHMENTS_FOLDER);
+    // ensure_unique_attachment_path below guarantees this never overwrites.
+    let _tier = classify(WriteIntent::CreateUnique);
+
+    let initial_target = resolve_vault_path(&Path::new(ATTACHMENTS_FOLDER).join(&safe_filename))
+        .map_err(|error| error.to_string())?;
+
+    let target_dir = initial_target
+        .parent()
+        .ok_or_else(|| "Attachment has no parent directory.".to_string())?
+        .to_path_buf();
+
     fs::create_dir_all(&target_dir)
         .map_err(|e| format!("Failed to create _attachments directory: {}", e))?;
-
-    let initial_target = target_dir.join(&safe_filename);
     let final_target = ensure_unique_attachment_path(initial_target);
 
     fs::copy(&source, &final_target)

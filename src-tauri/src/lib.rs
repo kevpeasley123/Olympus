@@ -3,8 +3,10 @@
 pub mod commands;
 
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::process::Command;
+
+use commands::vault_write;
 
 use commands::attachments::{
     extract_pdf_text, pick_attachment_file, save_attachment_to_vault,
@@ -39,19 +41,18 @@ struct WriteResult {
     path: String,
 }
 
-fn safe_join(base: &Path, folder: &str, file_name: &str) -> Result<PathBuf, String> {
-    if file_name.contains("..") || folder.contains("..") {
-        return Err("Path traversal is not allowed.".to_string());
-    }
-
-    let mut path = base.to_path_buf();
+/// Builds the vault-relative path for an artifact. Containment is proven by
+/// `vault_write::resolve_vault_path`, not here — a substring check for ".."
+/// is not a containment check.
+fn artifact_relative_path(folder: &str, file_name: &str) -> PathBuf {
+    let mut path = PathBuf::new();
 
     if !folder.trim().is_empty() {
         path.push(folder);
     }
 
     path.push(file_name);
-    Ok(path)
+    path
 }
 
 /// Opens the local database and applies the schema. Runs once at startup so the
@@ -80,16 +81,14 @@ fn write_memory_artifact(artifact: MemoryArtifact) -> Result<WriteResult, String
     // this command wrote to the configured path while the Pantheon and
     // attachment writers used the constant, so a divergence would have split
     // the vault in half.
-    let vault = commands::get_vault_path();
+    let relative = artifact_relative_path(&artifact.folder, &artifact.file_name);
 
-    if !vault.exists() || !vault.is_dir() {
-        return Err(format!(
-            "Vault path does not exist or is not a directory: {}",
-            vault.display()
-        ));
-    }
+    // Declared, not inferred: these are files the app regenerates from its own
+    // state. The tier is computed here so the classification is recorded at the
+    // call site; enforcement arrives with the confirmation channel.
+    let _tier = vault_write::classify(vault_write::WriteIntent::RegenerateDerived);
 
-    let target = safe_join(&vault, &artifact.folder, &artifact.file_name)?;
+    let target = vault_write::resolve_vault_path(&relative).map_err(|error| error.to_string())?;
 
     if let Some(parent) = target.parent() {
         fs::create_dir_all(parent).map_err(|error| error.to_string())?;

@@ -6,6 +6,8 @@ use chrono::{DateTime, Local, Utc};
 use serde::{Deserialize, Serialize};
 use walkdir::WalkDir;
 
+use super::vault_write::{classify, resolve_vault_path, WriteIntent};
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PantheonEntry {
@@ -419,9 +421,18 @@ fn perform_write_pantheon_entry(req: WritePantheonEntryRequest) -> Result<String
     let safe_title = sanitize_filename(&title);
     let filename = format!("{} {}.md", today, safe_title);
 
-    let vault_path = get_vault_path();
-    let target_dir = vault_path.join(RESEARCH_FOLDER);
-    let target_path = target_dir.join(&filename);
+    // ensure_unique_path below guarantees this never overwrites, which is what
+    // puts it in the silent tier. If that guarantee is ever removed, the intent
+    // declared here must change with it.
+    let _tier = classify(WriteIntent::CreateUnique);
+
+    let target_path = resolve_vault_path(&Path::new(RESEARCH_FOLDER).join(&filename))
+        .map_err(|error| error.to_string())?;
+
+    let target_dir = target_path
+        .parent()
+        .ok_or_else(|| "Research entry has no parent directory.".to_string())?
+        .to_path_buf();
 
     fs::create_dir_all(&target_dir)
         .map_err(|e| format!("Failed to ensure research directory exists: {}", e))?;
