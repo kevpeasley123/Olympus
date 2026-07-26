@@ -1,126 +1,142 @@
-# Project Olympus — Context Brief
+# Project Olympus — Session Handoff
 
-_Prepared 2026-07-25 for planning in a fresh conversation. Branch `claude/olympus-project-overview-b949xw`._
-
-> **Partially superseded — read `ARCHITECTURE.md` first.** This was written
-> before the write-gate work landed. Two things in it are now wrong or stale:
->
-> 1. It implies the Daily Brief would be Olympus's first vault write. **It would
->    not.** Three writers have shipped since April 2026 — see the "Vault writes"
->    section of `ARCHITECTURE.md`. This document seeded that error into a
->    planning session; it is corrected here rather than deleted so the mistake
->    stays visible.
-> 2. The "Chosen direction" section below lists work that has since been built:
->    the operator profile schema, path containment, and the write gate itself.
->    See the git log from `abce522` onward.
->
-> Everything else — the charter, architecture, data sources, and the strategic
-> gap between vault and app — still holds.
+_Current as of 2026-07-25, branch `claude/olympus-project-overview-b949xw` @ `1fa39e3`+.
+Read `ARCHITECTURE.md` alongside this; it is the authority on anything they disagree about._
 
 ## What it is
 
-A local-first AI command station — a desktop dashboard for projects, research, workflows, and memory. Not a chat app with a sidebar; the dashboard is the primary surface and the AI is one panel in it.
+A local-first AI command station: a desktop dashboard for projects, research,
+workflows, and memory. The dashboard is the primary surface; the AI is one panel
+in it, not the frame around it.
 
-- **Shell:** Tauri 2 (Rust) + React 18 + TypeScript + Vite
-- **Persistence:** SQLite via Tauri commands (`localStorage` fallback in browser dev)
+- **Shell:** Tauri 2 (Rust) + React 18 + TypeScript + Vite, Windows 11
+- **Persistence:** SQLite via Tauri commands (`localStorage` in browser dev)
 - **Memory layer:** an Obsidian vault at `Desktop/Projects/Obsidian vaults/Olympus Obsidian Vault`
 - **Model:** `claude-opus-5`, `effort: medium`, called from Rust so the API key never reaches the webview
-- **Platform:** Windows 11
 
-## North star (from the vault Charter)
+North star, from the vault Charter: *"aware of active projects, durable research,
+preferences, workflows, and the next useful move."* The principle that has driven
+recent work: **AI-generated actions should ask before risky writes.**
 
-> Olympus should feel like an extension of the operator: aware of active projects, durable research, preferences, workflows, and **the next useful move**.
+## The distinction that matters in this codebase
 
-Core principles, verbatim from the Charter:
+**"It compiles" and "the tests pass" have repeatedly meant less here than they look.**
+Until 2026-07-25 the entire project had only ever been verified by compilation
+and unit tests from a headless container. The first real launch immediately
+surfaced defects nothing had caught.
 
-- Obsidian is the durable memory layer.
-- The Olympus dashboard is the command interface.
-- Research should become reusable memory, not disposable chat context.
-- Skills and agents should be explicit, reviewable, and reusable.
-- AI-generated actions should ask before risky writes or external effects.
+Five tests were found this session that ran green while asserting nothing:
 
-There is also a **two-layer Codex model**: Layer 1 is strategy and lives in the main vault ("the general"); Layer 2 is per-project workspaces with their own AGENTS.md and local skills ("the soldier").
+| Test | Why it could not fail |
+|---|---|
+| `pantheon::debug_parse_real_vault` | parser returns `Ok(empty)` when the vault is absent |
+| `tasks::debug_parse_real_vault` | same |
+| `vault_context::debug_load_real_vault_memory` | print-only; every read degrades to `""` |
+| `profile::debug_load_real_profile` | print-only; every failure degrades to defaults |
+| `vault_write::rejects_a_junction...` | skipped silently — symlinks need elevation on Windows |
 
-## Current architecture
+All five now assert their preconditions. **Treat "the test passed" and "the test
+ran" as separate questions.** The same pattern produced two real bugs: a UTF-8
+BOM made every scaffold-created note invisible to the Pantheon scanner, and a
+vault-path split was masked only by the absence of a settings UI.
 
-**Panels** (`src/components/panels/`): HeaderBar, ToolBelt, QuickbarPanel, ActionQueuePanel, MarketsPanel, ProjectsPanel, LibraryPanel (Pantheon), WeatherPanel, ChatPanel, AmbientDock. Three-column grid with a persisted focus mode.
+## Verified at runtime vs. test-only
 
-**~18 Tauri commands**, grouped as assistant / persistence / vault / live-data / shell.
+**Verified against the real app and vault:**
 
-**Live data sources:**
+- Env loading, SQLite init, markets (Yahoo + FRED), weather (Open-Meteo), Git project scan
+- Pantheon vault scan, Action Queue scan, assistant chat against the live API
+- Operator profile parsing from the real note (all four fields, zero warnings)
+- **The write gate, end to end**: prompt → approve → write → fingerprint stored in
+  SQLite → next write compares, matches, proceeds silently. Confirmed from both
+  the UI and the database.
 
-| Surface | Source | Cadence |
-|---|---|---|
-| Markets | Yahoo Finance chart API (indices, no key) + FRED (`DGS2`, `DGS10`, `DGS30`, `MORTGAGE30US`) | 60s |
-| Weather | Open-Meteo (no key) | 300s |
-| Projects | local `git -C` scan of a projects root | 60s |
-| Action Queue | vault scan for `- [ ]` checkboxes | 30s |
-| Pantheon | vault scan of `02 - Research/` frontmatter | 60s |
-| Chat | Anthropic API from Rust | on send |
+**Still test-only — nobody has run these:**
 
-Tools, quick apps, and some chrome are still seeded rather than live.
+- `save_attachment_to_vault` — has *never* successfully run; `02 - Research/_attachments/` does not exist
+- `write_pantheon_entry` since the containment guard landed
+- The gate's **divergence** branch — a file edited by hand then rewritten. Only the
+  *no-recorded-fingerprint* branch has been exercised.
+- Any release build. `tauri build` has never been run; `tauri dev` only.
 
-**Vault structure:** `00 - Dashboard`, `01 - Projects`, `02 - Research`, `03 - Tasks`, `04 - Decisions`, `05 - Skills`, `06 - Agents`, `07 - Templates`, `08 - Daily Briefs`, `09 - System`, plus a `Projects Workspace` for Layer 2.
+## What shipped 2026-07-25
 
-## Where it stands
+Ordered; each is one commit.
 
-The app **runs and renders correctly**. That is newer than it sounds: until today every change had been verified only by compilation and unit tests from a headless container, and the first real launch happened this session. Markets, weather, Git project scanning, the vault task scan, the Pantheon scan, SQLite, and the chat panel are all now confirmed working against real services and real files.
+| Commit | |
+|---|---|
+| `46abf6f` | Six blocking commands moved off the event loop via `spawn_blocking`; markets client given a timeout |
+| `e8f7688` | Market source corrected in docs — Yahoo Finance, never Finnhub |
+| `4692512` | Bundle icon config |
+| `62c957e` | Vault path unified — Rust is the sole source of truth |
+| `abce522` | Docs: recorded what actually writes to the vault; removed an unimplemented safety claim |
+| `5870f10` | Typed operator settings from profile frontmatter; fixed the BOM bug in the shared parser |
+| `a1e3cbc` | Every vault write routed through one containment guard; `safe_join` replaced |
+| `c62018a` | The write gate: fingerprints, confirmation channel, modal |
+| `014f41c` | Process-spawn audit recorded |
+| `d894aaa` | A declined overwrite no longer reports as a failure |
 
-Work completed today:
+## Next work
 
-1. **Threading fix** — six data commands were synchronous `#[tauri::command]` functions running blocking I/O on the event loop, the worst being seven sequential HTTP requests with no timeout on a 60s poll. Each is now a thin async wrapper dispatching to `spawn_blocking`; the markets HTTP client got a 10s timeout.
-2. **Docs correction** — README and ARCHITECTURE claimed Finnhub for market data; the code has always used Yahoo Finance and never referenced `FINNHUB_API_KEY`.
-3. **Bundle icon config** — `bundle.icon` was an empty array.
-4. **Assistant vault context (uncommitted)** — see below.
+**Task 4 — observations write path.** Append-only `09 - System/Profile Observations.md`,
+dated entries, routed through the gate. Two decisions already made:
 
-## The strategic gap
+- It must be **structurally separate** from `User Profile.md` and must **not** be
+  added to `STABLE_NOTES` in `vault_context.rs`. If model inferences feed back
+  into the assistant's context, they become indistinguishable from the operator's
+  stated preferences on the next turn.
+- Append is not atomic. Write to a temp file in the same directory and
+  `fs::rename` over the target — atomic on one volume, and it sidesteps a
+  partial-append left by a mid-write OneDrive sync.
 
-**The vault is substantially ahead of the app.** `05 - Skills` holds three written skills, `06 - Agents` holds two agent definitions, `07 - Templates` holds five templates, `08 - Daily Briefs` holds two briefs that stopped in April, and there is a Layer 2 project workspace. **None of this has any surface in the dashboard.** The app reads exactly three things from the vault: research entries, checkbox tasks, and (as of today) the System notes.
+This is the **first appender in the codebase**, so it is the first real exercise
+of the `AppendAuthored` tier.
 
-**Nothing in Olympus produces "the next useful move."** Every panel is a viewer. The Projects panel's `nextStep` is a template string derived from Git repo state, not a judgment. Olympus can say a repo is dirty; it cannot say what to do about it.
+**Housekeeping.**
 
-## Chosen direction
+- Delete the inert `vaultPath` row from the SQLite `settings` table. Nothing reads
+  it since `62c957e`; a stale row that looks like live config invites the next
+  two-sources-of-truth bug.
+- **Hazard to record:** the vault path is now compile-time (`commands/mod.rs:12`).
+  Reintroducing a settings UI requires un-hardcoding it *and* requires the write
+  gate to already exist.
+- **Hazard:** `settings.projectsRootPath` is still webview-supplied and reaches
+  `git -C` (`projects.rs:162`). Read-only today, so not a data-loss risk — but it
+  is the same pattern `62c957e` removed for the vault path, and git honours
+  repo-local config keys that execute programs.
 
-Close the gap by **giving the assistant the vault**, then building on top of that.
+**Held for its own session:** project status tiering (`active | watching | scaffold
+| archived`). Touches the Projects panel, the Git scan, and vault frontmatter at
+once, and it is the prerequisite that makes a Daily Brief coherent rather than a
+flat report on eleven equally-weighted repos.
 
-**Step 1 — done, uncommitted.** The assistant's system prompt now carries durable memory: full text of `User Profile`, `Olympus Charter`, `Skill Index`, and `Agent Index`, plus a metadata-only index of the research library (title, source type, date, word count, path, tags — no bodies). Sent as two system blocks with a prompt-cache breakpoint between them: the stable block (~1,200 tokens, clears Opus 5's 512-token cache minimum) is cached; volatile Git state and the research index sit after the breakpoint so a new commit can't invalidate the cached prefix. Because the index lists titles without bodies, the prompt explicitly instructs the model to name an entry it would need rather than invent its contents.
+## Constraints a new session will otherwise violate
 
-**Step 2 — planned, not built.** A tool-use loop with `read_vault_note(path)` and `search_vault(query)` so the assistant can pull full text on demand. This requires restructuring the request: message `content` from `String` to a content-block array, plus the `while stop_reason == "tool_use"` loop.
+- **Opus 5 payload contract:** `temperature`, `top_p`, `top_k`, and `budget_tokens`
+  are rejected with a 400; `effort` nests inside `output_config`; thinking is on by
+  default and counts against `max_tokens`. A unit test pins these out of the
+  payload — do not break it.
+- **The system prompt is split** into a cached stable block and a volatile block.
+  Caching is a prefix match: nothing may be inserted ahead of or inside the stable
+  block, and volatile state (Git status, research index) must stay after the
+  breakpoint.
+- **Declared intent, not inferred.** Every vault write declares a `WriteIntent`;
+  the gate never guesses from the filesystem operation. `CreateUnique` is safe only
+  because both creating writers guarantee a unique path.
+- **Out-of-vault writes reject, never confirm.** A confirm path would mean the
+  mechanism exists and one misclick authorizes it.
+- Rust tests pass (83); keep them passing. No frontend test infrastructure exists —
+  do not stand one up without being asked.
+- React StrictMode double-invokes effects in dev. No gated write is currently
+  effect-reachable; if one becomes so, it will produce duplicate dialogs.
 
-**Then, in rough priority order:**
-
-- **Daily Brief engine** — `08 - Daily Briefs` has two hand-written notes and stopped. Every input already exists (Git state, task queue, Pantheon additions, markets, weather). This would be the first time Olympus *writes* operational intelligence instead of displaying it.
-- **Executable skills and agents** — make `05 - Skills` / `06 - Agents` runnable from the dashboard with vault context, honoring the ask-before-writes principle.
-- **Projects panel intelligence** — combine Git truth with Obsidian intent so `nextStep` becomes a reasoned recommendation rather than a template.
-
-## Open questions worth planning
-
-Three come from the vault's own `User Profile` and remain unanswered:
+## Open questions from the vault's own User Profile
 
 - What sources should feed the daily operator brief?
 - Which project stacks should become reusable scaffold recipes?
 - What agents should exist first?
 
-Plus, from the current state of the build:
-
-- How should skills execute from the dashboard while preserving "ask before risky writes"?
-- How much vault access should the assistant have? Today it sees System notes in full and research entries as metadata only — no bodies, no Decision Log.
-- What is the right surface for the Codex two-layer model in a dashboard that currently has no concept of it?
-
-## Constraints and conventions
-
-- **Anthropic API contract (Opus 5):** `temperature`, `top_p`, `top_k`, and `budget_tokens` are rejected with a 400; `effort` nests inside `output_config`; thinking is on by default and counts against `max_tokens`. A unit test pins these out of the payload.
-- **Prompt caching is a prefix match** — anything that changes invalidates every byte after it. Hence the stable/volatile system split.
-- **Two sources of truth for the vault path**: a hard-coded `VAULT_PATH` in `commands/mod.rs` and `settings.vaultPath` threaded through the frontend. They can diverge.
-- **Testing:** 49 Rust unit tests; no frontend test infrastructure.
-- **Never release-built.** `tauri build` has not been run; only `tauri dev`.
-- React `StrictMode` double-invokes effects in dev, so every poll fires twice — visible as duplicate fetches and a doubled vault scan.
-
-## Known debt
-
-- `ARCHITECTURE.md` still cites `framer-motion`; the actual dependency is `motion`.
-- `NowPlayingPanel.tsx` is dead code, but `nowPlaying` still lives in `types.ts`, `seed.ts`, `storage.ts`, and `useDashboardData.ts`.
-- The Pantheon scan re-reads every research file (including a 17,000-word note) every 60 seconds, twice over in dev.
-- Prompt-cache effectiveness is unobservable — the response parser doesn't surface `usage.cache_read_input_tokens`.
-- `MAX_TOKENS` is 8,000; tool loops in step 2 will likely need more headroom.
-- `load_persisted_state` reads the entire conversation table at startup with no pagination.
+Note that `09 - System/User Profile.md` carries `status: assumed` — the four values
+in its `olympus:` block were placed by tooling, not chosen by the operator.
+`active_project_cap: 5` is known to be wrong. When the operator sets them
+deliberately, that status becomes `active`.
