@@ -6,13 +6,16 @@ import { invoke } from "@tauri-apps/api/core";
 /**
  * The operator half of the vault write gate.
  *
- * Rust blocks on this dialog before overwriting anything it did not author.
- * Two rules mirror the Rust side and must not drift:
+ * Rust blocks on this dialog before touching anything it did not author.
+ * Three rules mirror the Rust side and must not drift:
  *
  *  - Keeping the file is the default. Escape, the backdrop, and the primary
  *    button all cancel; approving takes a deliberate click on the secondary.
  *  - Unmounting denies. If this component goes away without answering, the
  *    Rust side times out and denies, so the file survives either way.
+ *  - The wording comes from `operation`, which Rust derives from the declared
+ *    write intent. Asking "overwrite?" about an append would be false, and a
+ *    dialog the operator learns to disbelieve is worse than no dialog.
  */
 
 interface DiffSummary {
@@ -21,12 +24,28 @@ interface DiffSummary {
   preview: string[];
 }
 
+type WriteOperation = "overwrite" | "append";
+
 interface PendingWrite {
   id: string;
   path: string;
+  operation: WriteOperation;
   reason: string;
   summary: DiffSummary;
 }
+
+const COPY: Record<WriteOperation, { title: string; keep: string; approve: string }> = {
+  overwrite: {
+    title: "Overwrite this vault file?",
+    keep: "Keep the file as it is",
+    approve: "Overwrite"
+  },
+  append: {
+    title: "Add these lines to this vault note?",
+    keep: "Leave the note as it is",
+    approve: "Append"
+  }
+};
 
 export function WriteConfirmDialog() {
   const [pending, setPending] = useState<PendingWrite | null>(null);
@@ -91,6 +110,10 @@ export function WriteConfirmDialog() {
     return null;
   }
 
+  // An unrecognised operation falls back to the strictest wording rather than
+  // rendering an empty title.
+  const copy = COPY[pending.operation] ?? COPY.overwrite;
+
   return createPortal(
     <div className="write-gate-backdrop" onClick={() => void resolve(false)}>
       <div
@@ -101,7 +124,7 @@ export function WriteConfirmDialog() {
         onClick={(event) => event.stopPropagation()}
       >
         <h2 id="write-gate-title" className="write-gate__title">
-          Overwrite this vault file?
+          {copy.title}
         </h2>
 
         <p className="write-gate__path">{pending.path}</p>
@@ -138,14 +161,14 @@ export function WriteConfirmDialog() {
             autoFocus
             onClick={() => void resolve(false)}
           >
-            Keep the file as it is
+            {copy.keep}
           </button>
           <button
             type="button"
             className="write-gate__overwrite"
             onClick={() => void resolve(true)}
           >
-            Overwrite
+            {copy.approve}
           </button>
         </div>
       </div>

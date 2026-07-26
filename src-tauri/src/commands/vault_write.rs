@@ -44,6 +44,28 @@ pub enum WriteTier {
     ConfirmWithDiff,
 }
 
+/// What the operator is being asked to allow, in their terms rather than the
+/// call site's. The dialog has to say "add to" or "replace" correctly — asking
+/// "overwrite this file?" about an append is a lie that trains the operator to
+/// stop reading the question.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum WriteOperation {
+    Overwrite,
+    Append,
+}
+
+/// Derived from the declared intent rather than passed alongside it, so the two
+/// cannot drift apart at a call site.
+pub fn operation_of(intent: WriteIntent) -> WriteOperation {
+    match intent {
+        WriteIntent::AppendAuthored => WriteOperation::Append,
+        WriteIntent::CreateUnique
+        | WriteIntent::RegenerateDerived
+        | WriteIntent::ModifyAuthored => WriteOperation::Overwrite,
+    }
+}
+
 pub fn classify(intent: WriteIntent) -> WriteTier {
     match intent {
         WriteIntent::CreateUnique => WriteTier::AutoApproved,
@@ -474,6 +496,24 @@ mod tests {
             classify(WriteIntent::ModifyAuthored),
             WriteTier::ConfirmWithDiff
         );
+    }
+
+    /// Only the appender describes itself as adding to a file. Everything else
+    /// replaces one, and the dialog has to say which.
+    #[test]
+    fn only_appending_reads_as_an_append() {
+        assert_eq!(
+            operation_of(WriteIntent::AppendAuthored),
+            WriteOperation::Append
+        );
+
+        for intent in [
+            WriteIntent::CreateUnique,
+            WriteIntent::RegenerateDerived,
+            WriteIntent::ModifyAuthored,
+        ] {
+            assert_eq!(operation_of(intent), WriteOperation::Overwrite);
+        }
     }
 
     /// The two shipped creating writers must stay in the silent tier — if one

@@ -2254,6 +2254,115 @@ small {
   }
 }
 
+.conversation-header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+}
+
+.ghost-icon-action {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid rgba(90, 216, 255, 0.22);
+  border-radius: 7px;
+  background: rgba(7, 20, 31, 0.85);
+  color: var(--muted);
+  cursor: pointer;
+  transition: border-color 160ms ease, color 160ms ease;
+}
+
+.ghost-icon-action:hover {
+  border-color: rgba(255, 158, 44, 0.7);
+  color: var(--primary);
+}
+
+.conversation-bubble-footer {
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: var(--space-12);
+}
+
+/* Quiet until the bubble is hovered: recording an observation is a deliberate
+   act, not something to advertise on every message in the thread. */
+.observation-seed {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: transparent;
+  font-size: var(--text-xs);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: color 160ms ease;
+}
+
+.conversation-bubble:hover .observation-seed,
+.observation-seed:focus-visible {
+  color: var(--muted);
+}
+
+.conversation-bubble:hover .observation-seed:hover {
+  color: var(--accent);
+}
+
+.observation-composer {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: var(--space-8);
+  margin-top: var(--space-12);
+  padding: var(--space-12);
+  border: 1px solid rgba(90, 216, 255, 0.22);
+  border-radius: 8px;
+  background: rgba(7, 20, 31, 0.7);
+}
+
+.observation-label {
+  color: var(--label);
+  font-size: var(--text-xs);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.observation-input {
+  width: 100%;
+  padding: var(--space-8);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: rgba(4, 12, 20, 0.85);
+  color: var(--primary);
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.observation-input:focus {
+  border-color: rgba(90, 216, 255, 0.5);
+  outline: none;
+}
+
+.observation-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-8);
+}
+
+.observation-count {
+  margin-right: auto;
+  color: var(--muted);
+  font-size: var(--text-xs);
+}
+
+.observation-count.over {
+  color: var(--negative);
+}
+
 .conversation-input-shell {
   gap: var(--space-12);
   margin-top: auto;

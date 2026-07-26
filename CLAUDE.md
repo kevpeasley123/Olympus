@@ -77,10 +77,14 @@ Done:
 
 1. **Frontend wired to SQLite** — connection opened once at startup and held in managed state; `settings`, `tool_states`, and `conversation_messages` tables; automatic import of existing `localStorage` data on first desktop launch.
 2. **Real model behind the chat panel** — replaced a keyword scorer and hardcoded reply templates with an actual Anthropic call, with pending and error states in the UI.
+3. **The write gate** — every vault write declares a `WriteIntent`, is proven contained, and asks the operator before touching anything it did not author. See `ARCHITECTURE.md`.
+4. **Observations** — `append_profile_observation` adds one dated line to `09 - System/Profile Observations.md`, atomically and always with confirmation. Written from the Chat panel; deliberately kept out of the assistant's own context.
 
 Next up:
 
-3. **Conversation log and vault promotion** — the raw log already persists; what's missing is the path from "we worked this out in chat" to a proper Markdown note in `04 - Decisions` or `02 - Research`, so Olympus can answer "when did I decide that?"
+5. **Conversation log and vault promotion** — the raw log already persists; what's missing is the path from "we worked this out in chat" to a proper Markdown note in `04 - Decisions` or `02 - Research`, so Olympus can answer "when did I decide that?"
+
+`OLYMPUS-BRIEF.md` is the current session handoff and is more specific than this section.
 
 ## Conventions
 

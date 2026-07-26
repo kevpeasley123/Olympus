@@ -20,7 +20,7 @@ use serde::Serialize;
 use tauri::{AppHandle, Emitter};
 use tokio::sync::oneshot;
 
-use super::vault_write::{ConfirmReason, DiffSummary};
+use super::vault_write::{operation_of, ConfirmReason, DiffSummary, WriteIntent, WriteOperation};
 
 /// Long enough for a human to read a diff, short enough that a dead webview
 /// does not wedge a write indefinitely.
@@ -41,11 +41,14 @@ pub struct PendingWrite {
     pub id: String,
     /// Vault-relative, for display — the absolute path is noise in a dialog.
     pub path: String,
+    /// Drives the dialog's wording. The webview must not infer this from the
+    /// diff counts: an append that happens to change nothing still adds.
+    pub operation: WriteOperation,
     pub reason: String,
     pub summary: DiffSummary,
 }
 
-fn describe(reason: ConfirmReason) -> String {
+fn describe(operation: WriteOperation, reason: ConfirmReason) -> String {
     match reason {
         ConfirmReason::EditedSinceLastWrite => {
             "This file has changed since Olympus last wrote it, so someone edited it by hand. \
@@ -58,9 +61,16 @@ fn describe(reason: ConfirmReason) -> String {
              replaced — check the changes below before approving."
                 .to_string()
         }
-        ConfirmReason::IntentRequiresConfirmation => {
-            "This write modifies a file that may contain your own writing.".to_string()
-        }
+        ConfirmReason::IntentRequiresConfirmation => match operation {
+            WriteOperation::Append => {
+                "Olympus wants to add the lines below to a note you also write in. Nothing \
+                 already in the note is removed."
+                    .to_string()
+            }
+            WriteOperation::Overwrite => {
+                "This write modifies a file that may contain your own writing.".to_string()
+            }
+        },
     }
 }
 
@@ -71,9 +81,11 @@ fn describe(reason: ConfirmReason) -> String {
 pub async fn request_confirmation(
     app: &AppHandle,
     path: String,
+    intent: WriteIntent,
     reason: ConfirmReason,
     summary: DiffSummary,
 ) -> bool {
+    let operation = operation_of(intent);
     let id = format!("write-{}", NEXT_ID.fetch_add(1, Ordering::Relaxed));
     let (sender, receiver) = oneshot::channel();
 
@@ -91,7 +103,8 @@ pub async fn request_confirmation(
     let request = PendingWrite {
         id: id.clone(),
         path,
-        reason: describe(reason),
+        operation,
+        reason: describe(operation, reason),
         summary,
     };
 
@@ -178,12 +191,49 @@ mod tests {
 
     #[test]
     fn every_reason_has_operator_facing_text() {
-        for reason in [
-            ConfirmReason::EditedSinceLastWrite,
-            ConfirmReason::NoRecordedFingerprint,
-            ConfirmReason::IntentRequiresConfirmation,
-        ] {
-            assert!(!describe(reason).is_empty());
+        for operation in [WriteOperation::Overwrite, WriteOperation::Append] {
+            for reason in [
+                ConfirmReason::EditedSinceLastWrite,
+                ConfirmReason::NoRecordedFingerprint,
+                ConfirmReason::IntentRequiresConfirmation,
+            ] {
+                assert!(!describe(operation, reason).is_empty());
+            }
         }
+    }
+
+    /// The append prompt must not borrow the overwrite prompt's language. An
+    /// operator told their note is about to be replaced, when it is only being
+    /// added to, learns to disbelieve the dialog.
+    #[test]
+    fn an_append_is_not_described_as_a_replacement() {
+        let text = describe(
+            WriteOperation::Append,
+            ConfirmReason::IntentRequiresConfirmation,
+        );
+
+        assert!(text.contains("add"));
+        assert!(!text.to_lowercase().contains("overwrit"));
+        assert!(!text.to_lowercase().contains("replac"));
+    }
+
+    /// The webview picks its wording from this field, so it has to survive
+    /// serialization as the string the dialog switches on.
+    #[test]
+    fn the_operation_serializes_for_the_dialog() {
+        let json = serde_json::to_value(PendingWrite {
+            id: "write-1".to_string(),
+            path: "09 - System/Profile Observations.md".to_string(),
+            operation: WriteOperation::Append,
+            reason: "because".to_string(),
+            summary: DiffSummary {
+                added: 1,
+                removed: 0,
+                preview: vec!["+ a line".to_string()],
+            },
+        })
+        .expect("a pending write serializes");
+
+        assert_eq!(json["operation"], "append");
     }
 }

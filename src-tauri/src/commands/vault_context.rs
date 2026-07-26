@@ -18,7 +18,11 @@ const MAX_NOTE_CHARS: usize = 6_000;
 
 /// Vault-relative notes that describe the operator and the system itself.
 /// Ordered most- to least-important so truncation degrades sensibly.
-const STABLE_NOTES: &[(&str, &str)] = &[
+///
+/// Public so that notes which must *not* be in it can assert their absence —
+/// see `observations.rs`. Everything here reaches the model as authoritative,
+/// which is the reason inferred content is kept out.
+pub const STABLE_NOTES: &[(&str, &str)] = &[
     ("Operator profile", "09 - System/User Profile.md"),
     ("Charter", "09 - System/Olympus Charter.md"),
     ("Skill index", "05 - Skills/Skill Index.md"),

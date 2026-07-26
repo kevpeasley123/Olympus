@@ -29,7 +29,8 @@ Tauri commands exposed by the desktop shell:
 | --- | --- |
 | Assistant | `send_assistant_message` |
 | Persistence | `load_persisted_state`, `save_settings`, `save_tool_states`, `append_conversation_messages`, `clear_conversation` |
-| Vault | `write_memory_artifact`, `fetch_pantheon_entries`, `write_pantheon_entry`, `save_attachment_to_vault` |
+| Vault | `write_memory_artifact`, `fetch_pantheon_entries`, `write_pantheon_entry`, `save_attachment_to_vault`, `append_profile_observation` |
+| Write gate | `resolve_vault_write` |
 | Live data | `fetch_market_quotes`, `fetch_weather`, `scan_tracked_projects`, `fetch_action_queue` |
 | Shell | `launch_quick_app`, `restart_olympus`, `pick_attachment_file`, `extract_pdf_text` |
 
@@ -37,19 +38,36 @@ The SQLite connection is opened once during `setup()` and held in managed state,
 
 ## Vault writes
 
-Olympus has written to the vault since April 2026. Three commands do it. All three resolve the vault root in Rust via `commands::get_vault_path()`; **no caller supplies a path** (this was unified in `62c957e` — `write_memory_artifact` previously took the root from the frontend).
+Olympus has written to the vault since April 2026. Four commands do it. All four resolve the vault root in Rust via `commands::get_vault_path()`; **no caller supplies a path** (this was unified in `62c957e` — `write_memory_artifact` previously took the root from the frontend).
 
-| Command | Operation | Target | Overwrites? |
-| --- | --- | --- | --- |
-| `write_pantheon_entry` | create | `02 - Research/<date> <title>.md` | No — `ensure_unique_path` (`pantheon.rs:275`) suffixes on collision |
-| `save_attachment_to_vault` | create | `02 - Research/_attachments/<file>` | No — `ensure_unique_attachment_path` (`attachments.rs:55`) suffixes |
-| `write_memory_artifact` | **overwrite** | `00 - Dashboard/Olympus Research.base`, `Olympus Projects.canvas` | **Yes** — unconditional `fs::write` (`lib.rs:97`) |
+| Command | Operation | Target | Declared intent | Asks first? |
+| --- | --- | --- | --- | --- |
+| `write_pantheon_entry` | create | `02 - Research/<date> <title>.md` | `CreateUnique` | No — `ensure_unique_path` (`pantheon.rs`) suffixes on collision, so nothing is destroyed |
+| `save_attachment_to_vault` | create | `02 - Research/_attachments/<file>` | `CreateUnique` | No — `ensure_unique_attachment_path` (`attachments.rs:55`) suffixes |
+| `write_memory_artifact` | **overwrite** | `00 - Dashboard/Olympus Research.base`, `Olympus Projects.canvas` | `RegenerateDerived` | Only when the file diverged from what Olympus last wrote, or was never fingerprinted |
+| `append_profile_observation` | **append** | `09 - System/Profile Observations.md` | `AppendAuthored` | **Always** |
 
-No command appends, deletes, or renames.
+No command deletes or renames a note the operator can see.
 
-`write_memory_artifact` replaces its target wholesale on every call and is reached by **Update Canvas** (Projects panel) and **View Database** (Library panel). Hand edits to those two files — rearranging canvas nodes in Obsidian, for instance — are lost on the next click, with no warning and no undo inside the app.
+### The write gate
 
-**There is no approval or confirmation step on any vault write today.** `safe_join` (`lib.rs:42`) rejects `..` traversal on the `write_memory_artifact` path only; it is a containment check, not an approval gate.
+Every vault write goes through `commands::vault_write`, which does two separate things:
+
+- **Containment.** `resolve_vault_path` proves the target lands inside the vault before anything touches disk — rejecting traversal, absolute and UNC paths, alternate data streams, Windows device names, and junctions that redirect out of the vault. Out-of-vault writes are **rejected, never confirmed**: a confirm path would mean the mechanism exists and one misclick authorizes it.
+- **Classification.** Each call site *declares* a `WriteIntent`; the gate never infers one from the filesystem operation. `CreateUnique` is safe only because both creating writers guarantee an unused path — that is a property of those call sites, not of creation.
+
+When a write needs a human, `write_confirm::request_confirmation` emits `vault-write-pending` to the webview and blocks on the answer. Timeout (120s), a dropped channel, and an emit failure all **deny**. The operator's answer returns through `resolve_vault_write`. `WriteConfirmDialog.tsx` renders it; declining is the default on Escape, the backdrop, and the focused button, and the dialog's wording comes from the intent-derived `operation` field so an append is never described as an overwrite.
+
+Fingerprints of app-authored files live in the SQLite `artifact_hashes` table, normalised for line endings and trailing whitespace before hashing — the vault syncs through OneDrive and is opened by Obsidian, and neither round-trip is a human edit. A file whose fingerprint still matches is regenerated silently; one that diverged, or was never recorded, prompts. **Absent must mean confirm** — treating a missing row as clean would make the check bypassable by deleting it.
+
+### The appender
+
+`append_profile_observation` is the only writer that adds to an existing note, and the only one that always asks. Two properties are load-bearing:
+
+- **The write is atomic.** The whole file is composed in memory, written to a dot-prefixed temp file in the same directory, flushed with `sync_all`, and renamed over the target. A plain append interrupted mid-write leaves half an entry in a note the operator reads by hand.
+- **The note is not read back.** `09 - System/Profile Observations.md` is deliberately absent from `vault_context::STABLE_NOTES`. Inferences that re-entered the assistant's context would arrive on the next turn indistinguishable from the operator's own stated preferences. `observations.rs` carries a test asserting the absence.
+
+Because the gate can hold for up to two minutes, the appender re-fingerprints the note after approval and refuses to write if it changed while the dialog was open — otherwise a concurrent append or an edit in Obsidian would be silently dropped by the full-file replace.
 
 ## Process spawns
 
@@ -57,7 +75,7 @@ Two places in `src-tauri/src` start a process. Both are recorded here because a
 spawn can write anything a shell can, which puts them in the same blast radius
 as the vault writers above.
 
-### `launch_quick_app` — `lib.rs:150-172`
+### `launch_quick_app` — `lib.rs:171-206`
 
 Runs `cmd /C start` — a real shell. The `app_id` argument arrives from the
 webview but is matched against four string literals, each producing a fixed
@@ -75,7 +93,7 @@ Runs `git -C <path> <args>`. All four call sites pass literal, read-only
 subcommands: `rev-parse --is-inside-work-tree` (`:99`), `rev-parse --abbrev-ref
 HEAD` (`:118`), `log -1` (`:119`), `status --porcelain` (`:121`).
 
-**The path is caller-supplied.** `ProjectsRequest.root_path` (`projects.rs:14`)
+**The path is caller-supplied.** `ProjectsRequest.root_path` (`projects.rs:16`)
 comes from the webview via `liveData.ts:37`, sourced from
 `settings.projectsRootPath` in SQLite. It is the one filesystem root still owned
 by the frontend — the vault path was unified into Rust in `62c957e`, this one
@@ -93,9 +111,9 @@ Two things follow that "the subcommands are read-only" does not cover:
   changes.
 - The scan is reachable from a React effect (`useDashboardData.ts:279` on mount,
   `:288` on a 60s interval), so it runs twice per mount under StrictMode in dev.
-  **No gated write is effect-reachable** — Update Canvas and View Database are
-  button handlers — so the double-invoke does not currently produce duplicate
-  confirmation dialogs.
+  **No gated write is effect-reachable** — Update Canvas, View Database, and
+  Record (observation) are all button handlers — so the double-invoke does not
+  currently produce duplicate confirmation dialogs.
 
 ### Excluded, with reason
 

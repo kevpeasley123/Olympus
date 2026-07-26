@@ -57,6 +57,11 @@ vault-path split was masked only by the absence of a settings UI.
 - `write_pantheon_entry` since the containment guard landed
 - The gate's **divergence** branch — a file edited by hand then rewritten. Only the
   *no-recorded-fingerprint* branch has been exercised.
+- **The whole observation path.** `append_profile_observation` has never run against
+  the real vault: the note does not exist yet, so the header-seeding branch, the
+  atomic rename, the append-flavoured dialog, and the post-approval change check
+  are all unexercised outside unit tests. `atomic_replace` is covered against a
+  temp directory, which is not OneDrive.
 - Any release build. `tauri build` has never been run; `tauri dev` only.
 
 ## What shipped 2026-07-25
@@ -75,29 +80,50 @@ Ordered; each is one commit.
 | `c62018a` | The write gate: fingerprints, confirmation channel, modal |
 | `014f41c` | Process-spawn audit recorded |
 | `d894aaa` | A declined overwrite no longer reports as a failure |
+| _pending_ | **Task 4 — the observations write path** (below) |
+
+## Task 4 — done, unrun
+
+`append_profile_observation` (`commands/observations.rs`) appends one dated line
+to `09 - System/Profile Observations.md`. Both prior decisions held:
+
+- The note is **absent from `STABLE_NOTES`**, and `observations.rs` carries a test
+  asserting that absence, so a future edit to `vault_context.rs` fails here rather
+  than quietly feeding the model its own inferences back as the operator's stated
+  preferences.
+- The write is **atomic**: full file composed in memory → dot-prefixed temp file in
+  the same directory → `sync_all` → `fs::rename` over the target, with a short
+  retry for the Windows sharing violation OneDrive and Obsidian can cause.
+
+Three things the task description did not anticipate:
+
+- **The dialog was lying about appends.** Its title and buttons were hardcoded to
+  overwrite language. `WriteIntent` now derives a `WriteOperation` that rides along
+  in `PendingWrite`, and the webview picks its wording from it. A gate the operator
+  learns to disbelieve is worse than no gate.
+- **The gate can hold for 120 seconds, and the append is a full-file replace.** So
+  the note is re-fingerprinted after approval; if it changed while the dialog was
+  open, the write is refused rather than silently discarding whatever landed.
+- **An over-long observation is rejected, not truncated** (500 chars). Storing half
+  of what was approved is the exact failure the gate exists to prevent.
+
+Entry point: the Chat panel — a header button, or *Note this* on any assistant
+message, which prefills the composer. Both are click handlers, so nothing gated
+is effect-reachable and StrictMode still cannot double-fire a dialog.
+
+**Verify on the next launch, in this order:** the first Record seeds the header
+(the note does not exist yet); a second one appends below it without a second
+header; hand-edit the note in Obsidian, then Record again and confirm the edit
+survives; leave the dialog open for two minutes and confirm the timeout denies.
 
 ## Next work
-
-**Task 4 — observations write path.** Append-only `09 - System/Profile Observations.md`,
-dated entries, routed through the gate. Two decisions already made:
-
-- It must be **structurally separate** from `User Profile.md` and must **not** be
-  added to `STABLE_NOTES` in `vault_context.rs`. If model inferences feed back
-  into the assistant's context, they become indistinguishable from the operator's
-  stated preferences on the next turn.
-- Append is not atomic. Write to a temp file in the same directory and
-  `fs::rename` over the target — atomic on one volume, and it sidesteps a
-  partial-append left by a mid-write OneDrive sync.
-
-This is the **first appender in the codebase**, so it is the first real exercise
-of the `AppendAuthored` tier.
 
 **Housekeeping.**
 
 - Delete the inert `vaultPath` row from the SQLite `settings` table. Nothing reads
   it since `62c957e`; a stale row that looks like live config invites the next
   two-sources-of-truth bug.
-- **Hazard to record:** the vault path is now compile-time (`commands/mod.rs:12`).
+- **Hazard to record:** the vault path is now compile-time (`commands/mod.rs:17`).
   Reintroducing a settings UI requires un-hardcoding it *and* requires the write
   gate to already exist.
 - **Hazard:** `settings.projectsRootPath` is still webview-supplied and reaches
@@ -125,7 +151,11 @@ flat report on eleven equally-weighted repos.
   because both creating writers guarantee a unique path.
 - **Out-of-vault writes reject, never confirm.** A confirm path would mean the
   mechanism exists and one misclick authorizes it.
-- Rust tests pass (83); keep them passing. No frontend test infrastructure exists —
+- **The gate's wording is derived, not written.** `operation_of(intent)` decides
+  whether the dialog says "add to" or "replace". A new `WriteIntent` needs an arm
+  there and a `COPY` entry in `WriteConfirmDialog.tsx`, or it silently inherits
+  overwrite language.
+- Rust tests pass (100); keep them passing. No frontend test infrastructure exists —
   do not stand one up without being asked.
 - React StrictMode double-invokes effects in dev. No gated write is currently
   effect-reachable; if one becomes so, it will produce duplicate dialogs.

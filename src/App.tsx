@@ -28,6 +28,7 @@ function App() {
     weather,
     sourceHealth,
     sendChatMessage,
+    recordObservation,
     syncResearchBase,
     syncProjectsCanvas,
     refreshAll
@@ -89,6 +90,7 @@ function App() {
               <ChatPanel
                 messages={chat}
                 onSendMessage={sendChatMessage}
+                onRecordObservation={recordObservation}
                 pending={chatPending}
                 error={chatError}
               />

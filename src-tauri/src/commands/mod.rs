@@ -1,6 +1,7 @@
 pub mod assistant;
 pub mod attachments;
 pub mod markets;
+pub mod observations;
 pub mod pantheon;
 pub mod persistence;
 pub mod profile;

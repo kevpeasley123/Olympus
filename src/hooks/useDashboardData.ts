@@ -6,6 +6,7 @@ import {
   syncProjectsCanvasToVault,
   syncResearchBaseToVault
 } from "../services/obsidian";
+import { recordObservation as recordObservationInVault } from "../services/observations";
 import { createAssistantMessage, requestAssistantReply } from "../services/assistant";
 import { buildPantheonReply, createUserMessage } from "../services/pantheonChat";
 import { appendConversationMessages, loadState, persistPreferences } from "../services/storage";
@@ -368,6 +369,19 @@ export function useDashboardData() {
     }
   }, [dashboardState.projects]);
 
+  // Not folded into the conversation save path: an observation is a deliberate,
+  // approved vault write, not a side effect of chatting.
+  const recordObservation = useCallback(async (text: string) => {
+    try {
+      return await recordObservationInVault(text);
+    } catch (error) {
+      return {
+        tone: "error" as const,
+        message: `Could not record the observation: ${errorMessage(error)}`
+      };
+    }
+  }, []);
+
   const refreshAll = useCallback(async () => {
     await Promise.allSettled([refreshMarkets(), refreshWeather(), refreshProjects()]);
   }, [refreshMarkets, refreshProjects, refreshWeather]);
@@ -386,6 +400,7 @@ export function useDashboardData() {
       weather,
       sourceHealth: Object.values(sourceTrackers).map(deriveSourceHealth),
       sendChatMessage,
+      recordObservation,
       syncResearchBase,
       syncProjectsCanvas,
       refreshAll
@@ -399,6 +414,7 @@ export function useDashboardData() {
       weather,
       sourceTrackers,
       sendChatMessage,
+      recordObservation,
       syncResearchBase,
       syncProjectsCanvas,
       refreshAll

@@ -15,6 +15,7 @@ use commands::attachments::{
 };
 use commands::assistant::send_assistant_message;
 use commands::markets::fetch_market_quotes;
+use commands::observations::append_profile_observation;
 use commands::pantheon::{fetch_pantheon_entries, write_pantheon_entry};
 use commands::profile::fetch_operator_profile;
 use commands::persistence::{
@@ -122,8 +123,14 @@ async fn write_memory_artifact(
         let summary =
             vault_write::summarise_diff(on_disk.as_deref().unwrap_or_default(), &artifact.content);
 
-        let approved =
-            write_confirm::request_confirmation(&app, key.clone(), reason, summary).await;
+        let approved = write_confirm::request_confirmation(
+            &app,
+            key.clone(),
+            vault_write::WriteIntent::RegenerateDerived,
+            reason,
+            summary,
+        )
+        .await;
 
         if !approved {
             return Ok(WriteResult {
@@ -262,6 +269,7 @@ pub fn run() {
             fetch_pantheon_entries,
             fetch_operator_profile,
             resolve_vault_write,
+            append_profile_observation,
             write_pantheon_entry,
             pick_attachment_file,
             extract_pdf_text,
