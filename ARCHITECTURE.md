@@ -51,6 +51,59 @@ No command appends, deletes, or renames.
 
 **There is no approval or confirmation step on any vault write today.** `safe_join` (`lib.rs:42`) rejects `..` traversal on the `write_memory_artifact` path only; it is a containment check, not an approval gate.
 
+## Process spawns
+
+Two places in `src-tauri/src` start a process. Both are recorded here because a
+spawn can write anything a shell can, which puts them in the same blast radius
+as the vault writers above.
+
+### `launch_quick_app` — `lib.rs:150-172`
+
+Runs `cmd /C start` — a real shell. The `app_id` argument arrives from the
+webview but is matched against four string literals, each producing a fixed
+argv; the `_` arm rejects everything else. **No caller-supplied string ever
+reaches the command line**, and there is no path argument, so it cannot address
+the vault.
+
+This is the correct shape for invoking a shell from a command handler. The
+obvious "improvement" — accepting a URL or target from the frontend and passing
+it through — would turn it into a shell injection.
+
+### `git_command` — `projects.rs:162-167`
+
+Runs `git -C <path> <args>`. All four call sites pass literal, read-only
+subcommands: `rev-parse --is-inside-work-tree` (`:99`), `rev-parse --abbrev-ref
+HEAD` (`:118`), `log -1` (`:119`), `status --porcelain` (`:121`).
+
+**The path is caller-supplied.** `ProjectsRequest.root_path` (`projects.rs:14`)
+comes from the webview via `liveData.ts:37`, sourced from
+`settings.projectsRootPath` in SQLite. It is the one filesystem root still owned
+by the frontend — the vault path was unified into Rust in `62c957e`, this one
+was not. It is read-only today, so it is not a data-loss risk; it is an
+unresolved instance of the pattern that unification removed.
+
+Two things follow that "the subcommands are read-only" does not cover:
+
+- No shell is involved and Rust escapes argv, so the path cannot inject a
+  command. But `git` honours repository-local config, and keys such as
+  `core.fsmonitor`, `core.pager`, and `diff.external` execute programs — the
+  CVE-2022-24765 family. Pointing `-C` at a repository someone else controls can
+  turn `git status` into code execution. Low risk while the root is locally
+  configured and no UI edits it; it stops being low risk the moment either
+  changes.
+- The scan is reachable from a React effect (`useDashboardData.ts:279` on mount,
+  `:288` on a 60s interval), so it runs twice per mount under StrictMode in dev.
+  **No gated write is effect-reachable** — Update Canvas and View Database are
+  button handlers — so the double-invoke does not currently produce duplicate
+  confirmation dialogs.
+
+### Excluded, with reason
+
+`assistant.rs:314` is `response.status()` on a `reqwest::Response`, not a
+process. `tauri_plugin_opener` is registered at `lib.rs` but never called —
+grep for `opener::` returns only the plugin init. `rfd` (native file picker) and
+`pdf-extract` are in-process libraries.
+
 ## Data flow
 
 Dashboard panels compose from `src/App.tsx`. Live data sources:
