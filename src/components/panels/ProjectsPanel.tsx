@@ -1,7 +1,9 @@
-import { FolderGit2 } from "lucide-react";
+import { FolderGit2, ListChecks } from "lucide-react";
 import type { ProjectStatus, TrackedProject } from "../../types";
 import { formatPath } from "../../utils/formatPath";
 import type { ObsidianActionResult } from "../../services/obsidian";
+import { useActionQueue, type ActionQueueTask } from "../../hooks/useActionQueue";
+import { attributeTasks, groupBySourceFile } from "../../services/taskAttribution";
 import { useState } from "react";
 
 interface ProjectsPanelProps {
@@ -20,6 +22,9 @@ const STATUS_LABELS: Record<ProjectStatus, string> = {
   unclassified: "UNCLASSIFIED"
 };
 
+/** How many tasks a card shows before it needs asking. */
+const VISIBLE_TASK_LIMIT = 3;
+
 export function ProjectsPanel({
   projects,
   onSyncCanvas,
@@ -28,6 +33,9 @@ export function ProjectsPanel({
 }: ProjectsPanelProps) {
   const [status, setStatus] = useState<ObsidianActionResult | null>(null);
   const [syncing, setSyncing] = useState(false);
+  // The Action Queue dissolved into this panel, so its fetch moved with it
+  // rather than a second one being added alongside.
+  const { tasks, error: tasksError } = useActionQueue();
 
   async function handleSyncCanvas() {
     setSyncing(true);
@@ -41,6 +49,8 @@ export function ProjectsPanel({
   const warningCount =
     noteWarnings.length + projects.reduce((total, project) => total + project.warnings.length, 0);
 
+  const { perProject, unattributed } = attributeTasks(projects, tasks);
+
   return (
     <section className={`dashboard-panel projects-panel ${focusMode ? "focus-projects" : ""}`}>
       <div className="projects-panel-top">
@@ -52,8 +62,16 @@ export function ProjectsPanel({
           <span className="panel-head__meta tabular-data">
             {projects.length === 1 ? "1 project" : `${projects.length} projects`}
           </span>
+          {tasks.length > 0 ? (
+            <span className="panel-head__meta tabular-data">
+              {tasks.length === 1 ? "1 open task" : `${tasks.length} open tasks`}
+            </span>
+          ) : null}
         </div>
         {status && <p className={`section-copy action-feedback ${status.tone}`}>{status.message}</p>}
+        {tasksError && (
+          <p className="section-copy action-feedback warning">Couldn't reach the vault parser.</p>
+        )}
         {warningCount > 0 && (
           <p
             className="section-copy action-feedback warning"
@@ -67,8 +85,14 @@ export function ProjectsPanel({
       </div>
       <div className="project-list">
         {projects.map((project) => (
-          <ProjectCard key={project.id} project={project} />
+          <ProjectCard
+            key={project.id}
+            project={project}
+            tasks={perProject.get(project.id) ?? []}
+          />
         ))}
+
+        {unattributed.length > 0 ? <UnattributedTasks tasks={unattributed} /> : null}
       </div>
       {/* Demoted out of the header. It rewrites a file wholesale, and it should
           not be the most prominent affordance in the centrepiece panel. It has
@@ -88,7 +112,8 @@ export function ProjectsPanel({
   );
 }
 
-function ProjectCard({ project }: { project: TrackedProject }) {
+function ProjectCard({ project, tasks }: { project: TrackedProject; tasks: ActionQueueTask[] }) {
+  const [expanded, setExpanded] = useState(false);
   const statusLabel = STATUS_LABELS[project.status] ?? STATUS_LABELS.unclassified;
   const pathLabel = project.path ? formatPath(project.path) : "No folder under the projects root";
   const repoStateTone =
@@ -98,11 +123,23 @@ function ProjectCard({ project }: { project: TrackedProject }) {
         ? "pending"
         : "neutral";
 
+  const visible = expanded ? tasks : tasks.slice(0, VISIBLE_TASK_LIMIT);
+  const hidden = tasks.length - visible.length;
+
   return (
     <article className="project-card">
       <div className="project-card-header">
         <strong>{project.name}</strong>
         <div className="project-top-meta">
+          {tasks.length > 0 ? (
+            <span
+              className="project-task-count tabular-data"
+              title={`${tasks.length} open ${tasks.length === 1 ? "task" : "tasks"} in ${project.notePath}`}
+            >
+              <ListChecks size={12} />
+              {tasks.length}
+            </span>
+          ) : null}
           <span className="project-branch tabular-data">{project.branch}</span>
           <span className={`project-repo-state ${repoStateTone}`}>
             <span className="project-repo-dot" aria-hidden="true"></span>
@@ -131,6 +168,70 @@ function ProjectCard({ project }: { project: TrackedProject }) {
           <span>{project.nextStep}</span>
         </div>
       ) : null}
+
+      {tasks.length > 0 ? (
+        <div className="project-tasks">
+          {visible.map((task) => (
+            <TaskLine key={task.id} task={task} />
+          ))}
+          {hidden > 0 || expanded ? (
+            <button
+              type="button"
+              className="project-tasks-toggle"
+              onClick={() => setExpanded((value) => !value)}
+            >
+              {expanded ? "Show fewer" : `${hidden} more`}
+            </button>
+          ) : null}
+        </div>
+      ) : null}
     </article>
+  );
+}
+
+/**
+ * The tasks that join to no project.
+ *
+ * Rendered expanded, next to the projects rather than behind a toggle. These
+ * are real open work; collapsing them by default would reproduce exactly the
+ * invisibility that made dissolving the Action Queue worth doing.
+ */
+function UnattributedTasks({ tasks }: { tasks: ActionQueueTask[] }) {
+  const groups = groupBySourceFile(tasks);
+
+  return (
+    <article className="project-card unattributed-card">
+      <div className="project-card-header">
+        <strong>Not attributed to a project</strong>
+        <div className="project-top-meta">
+          <span className="project-task-count tabular-data">
+            <ListChecks size={12} />
+            {tasks.length}
+          </span>
+        </div>
+      </div>
+      <div className="project-path">
+        These live in notes no project claims. Move a checkbox under a project note to attribute it.
+      </div>
+      {groups.map(([sourceFile, groupTasks]) => (
+        <div key={sourceFile} className="unattributed-group">
+          <div className="unattributed-group-label">{sourceFile}</div>
+          <div className="project-tasks">
+            {groupTasks.map((task) => (
+              <TaskLine key={task.id} task={task} />
+            ))}
+          </div>
+        </div>
+      ))}
+    </article>
+  );
+}
+
+function TaskLine({ task }: { task: ActionQueueTask }) {
+  return (
+    <div className="project-task-line" title={`${task.text}\n${task.sourceFile}:${task.lineNumber}`}>
+      <span className="project-task-bullet" aria-hidden="true"></span>
+      <span className="project-task-text">{task.text}</span>
+    </div>
   );
 }

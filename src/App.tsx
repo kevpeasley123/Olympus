@@ -6,7 +6,6 @@ import { AmbientDock } from "./components/panels/AmbientDock";
 import { ChatPanel } from "./components/panels/ChatPanel";
 import { HeaderBar } from "./components/panels/HeaderBar";
 import { LibraryPanel } from "./components/panels/LibraryPanel";
-import { ActionQueuePanel } from "./components/panels/ActionQueuePanel";
 import { MarketsPanel } from "./components/panels/MarketsPanel";
 import { ProjectsPanel } from "./components/panels/ProjectsPanel";
 import { QuickbarPanel } from "./components/panels/QuickbarPanel";
@@ -86,12 +85,6 @@ function App() {
               </FadeInPanel>
             ) : (
               <>
-                <FadeInPanel index={1} className="panel-slot panel-slot-action-queue">
-                  <ActionQueuePanel
-                    compact={dense}
-                    onExitCompact={() => setMode("command")}
-                  />
-                </FadeInPanel>
                 <FadeInPanel index={4} className="panel-slot panel-slot-projects">
                   <ProjectsPanel
                     projects={projects}

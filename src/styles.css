@@ -947,14 +947,6 @@ small {
   min-height: 0;
 }
 
-.center-stack > .panel-slot-action-queue {
-  flex: 0 0 auto;
-  overflow: visible;
-}
-
-.center-stack > .panel-slot-action-queue > * {
-  overflow: visible;
-}
 
 .center-stack > .panel-slot-markets {
   flex: 0 0 auto;
@@ -3603,230 +3595,99 @@ small {
   min-height: 0;
 }
 
-/* ACTION QUEUE PANEL */
-.panel-eyebrow {
-  font-size: 11px;
-  font-weight: var(--weight-medium);
-  letter-spacing: 0.16em;
-  color: var(--accent);
-  text-transform: uppercase;
-}
+/* ---- Tasks, attributed to their project -------------------------------- */
+/* The Action Queue dissolved into the project cards. A task now renders under
+   the project whose note holds its checkbox, so the panel says what is open
+   *on* something rather than listing work with no owner. */
 
-.action-queue-panel {
-  flex: 0 0 auto;
-  display: flex;
-  flex-direction: column;
-}
-
-
-
-
-.action-queue-rows {
+.project-tasks {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  margin-top: var(--space-8);
+  padding-top: var(--space-8);
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
 }
 
-/* Expansion overlay (rendered via React Portal at document.body, positioned via inline style) */
-.action-queue-overlay {
-  position: fixed;
-  z-index: 9999;
-  padding: 16px 20px;
+.project-task-line {
   display: flex;
-  flex-direction: column;
-  max-height: 480px;
-  background: var(--panel-bg, #0d1626);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 12px;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
-  animation: action-queue-overlay-enter 180ms ease-out;
-}
-
-@keyframes action-queue-overlay-enter {
-  from {
-    opacity: 0;
-    transform: translateY(-4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.action-queue-overlay-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding-bottom: 12px;
-  margin-bottom: 8px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  flex-shrink: 0;
-}
-
-.action-queue-overlay-title {
-  font-size: 11px;
-  font-weight: var(--weight-medium);
-  letter-spacing: 0.16em;
-  color: var(--muted);
-  text-transform: uppercase;
-}
-
-.action-queue-overlay-close {
-  background: transparent;
-  border: none;
-  color: var(--muted);
-  font-size: 18px;
-  line-height: 1;
-  cursor: pointer;
-  padding: 0 4px;
-  transition: color 100ms ease;
-}
-
-.action-queue-overlay-close:hover {
-  color: var(--primary);
-}
-
-.action-queue-overlay-list {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  padding-right: 4px;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
-}
-
-.action-queue-overlay-list::-webkit-scrollbar {
-  width: 4px;
-}
-
-.action-queue-overlay-list::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 2px;
-}
-
-.action-queue-overlay-list::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-/* Auto-detected task row */
-.action-queue-row {
-  display: grid;
-  grid-template-columns: 64px 1fr;
-  gap: 14px;
-  padding: 8px 14px;
-  border-radius: 4px;
-  transition: background 100ms ease;
-}
-
-.action-queue-row:hover {
-  background: rgba(255, 255, 255, 0.02);
-}
-
-.action-queue-row-label {
-  font-size: 10px;
-  font-weight: var(--weight-medium);
-  letter-spacing: 0.16em;
-  color: var(--muted);
-  text-transform: uppercase;
-  padding-top: 2px;
-  white-space: nowrap;
-}
-
-.action-queue-row-content {
+  align-items: baseline;
+  gap: var(--space-8);
   min-width: 0;
-}
-
-.action-queue-row-title {
-  font-size: 13px;
-  color: var(--secondary);
-  margin-bottom: 2px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.action-queue-row-source {
-  font-size: 11px;
-  font-family: var(--font-mono);
+  font-size: 12px;
   color: var(--muted);
-  white-space: nowrap;
+  line-height: 1.5;
+}
+
+.project-task-bullet {
+  flex: 0 0 auto;
+  width: 4px;
+  height: 4px;
+  margin-top: 1px;
+  border-radius: 50%;
+  background: var(--accent);
+  opacity: 0.55;
+}
+
+.project-task-text {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-/* Source label color coding */
-.action-queue-row[data-source="Tasks"] .action-queue-row-label {
-  color: #d97706;
-}
-.action-queue-row[data-source="DailyBriefs"] .action-queue-row-label {
-  color: #94a3b8;
-}
-.action-queue-row[data-source="Projects"] .action-queue-row-label {
-  color: #6b7a90;
-}
-
-
-
-/* Footer (matches .markets-news-toggle pattern) */
-.action-queue-footer {
-  margin-top: 12px;
-  padding-top: 10px;
-  border-top: 1px solid rgba(255, 255, 255, 0.04);
-  display: flex;
-  justify-content: center;
-}
-
-.action-queue-footer-toggle {
+.project-task-count {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  background: transparent;
-  border: none;
-  color: var(--muted);
+  color: var(--accent);
+  opacity: 0.8;
   font-size: 11px;
-  cursor: pointer;
-  transition: color 100ms ease;
+}
+
+.project-tasks-toggle {
+  align-self: flex-start;
+  margin-top: 2px;
   padding: 0;
-}
-
-.action-queue-footer-toggle:hover {
-  color: var(--secondary);
-}
-
-.action-queue-footer-toggle svg {
-  transition: transform 200ms ease-out;
-}
-
-.action-queue-footer-toggle .is-expanded {
-  transform: rotate(180deg);
-}
-
-/* Compact (Project Mode) */
-.action-queue-panel--compact {
-  display: flex;
-  align-items: center;
-  gap: var(--space-8);
-  padding: var(--panel-pad-tight);
-  cursor: pointer;
-  min-height: 36px;
-  transition: background 120ms ease;
-}
-
-.action-queue-panel--compact:hover {
-  background: rgba(255, 255, 255, 0.02);
-}
-
-.action-queue-compact-separator {
+  border: none;
+  background: none;
   color: var(--muted);
+  font-family: inherit;
   font-size: 11px;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  opacity: 0.7;
 }
 
-.action-queue-compact-summary {
-  font-size: 12px;
-  color: var(--primary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+.project-tasks-toggle:hover {
+  color: var(--accent);
+  opacity: 1;
+}
+
+/* Deliberately not collapsed. These are real open tasks that join to no
+   project, and hiding them behind a toggle would reproduce the invisibility
+   that made dissolving the Action Queue worth doing. */
+.unattributed-card {
+  border-style: dashed;
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.unattributed-group {
+  margin-top: var(--space-8);
+}
+
+.unattributed-group-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--muted);
+  opacity: 0.7;
+  margin-bottom: 2px;
+}
+
+.unattributed-group .project-tasks {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
 }
 
 /* ---- Vault write gate -------------------------------------------------- */
