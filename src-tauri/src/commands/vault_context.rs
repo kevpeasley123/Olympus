@@ -120,6 +120,22 @@ fn load_pantheon_index() -> String {
             entry.title, source_type, dated, entry.word_count, entry.source_file
         ));
 
+        // Stance is the field that makes disagreement possible, so it has to
+        // reach the model. A stance nothing ever reads is decoration.
+        out.push_str(&format!(", stance: {}", entry.stance));
+
+        if let Some(origin) = entry.origin.as_deref() {
+            out.push_str(&format!(", {origin}"));
+        }
+
+        // The gap is stated rather than left blank. An entry with no declared
+        // purpose should be visibly unexplained, not silently indistinguishable
+        // from one the operator justified.
+        match entry.why_kept.as_deref() {
+            Some(why) => out.push_str(&format!(", kept because: {why}")),
+            None => out.push_str(", no stated purpose"),
+        }
+
         if !entry.tags.is_empty() {
             out.push_str(&format!(" [{}]", entry.tags.join(", ")));
         }

@@ -17,6 +17,7 @@ use commands::assistant::send_assistant_message;
 use commands::markets::fetch_market_quotes;
 use commands::observations::append_profile_observation;
 use commands::pantheon::{fetch_pantheon_entries, write_pantheon_entry};
+use commands::pantheon_migrate::migrate_pantheon_schema;
 use commands::profile::fetch_operator_profile;
 use commands::persistence::{
     append_conversation_messages, clear_conversation, load_persisted_state, save_settings,
@@ -271,6 +272,7 @@ pub fn run() {
             resolve_vault_write,
             append_profile_observation,
             write_pantheon_entry,
+            migrate_pantheon_schema,
             pick_attachment_file,
             extract_pdf_text,
             save_attachment_to_vault

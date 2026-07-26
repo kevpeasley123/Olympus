@@ -1,6 +1,14 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useCallback, useEffect, useState } from "react";
 
+/** Mirrors `STANCE_VALUES` in `commands/pantheon.rs`. */
+export const PANTHEON_STANCES = ["endorsed", "provisional", "disputed", "unevaluated"] as const;
+export type PantheonStance = (typeof PANTHEON_STANCES)[number];
+
+/** Mirrors `ORIGIN_VALUES` in `commands/pantheon.rs`. */
+export const PANTHEON_ORIGINS = ["collected", "olympus-found"] as const;
+export type PantheonOrigin = (typeof PANTHEON_ORIGINS)[number];
+
 export interface PantheonEntry {
   id: string;
   title: string;
@@ -9,7 +17,15 @@ export interface PantheonEntry {
   sourceType?: string;
   created?: string;
   sourceDate?: string;
-  origin?: string;
+  /** Who found the source. Absent on entries written before the schema change. */
+  origin?: PantheonOrigin;
+  /** What wrote the file — the value `origin` used to carry. */
+  writtenBy?: string;
+  /** Always present: an entry that declares nothing is `unevaluated`. */
+  stance: PantheonStance;
+  /** Absent means no purpose was ever stated, which is surfaced, not filled in. */
+  whyKept?: string;
+  project?: string;
   tags: string[];
   wordCount: number;
   fileModifiedAt: string;

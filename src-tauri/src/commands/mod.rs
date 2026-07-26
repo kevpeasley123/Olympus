@@ -3,6 +3,7 @@ pub mod attachments;
 pub mod markets;
 pub mod observations;
 pub mod pantheon;
+pub mod pantheon_migrate;
 pub mod persistence;
 pub mod profile;
 pub mod project_notes;

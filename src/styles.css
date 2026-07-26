@@ -1996,6 +1996,49 @@ small {
   font-size: var(--text-sm);
 }
 
+/* The operator's judgement of a source, kept visually distinct from its
+   bibliographic metadata above — one is what the source is, the other is what he
+   thinks of it. */
+.pantheon-detail-judgement {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-8);
+  margin: var(--space-8) 0 0;
+  font-size: var(--text-sm);
+}
+
+.pantheon-stance,
+.pantheon-origin {
+  padding: 1px 6px;
+  border: 1px solid currentColor;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.pantheon-stance.is-endorsed {
+  color: var(--positive);
+}
+
+.pantheon-stance.is-disputed {
+  color: var(--negative);
+}
+
+/* `unevaluated` and `provisional` stay muted on purpose: the absence of a
+   judgement should not draw the eye more than a judgement does. */
+
+.pantheon-why-kept {
+  color: var(--text);
+}
+
+.pantheon-why-kept.is-absent {
+  color: var(--muted);
+  font-style: italic;
+}
+
 .pantheon-detail-content {
   width: min(100%, 720px);
   margin: var(--space-24) auto 0;

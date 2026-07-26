@@ -108,6 +108,10 @@ export interface ResearchRecord {
   wordCount: number;
   estReadMinutes: number;
   freshness: PantheonFreshness;
+  /** Carried straight from the note's frontmatter — see `hooks/usePantheon`. */
+  stance?: string;
+  whyKept?: string;
+  origin?: string;
 }
 
 export interface ConversationMessage {

@@ -18,7 +18,17 @@ pub struct PantheonEntry {
     pub source_type: Option<String>,
     pub created: Option<String>,
     pub source_date: Option<String>,
+    /// Who *found* the source, not who wrote the file. See `ORIGIN_VALUES`.
     pub origin: Option<String>,
+    /// What wrote the file — the value `origin` used to carry.
+    pub written_by: Option<String>,
+    /// Always populated: an absent or unreadable stance is `unevaluated`, which
+    /// is deliberately not the same as `endorsed`.
+    pub stance: String,
+    /// One line on what the entry is for. Optional, and its absence is surfaced
+    /// rather than filled in — a guessed purpose is worse than a stated gap.
+    pub why_kept: Option<String>,
+    pub project: Option<String>,
     pub tags: Vec<String>,
     pub word_count: u32,
     pub file_modified_at: String,
@@ -31,6 +41,21 @@ use super::get_vault_path;
 const RESEARCH_FOLDER: &str = "02 - Research";
 const REQUIRED_TAG: &str = "olympus/research";
 const PREVIEW_CHAR_LIMIT: usize = 200;
+
+/// Who found the source. Everything the operator collects is pre-filtered by
+/// his own taste, so a library reasoning only from it is a well-read version of
+/// him. Sources Olympus found — often *because* they cut against the library —
+/// have to stay distinguishable.
+pub(crate) const ORIGIN_VALUES: &[&str] = &["collected", "olympus-found"];
+
+/// How the operator has judged the source. Without this, presence in the vault
+/// reads as endorsement and the assistant drifts toward agreeing with whatever
+/// was collected.
+const STANCE_VALUES: &[&str] = &["endorsed", "provisional", "disputed", "unevaluated"];
+
+/// The stance of an entry that does not declare one. Not `endorsed`: the whole
+/// point of the field is that being in the library is not agreement.
+const DEFAULT_STANCE: &str = "unevaluated";
 
 fn iso8601(time: SystemTime) -> String {
     let datetime: DateTime<Utc> = time.into();
@@ -74,6 +99,33 @@ fn extract_string(value: &serde_yaml::Value, key: &str) -> Option<String> {
         .get(key)
         .and_then(|v| v.as_str())
         .map(|s| s.to_string())
+}
+
+/// Reads a key whose values are a closed set, discarding anything outside it.
+///
+/// `origin` used to hold writer provenance — every entry written before the
+/// schema change says `"Olympus dashboard"`. That string is not an origin at
+/// all, and silently accepting it would report the operator as having judged
+/// where a source came from when nobody did. Values outside `allowed` are
+/// dropped with a warning rather than passed through.
+fn extract_enum(
+    value: &serde_yaml::Value,
+    key: &str,
+    allowed: &[&str],
+    file: &Path,
+) -> Option<String> {
+    let raw = extract_string(value, key)?;
+    if allowed.contains(&raw.as_str()) {
+        return Some(raw);
+    }
+
+    eprintln!(
+        "[pantheon] {} declares {key}: {:?}, which is not one of {:?} — ignoring it",
+        file.display(),
+        raw,
+        allowed
+    );
+    None
 }
 
 pub(crate) fn extract_tags(value: &serde_yaml::Value) -> Vec<String> {
@@ -212,7 +264,12 @@ pub(crate) fn parse_pantheon_from_vault() -> Result<Vec<PantheonEntry>, String> 
         let source_type = extract_string(&frontmatter, "source_type");
         let created = extract_string(&frontmatter, "created");
         let source_date = extract_string(&frontmatter, "source_date");
-        let origin = extract_string(&frontmatter, "origin");
+        let origin = extract_enum(&frontmatter, "origin", ORIGIN_VALUES, path);
+        let written_by = extract_string(&frontmatter, "written_by");
+        let stance = extract_enum(&frontmatter, "stance", STANCE_VALUES, path)
+            .unwrap_or_else(|| DEFAULT_STANCE.to_string());
+        let why_kept = extract_string(&frontmatter, "why_kept");
+        let project = extract_string(&frontmatter, "project");
         let body_full = body.trim().to_string();
         let word_count = count_words(&body_full);
         let body_preview = make_preview(&body_full);
@@ -227,6 +284,10 @@ pub(crate) fn parse_pantheon_from_vault() -> Result<Vec<PantheonEntry>, String> 
             created,
             source_date,
             origin,
+            written_by,
+            stance,
+            why_kept,
+            project,
             tags,
             word_count,
             file_modified_at,
@@ -262,6 +323,18 @@ pub struct WritePantheonEntryRequest {
     pub additional_tags: Vec<String>,
     #[serde(default)]
     pub attachments: Vec<String>,
+    /// Defaults to `unevaluated` rather than to agreement.
+    #[serde(default)]
+    pub stance: Option<String>,
+    /// Optional by decision. An entry without one saves, and renders as having
+    /// no stated purpose.
+    #[serde(default)]
+    pub why_kept: Option<String>,
+    /// Defaults to `collected` — the capture form is the operator's own hand.
+    #[serde(default)]
+    pub origin: Option<String>,
+    #[serde(default)]
+    pub project: Option<String>,
 }
 
 fn sanitize_filename(title: &str) -> String {
@@ -374,7 +447,47 @@ fn build_entry_content(
         }
     }
 
-    frontmatter.push_str("origin: \"Olympus dashboard\"\n");
+    // What wrote the file. This is the value `origin` used to carry; `origin`
+    // now answers a different question and could not keep holding both.
+    frontmatter.push_str("written_by: \"Olympus dashboard\"\n");
+
+    // Anything unrecognised falls back rather than being written through: a
+    // frontmatter value outside the set would be dropped by the parser on the
+    // next scan, so writing one would produce an entry that silently loses a
+    // field it appears to have.
+    let origin = req
+        .origin
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| ORIGIN_VALUES.contains(value))
+        .unwrap_or("collected");
+    frontmatter.push_str(&format!("origin: {origin}\n"));
+
+    let stance = req
+        .stance
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| STANCE_VALUES.contains(value))
+        .unwrap_or(DEFAULT_STANCE);
+    frontmatter.push_str(&format!("stance: {stance}\n"));
+
+    // Omitted entirely when blank. An empty `why_kept:` key would read as a
+    // stated purpose that happens to be empty, which is not the same as never
+    // having given one.
+    if let Some(why_kept) = &req.why_kept {
+        let trimmed = why_kept.trim();
+        if !trimmed.is_empty() {
+            frontmatter.push_str(&format!("why_kept: \"{}\"\n", escape_yaml_string(trimmed)));
+        }
+    }
+
+    if let Some(project) = &req.project {
+        let trimmed = project.trim();
+        if !trimmed.is_empty() {
+            frontmatter.push_str(&format!("project: \"{}\"\n", escape_yaml_string(trimmed)));
+        }
+    }
+
     frontmatter.push_str("tags:\n");
     for tag in &tags {
         frontmatter.push_str(&format!("  - {}\n", tag));
@@ -601,6 +714,10 @@ mod tests {
             source_date: None,
             additional_tags: Vec::new(),
             attachments: Vec::new(),
+            stance: None,
+            why_kept: None,
+            origin: None,
+            project: None,
         }
     }
 
@@ -637,9 +754,24 @@ mod tests {
         assert!(content.contains("title: \"Test Title\""), "must include title");
         assert!(content.contains("type: research"), "must include type");
         assert!(content.contains("created: \"2026-04-28\""), "must include created date");
-        assert!(content.contains("origin: \"Olympus dashboard\""), "must include origin");
+        assert!(
+            content.contains("written_by: \"Olympus dashboard\""),
+            "writer provenance moved to written_by when origin was repurposed"
+        );
         assert!(content.contains("- olympus/research"), "must include olympus/research tag");
         assert!(content.contains("Some body content."), "must include body");
+
+        // Defaults, stated rather than inherited: an entry the operator captured
+        // by hand is `collected`, and nothing is endorsed just by being saved.
+        assert!(content.contains("origin: collected"), "origin defaults to collected");
+        assert!(
+            content.contains("stance: unevaluated"),
+            "stance defaults to unevaluated, never to endorsed"
+        );
+        assert!(
+            !content.contains("why_kept:"),
+            "an unstated purpose is omitted, not written as an empty value"
+        );
     }
 
     #[test]
@@ -651,7 +783,7 @@ mod tests {
             source_url: Some("https://example.com/talk".to_string()),
             source_date: Some("2025-01-15".to_string()),
             additional_tags: vec!["ai".to_string(), "talks".to_string()],
-            attachments: Vec::new(),
+            ..make_request("Test", "body")
         };
         let content = build_entry_content("Test", "body", &req, "2026-04-28");
         assert!(content.contains("source_type: \"transcript\""));
@@ -668,10 +800,9 @@ mod tests {
             title: "Test".to_string(),
             body: "body".to_string(),
             source_type: Some("".to_string()),
-            source_url: None,
             source_date: Some("   ".to_string()),
             additional_tags: vec!["".to_string(), "  ".to_string()],
-            attachments: Vec::new(),
+            ..make_request("Test", "body")
         };
         let content = build_entry_content("Test", "body", &req, "2026-04-28");
         assert!(!content.contains("source_type:"), "should not include empty source_type");
@@ -690,10 +821,8 @@ mod tests {
             title: "With File".to_string(),
             body: "User-typed body content.".to_string(),
             source_type: Some("paper".to_string()),
-            source_url: None,
-            source_date: None,
-            additional_tags: Vec::new(),
             attachments: vec!["_attachments/foo-bar.pdf".to_string()],
+            ..make_request("With File", "User-typed body content.")
         };
         let content = build_entry_content("With File", "User-typed body content.", &req, "2026-04-28");
         assert!(
@@ -710,17 +839,89 @@ mod tests {
     #[test]
     fn test_build_entry_content_skips_blank_attachment_paths() {
         let req = WritePantheonEntryRequest {
-            title: "T".to_string(),
-            body: "b".to_string(),
-            source_type: None,
-            source_url: None,
-            source_date: None,
-            additional_tags: Vec::new(),
             attachments: vec!["".to_string(), "   ".to_string()],
+            ..make_request("T", "b")
         };
         let content = build_entry_content("T", "b", &req, "2026-04-28");
         assert!(!content.contains("attachments:"));
         assert!(!content.contains("![["));
+    }
+
+    /// The hazard accepted when `origin` was repurposed. Every entry written
+    /// before the change says `origin: "Olympus dashboard"` — a writer, not an
+    /// origin. If that survived the parse, an un-migrated note would report the
+    /// operator as having judged where a source came from when nobody did.
+    #[test]
+    fn a_legacy_origin_value_is_dropped_rather_than_read_as_a_judgement() {
+        for legacy in ["Olympus dashboard", "Olympus Pantheon"] {
+            let frontmatter: serde_yaml::Value =
+                serde_yaml::from_str(&format!("origin: \"{legacy}\"")).expect("valid yaml");
+            assert_eq!(
+                extract_enum(&frontmatter, "origin", ORIGIN_VALUES, Path::new("legacy.md")),
+                None,
+                "{legacy:?} is a writer, not an origin"
+            );
+        }
+    }
+
+    #[test]
+    fn a_declared_origin_survives_the_parse() {
+        for declared in ORIGIN_VALUES {
+            let frontmatter: serde_yaml::Value =
+                serde_yaml::from_str(&format!("origin: {declared}")).expect("valid yaml");
+            assert_eq!(
+                extract_enum(&frontmatter, "origin", ORIGIN_VALUES, Path::new("new.md")).as_deref(),
+                Some(*declared)
+            );
+        }
+    }
+
+    /// Degrading to `endorsed` would make an unreadable value read as agreement,
+    /// which is the one direction this field must never fail in.
+    #[test]
+    fn an_unknown_stance_degrades_to_unevaluated() {
+        for raw in ["agree", "ENDORSED", "sceptical", ""] {
+            let frontmatter: serde_yaml::Value =
+                serde_yaml::from_str(&format!("stance: \"{raw}\"")).expect("valid yaml");
+            let stance = extract_enum(&frontmatter, "stance", STANCE_VALUES, Path::new("x.md"))
+                .unwrap_or_else(|| DEFAULT_STANCE.to_string());
+            assert_eq!(stance, DEFAULT_STANCE, "for stance {raw:?}");
+        }
+    }
+
+    #[test]
+    fn a_declared_stance_and_purpose_reach_the_written_file() {
+        let req = WritePantheonEntryRequest {
+            stance: Some("disputed".to_string()),
+            why_kept: Some("Counters the agent-framework consensus.".to_string()),
+            origin: Some("olympus-found".to_string()),
+            project: Some("01 - Projects/Project Olympus.md".to_string()),
+            ..make_request("Test", "body")
+        };
+        let content = build_entry_content("Test", "body", &req, "2026-07-26");
+
+        assert!(content.contains("stance: disputed"));
+        assert!(content.contains("origin: olympus-found"));
+        assert!(content.contains("why_kept: \"Counters the agent-framework consensus.\""));
+        assert!(content.contains("project: \"01 - Projects/Project Olympus.md\""));
+    }
+
+    /// A value outside the set would be dropped by the parser on the next scan,
+    /// so writing it would produce an entry that silently loses a field it
+    /// appears to carry.
+    #[test]
+    fn an_unrecognised_stance_is_not_written_through() {
+        let req = WritePantheonEntryRequest {
+            stance: Some("mostly agree".to_string()),
+            origin: Some("borrowed".to_string()),
+            ..make_request("Test", "body")
+        };
+        let content = build_entry_content("Test", "body", &req, "2026-07-26");
+
+        assert!(content.contains("stance: unevaluated"));
+        assert!(content.contains("origin: collected"));
+        assert!(!content.contains("mostly agree"));
+        assert!(!content.contains("borrowed"));
     }
 
     #[test]

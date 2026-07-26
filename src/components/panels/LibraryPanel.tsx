@@ -16,7 +16,14 @@ import { createPortal } from "react-dom";
 import ReactMarkdown from "react-markdown";
 import rehypeRaw from "rehype-raw";
 import remarkGfm from "remark-gfm";
-import { usePantheon, type PantheonEntry } from "../../hooks/usePantheon";
+import {
+  PANTHEON_ORIGINS,
+  PANTHEON_STANCES,
+  usePantheon,
+  type PantheonEntry,
+  type PantheonOrigin,
+  type PantheonStance
+} from "../../hooks/usePantheon";
 import { restartDesktopApp } from "../../services/launcher";
 import {
   categoryDescription,
@@ -39,6 +46,10 @@ interface WritePantheonEntryRequest {
   sourceDate?: string;
   additionalTags: string[];
   attachments: string[];
+  stance?: PantheonStance;
+  whyKept?: string;
+  origin?: PantheonOrigin;
+  project?: string;
 }
 
 interface StagedAttachment {
@@ -56,6 +67,9 @@ interface AddEntryFormData {
   sourceDate: string;
   tagsRaw: string;
   attachment: StagedAttachment | null;
+  stance: PantheonStance;
+  whyKept: string;
+  origin: PantheonOrigin;
 }
 
 interface PreparedPantheonEntry extends ResearchRecord {
@@ -272,7 +286,12 @@ export function LibraryPanel({ onViewDatabase }: LibraryPanelProps) {
         sourceUrl: formData.sourceUrl.trim() || undefined,
         sourceDate: formData.sourceDate.trim() || undefined,
         additionalTags: parseTagsInput(formData.tagsRaw),
-        attachments
+        attachments,
+        stance: formData.stance,
+        // Omitted rather than sent empty: the backend distinguishes "no purpose
+        // stated" from "purpose stated as nothing", and so does the operator.
+        whyKept: formData.whyKept.trim() || undefined,
+        origin: formData.origin
       };
       const writtenPath = await invoke<string>("write_pantheon_entry", { req: request });
       setStatus({
@@ -565,6 +584,22 @@ export function LibraryPanel({ onViewDatabase }: LibraryPanelProps) {
                       <p className="pantheon-detail-meta tabular-data">
                         {entryTypeLabel(selectedEntry.sourceType)} {"\u00b7"} {selectedEntry.sourceLabel} {"\u00b7"}{" "}
                         {selectedEntry.sourceDateLabel} {"\u00b7"} {selectedEntry.wordCountLabel}
+                      </p>
+                      {/* Stated, not implied. An entry with no declared purpose
+                          should look different from one the operator justified \u2014
+                          otherwise the library reads as uniformly endorsed. */}
+                      <p className="pantheon-detail-judgement">
+                        <span className={`pantheon-stance is-${selectedEntry.stance ?? "unevaluated"}`}>
+                          {selectedEntry.stance ?? "unevaluated"}
+                        </span>
+                        {selectedEntry.origin ? (
+                          <span className="pantheon-origin">{selectedEntry.origin}</span>
+                        ) : null}
+                        <span
+                          className={`pantheon-why-kept ${selectedEntry.whyKept ? "" : "is-absent"}`}
+                        >
+                          {selectedEntry.whyKept ?? "No stated purpose"}
+                        </span>
                       </p>
                     </div>
 
@@ -1003,6 +1038,11 @@ function AddEntryModal({
   const [sourceUrl, setSourceUrl] = useState("");
   const [sourceDate, setSourceDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [tagsRaw, setTagsRaw] = useState("");
+  // Defaults that assert nothing. Saving a source is not agreeing with it, and
+  // the capture form is the operator's own hand, so `collected` is true here.
+  const [stance, setStance] = useState<PantheonStance>("unevaluated");
+  const [whyKept, setWhyKept] = useState("");
+  const [origin, setOrigin] = useState<PantheonOrigin>("collected");
   const [attachment, setAttachment] = useState<StagedAttachment | null>(null);
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
   const [extracting, setExtracting] = useState(false);
@@ -1080,7 +1120,10 @@ function AddEntryModal({
       sourceUrl,
       sourceDate,
       tagsRaw,
-      attachment
+      attachment,
+      stance,
+      whyKept,
+      origin
     });
   }
 
@@ -1195,6 +1238,72 @@ function AddEntryModal({
               <span className="form-helper">
                 <code>olympus/research</code> and <code>{`research/${sourceType || "TYPE"}`}</code>{" "}
                 are added automatically.
+              </span>
+            </div>
+
+            <div className="form-row">
+              <div className="form-field">
+                <label className="form-label" htmlFor="ae-stance">
+                  Stance
+                </label>
+                <select
+                  id="ae-stance"
+                  className="form-input"
+                  value={stance}
+                  onChange={(event) => setStance(event.target.value as PantheonStance)}
+                  disabled={submitting}
+                >
+                  {PANTHEON_STANCES.map((value) => (
+                    <option key={value} value={value}>
+                      {value}
+                    </option>
+                  ))}
+                </select>
+                <span className="form-helper">
+                  Saving a source is not agreeing with it. Left alone, this stays{" "}
+                  <code>unevaluated</code>.
+                </span>
+              </div>
+
+              <div className="form-field">
+                <label className="form-label" htmlFor="ae-origin">
+                  Origin
+                </label>
+                <select
+                  id="ae-origin"
+                  className="form-input"
+                  value={origin}
+                  onChange={(event) => setOrigin(event.target.value as PantheonOrigin)}
+                  disabled={submitting}
+                >
+                  {PANTHEON_ORIGINS.map((value) => (
+                    <option key={value} value={value}>
+                      {value}
+                    </option>
+                  ))}
+                </select>
+                <span className="form-helper">
+                  Who found it. Sources Olympus surfaced stay distinguishable from your own.
+                </span>
+              </div>
+            </div>
+
+            <div className="form-field">
+              <label className="form-label" htmlFor="ae-why-kept">
+                Why kept <span className="form-optional">(optional)</span>
+              </label>
+              <input
+                id="ae-why-kept"
+                type="text"
+                className="form-input"
+                placeholder="What this is for."
+                value={whyKept}
+                onChange={(event) => setWhyKept(event.target.value)}
+                disabled={submitting}
+              />
+              <span className="form-helper">
+                Left blank, the entry reads as having no stated purpose — which is visible rather
+                than guessed at.
               </span>
             </div>
 
@@ -1329,7 +1438,10 @@ function pantheonEntryToResearchRecord(entry: PantheonEntry): ResearchRecord {
     themes: [],
     wordCount,
     estReadMinutes: Math.max(1, Math.ceil(wordCount / 220)),
-    freshness: "recent"
+    freshness: "recent",
+    stance: entry.stance,
+    whyKept: entry.whyKept,
+    origin: entry.origin
   };
 
   return normalizeResearchRecord(baseRecord);
