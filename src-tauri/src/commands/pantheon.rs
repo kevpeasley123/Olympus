@@ -76,7 +76,7 @@ fn extract_string(value: &serde_yaml::Value, key: &str) -> Option<String> {
         .map(|s| s.to_string())
 }
 
-fn extract_tags(value: &serde_yaml::Value) -> Vec<String> {
+pub(crate) fn extract_tags(value: &serde_yaml::Value) -> Vec<String> {
     value
         .get("tags")
         .and_then(|v| v.as_sequence())

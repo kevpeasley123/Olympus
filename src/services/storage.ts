@@ -1,7 +1,13 @@
 import { invoke } from "@tauri-apps/api/core";
 import { seedState } from "../data/seed";
 import { isTauriRuntime } from "./launcher";
-import type { ConversationMessage, OlympusState, ToolDefinition } from "../types";
+import type {
+  ConversationMessage,
+  OlympusState,
+  ProjectStatus,
+  ToolDefinition,
+  TrackedProject
+} from "../types";
 
 const STORAGE_KEY = "olympus:v8";
 const LEGACY_KEYS = [
@@ -173,7 +179,7 @@ function readLocalState(): OlympusState {
       ...parsed,
       tools: mergeById(seedState.tools, parsed.tools ?? []),
       quickApps: mergeKnownIds(seedState.quickApps, parsed.quickApps ?? []),
-      projects: mergeById(seedState.projects, parsed.projects ?? []),
+      projects: mergeById(seedState.projects, parsed.projects ?? []).map(normalizeProject),
       conversation: mergeById(seedState.conversation, parsed.conversation ?? []),
       market: parsed.market ? { ...seedState.market, ...parsed.market } : seedState.market,
       weather: parsed.weather ? { ...seedState.weather, ...parsed.weather } : seedState.weather,
@@ -192,6 +198,30 @@ function readLocalState(): OlympusState {
     clearLegacyState();
     return seedState;
   }
+}
+
+/**
+ * Fills fields a payload written before project tiering existed does not have.
+ *
+ * `mergeById` spreads stored over seed, so a stored project whose id is not in
+ * the seed contributes every field itself — and an older one has no `status`
+ * this code recognises. TypeScript cannot catch that: the value came out of
+ * `JSON.parse`. An unrecognised status becomes `unclassified`, which is the
+ * honest reading of "nothing here declared one".
+ */
+function normalizeProject(project: TrackedProject): TrackedProject {
+  const known: ProjectStatus[] = ["active", "watching", "scaffold", "archived", "unclassified"];
+
+  return {
+    ...project,
+    status: known.includes(project.status) ? project.status : "unclassified",
+    statusSource: project.statusSource === "declared" ? "declared" : "inferred",
+    promoted: project.promoted ?? null,
+    lastCommitAt: project.lastCommitAt ?? null,
+    nextStep: project.nextStep ?? "",
+    notePath: project.notePath ?? null,
+    warnings: project.warnings ?? []
+  };
 }
 
 function writeLocalState(state: OlympusState): void {

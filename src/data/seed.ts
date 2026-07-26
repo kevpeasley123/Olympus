@@ -129,50 +129,74 @@ export const seedState: OlympusState = {
     artist: "Desktop media session not connected yet",
     detail: "This widget is ready for live playback metadata once native media hooks are wired in."
   },
+  // Preview data for the browser dev server, which has no Tauri commands and so
+  // never runs the real scan. `status` here is declared rather than inferred
+  // only because the seed is standing in for a vault that has notes; the desktop
+  // app replaces all of this on first scan.
   projects: [
     {
       id: "project-olympus-dashboard",
       name: "Olympus",
       path: "C:\\Users\\kevpe\\OneDrive\\Desktop\\Projects\\Olympus",
       status: "active",
+      statusSource: "declared",
+      promoted: "2026-04-25",
       branch: "master",
       lastCommit: "b02ed86 Initial Olympus dashboard build",
+      lastCommitAt: "2026-04-25T12:00:00+00:00",
       repoState: "git-pending",
       summary: "Command center dashboard, Codex-native second-brain structure, and project coordination surface.",
-      nextStep: "Add the quickbar and desktop media widget cleanly, then wire project cards to real Git status."
+      nextStep: "Add the quickbar and desktop media widget cleanly, then wire project cards to real Git status.",
+      notePath: "01 - Projects/Project Olympus.md",
+      warnings: []
     },
     {
       id: "project-pokedex",
       name: "Pokedex",
       path: "C:\\Users\\kevpe\\OneDrive\\Desktop\\Projects\\Pokedex",
-      status: "active",
+      status: "unclassified",
+      statusSource: "inferred",
+      promoted: null,
       branch: "master",
       lastCommit: "05f1dae Fix 1st Edition price inflation across all price paths",
+      lastCommitAt: "2026-04-20T12:00:00+00:00",
       repoState: "git-active",
       summary: "Active code project with recent Git history and local uncommitted changes.",
-      nextStep: "Review the current working tree and decide whether the next step is cleanup, testing, or feature work."
+      nextStep: "",
+      notePath: null,
+      warnings: []
     },
     {
       id: "project-obsidian-visual",
       name: "Obsidian Visual Project",
       path: "C:\\Users\\kevpe\\OneDrive\\Desktop\\Projects\\Obsidian Visual Project",
-      status: "watching",
+      status: "unclassified",
+      statusSource: "inferred",
+      promoted: null,
       branch: "master",
       lastCommit: "No commits yet",
+      lastCommitAt: null,
       repoState: "git-pending",
       summary: "Project folder exists as a Git repo but has not been committed yet.",
-      nextStep: "Clarify the project goal and create the first meaningful commit so Olympus can track momentum."
+      nextStep: "",
+      notePath: null,
+      warnings: []
     },
     {
       id: "project-agentic-ai-scaffolder",
       name: "Agentic AI Scaffolder",
       path: "C:\\Users\\kevpe\\OneDrive\\Desktop\\Projects\\Agentic AI Scaffolder",
-      status: "watching",
+      status: "scaffold",
+      statusSource: "declared",
+      promoted: null,
       branch: "N/A",
       lastCommit: "Folder only",
+      lastCommitAt: null,
       repoState: "folder-only",
       summary: "Desktop project folder present but not yet wired into Git tracking.",
-      nextStep: "Decide whether this becomes an active build and, if so, initialize the workspace conventions."
+      nextStep: "",
+      notePath: "01 - Projects/Agentic AI Scaffolder.md",
+      warnings: []
     }
   ],
   conversation: [

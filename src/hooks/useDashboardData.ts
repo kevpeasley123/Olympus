@@ -179,6 +179,8 @@ export function useDashboardData() {
     }
   });
   const [projectsError, setProjectsError] = useState<string | null>(null);
+  /** Problems with `01 - Projects` itself, which belong to no single project. */
+  const [projectNoteWarnings, setProjectNoteWarnings] = useState<string[]>([]);
   const [chatPending, setChatPending] = useState(false);
   const [chatError, setChatError] = useState<string | null>(null);
 
@@ -266,8 +268,9 @@ export function useDashboardData() {
 
   const refreshProjects = useCallback(async () => {
     try {
-      const nextProjects = await fetchProjects(dashboardState.settings.projectsRootPath);
-      setDashboardState((current) => ({ ...current, projects: nextProjects }));
+      const scan = await fetchProjects(dashboardState.settings.projectsRootPath);
+      setDashboardState((current) => ({ ...current, projects: scan.projects }));
+      setProjectNoteWarnings(scan.warnings);
       setProjectsError(null);
     } catch (error) {
       setProjectsError(errorMessage(error));
@@ -392,6 +395,7 @@ export function useDashboardData() {
       quickApps: dashboardState.quickApps,
       projects: dashboardState.projects,
       projectsError,
+      projectNoteWarnings,
       chat: dashboardState.conversation,
       chatPending,
       chatError,
@@ -408,6 +412,7 @@ export function useDashboardData() {
     [
       dashboardState,
       projectsError,
+      projectNoteWarnings,
       chatPending,
       chatError,
       markets,

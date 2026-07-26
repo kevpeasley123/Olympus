@@ -1368,9 +1368,28 @@ small {
   color: var(--positive);
 }
 
-.project-state.watching,
-.project-state.setup {
+.project-state.watching {
   color: var(--accent);
+}
+
+.project-state.scaffold,
+.project-state.archived {
+  color: var(--label);
+}
+
+/* Nobody has classified this one. Outlined rather than coloured: it is the
+   absence of a judgement, and colour would read as one. */
+.project-state.unclassified {
+  padding: 1px 5px;
+  border: 1px solid rgba(138, 150, 170, 0.35);
+  border-radius: 4px;
+  color: var(--muted);
+}
+
+/* A tier the operator declared is stated plainly; one nothing declared is
+   dimmed, so a glance separates fact from absence without reading the label. */
+.project-state.inferred {
+  opacity: 0.7;
 }
 
 .project-meta-line,

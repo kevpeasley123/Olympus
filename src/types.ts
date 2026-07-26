@@ -117,16 +117,35 @@ export interface ConversationMessage {
   timestamp: string;
 }
 
+/**
+ * `unclassified` is the absence of a declaration, not a decision. It is never
+ * written into a note — `scaffold` is what the operator picks when they mean
+ * "this is a stub". Keeping them distinct is what stops an unclassified project
+ * from being collapsed out of sight as though someone had judged it.
+ */
+export type ProjectStatus = "active" | "watching" | "scaffold" | "archived" | "unclassified";
+
+/** Whether a vault note said so, or nothing did. */
+export type ProjectStatusSource = "declared" | "inferred";
+
 export interface TrackedProject {
   id: string;
   name: string;
+  /** Empty when the note has no matching folder under the projects root. */
   path: string;
-  status: "active" | "watching" | "setup";
+  status: ProjectStatus;
+  statusSource: ProjectStatusSource;
+  promoted: string | null;
   branch: string;
   lastCommit: string;
-  repoState: "git-active" | "git-pending" | "folder-only";
+  /** ISO 8601, or null for a folder with no commits. */
+  lastCommitAt: string | null;
+  repoState: "git-active" | "git-pending" | "folder-only" | "no-repo";
   summary: string;
+  /** The operator's own words, or empty. Never generated. */
   nextStep: string;
+  notePath: string | null;
+  warnings: string[];
 }
 
 /// The vault root is owned by Rust (`commands::get_vault_path`) so the app has

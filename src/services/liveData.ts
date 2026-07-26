@@ -32,8 +32,14 @@ export async function fetchWeather(): Promise<WeatherPanelData> {
   };
 }
 
-export async function fetchProjects(rootPath: string): Promise<TrackedProject[]> {
-  return invoke<TrackedProject[]>("scan_tracked_projects", {
+export interface ProjectsScanResult {
+  projects: TrackedProject[];
+  /** Problems with the notes folder itself, belonging to no single project. */
+  warnings: string[];
+}
+
+export async function fetchProjects(rootPath: string): Promise<ProjectsScanResult> {
+  return invoke<ProjectsScanResult>("scan_tracked_projects", {
     request: { rootPath }
   });
 }

@@ -21,6 +21,7 @@ function App() {
     tools,
     quickApps,
     projects,
+    projectNoteWarnings,
     chat,
     chatPending,
     chatError,
@@ -75,7 +76,12 @@ function App() {
               <MarketsPanel state={markets} onRetry={() => void refreshAll()} compact={focusMode} />
             </FadeInPanel>
             <FadeInPanel index={4} className="panel-slot panel-slot-projects">
-              <ProjectsPanel projects={projects} onSyncCanvas={syncProjectsCanvas} focusMode={focusMode} />
+              <ProjectsPanel
+                projects={projects}
+                onSyncCanvas={syncProjectsCanvas}
+                noteWarnings={projectNoteWarnings}
+                focusMode={focusMode}
+              />
             </FadeInPanel>
             <FadeInPanel index={7} className="panel-slot panel-slot-library">
               <LibraryPanel onViewDatabase={syncResearchBase} />
