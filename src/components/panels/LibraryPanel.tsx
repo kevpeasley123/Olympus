@@ -52,6 +52,14 @@ interface WritePantheonEntryRequest {
   project?: string;
 }
 
+/** Mirrors `MigrationOutcome` in `commands/pantheon_migrate.rs`. */
+interface MigrationOutcome {
+  migrated: string[];
+  alreadyCurrent: string[];
+  declined: string[];
+  failed: string[];
+}
+
 interface StagedAttachment {
   sourcePath: string;
   originalFilename: string;
@@ -100,6 +108,10 @@ export function LibraryPanel({ onViewDatabase }: LibraryPanelProps) {
   const [formError, setFormError] = useState<string | null>(null);
   const [status, setStatus] = useState<ObsidianActionResult | null>(null);
   const [busyAction, setBusyAction] = useState<"view" | "restart" | null>(null);
+  const [migrating, setMigrating] = useState(false);
+  // An entry written before the schema change parses with no origin at all —
+  // the parser drops its legacy writer value rather than reading it as one.
+  const unmigratedCount = pantheonEntries.filter((entry) => !entry.origin).length;
   const [searchDraft, setSearchDraft] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [viewMode, setViewMode] = useState<PantheonViewMode>("grouped");
@@ -319,6 +331,30 @@ export function LibraryPanel({ onViewDatabase }: LibraryPanelProps) {
     setFormError(null);
   }
 
+  async function handleMigrateSchema() {
+    setMigrating(true);
+    try {
+      const outcome = await invoke<MigrationOutcome>("migrate_pantheon_schema");
+      const parts = [`${outcome.migrated.length} migrated`];
+      if (outcome.declined.length) parts.push(`${outcome.declined.length} declined`);
+      if (outcome.failed.length) parts.push(`${outcome.failed.length} failed`);
+
+      setStatus({
+        // A declined write is a correct outcome, so only a real failure is an error.
+        tone: outcome.failed.length ? "error" : "success",
+        message: outcome.failed.length
+          ? `${parts.join(", ")} — ${outcome.failed.join("; ")}`
+          : parts.join(", "),
+        path: ""
+      });
+      void refreshPantheon();
+    } catch (err) {
+      setStatus({ tone: "error", message: `Migration failed: ${err}`, path: "" });
+    } finally {
+      setMigrating(false);
+    }
+  }
+
   async function handleViewDatabase() {
     setBusyAction("view");
     const result = await onViewDatabase();
@@ -397,6 +433,22 @@ export function LibraryPanel({ onViewDatabase }: LibraryPanelProps) {
           <span className="panel-head__meta">{entryLabel}</span>
 
           <div className="panel-head__actions">
+            {/* Only while there is something to migrate. An entry written before
+                the schema change parses with no origin at all, because the
+                parser refuses to read its writer as one. */}
+            {unmigratedCount > 0 ? (
+              <button
+                className="ghost-action"
+                onClick={() => void handleMigrateSchema()}
+                disabled={migrating || submitting}
+                title="Move legacy origin values to written_by and state the fields these entries were written without"
+              >
+                <RotateCw size={15} />
+                {migrating
+                  ? "Awaiting approval..."
+                  : `Migrate ${unmigratedCount} ${unmigratedCount === 1 ? "entry" : "entries"}`}
+              </button>
+            ) : null}
             <button
               className="ghost-action"
               onClick={() => void handleViewDatabase()}
