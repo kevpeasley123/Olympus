@@ -56,6 +56,132 @@ pub fn classify(intent: WriteIntent) -> WriteTier {
     }
 }
 
+/// Why a write needs a human before it proceeds.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ConfirmReason {
+    /// The file on disk differs from what the app last wrote, so someone edited
+    /// it by hand.
+    EditedSinceLastWrite,
+    /// No fingerprint was ever recorded for this file. Absent must mean confirm
+    /// — treating it as clean would make the check bypassable by deleting the
+    /// row.
+    NoRecordedFingerprint,
+    /// The intent itself always requires a human, regardless of file state.
+    IntentRequiresConfirmation,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WriteDecision {
+    Proceed,
+    NeedsConfirmation(ConfirmReason),
+}
+
+/// Fingerprints content for the app-authored check.
+///
+/// Normalised before hashing because the vault lives in OneDrive and is opened
+/// by Obsidian: a sync round-trip or a plugin can rewrite line endings and
+/// trailing whitespace without a human touching the file. Hashing raw bytes
+/// would report those as human edits and train the operator to click through
+/// the confirmation.
+pub fn content_fingerprint(content: &str) -> String {
+    use sha2::{Digest, Sha256};
+
+    let normalised = content
+        .replace("\r\n", "\n")
+        .lines()
+        .map(str::trim_end)
+        .collect::<Vec<_>>()
+        .join("\n")
+        .trim_end()
+        .to_string();
+
+    let digest = Sha256::digest(normalised.as_bytes());
+    format!("{digest:x}")
+}
+
+/// Decides whether a write may proceed without asking.
+///
+/// Pure: the caller supplies what is on disk and what was last recorded, so the
+/// whole decision table is testable without a filesystem or a database.
+pub fn decide(
+    intent: WriteIntent,
+    on_disk: Option<&str>,
+    recorded_fingerprint: Option<&str>,
+) -> WriteDecision {
+    match classify(intent) {
+        WriteTier::AutoApproved => WriteDecision::Proceed,
+
+        WriteTier::Confirm => WriteDecision::NeedsConfirmation(
+            ConfirmReason::IntentRequiresConfirmation,
+        ),
+
+        WriteTier::ConfirmWithDiff => match on_disk {
+            // Nothing on disk means nothing to destroy — this is a create, and
+            // the overwrite question does not arise.
+            None => WriteDecision::Proceed,
+
+            Some(existing) => match recorded_fingerprint {
+                Some(recorded) if recorded == content_fingerprint(existing) => {
+                    WriteDecision::Proceed
+                }
+                Some(_) => {
+                    WriteDecision::NeedsConfirmation(ConfirmReason::EditedSinceLastWrite)
+                }
+                None => {
+                    WriteDecision::NeedsConfirmation(ConfirmReason::NoRecordedFingerprint)
+                }
+            },
+        },
+    }
+}
+
+/// A human-readable account of what a write would change.
+///
+/// Deliberately a summary rather than a real diff: it compares line multisets,
+/// so reordered lines read as changed. For the case this exists to catch — a
+/// rearranged canvas, where node coordinates genuinely differ — that is the
+/// right answer, and it avoids pulling in a diff algorithm for a dialog.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DiffSummary {
+    pub added: usize,
+    pub removed: usize,
+    /// A capped sample, `+`/`-` prefixed, for display.
+    pub preview: Vec<String>,
+}
+
+const DIFF_PREVIEW_LIMIT: usize = 12;
+
+pub fn summarise_diff(before: &str, after: &str) -> DiffSummary {
+    let before_lines: Vec<&str> = before.lines().map(str::trim_end).collect();
+    let after_lines: Vec<&str> = after.lines().map(str::trim_end).collect();
+
+    let removed: Vec<&str> = before_lines
+        .iter()
+        .filter(|line| !after_lines.contains(line))
+        .copied()
+        .collect();
+    let added: Vec<&str> = after_lines
+        .iter()
+        .filter(|line| !before_lines.contains(line))
+        .copied()
+        .collect();
+
+    let mut preview = Vec::new();
+    for line in removed.iter().take(DIFF_PREVIEW_LIMIT / 2) {
+        preview.push(format!("- {line}"));
+    }
+    for line in added.iter().take(DIFF_PREVIEW_LIMIT / 2) {
+        preview.push(format!("+ {line}"));
+    }
+
+    DiffSummary {
+        added: added.len(),
+        removed: removed.len(),
+        preview,
+    }
+}
+
 #[derive(Debug, PartialEq, Eq)]
 pub enum VaultWriteError {
     Empty,
@@ -356,5 +482,93 @@ mod tests {
     #[test]
     fn the_shipped_creating_writers_are_auto_approved() {
         assert_eq!(classify(WriteIntent::CreateUnique), WriteTier::AutoApproved);
+    }
+
+    const GENERATED: &str = "{\n  \"nodes\": [],\n  \"edges\": []\n}";
+
+    #[test]
+    fn a_file_matching_its_recorded_fingerprint_is_regenerated_silently() {
+        let recorded = content_fingerprint(GENERATED);
+
+        assert_eq!(
+            decide(
+                WriteIntent::RegenerateDerived,
+                Some(GENERATED),
+                Some(&recorded)
+            ),
+            WriteDecision::Proceed
+        );
+    }
+
+    /// The case the whole exemption exists for: someone rearranged the canvas
+    /// in Obsidian and Update Canvas would silently discard it.
+    #[test]
+    fn a_hand_edited_file_needs_confirmation() {
+        let recorded = content_fingerprint(GENERATED);
+        let edited = "{\n  \"nodes\": [{\"id\": \"moved-by-hand\"}],\n  \"edges\": []\n}";
+
+        assert_eq!(
+            decide(
+                WriteIntent::RegenerateDerived,
+                Some(edited),
+                Some(&recorded)
+            ),
+            WriteDecision::NeedsConfirmation(ConfirmReason::EditedSinceLastWrite)
+        );
+    }
+
+    /// Absent must mean confirm. If a missing row read as clean, deleting it
+    /// would be enough to bypass the gate.
+    #[test]
+    fn a_file_with_no_recorded_fingerprint_needs_confirmation() {
+        assert_eq!(
+            decide(WriteIntent::RegenerateDerived, Some(GENERATED), None),
+            WriteDecision::NeedsConfirmation(ConfirmReason::NoRecordedFingerprint)
+        );
+    }
+
+    /// First write of an artifact destroys nothing, so it must not prompt.
+    #[test]
+    fn writing_a_file_that_does_not_exist_yet_proceeds() {
+        assert_eq!(
+            decide(WriteIntent::RegenerateDerived, None, None),
+            WriteDecision::Proceed
+        );
+    }
+
+    #[test]
+    fn create_unique_never_asks_regardless_of_disk_state() {
+        assert_eq!(
+            decide(WriteIntent::CreateUnique, Some("anything"), None),
+            WriteDecision::Proceed
+        );
+    }
+
+    #[test]
+    fn appending_always_asks() {
+        assert_eq!(
+            decide(WriteIntent::AppendAuthored, Some("notes"), None),
+            WriteDecision::NeedsConfirmation(ConfirmReason::IntentRequiresConfirmation)
+        );
+    }
+
+    /// The vault syncs through OneDrive and is opened by Obsidian; a line-ending
+    /// round-trip is not a human edit and must not prompt.
+    #[test]
+    fn fingerprints_ignore_line_endings_and_trailing_whitespace() {
+        let lf = "line one\nline two\n";
+        let crlf = "line one\r\nline two\r\n";
+        let padded = "line one   \nline two\t\n\n\n";
+
+        assert_eq!(content_fingerprint(lf), content_fingerprint(crlf));
+        assert_eq!(content_fingerprint(lf), content_fingerprint(padded));
+    }
+
+    #[test]
+    fn fingerprints_still_detect_real_content_changes() {
+        assert_ne!(
+            content_fingerprint("line one\nline two"),
+            content_fingerprint("line one\nline three")
+        );
     }
 }

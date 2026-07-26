@@ -90,7 +90,13 @@ impl QuietHours {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum ProfileStatus {
+    /// Starter content from the vault scaffold.
     Seed,
+    /// Values placed by the app or by tooling as defaults, not chosen by the
+    /// operator. Distinct from `seed` so a consumer can tell "nobody has set
+    /// this" from "something guessed on your behalf".
+    Assumed,
+    /// The operator has set these deliberately.
     Active,
     Unknown,
 }
@@ -152,10 +158,11 @@ fn parse_operator_profile(raw: &str) -> OperatorProfile {
 
     let status = match yaml.get("status").and_then(|value| value.as_str()) {
         Some("seed") => ProfileStatus::Seed,
+        Some("assumed") => ProfileStatus::Assumed,
         Some("active") => ProfileStatus::Active,
         Some(other) => {
             warnings.push(format!(
-                "Unrecognised profile status `{other}`; expected `seed` or `active`."
+                "Unrecognised profile status `{other}`; expected `seed`, `assumed`, or `active`."
             ));
             ProfileStatus::Unknown
         }
@@ -332,11 +339,31 @@ mod tests {
         assert_eq!(profile.warnings.len(), 1);
     }
 
-    /// Exercised against the operator's real note so a schema drift or a
-    /// renamed file surfaces as a failure rather than as silent defaults.
+    /// Exercised against the operator's real note so schema drift or a renamed
+    /// file surfaces as a failure rather than as silent defaults.
+    ///
+    /// Every failure path in this module degrades to defaults plus a warning,
+    /// so printing alone would pass whether the note parsed or was missing
+    /// entirely. Asserting the warnings are empty is what makes a typo in the
+    /// operator's own frontmatter fail here instead of going unnoticed.
     #[test]
     fn debug_load_real_profile() {
         let profile = load_operator_profile();
         eprintln!("[profile] {profile:?}");
+
+        assert!(
+            get_vault_path().join(PROFILE_NOTE).exists(),
+            "{PROFILE_NOTE} must exist for this test to mean anything"
+        );
+        assert!(
+            profile.warnings.is_empty(),
+            "the real profile note did not parse cleanly: {:?}",
+            profile.warnings
+        );
+        assert_ne!(
+            profile.status,
+            ProfileStatus::Unknown,
+            "the profile note should declare a recognised status"
+        );
     }
 }

@@ -541,6 +541,28 @@ mod tests {
                     println!("       tags: {:?}", entry.tags);
                 }
                 println!("=== END ===");
+
+                // Preconditions, not decoration. parse_pantheon_from_vault
+                // returns Ok(empty) when the vault is missing, so without these
+                // this test passes identically whether it parsed the real
+                // library or found nothing at all — which is exactly how the
+                // BOM bug stayed invisible.
+                assert!(
+                    get_vault_path().exists(),
+                    "the real vault must be present for this test to mean anything"
+                );
+                assert!(
+                    !entries.is_empty(),
+                    "the vault has research entries; an empty result means the scan silently \
+                     matched none of them"
+                );
+                for entry in &entries {
+                    assert!(!entry.title.trim().is_empty(), "every entry needs a title");
+                    assert!(
+                        !entry.source_file.trim().is_empty(),
+                        "every entry needs a source file"
+                    );
+                }
             }
             Err(e) => panic!("parser error: {}", e),
         }

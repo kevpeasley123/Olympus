@@ -142,6 +142,10 @@ mod tests {
 
     /// Exercised against the operator's real vault so a renamed or moved System
     /// note shows up as a failure rather than as silently missing context.
+    ///
+    /// The assertions are the point: every read here degrades to an empty
+    /// string on failure, so printing alone would pass whether the notes loaded
+    /// or vanished.
     #[test]
     fn debug_load_real_vault_memory() {
         let memory = load_vault_memory();
@@ -150,7 +154,27 @@ mod tests {
             memory.stable.chars().count(),
             memory.pantheon_index.chars().count()
         );
-        eprintln!("--- stable ---\n{}", memory.stable);
-        eprintln!("--- pantheon ---\n{}", memory.pantheon_index);
+
+        assert!(
+            get_vault_path().exists(),
+            "the real vault must be present for this test to mean anything"
+        );
+        assert!(
+            !memory.stable.is_empty(),
+            "no System notes loaded — a renamed or moved note silently empties the \
+             assistant's durable memory"
+        );
+
+        for (label, _) in STABLE_NOTES {
+            assert!(
+                memory.stable.contains(label),
+                "`{label}` is missing from the loaded context"
+            );
+        }
+
+        assert!(
+            !memory.pantheon_index.is_empty(),
+            "the research index should describe the library, even when it is empty"
+        );
     }
 }

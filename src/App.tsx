@@ -11,6 +11,7 @@ import { ProjectsPanel } from "./components/panels/ProjectsPanel";
 import { QuickbarPanel } from "./components/panels/QuickbarPanel";
 import { ToolBelt } from "./components/panels/ToolBelt";
 import { WeatherPanel } from "./components/panels/WeatherPanel";
+import { WriteConfirmDialog } from "./components/panels/WriteConfirmDialog";
 import { useDashboardData } from "./hooks/useDashboardData";
 
 const FOCUS_MODE_KEY = "olympus.focusMode";
@@ -102,6 +103,7 @@ function App() {
         onToggleFocusMode={() => setFocusMode((value) => !value)}
         sourceHealth={sourceHealth}
       />
+      <WriteConfirmDialog />
     </main>
   );
 }

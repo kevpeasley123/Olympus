@@ -7,6 +7,8 @@ use std::path::PathBuf;
 use std::process::Command;
 
 use commands::vault_write;
+use commands::write_confirm;
+use commands::write_confirm::resolve_vault_write;
 
 use commands::attachments::{
     extract_pdf_text, pick_attachment_file, save_attachment_to_vault,
@@ -75,26 +77,77 @@ fn open_database(app: &tauri::AppHandle) -> Result<Connection, String> {
 }
 
 #[tauri::command]
-fn write_memory_artifact(artifact: MemoryArtifact) -> Result<WriteResult, String> {
+async fn write_memory_artifact(
+    app: tauri::AppHandle,
+    db: tauri::State<'_, commands::persistence::Db>,
+    artifact: MemoryArtifact,
+) -> Result<WriteResult, String> {
     // The vault root comes from Rust, not the caller. Accepting it from the
     // frontend gave the app two sources of truth for where the vault lives:
     // this command wrote to the configured path while the Pantheon and
     // attachment writers used the constant, so a divergence would have split
     // the vault in half.
     let relative = artifact_relative_path(&artifact.folder, &artifact.file_name);
-
-    // Declared, not inferred: these are files the app regenerates from its own
-    // state. The tier is computed here so the classification is recorded at the
-    // call site; enforcement arrives with the confirmation channel.
-    let _tier = vault_write::classify(vault_write::WriteIntent::RegenerateDerived);
-
     let target = vault_write::resolve_vault_path(&relative).map_err(|error| error.to_string())?;
 
-    if let Some(parent) = target.parent() {
-        fs::create_dir_all(parent).map_err(|error| error.to_string())?;
+    // Stable key regardless of separator, so a row written on one platform is
+    // still found on another.
+    let key = relative.to_string_lossy().replace('\\', "/");
+
+    // Disk I/O goes to the blocking pool, not a tokio worker. This command now
+    // awaits a human, so it must not also be the thing holding a worker busy.
+    let target_for_read = target.clone();
+    let on_disk = tauri::async_runtime::spawn_blocking(move || fs::read_to_string(&target_for_read).ok())
+        .await
+        .map_err(|error| format!("Artifact read task panicked: {error}"))?;
+
+    // Scoped so the database lock is released before any await — a MutexGuard
+    // held across an await is not Send, and this function now awaits a human.
+    let recorded = commands::persistence::read_artifact_fingerprint(db.inner(), &key)?;
+
+    // Declared, not inferred: these are files the app regenerates from its own
+    // state.
+    let decision = vault_write::decide(
+        vault_write::WriteIntent::RegenerateDerived,
+        on_disk.as_deref(),
+        recorded.as_deref(),
+    );
+
+    if let vault_write::WriteDecision::NeedsConfirmation(reason) = decision {
+        let summary =
+            vault_write::summarise_diff(on_disk.as_deref().unwrap_or_default(), &artifact.content);
+
+        let approved =
+            write_confirm::request_confirmation(&app, key.clone(), reason, summary).await;
+
+        if !approved {
+            return Err(
+                "Write cancelled. The file on disk was left exactly as it was.".to_string(),
+            );
+        }
     }
 
-    fs::write(&target, artifact.content).map_err(|error| error.to_string())?;
+    // Confirmation is resolved by this point; the write itself also goes to the
+    // blocking pool rather than running on a worker thread.
+    let target_for_write = target.clone();
+    let content = artifact.content.clone();
+
+    tauri::async_runtime::spawn_blocking(move || -> Result<(), String> {
+        if let Some(parent) = target_for_write.parent() {
+            fs::create_dir_all(parent).map_err(|error| error.to_string())?;
+        }
+        fs::write(&target_for_write, &content).map_err(|error| error.to_string())
+    })
+    .await
+    .map_err(|error| format!("Artifact write task panicked: {error}"))??;
+
+    // Recorded only after a successful write, so a failed write cannot leave a
+    // fingerprint claiming authorship of contents that were never stored.
+    commands::persistence::store_artifact_fingerprint(
+        db.inner(),
+        &key,
+        &vault_write::content_fingerprint(&artifact.content),
+    )?;
 
     Ok(WriteResult {
         path: target.to_string_lossy().to_string(),
@@ -201,6 +254,7 @@ pub fn run() {
             fetch_action_queue,
             fetch_pantheon_entries,
             fetch_operator_profile,
+            resolve_vault_write,
             write_pantheon_entry,
             pick_attachment_file,
             extract_pdf_text,

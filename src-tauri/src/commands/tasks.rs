@@ -280,6 +280,19 @@ mod tests {
                     );
                 }
                 println!("=== END ===");
+
+                // Precondition: an absent vault also yields Ok(empty), so
+                // without this the test cannot tell a working scan from a
+                // missing one. The task count itself is not asserted — it
+                // legitimately reaches zero when every box is ticked.
+                assert!(
+                    get_vault_path().exists(),
+                    "the real vault must be present for this test to mean anything"
+                );
+                for task in &tasks {
+                    assert!(!task.text.trim().is_empty(), "every task needs text");
+                    assert!(task.line_number > 0, "line numbers are 1-based");
+                }
             }
             Err(e) => panic!("parser error: {}", e),
         }

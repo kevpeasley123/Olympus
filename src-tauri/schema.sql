@@ -4,6 +4,18 @@ CREATE TABLE IF NOT EXISTS settings (
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Fingerprint of each generated artifact as the app last wrote it. On rewrite,
+-- a file whose fingerprint still matches is app-authored and can be replaced
+-- silently; one that diverged was edited by a human and needs confirmation.
+-- Lives here rather than in the vault: a sidecar file would litter the
+-- operator's notes and sync through OneDrive, and neither .canvas (JSON) nor
+-- .base (YAML) has a frontmatter block to hide it in.
+CREATE TABLE IF NOT EXISTS artifact_hashes (
+  vault_relative_path TEXT PRIMARY KEY,
+  content_sha256 TEXT NOT NULL,
+  written_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS tool_states (
   tool_id TEXT PRIMARY KEY,
   enabled INTEGER NOT NULL,
