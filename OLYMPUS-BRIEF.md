@@ -1,9 +1,10 @@
 # Project Olympus — Session Handoff
 
-_Current as of 2026-07-26. `master` @ `4b2b42c`; the visual system (`58206a1`) is
-merged and `claude/visual-system` points at the same commit. Read
-`ARCHITECTURE.md` alongside this; it is the authority on anything they disagree
-about._
+_Current as of 2026-07-26. `master` @ `55e11f8`. The visual system (`58206a1`) is
+merged; `claude/visual-system`, `claude/project-status-tiering`, and
+`claude/olympus-project-overview-b949xw` are all ancestors of `master` and safe
+to delete. Read `ARCHITECTURE.md` alongside this; it is the authority on
+anything they disagree about._
 
 ## What it is
 
@@ -56,6 +57,13 @@ vault-path split was masked only by the absence of a settings UI.
   excluded, `Project Olympus.md` joining the `Olympus` directory through its
   alias, ordering by real commit dates. Pinned by
   `projects::debug_scan_the_real_projects_root`, which prints the merged table.
+- **The observation path, end to end.** `09 - System/Profile Observations.md` was
+  seeded from nothing, appended to, and survived a hand-edit in Obsidian. The
+  atomic rename works over OneDrive, which unit tests against a temp directory
+  could not establish.
+- **The Pantheon schema migration**, against all four real entries. Each kept its
+  own `written_by` value, none gained an invented `why_kept`, no temp files were
+  left, and the parser stopped warning about legacy origins.
 - **The visual system, in Chrome against the dev server.** Parallax measured at
   `+9.95px` / `−9.89px` at the pointer extremes; density tiers and the uniform
   24px padding read back from the live DOM.
@@ -66,11 +74,10 @@ vault-path split was masked only by the absence of a settings UI.
 - `write_pantheon_entry` since the containment guard landed
 - The gate's **divergence** branch — a file edited by hand then rewritten. Only the
   *no-recorded-fingerprint* branch has been exercised.
-- **The whole observation path.** `append_profile_observation` has never run against
-  the real vault: the note does not exist yet, so the header-seeding branch, the
-  atomic rename, the append-flavoured dialog, and the post-approval change check
-  are all unexercised outside unit tests. `atomic_replace` is covered against a
-  temp directory, which is not OneDrive. **This is now on `master`.**
+- The gate's **divergence** branch under an append — a note edited by hand *then*
+  appended to. The observation path exercised the no-recorded-fingerprint branch
+  and the migration exercised divergence under `ModifyAuthored`, but not the two
+  together.
 - **Reduced motion.** `MotionConfig reducedMotion="user"` and a 23-selector CSS
   block are in, but nobody has toggled the OS setting and watched motion stop.
 - **The visual system against the real background image**, at the real window
@@ -111,8 +118,9 @@ Ordered; each is one commit.
 |---|---|
 | `c77838e` | **Project status tiering** — vault notes supply intent, Git supplies truth |
 | `58206a1` | **The visual system** — one panel construction, tiered translucency, parallax |
-
-`master` is at `c77838e`; `58206a1` is on `claude/visual-system` and not merged.
+| `f290e66` | Rust build output moved out of OneDrive — see the hazard under Housekeeping |
+| `6a70f3a` | **The Pantheon capture schema** — stance, why_kept, origin, written_by |
+| `55e11f8` | The migration trigger, and the migration run against the real vault |
 
 ### Tiering (`c77838e`)
 
@@ -145,7 +153,37 @@ transmitted about 4%. The image moved off `body` onto a transformed layer so
 parallax is GPU-composited. Also landed: the 44px icon rail, empty panels
 collapsing to one line, and Update Canvas demoted out of the Projects header.
 
-## The observations write path — done, still unrun
+## The Pantheon capture schema (`6a70f3a`, `55e11f8`)
+
+The library is the assistant's **curriculum, not a reading pile**. There is
+deliberately no read/unread/processed state, and no fixed category taxonomy —
+tags stay open-ended and repairable.
+
+Four fields, added because a schema cannot be backfilled across a library built
+over a year:
+
+- **`stance`** — `endorsed` | `provisional` | `disputed` | `unevaluated`. Always
+  populated. Absent or unreadable degrades to `unevaluated`, **never** to
+  `endorsed`; that is the one direction it must not fail in, and a test pins it.
+  This is the field that makes disagreement possible.
+- **`why_kept`** — optional. Blank writes no key at all and surfaces as "no
+  stated purpose". Never invented: it is the one field whose whole value is that
+  the operator wrote it.
+- **`origin`** — `collected` | `olympus-found`. Everything collected is
+  pre-filtered by his taste, so a library reasoning only from it is a well-read
+  version of him.
+- **`written_by`** — what `origin` used to hold.
+
+**The repurpose hazard, and why it is closed.** `origin` was already populated
+with writer provenance (`"Olympus dashboard"`). `extract_enum` drops any value
+outside the enum with a warning, so an un-migrated note reports *no* origin
+rather than reporting its writer as one.
+
+`stance`, `origin`, and `why_kept` are rendered into the research index the model
+receives, and the stable prompt explains how to read them — including that
+disagreement should be **rare and cited**. A stance nothing reads is decoration.
+
+## The observations write path
 
 `append_profile_observation` (`commands/observations.rs`) appends one dated line
 to `09 - System/Profile Observations.md`. Both prior decisions held:
@@ -174,16 +212,33 @@ Entry point: the Chat panel — a header button, or *Note this* on any assistant
 message, which prefills the composer. Both are click handlers, so nothing gated
 is effect-reachable and StrictMode still cannot double-fire a dialog.
 
-**Verify on the next launch, in this order:** the first Record seeds the header
-(the note does not exist yet); a second one appends below it without a second
-header; hand-edit the note in Obsidian, then Record again and confirm the edit
-survives; leave the dialog open for two minutes and confirm the timeout denies.
+**Verified end to end on 2026-07-26** — seeded, appended, and a hand-edit in
+Obsidian survived a subsequent append.
+
+One thing that surfaced doing it: **Obsidian rewrites frontmatter indentation
+whenever it opens a note** (`  - tag` becomes `- tag`). Files on disk will
+routinely differ from what Olympus wrote, so the gate can flag divergence on a
+note that was merely *viewed*. That is the gate working, but it reads like a
+false positive — expect it before concluding something is broken.
 
 ## Next work — the dashboard redesign
 
 The operator wrote a six-task redesign brief on 2026-07-26. Tasks 1, 5, and the
-visual parts of 6 are built. **Tasks 2, 3, 4, and 6b are next**, and four
-decisions about them were settled in conversation:
+visual parts of 6 are built. **Tasks 2, 3, 4, and 6b are next**, planned and
+approved in `~/.claude/plans/distributed-forging-charm.md` but not started.
+
+**Tasks 2, 3, and 4 are one header restructure, not three.** `.olympus-header`
+(`styles.css` l.419) is a centered 140px ceremonial band with no side slots; all
+three want to live in it. Agreed shape: a three-zone bar at ~96px — emblem and
+wordmark left, mode switcher centre, status rail right. Sigil 100px → 56px,
+wordmark 56px → 32px.
+
+**Research mode ships thin**: Pantheon resident in the centre column replacing
+Projects, chat stays right, search over title and tags, modal stays for Ctrl+K.
+No links, provenance, or contradiction views — those get designed once entries
+exist.
+
+The four decisions settled earlier still hold:
 
 - **Task 2 — status rail.** Collapse Markets and Weather into one monospace line
   in the header band; clicking a segment opens the existing panel as an overlay.
@@ -206,13 +261,31 @@ decisions about them were settled in conversation:
   the logs, with weather, markets, and the Pantheon scan each fetching twice.
 - **Task 6b — dissolve the Action Queue.** Attribute tasks to projects by which
   note the checkbox lives under. `tasks.rs` already records `source_folder` and a
-  vault-relative `source_file`, so `01 - Projects/<note>.md` is the join. **But
-  there is no data yet:** every current task lives in
-  `03 - Tasks/Olympus Next Actions.md` and is seed onboarding content, so the
-  unattributed bucket would hold 100% of it. Surface that, do not hide it.
+  vault-relative `source_file`, so `01 - Projects/<note>.md` is the join. **The
+  "no data yet" claim was wrong** — as of 2026-07-26 there are 17 open tasks: 10
+  in `01 - Projects/Project Olympus.md` and therefore attributable, 6 in
+  `03 - Tasks/Olympus Next Actions.md`, 1 in a daily brief. The unattributed
+  bucket is 41%, not 100%. Surface it, do not hide it.
 
 Task 5's translucency tiering only pays off once 2 and 3 exist — the open
 Command-mode centre is what the background is meant to read through.
+
+**Flagged by the operator, deliberately not built.** These are dependencies of
+the library actually working, recorded so they are not rediscovered as bugs.
+
+- **The assistant sees research as metadata only** — titles, never bodies. Under
+  the curriculum framing that is the premise unmet: fifty sources could be added
+  and nothing about its thinking would change. What it needs is a tool-use loop
+  (`read_vault_note` / `search_vault`) so the model opens a note it names.
+  **Research chat must not be built as general chat with vault context bolted
+  on** — an assistant that paraphrases notes it never opened teaches the operator
+  not to trust the mode.
+- **`04 - Decisions` is invisible to the assistant**, including metadata — absent
+  from `STABLE_NOTES` and from the Pantheon index. Contradiction detection is
+  impossible without it: nothing can be told that a new source undercuts an April
+  decision if the decisions cannot be seen.
+- **Decompose `LibraryPanel.tsx` (1354 lines).** Worth doing on its own merits
+  and the real prerequisite for anything richer in Research mode.
 
 **Housekeeping.**
 
