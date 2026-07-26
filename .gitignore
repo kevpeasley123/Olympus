@@ -11,6 +11,9 @@ tauri-run.out
 *.sqlite3
 .DS_Store
 
+# Holds an absolute, machine-specific target-dir pointing outside OneDrive.
+.cargo/
+
 # Linux build artifact — this project targets Windows; the desktop and
 # windows schemas are the tracked ones.
 src-tauri/gen/schemas/linux-schema.json

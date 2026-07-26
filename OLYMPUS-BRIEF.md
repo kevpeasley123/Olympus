@@ -1,8 +1,9 @@
 # Project Olympus — Session Handoff
 
-_Current as of 2026-07-26. `master` @ `c77838e`; `claude/visual-system` @ `58206a1`
-is one commit ahead and holds the visual system. Read `ARCHITECTURE.md` alongside
-this; it is the authority on anything they disagree about._
+_Current as of 2026-07-26. `master` @ `4b2b42c`; the visual system (`58206a1`) is
+merged and `claude/visual-system` points at the same commit. Read
+`ARCHITECTURE.md` alongside this; it is the authority on anything they disagree
+about._
 
 ## What it is
 
@@ -228,6 +229,16 @@ Command-mode centre is what the background is meant to read through.
 - The Pantheon scan re-reads every research file — including a ~17,000-word note
   — every 60 seconds, twice on mount under StrictMode. If Pantheon becomes a mode
   rather than a resident panel, the cadence is worth revisiting.
+- **The repository lives inside OneDrive, which does not read `.gitignore`.**
+  Build output was syncing: `src-tauri/target` had reached 16.8 GB across 19,230
+  files, and OneDrive takes locks on artifacts mid-sync, which surfaces on Windows
+  as intermittent linker `Access is denied` failures. Fixed 2026-07-26 by
+  `.cargo/config.toml` redirecting `target-dir` to `C:/Users/kevpe/dev-target/olympus`;
+  the old tree was deleted, taking the synced folder from ~17 GB to 219 MB.
+  That config is **gitignored, not tracked** — the path is absolute and
+  machine-specific, so a second machine needs its own. A checkout without it
+  silently builds back into OneDrive. `node_modules` (187 MB) is still synced;
+  npm cannot relocate it, and the only real fix is moving the repo out of OneDrive.
 - **The tiering has almost no data.** One `active`, seven `unclassified`.
   Classifying a project means hand-editing frontmatter in Obsidian; an in-app
   promote button would be a vault write and would have to go through the gate.
