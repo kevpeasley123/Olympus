@@ -169,6 +169,49 @@ async fn write_memory_artifact(
     })
 }
 
+/// Opens a vault note in Obsidian.
+///
+/// The path arrives from the webview and ends at a process spawn, which is the
+/// hazard class the vault path was hardened against in `62c957e`. So it is
+/// resolved through the same containment guard every vault write uses, and the
+/// URI is assembled here rather than accepted ready-made — the webview never
+/// gets to choose the scheme.
+#[tauri::command]
+fn open_vault_note(relative_path: String) -> Result<(), String> {
+    let relative = std::path::Path::new(&relative_path);
+    let target = vault_write::resolve_vault_path(relative).map_err(|error| error.to_string())?;
+
+    if !target.exists() {
+        return Err(format!("{relative_path} is not in the vault."));
+    }
+
+    let vault_name = commands::get_vault_path()
+        .file_name()
+        .map(|name| name.to_string_lossy().to_string())
+        .ok_or_else(|| "Could not determine the vault name.".to_string())?;
+
+    let uri = format!(
+        "obsidian://open?vault={}&file={}",
+        urlencoding::encode(&vault_name),
+        urlencoding::encode(&relative_path)
+    );
+
+    #[cfg(target_os = "windows")]
+    {
+        Command::new("cmd")
+            .args(["/C", "start", "", &uri])
+            .spawn()
+            .map_err(|error| error.to_string())?;
+        return Ok(());
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = uri;
+        Err("Opening a note is only wired for Windows.".to_string())
+    }
+}
+
 #[tauri::command]
 fn launch_quick_app(app_id: String) -> Result<(), String> {
     #[cfg(target_os = "windows")]
@@ -262,6 +305,7 @@ pub fn run() {
             clear_conversation,
             write_memory_artifact,
             launch_quick_app,
+            open_vault_note,
             restart_olympus,
             fetch_market_quotes,
             scan_tracked_projects,

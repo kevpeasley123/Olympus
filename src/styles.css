@@ -2998,9 +2998,15 @@ small {
   .ring-outer,
   .ring-middle,
   .ring-inner,
-  /* The instrument's activity ring. The arcs themselves stay — with motion off
-     the ring must still say which tier is which; only the sweep stops. */
+  /* The instrument's activity ring and the dirty-repo breath. The arcs
+     themselves stay — with motion off the ring must still say which tier is
+     which and remain clickable; only the sweep and the pulse stop. A dirty
+     arc still reads through its hover label. */
   .instrument-activity,
+  .instrument-arc.is-dirty,
+  /* Dots stop flashing but keep their resting state and hover label, so the
+     source list and its ages are still readable. */
+  .instrument-dot,
   .conversation-pending,
   .skeleton-line,
   .health-source-dot,
@@ -3668,6 +3674,36 @@ small {
   min-height: 0;
 }
 
+/* Command mode only: the thread shrinks to the last exchange so it stops being
+   the loudest thing on a deliberately sparse screen. It grows back on focus,
+   on send, or on asking for it. */
+.conversation-panel--collapsed {
+  flex: 0 0 auto;
+}
+
+.conversation-panel--collapsed .conversation-thread {
+  flex: 0 0 auto;
+  max-height: 40vh;
+  overflow-y: auto;
+}
+
+.conversation-expand {
+  align-self: flex-start;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--muted);
+  font-family: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  opacity: 0.75;
+}
+
+.conversation-expand:hover {
+  color: var(--accent);
+  opacity: 1;
+}
+
 /* ---- Command instrument ------------------------------------------------- */
 /* No panel, no card, no surface. It draws on the background image, which is
    the only mode where that image is visible and is the point of the mode. */
@@ -3692,62 +3728,129 @@ small {
   justify-content: center;
 }
 
+/* Fixed size. It does not scale with the sentence: scaling the dial would
+   either scale the strokes — putting the thinnest back under the readable
+   floor and restoring the hairline problem the ramp fixes — or hold them and
+   shift the visual ratios. An instrument whose size varies with something it
+   does not measure is worse than a clipped sentence. */
 .command-instrument__svg {
   display: block;
-  width: min(46vh, 420px);
-  height: min(46vh, 420px);
+  width: min(55vh, 505px);
+  height: min(55vh, 505px);
+  flex: 0 0 auto;
   overflow: visible;
 }
 
-/* Arc length is count, stroke weight is status. Active is the only one at full
-   accent; the rest step back so a single active project still dominates. */
+/* Arc length is count. Status is carried by lightness *and* weight moving
+   together, because four stroke weights alone are not separable at this size —
+   the step from scaffold to unclassified was 1px on a 500px ring. Two
+   correlated channels mean neither has to do the work by itself. The floor is
+   5px: nothing here is a hairline. */
 .instrument-arc {
-  stroke: var(--accent);
   cursor: pointer;
   transition:
     opacity 160ms ease-out,
-    stroke-width 160ms ease-out;
+    stroke 160ms ease-out;
 }
 
 .instrument-arc--active {
-  opacity: 0.92;
+  stroke: var(--accent);
+  opacity: 1;
 }
 
 .instrument-arc--watching {
-  opacity: 0.6;
+  stroke: #e0a54a;
+  opacity: 0.8;
 }
 
 .instrument-arc--scaffold {
-  opacity: 0.42;
+  stroke: #9aa8bd;
+  opacity: 0.7;
 }
 
-/* Muted, but present and clickable — clicking it is how the operator finds
-   what still needs classifying. */
+/* Faintest, but unmistakably present and clickable — clicking it is how the
+   operator finds what still needs classifying. It was 3px at 0.45 over a
+   photograph, which read as empty track rather than as a tier. */
 .instrument-arc--unclassified {
   stroke: var(--muted);
-  opacity: 0.45;
+  opacity: 0.55;
 }
 
 .instrument-arc--archived {
   stroke: var(--muted);
-  opacity: 0.25;
+  opacity: 0.3;
 }
 
 .instrument-arc:hover,
+.instrument-arc.is-hovered,
 .instrument-arc:focus-visible {
   opacity: 1;
+  stroke: var(--primary);
   outline: none;
 }
 
-.instrument-activity {
-  stroke: var(--accent);
-  opacity: 0.3;
-  animation: instrument-sweep 48s linear infinite;
-  transition: opacity 200ms ease-out;
+/* Uncommitted work in this tier. A slow breath, not a blink — it should be
+   noticeable when scanned, not demand attention while reading the sentence. */
+.instrument-arc.is-dirty {
+  animation: instrument-dirty-breath 3.2s ease-in-out infinite;
 }
 
-.instrument-activity.is-ticking {
-  opacity: 0.85;
+/* Narrow and high: a dirty arc must never breathe *dimmer* than the tier below
+   it, or the pulse inverts the ranking it sits inside. */
+@keyframes instrument-dirty-breath {
+  0%,
+  100% {
+    opacity: 0.78;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.instrument-hover-label {
+  fill: var(--primary);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  pointer-events: none;
+}
+
+.instrument-activity {
+  stroke: var(--muted);
+  opacity: 0.18;
+  animation: instrument-sweep 48s linear infinite;
+}
+
+/* One dot per poll source. Named and individually lit, so a dot that stops
+   flashing is a dead scan rather than a decorative speck. */
+.instrument-dot {
+  fill: var(--muted);
+  opacity: 0.35;
+  cursor: help;
+  transition:
+    opacity 200ms ease-out,
+    fill 200ms ease-out,
+    r 200ms ease-out;
+}
+
+.instrument-dot.is-lit {
+  fill: var(--accent);
+  opacity: 1;
+}
+
+/* Never landed. Distinguishable at rest from one that simply is not lit right
+   now, because those mean very different things. */
+.instrument-dot.is-cold {
+  fill: none;
+  stroke: var(--muted);
+  stroke-width: 1;
+  opacity: 0.4;
+}
+
+.instrument-dot:hover,
+.instrument-dot:focus-visible {
+  opacity: 1;
+  outline: none;
 }
 
 @keyframes instrument-sweep {
@@ -3770,22 +3873,46 @@ small {
     drop-shadow(0 0 52px rgba(217, 119, 6, 0.34));
 }
 
-/* The highest-value fact in the app. It used to render as 12px grey text that
-   ellipsized inside a scrolling panel. */
+/* The largest text on screen, and the thing worth crossing a room to read.
+   Body face, not the display face: Cinzel renders this as five lines of serif
+   capitals, which is a wordmark treatment and unreadable as a sentence.
+   Clamped to two lines with the full text on hover — a next step needing five
+   lines is two next steps. */
 .command-instrument__sentence {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
   margin: 0;
-  max-width: 22ch;
-  font-family: var(--font-display);
-  font-size: clamp(20px, 2.4vw, 34px);
+  max-width: 26ch;
+  font-family: var(--font-sans);
+  font-size: clamp(34px, 4.4vw, 62px);
   font-weight: var(--weight-medium);
-  line-height: 1.3;
+  line-height: 1.18;
+  letter-spacing: -0.015em;
   color: var(--primary);
   text-wrap: balance;
 }
 
+/* The empty state is a prompt, not a report of a missing field. */
+.command-instrument__sentence.is-prompt {
+  border: none;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+  color: var(--muted);
+  transition: color 160ms ease-out;
+}
+
+.command-instrument__sentence.is-prompt:hover,
+.command-instrument__sentence.is-prompt:focus-visible {
+  color: var(--accent);
+  outline: none;
+}
+
 .command-instrument__sentence.is-quiet {
   color: var(--muted);
-  font-size: clamp(16px, 1.6vw, 22px);
 }
 
 .command-instrument__attribution {

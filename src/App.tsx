@@ -15,6 +15,9 @@ import type { StatusRailTarget } from "./components/panels/StatusRail";
 import { ToolBelt } from "./components/panels/ToolBelt";
 import { WeatherPanel } from "./components/panels/WeatherPanel";
 import { WriteConfirmDialog } from "./components/panels/WriteConfirmDialog";
+import { openVaultNote } from "./services/launcher";
+import { useActionQueue } from "./hooks/useActionQueue";
+import { usePantheon } from "./hooks/usePantheon";
 import { useDashboardData } from "./hooks/useDashboardData";
 import { useDashboardMode } from "./hooks/useDashboardMode";
 import type { DashboardMode } from "./hooks/useDashboardMode";
@@ -39,6 +42,11 @@ function App() {
     refreshAll
   } = useDashboardData();
   const { mode, setMode, cycleMode } = useDashboardMode();
+  // Subscribed here, not only inside the panels that display them, so both
+  // scans run in every mode. Without this the instrument's task and pantheon
+  // dots would be permanently dark in Command — the one mode that shows them.
+  useActionQueue();
+  usePantheon();
   const [statusPanel, setStatusPanel] = useState<StatusRailTarget | null>(null);
   /** Set by clicking a tier arc; Project mode opens filtered to it. */
   const [tierFilter, setTierFilter] = useState<ProjectStatus | null>(null);
@@ -102,7 +110,11 @@ function App() {
                 Project mode with a different tab lit. */}
             {command ? (
               <FadeInPanel index={1} className="panel-slot panel-slot-instrument">
-                <CommandInstrument projects={projects} onSelectTier={enterTier} />
+                <CommandInstrument
+                  projects={projects}
+                  onSelectTier={enterTier}
+                  onOpenNote={(notePath) => void openVaultNote(notePath)}
+                />
               </FadeInPanel>
             ) : research ? (
               <FadeInPanel index={1} className="panel-slot panel-slot-library-resident">
@@ -137,6 +149,7 @@ function App() {
                 onRecordObservation={recordObservation}
                 pending={chatPending}
                 error={chatError}
+                compact={command}
               />
             </FadeInPanel>
           </section>

@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import { useCallback, useEffect, useState } from "react";
+import { createPollingStore } from "./createPollingStore";
 
 /** Mirrors `STANCE_VALUES` in `commands/pantheon.rs`. */
 export const PANTHEON_STANCES = ["endorsed", "provisional", "disputed", "unevaluated"] as const;
@@ -33,33 +33,25 @@ export interface PantheonEntry {
   body: string;
 }
 
-const POLL_INTERVAL_MS = 60_000;
+/**
+ * Five minutes, not one.
+ *
+ * A research library changes when the operator adds something, not every
+ * minute — and this scan now runs in every mode rather than only where the
+ * library panel was mounted, so the old cadence would have been a straight
+ * regression. The Rust side also skips any file whose mtime is unchanged, so a
+ * scan that finds nothing new reads no file bodies at all.
+ */
+const POLL_INTERVAL_MS = 300_000;
+
+const useStore = createPollingStore<PantheonEntry[]>({
+  key: "pantheon",
+  intervalMs: POLL_INTERVAL_MS,
+  initial: [],
+  fetcher: () => invoke<PantheonEntry[]>("fetch_pantheon_entries")
+});
 
 export function usePantheon() {
-  const [entries, setEntries] = useState<PantheonEntry[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const refresh = useCallback(async () => {
-    try {
-      const result = await invoke<PantheonEntry[]>("fetch_pantheon_entries");
-      setEntries(result);
-      setError(null);
-    } catch (e) {
-      setError(String(e));
-      setEntries([]);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    void refresh();
-    const interval = window.setInterval(() => {
-      void refresh();
-    }, POLL_INTERVAL_MS);
-    return () => window.clearInterval(interval);
-  }, [refresh]);
-
-  return { entries, loading, error, refresh };
+  const { data, loading, error, refresh } = useStore();
+  return { entries: data, loading, error, refresh };
 }

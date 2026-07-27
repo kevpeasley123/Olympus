@@ -14,6 +14,21 @@ export async function launchQuickApp(appId: string, launchUri: string): Promise<
   return "fallback";
 }
 
+/**
+ * Opens a vault note in Obsidian.
+ *
+ * Rust resolves the path through the vault containment guard and builds the
+ * URI, so this passes a vault-relative path and nothing else.
+ */
+export async function openVaultNote(relativePath: string): Promise<"native" | "unsupported"> {
+  if (!isTauriRuntime()) {
+    return "unsupported";
+  }
+
+  await invoke("open_vault_note", { relativePath });
+  return "native";
+}
+
 export async function restartDesktopApp(): Promise<"native" | "unsupported"> {
   if (!isTauriRuntime()) {
     return "unsupported";

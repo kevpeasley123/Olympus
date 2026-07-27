@@ -9,6 +9,7 @@ import {
 import { recordObservation as recordObservationInVault } from "../services/observations";
 import { createAssistantMessage, requestAssistantReply } from "../services/assistant";
 import { emitInstrumentEvent } from "../services/instrumentEvents";
+import { reportPollFailure, reportPollSuccess } from "../services/pollRegistry";
 import { buildPantheonReply, createUserMessage } from "../services/pantheonChat";
 import { appendConversationMessages, loadState, persistPreferences } from "../services/storage";
 import type { LiveSourceHealth, LiveSourceStatus, LoadableState } from "../types/dashboard";
@@ -213,6 +214,7 @@ export function useDashboardData() {
     try {
       const next = await fetchMarkets();
       setMarkets({ data: next, loading: false, error: null });
+      reportPollSuccess("markets");
       setSourceTrackers((current) => ({
         ...current,
         marketIndexes: nextSourceState(
@@ -228,6 +230,7 @@ export function useDashboardData() {
       }));
     } catch (error) {
       const message = errorMessage(error);
+      reportPollFailure("markets", message);
       console.warn("[Olympus] Markets fell back to seeded preview data.", error);
       setMarkets((current) => ({
         data: isTauriRuntime() ? current.data ?? emptyMarketData(message) : current.data ?? seedMarketData(),
@@ -248,12 +251,14 @@ export function useDashboardData() {
     try {
       const next = await fetchWeather();
       setWeather({ data: next, loading: false, error: null });
+      reportPollSuccess("weather");
       setSourceTrackers((current) => ({
         ...current,
         weather: nextSourceState(current.weather, "success")
       }));
     } catch (error) {
       const message = errorMessage(error);
+      reportPollFailure("weather", message);
       console.warn("[Olympus] Weather fell back to seeded preview data.", error);
       setWeather((current) => ({
         data: isTauriRuntime() ? current.data : current.data ?? seedWeatherData(),
@@ -273,8 +278,11 @@ export function useDashboardData() {
       setDashboardState((current) => ({ ...current, projects: scan.projects }));
       setProjectNoteWarnings(scan.warnings);
       setProjectsError(null);
+      reportPollSuccess("git");
     } catch (error) {
-      setProjectsError(errorMessage(error));
+      const message = errorMessage(error);
+      setProjectsError(message);
+      reportPollFailure("git", message);
     }
   }, [dashboardState.settings.projectsRootPath]);
 

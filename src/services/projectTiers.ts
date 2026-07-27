@@ -16,16 +16,20 @@ const TIER_ORDER: ProjectStatus[] = [
 ];
 
 /**
- * Stroke weight carries status; arc length carries count. Active is heaviest so
- * a single active project still reads as the dominant mark on the ring even
- * when it is one arc of eight.
+ * Stroke weight carries status alongside lightness; arc length carries count.
+ * Active is heaviest so a single active project still reads as the dominant
+ * mark even when it is one arc of eight.
+ *
+ * The floor is 5, not 3. Four weights a pixel apart are not separable on a
+ * 500px ring, which is why lightness moves with them — and why the faintest
+ * tier is no longer a hairline that read as empty track.
  */
 export const TIER_WEIGHT: Record<ProjectStatus, number> = {
-  active: 9,
-  unclassified: 3,
-  watching: 6,
-  scaffold: 4,
-  archived: 2.5
+  active: 11,
+  unclassified: 5,
+  watching: 8,
+  scaffold: 6,
+  archived: 4
 };
 
 export interface TierSlice {

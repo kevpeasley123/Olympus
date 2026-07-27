@@ -17,8 +17,20 @@ export type NextActionState =
       /** Active projects beyond the one shown. */
       otherActiveCount: number;
     }
-  | { kind: "activeWithoutStep"; project: string; otherActiveCount: number }
-  | { kind: "empty" };
+  | {
+      /**
+       * Nothing states a next step. One state rather than two, because the
+       * interface is the same either way: a prompt to set one. Reporting
+       * *which* deficiency applies made the centrepiece an apology for an
+       * empty frontmatter field.
+       */
+      kind: "unset";
+      /** The project it would be set on, when one is obvious. */
+      project: string | null;
+      /** Where to set it. Null when no project has a note at all. */
+      notePath: string | null;
+      otherActiveCount: number;
+    };
 
 /** Most recent commit first. Projects that never committed sort last. */
 function byRecency(left: TrackedProject, right: TrackedProject): number {
@@ -59,13 +71,15 @@ export function selectNextAction(projects: TrackedProject[]): NextActionState {
     }
 
     return {
-      kind: "activeWithoutStep",
+      kind: "unset",
       project: actives[0].name,
+      notePath: actives[0].notePath,
       otherActiveCount: actives.length - 1
     };
   }
 
-  const fallback = [...projects].sort(byRecency).find(hasStep);
+  const byDate = [...projects].sort(byRecency);
+  const fallback = byDate.find(hasStep);
   if (fallback) {
     return {
       kind: "stated",
@@ -76,5 +90,14 @@ export function selectNextAction(projects: TrackedProject[]): NextActionState {
     };
   }
 
-  return { kind: "empty" };
+  // Nowhere obvious to set it, so offer the most recent project that at least
+  // has a note to open. Without one there is nothing to link to and the prompt
+  // stands alone.
+  const withNote = byDate.find((project) => project.notePath);
+  return {
+    kind: "unset",
+    project: withNote?.name ?? null,
+    notePath: withNote?.notePath ?? null,
+    otherActiveCount: 0
+  };
 }

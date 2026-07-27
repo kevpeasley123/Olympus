@@ -10,6 +10,23 @@ interface ChatPanelProps {
   onRecordObservation: (text: string) => Promise<ObsidianActionResult>;
   pending?: boolean;
   error?: string | null;
+  /**
+   * Command mode only: show the last exchange rather than the whole
+   * transcript. Defaults off, so Project and Research are untouched — a wall of
+   * transcript is correct in the modes you lean into, and the loudest thing on
+   * screen in the one that is deliberately sparse.
+   */
+  compact?: boolean;
+}
+
+/** The last user turn and everything after it — one exchange, not one message. */
+function lastExchange(messages: ConversationMessage[]): ConversationMessage[] {
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    if (messages[index].role === "user") {
+      return messages.slice(index);
+    }
+  }
+  return messages.slice(-1);
 }
 
 /** One claim per entry, so the gate's capped diff preview shows all of it. */
@@ -22,9 +39,13 @@ export function ChatPanel({
   onSendMessage,
   onRecordObservation,
   pending = false,
-  error = null
+  error = null,
+  compact = false
 }: ChatPanelProps) {
   const [draft, setDraft] = useState("");
+  // Local, so leaving Command and coming back re-collapses it. That is right
+  // for a mode meant to be glanced at.
+  const [expanded, setExpanded] = useState(false);
   // null closes the composer; "" opens it empty. Distinguishing the two is what
   // lets an assistant message prefill it without also opening it on every edit.
   const [observation, setObservation] = useState<string | null>(null);
@@ -35,7 +56,13 @@ export function ChatPanel({
     if (!draft.trim() || pending) return;
     onSendMessage(draft);
     setDraft("");
+    // Sending is the moment you start caring about the reply.
+    setExpanded(true);
   }
+
+  const collapsed = compact && !expanded;
+  const visibleMessages = collapsed ? lastExchange(messages) : messages;
+  const hiddenCount = messages.length - visibleMessages.length;
 
   function openComposer(seed: string) {
     setObservation(collapse(seed).slice(0, OBSERVATION_MAX_CHARS));
@@ -68,7 +95,11 @@ export function ChatPanel({
   return (
     // Dense: the thread is prose, and the background image must not read
     // behind it.
-    <section className="dashboard-panel conversation-panel surface-dense">
+    <section
+      className={`dashboard-panel conversation-panel surface-dense ${
+        collapsed ? "conversation-panel--collapsed" : ""
+      }`}
+    >
       <div className="panel-head">
         <span className="panel-head__icon">
           <Compass size={15} />
@@ -88,7 +119,16 @@ export function ChatPanel({
         </div>
       </div>
       <div className="conversation-thread">
-        {messages.map((message) => (
+        {collapsed && hiddenCount > 0 ? (
+          <button
+            type="button"
+            className="conversation-expand"
+            onClick={() => setExpanded(true)}
+          >
+            Show {hiddenCount} earlier {hiddenCount === 1 ? "message" : "messages"}
+          </button>
+        ) : null}
+        {visibleMessages.map((message) => (
           <ConversationBubble
             key={message.id}
             message={message}
@@ -166,6 +206,7 @@ export function ChatPanel({
           placeholder={pending ? "Waiting for a reply..." : "Ask Olympus anything..."}
           value={draft}
           disabled={pending}
+          onFocus={() => setExpanded(true)}
           onChange={(event) => setDraft(event.target.value)}
           onKeyDown={(event) => {
             if (event.key === "Enter") {

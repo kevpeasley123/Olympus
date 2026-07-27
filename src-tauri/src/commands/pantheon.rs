@@ -1,12 +1,22 @@
+use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::Mutex;
 use std::time::SystemTime;
+
+use once_cell::sync::Lazy;
 
 use chrono::{DateTime, Local, Utc};
 use serde::{Deserialize, Serialize};
 use walkdir::WalkDir;
 
 use super::vault_write::{classify, resolve_vault_path, WriteIntent};
+
+/// Parsed entries keyed by path, kept only while the file's mtime is unchanged.
+/// Skipping unchanged files is what makes a 300-second scan cheap enough to run
+/// in every mode rather than only where the library panel was mounted.
+static ENTRY_CACHE: Lazy<Mutex<HashMap<PathBuf, (SystemTime, PantheonEntry)>>> =
+    Lazy::new(|| Mutex::new(HashMap::new()));
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -174,6 +184,10 @@ pub(crate) fn parse_pantheon_from_vault() -> Result<Vec<PantheonEntry>, String> 
     }
 
     let mut entries: Vec<PantheonEntry> = Vec::new();
+    // Rebuilt each scan rather than mutated, so files deleted from the vault
+    // fall out of the cache instead of lingering.
+    let mut fresh_cache: HashMap<PathBuf, (SystemTime, PantheonEntry)> = HashMap::new();
+    let cached = ENTRY_CACHE.lock().map(|guard| guard.clone()).unwrap_or_default();
 
     for entry in WalkDir::new(&folder)
         .follow_links(false)
@@ -212,6 +226,18 @@ pub(crate) fn parse_pantheon_from_vault() -> Result<Vec<PantheonEntry>, String> 
             }
         };
         let mtime = metadata.modified().unwrap_or_else(|_| SystemTime::now());
+
+        // A research library changes when the operator adds something, not
+        // every scan. Re-reading and re-parsing every file — one of them
+        // ~17,000 words — on a timer was pure waste, and this scan now runs in
+        // every mode rather than only where the panel was mounted.
+        if let Some((cached_mtime, cached_entry)) = cached.get(path) {
+            if *cached_mtime == mtime {
+                fresh_cache.insert(path.to_path_buf(), (mtime, cached_entry.clone()));
+                entries.push(cached_entry.clone());
+                continue;
+            }
+        }
 
         let content = match fs::read_to_string(path) {
             Ok(s) => s,
@@ -275,7 +301,7 @@ pub(crate) fn parse_pantheon_from_vault() -> Result<Vec<PantheonEntry>, String> 
         let body_preview = make_preview(&body_full);
         let file_modified_at = iso8601(mtime);
 
-        entries.push(PantheonEntry {
+        let parsed = PantheonEntry {
             id: source_file.clone(),
             title,
             source_file,
@@ -293,7 +319,14 @@ pub(crate) fn parse_pantheon_from_vault() -> Result<Vec<PantheonEntry>, String> 
             file_modified_at,
             body_preview,
             body: body_full,
-        });
+        };
+
+        fresh_cache.insert(path.to_path_buf(), (mtime, parsed.clone()));
+        entries.push(parsed);
+    }
+
+    if let Ok(mut guard) = ENTRY_CACHE.lock() {
+        *guard = fresh_cache;
     }
 
     entries.sort_by(|a, b| {
