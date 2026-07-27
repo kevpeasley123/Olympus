@@ -73,8 +73,17 @@ export function HeaderBar({
 
   return (
     <header className="topbar olympus-header" ref={headerRef}>
+      {/* Command mode moves the glyph and the sentence to the centre column, so
+          the header keeps only the wordmark. Two omegas and two copies of the
+          same sentence would contradict the one-glowing-object rule — and it
+          hands the rail its width back in the mode where the rail is most
+          visible. */}
       <div className="olympus-header__zone olympus-header__zone--left">
-        <OmegaInstrument projects={projects} />
+        {mode === "command" ? (
+          <h1 className="olympus-wordmark">OLYMPUS</h1>
+        ) : (
+          <OmegaInstrument projects={projects} />
+        )}
       </div>
 
       <div className="olympus-header__zone olympus-header__zone--center" ref={centreRef}>

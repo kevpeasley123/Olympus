@@ -1,4 +1,4 @@
-import { FolderGit2, ListChecks } from "lucide-react";
+import { FolderGit2, ListChecks, X } from "lucide-react";
 import type { ProjectStatus, TrackedProject } from "../../types";
 import { formatPath } from "../../utils/formatPath";
 import type { ObsidianActionResult } from "../../services/obsidian";
@@ -12,6 +12,9 @@ interface ProjectsPanelProps {
   /** Problems with `01 - Projects` itself, not with any one project. */
   noteWarnings?: string[];
   focusMode?: boolean;
+  /** Set by clicking a tier arc in Command mode. */
+  tierFilter?: ProjectStatus | null;
+  onClearTierFilter?: () => void;
 }
 
 const STATUS_LABELS: Record<ProjectStatus, string> = {
@@ -26,11 +29,16 @@ const STATUS_LABELS: Record<ProjectStatus, string> = {
 const VISIBLE_TASK_LIMIT = 3;
 
 export function ProjectsPanel({
-  projects,
+  projects: allProjects,
   onSyncCanvas,
   noteWarnings = [],
-  focusMode = false
+  focusMode = false,
+  tierFilter = null,
+  onClearTierFilter
 }: ProjectsPanelProps) {
+  const projects = tierFilter
+    ? allProjects.filter((project) => project.status === tierFilter)
+    : allProjects;
   const [status, setStatus] = useState<ObsidianActionResult | null>(null);
   const [syncing, setSyncing] = useState(false);
   // The Action Queue dissolved into this panel, so its fetch moved with it
@@ -62,6 +70,19 @@ export function ProjectsPanel({
           <span className="panel-head__meta tabular-data">
             {projects.length === 1 ? "1 project" : `${projects.length} projects`}
           </span>
+          {/* A filtered panel must say it is filtered and offer the way out, or
+              it reads as a project list that lost most of its projects. */}
+          {tierFilter ? (
+            <button
+              type="button"
+              className="ghost-action projects-filter-chip"
+              onClick={onClearTierFilter}
+              title={`Showing ${tierFilter} only — click to show all ${allProjects.length}`}
+            >
+              {tierFilter}
+              <X size={13} />
+            </button>
+          ) : null}
           {tasks.length > 0 ? (
             <span className="panel-head__meta tabular-data">
               {tasks.length === 1 ? "1 open task" : `${tasks.length} open tasks`}

@@ -1032,6 +1032,23 @@ small {
   min-height: 0;
 }
 
+/* Command mode gives the column to the instrument. */
+.center-stack > .panel-slot-instrument {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.center-stack > .panel-slot-instrument > * {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.projects-filter-chip {
+  text-transform: capitalize;
+  gap: var(--space-4);
+}
+
 .tools-rail > .panel-slot-tools,
 .tools-rail > .panel-slot-quickbar {
   flex: 0 0 auto;
@@ -2981,6 +2998,9 @@ small {
   .ring-outer,
   .ring-middle,
   .ring-inner,
+  /* The instrument's activity ring. The arcs themselves stay — with motion off
+     the ring must still say which tier is which; only the sweep stops. */
+  .instrument-activity,
   .conversation-pending,
   .skeleton-line,
   .health-source-dot,
@@ -3003,6 +3023,9 @@ small {
   .market-toggle,
   .markets-news-toggle svg,
   .observation-seed,
+  /* The scan tick still brightens the ring — that is information — but it
+     arrives instantly rather than easing in. */
+  .instrument-activity,
   .background-image {
     transition: none;
   }
@@ -3643,6 +3666,162 @@ small {
 .pantheon-resident > .pantheon-modal-body {
   flex: 1 1 auto;
   min-height: 0;
+}
+
+/* ---- Command instrument ------------------------------------------------- */
+/* No panel, no card, no surface. It draws on the background image, which is
+   the only mode where that image is visible and is the point of the mode. */
+
+.command-instrument {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-16);
+  height: 100%;
+  min-height: 0;
+  padding: var(--space-24);
+  text-align: center;
+}
+
+.command-instrument__dial {
+  flex: 0 1 auto;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.command-instrument__svg {
+  display: block;
+  width: min(46vh, 420px);
+  height: min(46vh, 420px);
+  overflow: visible;
+}
+
+/* Arc length is count, stroke weight is status. Active is the only one at full
+   accent; the rest step back so a single active project still dominates. */
+.instrument-arc {
+  stroke: var(--accent);
+  cursor: pointer;
+  transition:
+    opacity 160ms ease-out,
+    stroke-width 160ms ease-out;
+}
+
+.instrument-arc--active {
+  opacity: 0.92;
+}
+
+.instrument-arc--watching {
+  opacity: 0.6;
+}
+
+.instrument-arc--scaffold {
+  opacity: 0.42;
+}
+
+/* Muted, but present and clickable — clicking it is how the operator finds
+   what still needs classifying. */
+.instrument-arc--unclassified {
+  stroke: var(--muted);
+  opacity: 0.45;
+}
+
+.instrument-arc--archived {
+  stroke: var(--muted);
+  opacity: 0.25;
+}
+
+.instrument-arc:hover,
+.instrument-arc:focus-visible {
+  opacity: 1;
+  outline: none;
+}
+
+.instrument-activity {
+  stroke: var(--accent);
+  opacity: 0.3;
+  animation: instrument-sweep 48s linear infinite;
+  transition: opacity 200ms ease-out;
+}
+
+.instrument-activity.is-ticking {
+  opacity: 0.85;
+}
+
+@keyframes instrument-sweep {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* The one glowing object. Nothing else in this mode gets a shadow. */
+.instrument-glyph {
+  fill: var(--accent);
+  opacity: 0.9;
+  filter: drop-shadow(0 0 14px rgba(217, 119, 6, 0.45))
+    drop-shadow(0 0 40px rgba(217, 119, 6, 0.2));
+  transition: filter 300ms ease-out;
+}
+
+.command-instrument__svg.pulse-vault-write .instrument-glyph {
+  filter: drop-shadow(0 0 20px rgba(217, 119, 6, 0.7))
+    drop-shadow(0 0 52px rgba(217, 119, 6, 0.34));
+}
+
+/* The highest-value fact in the app. It used to render as 12px grey text that
+   ellipsized inside a scrolling panel. */
+.command-instrument__sentence {
+  margin: 0;
+  max-width: 22ch;
+  font-family: var(--font-display);
+  font-size: clamp(20px, 2.4vw, 34px);
+  font-weight: var(--weight-medium);
+  line-height: 1.3;
+  color: var(--primary);
+  text-wrap: balance;
+}
+
+.command-instrument__sentence.is-quiet {
+  color: var(--muted);
+  font-size: clamp(16px, 1.6vw, 22px);
+}
+
+.command-instrument__attribution {
+  margin: 0;
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
+  opacity: 0.8;
+}
+
+.command-instrument__attribution.is-quiet {
+  color: var(--muted);
+  opacity: 0.7;
+}
+
+.command-instrument__fallback {
+  color: var(--muted);
+  text-transform: none;
+  letter-spacing: 0.04em;
+}
+
+.command-instrument__counts {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+  opacity: 0.7;
+}
+
+.command-instrument__count-value {
+  color: var(--primary);
+  opacity: 0.85;
+}
+
+.command-instrument__counts-sep {
+  opacity: 0.4;
 }
 
 /* ---- Tasks, attributed to their project -------------------------------- */
