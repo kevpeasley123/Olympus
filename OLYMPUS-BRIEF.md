@@ -1,15 +1,19 @@
 # Project Olympus — Session Handoff
 
-_Current as of 2026-07-26. `master` @ `4e8f04c`. The visual system (`58206a1`) is
+_Current as of 2026-07-26. `master` @ `4c8e5c2`. The visual system (`58206a1`) is
 merged; `claude/visual-system`, `claude/project-status-tiering`, and
 `claude/olympus-project-overview-b949xw` are all ancestors of `master` and safe
 to delete. Read `ARCHITECTURE.md` alongside this; it is the authority on
 anything they disagree about._
 
-_**Check this file against the code before trusting it.** It has carried stale
-claims three sessions running: it said the visual system was unmerged when it
-was, that task 6b had no data when 10 of 17 tasks were attributable, and that
-the test count was 133 when it was 145. Line numbers quoted here drift too._
+_**Check this file against the code before trusting it.** It has been wrong in
+every session that has read it: it said the visual system was unmerged when it
+was, that task 6b had no data when 10 of 17 tasks were attributable, that the
+test count was 133 when it was 145, and — for three rounds — that task 6b was
+the only thing left, after 6b and two further rounds had shipped. Line numbers
+quoted here drift constantly. **Confirm the current state of anything you are
+about to change**; every correction above came from checking rather than from
+reading._
 
 ## What it is
 
@@ -95,13 +99,26 @@ vault-path split was masked only by the absence of a settings UI.
 - **The omega's vault-write pulse.** The poll tick is confirmed and shares the
   same subscriber path, but the write branch needs the Tauri gate and has never
   fired. Watch it during an approval dialog.
-- **Reduced motion.** `MotionConfig reducedMotion="user"` and a 23-selector CSS
-  block are in, but nobody has toggled the OS setting and watched motion stop.
+- **The instrument against real portfolio data.** Arc ramp, hover labels, dirty
+  breath, named dots and the doubled sentence are all confirmed in the live DOM,
+  but with seed data — the browser has no `invoke`, so all five dots sit in
+  their `is-cold` state and the tier mix is not the real one.
+- **`open_vault_note`.** Compiles and is registered; nobody has clicked the
+  empty-state prompt and watched Obsidian open. It needs a `tauri dev` restart
+  to exist at all, since hot reload does not add Rust commands.
+- **Reduced motion, at the OS level.** Every selector in the block is confirmed
+  to match live elements, and applying those declarations unconditionally flips
+  all four from animating to `none` — so the CSS is right and covers what is on
+  screen. What nobody has done is toggle **Settings → Accessibility → Visual
+  effects → Animation effects** and watch it happen for real.
 - **The visual system against the real background image**, at the real window
   size, with real data. Everything above was a browser at a different aspect.
   Contrast over the photograph is the most likely thing to need adjusting — the
   veil alpha in `.background-image` is the dial.
-- Any release build. `tauri build` has never been run; `tauri dev` only.
+- Whether a release build **runs**. `tauri build` now succeeds — 2m24s on
+  2026-07-26, MSI and NSIS bundles at `C:/Users/kevpe/dev-target/olympus/release/bundle/`
+  — but nobody has launched the produced executable. Compiling and running are
+  the separate questions this project keeps relearning.
 
 **A note on why the visual work was verified in a browser.** `PrintWindow`
 returns a blank white client area for WebView2, so the Tauri window cannot be
@@ -139,6 +156,11 @@ Ordered; each is one commit.
 | `6a70f3a` | **The Pantheon capture schema** — stance, why_kept, origin, written_by |
 | `55e11f8` | The migration trigger, and the migration run against the real vault |
 | `4e8f04c` | **The header restructure** — three zones, three modes, status rail, omega |
+| `dd84593` | **The Action Queue dissolved** into per-project task attribution |
+| `20a81f8` | The capture form's body field moved where it can be found |
+| `b210698` | The status rail given a budget, so it drops units instead of overlapping |
+| `b03788f` | **Command mode became the omega instrument** |
+| `4c8e5c2` | **The instrument made readable** — arc ramp, hover, named poll dots, sizing |
 
 ### Tiering (`c77838e`)
 
@@ -210,6 +232,99 @@ Two things nothing but running it would have found:
   invisible, and swallowing its own click. It has its own row now. Both of these
   panels put actions in that corner; don't float anything over it.
 
+### Tasks, attributed to their projects (`dd84593`)
+
+The Action Queue is gone. A task renders under the project whose note holds its
+checkbox, joined on plain string equality — `tasks.rs` writes a vault-relative
+`source_file` and `project_notes.rs` builds `note_path` the same way. Matching
+on project *names* would mis-attribute the moment two notes shared a word.
+
+The join lives in `services/taskAttribution.ts` rather than in the panel, so it
+can be checked against real vault data: the browser has no `invoke`, renders
+zero tasks, and can never exercise it. Against the real vault — 17 open tasks,
+10 joining `Project Olympus.md`, 7 joining nothing.
+
+**Those 7 are surfaced, not hidden**, in a dashed card, expanded, grouped by
+source note. A bucket that quietly dropped 41% of the open work would be worse
+than the panel it replaced, so it is deliberately not behind a toggle.
+
+### The status rail's budget (`b210698`)
+
+The rail was over its zone at **every** width, maximised included: 872px of
+content in 741px at 1920. Segments carried `min-width: 0` so the boxes shrank
+while their `nowrap` text did not, and nothing clipped it — the Dow value
+painted through the weather segment.
+
+Two things were wrong, and fixing only the first made it worse: sizing the
+rail's track `auto` stopped the overflow but let it take content width ahead of
+the `1fr` beside it, starving the left zone to nothing at 1100px. **The rail
+cannot measure its own container**, because that container is sized by the rail.
+
+So `HeaderBar` computes the budget — header content box, less the switcher,
+less a 280px floor for the omega — and hands it down. The rail renders every
+candidate composition off-layout, measures them, and takes the richest that
+fits. Measurement, not breakpoints: a five-digit Dow is wider than a four-digit
+one and a viewport width cannot know that. `overflow: hidden` is the backstop.
+
+Priority is **per unit, not per category**. The leading index is never dropped
+and weather never falls below its temperature; between those, weather's location
+and temperature outrank the tail of the index list, because 141px for a complete
+outdoor state beats 161px for one more number. Tickers instead of full labels
+buy back ~97px.
+
+Measured candidates with real market text: 610, 530, 403, 269, 201. 1440 and up
+keep three indices and full weather; 1280 drops the weather condition.
+
+**The measure copies need `width: max-content`.** As block-level boxes in a
+shrink-to-fit parent they each report the widest sibling's width, every
+candidate "fits", and the richest always wins — the mechanism silently becomes
+decorative.
+
+### Command mode as an instrument (`b03788f`, `4c8e5c2`)
+
+Command and Project used to render the same screen, differing only in which tab
+was lit. Command is now the omega instrument and nothing else: icon rail left,
+chat right, the whole centre column drawing directly on the background image —
+the only mode where that image is visible, which is the point of the mode. **If
+a scrolling list ever appears here, it has become Project mode with a different
+tab lit.**
+
+- **Outer ring.** Arc length is count; status is carried by lightness *and*
+  stroke weight moving together in one amber-to-slate ramp, floor 5px. Four
+  weights a pixel apart are not separable at 500px — the first version had
+  `unclassified` at 3px and 0.45 opacity over a photograph, which read as 87% of
+  the ring being empty track. It was never absent, only invisible.
+- **`unclassified` gets its own arc.** Leaving it out would draw a ring
+  representing one of eight projects while looking like the whole portfolio.
+  When it shrinks to nothing, that is the ring reporting success.
+- **Arcs are clickable**, entering Project mode filtered to that tier; the panel
+  shows a dismissable chip naming the filter, because a filtered list that does
+  not say so looks like a list that lost most of its projects.
+- **Hover hangs a label at the arc's own mid-angle** rather than lighting a
+  permanent legend.
+- **A tier containing uncommitted work breathes.** `repo_state` conflates dirty
+  with never-committed, so dirty is derived as `git-pending` **with a commit date
+  present** — a folder that was never initialised belongs to the scaffold tier,
+  not to an urgent pulse. The breath is 0.78→1, never dimmer than the tier below
+  it, or the pulse inverts the ranking it sits inside.
+- **The dots are named poll sources**, one each for git, tasks, pantheon,
+  markets and weather, lighting on their own landing with source and age on
+  hover. A dot that stops lighting is a dead scan.
+- **The sentence is the point of the mode**, not the ring. 62px, clamped to two
+  lines, full text on hover. It is **not** the display face — Cinzel rendered it
+  as five lines of serif capitals, which is a wordmark treatment and unreadable
+  as prose.
+- **The ring is a fixed 505px and does not scale to fit text.** Scaling would
+  either drop the strokes back under the readable floor or shift the visual
+  ratios, and an instrument sized by something it does not measure is worse than
+  a clipped sentence. A next step needing five lines is two next steps.
+- **The empty state is a prompt, not a confession.** "No next step set", opening
+  the note where it would be set. The previous copy reported an empty
+  frontmatter field as the largest text on screen.
+- **Command's header drops to the wordmark alone**, so there is one omega on
+  screen rather than two — which also hands the rail its width back in the mode
+  where it is most visible.
+
 ## The Pantheon capture schema (`6a70f3a`, `55e11f8`)
 
 The library is the assistant's **curriculum, not a reading pile**. There is
@@ -280,10 +395,8 @@ false positive — expect it before concluding something is broken.
 
 ## Next work — the dashboard redesign
 
-The operator wrote a six-task redesign brief on 2026-07-26. Tasks 1, 2, 3, 4, 5,
-and the visual parts of 6 are built. **Only task 6b remains**, planned and
-approved in `~/.claude/plans/distributed-forging-charm.md` (Part C) but not
-started.
+**The six-task redesign brief is finished.** All of it shipped, plus two rounds
+of corrections on top of it. Nothing in that brief is outstanding.
 
 Research mode shipped thin, as agreed: Pantheon resident in the centre column,
 chat still right, search over title and tags. No links, provenance, or
@@ -292,36 +405,76 @@ open the library and never has** — it is gated on the database already being
 open (`LibraryPanel.tsx`) and only focuses the search box. The shortcut popover
 used to claim otherwise; it now says what the key does.
 
-The remaining decision:
+### The operator's own next steps
 
-- **Task 6b — dissolve the Action Queue.** Attribute tasks to projects by which
-  note the checkbox lives under. `tasks.rs` already records `source_folder` and a
-  vault-relative `source_file`, so `01 - Projects/<note>.md` is the join. **The
-  "no data yet" claim was wrong** — as of 2026-07-26 there are 17 open tasks: 10
-  in `01 - Projects/Project Olympus.md` and therefore attributable, 6 in
-  `03 - Tasks/Olympus Next Actions.md`, 1 in a daily brief. The unattributed
-  bucket is 41%, not 100%. Surface it, do not hide it.
+Three things wait on him, not on code:
 
-Task 5's translucency tiering now has the open Command-mode centre it was
-waiting for — with Markets and Weather moved into the header rail, the centre
-column is what the background reads through.
+- **Classify the seven unclassified projects.** The ring is built and correct
+  but has almost nothing to say while 7 of 8 projects carry no declared status.
+  One file per project in `01 - Projects/`, named exactly the project folder
+  (or with the folder name under `aliases:`), carrying `type: project` or the
+  `olympus/project` tag, and `status:` one of `active`, `watching`, `scaffold`,
+  `archived`. **Quote any value containing a colon** or YAML reads it as a
+  nested key and the field vanishes silently.
+- **Set `next_step` on `Project Olympus.md`.** Until then Command mode shows its
+  empty-state prompt rather than a sentence.
+- **Replace the background image.** See the note under Housekeeping — the
+  reposition stopgap is dead, and it is the only remaining fix.
 
-**Flagged by the operator, deliberately not built.** These are dependencies of
-the library actually working, recorded so they are not rediscovered as bugs.
+### Then: the dependencies of the library working
+
+These were flagged and deliberately not built. They are now the real next work.
 
 - **The assistant sees research as metadata only** — titles, never bodies. Under
   the curriculum framing that is the premise unmet: fifty sources could be added
-  and nothing about its thinking would change. What it needs is a tool-use loop
+  and nothing about its thinking would change. It needs a tool-use loop
   (`read_vault_note` / `search_vault`) so the model opens a note it names.
   **Research chat must not be built as general chat with vault context bolted
-  on** — an assistant that paraphrases notes it never opened teaches the operator
-  not to trust the mode.
-- **`04 - Decisions` is invisible to the assistant**, including metadata — absent
-  from `STABLE_NOTES` and from the Pantheon index. Contradiction detection is
-  impossible without it: nothing can be told that a new source undercuts an April
-  decision if the decisions cannot be seen.
-- **Decompose `LibraryPanel.tsx` (1354 lines).** Worth doing on its own merits
-  and the real prerequisite for anything richer in Research mode.
+  on** — an assistant that paraphrases notes it never opened teaches the
+  operator not to trust the mode.
+- **`04 - Decisions` is invisible to the assistant**, including metadata.
+  Contradiction detection is impossible until it isn't.
+- **Decompose `LibraryPanel.tsx`** (~1400 lines) — worth doing alone, and the
+  real prerequisite for anything richer in Research mode.
+- **Writing `next_step` from the UI.** Booked deliberately as its own session:
+  it is the first exercise of the modify-existing-lines tier on a file Olympus
+  did not author, so it needs a `WriteIntent` arm and `COPY` wording done
+  properly rather than tucked into an empty state. The argument for it is the
+  colon hazard above — a field that serialises YAML correctly is safer than
+  hand-editing frontmatter and losing a key silently.
+
+The **Research mode category sidebar** is a fixed taxonomy where four of five
+categories are empty and the fifth holds everything. A taxonomy chosen now will
+be wrong in a year; if entries keep landing in General Reference, that is the
+schema saying it guessed wrong. Revisit once there are enough entries to see the
+real shape.
+
+One detail worth keeping from the earlier version of this list: `04 - Decisions`
+is absent from **both** `STABLE_NOTES` and the Pantheon index, so nothing can be
+told that a new source undercuts an April decision if the decisions cannot be
+seen at all.
+
+**The background image has to be replaced, and repositioning cannot fix it.**
+
+`src/assets/Olympus background asset.png` contains its own rendered interface:
+holographic panels with a circular dial and an "ANALYTICS" chart on the left,
+two more panels on the right, a ghosted OLYMPUS wordmark on a banner near
+centre, and — the real problem — the city is built from large concentric
+circular platforms across the full width. Those are rings competing with the
+instrument's ring, and one of them sits directly behind the omega.
+
+**Shifting `background-position` does nothing.** The image is 1672×941, exactly
+16:9; the background layer at a maximised window is 1968×959. Under `cover` the
+image scales to width and the horizontal slack is **0px**. This was verified by
+setting it to 88% and looking: the left panels are unchanged. A directional
+vignette was also considered and rejected — it addresses the left third and none
+of the rest, and darkening enough to hide the rest means having no image at all.
+
+What a replacement needs: no rendered screens, glass panels or HUD elements; no
+text or logotype; nothing strongly circular near centre; detail in the outer
+thirds with a calm middle where the omega sits; and dark enough that the 0.78
+veil is not doing the work. Landscape, atmosphere, architecture without
+interface.
 
 **Housekeeping.**
 
@@ -335,9 +488,11 @@ the library actually working, recorded so they are not rediscovered as bugs.
   `git -C` (`projects.rs`). Read-only today, so not a data-loss risk — but it
   is the same pattern `62c957e` removed for the vault path, and git honours
   repo-local config keys that execute programs.
-- The Pantheon scan re-reads every research file — including a ~17,000-word note
-  — every 60 seconds, twice on mount under StrictMode. If Pantheon becomes a mode
-  rather than a resident panel, the cadence is worth revisiting.
+- ~~The Pantheon scan re-reads every research file every 60 seconds.~~ Fixed in
+  `4c8e5c2`: 300s, and the Rust scan holds a path→(mtime, entry) cache, so a scan
+  finding nothing new reads no file bodies at all. This mattered because the scan
+  now runs in **every** mode rather than only where the library panel was
+  mounted — see the polling note under Constraints.
 - **The repository lives inside OneDrive, which does not read `.gitignore`.**
   Build output was syncing: `src-tauri/target` had reached 16.8 GB across 19,230
   files, and OneDrive takes locks on artifacts mid-sync, which surfaces on Windows
@@ -386,6 +541,24 @@ the library actually working, recorded so they are not rediscovered as bugs.
 - **`.topbar` sets `min-height: 140px`, and `.olympus-header` carries both
   classes.** A `height` alone will not shrink the band — min-height wins. This
   cost a debugging pass; `.olympus-header` now sets `min-height` too.
+- **A poll that feeds the instrument must be subscribed at `App`, not inside a
+  panel.** `useActionQueue` and `usePantheon` are shared stores whose interval
+  starts with the first subscriber; `App` subscribes so they run in every mode.
+  Move that subscription back into a panel and the instrument's dots go dark in
+  Command — which reads as a dead scan rather than as an unmounted component.
+  Anything given a dot has to poll everywhere the dot is shown.
+- **The status rail is handed a budget and must never measure its own
+  container.** Its grid track is `auto`, so the container is sized *by* the rail;
+  observing it makes the budget depend on the decision the budget exists to make.
+  `HeaderBar` computes it. And the off-layout measure copies need
+  `width: max-content`, or every candidate reports the widest sibling's width and
+  the mechanism becomes decorative while still appearing to work.
+- **The instrument's ring is a fixed size on purpose.** Scaling it to fit a long
+  sentence either scales the arc strokes back under the readable floor or holds
+  them and shifts the visual ratios. The sentence clamps; the dial does not move.
+- **The next-action sentence must not use `--font-display`.** Cinzel renders it
+  as serif capitals — a wordmark treatment that is unreadable as prose at four
+  or five lines.
 - **Neither status panel tolerates anything floating over its top-right.**
   Markets and Weather both put actions there, so an absolutely positioned control
   in that corner lands on a real button and eats the click.
@@ -394,7 +567,7 @@ the library actually working, recorded so they are not rediscovered as bugs.
   `motion` animation freezes mid-fade and reads exactly like a broken component.
   Chrome also ignores `resize` on a maximized window, which silently defeats the
   narrow-width check. Confirm `document.visibilityState === "visible"` first.
-- Rust tests pass (**145** as of `4e8f04c`); keep them passing. No frontend test
+- Rust tests pass (**145** as of `4c8e5c2`); keep them passing. No frontend test
   infrastructure exists — do not stand one up without being asked. A pure
   frontend function can still be checked by bundling it to a scratch directory
   and running it under node, which adds nothing to the repo.
