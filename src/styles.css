@@ -416,12 +416,18 @@ select:focus {
   border-radius: 8px;
 }
 
-/* Three zones, not a centred band. The middle column is the one that has to
-   stay put: `1fr auto 1fr` keeps the mode switcher optically centred even as
-   the status rail changes width with the quotes in it. */
+/* Three zones. The rail is sized by what it chose to show; the left zone takes
+   the remainder and absorbs the squeeze, because its one flexible part — the
+   next-action sentence — already ellipsizes.
+   `1fr auto 1fr` gave the rail exactly half the leftover whether it needed it
+   or not: at 1920 that was 741px for content wanting 872px, and the overflow
+   painted the Dow value through the weather segment. Making the rail's track
+   `auto` instead is only safe because the rail is handed an explicit budget and
+   never renders wider than it — an `auto` track takes its content width ahead
+   of any `fr`, so an unbudgeted rail would starve the left zone to nothing. */
 .olympus-header {
   display: grid;
-  grid-template-columns: 1fr auto 1fr;
+  grid-template-columns: minmax(0, 1fr) auto auto;
   align-items: center;
   gap: var(--space-16);
   padding: 12px 24px;
@@ -600,11 +606,45 @@ select:focus {
 
 /* ---- Status rail -------------------------------------------------------- */
 
+/* The rail measures itself and drops whole units; it must never be asked to
+   wrap or to shrink a segment below its text. `overflow: hidden` is the
+   backstop — if the measurement is ever wrong, the failure is a clean cut at
+   the edge rather than two numbers painted over each other. */
+/* Not `width: 100%` — this sits in an `auto` track, so its own content is what
+   sizes the track. Forcing a percentage would make the track depend on a width
+   that depends on the track. */
+.status-rail-shell {
+  position: relative;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* Off-layout copies of every candidate composition, measured to pick one.
+   Hidden from paint, from hit-testing and from the accessibility tree. */
+.status-rail-measure {
+  position: absolute;
+  top: 0;
+  left: 0;
+  visibility: hidden;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+/* Each candidate must size to its own content. Without this they are
+   block-level boxes in a shrink-to-fit parent, so every one of them reports
+   the width of the widest sibling and the rail always picks the richest. */
+.status-rail-measure > .status-rail {
+  width: max-content;
+}
+
 .status-rail {
   display: flex;
   align-items: center;
   gap: var(--space-12);
-  min-width: 0;
+  flex: 0 0 auto;
   font-size: 12px;
 }
 
@@ -619,7 +659,8 @@ select:focus {
   font-family: inherit;
   font-size: inherit;
   cursor: pointer;
-  min-width: 0;
+  flex: 0 0 auto;
+  white-space: nowrap;
   transition:
     border-color 160ms ease-out,
     background 160ms ease-out;
