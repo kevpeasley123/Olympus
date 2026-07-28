@@ -42,6 +42,11 @@ pub struct TrackedProjectPayload {
     pub last_commit_at: Option<String>,
     #[serde(rename = "repoState")]
     pub repo_state: String,
+    /// Commits from the last 24 hours, newest first. Feeds the day arc's tick
+    /// marks, which need *when work happened* rather than only the latest
+    /// commit — `last_commit_at` answers a different question.
+    #[serde(rename = "recentCommits")]
+    pub recent_commits: Vec<RecentCommit>,
     pub summary: String,
     /// The operator's own words, or empty. Never invented — see the note on
     /// `build_project_payload`.
@@ -174,6 +179,7 @@ fn build_project_payload(
         status_source: status_source.to_string(),
         promoted: note.and_then(|note| note.promoted.clone()),
         branch: "N/A".to_string(),
+        recent_commits: Vec::new(),
         last_commit: "Folder only".to_string(),
         last_commit_at: None,
         repo_state: "folder-only".to_string(),
@@ -215,6 +221,7 @@ fn build_project_payload(
     payload.summary = "Live project snapshot derived from the local folder and Git state.".to_string();
     payload.last_commit = last_commit;
     payload.last_commit_at = last_commit_at;
+    payload.recent_commits = recent_commits(&path);
 
     Ok(payload)
 }
@@ -249,6 +256,7 @@ fn orphaned_note_payload(note: &ProjectNote) -> TrackedProjectPayload {
         id: project_id(&name),
         name,
         path: String::new(),
+        recent_commits: Vec::new(),
         status: note
             .status
             .unwrap_or(ProjectStatus::Unclassified)
@@ -308,6 +316,43 @@ fn is_excluded_directory(path: &Path) -> bool {
     }
 }
 
+/// One commit inside the day arc's window.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RecentCommit {
+    /// ISO 8601 committer date.
+    #[serde(rename = "at")]
+    pub at: String,
+    pub subject: String,
+}
+
+/// Commits in the last 24 hours, newest first.
+///
+/// A second `git log` rather than a wider first one: the existing call answers
+/// "what is the tip and when", which orders the project list, and widening it
+/// would make every caller pay for history none of them read.
+fn recent_commits(path: &PathBuf) -> Vec<RecentCommit> {
+    let Ok(raw) = git_command(
+        path,
+        &["log", "--since=24.hours", "--pretty=format:%cI|%s"],
+    ) else {
+        return Vec::new();
+    };
+
+    raw.lines()
+        .filter_map(|line| {
+            let (at, subject) = line.split_once('|')?;
+            let at = at.trim();
+            if at.is_empty() {
+                return None;
+            }
+            Some(RecentCommit {
+                at: at.to_string(),
+                subject: subject.trim().to_string(),
+            })
+        })
+        .collect()
+}
+
 fn git_command(path: &PathBuf, args: &[&str]) -> Result<String, String> {
     let output = Command::new("git")
         .arg("-C")
@@ -365,6 +410,7 @@ mod tests {
             id: project_id(name),
             name: name.to_string(),
             path: String::new(),
+            recent_commits: Vec::new(),
             status: status.to_string(),
             status_source: "inferred".to_string(),
             promoted: None,

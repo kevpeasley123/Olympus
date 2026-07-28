@@ -598,10 +598,17 @@ fn perform_write_pantheon_entry(req: WritePantheonEntryRequest) -> Result<String
 }
 
 #[tauri::command]
-pub async fn write_pantheon_entry(req: WritePantheonEntryRequest) -> Result<String, String> {
-    tauri::async_runtime::spawn_blocking(move || perform_write_pantheon_entry(req))
+pub async fn write_pantheon_entry(
+    db: tauri::State<'_, crate::commands::persistence::Db>,
+    req: WritePantheonEntryRequest,
+) -> Result<String, String> {
+    let written = tauri::async_runtime::spawn_blocking(move || perform_write_pantheon_entry(req))
         .await
-        .map_err(|error| format!("Pantheon write task panicked: {error}"))?
+        .map_err(|error| format!("Pantheon write task panicked: {error}"))??;
+
+    crate::commands::persistence::log_vault_write(db.inner(), &written, "create");
+
+    Ok(written)
 }
 
 #[cfg(test)]

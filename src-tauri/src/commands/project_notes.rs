@@ -129,6 +129,18 @@ fn normalise_key(raw: &str) -> String {
 }
 
 /// Reads and indexes the folder. Blocking; call it from a blocking context.
+impl ProjectNoteIndex {
+    /// Vault-relative paths of every note that declared itself a project.
+    ///
+    /// Exposed for the vault graph, whose anchors must be the *declared*
+    /// projects rather than everything sitting in `01 - Projects` — that folder
+    /// also holds notes like `Olympus/Design Evolution.md`, which is why the
+    /// `type: project` rule exists at all.
+    pub fn note_paths(&self) -> Vec<&str> {
+        self.notes.iter().map(|note| note.note_path.as_str()).collect()
+    }
+}
+
 pub fn load_project_notes() -> ProjectNoteIndex {
     load_project_notes_from(&get_vault_path().join(PROJECTS_FOLDER))
 }

@@ -38,6 +38,87 @@ fn locked<'a>(db: &State<'a, Db>) -> Result<std::sync::MutexGuard<'a, Connection
     db.inner().0.lock().map_err(|error| error.to_string())
 }
 
+/// A vault write that landed, recorded for the day arc's tick marks.
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VaultWriteEvent {
+    pub path: String,
+    pub operation: String,
+    /// SQLite `CURRENT_TIMESTAMP`, i.e. UTC `YYYY-MM-DD HH:MM:SS`.
+    pub written_at: String,
+}
+
+const VAULT_WRITE_EVENT: &str = "vault-write";
+
+/// Records a write that actually landed.
+///
+/// `artifact_hashes` cannot answer this: it upserts one row per path, so it
+/// holds the *latest* write to each file and nothing about how often or when
+/// else. `processing_logs` is append-only and already in the schema.
+///
+/// **Every writer must call this.** The value of a chokepoint log is that it is
+/// complete — a writer that skips it makes the day arc quietly under-report
+/// rather than visibly break, which is the worse failure.
+pub fn log_vault_write(db: &Db, vault_relative_path: &str, operation: &str) {
+    let Ok(connection) = db.0.lock() else {
+        eprintln!("[Olympus::WriteLog] could not lock the database");
+        return;
+    };
+
+    // Deliberately not propagated: a write that succeeded must not be reported
+    // as failed because its bookkeeping row did not insert.
+    if let Err(error) = connection.execute(
+        "INSERT INTO processing_logs (event_type, message, payload_json) VALUES (?1, ?2, ?3)",
+        params![
+            VAULT_WRITE_EVENT,
+            vault_relative_path,
+            format!("{{\"operation\":\"{operation}\"}}")
+        ],
+    ) {
+        eprintln!("[Olympus::WriteLog] could not record {vault_relative_path}: {error}");
+    }
+}
+
+/// Writes from the last `hours`, newest first. Feeds the day arc's tick marks.
+pub fn recent_vault_writes(db: &Db, hours: u32) -> Result<Vec<VaultWriteEvent>, String> {
+    let connection = db.0.lock().map_err(|error| error.to_string())?;
+
+    let mut query = connection
+        .prepare(
+            "SELECT message, payload_json, created_at FROM processing_logs \
+             WHERE event_type = ?1 AND created_at >= datetime('now', ?2) \
+             ORDER BY created_at DESC",
+        )
+        .map_err(|error| error.to_string())?;
+
+    let rows = query
+        .query_map(params![VAULT_WRITE_EVENT, format!("-{hours} hours")], |row| -> rusqlite::Result<VaultWriteEvent> {
+            let payload: String = row.get(1)?;
+            // The payload is written by this module and holds one key; a full
+            // JSON parse would be more machinery than the shape deserves.
+            let operation = payload
+                .split("\"operation\":\"")
+                .nth(1)
+                .and_then(|rest| rest.split('"').next())
+                .unwrap_or("write")
+                .to_string();
+            Ok(VaultWriteEvent {
+                path: row.get(0)?,
+                operation,
+                written_at: row.get(2)?,
+            })
+        })
+        .map_err(|error| error.to_string())?;
+
+    rows.collect::<Result<Vec<_>, _>>()
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub fn fetch_recent_vault_writes(db: State<Db>) -> Result<Vec<VaultWriteEvent>, String> {
+    recent_vault_writes(db.inner(), 24)
+}
+
 /// Fingerprint of a generated artifact as the app last wrote it, if we have one.
 ///
 /// Takes `&Db` rather than `State` so the caller controls the lock's scope —

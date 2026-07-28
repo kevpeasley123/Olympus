@@ -135,7 +135,10 @@ fn research_entries(vault: &Path) -> Vec<PathBuf> {
 /// diff, and batching them behind one prompt would ask the operator to approve
 /// changes they were never shown.
 #[tauri::command]
-pub async fn migrate_pantheon_schema(app: tauri::AppHandle) -> Result<MigrationOutcome, String> {
+pub async fn migrate_pantheon_schema(
+    app: tauri::AppHandle,
+    db: tauri::State<'_, crate::commands::persistence::Db>,
+) -> Result<MigrationOutcome, String> {
     let vault = get_vault_path();
     let files = tauri::async_runtime::spawn_blocking(move || research_entries(&vault))
         .await
@@ -222,7 +225,10 @@ pub async fn migrate_pantheon_schema(app: tauri::AppHandle) -> Result<MigrationO
         .map_err(|error| format!("Migration write panicked: {error}"))?;
 
         match written {
-            Ok(()) => outcome.migrated.push(relative),
+            Ok(()) => {
+                crate::commands::persistence::log_vault_write(db.inner(), &relative, "overwrite");
+                outcome.migrated.push(relative)
+            }
             Err(error) => outcome.failed.push(format!("{relative}: {error}")),
         }
     }

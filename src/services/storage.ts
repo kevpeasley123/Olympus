@@ -218,6 +218,7 @@ function normalizeProject(project: TrackedProject): TrackedProject {
     statusSource: project.statusSource === "declared" ? "declared" : "inferred",
     promoted: project.promoted ?? null,
     lastCommitAt: project.lastCommitAt ?? null,
+    recentCommits: project.recentCommits ?? [],
     nextStep: project.nextStep ?? "",
     notePath: project.notePath ?? null,
     warnings: project.warnings ?? []

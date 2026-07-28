@@ -224,6 +224,7 @@ fn read_note(path: &Path) -> Option<String> {
 #[tauri::command]
 pub async fn append_profile_observation(
     app: tauri::AppHandle,
+    db: tauri::State<'_, crate::commands::persistence::Db>,
     request: ObservationRequest,
 ) -> Result<ObservationResult, String> {
     let observation = normalise(&request.text)?;
@@ -287,6 +288,8 @@ pub async fn append_profile_observation(
     })
     .await
     .map_err(|error| format!("Observation write task panicked: {error}"))??;
+
+    crate::commands::persistence::log_vault_write(db.inner(), OBSERVATIONS_NOTE, "append");
 
     Ok(ObservationResult {
         path: target.to_string_lossy().to_string(),

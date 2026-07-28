@@ -132,6 +132,13 @@ export type ProjectStatus = "active" | "watching" | "scaffold" | "archived" | "u
 /** Whether a vault note said so, or nothing did. */
 export type ProjectStatusSource = "declared" | "inferred";
 
+/** One commit inside the day arc's window. */
+export interface RecentCommit {
+  /** ISO 8601 committer date. */
+  at: string;
+  subject: string;
+}
+
 export interface TrackedProject {
   id: string;
   name: string;
@@ -145,6 +152,8 @@ export interface TrackedProject {
   /** ISO 8601, or null for a folder with no commits. */
   lastCommitAt: string | null;
   repoState: "git-active" | "git-pending" | "folder-only" | "no-repo";
+  /** Commits in the last 24 hours, newest first. Empty for a folder with none. */
+  recentCommits: RecentCommit[];
   summary: string;
   /** The operator's own words, or empty. Never generated. */
   nextStep: string;

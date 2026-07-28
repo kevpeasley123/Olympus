@@ -20,8 +20,8 @@ use commands::pantheon::{fetch_pantheon_entries, write_pantheon_entry};
 use commands::pantheon_migrate::migrate_pantheon_schema;
 use commands::profile::fetch_operator_profile;
 use commands::persistence::{
-    append_conversation_messages, clear_conversation, load_persisted_state, save_settings,
-    save_tool_states, Db,
+    append_conversation_messages, clear_conversation, fetch_recent_vault_writes,
+    load_persisted_state, save_settings, save_tool_states, Db,
 };
 use commands::projects::scan_tracked_projects;
 use commands::tasks::fetch_action_queue;
@@ -162,6 +162,7 @@ async fn write_memory_artifact(
         &key,
         &vault_write::content_fingerprint(&artifact.content),
     )?;
+    commands::persistence::log_vault_write(db.inner(), &key, "overwrite");
 
     Ok(WriteResult {
         path: target.to_string_lossy().to_string(),
@@ -317,6 +318,8 @@ pub fn run() {
             append_profile_observation,
             write_pantheon_entry,
             migrate_pantheon_schema,
+            fetch_recent_vault_writes,
+            commands::vault_graph::fetch_vault_graph,
             pick_attachment_file,
             extract_pdf_text,
             save_attachment_to_vault
