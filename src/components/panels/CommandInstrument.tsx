@@ -60,10 +60,22 @@ const TIER_CIRCUMFERENCE = 2 * Math.PI * TIER_RADIUS;
 /** Visual separation between arcs, in path units. */
 const ARC_GAP = 10;
 
+/**
+ * How long each pulse stays mounted.
+ *
+ * The write pulse plays its ripple twice (`repeat: 1` below), so its window has
+ * to cover both plays. It was 1400ms against a 1.4s animation set to repeat,
+ * which meant the element unmounted exactly as the second expansion began and
+ * the repeat could never render — a rare event reduced to one sub-second
+ * ripple that was easy to miss entirely against a dark background.
+ */
 const PULSE_MS: Record<InstrumentEvent, number> = {
-  "vault-write": 1400,
+  "vault-write": 2800,
   poll: 700
 };
+
+/** One expansion. Two of these play per write. */
+const WRITE_RIPPLE_SECONDS = 1.4;
 
 /** Long enough to catch out of the corner of an eye. */
 const DOT_LIT_MS = 1200;
@@ -341,7 +353,7 @@ export function CommandInstrument({
               strokeWidth={2}
               initial={{ opacity: 0.7, scale: 0.9 }}
               animate={{ opacity: 0, scale: 1.08 }}
-              transition={{ duration: PULSE_MS["vault-write"] / 1000, ease: "easeOut", repeat: 1 }}
+              transition={{ duration: WRITE_RIPPLE_SECONDS, ease: "easeOut", repeat: 1 }}
               style={{ transformOrigin: `${CENTRE}px ${CENTRE}px` }}
             />
           ) : null}

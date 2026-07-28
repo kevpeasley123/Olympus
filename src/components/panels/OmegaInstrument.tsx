@@ -8,11 +8,29 @@ interface OmegaInstrumentProps {
   projects: TrackedProject[];
 }
 
-/** How long a pulse stays visible. Long enough to notice, short enough to miss. */
+/**
+ * How long a pulse stays mounted.
+ *
+ * The write pulse plays its ripple twice, so the window covers both plays. At
+ * 1400ms against a 1.4s repeating animation the element unmounted exactly as
+ * the second expansion began, so the repeat could never render — the same
+ * defect the centre instrument carried.
+ */
 const PULSE_MS: Record<InstrumentEvent, number> = {
+  /** Two plays of a 0.7s ripple. */
   "vault-write": 1400,
+  /** One. */
   poll: 700
 };
+
+/**
+ * One expansion. The write pulse plays two; the poll tick plays one.
+ *
+ * Snappier than the centre instrument's 1.4s because this mark is 56px rather
+ * than 505px — the same ripple duration over a tenth of the radius reads as
+ * sluggish.
+ */
+const RIPPLE_SECONDS = 0.7;
 
 /**
  * The next action, or nothing.
@@ -94,7 +112,7 @@ export function OmegaInstrument({ projects }: OmegaInstrumentProps) {
               initial={{ opacity: 0.75, scale: 0.82 }}
               animate={{ opacity: 0, scale: 1.12 }}
               transition={{
-                duration: PULSE_MS[pulse] / 1000,
+                duration: RIPPLE_SECONDS,
                 ease: "easeOut",
                 repeat: pulse === "vault-write" ? 1 : 0
               }}
