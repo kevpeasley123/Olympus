@@ -5,6 +5,7 @@ import type { ObsidianActionResult } from "../../services/obsidian";
 import { useActionQueue, type ActionQueueTask } from "../../hooks/useActionQueue";
 import { attributeTasks, groupBySourceFile } from "../../services/taskAttribution";
 import { useState } from "react";
+import { ProjectBriefing } from "./ProjectBriefing";
 
 interface ProjectsPanelProps {
   projects: TrackedProject[];
@@ -14,9 +15,11 @@ interface ProjectsPanelProps {
   focusMode?: boolean;
   /** Set by clicking a tier arc in Command mode. */
   tierFilter?: ProjectStatus | null;
-  /** Set by choosing a project path from the Command briefing. */
+  /** Set by opening one of Project mode's detailed session paths. */
   projectFilter?: string | null;
   onClearFilter?: () => void;
+  onFocusProject: (projectId: string) => void;
+  onOpenNote: (notePath: string) => void;
 }
 
 const STATUS_LABELS: Record<ProjectStatus, string> = {
@@ -37,7 +40,9 @@ export function ProjectsPanel({
   focusMode = false,
   tierFilter = null,
   projectFilter = null,
-  onClearFilter
+  onClearFilter,
+  onFocusProject,
+  onOpenNote
 }: ProjectsPanelProps) {
   const projects = projectFilter
     ? allProjects.filter((project) => project.id === projectFilter)
@@ -64,7 +69,7 @@ export function ProjectsPanel({
 
   // Attribute against the whole portfolio before filtering the visible cards.
   // Otherwise tasks belonging to a hidden project are falsely presented as
-  // unattributed whenever Command opens one project.
+  // unattributed whenever Project mode focuses one workspace.
   const { perProject, unattributed } = attributeTasks(allProjects, tasks);
   const filterLabel = projectFilter
     ? allProjects.find((project) => project.id === projectFilter)?.name ?? "project"
@@ -116,6 +121,21 @@ export function ProjectsPanel({
         )}
       </div>
       <div className="project-list">
+        {!projectFilter && !tierFilter ? (
+          <ProjectBriefing
+            projects={allProjects}
+            tasks={tasks}
+            tasksError={tasksError}
+            onSelectProject={onFocusProject}
+            onOpenNote={onOpenNote}
+          />
+        ) : null}
+
+        <div className="project-directory-heading">
+          <span>{filterLabel ? `${filterLabel} projects` : "All projects"}</span>
+          <span className="tabular-data">{projects.length}</span>
+        </div>
+
         {projects.map((project) => (
           <ProjectCard
             key={project.id}

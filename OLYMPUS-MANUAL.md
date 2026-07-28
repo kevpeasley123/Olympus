@@ -15,7 +15,12 @@ system that maintains project truth, memory, decisions, and delegated work.
 
 ## Opening experience
 
-On launch, Command should answer:
+On launch, Command is the ambient, glanceable state of Olympus. It should be
+readable from across the room: the full omega instrument, one active-project
+next-action sentence, quiet tier counts, and chat in the right column. The
+instrument is the mode, not an illustration beside another interface.
+
+Project mode carries the readable session briefing:
 
 1. What changed since the last working session?
 2. Where does each active project stand?
@@ -71,15 +76,26 @@ not commands to repeat an old choice forever.
 
 ### Command
 
-The primary briefing, conversation, and orchestration surface. It presents the
-portfolio state and several grounded session paths. The constellation instrument
-is supporting context, not the whole experience.
+The ambient command and conversation surface. Its centre column contains the
+full-size omega instrument—tier arcs, vault graph, and day arc—followed by the
+active project's next action as the largest text and quiet tier counts. Chat
+remains in the right column.
+
+Command's defining test is “one glyph, one sentence, readable across the room.”
+A proposal that adds a card, list, or scroll container to its centre column
+belongs in Project mode. The instrument must not shrink to make room for a panel;
+that inversion turns the mode's primary display into decoration.
 
 ### Projects
 
 The complete portfolio. Active, watching, scaffold, and archived projects remain
 visible with their repository state, vision, accomplishments, tasks, committed
-actions, recommendations, and attention items.
+actions, recommendations, and attention items. Its hero area presents the
+primary active session path; additional active or optional watching paths appear
+as secondary cards. This is the mode for leaning in and reading detail.
+
+Operator commitments, Olympus recommendations, and attention items remain
+visually distinct here and anywhere else they appear.
 
 ### Research / Pantheon
 

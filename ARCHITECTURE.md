@@ -136,7 +136,9 @@ Dashboard panels compose from `src/App.tsx`. Live data sources:
   notes contribute operator-owned status, current vision, vision review date,
   and committed next action; Git contributes branch, commit, and working-tree
   facts. `src/services/projectBriefing.ts` reconciles those with attributed
-  tasks into Command's grounded session paths.
+  tasks into Project mode's grounded session paths. Command consumes the same
+  sources only for its single committed next-action sentence, tier arcs, and
+  quiet counts.
 
 - **Chat** — `send_assistant_message` calls the Anthropic API from Rust, so the API key never reaches the webview
 

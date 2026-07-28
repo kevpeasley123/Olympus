@@ -164,7 +164,7 @@ function recommendation(project: TrackedProject, tasks: ActionQueueTask[]): stri
 }
 
 /**
- * Builds the Command briefing from sources Olympus can prove.
+ * Builds Project mode's session-path briefing from sources Olympus can prove.
  *
  * Active projects always lead. When fewer than three are active, a watching
  * project with current work may be offered as a clearly labelled alternative;

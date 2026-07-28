@@ -10,10 +10,14 @@ The operator resolved several questions and rejected several inherited product
 claims later in this document:
 
 - Olympus is a private, single-operator command station and AI thinking partner.
-- Command opens with a succinct multi-project briefing and two or three grounded
-  session paths. It is not a single sentence intended to read across the room.
-- The mode labels are surfaces, not prescribed verbs. Command briefs and
-  orchestrates; Projects holds the whole portfolio; Research organizes and
+- Command is the ambient, across-the-room mode: the full omega instrument, one
+  active-project next-action sentence, quiet tier counts, and right-column chat.
+  Cards, lists, and scroll containers in its centre column are mode drift.
+- The multi-project briefing and its grounded active/optional session paths live
+  in Project mode, with the primary active path as the hero and other paths as
+  secondary cards.
+- The mode labels are surfaces, not prescribed verbs. Command is ambient and
+  ready; Projects briefs and holds the whole portfolio; Research organizes and
   queries the library.
 - Pantheon is a reference library and optional curriculum. Presence is not
   endorsement and does not silently become an assistant instruction.
@@ -26,8 +30,15 @@ claims later in this document:
 
 The implementation branch adds the multi-project briefing, living vision fields,
 prompt policy, canonical manual and adapters, and corresponding vault-memory
-updates. TypeScript, the production frontend build, and the portable 151-test
-Rust suite pass. The real Tauri window still needs human visual judgment.
+updates. The original pass placed the briefing in Command and shrank the
+instrument; the operator rejected that reversal of the mode boundary. The
+briefing now lives in Project mode and Command's instrument-first layout is
+restored. After the correction, TypeScript and the production frontend build
+pass. Browser verification at 1280 × 720 found a 440px Command instrument, a
+56px next-action sentence, quiet 12px counts, and no centre-column cards, lists,
+or scroll containers. Project mode rendered the active hero, one optional
+watching path, all three truth labels, and working project focus. Human judgment
+of the live Tauri window remains distinct evidence.
 
 ## How to read the claims in this document
 
@@ -113,9 +124,10 @@ rather than conclusion because a conclusion alone invites reversal.
 
 ### The three modes are distinct surfaces, not prescribed verbs
 
-Command is the opening briefing and orchestration surface. Projects is the full
-portfolio. Research is the organized, queryable library. Each needs a clear
-purpose, but “think / execute / know” is not a product constraint.
+Command is the ambient instrument and conversation surface. Projects is the
+readable briefing and full portfolio. Research is the organized, queryable
+library. Each needs a clear purpose, but “think / execute / know” is not a
+product constraint.
 
 ### The library is a reference library and optional curriculum
 
@@ -134,12 +146,17 @@ one direction it must not fail in, and a test pins it. `origin` distinguishes
 sources pre-filtered by his taste from ones Olympus found *because* they cut
 against the library.
 
-### Command mode is a concise session brief
+### Command mode is the ambient instrument
 
-Command should make the operator immediately understand active project state,
-recent accomplishments, committed actions, recommendations, and warnings. It
-may use compact cards and a small amount of scrolling. The ring is supporting
-portfolio and memory context, not the whole experience.
+Command should read from across the room: one full-size omega instrument, one
+active-project next-action sentence, quiet tier counts, and right-column chat.
+The ring, vault graph, and day arc are the content—not supporting decoration.
+Cards, lists, and scrolling project detail belong in Project mode.
+
+The design failure that established this boundary was structural: adding a
+multi-project briefing forced the omega to shrink. Once a centre-column panel
+needs the instrument's space, the instrument becomes decoration by default even
+if the copy still calls it primary.
 
 ### The omega ring is an instrument, not decoration
 

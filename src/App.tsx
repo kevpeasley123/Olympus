@@ -50,7 +50,7 @@ function App() {
   const [statusPanel, setStatusPanel] = useState<StatusRailTarget | null>(null);
   /** Set by clicking a tier arc; Project mode opens filtered to it. */
   const [tierFilter, setTierFilter] = useState<ProjectStatus | null>(null);
-  /** Set by choosing one of Command's grounded session paths. */
+  /** Set when Project mode narrows its detailed briefing to one workspace. */
   const [projectFilter, setProjectFilter] = useState<string | null>(null);
 
   // Project mode is what focus mode was, so the density props that used to read
@@ -125,7 +125,6 @@ function App() {
                 <CommandInstrument
                   projects={projects}
                   onSelectTier={enterTier}
-                  onSelectProject={enterProject}
                   onOpenNote={(notePath) => void openVaultNote(notePath)}
                 />
               </FadeInPanel>
@@ -147,6 +146,8 @@ function App() {
                       setTierFilter(null);
                       setProjectFilter(null);
                     }}
+                    onFocusProject={enterProject}
+                    onOpenNote={(notePath) => void openVaultNote(notePath)}
                   />
                 </FadeInPanel>
                 <FadeInPanel index={7} className="panel-slot panel-slot-library">
