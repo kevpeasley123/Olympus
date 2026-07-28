@@ -22,7 +22,12 @@ export interface PollingStore<T> {
 }
 
 export function createPollingStore<T>(options: {
-  key: PollSourceKey;
+  /**
+   * Reports to the instrument's activity dots. Omitted for polls that have no
+   * dot — a source that reports without being drawn would be invisible, and a
+   * dot without a source would be permanently dark.
+   */
+  key?: PollSourceKey;
   intervalMs: number;
   initial: T;
   fetcher: () => Promise<T>;
@@ -47,10 +52,10 @@ export function createPollingStore<T>(options: {
       try {
         data = await options.fetcher();
         error = null;
-        reportPollSuccess(options.key);
+        if (options.key) reportPollSuccess(options.key);
       } catch (caught) {
         error = String(caught);
-        reportPollFailure(options.key, error);
+        if (options.key) reportPollFailure(options.key, error);
       } finally {
         loading = false;
         inFlight = null;

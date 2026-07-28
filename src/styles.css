@@ -2991,57 +2991,6 @@ small {
   }
 }
 
-/* This used to guard four selectors while every transition and every
-   `motion` animation ran regardless. `MotionConfig reducedMotion="user"` in
-   App.tsx covers the React side; this covers the CSS side. */
-@media (prefers-reduced-motion: reduce) {
-  .ring-outer,
-  .ring-middle,
-  .ring-inner,
-  /* The instrument's activity ring and the dirty-repo breath. The arcs
-     themselves stay — with motion off the ring must still say which tier is
-     which and remain clickable; only the sweep and the pulse stop. A dirty
-     arc still reads through its hover label. */
-  .instrument-activity,
-  .instrument-arc.is-dirty,
-  /* Dots stop flashing but keep their resting state and hover label, so the
-     source list and its ages are still readable. */
-  .instrument-dot,
-  .conversation-pending,
-  .skeleton-line,
-  .health-source-dot,
-  .health-indicator,
-  .ambient-inline-button.is-spinning {
-    animation: none;
-  }
-
-  .main-grid,
-  .tools-rail,
-  .markets-panel,
-  .projects-panel,
-  .weather-panel,
-  .panel-slot,
-  .markets-detail,
-  .tool-row,
-  .ghost-action,
-  .card-link,
-  .send-button,
-  .market-toggle,
-  .markets-news-toggle svg,
-  .observation-seed,
-  /* The scan tick still brightens the ring — that is information — but it
-     arrives instantly rather than easing in. */
-  .instrument-activity,
-  .background-image {
-    transition: none;
-  }
-
-  /* The parallax listener is also skipped in JS; this stops any in-flight
-     transform from being animated out. */
-  .background-image {
-    transform: none !important;
-  }
-}
 
 @media (max-width: 1320px) {
   .market-strip-grid.indexes,
@@ -3733,12 +3682,90 @@ small {
    floor and restoring the hairline problem the ramp fixes — or hold them and
    shift the visual ratios. An instrument whose size varies with something it
    does not measure is worse than a clipped sentence. */
+/* Grown with the viewbox, so adding the day arc outside the tier arcs did not
+   shrink the tiers on screen. */
+/* Never below the 440 viewbox: at scale 1 the thinnest arc is its declared 5px,
+   and anything smaller puts it back under the readable floor the ramp exists to
+   hold. That is the real lower bound on this dial, not taste. */
 .command-instrument__svg {
   display: block;
-  width: min(55vh, 505px);
-  height: min(55vh, 505px);
+  width: clamp(440px, 54vh, 520px);
+  height: clamp(440px, 54vh, 520px);
   flex: 0 0 auto;
   overflow: visible;
+}
+
+/* ---- Day arc ------------------------------------------------------------ */
+
+.day-arc__track {
+  stroke: var(--muted);
+  stroke-width: 1.5;
+  opacity: 0.16;
+  cursor: help;
+}
+
+/* Wide and faint, behind everything. Renders only when the profile actually
+   states quiet hours — absent or malformed draws nothing. */
+.day-arc__quiet {
+  stroke: var(--muted);
+  stroke-width: 9;
+  opacity: 0.07;
+  stroke-linecap: butt;
+}
+
+.day-arc__elapsed {
+  stroke: var(--accent);
+  stroke-width: 2;
+  opacity: 0.55;
+  stroke-linecap: round;
+}
+
+.day-arc__tick {
+  stroke-width: 1.5;
+  cursor: help;
+  transition: opacity 160ms ease-out;
+}
+
+.day-arc__tick--commit {
+  stroke: var(--accent);
+  opacity: 0.75;
+}
+
+.day-arc__tick--write {
+  stroke: var(--primary);
+  opacity: 0.5;
+}
+
+.day-arc__tick:hover {
+  opacity: 1;
+}
+
+.day-arc__now {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2;
+}
+
+.day-arc__now.is-live {
+  animation: day-arc-now-breath 4s ease-in-out infinite;
+}
+
+@keyframes day-arc-now-breath {
+  0%,
+  100% {
+    opacity: 0.65;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.day-arc__label {
+  fill: var(--primary);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  pointer-events: none;
 }
 
 /* Arc length is count. Status is carried by lightness *and* weight moving
@@ -3884,6 +3911,10 @@ small {
   line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+  /* Never compressed by the column. Flex was shrinking this below two lines'
+     worth of height, so the clamp cut the second line's descenders instead of
+     ending it cleanly. */
+  flex: 0 0 auto;
   margin: 0;
   max-width: 26ch;
   font-family: var(--font-sans);
@@ -3917,6 +3948,7 @@ small {
 
 .command-instrument__attribution {
   margin: 0;
+  flex: 0 0 auto;
   font-size: 12px;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -3937,6 +3969,7 @@ small {
 
 .command-instrument__counts {
   margin: 0;
+  flex: 0 0 auto;
   font-size: 12px;
   color: var(--muted);
   opacity: 0.7;
@@ -4161,4 +4194,66 @@ small {
 
 .write-gate__overwrite:hover {
   background: rgba(244, 135, 127, 0.14);
+}
+
+
+/* ---- Reduced motion ----------------------------------------------------- */
+/* LAST IN THE FILE ON PURPOSE. A media query adds no specificity, so these
+   rules only win by source order. While this block sat mid-file, every
+   animation declared after it kept running with the OS setting on — the day
+   arc marker, the activity sweep and the dirty-repo breath all did, and four
+   rounds of checking the selectors matched never caught it because the
+   selectors were fine. Anything added below this block is unguarded. */
+@media (prefers-reduced-motion: reduce) {
+  .ring-outer,
+  .ring-middle,
+  .ring-inner,
+  /* The instrument's activity ring and the dirty-repo breath. The arcs
+     themselves stay — with motion off the ring must still say which tier is
+     which and remain clickable; only the sweep and the pulse stop. A dirty
+     arc still reads through its hover label. */
+  .instrument-activity,
+  .instrument-arc.is-dirty,
+  /* The now-marker stops breathing but stays at the right position, and every
+     tick keeps its hover label. Matched with `.is-live` so this beats the rule
+     that turns it on: source order settles ties, not specificity gaps. */
+  .day-arc__now,
+  .day-arc__now.is-live,
+  /* Dots stop flashing but keep their resting state and hover label, so the
+     source list and its ages are still readable. */
+  .instrument-dot,
+  .conversation-pending,
+  .skeleton-line,
+  .health-source-dot,
+  .health-indicator,
+  .ambient-inline-button.is-spinning {
+    animation: none;
+  }
+
+  .main-grid,
+  .tools-rail,
+  .markets-panel,
+  .projects-panel,
+  .weather-panel,
+  .panel-slot,
+  .markets-detail,
+  .tool-row,
+  .ghost-action,
+  .card-link,
+  .send-button,
+  .market-toggle,
+  .markets-news-toggle svg,
+  .observation-seed,
+  /* The scan tick still brightens the ring — that is information — but it
+     arrives instantly rather than easing in. */
+  .instrument-activity,
+  .background-image {
+    transition: none;
+  }
+
+  /* The parallax listener is also skipped in JS; this stops any in-flight
+     transform from being animated out. */
+  .background-image {
+    transform: none !important;
+  }
 }

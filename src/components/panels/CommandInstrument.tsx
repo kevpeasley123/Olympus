@@ -2,6 +2,9 @@ import { motion, useReducedMotion } from "motion/react";
 import { useEffect, useState } from "react";
 import { subscribeToInstrumentEvents } from "../../services/instrumentEvents";
 import type { InstrumentEvent } from "../../services/instrumentEvents";
+import { DayArc } from "./DayArc";
+import { useOperatorProfile } from "../../hooks/useOperatorProfile";
+import { useVaultWrites } from "../../hooks/useVaultWrites";
 import { selectNextAction } from "../../services/nextAction";
 import {
   POLL_SOURCE_LABELS,
@@ -37,11 +40,20 @@ function tiersWithDirtyRepo(projects: TrackedProject[]): Set<ProjectStatus> {
   return dirty;
 }
 
-/** Viewbox is square and fixed; CSS decides how large it actually draws. */
-const SIZE = 400;
+/**
+ * Viewbox is square and fixed; CSS decides how large it actually draws.
+ *
+ * Radius means distance from active work, outermost first: the day arc, then
+ * project tiers, then the vault graph's bands, then the glyph. The viewbox grew
+ * from 400 to make room for the day arc *outside* the tier arcs without
+ * shrinking them — the CSS size grew to match, so the tiers keep their
+ * apparent size on screen.
+ */
+const SIZE = 440;
 const CENTRE = SIZE / 2;
+const DAY_RADIUS = 205;
 const TIER_RADIUS = 168;
-const ACTIVITY_RADIUS = 138;
+const ACTIVITY_RADIUS = 132;
 
 const TIER_CIRCUMFERENCE = 2 * Math.PI * TIER_RADIUS;
 
@@ -103,6 +115,13 @@ export function CommandInstrument({
   // re-rendering the whole dial every frame.
   const [now, setNow] = useState(() => Date.now());
   const reducedMotion = useReducedMotion();
+  const profile = useOperatorProfile();
+  const { writes } = useVaultWrites();
+  // Flattened here rather than in the arc so the arc stays a pure renderer and
+  // each tick can name the project it came from.
+  const commits = projects.flatMap((project) =>
+    (project.recentCommits ?? []).map((commit) => ({ ...commit, project: project.name }))
+  );
   const tiers = tierBreakdown(projects);
   const action = selectNextAction(projects);
   const dirtyTiers = tiersWithDirtyRepo(projects);
@@ -192,6 +211,16 @@ export function CommandInstrument({
           role="group"
           aria-label="Portfolio instrument"
         >
+          <DayArc
+            centre={CENTRE}
+            radius={DAY_RADIUS}
+            now={new Date(now)}
+            quietHours={profile?.quietHours ?? null}
+            commits={commits}
+            writes={writes}
+            reducedMotion={Boolean(reducedMotion)}
+          />
+
           {/* Outer ring: one arc per tier. Length is count, weight is status. */}
           <g transform={`rotate(-90 ${CENTRE} ${CENTRE})`}>
             {arcs.map((arc) => (
