@@ -50,6 +50,8 @@ function App() {
   const [statusPanel, setStatusPanel] = useState<StatusRailTarget | null>(null);
   /** Set by clicking a tier arc; Project mode opens filtered to it. */
   const [tierFilter, setTierFilter] = useState<ProjectStatus | null>(null);
+  /** Set by choosing one of Command's grounded session paths. */
+  const [projectFilter, setProjectFilter] = useState<string | null>(null);
 
   // Project mode is what focus mode was, so the density props that used to read
   // a boolean now read the mode. One state, not two.
@@ -58,14 +60,24 @@ function App() {
   const command = mode === "command";
 
   function enterTier(status: ProjectStatus) {
+    setProjectFilter(null);
     setTierFilter(status);
+    setMode("project");
+  }
+
+  function enterProject(projectId: string) {
+    setTierFilter(null);
+    setProjectFilter(projectId);
     setMode("project");
   }
 
   // Switching modes by any other route clears the filter, so Project mode is
   // never silently showing a subset the operator did not ask for.
   function selectMode(next: DashboardMode) {
-    if (next !== "project") setTierFilter(null);
+    if (next !== "project") {
+      setTierFilter(null);
+      setProjectFilter(null);
+    }
     setMode(next);
   }
 
@@ -113,6 +125,7 @@ function App() {
                 <CommandInstrument
                   projects={projects}
                   onSelectTier={enterTier}
+                  onSelectProject={enterProject}
                   onOpenNote={(notePath) => void openVaultNote(notePath)}
                 />
               </FadeInPanel>
@@ -129,7 +142,11 @@ function App() {
                     noteWarnings={projectNoteWarnings}
                     focusMode={dense}
                     tierFilter={tierFilter}
-                    onClearTierFilter={() => setTierFilter(null)}
+                    projectFilter={projectFilter}
+                    onClearFilter={() => {
+                      setTierFilter(null);
+                      setProjectFilter(null);
+                    }}
                   />
                 </FadeInPanel>
                 <FadeInPanel index={7} className="panel-slot panel-slot-library">
@@ -178,6 +195,7 @@ function App() {
           // Cycling is an explicit mode change, so it clears the tier filter
           // for the same reason clicking a segment does.
           setTierFilter(null);
+          setProjectFilter(null);
           cycleMode();
         }}
         sourceHealth={sourceHealth}

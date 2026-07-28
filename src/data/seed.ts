@@ -147,7 +147,11 @@ export const seedState: OlympusState = {
       repoState: "git-pending",
       recentCommits: [],
       summary: "Command center dashboard, Codex-native second-brain structure, and project coordination surface.",
-      nextStep: "Add the quickbar and desktop media widget cleanly, then wire project cards to real Git status.",
+      vision:
+        "A private, local-first AI command station and thinking partner that maintains trustworthy project state, offers meaningful paths, challenges weak reasoning, and safely delegates recoverable work.",
+      visionReviewedAt: "2026-07-27",
+      nextStep:
+        "Validate the multi-project Command briefing in the real desktop app, then design the first recoverable coding-agent delegation loop.",
       notePath: "01 - Projects/Project Olympus.md",
       warnings: []
     },
@@ -164,6 +168,8 @@ export const seedState: OlympusState = {
       repoState: "git-active",
       recentCommits: [],
       summary: "Active code project with recent Git history and local uncommitted changes.",
+      vision: "Make collection tracking and card pricing accurate, useful, and easy to operate.",
+      visionReviewedAt: null,
       nextStep: "",
       notePath: null,
       warnings: []
@@ -181,6 +187,8 @@ export const seedState: OlympusState = {
       repoState: "git-pending",
       recentCommits: [],
       summary: "Project folder exists as a Git repo but has not been committed yet.",
+      vision: "",
+      visionReviewedAt: null,
       nextStep: "",
       notePath: null,
       warnings: []
@@ -198,6 +206,8 @@ export const seedState: OlympusState = {
       repoState: "folder-only",
       recentCommits: [],
       summary: "Desktop project folder present but not yet wired into Git tracking.",
+      vision: "",
+      visionReviewedAt: null,
       nextStep: "",
       notePath: "01 - Projects/Agentic AI Scaffolder.md",
       warnings: []

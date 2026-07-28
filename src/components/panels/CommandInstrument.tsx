@@ -6,7 +6,12 @@ import { DayArc } from "./DayArc";
 import { useOperatorProfile } from "../../hooks/useOperatorProfile";
 import { useVaultWrites } from "../../hooks/useVaultWrites";
 import { useVaultGraph } from "../../hooks/useVaultGraph";
-import { selectNextAction } from "../../services/nextAction";
+import { useActionQueue } from "../../hooks/useActionQueue";
+import { isTauriRuntime } from "../../services/launcher";
+import {
+  buildSessionBriefing,
+  type ProjectBrief
+} from "../../services/projectBriefing";
 import { TIER_WEIGHT, tierBreakdown } from "../../services/projectTiers";
 import { VaultGraph } from "./VaultGraph";
 import type { ProjectStatus, TrackedProject } from "../../types";
@@ -14,6 +19,7 @@ import type { ProjectStatus, TrackedProject } from "../../types";
 interface CommandInstrumentProps {
   projects: TrackedProject[];
   onSelectTier: (status: ProjectStatus) => void;
+  onSelectProject: (projectId: string) => void;
   onOpenNote: (notePath: string) => void;
 }
 
@@ -87,18 +93,15 @@ const TIER_LABELS: Record<ProjectStatus, string> = {
 /**
  * Command mode's whole centre column.
  *
- * No panel, no card, no surface — it draws directly on the background image,
- * which is the only mode where that image is visible, and is the point of the
- * mode. The test is whether it reads from across the room: one glyph, one
- * sentence, a ring parseable without focusing. If a scrolling list ever appears
- * here, this has become Project mode with a different tab lit.
- *
- * The glyph is the only thing that glows. Glow on text at this density causes
- * fatigue within a week; one glowing object reads as intentional.
+ * The project briefing is the primary surface. The instrument remains as a
+ * compact portfolio and memory signal rather than using the whole column for
+ * one sentence. Every textual claim below comes from Git, the project note, or
+ * the task scan; recommendations are labelled separately from operator intent.
  */
 export function CommandInstrument({
   projects,
   onSelectTier,
+  onSelectProject,
   onOpenNote
 }: CommandInstrumentProps) {
   const [pulse, setPulse] = useState<InstrumentEvent | null>(null);
@@ -110,13 +113,15 @@ export function CommandInstrument({
   const profile = useOperatorProfile();
   const { writes } = useVaultWrites();
   const { graph } = useVaultGraph();
+  const { tasks, error: tasksError } = useActionQueue();
+  const previewMode = !isTauriRuntime();
   // Flattened here rather than in the arc so the arc stays a pure renderer and
   // each tick can name the project it came from.
   const commits = projects.flatMap((project) =>
     (project.recentCommits ?? []).map((commit) => ({ ...commit, project: project.name }))
   );
   const tiers = tierBreakdown(projects);
-  const action = selectNextAction(projects);
+  const briefing = buildSessionBriefing(projects, tasks, new Date(now));
   const dirtyTiers = tiersWithDirtyRepo(projects);
 
   useEffect(() => {
@@ -162,9 +167,36 @@ export function CommandInstrument({
     : null;
 
   return (
-    <div className="command-instrument">
-      <div className="command-instrument__dial">
-        <svg
+    <div className="command-briefing">
+      <header className="command-briefing__header">
+        <div className="command-briefing__intro">
+          <p className="command-briefing__eyebrow">Session brief</p>
+          <h1>Where should we focus?</h1>
+          <p>{briefing.introduction}</p>
+          <div className="command-briefing__portfolio-meta tabular-data">
+            <span>{briefing.activeCount} active</span>
+            <span>{briefing.totalProjectCount} tracked</span>
+            {briefing.hiddenActiveCount > 0 ? (
+              <span>{briefing.hiddenActiveCount} active path hidden</span>
+            ) : null}
+            {briefing.watchlistOptions > 0 ? (
+              <span>{briefing.watchlistOptions} watchlist option</span>
+            ) : null}
+          </div>
+          {previewMode ? (
+            <p className="command-briefing__warning">
+              Browser preview uses example project state. Open the desktop app for live Git and
+              vault data.
+            </p>
+          ) : tasksError ? (
+            <p className="command-briefing__warning">
+              Project tasks are unavailable, so recommendations omit the task list.
+            </p>
+          ) : null}
+        </div>
+
+        <div className="command-instrument__dial">
+          <svg
           viewBox={`0 0 ${SIZE} ${SIZE}`}
           className={`command-instrument__svg ${pulse ? `is-pulsing pulse-${pulse}` : ""}`}
           role="group"
@@ -266,93 +298,116 @@ export function CommandInstrument({
           >
             {"Ω"}
           </text>
-        </svg>
-      </div>
+          </svg>
+        </div>
+      </header>
 
-      <NextActionLine action={action} onOpenNote={onOpenNote} />
-
-      {tiers.length > 0 ? (
-        <p className="command-instrument__counts tabular-data">
-          {tiers.map((slice, index) => (
-            <span key={slice.status}>
-              {index > 0 ? <span className="command-instrument__counts-sep"> · </span> : null}
-              <span className="command-instrument__count-value">{slice.count}</span>{" "}
-              {TIER_LABELS[slice.status]}
-            </span>
+      {briefing.projects.length > 0 ? (
+        <section className="command-briefing__paths" aria-label="Session paths">
+          {briefing.projects.map((brief) => (
+            <ProjectBriefCard
+              key={brief.project.id}
+              brief={brief}
+              onSelectProject={onSelectProject}
+              onOpenNote={onOpenNote}
+            />
           ))}
-        </p>
-      ) : null}
+        </section>
+      ) : (
+        <div className="command-briefing__empty">
+          <p>No trustworthy project path is available yet.</p>
+          <p>Declare a project active or add current intent to its project note.</p>
+        </div>
+      )}
+
+      <footer className="command-briefing__legend">
+        <span><i className="briefing-key briefing-key--committed" /> Committed by you</span>
+        <span><i className="briefing-key briefing-key--recommended" /> Recommended by Olympus</span>
+        <span><i className="briefing-key briefing-key--attention" /> Needs attention</span>
+      </footer>
     </div>
   );
 }
 
-/**
- * One sentence, large. Never invented: each state below says exactly what it
- * knows, including the states where the honest answer is that nothing was
- * stated.
- */
-function NextActionLine({
-  action,
+function ProjectBriefCard({
+  brief,
+  onSelectProject,
   onOpenNote
 }: {
-  action: ReturnType<typeof selectNextAction>;
+  brief: ProjectBrief;
+  onSelectProject: (projectId: string) => void;
   onOpenNote: (notePath: string) => void;
 }) {
-  // A prompt, not a confession. The old copy reported an empty frontmatter
-  // field as the largest text on screen; this offers the fix instead.
-  if (action.kind === "unset") {
-    const label = "No next step set";
-    return (
-      <>
-        {action.notePath ? (
+  const { project } = brief;
+
+  return (
+    <article className={`briefing-card briefing-card--${project.status}`}>
+      <div className="briefing-card__head">
+        <div>
+          <div className="briefing-card__status-line">
+            <span className={`briefing-card__status ${project.status}`}>{project.status}</span>
+            {brief.isWatchlistOption ? <span>Optional path</span> : <span>Active path</span>}
+          </div>
+          <h2>{project.name}</h2>
+        </div>
+        <div className="briefing-card__activity tabular-data">
+          <span>{brief.activityLabel}</span>
+          <span>{project.branch}</span>
+          {brief.openTasks.length > 0 ? (
+            <span>{brief.openTasks.length} open {brief.openTasks.length === 1 ? "task" : "tasks"}</span>
+          ) : null}
+        </div>
+      </div>
+
+      <div className="briefing-card__vision">
+        <span className="briefing-card__label">Current vision</span>
+        <p>{project.vision || "Vision not yet stated."}</p>
+        {project.notePath ? (
           <button
             type="button"
-            className="command-instrument__sentence is-prompt"
-            onClick={() => onOpenNote(action.notePath as string)}
-            title={`Open ${action.notePath} in Obsidian to set one`}
+            className="briefing-card__note-link"
+            onClick={() => onOpenNote(project.notePath as string)}
           >
-            {label}
+            Review in Obsidian
           </button>
-        ) : (
-          <p className="command-instrument__sentence is-quiet">{label}</p>
-        )}
-        {action.project ? (
-          <p className="command-instrument__attribution is-quiet">
-            {action.project}
-            {action.notePath ? " — set one in the note" : null}
-          </p>
         ) : null}
-        <OtherActives count={action.otherActiveCount} />
-      </>
-    );
-  }
+      </div>
 
-  return (
-    <>
-      {/* Clamped to two lines with the whole sentence on hover. The dial is a
-          fixed size: scaling it to fit long text would either shrink the arc
-          strokes back under the readable floor or shift the visual ratios, and
-          an instrument whose size varies with something it does not measure is
-          worse than a clipped sentence. */}
-      <p className="command-instrument__sentence" title={action.step}>
-        {action.step}
-      </p>
-      <p className="command-instrument__attribution">
-        {action.project}
-        {action.fallback ? (
-          <span className="command-instrument__fallback"> — no project is active</span>
-        ) : null}
-      </p>
-      <OtherActives count={action.otherActiveCount} />
-    </>
-  );
-}
+      <div className="briefing-card__columns">
+        <section>
+          <span className="briefing-card__label">Recent work</span>
+          <ul className="briefing-card__list">
+            {brief.recentWork.map((item, index) => <li key={`${index}-${item}`}>{item}</li>)}
+          </ul>
+        </section>
 
-function OtherActives({ count }: { count: number }) {
-  if (count <= 0) return null;
-  return (
-    <p className="command-instrument__attribution is-quiet">
-      +{count} more active
-    </p>
+        <section className="briefing-card__committed">
+          <span className="briefing-card__label">Committed next</span>
+          <p>{brief.committedAction ?? "No committed next action."}</p>
+        </section>
+      </div>
+
+      <section className="briefing-card__recommendation">
+        <span className="briefing-card__label">Olympus recommends</span>
+        <p>{brief.recommendation}</p>
+      </section>
+
+      {brief.attention.length > 0 ? (
+        <section className="briefing-card__attention">
+          <span className="briefing-card__label">Needs attention</span>
+          <ul>
+            {brief.attention.map((item, index) => <li key={`${index}-${item}`}>{item}</li>)}
+          </ul>
+        </section>
+      ) : null}
+
+      <button
+        type="button"
+        className="briefing-card__focus"
+        onClick={() => onSelectProject(project.id)}
+      >
+        Open project workspace
+      </button>
+    </article>
   );
 }

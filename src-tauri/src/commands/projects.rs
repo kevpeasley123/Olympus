@@ -48,6 +48,11 @@ pub struct TrackedProjectPayload {
     #[serde(rename = "recentCommits")]
     pub recent_commits: Vec<RecentCommit>,
     pub summary: String,
+    /// The project's current purpose, declared in the vault and deliberately
+    /// reviewable rather than treated as permanent doctrine.
+    pub vision: String,
+    #[serde(rename = "visionReviewedAt")]
+    pub vision_reviewed_at: Option<String>,
     /// The operator's own words, or empty. Never invented — see the note on
     /// `build_project_payload`.
     #[serde(rename = "nextStep")]
@@ -184,6 +189,10 @@ fn build_project_payload(
         last_commit_at: None,
         repo_state: "folder-only".to_string(),
         summary: "Project folder present but not initialized as a Git workspace.".to_string(),
+        vision: note
+            .and_then(|project_note| project_note.vision.clone())
+            .unwrap_or_default(),
+        vision_reviewed_at: note.and_then(|project_note| project_note.vision_reviewed.clone()),
         next_step: note
             .and_then(|note| note.next_step.clone())
             .unwrap_or_default(),
@@ -270,6 +279,8 @@ fn orphaned_note_payload(note: &ProjectNote) -> TrackedProjectPayload {
         repo_state: "no-repo".to_string(),
         summary: "Declared in the vault, but no matching folder was found under the projects root."
             .to_string(),
+        vision: note.vision.clone().unwrap_or_default(),
+        vision_reviewed_at: note.vision_reviewed.clone(),
         next_step: note.next_step.clone().unwrap_or_default(),
         note_path: Some(note.note_path.clone()),
         warnings: note.warnings.clone(),
@@ -457,6 +468,8 @@ mod tests {
             last_commit_at: committed_at.map(str::to_string),
             repo_state: "git-active".to_string(),
             summary: String::new(),
+            vision: String::new(),
+            vision_reviewed_at: None,
             next_step: String::new(),
             note_path: None,
             warnings: Vec::new(),
@@ -526,6 +539,8 @@ mod tests {
         let declared = ProjectNote {
             status: Some(ProjectStatus::Active),
             promoted: None,
+            vision: None,
+            vision_reviewed: None,
             next_step: None,
             note_path: "01 - Projects/X.md".to_string(),
             warnings: Vec::new(),
@@ -548,6 +563,8 @@ mod tests {
         let silent = ProjectNote {
             status: None,
             promoted: None,
+            vision: None,
+            vision_reviewed: None,
             next_step: None,
             note_path: "01 - Projects/X.md".to_string(),
             warnings: Vec::new(),

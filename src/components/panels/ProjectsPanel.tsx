@@ -14,7 +14,9 @@ interface ProjectsPanelProps {
   focusMode?: boolean;
   /** Set by clicking a tier arc in Command mode. */
   tierFilter?: ProjectStatus | null;
-  onClearTierFilter?: () => void;
+  /** Set by choosing a project path from the Command briefing. */
+  projectFilter?: string | null;
+  onClearFilter?: () => void;
 }
 
 const STATUS_LABELS: Record<ProjectStatus, string> = {
@@ -34,11 +36,14 @@ export function ProjectsPanel({
   noteWarnings = [],
   focusMode = false,
   tierFilter = null,
-  onClearTierFilter
+  projectFilter = null,
+  onClearFilter
 }: ProjectsPanelProps) {
-  const projects = tierFilter
-    ? allProjects.filter((project) => project.status === tierFilter)
-    : allProjects;
+  const projects = projectFilter
+    ? allProjects.filter((project) => project.id === projectFilter)
+    : tierFilter
+      ? allProjects.filter((project) => project.status === tierFilter)
+      : allProjects;
   const [status, setStatus] = useState<ObsidianActionResult | null>(null);
   const [syncing, setSyncing] = useState(false);
   // The Action Queue dissolved into this panel, so its fetch moved with it
@@ -57,7 +62,13 @@ export function ProjectsPanel({
   const warningCount =
     noteWarnings.length + projects.reduce((total, project) => total + project.warnings.length, 0);
 
-  const { perProject, unattributed } = attributeTasks(projects, tasks);
+  // Attribute against the whole portfolio before filtering the visible cards.
+  // Otherwise tasks belonging to a hidden project are falsely presented as
+  // unattributed whenever Command opens one project.
+  const { perProject, unattributed } = attributeTasks(allProjects, tasks);
+  const filterLabel = projectFilter
+    ? allProjects.find((project) => project.id === projectFilter)?.name ?? "project"
+    : tierFilter;
 
   return (
     <section className={`dashboard-panel projects-panel ${focusMode ? "focus-projects" : ""}`}>
@@ -72,14 +83,14 @@ export function ProjectsPanel({
           </span>
           {/* A filtered panel must say it is filtered and offer the way out, or
               it reads as a project list that lost most of its projects. */}
-          {tierFilter ? (
+          {filterLabel ? (
             <button
               type="button"
               className="ghost-action projects-filter-chip"
-              onClick={onClearTierFilter}
-              title={`Showing ${tierFilter} only — click to show all ${allProjects.length}`}
+              onClick={onClearFilter}
+              title={`Showing ${filterLabel} only — click to show all ${allProjects.length}`}
             >
-              {tierFilter}
+              {filterLabel}
               <X size={13} />
             </button>
           ) : null}
@@ -113,7 +124,9 @@ export function ProjectsPanel({
           />
         ))}
 
-        {unattributed.length > 0 ? <UnattributedTasks tasks={unattributed} /> : null}
+        {!projectFilter && unattributed.length > 0 ? (
+          <UnattributedTasks tasks={unattributed} />
+        ) : null}
       </div>
       {/* Demoted out of the header. It rewrites a file wholesale, and it should
           not be the most prominent affordance in the centrepiece panel. It has

@@ -41,6 +41,8 @@ export async function requestAssistantReply(
         status: project.status,
         branch: project.branch,
         repoState: project.repoState,
+        vision: project.vision,
+        lastCommit: project.lastCommit,
         nextStep: project.nextStep
       }))
     }

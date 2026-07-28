@@ -1,7 +1,33 @@
 # Olympus — Planning Handoff
 
-Written 2026-07-27 at `1af8092`. **For planning, not for coding.** Intent and
-decisions first; implementation detail only where it constrains what comes next.
+Originally written 2026-07-27 at `1af8092`, then vision-synced on the isolated
+`codex/vision-foundation` branch. **For planning, not for coding.** Read
+`OLYMPUS-MANUAL.md` first; it is now the canonical product and operating policy.
+
+## 2026-07-27 vision sync
+
+The operator resolved several questions and rejected several inherited product
+claims later in this document:
+
+- Olympus is a private, single-operator command station and AI thinking partner.
+- Command opens with a succinct multi-project briefing and two or three grounded
+  session paths. It is not a single sentence intended to read across the room.
+- The mode labels are surfaces, not prescribed verbs. Command briefs and
+  orchestrates; Projects holds the whole portfolio; Research organizes and
+  queries the library.
+- Pantheon is a reference library and optional curriculum. Presence is not
+  endorsement and does not silently become an assistant instruction.
+- Project visions are living hypotheses with review dates. A better conflicting
+  direction is surfaced before work begins.
+- Operator commitments, Olympus recommendations, and attention items are
+  separate kinds of truth.
+- The priority order is trustworthy briefings, coding-agent delegation, curated
+  memory, proactive warnings, the full constellation, then push-to-talk voice.
+
+The implementation branch adds the multi-project briefing, living vision fields,
+prompt policy, canonical manual and adapters, and corresponding vault-memory
+updates. TypeScript, the production frontend build, and the portable 151-test
+Rust suite pass. The real Tauri window still needs human visual judgment.
 
 ## How to read the claims in this document
 
@@ -85,19 +111,18 @@ present and clickable, **setting restored to its original value (`1`)**.
 without the reasoning. Each is the operator's decision, recorded as reasoning
 rather than conclusion because a conclusion alone invites reversal.
 
-### The three modes are three verbs, not three layouts
+### The three modes are distinct surfaces, not prescribed verbs
 
-Project = **execute**. Command = **think**. Research = **know**. A change that
-makes two modes differ only in which panels are visible has missed the point.
-This is why Command mode was rebuilt: it and Project were rendering the same
-screen with a different tab lit, which meant Command had no reason to exist.
+Command is the opening briefing and orchestration surface. Projects is the full
+portfolio. Research is the organized, queryable library. Each needs a clear
+purpose, but “think / execute / know” is not a product constraint.
 
-### The library is a curriculum, not a reading pile
+### The library is a reference library and optional curriculum
 
-The operator adds a source because he has judged it worth Olympus absorbing.
-**There is deliberately no read/unread/processed state anywhere**, and no fixed
-category taxonomy. A source is in the library because it should shape the
-assistant's thinking, not because it is queued for attention.
+The operator adds a source because it may be useful. Presence does not mean
+agreement and does not require Olympus to consult or cite it in ordinary work.
+Sources may yield candidate lessons, but only deliberate operator-approved
+guidance should change the system's operating behavior.
 
 ### The assistant should be a cooperative adversary
 
@@ -109,11 +134,12 @@ one direction it must not fail in, and a test pins it. `origin` distinguishes
 sources pre-filtered by his taste from ones Olympus found *because* they cut
 against the library.
 
-### Command mode is ambient, readable across the room
+### Command mode is a concise session brief
 
-**Any version of Command containing a scrolling list is Project mode with a
-different tab lit.** The sentence is what earns the mode — the next action
-rendered large is the highest-value fact in the app. The ring is supporting.
+Command should make the operator immediately understand active project state,
+recent accomplishments, committed actions, recommendations, and warnings. It
+may use compact cards and a small amount of scrolling. The ring is supporting
+portfolio and memory context, not the whole experience.
 
 ### The omega ring is an instrument, not decoration
 
@@ -192,16 +218,12 @@ is the gate working, but it reads like a false positive.
 Unanswered. Listed because guessing at them will produce work that gets thrown
 away.
 
-- **Multiple active projects.** **[V]** The *implemented* behaviour: the most
-  recently committed active project's `next_step` renders, the rest are counted
-  as `+N more active`, and if the winner states nothing it shows a prompt rather
-  than borrowing another project's step. Tested. **The product question is still
-  open** — whether that is the right answer, or whether multiple actives should
-  be prevented, ranked differently, or displayed differently.
-- **What is the Daily Brief FOR?** A status report, or the venue where Olympus is
-  allowed to tell the operator he is wrong? These are different products. The
-  second is the one that makes the cooperative-adversary decision real, and it
-  would need `04 - Decisions` visible (see debt).
+- **Multiple active projects — resolved.** Two or three active projects is
+  normal. Command offers a grounded path for each and may include a clearly
+  labelled watching project when fewer than three actives have current signal.
+- **Daily Brief purpose — resolved in direction.** It combines status, choices,
+  and specific challenge. The reliable “since the last session” evidence
+  boundary remains an implementation question.
 - **Is Research chat scoped to the vault, or general chat with context
   attached?** Recorded constraint: **it must not be general chat with vault
   context bolted on.** An assistant that paraphrases notes it never opened
