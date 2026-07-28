@@ -405,6 +405,44 @@ fn status_rank(status: &str) -> u8 {
 mod tests {
     use super::*;
 
+    /// The day arc's commit ticks, against this repository.
+    ///
+    /// Asserts its own precondition rather than passing on an empty result —
+    /// a tick source that silently returns nothing looks identical to a quiet
+    /// day, and five debug tests in this project have failed that way before.
+    #[test]
+    fn debug_recent_commits_for_this_repo() {
+        let repo = std::env::current_dir()
+            .expect("cwd")
+            .parent()
+            .expect("repo root")
+            .to_path_buf();
+
+        if git_command(&repo, &["rev-parse", "--is-inside-work-tree"]).is_err() {
+            eprintln!("[projects] not a git repo, skipping");
+            return;
+        }
+
+        let commits = recent_commits(&repo);
+        eprintln!("=== RECENT COMMITS (last 24h) ===");
+        for commit in &commits {
+            eprintln!("  {} | {}", commit.at, commit.subject);
+        }
+        eprintln!("=== {} total ===", commits.len());
+
+        assert!(
+            !commits.is_empty(),
+            "this repository has commits today, so an empty result means the \
+             parser is broken rather than the day being quiet"
+        );
+        for commit in &commits {
+            assert!(
+                commit.at.contains('T') && !commit.subject.is_empty(),
+                "expected an ISO date and a subject, got {commit:?}"
+            );
+        }
+    }
+
     fn payload(name: &str, status: &str, committed_at: Option<&str>) -> TrackedProjectPayload {
         TrackedProjectPayload {
             id: project_id(name),

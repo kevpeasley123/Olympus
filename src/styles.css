@@ -107,12 +107,23 @@ body {
      without dimming the panels stacked above it. It was 0.90/0.92 before, which
      is why the image was invisible; at this strength the structure reads
      through without the picture competing with text. */
+  /* The image is framed to its lower band, not shown whole.
+     The asset contains its own rendered interface — holographic panels, an
+     ANALYTICS label, a second OLYMPUS wordmark, and city platforms built from
+     large concentric circles. Those compete with the instrument because they
+     read as UI, and the circles worst of all: the instrument is a ring.
+     All of it sits in the upper half of the frame. Zooming to 190% and
+     anchoring to the bottom keeps the part that belongs — colonnades, causeway,
+     ridge, light in stone — and crops the interface out entirely.
+     Repositioning at `cover` could not do this: the asset is 16:9 and so is the
+     layer, so there was exactly 0px of horizontal slack to move. The zoom is
+     what creates room to reframe. */
   background-image:
     linear-gradient(rgba(7, 13, 26, 0.78), rgba(7, 13, 26, 0.84)),
     url("./assets/Olympus background asset.png");
-  background-position: center, center;
+  background-position: center, 50% 100%;
   background-repeat: no-repeat, no-repeat;
-  background-size: cover, cover;
+  background-size: cover, 190%;
   will-change: transform;
 }
 

@@ -56,8 +56,16 @@ pub struct VaultGraph {
     pub edges: Vec<GraphEdge>,
     /// Declared project notes — the graph's anchors.
     pub project_count: u32,
-    /// Notes exactly one hop out. The note band renders only once this is
-    /// worth drawing.
+    /// Anchors that actually have an edge.
+    ///
+    /// This, not `project_count`, is what the render gate reads. Counting
+    /// anchors alone let a newly written project note — which links to nothing
+    /// yet — switch the graph on as a bare dot beside the real cluster, which
+    /// is precisely the empty picture the gate exists to prevent. An anchor
+    /// with no edges is not a graph, it is a node.
+    pub connected_project_count: u32,
+    /// Notes exactly one hop out. Global, so it says nothing about whether any
+    /// *particular* anchor is connected — see above.
     pub hop_one_count: u32,
     /// Nodes the cap removed. Surfaced, never silent — a truncated view that
     /// looks complete is the failure this project keeps designing against.
@@ -320,6 +328,10 @@ pub fn build_vault_graph() -> Result<VaultGraph, String> {
         .collect();
 
     let project_count = nodes.iter().filter(|n| n.is_project).count() as u32;
+    let connected_project_count = nodes
+        .iter()
+        .filter(|n| n.is_project && n.degree > 0)
+        .count() as u32;
     let hop_one_count = nodes.iter().filter(|n| n.hop == Some(1)).count() as u32;
 
     // Past the cap, the furthest go first and the least connected go next —
@@ -349,6 +361,7 @@ pub fn build_vault_graph() -> Result<VaultGraph, String> {
         nodes,
         edges,
         project_count,
+        connected_project_count,
         hop_one_count,
         dropped,
         excluded_scaffold,
@@ -402,10 +415,11 @@ mod tests {
 
         eprintln!("=== VAULT GRAPH ===");
         eprintln!(
-            "nodes={} edges={} projects={} hop1={} orphans={} scaffoldExcluded={} broken={} dropped={}",
+            "nodes={} edges={} projects={} connectedProjects={} hop1={} orphans={} scaffoldExcluded={} broken={} dropped={}",
             graph.nodes.len(),
             graph.edges.len(),
             graph.project_count,
+            graph.connected_project_count,
             graph.hop_one_count,
             graph.nodes.iter().filter(|n| n.hop.is_none()).count(),
             graph.excluded_scaffold,
