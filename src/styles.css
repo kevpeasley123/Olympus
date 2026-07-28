@@ -112,18 +112,24 @@ body {
      ANALYTICS label, a second OLYMPUS wordmark, and city platforms built from
      large concentric circles. Those compete with the instrument because they
      read as UI, and the circles worst of all: the instrument is a ring.
-     All of it sits in the upper half of the frame. Zooming to 190% and
-     anchoring to the bottom keeps the part that belongs — colonnades, causeway,
-     ridge, light in stone — and crops the interface out entirely.
+     All of it sits in the upper half of the frame. Anchoring to the bottom and
+     zooming crops the interface out while keeping what belongs — colonnades,
+     cliff faces, causeway, mist, light in stone.
      Repositioning at `cover` could not do this: the asset is 16:9 and so is the
      layer, so there was exactly 0px of horizontal slack to move. The zoom is
-     what creates room to reframe. */
+     what creates room to reframe.
+     150% is chosen against a measured boundary, not by eye. It shows the image
+     from y=430 of 941; the panels end at y=420, the wordmark banner at y=450,
+     and the concentric platforms begin at y=390 — so this leaves 40px of
+     margin above the nearest offender. 190% was clean but flattened the picture
+     into texture; 135% was tried and clearly fails, putting the OLYMPUS banner
+     and the platforms back on screen. Lowering this further reintroduces them. */
   background-image:
     linear-gradient(rgba(7, 13, 26, 0.78), rgba(7, 13, 26, 0.84)),
     url("./assets/Olympus background asset.png");
   background-position: center, 50% 100%;
   background-repeat: no-repeat, no-repeat;
-  background-size: cover, 190%;
+  background-size: cover, 150%;
   will-change: transform;
 }
 
