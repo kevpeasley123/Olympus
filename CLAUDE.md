@@ -2,6 +2,12 @@
 
 A local-first AI command station for projects, research, workflows, and Obsidian-backed memory. Tauri + React + TypeScript desktop app, Rust backend, SQLite persistence, Obsidian vault as the knowledge layer.
 
+## Canonical product manual
+
+Read `OLYMPUS-MANUAL.md` first. It is the shared product and operating manual
+for Claude, Codex, and future agents. This file adds implementation and model
+constraints; it does not redefine the product vision.
+
 The goal is a JARVIS-style assistant: something you talk to that knows your projects and remembers what you decided. See `ARCHITECTURE.md` for the stack and layout.
 
 ## Running it

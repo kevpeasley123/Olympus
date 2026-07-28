@@ -85,6 +85,8 @@ impl ProjectStatus {
 pub struct ProjectNote {
     pub status: Option<ProjectStatus>,
     pub promoted: Option<String>,
+    pub vision: Option<String>,
+    pub vision_reviewed: Option<String>,
     pub next_step: Option<String>,
     /// Vault-relative, for display and for telling two notes apart.
     pub note_path: String,
@@ -265,6 +267,26 @@ fn parse_project_note(
         .filter(|text| !text.is_empty())
         .map(str::to_string);
 
+    let vision = yaml
+        .get("vision")
+        .and_then(|value| value.as_str())
+        .map(str::trim)
+        .filter(|text| !text.is_empty())
+        .map(str::to_string);
+
+    let vision_reviewed = match yaml.get("vision_reviewed") {
+        Some(value) => match value.as_str().filter(|text| is_iso_date(text)) {
+            Some(text) => Some(text.to_string()),
+            None => {
+                warnings.push(format!(
+                    "{note_path}: `vision_reviewed` should be a YYYY-MM-DD date in quotes."
+                ));
+                None
+            }
+        },
+        None => None,
+    };
+
     let mut keys = vec![normalise_key(file_stem)];
 
     if let Some(title) = yaml.get("title").and_then(|value| value.as_str()) {
@@ -279,6 +301,8 @@ fn parse_project_note(
         ProjectNote {
             status,
             promoted,
+            vision,
+            vision_reviewed,
             next_step,
             note_path: note_path.to_string(),
             warnings,
@@ -510,18 +534,23 @@ mod tests {
     }
 
     #[test]
-    fn next_step_and_promoted_are_read_when_present() {
+    fn project_intent_fields_are_read_when_present() {
         let folder = temp_folder("fields");
         write(
             &folder,
             "Full.md",
-            "---\ntype: project\nstatus: active\npromoted: \"2026-07-25\"\nnext_step: Wire the hero card to real data.\n---\n\nBody.",
+            "---\ntype: project\nstatus: active\npromoted: \"2026-07-25\"\nvision: Keep project state trustworthy and easy to act on.\nvision_reviewed: \"2026-07-27\"\nnext_step: Wire the hero card to real data.\n---\n\nBody.",
         );
 
         let index = load_project_notes_from(&folder);
         let note = index.lookup("Full").expect("indexed");
 
         assert_eq!(note.promoted.as_deref(), Some("2026-07-25"));
+        assert_eq!(
+            note.vision.as_deref(),
+            Some("Keep project state trustworthy and easy to act on.")
+        );
+        assert_eq!(note.vision_reviewed.as_deref(), Some("2026-07-27"));
         assert_eq!(note.next_step.as_deref(), Some("Wire the hero card to real data."));
         assert!(note.warnings.is_empty());
     }
@@ -541,6 +570,24 @@ mod tests {
         assert!(note.promoted.is_none());
         assert_eq!(note.warnings.len(), 1);
         assert!(note.warnings[0].contains("promoted"));
+    }
+
+    #[test]
+    fn a_malformed_vision_review_date_warns_without_hiding_the_vision() {
+        let folder = temp_folder("bad-vision-date");
+        write(
+            &folder,
+            "Dated.md",
+            "---\ntype: project\nvision: A useful current direction.\nvision_reviewed: \"yesterday\"\n---\n\nBody.",
+        );
+
+        let index = load_project_notes_from(&folder);
+        let note = index.lookup("Dated").expect("indexed");
+
+        assert_eq!(note.vision.as_deref(), Some("A useful current direction."));
+        assert!(note.vision_reviewed.is_none());
+        assert_eq!(note.warnings.len(), 1);
+        assert!(note.warnings[0].contains("vision_reviewed"));
     }
 
     #[test]

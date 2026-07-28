@@ -2,14 +2,25 @@
 
 Project Olympus is a local-first AI command station for projects, research, workflows, reusable skills, and Obsidian-backed memory.
 
+The canonical product vision and operating policy live in
+[`OLYMPUS-MANUAL.md`](OLYMPUS-MANUAL.md). `CLAUDE.md` and `AGENTS.md` adapt that
+one manual for their respective agent environments.
+
+The recoverable coding-agent boundary is specified in
+[`docs/AGENT-DELEGATION.md`](docs/AGENT-DELEGATION.md) before any launcher is
+allowed to execute work.
+
+The independently verified project baseline and remaining gaps are recorded in
+[`docs/AUDIT-2026-07-27.md`](docs/AUDIT-2026-07-27.md).
+
 ## V1 Shape
 
 - Desktop shell: Tauri + React + TypeScript + Vite
 - Visual identity: futuristic AI lab with professional command-center density
-- Core screen: living project constellation
-- Modules: operator brief, active projects, research inbox, skills/scaffolds, personal profile, and next actions
+- Core screen: an ambient omega instrument with the active project's next action
+- Modules: Command instrument, detailed Project briefing and portfolio, Pantheon research, chat, and live context
 - Memory surface: Obsidian-flavored Markdown artifacts, with JSON Canvas and Bases export previews
-- Safety model: **intended** to require human approval before writing memory artifacts or changing project state outside the app. Not yet implemented — see "Vault writes" in `ARCHITECTURE.md` for what actually ships today
+- Safety model: recoverable work proceeds autonomously; risky or divergent vault writes use the implemented approval gate described in `ARCHITECTURE.md`
 
 ## Obsidian Skills Reference
 
@@ -58,7 +69,8 @@ npm install
 npm run dev
 ```
 
-Open the Vite URL shown in the terminal.
+`npm run dev` is a browser preview without Tauri data. Use `npm run tauri dev`
+for the real desktop runtime.
 
 ## Assistant Setup
 
@@ -120,7 +132,7 @@ What is stored, and how:
 
 | State | Storage | Write pattern |
 | --- | --- | --- |
-| Settings (vault path, projects root) | `settings` | Upsert on change |
+| Settings (projects root) | `settings` | Upsert on change |
 | Tool enabled flags | `tool_states` | Upsert on change |
 | Chat history | `conversation_messages` | Append-only, at send time |
 

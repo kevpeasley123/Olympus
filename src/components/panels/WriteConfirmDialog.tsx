@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
 import { emitInstrumentEvent } from "../../services/instrumentEvents";
+import { isTauriRuntime } from "../../services/launcher";
 
 /**
  * The operator half of the vault write gate.
@@ -52,6 +53,13 @@ export function WriteConfirmDialog() {
   const [pending, setPending] = useState<PendingWrite | null>(null);
 
   useEffect(() => {
+    // The browser preview has no Tauri event transport. Keeping the listener
+    // desktop-only makes preview diagnostics meaningful instead of logging a
+    // transport error that cannot correspond to a pending vault write.
+    if (!isTauriRuntime()) {
+      return;
+    }
+
     // listen() resolves to an unlisten function; StrictMode mounts effects
     // twice in dev, so the cleanup has to run even if the promise settles
     // after unmount, or the second mount stacks a duplicate listener and each

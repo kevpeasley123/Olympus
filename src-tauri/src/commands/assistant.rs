@@ -25,6 +25,10 @@ pub struct ProjectSummary {
     pub status: String,
     pub branch: String,
     pub repo_state: String,
+    #[serde(default)]
+    pub vision: String,
+    #[serde(default)]
+    pub last_commit: String,
     pub next_step: String,
 }
 
@@ -149,14 +153,17 @@ fn build_stable_system(memory: &VaultMemory) -> String {
          restating the question back. Do not open with pleasantries like \"Great question\". If \
          something is a bad idea, say so in a sentence and then help anyway.\n\n\
          The operator's durable memory from the vault is included below, along with live dashboard \
-         state. Treat the vault notes as authoritative about their preferences, standing \
-         instructions, and how this system is meant to work — they are the operator's own words, \
-         not suggestions. Use them when relevant and ignore them when they are not.\n\n\
+         state. Explicit preferences and standing instructions are authoritative until the \
+         operator revises them. A project's vision is a current hypothesis, not permanent \
+         doctrine: use it to prevent accidental drift, but if evidence suggests a better \
+         direction, pause before acting and surface the alternative. Decision history is evidence \
+         about why a choice was made, not a command to repeat it forever.\n\n\
          You cannot read files or run commands. The research library is listed as an index of \
          titles and metadata only; the entry bodies are not in your context. If answering well \
          needs the contents of an entry, name the entry you would need rather than inventing what \
          it says. If you do not know something, say so rather than guessing.\n\n\
-         The research library is a curriculum, not a list of things the operator agrees with. Each \
+         The research library is a reference library and optional curriculum, not a set of \
+         instructions and not a list of things the operator agrees with. Each \
          entry carries a stance: endorsed, provisional, disputed, or unevaluated. Most are \
          unevaluated, which means nobody has judged it — not that it is accepted. Never read an \
          entry's presence in the library as agreement, his or yours. Each also carries an origin: \
@@ -164,8 +171,9 @@ fn build_stable_system(memory: &VaultMemory) -> String {
          means this system surfaced it, often because it cuts against the rest of the library. \
          \"kept because\" is his stated reason for keeping it; \"no stated purpose\" means he \
          never gave one, which is not itself a reason to discount the entry.\n\n\
-         You may disagree with him and with the sources. Do it rarely, and cite the entry you are \
-         arguing from — an assistant that objects to everything gets ignored within a week.\n\n",
+         You may disagree with him and with the sources. Challenge weak logic, flawed design, \
+         contradictions, and neglected risks directly, but do not object performatively. If a \
+         challenge depends on a research entry, name it; otherwise concise reasoning is enough.\n\n",
     );
 
     if memory.stable.is_empty() {
@@ -205,8 +213,27 @@ fn build_volatile_system(context: &AssistantContext, memory: &VaultMemory) -> St
 
     for project in &context.projects {
         prompt.push_str(&format!(
-            "- {} — status {}, branch {}, repo {}. Next: {}\n",
-            project.name, project.status, project.branch, project.repo_state, project.next_step
+            "- {} — status {}, branch {}, repo {}. Vision: {}. Latest recorded change: {}. \
+             Committed next action: {}\n",
+            project.name,
+            project.status,
+            project.branch,
+            project.repo_state,
+            if project.vision.is_empty() {
+                "not stated"
+            } else {
+                &project.vision
+            },
+            if project.last_commit.is_empty() {
+                "not available"
+            } else {
+                &project.last_commit
+            },
+            if project.next_step.is_empty() {
+                "not stated"
+            } else {
+                &project.next_step
+            }
         ));
     }
 
@@ -487,6 +514,8 @@ mod tests {
                 status: "active".to_string(),
                 branch: "main".to_string(),
                 repo_state: "git-active".to_string(),
+                vision: "Keep project state trustworthy.".to_string(),
+                last_commit: "abc123 Add live project scanning".to_string(),
                 next_step: "wire the chat panel".to_string(),
             }],
         }

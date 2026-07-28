@@ -16,6 +16,9 @@ Dev: `vite`, `@vitejs/plugin-react`, `typescript`, `@tauri-apps/cli`.
 src/             React frontend — App, components, hooks, services, data, utils, styles
 src-tauri/       Rust desktop shell — Cargo.toml, tauri.conf.json, schema.sql, src/main.rs
 scripts/         PowerShell scripts that scaffold and sync the Obsidian vault
+OLYMPUS-MANUAL.md Canonical product vision, operating policy, and autonomy boundaries
+AGENTS.md         Thin Codex/agent adapter to the canonical manual
+CLAUDE.md         Claude-specific adapter plus technical constraints
 index.html       Vite entry
 vite.config.ts   Vite configuration
 tsconfig.json    TypeScript configuration
@@ -29,10 +32,10 @@ Tauri commands exposed by the desktop shell:
 | --- | --- |
 | Assistant | `send_assistant_message` |
 | Persistence | `load_persisted_state`, `save_settings`, `save_tool_states`, `append_conversation_messages`, `clear_conversation` |
-| Vault | `write_memory_artifact`, `fetch_pantheon_entries`, `write_pantheon_entry`, `save_attachment_to_vault`, `append_profile_observation` |
+| Vault | `write_memory_artifact`, `fetch_pantheon_entries`, `write_pantheon_entry`, `migrate_pantheon_schema`, `save_attachment_to_vault`, `append_profile_observation`, `fetch_operator_profile`, `fetch_recent_vault_writes`, `fetch_vault_graph`, `open_vault_note` |
 | Write gate | `resolve_vault_write` |
 | Live data | `fetch_market_quotes`, `fetch_weather`, `scan_tracked_projects`, `fetch_action_queue` |
-| Shell | `launch_quick_app`, `restart_olympus`, `pick_attachment_file`, `extract_pdf_text` |
+| Shell / files | `launch_quick_app`, `restart_olympus`, `pick_attachment_file`, `extract_pdf_text` |
 
 The SQLite connection is opened once during `setup()` and held in managed state, so the frontend can assume persistence is ready before it can invoke anything.
 
@@ -129,7 +132,13 @@ Dashboard panels compose from `src/App.tsx`. Live data sources:
 - **Markets** — Yahoo Finance chart API for S&P 500, Nasdaq 100, Dow (no key required); FRED for rates (`DGS2`, `DGS10`, `DGS30`, `MORTGAGE30US`)
 - **Weather** — Open-Meteo (no key required)
 - **Pantheon** — walks `02 - Research/` and parses each note's YAML frontmatter; entries require an `olympus/research` tag. It does not read `Olympus Research.base`, which is a generated output rather than an input
-- **Projects / Git** — local repository inspection via Tauri commands
+- **Projects / Git** — local repository inspection via Tauri commands. Project
+  notes contribute operator-owned status, current vision, vision review date,
+  and committed next action; Git contributes branch, commit, and working-tree
+  facts. `src/services/projectBriefing.ts` reconciles those with attributed
+  tasks into Project mode's grounded session paths. Command consumes the same
+  sources only for its single committed next-action sentence, tier arcs, and
+  quiet counts.
 
 - **Chat** — `send_assistant_message` calls the Anthropic API from Rust, so the API key never reaches the webview
 

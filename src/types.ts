@@ -155,6 +155,10 @@ export interface TrackedProject {
   /** Commits in the last 24 hours, newest first. Empty for a folder with none. */
   recentCommits: RecentCommit[];
   summary: string;
+  /** The current, reviewable purpose declared in the project's vault note. */
+  vision: string;
+  /** YYYY-MM-DD, or null when the vision has never been deliberately reviewed. */
+  visionReviewedAt: string | null;
   /** The operator's own words, or empty. Never generated. */
   nextStep: string;
   notePath: string | null;
