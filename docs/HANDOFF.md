@@ -59,12 +59,16 @@ present and clickable, **setting restored to its original value (`1`)**.
   in 24h with valid timestamps, and the tick *styles* were confirmed by injecting
   sample geometry — but the browser cannot render real data, and nobody has
   looked at the desktop app.
-- **[V] `processing_logs` contains zero `vault-write` rows** (read from the
-  SQLite file). No gated write has been approved since the logging landed, so
-  zero write ticks is correct rather than broken.
-- **[V] There is no graph renderer.** `fetch_vault_graph` has **zero frontend
-  consumers**. The Rust data layer is built and tested; nothing draws it, and the
-  render gate is currently a field in a payload nobody reads.
+- ~~`processing_logs` contains zero `vault-write` rows.~~ **Closed.** The
+  operator approved a gated write and watched the white tick land on the day arc.
+  The note it wrote, `02 - Research/2026-07-27 AI test.md`, is now visible on the
+  graph's orphan rim — it links to nothing, which is correct.
+- ~~There is no graph renderer.~~ **Built.** See section 2 for what it does and
+  the gate it draws behind.
+- **[V] The write pulse's second expansion has still not been seen.** Both
+  omegas were fixed at `7cc6b28` — each pulse window now matches its own ripple
+  times its play count — but confirming *both* plays render needs a visible
+  window, which an agent cannot get.
 - **[A]** `save_attachment_to_vault` has never successfully run;
   `02 - Research/_attachments/` does not exist.
 - **[A]** `open_vault_note` compiles and is registered; nobody has clicked the
@@ -122,12 +126,11 @@ floor.
 ### Explicitly rejected — and one of them is currently in the code
 
 - **Dots as poll-freshness telemetry. REJECTED.** Infrastructure health changes
-  no decision the operator makes.
-  **[V] This is what is shipped today.** `CommandInstrument.tsx` renders five
-  named poll sources with "time since last success" on hover. It was built and
-  approved in an earlier round and has since been rejected. **A fresh session
-  will find working code implementing a design the operator no longer wants** —
-  it needs removing or repurposing, not preserving.
+  no decision the operator makes. **[V] Removed** — the five named dots, their
+  hover ages and the sweeping activity ring are all gone, and the vault graph
+  occupies that band now. `pollRegistry.ts` survives and `createPollingStore`
+  still reports into it; it has no renderer, which is deliberate, not an
+  oversight.
 - **Dots as project satellites. REJECTED.** Duplicates the dimension the outer
   ring already owns.
 
@@ -138,6 +141,26 @@ Hop distance = radius; angle from parent cluster and stable node ordering.
 there means nothing. **Radius means distance from the operator's active work**,
 and the same vault must produce the same picture tomorrow so its shape becomes
 recognisable.
+
+Three things that fell out of building it, all in `src/services/vaultGraph.ts`:
+
+- **The gate is one connected anchor, not two.** Two was an argument about the
+  picture being *interesting*. The boundary worth defending is zero: with no
+  connected anchor every node sits on either the hop-0 ring or the rim, radius
+  carries no information, and the result is indistinguishable from a broken
+  renderer. **[V]** Eight declared projects with one connected is a *true*
+  picture — the same class of finding as the orphan rim — so it draws.
+- **Wedge width is proportional to subtree size, not an equal share.** The real
+  vault forces this. Equal shares give the only connected anchor 45° to hold
+  thirteen children while seven childless anchors each own 45° of nothing.
+  Anchor *order* stays fixed, so the sequence around the ring is stable; only
+  the widths breathe.
+- **[V] Ordering is code-point, never `localeCompare`.** This was a real bug the
+  harness caught. `localeCompare` is locale-dependent — it orders "Agentic AI
+  Scaffolder" before "AI Learning Course" where a byte comparison does the
+  reverse — so the same vault would have laid out differently on a machine with
+  a different locale, which is the one thing this design promises it will not do.
+  Rust sorts with `a.id.cmp(&b.id)`; the frontend must match it.
 
 ### Scaffolding is excluded by rule, not by folder name
 
@@ -187,19 +210,47 @@ away.
 - **How do executable skills honour ask-before-risky-writes?** Skills that act
   will need the same gate discipline as vault writes, and the boundary is
   undefined.
-- **Should the vault be version controlled?** **[V]** It is not a git repository
-  today, so the eight project notes written this session are versioned nowhere.
-  It lives in OneDrive, and a `.git` there syncs too — which is the pattern that
-  forced Rust build output out of OneDrive in `f290e66`.
+- ~~Should the vault be version controlled?~~ **Answered — yes, and it is.**
+  `12187bf` on `main`, local-only, no remote. **[V]** The first gated write after
+  the repo existed sat untracked until it was committed by hand at `633e093`,
+  which is the drift the auto-commit step below exists to stop.
+  **[V] `core.autocrlf` is now `false` in that repo.** It was inheriting `true`,
+  which would have let a checkout rewrite line endings under the write gate's
+  hash-divergence check and flag a note as human-edited when git had touched it.
+  Same class of false positive as the Obsidian frontmatter rewrite.
+  **A local-only repo is version history, not backup** — it does nothing about
+  disk loss, folder deletion, or OneDrive corrupting `.git` itself. That gap is
+  covered by `scripts/backup-olympus-vault.ps1`, scheduled daily at 13:00 as the
+  task "Olympus Vault Backup", bundling to `C:\Users\kevpe\Backups\Olympus Vault`
+  — outside OneDrive, verified after every write, and **[V]** proven to restore
+  by cloning from the bundle. Bundles contain committed history only; the script
+  logs the uncommitted file count so that gap is never silent.
 
 ---
 
 # 4 · Immediate next work, ordered
 
-### 1. Decide what replaces the poll dots
+### 1. Commit approved vault writes, with attribution
 
-Blocking nothing technically, but the shipped instrument contains a rejected
-design. Cheapest correct move is removal; the ring is legible without them.
+**Decided, not built.** After a gated write succeeds, beside the existing
+`processing_logs` insert: stage and commit that write.
+
+- **Not inside the gate.** The gate answers one question — may this write
+  happen. Committing is what happens after one already did. Folding it in gives
+  the gate failure modes that are not about permission (lock held, detached
+  head, no repo) and surfaces them as a dialog about something already approved.
+- **Best-effort, never blocking.** It fails into the log, not into the UI.
+- **`git add -- <path>` only, never `-A`.** Otherwise Olympus starts committing
+  the operator's in-progress Obsidian edits — a second write surface nobody
+  approved, arriving through the one mechanism built to prevent exactly that.
+- **Message is `olympus: <operation> <path>`.** This is the reason to build it.
+  History without authorship does not answer the question actually asked of it,
+  which is the same question `written_by` exists to answer in the Pantheon
+  schema. `633e093` already uses the format.
+
+Accepted cost: the working tree stays permanently dirty, so `git diff HEAD`
+stops being a useful "what changed" view. An operator-initiated "commit the
+rest" belongs on the backlog — **not automatic**.
 
 ### 2. Finish the day arc by looking at it
 
@@ -211,20 +262,30 @@ profile), and one tick per commit **made today**.
 Then **Pantheon → Add Entry** and approve the write — that closes the write pulse
 and the first write tick in one action.
 
-### 3. Build the graph renderer
+### 3. Look at the graph renderer in the desktop app
 
-**[V] It does not exist.** The Rust data layer is complete and tested; no
-frontend component consumes `fetch_vault_graph`.
+**Built.** `services/vaultGraph.ts` (pure layout and gate),
+`hooks/useVaultGraph.ts`, `components/panels/VaultGraph.tsx`, mounted in
+`CommandInstrument`. **[V]** Layout verified against the real vault payload
+through the browser harness below — determinism, band radii, glyph and tier
+clearance, no overlapping nodes. **[A] Nobody has seen it drawing real data in
+the real app**, because the browser has no `invoke`; what was seen was the real
+geometry injected into the live DOM.
 
-**Blocked on data, not code.** **[V]** Current state: `projects=8`,
-`connectedProjects=1`, `hop1=13`. The gate requires **two anchors that each have
-an edge**, and only Olympus has any.
+**[V] It draws today**: `projects=8`, `connectedProjects=1`, `hop1=13`,
+`orphans=11`, 44 edges. One anchor carries everything, seven sit bare, and the
+rim holds eleven notes nothing links to.
 
-**[V] Do not seed links into the project notes to open it.** Nothing in the vault
-references those seven projects, so every link would be invented to make a
-picture appear. The graph's whole claim is that radius means distance from real
-work; seeded links would make it say something false while looking correct. **The
-gate opens through use, not as a task to complete.**
+**[V] Do not seed links into the project notes.** Nothing in the vault references
+those seven projects, so every link would be invented to make a picture look
+better. The graph's whole claim is that radius means distance from real work;
+seeded links would make it say something false while looking correct. **The
+shape improves through use, not as a task to complete.**
+
+Still open: click-to-open calls `open_vault_note`, which remains **[A]** — it
+compiles and is registered, and nobody has clicked a node and watched Obsidian
+open. Edges pass across the Ω at 0.16 opacity; whether that reads as texture or
+as clutter is a judgement only a human at the real window can make.
 
 **[V] Classification is done** — all eight projects declared, zero unclassified:
 Olympus `active`, Pokedex `watching`, six `scaffold`. **[V]** Six carry today's
@@ -313,6 +374,23 @@ think it means. They get weighed differently.
 this project once ran green while asserting nothing. Debug tests that touch the
 real vault must assert their own preconditions, or a missing vault makes them
 pass silently.
+
+**There is a frontend test harness, and it costs nothing. Use it.** This project
+has no JS test runner — no vitest, no jest, no `test` script. It does not need
+one for pure code. Vite serves the modules, so with `npm run dev` running:
+
+```js
+const M = await import('/src/services/vaultGraph.ts');
+M.layoutVaultGraph(payload, 220);
+```
+
+straight from the browser console, against real data dumped by
+`debug_dump_the_real_vault_graph_as_json` in `vault_graph.rs`. **[V]** That
+combination — real Rust payload, real pure frontend module — is what caught the
+`localeCompare` determinism bug, which no amount of reading the code had found.
+Keep layout and gate logic pure and out of components so it stays reachable this
+way. Do not append `?v=…` to the import: Vite then fails to transform the file
+and throws a parse error that looks like a syntax error in your source.
 
 **Measure rather than reason about layout.** Every visual bug this session was
 found by reading computed values out of the live DOM — a 1px stroke that was

@@ -3859,48 +3859,72 @@ small {
   pointer-events: none;
 }
 
-.instrument-activity {
+/* ---- Vault graph -------------------------------------------------------- */
+/* Hop distance is radius; angle is stable ordering. Nothing here animates at
+   rest. It replaced a sweeping ring and five poll dots, and nothing was lost by
+   dropping the motion: the day arc's now-marker already says the instrument is
+   live, and a second moving thing at this radius competed with it. */
+
+.vault-graph__edge {
   stroke: var(--muted);
-  opacity: 0.18;
-  animation: instrument-sweep 48s linear infinite;
+  opacity: 0.16;
+  stroke-width: 1;
 }
 
-/* One dot per poll source. Named and individually lit, so a dot that stops
-   flashing is a dead scan rather than a decorative speck. */
-.instrument-dot {
+.vault-graph__node {
   fill: var(--muted);
-  opacity: 0.35;
-  cursor: help;
+  cursor: pointer;
   transition:
-    opacity 200ms ease-out,
-    fill 200ms ease-out,
-    r 200ms ease-out;
+    opacity 160ms ease-out,
+    fill 160ms ease-out;
 }
 
-.instrument-dot.is-lit {
+/* An anchor is what every radius is measured from, so it is the only band that
+   takes the accent. A project note linking to nothing still draws — seven of
+   those is a true finding, and hiding them would make the ring claim the
+   portfolio is more connected than it is. */
+.vault-graph__node--anchor {
   fill: var(--accent);
-  opacity: 1;
+  opacity: 0.95;
 }
 
-/* Never landed. Distinguishable at rest from one that simply is not lit right
-   now, because those mean very different things. */
-.instrument-dot.is-cold {
+.vault-graph__node--hop1 {
+  opacity: 0.7;
+}
+
+.vault-graph__node--hop2 {
+  opacity: 0.5;
+}
+
+.vault-graph__node--deep {
+  opacity: 0.38;
+}
+
+/* The rim. Hollow, reusing the vocabulary the poll dots used for "never
+   landed" — different data, same meaning: this one never connected. Debris
+   stays visible; the rim surfacing junk is the rim working. */
+.vault-graph__node--orphan {
   fill: none;
   stroke: var(--muted);
   stroke-width: 1;
-  opacity: 0.4;
+  opacity: 0.45;
 }
 
-.instrument-dot:hover,
-.instrument-dot:focus-visible {
+.vault-graph__node:hover,
+.vault-graph__node.is-hovered {
+  fill: var(--primary);
+  stroke: var(--primary);
   opacity: 1;
   outline: none;
 }
 
-@keyframes instrument-sweep {
-  to {
-    transform: rotate(360deg);
-  }
+.vault-graph__meta {
+  fill: var(--muted);
+  font-family: var(--font-sans);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  opacity: 0.6;
+  pointer-events: none;
 }
 
 /* The one glowing object. Nothing else in this mode gets a shadow. */
@@ -4225,20 +4249,17 @@ small {
   .ring-outer,
   .ring-middle,
   .ring-inner,
-  /* The instrument's activity ring and the dirty-repo breath. The arcs
-     themselves stay — with motion off the ring must still say which tier is
-     which and remain clickable; only the sweep and the pulse stop. A dirty
-     arc still reads through its hover label. */
-  .instrument-activity,
+  /* The dirty-repo breath. The arcs themselves stay — with motion off the ring
+     must still say which tier is which and remain clickable; only the breath
+     and the pulse stop. A dirty arc still reads through its hover label.
+     The activity sweep that used to be listed here no longer exists: the vault
+     graph replaced it and animates nothing at rest. */
   .instrument-arc.is-dirty,
   /* The now-marker stops breathing but stays at the right position, and every
      tick keeps its hover label. Matched with `.is-live` so this beats the rule
      that turns it on: source order settles ties, not specificity gaps. */
   .day-arc__now,
   .day-arc__now.is-live,
-  /* Dots stop flashing but keep their resting state and hover label, so the
-     source list and its ages are still readable. */
-  .instrument-dot,
   .conversation-pending,
   .skeleton-line,
   .health-source-dot,
@@ -4261,9 +4282,9 @@ small {
   .market-toggle,
   .markets-news-toggle svg,
   .observation-seed,
-  /* The scan tick still brightens the ring — that is information — but it
-     arrives instantly rather than easing in. */
-  .instrument-activity,
+  /* A graph node still brightens on hover — that is how it identifies itself —
+     but it arrives instantly rather than easing in. */
+  .vault-graph__node,
   .background-image {
     transition: none;
   }

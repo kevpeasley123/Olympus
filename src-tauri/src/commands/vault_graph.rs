@@ -431,4 +431,30 @@ mod tests {
         }
         eprintln!("=== END ===");
     }
+
+    /// Dumps the real payload as the JSON the webview would receive.
+    ///
+    /// The frontend has no test runner, but Vite serves its modules, so pure
+    /// code can be imported and exercised straight from the browser console.
+    /// This is what feeds that harness real topology instead of a synthetic
+    /// guess at it — `layoutVaultGraph` gets checked against the actual vault
+    /// rather than against a shape someone invented to match their own code.
+    #[test]
+    fn debug_dump_the_real_vault_graph_as_json() {
+        let vault = get_vault_path();
+        if !vault.exists() {
+            eprintln!("[vault_graph] vault absent, skipping");
+            return;
+        }
+
+        let graph = build_vault_graph().expect("graph builds");
+        assert!(
+            !graph.nodes.is_empty(),
+            "the real vault produced no nodes, so this test asserted nothing"
+        );
+
+        eprintln!("=== VAULT GRAPH JSON ===");
+        eprintln!("{}", serde_json::to_string(&graph).expect("serialises"));
+        eprintln!("=== END JSON ===");
+    }
 }

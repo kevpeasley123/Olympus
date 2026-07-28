@@ -5,14 +5,10 @@ import type { InstrumentEvent } from "../../services/instrumentEvents";
 import { DayArc } from "./DayArc";
 import { useOperatorProfile } from "../../hooks/useOperatorProfile";
 import { useVaultWrites } from "../../hooks/useVaultWrites";
+import { useVaultGraph } from "../../hooks/useVaultGraph";
 import { selectNextAction } from "../../services/nextAction";
-import {
-  POLL_SOURCE_LABELS,
-  getPollSources,
-  subscribeToPollSources
-} from "../../services/pollRegistry";
-import type { PollSourceKey, PollSourceState } from "../../services/pollRegistry";
 import { TIER_WEIGHT, tierBreakdown } from "../../services/projectTiers";
+import { VaultGraph } from "./VaultGraph";
 import type { ProjectStatus, TrackedProject } from "../../types";
 
 interface CommandInstrumentProps {
@@ -48,12 +44,15 @@ function tiersWithDirtyRepo(projects: TrackedProject[]): Set<ProjectStatus> {
  * from 400 to make room for the day arc *outside* the tier arcs without
  * shrinking them — the CSS size grew to match, so the tiers keep their
  * apparent size on screen.
+ *
+ * The graph's own radii live in `services/vaultGraph.ts`, measured against the
+ * two things that bound them: the Ω's ink corner near r=77, and this ring's
+ * inner edge at 162.5 once the heaviest tier stroke is accounted for.
  */
 const SIZE = 440;
 const CENTRE = SIZE / 2;
 const DAY_RADIUS = 205;
 const TIER_RADIUS = 168;
-const ACTIVITY_RADIUS = 132;
 
 const TIER_CIRCUMFERENCE = 2 * Math.PI * TIER_RADIUS;
 
@@ -76,22 +75,6 @@ const PULSE_MS: Record<InstrumentEvent, number> = {
 
 /** One expansion. Two of these play per write. */
 const WRITE_RIPPLE_SECONDS = 1.4;
-
-/** Long enough to catch out of the corner of an eye. */
-const DOT_LIT_MS = 1200;
-
-/** "never" is a real answer here — it is what a dead poll looks like. */
-function describeAge(source: PollSourceState, now: number): string {
-  if (source.lastSuccessAt === null) {
-    return source.lastError ? "no successful scan yet" : "waiting for first scan";
-  }
-
-  const seconds = Math.max(0, Math.round((now - source.lastSuccessAt) / 1000));
-  if (seconds < 60) return `${seconds}s ago`;
-  const minutes = Math.round(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
-  return `${Math.round(minutes / 60)}h ago`;
-}
 
 const TIER_LABELS: Record<ProjectStatus, string> = {
   active: "active",
@@ -120,15 +103,13 @@ export function CommandInstrument({
 }: CommandInstrumentProps) {
   const [pulse, setPulse] = useState<InstrumentEvent | null>(null);
   const [hoveredTier, setHoveredTier] = useState<ProjectStatus | null>(null);
-  const [hoveredDot, setHoveredDot] = useState<PollSourceKey | null>(null);
-  const [pollSources, setPollSources] = useState(getPollSources);
-  const [recentlyLanded, setRecentlyLanded] = useState<Set<PollSourceKey>>(new Set());
-  // Only used to render "42s ago"; a slow tick keeps it honest without
+  // Advances the day arc's now-marker. A slow tick keeps it honest without
   // re-rendering the whole dial every frame.
   const [now, setNow] = useState(() => Date.now());
   const reducedMotion = useReducedMotion();
   const profile = useOperatorProfile();
   const { writes } = useVaultWrites();
+  const { graph } = useVaultGraph();
   // Flattened here rather than in the arc so the arc stays a pure renderer and
   // each tick can name the project it came from.
   const commits = projects.flatMap((project) =>
@@ -153,42 +134,9 @@ export function CommandInstrument({
     };
   }, []);
 
-  // A dot lights for its own landing rather than for any scan, so a stalled
-  // source stays dark while the others keep flashing.
   useEffect(() => {
-    const timers = new Map<PollSourceKey, number>();
-
-    const unsubscribe = subscribeToPollSources(() => {
-      const next = getPollSources();
-      setPollSources((previous) => {
-        for (const source of next) {
-          const before = previous.find((candidate) => candidate.key === source.key);
-          if (before && source.landings > before.landings) {
-            setRecentlyLanded((current) => new Set(current).add(source.key));
-            window.clearTimeout(timers.get(source.key));
-            timers.set(
-              source.key,
-              window.setTimeout(() => {
-                setRecentlyLanded((current) => {
-                  const copy = new Set(current);
-                  copy.delete(source.key);
-                  return copy;
-                });
-              }, DOT_LIT_MS)
-            );
-          }
-        }
-        return next;
-      });
-    });
-
     const clock = window.setInterval(() => setNow(Date.now()), 10_000);
-
-    return () => {
-      unsubscribe();
-      window.clearInterval(clock);
-      for (const timer of timers.values()) window.clearTimeout(timer);
-    };
+    return () => window.clearInterval(clock);
   }, []);
 
   // Arcs are laid out head to tail around the ring, rotated so the first one
@@ -205,7 +153,6 @@ export function CommandInstrument({
     return { ...slice, drawn, offset, midAngle };
   });
 
-  const hoveredDotSource = pollSources.find((source) => source.key === hoveredDot) ?? null;
   const hovered = arcs.find((arc) => arc.status === hoveredTier) ?? null;
   const hoverPoint = hovered
     ? {
@@ -285,61 +232,11 @@ export function CommandInstrument({
             </text>
           ) : null}
 
-          {/* Middle ring: one dot per poll source, not decorative specks. Each
-              lights when its own scan lands, so a dot that stops lighting is a
-              dead poll rather than a rendering quirk. The ring itself sweeps
-              slowly to show the instrument is live at all.
-              Dots flash twice at startup in dev — StrictMode double-invokes the
-              effects that fire the first fetches. Absent under a release
-              build, where React does not double-invoke. */}
-          <circle
-            cx={CENTRE}
-            cy={CENTRE}
-            r={ACTIVITY_RADIUS}
-            fill="none"
-            className="instrument-activity"
-            strokeWidth={1}
-            strokeDasharray="1 22"
-            style={{ transformOrigin: `${CENTRE}px ${CENTRE}px` }}
-          />
-
-          {pollSources.map((source, index) => {
-            const angle = (index / pollSources.length) * 360 - 90;
-            const radians = (angle * Math.PI) / 180;
-            const x = CENTRE + Math.cos(radians) * ACTIVITY_RADIUS;
-            const y = CENTRE + Math.sin(radians) * ACTIVITY_RADIUS;
-            const fresh = recentlyLanded.has(source.key);
-            return (
-              <circle
-                key={source.key}
-                cx={x}
-                cy={y}
-                r={fresh ? 5.5 : 3.5}
-                className={`instrument-dot ${fresh ? "is-lit" : ""} ${
-                  source.lastSuccessAt === null ? "is-cold" : ""
-                }`}
-                tabIndex={0}
-                role="img"
-                aria-label={`${POLL_SOURCE_LABELS[source.key]}: ${describeAge(source, now)}`}
-                onMouseEnter={() => setHoveredDot(source.key)}
-                onMouseLeave={() => setHoveredDot(null)}
-                onFocus={() => setHoveredDot(source.key)}
-                onBlur={() => setHoveredDot(null)}
-              />
-            );
-          })}
-
-          {hoveredDotSource ? (
-            <text
-              x={CENTRE}
-              y={CENTRE + ACTIVITY_RADIUS + 34}
-              className="instrument-hover-label"
-              textAnchor="middle"
-              dominantBaseline="middle"
-            >
-              {POLL_SOURCE_LABELS[hoveredDotSource.key]} · {describeAge(hoveredDotSource, now)}
-            </text>
-          ) : null}
+          {/* Inner bands: the vault's link structure, hop distance as radius.
+              This replaced five poll-freshness dots and a sweeping ring —
+              infrastructure health that changed no decision the operator makes.
+              Draws nothing until an anchor carries an edge. */}
+          <VaultGraph centre={CENTRE} graph={graph} onOpenNote={onOpenNote} />
 
           {/* The write pulse. Present only while it runs, so it costs nothing
               at rest and cannot be mistaken for part of the mark. */}
