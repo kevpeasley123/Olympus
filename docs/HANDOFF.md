@@ -55,6 +55,34 @@ repaired taskbar shortcut started that exact executable. Future development
 builds can therefore replace their own artifacts without invalidating the
 operator's pinned launcher.
 
+## 2026-07-28 briefing trust and delegation foundation
+
+The `agent/briefing-delegation-foundation` branch closes three briefing trust
+gaps and implements the first Claude Code pilot boundary:
+
+- **[V]** `operator_sessions` persists one idempotent desktop-launch boundary.
+  Project mode now says exactly which prior Olympus launch its change list uses,
+  or states that no prior session exists.
+- **[V]** project scans read commits across all refs and enumerate linked
+  worktrees with branch, head, last commit, and uncommitted file count.
+  Temporary tests proved both a dirty linked worktree and a commit on its branch
+  are visible from the primary repository.
+- **[V]** every successful Olympus vault writer, including attachments and the
+  Pantheon migration, routes through an exact-file Git commit. Temporary-index
+  tests prove unrelated staged and untracked files are excluded and preserved.
+- **[V]** Claude Code 2.1.220 is registered through a backend-owned executable
+  path. The pilot creates a recorded `olympus/run-*` branch and app-data
+  worktree, plans read-only, waits for a second approval, then resumes the same
+  session with bounded edit/test tools. Progress, cancellation, restart
+  recovery, changed files, and diff review are durable; push, merge, deploy, and
+  cleanup are absent by design.
+
+**[V]** The frontend production build passes and 161 Rust tests pass. The live
+development app created real `operator_sessions`, `delegation_runs`, and
+`delegation_events` tables. **[A]** A paid Claude run has not yet been approved
+through the new Project-mode button, so the full planning → waiting → editing →
+testing → complete runtime sequence is not yet acceptance evidence.
+
 ## How to read the claims in this document
 
 Every factual claim is tagged:

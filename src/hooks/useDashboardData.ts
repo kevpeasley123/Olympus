@@ -12,8 +12,9 @@ import { emitInstrumentEvent } from "../services/instrumentEvents";
 import { reportPollFailure, reportPollSuccess } from "../services/pollRegistry";
 import { buildPantheonReply, createUserMessage } from "../services/pantheonChat";
 import { appendConversationMessages, loadState, persistPreferences } from "../services/storage";
+import { beginOperatorSession } from "../services/session";
 import type { LiveSourceHealth, LiveSourceStatus, LoadableState } from "../types/dashboard";
-import type { OlympusState } from "../types";
+import type { OlympusState, SessionBoundary } from "../types";
 import type { MarketPanelData } from "../types/markets";
 import type { WeatherPanelData } from "../types/weather";
 
@@ -147,6 +148,8 @@ function deriveSourceHealth(source: SourceTracker): LiveSourceHealth {
 export function useDashboardData() {
   const [dashboardState, setDashboardState] = useState<OlympusState>(seedState);
   const [hydrated, setHydrated] = useState(false);
+  const [sessionBoundary, setSessionBoundary] = useState<SessionBoundary | null>(null);
+  const [sessionReady, setSessionReady] = useState(false);
   const [markets, setMarkets] = useState<LoadableState<MarketPanelData>>({
     data: null,
     loading: true,
@@ -192,7 +195,21 @@ export function useDashboardData() {
     void (async () => {
       const stored = await loadState();
       if (cancelled) return;
+
+      let boundary: SessionBoundary | null = null;
+      try {
+        boundary = await beginOperatorSession();
+      } catch (error) {
+        console.warn(
+          "[Olympus] Could not persist the session boundary; the briefing will say so.",
+          error
+        );
+      }
+      if (cancelled) return;
+
       setDashboardState(stored);
+      setSessionBoundary(boundary);
+      setSessionReady(true);
       setHydrated(true);
     })();
 
@@ -274,7 +291,10 @@ export function useDashboardData() {
 
   const refreshProjects = useCallback(async () => {
     try {
-      const scan = await fetchProjects(dashboardState.settings.projectsRootPath);
+      const scan = await fetchProjects(
+        dashboardState.settings.projectsRootPath,
+        sessionBoundary?.previousSessionStartedAt ?? null
+      );
       setDashboardState((current) => ({ ...current, projects: scan.projects }));
       setProjectNoteWarnings(scan.warnings);
       setProjectsError(null);
@@ -284,9 +304,11 @@ export function useDashboardData() {
       setProjectsError(message);
       reportPollFailure("git", message);
     }
-  }, [dashboardState.settings.projectsRootPath]);
+  }, [dashboardState.settings.projectsRootPath, sessionBoundary?.previousSessionStartedAt]);
 
   useEffect(() => {
+    if (!sessionReady) return;
+
     void refreshMarkets();
     void refreshWeather();
     void refreshProjects();
@@ -307,7 +329,7 @@ export function useDashboardData() {
       window.clearInterval(weatherTimer);
       window.clearInterval(projectsTimer);
     };
-  }, [refreshMarkets, refreshProjects, refreshWeather]);
+  }, [refreshMarkets, refreshProjects, refreshWeather, sessionReady]);
 
   const sendChatMessage = useCallback(
     async (text: string) => {
@@ -405,6 +427,7 @@ export function useDashboardData() {
       tools: dashboardState.tools.filter((tool) => tool.id !== "tool-prompt-builder"),
       quickApps: dashboardState.quickApps,
       projects: dashboardState.projects,
+      sessionBoundary,
       projectsError,
       projectNoteWarnings,
       chat: dashboardState.conversation,
@@ -422,6 +445,7 @@ export function useDashboardData() {
     }),
     [
       dashboardState,
+      sessionBoundary,
       projectsError,
       projectNoteWarnings,
       chatPending,

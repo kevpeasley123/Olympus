@@ -1,14 +1,19 @@
-import { FolderGit2, ListChecks, X } from "lucide-react";
-import type { ProjectStatus, TrackedProject } from "../../types";
+import { FolderGit2, GitBranch, ListChecks, X } from "lucide-react";
+import type { ProjectStatus, SessionBoundary, TrackedProject } from "../../types";
 import { formatPath } from "../../utils/formatPath";
 import type { ObsidianActionResult } from "../../services/obsidian";
 import { useActionQueue, type ActionQueueTask } from "../../hooks/useActionQueue";
 import { attributeTasks, groupBySourceFile } from "../../services/taskAttribution";
 import { useState } from "react";
 import { ProjectBriefing } from "./ProjectBriefing";
+import {
+  DelegationPanel,
+  type DelegationProposal
+} from "./DelegationPanel";
 
 interface ProjectsPanelProps {
   projects: TrackedProject[];
+  sessionBoundary: SessionBoundary | null;
   onSyncCanvas: () => Promise<ObsidianActionResult>;
   /** Problems with `01 - Projects` itself, not with any one project. */
   noteWarnings?: string[];
@@ -35,6 +40,7 @@ const VISIBLE_TASK_LIMIT = 3;
 
 export function ProjectsPanel({
   projects: allProjects,
+  sessionBoundary,
   onSyncCanvas,
   noteWarnings = [],
   focusMode = false,
@@ -51,6 +57,7 @@ export function ProjectsPanel({
       : allProjects;
   const [status, setStatus] = useState<ObsidianActionResult | null>(null);
   const [syncing, setSyncing] = useState(false);
+  const [delegationProposal, setDelegationProposal] = useState<DelegationProposal | null>(null);
   // The Action Queue dissolved into this panel, so its fetch moved with it
   // rather than a second one being added alongside.
   const { tasks, error: tasksError } = useActionQueue();
@@ -124,10 +131,24 @@ export function ProjectsPanel({
         {!projectFilter && !tierFilter ? (
           <ProjectBriefing
             projects={allProjects}
+            sessionBoundary={sessionBoundary}
             tasks={tasks}
             tasksError={tasksError}
             onSelectProject={onFocusProject}
             onOpenNote={onOpenNote}
+            onProposeDelegation={(project, task) =>
+              setDelegationProposal({
+                projectId: project.id,
+                projectName: project.name,
+                task
+              })
+            }
+          />
+        ) : null}
+        {!projectFilter && !tierFilter ? (
+          <DelegationPanel
+            proposal={delegationProposal}
+            onDismissProposal={() => setDelegationProposal(null)}
           />
         ) : null}
 
@@ -185,6 +206,17 @@ function ProjectCard({ project, tasks }: { project: TrackedProject; tasks: Actio
       <div className="project-card-header">
         <strong>{project.name}</strong>
         <div className="project-top-meta">
+          {project.linkedWorktrees.length > 0 ? (
+            <span
+              className="project-worktree-count tabular-data"
+              title={`${project.linkedWorktrees.length} linked worktree ${
+                project.linkedWorktrees.length === 1 ? "is" : "are"
+              } tracked below`}
+            >
+              <GitBranch size={12} />
+              {project.linkedWorktrees.length}
+            </span>
+          ) : null}
           {tasks.length > 0 ? (
             <span
               className="project-task-count tabular-data"
@@ -214,6 +246,22 @@ function ProjectCard({ project, tasks }: { project: TrackedProject; tasks: Actio
       <div className="project-path" title={project.path || undefined}>
         {pathLabel}
       </div>
+      {project.linkedWorktrees.length > 0 ? (
+        <div className="project-worktrees">
+          {project.linkedWorktrees.map((worktree) => (
+            <div key={worktree.path} className="project-worktree">
+              <span>{worktree.branch}</span>
+              <span className={worktree.changedFiles > 0 ? "pending" : "quiet"}>
+                {worktree.changedFiles > 0
+                  ? `${worktree.changedFiles} uncommitted ${
+                      worktree.changedFiles === 1 ? "file" : "files"
+                    }`
+                  : `clean at ${worktree.head || "HEAD"}`}
+              </span>
+            </div>
+          ))}
+        </div>
+      ) : null}
       {/* Empty rather than invented: an absent next step used to render one of
           three canned sentences, which read as advice while saying nothing. */}
       {project.nextStep ? (

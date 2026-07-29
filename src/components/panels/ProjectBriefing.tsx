@@ -4,14 +4,16 @@ import {
   type ProjectBrief
 } from "../../services/projectBriefing";
 import { isTauriRuntime } from "../../services/launcher";
-import type { TrackedProject } from "../../types";
+import type { SessionBoundary, TrackedProject } from "../../types";
 
 interface ProjectBriefingProps {
   projects: TrackedProject[];
+  sessionBoundary: SessionBoundary | null;
   tasks: ActionQueueTask[];
   tasksError: string | null;
   onSelectProject: (projectId: string) => void;
   onOpenNote: (notePath: string) => void;
+  onProposeDelegation: (project: TrackedProject, task: string) => void;
 }
 
 /**
@@ -24,12 +26,14 @@ interface ProjectBriefingProps {
  */
 export function ProjectBriefing({
   projects,
+  sessionBoundary,
   tasks,
   tasksError,
   onSelectProject,
-  onOpenNote
+  onOpenNote,
+  onProposeDelegation
 }: ProjectBriefingProps) {
-  const briefing = buildSessionBriefing(projects, tasks);
+  const briefing = buildSessionBriefing(projects, tasks, sessionBoundary);
   const [featured, ...secondary] = briefing.projects;
   const previewMode = !isTauriRuntime();
 
@@ -40,6 +44,7 @@ export function ProjectBriefing({
           <p className="project-briefing__eyebrow">Session paths</p>
           <h2 id="project-briefing-title">Where should we focus?</h2>
           <p className="project-briefing__introduction">{briefing.introduction}</p>
+          <p className="project-briefing__boundary">{briefing.boundaryNote}</p>
         </div>
         <div className="project-briefing__portfolio-meta tabular-data">
           <span>{briefing.activeCount} active</span>
@@ -71,6 +76,7 @@ export function ProjectBriefing({
             featured
             onSelectProject={onSelectProject}
             onOpenNote={onOpenNote}
+            onProposeDelegation={onProposeDelegation}
           />
           {secondary.length > 0 ? (
             <div className="project-briefing__secondary">
@@ -80,6 +86,7 @@ export function ProjectBriefing({
                   brief={brief}
                   onSelectProject={onSelectProject}
                   onOpenNote={onOpenNote}
+                  onProposeDelegation={onProposeDelegation}
                 />
               ))}
             </div>
@@ -111,12 +118,14 @@ function ProjectBriefCard({
   brief,
   featured = false,
   onSelectProject,
-  onOpenNote
+  onOpenNote,
+  onProposeDelegation
 }: {
   brief: ProjectBrief;
   featured?: boolean;
   onSelectProject: (projectId: string) => void;
   onOpenNote: (notePath: string) => void;
+  onProposeDelegation: (project: TrackedProject, task: string) => void;
 }) {
   const { project } = brief;
 
@@ -163,7 +172,7 @@ function ProjectBriefCard({
 
       <div className="briefing-card__columns">
         <section>
-          <span className="briefing-card__label">Recent work</span>
+          <span className="briefing-card__label">{brief.recentWorkLabel}</span>
           <ul className="briefing-card__list">
             {brief.recentWork.map((item, index) => (
               <li key={`${index}-${item}`}>{item}</li>
@@ -193,13 +202,24 @@ function ProjectBriefCard({
         </section>
       ) : null}
 
-      <button
-        type="button"
-        className="briefing-card__focus"
-        onClick={() => onSelectProject(project.id)}
-      >
-        Open project workspace
-      </button>
+      <div className="briefing-card__actions">
+        {brief.committedAction && project.path ? (
+          <button
+            type="button"
+            className="briefing-card__delegate"
+            onClick={() => onProposeDelegation(project, brief.committedAction as string)}
+          >
+            Prepare Claude run
+          </button>
+        ) : null}
+        <button
+          type="button"
+          className="briefing-card__focus"
+          onClick={() => onSelectProject(project.id)}
+        >
+          Open project workspace
+        </button>
+      </div>
     </article>
   );
 }

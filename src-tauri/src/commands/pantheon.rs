@@ -606,6 +606,12 @@ pub async fn write_pantheon_entry(
         .await
         .map_err(|error| format!("Pantheon write task panicked: {error}"))??;
 
+    crate::commands::vault_git::commit_vault_file(&written, "create").map_err(|error| {
+        format!(
+            "The research note was written at {written}, but its automatic Git commit failed: \
+             {error}. The file remains in the vault."
+        )
+    })?;
     crate::commands::persistence::log_vault_write(db.inner(), &written, "create");
 
     Ok(written)

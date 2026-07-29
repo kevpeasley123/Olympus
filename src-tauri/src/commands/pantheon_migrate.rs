@@ -226,8 +226,19 @@ pub async fn migrate_pantheon_schema(
 
         match written {
             Ok(()) => {
-                crate::commands::persistence::log_vault_write(db.inner(), &relative, "overwrite");
-                outcome.migrated.push(relative)
+                match crate::commands::vault_git::commit_vault_file(&relative, "migrate") {
+                    Ok(_) => {
+                        crate::commands::persistence::log_vault_write(
+                            db.inner(),
+                            &relative,
+                            "overwrite",
+                        );
+                        outcome.migrated.push(relative)
+                    }
+                    Err(error) => outcome.failed.push(format!(
+                        "{relative}: file written, but automatic Git commit failed: {error}"
+                    )),
+                }
             }
             Err(error) => outcome.failed.push(format!("{relative}: {error}")),
         }

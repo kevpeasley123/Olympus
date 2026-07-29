@@ -1,9 +1,9 @@
 # Coding-agent delegation contract
 
-This document defines the recoverable boundary Olympus needs before it can
-launch Claude Code, Codex, or another coding agent. It deliberately does not
-choose the first driver. Driver selection is a product and security checkpoint,
-not an implementation detail.
+This document defines the recoverable boundary Olympus uses to launch Claude
+Code, Codex, or another coding agent. The first registered pilot driver is
+Claude Code 2.1.220 on Windows; driver selection remains explicit rather than
+automatic.
 
 ## Pilot outcome
 
@@ -101,17 +101,42 @@ Raw chain-of-thought is neither requested nor displayed. The activity surface
 shows observable actions and milestones: planning, editing named areas, running
 checks, reviewing, waiting, complete, or failed.
 
-## First driver decision
+## First driver
 
-Before implementation, verify which installed interface is stable enough to
-control non-interactively on this Windows machine:
+Claude Code 2.1.220 is the pilot driver. Its native executable is resolved from
+one backend-owned location beneath `APPDATA`; the webview cannot choose a
+program or arguments. The adapter uses structured streaming output, a fixed
+UUID session, a $5 run ceiling, and a two-stage permission boundary:
 
-- Codex command-line or app automation;
-- Claude Code command-line;
-- another explicitly registered local driver.
+1. A read-only planning run creates the isolated branch/worktree and ends in
+   `waiting`.
+2. A second operator approval resumes that same session with a bounded set of
+   edit and local verification tools.
 
-Choose one pilot driver manually. Auto-routing belongs after Olympus can prove
-that one end-to-end run is trustworthy and recoverable.
+The bundled Codex executable is not used because Windows currently refuses
+standalone execution. Auto-routing belongs after this one driver proves its
+end-to-end behavior.
+
+## Implementation map
+
+- Durable run and event records: SQLite `delegation_runs` and
+  `delegation_events`.
+- Driver, worktree creation, progress parsing, cancellation, recovery, and diff:
+  `src-tauri/src/commands/delegation.rs`.
+- Proposal, checkpoint, progress, cancellation, and review surface:
+  `src/components/panels/DelegationPanel.tsx`.
+- Entry point: **Prepare Claude run** beside a real committed next action in
+  Project mode.
+
+The process boundary, persistence, state transitions, frontend build, and unit
+tests are verified. A real paid Claude run and its human checkpoint remain the
+acceptance test; Olympus does not initiate that run without the operator's
+button press.
+
+The backend stores the Claude process ID. Cancellation terminates the full
+Windows process tree so a child test runner does not survive invisibly; restart
+recovery reports whether that recorded process is still present before allowing
+the run to resume.
 
 ## Acceptance evidence
 

@@ -289,6 +289,12 @@ pub async fn append_profile_observation(
     .await
     .map_err(|error| format!("Observation write task panicked: {error}"))??;
 
+    crate::commands::vault_git::commit_vault_file(OBSERVATIONS_NOTE, "append").map_err(|error| {
+        format!(
+            "The observation was written, but its automatic Git commit failed: {error}. The \
+             observation remains in {OBSERVATIONS_NOTE}."
+        )
+    })?;
     crate::commands::persistence::log_vault_write(db.inner(), OBSERVATIONS_NOTE, "append");
 
     Ok(ObservationResult {

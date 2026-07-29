@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::sync::Mutex;
 
-use rusqlite::{params, Connection};
+use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
 use tauri::State;
 
@@ -30,6 +30,19 @@ pub struct PersistedState {
     pub settings: HashMap<String, String>,
     pub tool_states: Vec<ToolState>,
     pub conversation: Vec<ConversationMessage>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BeginSessionRequest {
+    pub session_id: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionBoundary {
+    pub current_session_started_at: String,
+    pub previous_session_started_at: Option<String>,
 }
 
 /// The guard borrows from the managed state, not from the `&State` handle, so
@@ -117,6 +130,71 @@ pub fn recent_vault_writes(db: &Db, hours: u32) -> Result<Vec<VaultWriteEvent>, 
 #[tauri::command]
 pub fn fetch_recent_vault_writes(db: State<Db>) -> Result<Vec<VaultWriteEvent>, String> {
     recent_vault_writes(db.inner(), 24)
+}
+
+/// Starts one idempotent desktop session and returns the prior launch boundary.
+///
+/// React StrictMode mounts effects twice in development. The frontend keeps one
+/// UUID for the page lifetime, and the primary key makes both invocations
+/// resolve to the same session rather than advancing the boundary twice.
+#[tauri::command]
+pub fn begin_operator_session(
+    db: State<Db>,
+    request: BeginSessionRequest,
+) -> Result<SessionBoundary, String> {
+    begin_operator_session_in(db.inner(), &request.session_id)
+}
+
+fn begin_operator_session_in(db: &Db, raw_session_id: &str) -> Result<SessionBoundary, String> {
+    let session_id = raw_session_id.trim();
+    if session_id.is_empty() {
+        return Err("A session ID is required.".to_string());
+    }
+
+    let mut connection = db.0.lock().map_err(|error| error.to_string())?;
+    let transaction = connection.transaction().map_err(|error| error.to_string())?;
+
+    transaction
+        .execute(
+            "INSERT OR IGNORE INTO operator_sessions (id) VALUES (?1)",
+            params![session_id],
+        )
+        .map_err(|error| error.to_string())?;
+
+    let (current_row_id, current_session_started_at) = transaction
+        .query_row(
+            "SELECT rowid, started_at FROM operator_sessions WHERE id = ?1",
+            params![session_id],
+            |row| Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?)),
+        )
+        .map_err(|error| error.to_string())?;
+
+    let previous_session_started_at = transaction
+        .query_row(
+            "SELECT started_at FROM operator_sessions \
+             WHERE rowid < ?1 ORDER BY rowid DESC LIMIT 1",
+            params![current_row_id],
+            |row| row.get::<_, String>(0),
+        )
+        .optional()
+        .map_err(|error| error.to_string())?;
+
+    // The boundary history is operational evidence, not an audit archive.
+    // Keeping the latest 100 sessions is ample while preventing unbounded rows.
+    transaction
+        .execute(
+            "DELETE FROM operator_sessions WHERE id NOT IN \
+             (SELECT id FROM operator_sessions ORDER BY started_at DESC LIMIT 100)",
+            [],
+        )
+        .map_err(|error| error.to_string())?;
+
+    transaction.commit().map_err(|error| error.to_string())?;
+
+    Ok(SessionBoundary {
+        current_session_started_at,
+        previous_session_started_at,
+    })
 }
 
 /// Fingerprint of a generated artifact as the app last wrote it, if we have one.
@@ -282,4 +360,42 @@ pub fn clear_conversation(db: State<Db>) -> Result<(), String> {
         .execute("DELETE FROM conversation_messages", [])
         .map(|_| ())
         .map_err(|error| error.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn session_db() -> Db {
+        let connection = Connection::open_in_memory().unwrap();
+        connection
+            .execute_batch(
+                "CREATE TABLE operator_sessions (
+                   id TEXT PRIMARY KEY,
+                   started_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+                 );",
+            )
+            .unwrap();
+        Db(Mutex::new(connection))
+    }
+
+    #[test]
+    fn session_ids_are_idempotent_and_advance_only_on_a_new_launch() {
+        let db = session_db();
+        let first = begin_operator_session_in(&db, "session-one").unwrap();
+        assert!(first.previous_session_started_at.is_none());
+
+        let duplicate = begin_operator_session_in(&db, "session-one").unwrap();
+        assert_eq!(
+            duplicate.current_session_started_at,
+            first.current_session_started_at
+        );
+        assert!(duplicate.previous_session_started_at.is_none());
+
+        let second = begin_operator_session_in(&db, "session-two").unwrap();
+        assert_eq!(
+            second.previous_session_started_at,
+            Some(first.current_session_started_at)
+        );
+    }
 }

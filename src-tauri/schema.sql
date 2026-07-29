@@ -33,6 +33,52 @@ CREATE TABLE IF NOT EXISTS conversation_messages (
 CREATE INDEX IF NOT EXISTS idx_conversation_messages_created_at
   ON conversation_messages(created_at);
 
+-- One durable boundary per desktop launch. The briefing describes this
+-- precisely as "since Olympus was last opened"; it is not inferred from commit
+-- recency or from the wall clock.
+CREATE TABLE IF NOT EXISTS operator_sessions (
+  id TEXT PRIMARY KEY,
+  started_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_operator_sessions_started_at
+  ON operator_sessions(started_at);
+
+CREATE TABLE IF NOT EXISTS delegation_runs (
+  id TEXT PRIMARY KEY,
+  project_id TEXT NOT NULL,
+  project_name TEXT NOT NULL,
+  task TEXT NOT NULL,
+  driver TEXT NOT NULL,
+  model TEXT NOT NULL,
+  phase TEXT NOT NULL,
+  workspace TEXT NOT NULL,
+  branch TEXT NOT NULL,
+  base_commit TEXT NOT NULL,
+  agent_session_id TEXT NOT NULL,
+  process_id INTEGER,
+  milestone TEXT NOT NULL,
+  checkpoint TEXT,
+  outcome TEXT,
+  changed_files_json TEXT NOT NULL DEFAULT '[]',
+  diff_summary TEXT,
+  error TEXT,
+  started_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_delegation_runs_updated_at
+  ON delegation_runs(updated_at);
+
+CREATE TABLE IF NOT EXISTS delegation_events (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  run_id TEXT NOT NULL,
+  phase TEXT NOT NULL,
+  milestone TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  FOREIGN KEY(run_id) REFERENCES delegation_runs(id)
+);
+
 CREATE TABLE IF NOT EXISTS projects (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,

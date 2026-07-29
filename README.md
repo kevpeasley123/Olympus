@@ -97,6 +97,20 @@ stable executable, and repairs an existing Olympus taskbar pin if it still
 targets the development build. The pinned target does not change between
 releases.
 
+## Delegate a coding task
+
+In desktop **Project** mode, a project with a committed next action shows
+**Prepare Claude run**. That first click only surfaces the exact task and safety
+boundary. **Start planning** then creates a dedicated branch and isolated
+worktree and asks Claude Code for a read-only plan.
+
+Claude stops at a visible decision checkpoint. **Approve and implement** is the
+separate permission to edit and run bounded local checks. Progress shows
+planning, editing, testing, reviewing, waiting, completion, or failure.
+Cancellation and app restarts preserve the worktree. Olympus returns changed
+files and a reviewable diff; it does not push, merge, deploy, or delete the
+workspace.
+
 ## Assistant Setup
 
 The chat panel is backed by the Anthropic API. Add your key to `.env` in the repo root:
@@ -160,6 +174,8 @@ What is stored, and how:
 | Settings (projects root) | `settings` | Upsert on change |
 | Tool enabled flags | `tool_states` | Upsert on change |
 | Chat history | `conversation_messages` | Append-only, at send time |
+| Desktop session boundaries | `operator_sessions` | One idempotent row per launch |
+| Delegated coding runs | `delegation_runs`, `delegation_events` | Durable state and append-only milestones |
 
 Market data, weather, and the project scan are refreshed live and deliberately not persisted.
 

@@ -219,6 +219,8 @@ function normalizeProject(project: TrackedProject): TrackedProject {
     promoted: project.promoted ?? null,
     lastCommitAt: project.lastCommitAt ?? null,
     recentCommits: project.recentCommits ?? [],
+    sinceSessionCommits: project.sinceSessionCommits ?? [],
+    linkedWorktrees: project.linkedWorktrees ?? [],
     nextStep: project.nextStep ?? "",
     notePath: project.notePath ?? null,
     warnings: project.warnings ?? []

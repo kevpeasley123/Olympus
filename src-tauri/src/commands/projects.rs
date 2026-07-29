@@ -18,6 +18,21 @@ const PROJECTS_CACHE_TTL: Duration = Duration::from_secs(60);
 pub struct ProjectsRequest {
     #[serde(rename = "rootPath")]
     pub root_path: String,
+    /// The previous durable Olympus launch boundary. When absent, the scan
+    /// reports no "since last session" commits rather than inventing a window.
+    #[serde(rename = "sinceSession")]
+    pub since_session: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+pub struct LinkedWorktree {
+    pub path: String,
+    pub branch: String,
+    pub head: String,
+    #[serde(rename = "lastCommitAt")]
+    pub last_commit_at: Option<String>,
+    #[serde(rename = "changedFiles")]
+    pub changed_files: usize,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -47,6 +62,13 @@ pub struct TrackedProjectPayload {
     /// commit — `last_commit_at` answers a different question.
     #[serde(rename = "recentCommits")]
     pub recent_commits: Vec<RecentCommit>,
+    /// Commits across every ref since the last persisted Olympus launch.
+    #[serde(rename = "sinceSessionCommits")]
+    pub since_session_commits: Vec<RecentCommit>,
+    /// Linked worktrees other than the project's primary checkout. These are
+    /// where delegated agents work and may hold progress before a commit exists.
+    #[serde(rename = "linkedWorktrees")]
+    pub linked_worktrees: Vec<LinkedWorktree>,
     pub summary: String,
     /// The project's current purpose, declared in the vault and deliberately
     /// reviewable rather than treated as permanent doctrine.
@@ -75,6 +97,7 @@ pub struct ProjectsResponse {
 #[derive(Clone)]
 struct CachedProjectsResponse {
     root_path: String,
+    since_session: Option<String>,
     payload: ProjectsResponse,
     fetched_at: Instant,
 }
@@ -95,7 +118,11 @@ fn scan_tracked_projects_blocking(
         .lock()
         .map_err(|error| error.to_string())?
         .clone()
-        .filter(|entry| entry.root_path == request.root_path && entry.fetched_at.elapsed() < PROJECTS_CACHE_TTL)
+        .filter(|entry| {
+            entry.root_path == request.root_path
+                && entry.since_session == request.since_session
+                && entry.fetched_at.elapsed() < PROJECTS_CACHE_TTL
+        })
     {
         return Ok(cached.payload);
     }
@@ -119,7 +146,7 @@ fn scan_tracked_projects_blocking(
             continue;
         }
 
-        let payload = build_project_payload(path, &notes)?;
+        let payload = build_project_payload(path, &notes, request.since_session.as_deref())?;
 
         if let Some(note_path) = &payload.note_path {
             matched_notes.push(note_path.clone());
@@ -145,6 +172,7 @@ fn scan_tracked_projects_blocking(
 
     *PROJECTS_CACHE.lock().map_err(|error| error.to_string())? = Some(CachedProjectsResponse {
         root_path: request.root_path,
+        since_session: request.since_session,
         payload: response.clone(),
         fetched_at: Instant::now(),
     });
@@ -163,6 +191,7 @@ fn scan_tracked_projects_blocking(
 fn build_project_payload(
     path: PathBuf,
     notes: &ProjectNoteIndex,
+    since_session: Option<&str>,
 ) -> Result<TrackedProjectPayload, String> {
     let name = path
         .file_name()
@@ -185,6 +214,8 @@ fn build_project_payload(
         promoted: note.and_then(|note| note.promoted.clone()),
         branch: "N/A".to_string(),
         recent_commits: Vec::new(),
+        since_session_commits: Vec::new(),
+        linked_worktrees: Vec::new(),
         last_commit: "Folder only".to_string(),
         last_commit_at: None,
         repo_state: "folder-only".to_string(),
@@ -211,7 +242,7 @@ fn build_project_payload(
     // real commit recency costs no extra process spawn. The previous ordering
     // input was the *folder's* mtime, which changes when entries are added or
     // removed and not when their contents change.
-    let commit = git_command(&path, &["log", "-1", "--pretty=format:%h|%cI|%s"]).ok();
+    let commit = git_command(&path, &["log", "--all", "-1", "--pretty=format:%h|%cI|%s"]).ok();
     let (last_commit, last_commit_at) = match commit.as_deref().map(parse_commit_line) {
         Some((summary, at)) => (summary, at),
         None => ("No commits yet".to_string(), None),
@@ -231,6 +262,10 @@ fn build_project_payload(
     payload.last_commit = last_commit;
     payload.last_commit_at = last_commit_at;
     payload.recent_commits = recent_commits(&path);
+    payload.since_session_commits = since_session
+        .map(|boundary| commits_since(&path, boundary))
+        .unwrap_or_default();
+    payload.linked_worktrees = linked_worktrees(&path);
 
     Ok(payload)
 }
@@ -266,6 +301,8 @@ fn orphaned_note_payload(note: &ProjectNote) -> TrackedProjectPayload {
         name,
         path: String::new(),
         recent_commits: Vec::new(),
+        since_session_commits: Vec::new(),
+        linked_worktrees: Vec::new(),
         status: note
             .status
             .unwrap_or(ProjectStatus::Unclassified)
@@ -342,9 +379,14 @@ pub struct RecentCommit {
 /// "what is the tip and when", which orders the project list, and widening it
 /// would make every caller pay for history none of them read.
 fn recent_commits(path: &PathBuf) -> Vec<RecentCommit> {
+    commits_since(path, "24.hours")
+}
+
+fn commits_since(path: &PathBuf, since: &str) -> Vec<RecentCommit> {
+    let since_argument = format!("--since={since}");
     let Ok(raw) = git_command(
         path,
-        &["log", "--since=24.hours", "--pretty=format:%cI|%s"],
+        &["log", "--all", &since_argument, "--pretty=format:%cI|%s"],
     ) else {
         return Vec::new();
     };
@@ -362,6 +404,63 @@ fn recent_commits(path: &PathBuf) -> Vec<RecentCommit> {
             })
         })
         .collect()
+}
+
+fn linked_worktrees(path: &PathBuf) -> Vec<LinkedWorktree> {
+    let Ok(raw) = git_command(path, &["worktree", "list", "--porcelain"]) else {
+        return Vec::new();
+    };
+    let primary = path.canonicalize().unwrap_or_else(|_| path.clone());
+    let mut linked = Vec::new();
+
+    for block in raw.split("\n\n") {
+        let mut worktree_path: Option<PathBuf> = None;
+        let mut head = String::new();
+        let mut branch = "HEAD".to_string();
+
+        for line in block.lines() {
+            if let Some(value) = line.strip_prefix("worktree ") {
+                worktree_path = Some(PathBuf::from(value.trim()));
+            } else if let Some(value) = line.strip_prefix("HEAD ") {
+                head = value.trim().chars().take(8).collect();
+            } else if let Some(value) = line.strip_prefix("branch ") {
+                branch = value
+                    .trim()
+                    .strip_prefix("refs/heads/")
+                    .unwrap_or(value.trim())
+                    .to_string();
+            } else if line.trim() == "detached" {
+                branch = "detached HEAD".to_string();
+            }
+        }
+
+        let Some(worktree_path) = worktree_path else {
+            continue;
+        };
+        let canonical = worktree_path
+            .canonicalize()
+            .unwrap_or_else(|_| worktree_path.clone());
+        if canonical == primary {
+            continue;
+        }
+
+        let changed_files = git_command(&worktree_path, &["status", "--porcelain"])
+            .map(|status| status.lines().filter(|line| !line.trim().is_empty()).count())
+            .unwrap_or(0);
+        let last_commit_at =
+            git_command(&worktree_path, &["log", "-1", "--pretty=format:%cI"]).ok();
+
+        linked.push(LinkedWorktree {
+            path: worktree_path.to_string_lossy().to_string(),
+            branch,
+            head,
+            last_commit_at,
+            changed_files,
+        });
+    }
+
+    linked.sort_by(|left, right| left.branch.cmp(&right.branch));
+    linked
 }
 
 fn git_command(path: &PathBuf, args: &[&str]) -> Result<String, String> {
@@ -416,6 +515,23 @@ fn status_rank(status: &str) -> u8 {
 mod tests {
     use super::*;
 
+    fn temp_git_repo(name: &str) -> PathBuf {
+        let root = std::env::temp_dir().join(format!("olympus-project-scan-{name}"));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(&root).unwrap();
+        git_command(&root, &["init"]).unwrap();
+        git_command(&root, &["config", "user.name", "Olympus Test"]).unwrap();
+        git_command(
+            &root,
+            &["config", "user.email", "olympus@example.invalid"],
+        )
+        .unwrap();
+        fs::write(root.join("README.md"), "seed\n").unwrap();
+        git_command(&root, &["add", "."]).unwrap();
+        git_command(&root, &["commit", "-m", "seed"]).unwrap();
+        root
+    }
+
     /// The day arc's commit ticks, against this repository.
     ///
     /// Asserts its own precondition rather than passing on an empty result —
@@ -454,12 +570,63 @@ mod tests {
         }
     }
 
+    #[test]
+    fn linked_worktree_changes_are_visible_before_a_commit() {
+        let root = temp_git_repo("linked-dirty");
+        let linked = root.with_file_name("olympus-project-scan-linked-dirty-worktree");
+        let _ = fs::remove_dir_all(&linked);
+        let linked_text = linked.to_string_lossy().to_string();
+        git_command(
+            &root,
+            &["worktree", "add", "-b", "agent/test-run", &linked_text],
+        )
+        .unwrap();
+        fs::write(linked.join("agent-progress.txt"), "in progress\n").unwrap();
+
+        let worktrees = linked_worktrees(&root);
+        assert_eq!(worktrees.len(), 1);
+        assert_eq!(worktrees[0].branch, "agent/test-run");
+        assert_eq!(worktrees[0].changed_files, 1);
+
+        git_command(&root, &["worktree", "remove", "--force", &linked_text]).unwrap();
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn session_commits_include_linked_worktree_branches() {
+        let root = temp_git_repo("linked-commit");
+        let linked = root.with_file_name("olympus-project-scan-linked-commit-worktree");
+        let _ = fs::remove_dir_all(&linked);
+        let linked_text = linked.to_string_lossy().to_string();
+        git_command(
+            &root,
+            &["worktree", "add", "-b", "agent/session-run", &linked_text],
+        )
+        .unwrap();
+        fs::write(linked.join("agent-result.txt"), "complete\n").unwrap();
+        git_command(&linked, &["add", "."]).unwrap();
+        git_command(&linked, &["commit", "-m", "delegated result"]).unwrap();
+
+        let commits = commits_since(&root, "2000-01-01T00:00:00Z");
+        assert!(
+            commits
+                .iter()
+                .any(|commit| commit.subject == "delegated result"),
+            "commits across refs must include the linked worktree branch"
+        );
+
+        git_command(&root, &["worktree", "remove", "--force", &linked_text]).unwrap();
+        let _ = fs::remove_dir_all(root);
+    }
+
     fn payload(name: &str, status: &str, committed_at: Option<&str>) -> TrackedProjectPayload {
         TrackedProjectPayload {
             id: project_id(name),
             name: name.to_string(),
             path: String::new(),
             recent_commits: Vec::new(),
+            since_session_commits: Vec::new(),
+            linked_worktrees: Vec::new(),
             status: status.to_string(),
             status_source: "inferred".to_string(),
             promoted: None,
@@ -659,6 +826,7 @@ mod tests {
 
         let response = scan_tracked_projects_blocking(ProjectsRequest {
             root_path: root.to_string_lossy().to_string(),
+            since_session: None,
         })
         .expect("the real scan must succeed");
 

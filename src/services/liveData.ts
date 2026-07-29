@@ -38,8 +38,11 @@ export interface ProjectsScanResult {
   warnings: string[];
 }
 
-export async function fetchProjects(rootPath: string): Promise<ProjectsScanResult> {
+export async function fetchProjects(
+  rootPath: string,
+  sinceSession: string | null
+): Promise<ProjectsScanResult> {
   return invoke<ProjectsScanResult>("scan_tracked_projects", {
-    request: { rootPath }
+    request: { rootPath, sinceSession }
   });
 }

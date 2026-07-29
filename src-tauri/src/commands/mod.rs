@@ -1,5 +1,6 @@
 pub mod assistant;
 pub mod attachments;
+pub mod delegation;
 pub mod markets;
 pub mod observations;
 pub mod pantheon;
@@ -10,6 +11,7 @@ pub mod project_notes;
 pub mod projects;
 pub mod tasks;
 pub mod vault_context;
+pub mod vault_git;
 pub mod vault_graph;
 pub mod vault_write;
 pub mod write_confirm;

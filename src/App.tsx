@@ -28,6 +28,7 @@ function App() {
     tools,
     quickApps,
     projects,
+    sessionBoundary,
     projectNoteWarnings,
     chat,
     chatPending,
@@ -137,6 +138,7 @@ function App() {
                 <FadeInPanel index={4} className="panel-slot panel-slot-projects">
                   <ProjectsPanel
                     projects={projects}
+                    sessionBoundary={sessionBoundary}
                     onSyncCanvas={syncProjectsCanvas}
                     noteWarnings={projectNoteWarnings}
                     focusMode={dense}

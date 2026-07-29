@@ -31,10 +31,11 @@ Tauri commands exposed by the desktop shell:
 | Area | Commands |
 | --- | --- |
 | Assistant | `send_assistant_message` |
-| Persistence | `load_persisted_state`, `save_settings`, `save_tool_states`, `append_conversation_messages`, `clear_conversation` |
+| Persistence | `load_persisted_state`, `begin_operator_session`, `save_settings`, `save_tool_states`, `append_conversation_messages`, `clear_conversation` |
 | Vault | `write_memory_artifact`, `fetch_pantheon_entries`, `write_pantheon_entry`, `migrate_pantheon_schema`, `save_attachment_to_vault`, `append_profile_observation`, `fetch_operator_profile`, `fetch_recent_vault_writes`, `fetch_vault_graph`, `open_vault_note` |
 | Write gate | `resolve_vault_write` |
 | Live data | `fetch_market_quotes`, `fetch_weather`, `scan_tracked_projects`, `fetch_action_queue` |
+| Delegation | `start_delegation_run`, `resume_delegation_run`, `cancel_delegation_run`, `list_delegation_runs`, `fetch_delegation_diff` |
 | Shell / files | `launch_quick_app`, `restart_olympus`, `pick_attachment_file`, `extract_pdf_text` |
 
 The SQLite connection is opened once during `setup()` and held in managed state, so the frontend can assume persistence is ready before it can invoke anything.
@@ -63,6 +64,12 @@ When a write needs a human, `write_confirm::request_confirmation` emits `vault-w
 
 Fingerprints of app-authored files live in the SQLite `artifact_hashes` table, normalised for line endings and trailing whitespace before hashing — the vault syncs through OneDrive and is opened by Obsidian, and neither round-trip is a human edit. A file whose fingerprint still matches is regenerated silently; one that diverged, or was never recorded, prompts. **Absent must mean confirm** — treating a missing row as clean would make the check bypassable by deleting it.
 
+After a successful approved write, `vault_git::commit_vault_file` commits only
+that vault-relative path. It uses a temporary Git index seeded from `HEAD`,
+proves the resulting commit tree contains exactly one changed path, atomically
+advances the vault branch, then refreshes only that path in the operator's real
+index. Unrelated staged and unstaged vault work is never adopted.
+
 ### The appender
 
 `append_profile_observation` is the only writer that adds to an existing note, and the only one that always asks. Two properties are load-bearing:
@@ -74,7 +81,7 @@ Because the gate can hold for up to two minutes, the appender re-fingerprints th
 
 ## Process spawns
 
-Two places in `src-tauri/src` start a process. Both are recorded here because a
+Three areas in `src-tauri/src` start a process. All are recorded here because a
 spawn can write anything a shell can, which puts them in the same blast radius
 as the vault writers above.
 
@@ -118,6 +125,24 @@ Two things follow that "the subcommands are read-only" does not cover:
   Record (observation) are all button handlers — so the double-invoke does not
   currently produce duplicate confirmation dialogs.
 
+### Claude Code delegation — `delegation.rs`
+
+The webview supplies only a tracked project ID, run ID, and the exact committed
+next action already read from the project note. Rust re-resolves the direct
+project child from the configured projects root and rejects a task that no
+longer matches the vault commitment.
+
+The adapter resolves one fixed Claude Code executable beneath the operator's
+`APPDATA`, verifies its version, creates an `olympus/run-*` branch and worktree
+beneath the Olympus app-data directory, and builds every process argument in
+Rust. Planning runs first with read-only tools and always ends at a durable
+`waiting` checkpoint. Only a second operator action resumes the same Claude
+session with a bounded edit/test allowlist. Cancellation kills the child but
+preserves the branch and worktree. The process ID is durable; on Windows,
+cancellation terminates the full process tree, and restart recovery distinguishes
+a detached live process from an ended one. Push, merge, deploy, and worktree
+deletion are not implemented by the pilot.
+
 ### Excluded, with reason
 
 `assistant.rs:314` is `response.status()` on a `reqwest::Response`, not a
@@ -138,7 +163,14 @@ Dashboard panels compose from `src/App.tsx`. Live data sources:
   facts. `src/services/projectBriefing.ts` reconciles those with attributed
   tasks into Project mode's grounded session paths. Command consumes the same
   sources only for its single committed next-action sentence, tier arcs, and
-  quiet counts.
+  quiet counts. The scan reads commits across all refs and lists linked
+  worktrees, including their uncommitted file counts, so delegated progress is
+  visible before it reaches the primary branch.
+
+- **Session boundary** — `operator_sessions` records one idempotent row per
+  desktop webview lifetime. Project mode's “since last session” list is queried
+  from the previous recorded launch time; when none exists, the UI says it is
+  falling back rather than pretending a time window.
 
 - **Chat** — `send_assistant_message` calls the Anthropic API from Rust, so the API key never reaches the webview
 

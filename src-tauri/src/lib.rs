@@ -14,13 +14,17 @@ use commands::attachments::{
     extract_pdf_text, pick_attachment_file, save_attachment_to_vault,
 };
 use commands::assistant::send_assistant_message;
+use commands::delegation::{
+    cancel_delegation_run, fetch_delegation_diff, list_delegation_runs,
+    resume_delegation_run, start_delegation_run, DelegationProcesses,
+};
 use commands::markets::fetch_market_quotes;
 use commands::observations::append_profile_observation;
 use commands::pantheon::{fetch_pantheon_entries, write_pantheon_entry};
 use commands::pantheon_migrate::migrate_pantheon_schema;
 use commands::profile::fetch_operator_profile;
 use commands::persistence::{
-    append_conversation_messages, clear_conversation, fetch_recent_vault_writes,
+    append_conversation_messages, begin_operator_session, clear_conversation, fetch_recent_vault_writes,
     load_persisted_state, save_settings, save_tool_states, Db,
 };
 use commands::projects::scan_tracked_projects;
@@ -78,6 +82,25 @@ fn open_database(app: &tauri::AppHandle) -> Result<Connection, String> {
     connection
         .execute_batch(SCHEMA)
         .map_err(|error| error.to_string())?;
+    let has_process_id = {
+        let mut columns = connection
+            .prepare("PRAGMA table_info(delegation_runs)")
+            .map_err(|error| error.to_string())?;
+        let found = columns
+            .query_map([], |row| row.get::<_, String>(1))
+            .map_err(|error| error.to_string())?
+            .filter_map(Result::ok)
+            .any(|name| name == "process_id");
+        found
+    };
+    if !has_process_id {
+        connection
+            .execute(
+                "ALTER TABLE delegation_runs ADD COLUMN process_id INTEGER",
+                [],
+            )
+            .map_err(|error| error.to_string())?;
+    }
 
     eprintln!("[Olympus::Db] opened {}", db_path.display());
     Ok(connection)
@@ -162,6 +185,12 @@ async fn write_memory_artifact(
         &key,
         &vault_write::content_fingerprint(&artifact.content),
     )?;
+    commands::vault_git::commit_vault_file(&key, "update").map_err(|error| {
+        format!(
+            "The vault file was written at {key}, but its automatic Git commit failed: {error}. \
+             The file remains in the vault."
+        )
+    })?;
     commands::persistence::log_vault_write(db.inner(), &key, "overwrite");
 
     Ok(WriteResult {
@@ -295,6 +324,7 @@ pub fn run() {
         .setup(|app| {
             let connection = open_database(app.handle())?;
             app.manage(Db(Mutex::new(connection)));
+            app.manage(DelegationProcesses::default());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -303,6 +333,7 @@ pub fn run() {
             save_settings,
             save_tool_states,
             append_conversation_messages,
+            begin_operator_session,
             clear_conversation,
             write_memory_artifact,
             launch_quick_app,
@@ -322,7 +353,12 @@ pub fn run() {
             commands::vault_graph::fetch_vault_graph,
             pick_attachment_file,
             extract_pdf_text,
-            save_attachment_to_vault
+            save_attachment_to_vault,
+            start_delegation_run,
+            resume_delegation_run,
+            cancel_delegation_run,
+            list_delegation_runs,
+            fetch_delegation_diff
         ])
         .run(tauri::generate_context!())
         .expect("error while running Project Olympus");

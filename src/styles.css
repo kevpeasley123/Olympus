@@ -1876,6 +1876,48 @@ small {
   text-overflow: ellipsis;
 }
 
+.project-worktree-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #90b9d8;
+  font-size: var(--text-xs);
+}
+
+.project-worktrees {
+  display: grid;
+  gap: 3px;
+  margin-top: 5px;
+  padding-left: 10px;
+  border-left: 1px solid rgba(101, 164, 201, 0.28);
+}
+
+.project-worktree {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-12);
+  min-width: 0;
+  color: var(--label);
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+
+.project-worktree > span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.project-worktree .pending {
+  flex: 0 0 auto;
+  color: var(--accent);
+}
+
+.project-worktree .quiet {
+  flex: 0 0 auto;
+  color: var(--muted);
+}
+
 .project-next-line span:last-child {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -4083,6 +4125,14 @@ small {
   line-height: 1.5;
 }
 
+.project-briefing__boundary {
+  margin: 3px 0 0;
+  color: var(--label);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.02em;
+}
+
 .project-briefing__portfolio-meta {
   display: flex;
   flex-wrap: wrap;
@@ -4310,9 +4360,16 @@ small {
   color: #d8b77d;
 }
 
-.briefing-card__focus {
+.briefing-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-8);
   align-self: flex-start;
   margin-top: auto;
+}
+
+.briefing-card__focus,
+.briefing-card__delegate {
   padding: 8px 12px;
   border: 1px solid rgba(217, 119, 6, 0.34);
   background: rgba(217, 119, 6, 0.08);
@@ -4324,11 +4381,235 @@ small {
   text-transform: uppercase;
 }
 
+.briefing-card__delegate {
+  border-color: rgba(82, 225, 255, 0.26);
+  background: rgba(35, 151, 181, 0.08);
+}
+
 .briefing-card__focus:hover,
-.briefing-card__focus:focus-visible {
+.briefing-card__focus:focus-visible,
+.briefing-card__delegate:hover,
+.briefing-card__delegate:focus-visible {
   border-color: var(--accent);
   background: rgba(217, 119, 6, 0.16);
   outline: none;
+}
+
+.delegation-panel {
+  display: grid;
+  gap: var(--space-12);
+  padding: var(--space-16);
+  border: 1px solid rgba(82, 225, 255, 0.18);
+  background: rgba(7, 14, 24, 0.58);
+}
+
+.delegation-panel__head,
+.delegation-run__head,
+.delegation-run__meta,
+.delegation-actions {
+  display: flex;
+  align-items: center;
+}
+
+.delegation-panel__head,
+.delegation-run__head {
+  justify-content: space-between;
+  gap: var(--space-16);
+}
+
+.delegation-panel__eyebrow,
+.delegation-panel__label {
+  color: rgba(82, 225, 255, 0.8);
+  font-size: 9px;
+  font-weight: var(--weight-medium);
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.delegation-panel__head h3 {
+  margin: 3px 0 0;
+  color: var(--primary);
+  font-size: 15px;
+  font-weight: var(--weight-medium);
+}
+
+.delegation-panel__driver {
+  color: var(--label);
+  font-size: 9px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.delegation-proposal,
+.delegation-run {
+  position: relative;
+  display: grid;
+  gap: var(--space-10);
+  padding: var(--space-14);
+  border: 1px solid rgba(151, 173, 200, 0.16);
+  background: rgba(12, 22, 36, 0.7);
+}
+
+.delegation-proposal__dismiss {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.delegation-proposal p,
+.delegation-run p {
+  margin: 0;
+  color: var(--secondary);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.delegation-proposal__boundary {
+  max-width: 80ch;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.delegation-runs {
+  display: grid;
+  gap: var(--space-8);
+}
+
+.delegation-run__project {
+  display: block;
+  margin-bottom: 3px;
+  color: var(--label);
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.delegation-run__head strong {
+  display: block;
+  color: var(--primary);
+  font-size: 12px;
+  font-weight: var(--weight-medium);
+}
+
+.delegation-phase {
+  flex: 0 0 auto;
+  padding: 3px 6px;
+  border: 1px solid rgba(151, 173, 200, 0.18);
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.delegation-phase.is-active {
+  border-color: rgba(82, 225, 255, 0.35);
+  color: var(--accent);
+  animation: delegation-breathe 1.8s ease-in-out infinite;
+}
+
+@keyframes delegation-breathe {
+  50% {
+    opacity: 0.55;
+  }
+}
+
+.delegation-run__meta {
+  flex-wrap: wrap;
+  gap: var(--space-12);
+  color: var(--label);
+  font-size: 9px;
+}
+
+.delegation-run__meta span,
+.delegation-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.delegation-run__milestone {
+  color: #bdd2e3 !important;
+}
+
+.delegation-checkpoint,
+.delegation-outcome {
+  display: grid;
+  gap: 5px;
+  padding: var(--space-10);
+  border-left: 2px solid var(--accent);
+  background: rgba(35, 151, 181, 0.06);
+}
+
+.delegation-outcome pre {
+  max-height: 120px;
+  margin: 2px 0 0;
+  overflow: auto;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  white-space: pre-wrap;
+}
+
+.delegation-actions {
+  flex-wrap: wrap;
+  gap: var(--space-8);
+}
+
+.delegation-action {
+  padding: 7px 10px;
+  border: 1px solid rgba(151, 173, 200, 0.2);
+  background: rgba(151, 173, 200, 0.05);
+  color: var(--secondary);
+  cursor: pointer;
+  font: inherit;
+  font-size: 10px;
+}
+
+.delegation-action--primary {
+  border-color: rgba(82, 225, 255, 0.3);
+  color: var(--primary);
+}
+
+.delegation-action:hover:not(:disabled),
+.delegation-action:focus-visible {
+  border-color: var(--accent);
+  outline: none;
+}
+
+.delegation-action:disabled {
+  cursor: wait;
+  opacity: 0.5;
+}
+
+.delegation-error {
+  margin: 0;
+  color: #e2a4a4 !important;
+  font-size: 11px;
+}
+
+.delegation-diff {
+  max-height: 360px;
+  margin: 0;
+  padding: var(--space-12);
+  overflow: auto;
+  border: 1px solid rgba(151, 173, 200, 0.14);
+  background: rgba(1, 6, 12, 0.74);
+  color: #bdd2e3;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  line-height: 1.45;
+  white-space: pre;
 }
 
 .project-briefing__empty {
@@ -4617,6 +4898,7 @@ small {
   .skeleton-line,
   .health-source-dot,
   .health-indicator,
+  .delegation-phase.is-active,
   .ambient-inline-button.is-spinning {
     animation: none;
   }

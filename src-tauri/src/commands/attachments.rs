@@ -119,6 +119,7 @@ pub async fn extract_pdf_text(file_path: String) -> Result<String, String> {
 
 #[tauri::command]
 pub async fn save_attachment_to_vault(
+    db: tauri::State<'_, crate::commands::persistence::Db>,
     source_path: String,
     target_filename: String,
 ) -> Result<String, String> {
@@ -160,6 +161,15 @@ pub async fn save_attachment_to_vault(
         .file_name()
         .and_then(|n| n.to_str())
         .unwrap_or(&safe_filename);
+    let vault_relative = format!("{ATTACHMENTS_FOLDER}/{final_filename}");
+
+    crate::commands::vault_git::commit_vault_file(&vault_relative, "create").map_err(|error| {
+        format!(
+            "The attachment was written at {vault_relative}, but its automatic Git commit failed: \
+             {error}. The file remains in the vault."
+        )
+    })?;
+    crate::commands::persistence::log_vault_write(db.inner(), &vault_relative, "create");
 
     Ok(format!("_attachments/{}", final_filename))
 }

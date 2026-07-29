@@ -1,10 +1,11 @@
 import type { ActionQueueTask } from "../hooks/useActionQueue";
-import type { TrackedProject } from "../types";
+import type { SessionBoundary, TrackedProject } from "../types";
 import { attributeTasks } from "./taskAttribution";
 
 export interface ProjectBrief {
   project: TrackedProject;
   recentWork: string[];
+  recentWorkLabel: string;
   committedAction: string | null;
   openTasks: ActionQueueTask[];
   recommendation: string;
@@ -20,6 +21,7 @@ export interface SessionBriefing {
   totalProjectCount: number;
   watchlistOptions: number;
   introduction: string;
+  boundaryNote: string;
 }
 
 const MAX_BRIEF_PROJECTS = 3;
@@ -38,6 +40,7 @@ function projectHasCurrentSignal(project: TrackedProject): boolean {
   return (
     project.recentCommits.length > 0 ||
     project.repoState === "git-pending" ||
+    project.linkedWorktrees.length > 0 ||
     project.nextStep.trim().length > 0
   );
 }
@@ -61,6 +64,10 @@ function daysBetween(earlier: string, now: Date): number | null {
 }
 
 export function formatProjectActivity(project: TrackedProject, now: Date): string {
+  if (project.linkedWorktrees.some((worktree) => worktree.changedFiles > 0)) {
+    return "Delegated work in progress";
+  }
+
   if (!project.lastCommitAt) {
     return project.repoState === "folder-only" ? "No Git history" : "No commits recorded";
   }
@@ -85,14 +92,36 @@ export function formatProjectActivity(project: TrackedProject, now: Date): strin
   })}`;
 }
 
-function recentWork(project: TrackedProject): string[] {
-  if (project.recentCommits.length > 0) {
-    const visible = project.recentCommits.slice(0, 2).map((commit) => sentence(commit.subject));
-    const remaining = project.recentCommits.length - visible.length;
+function recentWork(
+  project: TrackedProject,
+  sessionBoundary: SessionBoundary | null
+): string[] {
+  const worktreeActivity = project.linkedWorktrees
+    .filter((worktree) => worktree.changedFiles > 0)
+    .map(
+      (worktree) =>
+        `${worktree.branch} has ${worktree.changedFiles} uncommitted ${
+          worktree.changedFiles === 1 ? "file" : "files"
+        } in an isolated worktree.`
+    );
+
+  if (sessionBoundary?.previousSessionStartedAt && project.sinceSessionCommits.length > 0) {
+    const visible = project.sinceSessionCommits
+      .slice(0, 2)
+      .map((commit) => sentence(commit.subject));
+    const remaining = project.sinceSessionCommits.length - visible.length;
     if (remaining > 0) {
       visible.push(`${remaining} additional ${remaining === 1 ? "change" : "changes"} recorded.`);
     }
-    return visible;
+    return [...worktreeActivity, ...visible].slice(0, 3);
+  }
+
+  if (worktreeActivity.length > 0) {
+    return worktreeActivity.slice(0, 3);
+  }
+
+  if (sessionBoundary?.previousSessionStartedAt) {
+    return ["No commits have landed since the previous Olympus session."];
   }
 
   if (project.lastCommitAt && project.lastCommit.trim()) {
@@ -107,6 +136,21 @@ function attentionItems(project: TrackedProject, now: Date): string[] {
 
   if (project.repoState === "git-pending") {
     items.push("Uncommitted work is present and should be protected before broader changes.");
+  }
+
+  const delegatedChanges = project.linkedWorktrees.filter(
+    (worktree) => worktree.changedFiles > 0
+  );
+  if (delegatedChanges.length > 0) {
+    const fileCount = delegatedChanges.reduce(
+      (total, worktree) => total + worktree.changedFiles,
+      0
+    );
+    items.push(
+      `${delegatedChanges.length} isolated ${
+        delegatedChanges.length === 1 ? "worktree has" : "worktrees have"
+      } ${fileCount} uncommitted ${fileCount === 1 ? "file" : "files"}.`
+    );
   }
 
   if (!project.vision.trim()) {
@@ -144,6 +188,10 @@ function recommendation(project: TrackedProject, tasks: ActionQueueTask[]): stri
     return "Review and secure the uncommitted work, then decide whether to continue or redirect it.";
   }
 
+  if (project.linkedWorktrees.some((worktree) => worktree.changedFiles > 0)) {
+    return "Review the isolated agent work and its diff before starting overlapping changes.";
+  }
+
   if (project.nextStep.trim()) {
     return "Begin with the committed next action, then pause if the direction or design needs to change.";
   }
@@ -173,6 +221,7 @@ function recommendation(project: TrackedProject, tasks: ActionQueueTask[]): stri
 export function buildSessionBriefing(
   projects: TrackedProject[],
   tasks: ActionQueueTask[],
+  sessionBoundary: SessionBoundary | null,
   now = new Date()
 ): SessionBriefing {
   const active = projects.filter((project) => project.status === "active").sort(byRecency);
@@ -187,7 +236,10 @@ export function buildSessionBriefing(
     const projectTasks = taskMap.get(project.id) ?? [];
     return {
       project,
-      recentWork: recentWork(project),
+      recentWork: recentWork(project, sessionBoundary),
+      recentWorkLabel: sessionBoundary?.previousSessionStartedAt
+        ? "Since last Olympus session"
+        : "Latest known work",
       committedAction: project.nextStep.trim() || null,
       openTasks: projectTasks,
       recommendation: recommendation(project, projectTasks),
@@ -201,6 +253,18 @@ export function buildSessionBriefing(
   const selectedActiveCount = briefs.length - watchlistOptions;
   const hiddenActiveCount = Math.max(0, active.length - selectedActiveCount);
   let introduction: string;
+  const previousSession = sessionBoundary?.previousSessionStartedAt
+    ? new Date(sessionBoundary.previousSessionStartedAt)
+    : null;
+  const boundaryNote =
+    previousSession && !Number.isNaN(previousSession.getTime())
+      ? `Measured since Olympus opened ${previousSession.toLocaleString([], {
+          month: "short",
+          day: "numeric",
+          hour: "numeric",
+          minute: "2-digit"
+        })}.`
+      : "No prior Olympus session is recorded yet; recent work falls back to the latest known change.";
 
   if (briefs.length === 0) {
     introduction =
@@ -228,6 +292,7 @@ export function buildSessionBriefing(
     hiddenActiveCount,
     totalProjectCount: projects.length,
     watchlistOptions,
-    introduction
+    introduction,
+    boundaryNote
   };
 }

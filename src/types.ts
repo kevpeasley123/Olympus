@@ -139,6 +139,20 @@ export interface RecentCommit {
   subject: string;
 }
 
+export interface LinkedWorktree {
+  path: string;
+  branch: string;
+  head: string;
+  /** ISO 8601, or null when the linked worktree has no commits. */
+  lastCommitAt: string | null;
+  changedFiles: number;
+}
+
+export interface SessionBoundary {
+  currentSessionStartedAt: string;
+  previousSessionStartedAt: string | null;
+}
+
 export interface TrackedProject {
   id: string;
   name: string;
@@ -154,6 +168,10 @@ export interface TrackedProject {
   repoState: "git-active" | "git-pending" | "folder-only" | "no-repo";
   /** Commits in the last 24 hours, newest first. Empty for a folder with none. */
   recentCommits: RecentCommit[];
+  /** Commits across all refs since the previous persisted Olympus launch. */
+  sinceSessionCommits: RecentCommit[];
+  /** Non-primary worktrees, including delegated agent branches. */
+  linkedWorktrees: LinkedWorktree[];
   summary: string;
   /** The current, reviewable purpose declared in the project's vault note. */
   vision: string;
