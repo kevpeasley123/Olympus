@@ -3791,19 +3791,25 @@ small {
 }
 
 .day-arc__tick {
-  stroke-width: 1.5;
+  stroke-width: 3;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
   cursor: help;
   transition: opacity 160ms ease-out;
 }
 
 .day-arc__tick--commit {
-  stroke: var(--accent);
-  opacity: 0.75;
+  /* Commits must read independently from the amber elapsed trace. A pale,
+     weightier notch remains visible over both the background image and arc. */
+  stroke: var(--primary);
+  opacity: 0.95;
+  filter: drop-shadow(0 0 2px rgb(244 246 250 / 0.45));
 }
 
 .day-arc__tick--write {
-  stroke: var(--primary);
-  opacity: 0.5;
+  stroke: var(--accent);
+  opacity: 0.95;
+  filter: drop-shadow(0 0 2px rgb(217 119 6 / 0.5));
 }
 
 .day-arc__tick:hover {

@@ -87,8 +87,11 @@ export function DayArc({
       ) : null}
 
       {ticks.map((tick, index) => {
-        const inner = pointOnRing(tick.fraction, centre, radius - 6);
-        const outer = pointOnRing(tick.fraction, centre, radius + 6);
+        // Ticks cross the track decisively. The previous 12-unit hairline used
+        // the same amber as the elapsed arc, so correct live data could be
+        // visually indistinguishable from the ring it was meant to annotate.
+        const inner = pointOnRing(tick.fraction, centre, radius - 9);
+        const outer = pointOnRing(tick.fraction, centre, radius + 9);
         return (
           <line
             key={`${tick.kind}-${index}-${tick.fraction}`}
