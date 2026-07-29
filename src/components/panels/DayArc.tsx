@@ -19,6 +19,7 @@ interface DayArcProps {
   commits: Array<RecentCommit & { project: string }>;
   writes: VaultWriteEvent[];
   reducedMotion: boolean;
+  renderScale: number;
 }
 
 /**
@@ -35,7 +36,8 @@ export function DayArc({
   quietHours,
   commits,
   writes,
-  reducedMotion
+  reducedMotion,
+  renderScale
 }: DayArcProps) {
   const [hovered, setHovered] = useState<DayTick | null>(null);
   const [arcHovered, setArcHovered] = useState(false);
@@ -43,6 +45,8 @@ export function DayArc({
   const elapsed = fractionOfDay(now);
   const ticks = buildTicks(commits, writes, now);
   const marker = pointOnRing(elapsed, centre, radius);
+  const stableScale = Math.max(renderScale, 0.01);
+  const tickHalfLength = 9 / stableScale;
 
   // Quiet hours are the one thing here that comes from the operator profile.
   // A missing or malformed field renders nothing at all rather than blocking
@@ -90,8 +94,8 @@ export function DayArc({
         // Ticks cross the track decisively. The previous 12-unit hairline used
         // the same amber as the elapsed arc, so correct live data could be
         // visually indistinguishable from the ring it was meant to annotate.
-        const inner = pointOnRing(tick.fraction, centre, radius - 9);
-        const outer = pointOnRing(tick.fraction, centre, radius + 9);
+        const inner = pointOnRing(tick.fraction, centre, radius - tickHalfLength);
+        const outer = pointOnRing(tick.fraction, centre, radius + tickHalfLength);
         return (
           <line
             key={`${tick.kind}-${index}-${tick.fraction}`}
@@ -111,7 +115,7 @@ export function DayArc({
       <circle
         cx={marker.x}
         cy={marker.y}
-        r={5}
+        r={5 / stableScale}
         className={`day-arc__now ${reducedMotion ? "" : "is-live"}`}
         pointerEvents="none"
       />
@@ -119,10 +123,11 @@ export function DayArc({
       {label ? (
         <text
           x={centre}
-          y={centre - radius - 18}
+          y={centre - radius - 18 / stableScale}
           textAnchor="middle"
           dominantBaseline="middle"
           className="day-arc__label"
+          style={{ fontSize: `${13 / stableScale}px` }}
         >
           {label}
         </text>

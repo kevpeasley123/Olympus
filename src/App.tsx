@@ -46,7 +46,11 @@ function App() {
   // Subscribed here, not only inside the panels that display them, so both
   // scans run in every mode. Without this the instrument's task and pantheon
   // dots would be permanently dark in Command — the one mode that shows them.
-  useActionQueue();
+  const {
+    tasks: actionTasks,
+    loading: actionTasksLoading,
+    error: actionTasksError
+  } = useActionQueue();
   usePantheon();
   const [statusPanel, setStatusPanel] = useState<StatusRailTarget | null>(null);
   /** Set by clicking a tier arc; Project mode opens filtered to it. */
@@ -125,7 +129,10 @@ function App() {
               <FadeInPanel index={1} className="panel-slot panel-slot-instrument">
                 <CommandInstrument
                   projects={projects}
-                  onSelectTier={enterTier}
+                  tasks={actionTasks}
+                  tasksLoading={actionTasksLoading}
+                  tasksError={actionTasksError}
+                  onSelectProject={enterProject}
                   onOpenNote={(notePath) => void openVaultNote(notePath)}
                 />
               </FadeInPanel>

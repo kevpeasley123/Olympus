@@ -31,6 +31,8 @@ export function createPollingStore<T>(options: {
   intervalMs: number;
   initial: T;
   fetcher: () => Promise<T>;
+  /** Called only after a successful fetch, before subscribers are notified. */
+  onData?: (next: T, previous: T) => void;
 }): () => PollingStore<T> {
   let data: T = options.initial;
   let loading = true;
@@ -50,7 +52,10 @@ export function createPollingStore<T>(options: {
 
     inFlight = (async () => {
       try {
-        data = await options.fetcher();
+        const previous = data;
+        const next = await options.fetcher();
+        data = next;
+        options.onData?.(next, previous);
         error = null;
         if (options.key) reportPollSuccess(options.key);
       } catch (caught) {

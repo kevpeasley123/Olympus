@@ -35,6 +35,8 @@ export interface VaultGraphPayload {
   connectedProjectCount: number;
   hopOneCount: number;
   dropped: number;
+  /** Reachable notes removed by the backend cap. Orphans are excluded. */
+  droppedLinked: number;
   excludedScaffold: number;
   brokenLinks: number;
 }
@@ -46,6 +48,7 @@ export const EMPTY_VAULT_GRAPH: VaultGraphPayload = {
   connectedProjectCount: 0,
   hopOneCount: 0,
   dropped: 0,
+  droppedLinked: 0,
   excludedScaffold: 0,
   brokenLinks: 0
 };
@@ -68,6 +71,30 @@ export const GRAPH_MIN_CONNECTED_ANCHORS = 1;
 
 export function isGraphLegible(graph: VaultGraphPayload): boolean {
   return graph.connectedProjectCount >= GRAPH_MIN_CONNECTED_ANCHORS;
+}
+
+/** Reachable, non-project notes are exactly the nodes Command is allowed to draw. */
+export function connectedNoteIds(graph: VaultGraphPayload): Set<string> {
+  return new Set(
+    graph.nodes
+      .filter((node) => !node.isProject && node.hop !== null)
+      .map((node) => node.id)
+  );
+}
+
+/**
+ * Pure landing detection for the graph pulse.
+ *
+ * This intentionally compares two authoritative scans instead of accumulating a
+ * second memory. Removing a vault link removes the node from the next result;
+ * restoring the link makes it a new landing again.
+ */
+export function addedConnectedNoteIds(
+  previous: VaultGraphPayload,
+  next: VaultGraphPayload
+): string[] {
+  const before = connectedNoteIds(previous);
+  return [...connectedNoteIds(next)].filter((id) => !before.has(id)).sort(byId);
 }
 
 /**
@@ -292,7 +319,9 @@ export function layoutVaultGraph(
 }
 
 /** Hover copy. Says what the node is and how far out it sits, nothing inferred. */
-export function describeNode(node: PositionedNode): string {
+export function describeNode(
+  node: Pick<VaultGraphNode, "id" | "title" | "folder" | "hop">
+): string {
   // Rust derives `folder` from the first path segment, so a file at the vault
   // root reports its own filename as its folder — `AGENTS.md` in `AGENTS.md`.
   // Naming the real location is more useful than echoing the title back.

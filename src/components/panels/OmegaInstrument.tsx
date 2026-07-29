@@ -19,6 +19,8 @@ interface OmegaInstrumentProps {
 const PULSE_MS: Record<InstrumentEvent, number> = {
   /** Two plays of a 0.7s ripple. */
   "vault-write": 1400,
+  /** One landing confirmation. */
+  "graph-node": 700,
   /** One. */
   poll: 700
 };

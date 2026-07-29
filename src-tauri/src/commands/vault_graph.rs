@@ -8,10 +8,6 @@
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::Mutex;
-use std::time::SystemTime;
-
-use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use walkdir::WalkDir;
 
@@ -25,9 +21,6 @@ const NODE_CAP: usize = 120;
 /// Outbound link targets per file, held while the file's mtime is unchanged.
 /// The same pattern the Pantheon scan uses; a scan that finds no edits reads no
 /// file contents at all.
-static LINK_CACHE: Lazy<Mutex<HashMap<PathBuf, (SystemTime, Vec<String>)>>> =
-    Lazy::new(|| Mutex::new(HashMap::new()));
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GraphNode {
@@ -75,6 +68,8 @@ pub struct VaultGraph {
     /// Link targets that resolved to nothing. Not nodes; counted so a vault
     /// full of dead links is visible rather than merely absent.
     pub broken_links: u32,
+    /// Reachable, non-project notes removed by `NODE_CAP`.
+    pub dropped_linked: u32,
 }
 
 fn relative(vault: &Path, path: &Path) -> String {
@@ -199,6 +194,19 @@ pub fn build_vault_graph() -> Result<VaultGraph, String> {
         return Err(format!("Vault path does not exist: {}", vault.display()));
     }
 
+    let project_paths: HashSet<String> = load_project_notes()
+        .note_paths()
+        .into_iter()
+        .map(|p| p.to_string())
+        .collect();
+
+    build_vault_graph_at(vault, project_paths)
+}
+
+fn build_vault_graph_at(
+    vault: PathBuf,
+    project_paths: HashSet<String>,
+) -> Result<VaultGraph, String> {
     let roots = scaffold_roots(&vault);
     let mut files: Vec<PathBuf> = Vec::new();
     let mut excluded_scaffold = 0u32;
@@ -234,25 +242,18 @@ pub fn build_vault_graph() -> Result<VaultGraph, String> {
         by_stem.entry(stem).or_insert(index);
     }
 
-    let cached = LINK_CACHE.lock().map(|guard| guard.clone()).unwrap_or_default();
-    let mut fresh: HashMap<PathBuf, (SystemTime, Vec<String>)> = HashMap::new();
-
     let mut adjacency: Vec<HashSet<usize>> = vec![HashSet::new(); files.len()];
     let mut edges: Vec<GraphEdge> = Vec::new();
     let mut broken_links = 0u32;
     let mut seen_edges: HashSet<(usize, usize)> = HashSet::new();
 
     for (index, path) in files.iter().enumerate() {
-        let mtime = fs::metadata(path)
-            .and_then(|meta| meta.modified())
-            .unwrap_or(SystemTime::UNIX_EPOCH);
-
-        let targets = match cached.get(path) {
-            Some((cached_mtime, cached_targets)) if *cached_mtime == mtime => cached_targets.clone(),
-            _ => match fs::read_to_string(path) {
-                Ok(content) => extract_links(&content),
-                Err(_) => Vec::new(),
-            },
+        // Correctness beats a five-minute scan optimization. Reading the file
+        // on every scan makes link removal authoritative even on filesystems
+        // with coarse mtimes: this graph is derived, never accumulated.
+        let targets = match fs::read_to_string(path) {
+            Ok(content) => extract_links(&content),
+            Err(_) => Vec::new(),
         };
 
         for target in &targets {
@@ -274,19 +275,7 @@ pub fn build_vault_graph() -> Result<VaultGraph, String> {
                 Some(_) => {}
             }
         }
-
-        fresh.insert(path.clone(), (mtime, targets));
     }
-
-    if let Ok(mut guard) = LINK_CACHE.lock() {
-        *guard = fresh;
-    }
-
-    let project_paths: HashSet<String> = load_project_notes()
-        .note_paths()
-        .into_iter()
-        .map(|p| p.to_string())
-        .collect();
 
     let mut hops: Vec<Option<u32>> = vec![None; files.len()];
     let mut queue: VecDeque<usize> = VecDeque::new();
@@ -336,16 +325,55 @@ pub fn build_vault_graph() -> Result<VaultGraph, String> {
 
     // Past the cap, the furthest go first and the least connected go next —
     // dropping the periphery rather than the structure.
+    let hop_by_id: HashMap<String, Option<u32>> = nodes
+        .iter()
+        .map(|node| (node.id.clone(), node.hop))
+        .collect();
+    let mut protected: HashSet<String> = nodes
+        .iter()
+        .filter(|node| node.is_project)
+        .map(|node| node.id.clone())
+        .collect();
+    for project in nodes.iter().filter(|node| node.is_project) {
+        let mut direct: Vec<String> = edges
+            .iter()
+            .filter_map(|edge| {
+                if edge.from == project.id && hop_by_id.get(&edge.to) == Some(&Some(1)) {
+                    Some(edge.to.clone())
+                } else if edge.to == project.id
+                    && hop_by_id.get(&edge.from) == Some(&Some(1))
+                {
+                    Some(edge.from.clone())
+                } else {
+                    None
+                }
+            })
+            .collect();
+        direct.sort();
+        if let Some(first) = direct.first() {
+            protected.insert(first.clone());
+        }
+    }
+
     let mut dropped = 0u32;
+    let mut dropped_linked = 0u32;
     if nodes.len() > NODE_CAP {
         nodes.sort_by(|a, b| {
             let rank = |n: &GraphNode| n.hop.unwrap_or(u32::MAX);
-            rank(a)
-                .cmp(&rank(b))
-                .then(b.degree.cmp(&a.degree))
+            protected
+                .contains(&b.id)
+                .cmp(&protected.contains(&a.id))
+                .then(rank(a).cmp(&rank(b)))
+                // Keep sparse footholds before dense clusters. A connected
+                // project must not vanish because it is only beginning.
+                .then(a.degree.cmp(&b.degree))
                 .then(a.id.cmp(&b.id))
         });
         dropped = (nodes.len() - NODE_CAP) as u32;
+        dropped_linked = nodes[NODE_CAP..]
+            .iter()
+            .filter(|node| !node.is_project && node.hop.is_some())
+            .count() as u32;
         nodes.truncate(NODE_CAP);
     }
 
@@ -364,6 +392,7 @@ pub fn build_vault_graph() -> Result<VaultGraph, String> {
         connected_project_count,
         hop_one_count,
         dropped,
+        dropped_linked,
         excluded_scaffold,
         broken_links,
     })
@@ -380,6 +409,27 @@ pub async fn fetch_vault_graph() -> Result<VaultGraph, String> {
 mod tests {
     use super::*;
 
+    fn temp_vault(name: &str) -> (PathBuf, HashSet<String>) {
+        let vault = std::env::temp_dir().join(format!(
+            "olympus-vault-graph-{name}-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&vault);
+        fs::create_dir_all(vault.join("01 - Projects")).unwrap();
+        fs::create_dir_all(vault.join("02 - Research")).unwrap();
+        let project = "01 - Projects/Project Alpha.md".to_string();
+        (vault, HashSet::from([project]))
+    }
+
+    fn connected_notes(graph: &VaultGraph) -> HashSet<String> {
+        graph
+            .nodes
+            .iter()
+            .filter(|node| !node.is_project && node.hop.is_some())
+            .map(|node| node.id.clone())
+            .collect()
+    }
+
     #[test]
     fn extracts_plain_aliased_and_headed_links() {
         let links = extract_links("see [[Alpha]] and [[Beta|B]] and [[Gamma#Section]] end");
@@ -395,6 +445,121 @@ mod tests {
     fn stem_matching_ignores_folders_and_extensions() {
         assert_eq!(stem_of("02 - Research/Some Note.md"), "some note");
         assert_eq!(stem_of("Olympus Map.canvas"), "olympus map");
+    }
+
+    #[test]
+    fn a_new_link_lands_in_an_empty_project_and_persists_across_scans() {
+        let (vault, projects) = temp_vault("new-link");
+        let project = vault.join("01 - Projects/Project Alpha.md");
+        let note = vault.join("02 - Research/New Knowledge.md");
+        fs::write(&project, "# Project Alpha\n").unwrap();
+        fs::write(&note, "# New Knowledge\n").unwrap();
+
+        let empty = build_vault_graph_at(vault.clone(), projects.clone()).unwrap();
+        assert!(connected_notes(&empty).is_empty());
+
+        fs::write(&project, "# Project Alpha\n\n[[New Knowledge]]\n").unwrap();
+        let landed = build_vault_graph_at(vault.clone(), projects.clone()).unwrap();
+        assert_eq!(
+            connected_notes(&landed),
+            HashSet::from(["02 - Research/New Knowledge.md".to_string()])
+        );
+
+        let repeated = build_vault_graph_at(vault.clone(), projects).unwrap();
+        assert_eq!(connected_notes(&repeated), connected_notes(&landed));
+        let _ = fs::remove_dir_all(vault);
+    }
+
+    #[test]
+    fn removing_a_link_removes_exactly_that_connected_node() {
+        let (vault, projects) = temp_vault("remove-link");
+        let project = vault.join("01 - Projects/Project Alpha.md");
+        fs::write(
+            &project,
+            "# Project Alpha\n\n[[Temporary Knowledge]]\n[[Stable Knowledge]]\n",
+        )
+        .unwrap();
+        fs::write(
+            vault.join("02 - Research/Temporary Knowledge.md"),
+            "# Temporary\n",
+        )
+        .unwrap();
+        fs::write(
+            vault.join("02 - Research/Stable Knowledge.md"),
+            "# Stable\n",
+        )
+        .unwrap();
+
+        let before = build_vault_graph_at(vault.clone(), projects.clone()).unwrap();
+        fs::write(&project, "# Project Alpha\n\n[[Stable Knowledge]]\n").unwrap();
+        let after = build_vault_graph_at(vault.clone(), projects).unwrap();
+
+        let removed: HashSet<String> = connected_notes(&before)
+            .difference(&connected_notes(&after))
+            .cloned()
+            .collect();
+        assert_eq!(
+            removed,
+            HashSet::from(["02 - Research/Temporary Knowledge.md".to_string()])
+        );
+        assert!(
+            connected_notes(&after).contains("02 - Research/Stable Knowledge.md"),
+            "an unrelated surviving link must remain connected"
+        );
+        let temporary = after
+            .nodes
+            .iter()
+            .find(|node| node.id == "02 - Research/Temporary Knowledge.md")
+            .expect("the file remains available to Research as an orphan");
+        assert_eq!(temporary.hop, None);
+        let _ = fs::remove_dir_all(vault);
+    }
+
+    #[test]
+    fn one_note_linked_to_exactly_one_project_is_never_filtered() {
+        let (vault, projects) = temp_vault("single-link");
+        fs::write(
+            vault.join("01 - Projects/Project Alpha.md"),
+            "# Project Alpha\n\n[[Only Note]]\n",
+        )
+        .unwrap();
+        fs::write(vault.join("02 - Research/Only Note.md"), "# Only\n").unwrap();
+
+        let graph = build_vault_graph_at(vault.clone(), projects).unwrap();
+        assert_eq!(
+            connected_notes(&graph),
+            HashSet::from(["02 - Research/Only Note.md".to_string()])
+        );
+        assert_eq!(graph.dropped_linked, 0);
+        let _ = fs::remove_dir_all(vault);
+    }
+
+    #[test]
+    fn cap_reports_every_linked_note_it_cannot_show() {
+        let (vault, projects) = temp_vault("cap");
+        let mut project = String::from("# Project Alpha\n\n");
+        for index in 0..(NODE_CAP + 5) {
+            project.push_str(&format!("[[Knowledge {index:03}]]\n"));
+            fs::write(
+                vault.join(format!("02 - Research/Knowledge {index:03}.md")),
+                format!("# Knowledge {index:03}\n"),
+            )
+            .unwrap();
+        }
+        fs::write(vault.join("01 - Projects/Project Alpha.md"), project).unwrap();
+
+        let graph = build_vault_graph_at(vault.clone(), projects).unwrap();
+        assert_eq!(graph.nodes.len(), NODE_CAP);
+        assert_eq!(graph.dropped, 6);
+        assert_eq!(graph.dropped_linked, 6);
+        assert!(
+            graph
+                .nodes
+                .iter()
+                .any(|node| node.id == "02 - Research/Knowledge 000.md"),
+            "the protected sparse foothold must survive the cap"
+        );
+        let _ = fs::remove_dir_all(vault);
     }
 
     /// The real vault, printed. Asserts its own precondition so it cannot pass

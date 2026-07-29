@@ -3726,8 +3726,8 @@ small {
 }
 
 /* ---- Command instrument ------------------------------------------------- */
-/* Command is the ambient, across-the-room surface: one instrument, one
-   sentence, and quiet counts. Detailed project paths live in Project mode. */
+/* Command is the ambient, across-the-room surface: one instrument and quiet
+   counts. Detailed project paths live in Project mode. */
 
 .command-instrument {
   display: flex;
@@ -3740,27 +3740,27 @@ small {
 }
 
 .command-instrument__dial {
-  flex: 0 1 auto;
   min-height: 0;
   display: flex;
   align-items: center;
   justify-content: center;
+  /*
+   * Height is the binding constraint:
+   *   viewport - 132px shell/header - 26px counts/gap - 48px breathing room.
+   * There is deliberately no percentage or aesthetic cap: the requested test
+   * sizes all bind on height. The width guard protects narrower manual sizes.
+   */
+  width: min(calc(100vh - 206px), calc(100vw - 560px));
+  height: min(calc(100vh - 206px), calc(100vw - 560px));
+  flex: 0 0 auto;
 }
 
-/* Fixed size. It does not scale with the sentence: scaling the dial would
-   either scale the strokes — putting the thinnest back under the readable
-   floor and restoring the hairline problem the ramp fixes — or hold them and
-   shift the visual ratios. An instrument whose size varies with something it
-   does not measure is worse than a clipped sentence. */
-/* Grown with the viewbox, so adding the day arc outside the tier arcs did not
-   shrink the tiers on screen. */
-/* Never below the 440 viewbox: at scale 1 the thinnest arc is its declared 5px,
-   and anything smaller puts it back under the readable floor the ramp exists to
-   hold. That is the real lower bound on this dial, not taste. */
+/* Geometry scales to use the column. Labels and the day arc counter-scale in
+   their components so annotation weight does not grow with the subject. */
 .command-instrument__svg {
   display: block;
-  width: clamp(440px, 54vh, 520px);
-  height: clamp(440px, 54vh, 520px);
+  width: 100%;
+  height: 100%;
   flex: 0 0 auto;
   overflow: visible;
 }
@@ -3772,6 +3772,7 @@ small {
   stroke-width: 1.5;
   opacity: 0.16;
   cursor: help;
+  vector-effect: non-scaling-stroke;
 }
 
 /* Wide and faint, behind everything. Renders only when the profile actually
@@ -3781,6 +3782,7 @@ small {
   stroke-width: 9;
   opacity: 0.07;
   stroke-linecap: butt;
+  vector-effect: non-scaling-stroke;
 }
 
 .day-arc__elapsed {
@@ -3788,6 +3790,7 @@ small {
   stroke-width: 2;
   opacity: 0.55;
   stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
 }
 
 .day-arc__tick {
@@ -3820,6 +3823,7 @@ small {
   fill: none;
   stroke: var(--accent);
   stroke-width: 2;
+  vector-effect: non-scaling-stroke;
 }
 
 .day-arc__now.is-live {
@@ -3986,6 +3990,158 @@ small {
   pointer-events: none;
 }
 
+/* ---- Project ring and constellation ------------------------------------ */
+/* One segment per project. Geometry comes only from stable ID order; status
+   changes these strokes and nothing else. The track is co-radial, so it reads
+   through the gaps as one divided ring rather than as another data axis. */
+
+.project-ring__track {
+  stroke: var(--muted);
+  stroke-width: 1;
+  opacity: 0.07;
+}
+
+.project-ring__segment {
+  stroke-linecap: butt;
+  transition:
+    opacity 160ms ease-out,
+    stroke 160ms ease-out;
+}
+
+.project-ring__segment--active {
+  stroke: var(--accent);
+  stroke-width: 11;
+  opacity: 1;
+}
+
+.project-ring__segment--watching {
+  stroke: var(--accent);
+  stroke-width: 8;
+  opacity: 0.6;
+}
+
+.project-ring__segment--scaffold {
+  stroke: #9aa8bd;
+  stroke-width: 5;
+  opacity: 0.4;
+}
+
+/* Absence of a decision is the faintest state, not a louder warning. */
+.project-ring__segment--unclassified {
+  stroke: #9aa8bd;
+  stroke-width: 5;
+  opacity: 0.24;
+}
+
+.project-ring__segment.is-hovered {
+  stroke: var(--primary);
+  opacity: 1;
+}
+
+.project-ring__hit {
+  cursor: pointer;
+  outline: none;
+}
+
+.project-ring__label {
+  /* Labels have their own contrast floor. Segment opacity carries tier without
+     forcing 10px type below the readable threshold on the image background. */
+  fill: #cbd5e1;
+  font-family: var(--font-mono);
+  font-weight: var(--weight-medium);
+  letter-spacing: 0.07em;
+  paint-order: stroke;
+  stroke: rgba(7, 14, 24, 0.88);
+  stroke-width: 2.5px;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+  transition:
+    opacity 160ms ease-out,
+    fill 160ms ease-out;
+}
+
+.project-ring__label--active {
+  fill: var(--accent);
+  opacity: 1;
+}
+
+.project-ring__label--watching {
+  fill: var(--accent);
+  opacity: 0.82;
+}
+
+.project-ring__label--scaffold {
+  opacity: 0.72;
+}
+
+.project-ring__label--unclassified {
+  opacity: 0.58;
+}
+
+.project-ring__label.is-hovered {
+  fill: var(--primary);
+  opacity: 1;
+}
+
+.project-ring__tree-edge {
+  stroke: var(--muted);
+  stroke-width: 1;
+  opacity: 0.24;
+}
+
+/* Cross-project meaning stays visible, but cannot masquerade as parentage. */
+.project-ring__cross-edge {
+  stroke: var(--accent);
+  stroke-width: 1;
+  stroke-dasharray: 4 4;
+  opacity: 0.62;
+}
+
+.project-ring__node {
+  fill: var(--muted);
+  cursor: pointer;
+  transition:
+    opacity 160ms ease-out,
+    fill 160ms ease-out;
+}
+
+.project-ring__node--depth-1 {
+  opacity: 0.78;
+}
+
+.project-ring__node--depth-2 {
+  opacity: 0.6;
+}
+
+.project-ring__node--depth-3 {
+  opacity: 0.44;
+}
+
+.project-ring__node:hover,
+.project-ring__node.is-hovered {
+  fill: var(--primary);
+  opacity: 1;
+}
+
+.project-ring__readout,
+.project-ring__meta {
+  fill: var(--primary);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.04em;
+  paint-order: stroke;
+  stroke: rgba(7, 14, 24, 0.92);
+  stroke-width: 2.5px;
+  stroke-linejoin: round;
+  pointer-events: none;
+}
+
+.project-ring__meta {
+  fill: var(--muted);
+  opacity: 0.7;
+  text-transform: uppercase;
+}
+
 /* The one glowing object. Nothing else in this mode gets a shadow. */
 .instrument-glyph {
   fill: var(--accent);
@@ -4000,71 +4156,9 @@ small {
     drop-shadow(0 0 52px rgba(217, 119, 6, 0.34));
 }
 
-/* The largest text on screen, and the thing worth crossing a room to read.
-   Body face, not the display face: Cinzel renders this as five lines of serif
-   capitals, which is a wordmark treatment and unreadable as a sentence.
-   Clamped to two lines with the full text on hover — a next step needing five
-   lines is two next steps. */
-.command-instrument__sentence {
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  /* Never compressed by the column. Flex was shrinking this below two lines'
-     worth of height, so the clamp cut the second line's descenders instead of
-     ending it cleanly. */
-  flex: 0 0 auto;
-  margin: 0;
-  max-width: 26ch;
-  font-family: var(--font-sans);
-  font-size: clamp(34px, 4.4vw, 62px);
-  font-weight: var(--weight-medium);
-  line-height: 1.18;
-  letter-spacing: -0.015em;
-  color: var(--primary);
-  text-wrap: balance;
-}
-
-/* The empty state is a prompt, not a report of a missing field. */
-.command-instrument__sentence.is-prompt {
-  border: none;
-  background: none;
-  padding: 0;
-  cursor: pointer;
-  color: var(--muted);
-  transition: color 160ms ease-out;
-}
-
-.command-instrument__sentence.is-prompt:hover,
-.command-instrument__sentence.is-prompt:focus-visible {
-  color: var(--accent);
-  outline: none;
-}
-
-.command-instrument__sentence.is-quiet {
-  color: var(--muted);
-}
-
-.command-instrument__attribution {
-  margin: 0;
-  flex: 0 0 auto;
-  font-size: 12px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--accent);
-  opacity: 0.8;
-}
-
-.command-instrument__attribution.is-quiet {
-  color: var(--muted);
-  opacity: 0.7;
-}
-
-.command-instrument__fallback {
-  color: var(--muted);
-  text-transform: none;
-  letter-spacing: 0.04em;
+.command-instrument__svg.pulse-graph-node .instrument-glyph {
+  filter: drop-shadow(0 0 18px rgba(217, 119, 6, 0.62))
+    drop-shadow(0 0 46px rgba(217, 119, 6, 0.28));
 }
 
 .command-instrument__counts {
@@ -4926,6 +5020,9 @@ small {
   /* A graph node still brightens on hover — that is how it identifies itself —
      but it arrives instantly rather than easing in. */
   .vault-graph__node,
+  .project-ring__segment,
+  .project-ring__label,
+  .project-ring__node,
   .background-image {
     transition: none;
   }
