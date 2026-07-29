@@ -151,7 +151,15 @@ npm install
 npm run dev          # Vite dev server (browser)
 npm run tauri dev    # Tauri desktop shell (requires Rust toolchain — https://rustup.rs/)
 npm run build        # Production build
+npm run install:local # Build and update the stable Windows installation
 ```
+
+The ordinary operator launch target is
+`C:\Program Files\Project Olympus\project-olympus.exe`. Taskbar and Start-menu
+shortcuts must point there, never at Cargo's replaceable `debug` output.
+`scripts/install-olympus-local.ps1` only packages a clean checkout, requires a
+version newer than the installed release unless explicitly forced, installs the
+MSI with Windows elevation, and repairs the historical development pin.
 
 ## Environment variables
 

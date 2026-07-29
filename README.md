@@ -72,6 +72,31 @@ npm run dev
 `npm run dev` is a browser preview without Tauri data. Use `npm run tauri dev`
 for the real desktop runtime.
 
+## Install and launch on Windows
+
+The everyday Olympus launcher is the installed application, not Cargo's
+development executable:
+
+```text
+C:\Program Files\Project Olympus\project-olympus.exe
+```
+
+Launch it from the taskbar or **Start > Project Olympus**. A shortcut that
+targets `dev-target\olympus\debug\project-olympus.exe` is a development pin and
+will eventually break because Cargo replaces that file during rebuilds.
+
+After a new release version is committed in a clean canonical checkout, update
+the same Windows installation with:
+
+```bash
+npm run install:local
+```
+
+The command builds the MSI, asks Windows for installation approval, updates the
+stable executable, and repairs an existing Olympus taskbar pin if it still
+targets the development build. The pinned target does not change between
+releases.
+
 ## Assistant Setup
 
 The chat panel is backed by the Anthropic API. Add your key to `.env` in the repo root:

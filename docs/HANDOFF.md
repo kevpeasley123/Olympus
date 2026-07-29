@@ -40,6 +40,21 @@ or scroll containers. Project mode rendered the active hero, one optional
 watching path, all three truth labels, and working project focus. Human judgment
 of the live Tauri window remains distinct evidence.
 
+## 2026-07-28 stable Windows launcher
+
+Commit `4683208` adds the supported local release workflow. `npm run
+install:local` now requires a clean checkout, builds the MSI, installs the
+versioned release into `C:\Program Files\Project Olympus`, and repairs an
+existing taskbar shortcut so it targets that stable installed executable rather
+than Cargo's disposable development output.
+
+**[V]** Version 0.1.1 was built and installed. Both the Start menu shortcut and
+the existing taskbar shortcut target
+`C:\Program Files\Project Olympus\project-olympus.exe`. Launching through the
+repaired taskbar shortcut started that exact executable. Future development
+builds can therefore replace their own artifacts without invalidating the
+operator's pinned launcher.
+
 ## How to read the claims in this document
 
 Every factual claim is tagged:
@@ -74,11 +89,11 @@ exists. If a decision depends on an **[A]**, verify it first.
 
 **[V]** Rust: 150 tests pass. **[V]** `npm run build` passes.
 
-**[V] `tauri build` now succeeds** — run twice this session, ~2m24s, producing
-MSI and NSIS bundles at `C:/Users/kevpe/dev-target/olympus/release/bundle/`. This
-corrects an earlier claim that it had never been run. **[V]** The NSIS installer
-is what fixes the taskbar pin: pinning the dev binary breaks on every rebuild
-because cargo deletes and recreates the file, so Windows sees a new identity.
+**[V] `tauri build` now succeeds** — producing installable bundles beneath the
+configured Cargo target directory. **[V]** Version 0.1.1 is installed at
+`C:\Program Files\Project Olympus`, and the repaired taskbar shortcut launches
+that stable installed executable. Pinning the Cargo development binary is
+unsupported because rebuilds replace it.
 
 **[V] Reduced motion works, verified against the real OS setting** — toggled via
 `SystemParametersInfo`, all animations confirmed `none`, everything still
@@ -111,8 +126,9 @@ present and clickable, **setting restored to its original value (`1`)**.
 - **[A]** `open_vault_note` compiles and is registered; nobody has clicked the
   empty-state prompt and watched Obsidian open.
 - **[A]** The write gate's divergence-under-append branch.
-- **[V]** Whether the **built executable launches** is untested. Producing
-  bundles and running are separate questions.
+- ~~Whether the built executable launches is untested.~~ **Closed. [V]** The
+  installed 0.1.1 executable launched successfully through the repaired taskbar
+  shortcut.
 
 ---
 
