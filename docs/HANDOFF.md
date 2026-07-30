@@ -1,8 +1,68 @@
 # Olympus — Planning Handoff
 
 Originally written 2026-07-27 at `1af8092`, then vision-synced on the isolated
-`codex/vision-foundation` branch. **For planning, not for coding.** Read
-`OLYMPUS-MANUAL.md` first; it is now the canonical product and operating policy.
+`codex/vision-foundation` branch. **Current as of `fe849ee` (HEAD of `master`,
+2026-07-29).** **For planning, not for coding.** Read `OLYMPUS-MANUAL.md` first;
+it is now the canonical product and operating policy.
+
+## 2026-07-29 reconciliation against HEAD
+
+This document had drifted three commits behind `master`. What follows is the
+reconciliation; the sections below it have been corrected in place.
+
+**[V] Repository state.** Working tree clean, no stash, nothing uncommitted.
+`origin/master` equals local `master` at `fe849ee` **after a real `git fetch`** —
+`fe849ee` is pushed, not pending. Six stale local branches remain
+(`agent/*`, `claude/*`, `codex/vision-foundation`); all are merged or superseded.
+
+**[V] Three commits shipped that this document did not mention at all:**
+
+| Commit | What |
+|---|---|
+| `2f0030f` | Day arc work ticks made unmistakable — ticks now cross the track at ±9 units and no longer share the elapsed arc's amber |
+| `b5993a4` | The deterministic Command project ring: `services/projectRing.ts`, `ProjectRing.tsx`, a 371-line asserting harness, `vault_graph.rs` reworked, instrument scaled to the centre column |
+| `fe849ee` | Pantheon category routing — an explicit category tag now overrides inferred scoring, and `pantheonEntryToResearchRecord` moved out of `LibraryPanel.tsx` into a testable `pantheonRecord.ts` |
+
+**[V] The launcher commit hash in this document was wrong.** It named `4683208`,
+which exists in no branch. The launcher shipped to `master` as `62a2cc2`.
+
+**[V] The delegation-foundation section described a branch, not history.** The
+work is on `master` as `2a252bf`; `agent/briefing-delegation-foundation` is now
+redundant.
+
+**[V] Test counts moved.** Rust is **165 passing, 0 failed** (was 150, then 161).
+`npm run build` passes. Both frontend harnesses were **executed, not merely
+read** — see section 6 for the headless method that made that possible.
+
+**[V] The instrument scale-up landed, and it has no scale factor.** The dial is
+`min(calc(100vh - 206px), calc(100vw - 560px))` square with the 440-unit viewBox
+stretched to fill it, so the factor is viewport-derived and height-bound:
+≈1.35× at the 1280×800 minimum, **≈1.71× at the 1440×960 default** (440 → ~754
+units), ≈1.99× at 1920×1080, ≈2.81× at 2560×1440. Labels, the day-arc ticks, the
+now-marker, and the readouts divide their size by the measured `renderScale`, so
+they hold a constant on-screen size — 10px labels stay 10px at every window size.
+
+**[V]** Verified arithmetically from the real CSS expression and the real
+`tauri.conf.json` bounds. **[A]** Those figures treat the configured window size
+as the viewport; window decorations make the true viewport slightly shorter, so
+read them as close estimates. The exact live value is on the SVG as
+`data-render-scale` — read that rather than recomputing.
+
+**[V] Two things the design record claimed that the code does not do.** The tier
+arcs are gone — see section 2. And orphan notes left the instrument without
+arriving anywhere: no component renders them, and `.vault-graph__node--orphan`
+is now dead CSS.
+
+**[V] `src/components/panels/VaultGraph.tsx` is dead code.** `ProjectRing`
+replaced it inside `CommandInstrument` at `b5993a4`, but the file was never
+deleted and nothing imports it. Roughly 55 lines of `.vault-graph__*` CSS are
+dead with it. It still compiles, so no build catches this.
+
+**[V] The two unmet-premise claims in section 5 are now verified, not assumed.**
+`vault_context.rs:36` and its index builder say "titles and metadata only — the
+bodies are not included here" in as many words, and `STABLE_NOTES` contains only
+the operator profile, charter, skill index, and agent index. `04 - Decisions` is
+absent. Both premises hold and have been upgraded from **[A]** to **[V]**.
 
 ## 2026-07-27 vision sync
 
@@ -42,7 +102,8 @@ of the live Tauri window remains distinct evidence.
 
 ## 2026-07-28 stable Windows launcher
 
-Commit `4683208` adds the supported local release workflow. `npm run
+Commit `62a2cc2` adds the supported local release workflow. (An earlier revision
+of this document named `4683208`, a hash that exists in no branch.) `npm run
 install:local` now requires a clean checkout, builds the MSI, installs the
 versioned release into `C:\Program Files\Project Olympus`, and repairs an
 existing taskbar shortcut so it targets that stable installed executable rather
@@ -57,8 +118,10 @@ operator's pinned launcher.
 
 ## 2026-07-28 briefing trust and delegation foundation
 
-The `agent/briefing-delegation-foundation` branch closes three briefing trust
-gaps and implements the first Claude Code pilot boundary:
+Landed on `master` as `2a252bf`. (An earlier revision of this document described
+it as living on the `agent/briefing-delegation-foundation` branch; that branch is
+now redundant.) It closes three briefing trust gaps and implements the first
+Claude Code pilot boundary:
 
 - **[V]** `operator_sessions` persists one idempotent desktop-launch boundary.
   Project mode now says exactly which prior Olympus launch its change list uses,
@@ -114,8 +177,14 @@ exists. If a decision depends on an **[A]**, verify it first.
 | `3d16d42` | Write-event log, commit history, vault link index | **[V]** graph built against real vault; commit parser asserts non-empty |
 | `0a6708e` | Day arc; reduced-motion source-order fix | **[V]** 19 geometry checks; OS setting toggled for real |
 | `16f9280` | Graph gate fix, background reframe, tick-parser test | **[V]** gate confirmed closed at `connectedProjects=1` |
+| `62a2cc2` | Stable Windows launcher and local release workflow | **[V]** 0.1.1 installed; repaired taskbar shortcut launched it |
+| `2a252bf` | Session boundary, all-refs commit scan, worktree enumeration, exact-file vault commits, Claude Code pilot boundary | **[V]** Rust tests pin the worktree and exact-file-commit behaviour and pass |
+| `2f0030f` | Day arc work ticks cross the track and drop the elapsed-arc amber | **[V]** code read; **[A]** never seen drawing real ticks |
+| `b5993a4` | Deterministic labelled project ring; instrument scaled to the centre column with counter-scaled annotation | **[V]** 371-line harness executed, passes; scale factors computed from the real CSS |
+| `fe849ee` | Pantheon category routing — explicit tag beats inferred score | **[V]** harness executed, passes: inferred → `agent-systems`, tagged → `agent-systems` with distinct rationale, unrelated → `research-references` |
 
-**[V]** Rust: 150 tests pass. **[V]** `npm run build` passes.
+**[V]** Rust: **165 tests pass, 0 failed** (`cargo test --lib`, this session).
+**[V]** `npm run build` passes. **[V]** Both frontend harnesses executed and pass.
 
 **[V] `tauri build` now succeeds** — producing installable bundles beneath the
 configured Cargo target directory. **[V]** Version 0.1.1 is installed at
@@ -138,7 +207,15 @@ present and clickable, **setting restored to its original value (`1`)**.
 - **[V] The day arc has never drawn real ticks.** The data is proven — 5 commits
   in 24h with valid timestamps, and the tick *styles* were confirmed by injecting
   sample geometry — but the browser cannot render real data, and nobody has
-  looked at the desktop app.
+  looked at the desktop app. `2f0030f` then changed what a tick looks like: it
+  crosses the track at ±9 counter-scaled units and no longer uses the elapsed
+  arc's amber, because a correct 12-unit hairline in that amber was
+  indistinguishable from the ring it annotated. **[A] Still unseen.**
+- **[V] The scaled instrument has never been looked at.** `b5993a4` takes it from
+  a fixed 440px to roughly 1.7× that at the default window. Nobody has judged
+  whether the labels hold at that size, whether cross-project edges read as
+  texture or clutter, or whether the counts still sit right beneath a ring that
+  large.
 - ~~`processing_logs` contains zero `vault-write` rows.~~ **Closed.** The
   operator approved a gated write and watched the white tick land on the day arc.
   The note it wrote, `02 - Research/2026-07-27 AI test.md`, is now visible on the
@@ -192,23 +269,74 @@ against the library.
 
 ### Command mode is the ambient instrument
 
-Command should read from across the room: one full-size omega instrument, one
-active-project next-action sentence, quiet tier counts, and right-column chat.
-The ring, vault graph, and day arc are the content—not supporting decoration.
-Cards, lists, and scrolling project detail belong in Project mode.
+Command should read from across the room: one full-size omega instrument, quiet
+tier counts, and right-column chat. The ring, the project constellation, and the
+day arc are the content—not supporting decoration. Cards, lists, and scrolling
+project detail belong in Project mode.
 
 The design failure that established this boundary was structural: adding a
 multi-project briefing forced the omega to shrink. Once a centre-column panel
 needs the instrument's space, the instrument becomes decoration by default even
-if the copy still calls it primary.
+if the copy still calls it primary. **The omega stays full size and centred; it
+is the subject of Command mode, not a widget.** Two prior revisions shrank it to
+make room for other content. A proposal that needs centre-column space belongs
+in Project mode.
+
+**The next-action sentence was removed, deliberately.** Earlier revisions of this
+document listed it as part of Command's layout; the operator took it out because
+he is rethinking how next steps get represented. **Do not add it back.** The
+space it freed went to the instrument, not to new content.
 
 ### The omega ring is an instrument, not decoration
 
-Outer arcs are **project tiers**: arc length is count, and status is carried by
-lightness and stroke weight moving together. **[V]** Four stroke weights alone
-are not separable at this size — the step from scaffold to unclassified was 1px
-on a 500px ring, which is why the ramp uses two correlated channels and a 5px
+**[V] Rewritten at `b5993a4`. Outer arcs are projects, not tiers.** One segment
+per project, **equal widths**, ordered by stable code-point comparison on
+`project.id`. Tier is carried by stroke weight and colour **only, never by
+geometry**, so a status change cannot move anything on the ring — the harness
+pins exactly that, re-laying out a reversed list with one project's status
+changed and asserting every start, mid, and end angle is identical. Clicking a
+segment opens that project in Project mode.
+
+This replaced the previous design, in which arc length was tier *count*. That
+version is gone: `onSelectTier` no longer reaches the instrument. The earlier
+finding still stands and still constrains the ramp — **[V]** four stroke weights
+alone are not separable at this size (the scaffold-to-unclassified step was 1px
+on a 500px ring), which is why status uses two correlated channels and a 5px
 floor.
+
+Two constants worth knowing before touching it. `SEMANTIC_ZOOM_ARC_LENGTH_THRESHOLD`
+is 42 measured units; **[V]** N=20 sits at 43.98 and N=30 at 28.85, so the flag
+fires between them. The flag is live and assertable but draws nothing — the zoom
+behaviour is deliberately unimplemented, so there is no hidden visual change at
+the threshold.
+
+### Annotation counter-scales; geometry does not
+
+**[V]** The instrument fills the centre column, and everything annotating it
+divides its size by a measured `renderScale` so it holds a constant on-screen
+size. `CommandInstrument` measures the dial with a `ResizeObserver` and exposes
+the ratio as `data-render-scale` on the SVG, which is the handle to read in the
+DOM.
+
+**Trap.** `layoutProjectRing` runs its label-collision test at the *unscaled*
+font size, in viewBox units, and never sees `renderScale`. Above 1× that is
+conservative — labels draw smaller than the test assumed. Below 1× it would be
+wrong in the unsafe direction, and neither harness would catch it. **[V]** It
+cannot currently fire: `tauri.conf.json` sets `minWidth: 1280` / `minHeight: 800`,
+which floors `renderScale` at 1.35. **[V]** Probed anyway across eight viewports
+from 900×600 to 2560×1440 — no rendered collisions at N=8 even at 0.77×. Safe,
+but safe by window bounds rather than by construction; lowering `minHeight` below
+646px reopens it.
+
+### Orphan notes left the instrument and did not arrive anywhere
+
+The decision was to move them out of Command and into Research mode. **[V]** The
+first half shipped — `layoutProjectOwnedGraph` positions only notes reachable
+from a project anchor, and the harness asserts an unlinked note produces zero
+Command nodes. The second half did not: no component renders orphans, and
+`.vault-graph__node--orphan` is dead CSS. **The eleven notes nothing links to are
+currently invisible in the app.** That is a real finding being hidden, which is
+the opposite of the rim's stated purpose.
 
 ### Explicitly rejected — and one of them is currently in the code
 
@@ -313,10 +441,18 @@ away.
 
 # 4 · Immediate next work, ordered
 
-### 1. Commit approved vault writes, with attribution
+### 1. Commit approved vault writes, with attribution — DONE
 
-**Decided, not built.** After a gated write succeeds, beside the existing
-`processing_logs` insert: stage and commit that write.
+**[V] Shipped at `2a252bf`.** Every successful vault writer, including
+attachments and the Pantheon migration, routes through an exact-file Git commit,
+and two Rust tests pin the behaviour: `commits_only_the_written_path_and_preserves_other_staging`
+and `commits_a_new_file_without_adopting_another_untracked_file`. **[V]** The
+real vault's history shows it working — `olympus: create …`, `olympus: reconcile …`
+commits, one file each. The reasoning below is kept because it explains the
+constraints the implementation has to keep honouring.
+
+After a gated write succeeds, beside the existing `processing_logs` insert: stage
+and commit that write.
 
 - **Not inside the gate.** The gate answers one question — may this write
   happen. Committing is what happens after one already did. Folding it in gives
@@ -345,15 +481,21 @@ profile), and one tick per commit **made today**.
 Then **Pantheon → Add Entry** and approve the write — that closes the write pulse
 and the first write tick in one action.
 
-### 3. Look at the graph renderer in the desktop app
+### 3. Look at the project ring in the desktop app
 
-**Built.** `services/vaultGraph.ts` (pure layout and gate),
-`hooks/useVaultGraph.ts`, `components/panels/VaultGraph.tsx`, mounted in
-`CommandInstrument`. **[V]** Layout verified against the real vault payload
-through the browser harness below — determinism, band radii, glyph and tier
-clearance, no overlapping nodes. **[A] Nobody has seen it drawing real data in
-the real app**, because the browser has no `invoke`; what was seen was the real
-geometry injected into the live DOM.
+**Built and since replaced.** `services/projectRing.ts` (pure layout) and
+`components/panels/ProjectRing.tsx` are what `CommandInstrument` mounts now.
+`services/vaultGraph.ts` survives as the payload type, the gate, and
+`describeNode`; `hooks/useVaultGraph.ts` still feeds the scan.
+**[V] `components/panels/VaultGraph.tsx` is dead** — nothing imports it, and it
+should be deleted along with the `.vault-graph__*` rules in `styles.css`.
+
+**[V]** Layout verified by executing `projectRing.harness.ts`: equal widths,
+bearing stability under a status change, code-point ordering, no label
+collisions at N=8 or N=20, labels inside the ring rather than the day-arc lane,
+declared hop bands, cross-project edges clipped outside the glyph disc, and
+determinism across an unchanged scan. **[A] Nobody has seen it drawing real data
+in the real app**, because the browser has no `invoke`.
 
 **[V] It draws today**: `projects=8`, `connectedProjects=1`, `hop1=13`,
 `orphans=11`, 44 edges. One anchor carries everything, seven sit bare, and the
@@ -400,13 +542,27 @@ Things a fresh session rediscovers the hard way.
 
 **The premise that is currently unmet**
 
-- **[A] The assistant sees research as metadata only — titles, never bodies.**
-  Fifty sources could be added and nothing about its thinking would change. **The
+Both claims below were **[A]** in earlier revisions. **[V] Both were re-verified
+against the code on 2026-07-29 and both still hold.**
+
+- **[V] The assistant sees research as metadata only — titles, never bodies.**
+  `vault_context.rs:36` documents `pantheon_index` as "One line per research
+  entry — titles and metadata, never bodies", and `load_pantheon_index` tells the
+  model in the payload itself that "the bodies are not included here". Fifty
+  sources could be added and nothing about its thinking would change. **The
   curriculum decision in section 2 is therefore aspirational, not implemented.**
-- **[A] `04 - Decisions` is entirely invisible to the assistant**, absent from
-  both `STABLE_NOTES` and the Pantheon index. **Contradiction detection is
-  impossible until this changes**, which blocks the cooperative-adversary intent
-  and the Daily Brief question.
+- **[V] `04 - Decisions` is entirely invisible to the assistant.** `STABLE_NOTES`
+  contains exactly four entries — `09 - System/User Profile.md`,
+  `09 - System/Olympus Charter.md`, `05 - Skills/Skill Index.md`,
+  `06 - Agents/Agent Index.md`. No decisions note, and the Pantheon index only
+  scans `02 - Research`. **Contradiction detection is impossible until this
+  changes**, which blocks the cooperative-adversary intent and the Daily Brief
+  question.
+
+Note the shape of this: `fe849ee` made research bodies reach the *Research
+surface*, and the vault note briefly read as though the assistant had gained
+them. It had not. Body retrieval into the Library UI and body retrieval into the
+model's context are separate pieces of work, and only the first is done.
 
 **Runtime**
 
@@ -463,8 +619,8 @@ has no JS test runner — no vitest, no jest, no `test` script. It does not need
 one for pure code. Vite serves the modules, so with `npm run dev` running:
 
 ```js
-const M = await import('/src/services/vaultGraph.ts');
-M.layoutVaultGraph(payload, 220);
+const M = await import('/src/services/projectRing.ts');
+M.layoutProjectRing(projects, 220);
 ```
 
 straight from the browser console, against real data dumped by
@@ -474,6 +630,37 @@ combination — real Rust payload, real pure frontend module — is what caught 
 Keep layout and gate logic pure and out of components so it stays reachable this
 way. Do not append `?v=…` to the import: Vite then fails to transform the file
 and throws a parse error that looks like a syntax error in your source.
+
+`project-ring-harness.html` plus `src/project-ring-harness.ts` give the same
+thing a page: it runs `runProjectRingHarness()` and writes the report or the
+stack into `#result` with a `data-status` of `passed` or `failed`.
+
+**[V] The browser is not required, and an agent should not depend on it.** The
+Chrome extension can simply be disconnected, as it was on 2026-07-29. Vite's SSR
+loader runs the same transform pipeline headlessly, which is how both harnesses
+were actually executed this session:
+
+```js
+const { createServer } = await import(
+  "file:///C:/.../Olympus/node_modules/vite/dist/node/index.js"
+);
+const server = await createServer({ root: "C:/.../Olympus", server: { middlewareMode: true }, appType: "custom" });
+const M = await server.ssrLoadModule("/src/services/projectRing.harness.ts");
+M.runProjectRingHarness();   // throws on failure
+await server.close();
+```
+
+Two things that will bite. Import `vite` by absolute `file://` URL — a script in
+a scratch directory outside the project cannot resolve `"vite"` by bare specifier
+and dies with `ERR_MODULE_NOT_FOUND`. And this only works for modules with no
+DOM dependency, which is the actual reason to keep layout logic out of
+components.
+
+**Both harnesses assert for real.** `projectRing.harness.ts` and
+`pantheonRecord.harness.ts` each define a local `assert` that throws, and every
+returned report is preceded by assertions that would have stopped it. **[V]**
+Checked deliberately, because five tests in this project once ran green while
+asserting nothing.
 
 **Measure rather than reason about layout.** Every visual bug this session was
 found by reading computed values out of the live DOM — a 1px stroke that was
