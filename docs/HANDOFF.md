@@ -267,6 +267,41 @@ one direction it must not fail in, and a test pins it. `origin` distinguishes
 sources pre-filtered by his taste from ones Olympus found *because* they cut
 against the library.
 
+#### The concrete case, 2026-07-29 — no longer hypothetical
+
+**[V] What happened.** The operator added four graph-engineering articles and two
+attachments to `02 - Research` on 2026-07-29 (`2e88142`, `8f1fed2`, `9e2e098`,
+`6077b63`, `0eddd80`, `421c131`). He added them **for consideration, now and
+later** — the library working exactly as intended. In the same session, a proposed
+five-milestone roadmap came back with milestones 3 and 4 being a fan-out work
+graph with parallel nodes, concurrency budgets, retries and adversarial review —
+**in the articles' own vocabulary, with nothing marking it as a source being
+weighed rather than a conclusion reached.**
+
+That is the guard in this section failing in production: *adding an article to the
+library must never silently rewrite how Olympus operates.* It did, inside a single
+document.
+
+**[V] And the fields were set correctly.** All four notes carry
+`stance: unevaluated`, `origin: collected`, `written_by: Codex`, and a factual
+`why_kept`. Nothing was mislabelled. **The failure is downstream of capture:
+nothing carries a source's stance into the artifacts derived from it.** A roadmap,
+a brief, or a recommendation traceable to an `unevaluated` source inherits none of
+that qualification, so a weighed source and a settled decision arrive looking
+identical.
+
+Two consequences worth holding onto:
+
+- **`stance` and `origin` are necessary and not sufficient.** They make the
+  library honest about itself. They do nothing about derived work. Provenance on
+  retrieved facts — already an item in the memory loop — is what closes this, and
+  this incident is the reason it is not cosmetic.
+- **It was not the assistant that drifted.** **[V]** The assistant cannot read
+  those bodies at all (section 5). The drift happened in an agent reading the
+  articles directly, with the frontmatter available and unused. So this is not a
+  prompt problem to be fixed in `assistant.rs`; it is a discipline that has to
+  hold wherever a source becomes a proposal, agents included.
+
 ### Command mode is the ambient instrument
 
 Command should read from across the room: one full-size omega instrument, quiet
@@ -518,11 +553,115 @@ Olympus `active`, Pokedex `watching`, six `scaffold`. **[V]** Six carry today's
 sloppy — do not "fix" it from folder mtimes, which is the exact inference the
 tiering work removed.
 
-### 4. Then the library dependencies
+### 4. The library dependencies — promoted to the first real milestone
+
+Listed fourth here because items 1–3 are a finished item and two acts of looking
+at the app, not because this ranks below them. **This is the memory loop, and it
+is now the first substantive piece of work.** See the roadmap section below for
+why.
 
 In the order they unblock each other: research bodies reaching the assistant →
 `04 - Decisions` becoming visible → decomposing `LibraryPanel.tsx` → writing
 `next_step` from the UI.
+
+---
+
+## The roadmap, and what is deferred behind what
+
+A five-milestone roadmap was proposed on 2026-07-29: (1) prove one bounded
+coding-agent delegation, (2) complete the curated-memory loop, (3) a
+provider-neutral work graph coordinating several agents, (4) a writable graph with
+one isolated writer and an adversarial reviewer, (5) proactive opening briefs.
+Voice last. What follows is the operator's disposition of it, recorded as
+reasoning rather than conclusion.
+
+### The memory loop comes first
+
+**Milestone 2 is promoted ahead of everything except the near-free acceptance run
+in milestone 1.** The reasoning:
+
+- It is the premise the project rests on, and it is unmet. Section 5 has this
+  **[V]**: the assistant sees research titles without bodies and cannot see
+  `04 - Decisions` at all. Until that lands the library is a catalogue, not a
+  curriculum, and "why are we doing this" is unanswerable from memory.
+- **Everything downstream inherits the gap.** A delegated task can contradict a
+  recorded decision and nothing notices, because nothing can read the decisions.
+  Orchestration built on that multiplies unnoticed contradictions.
+- **[V] It is smaller than it looks.** `pantheon.rs` already reads full bodies off
+  disk — `body_full`, then `make_preview` discards the rest. `STABLE_NOTES` is a
+  four-entry const. This is not a data-access problem.
+- The real work is **selection, not inclusion.** Fifty bodies will not fit under
+  `max_tokens`, and pre-loading them ahead of the cache breakpoint breaks prefix
+  caching (section 5). That argues for retrieval the model requests over context
+  stuffed in advance — which is why "full Pantheon retrieval" is the wrong
+  framing, and why splitting "full retrieval" from "hybrid retrieval" across two
+  milestones was incoherent. Retrieval is the mechanism of this milestone, not a
+  later surface.
+
+Milestone 1 stays where it is because it costs one session, not because it
+outranks memory: the code shipped at `2a252bf` and needs one approval click.
+
+### Milestones 3–4 are deferred behind the memory loop, not removed
+
+**This distinction matters and an earlier framing got it wrong.** The work is not
+rejected. It is sequenced behind the memory loop and behind evidence.
+
+**What exists at `2a252bf` stays**, exactly as built: one bounded run, one
+worktree, an approval gate, no push, no merge, no deploy, no cleanup. That is the
+right altitude and it is not on the deferral list.
+
+**What is deferred is fan-out specifically**: dependency graphs, parallel nodes,
+retries, concurrency budgets, resume-after-restart.
+
+**The condition for revisiting is that the contract-and-record layer proves
+insufficient** — not that time passes, and not that the idea remains appealing.
+What Olympus should own first is the part no external tool has: define the bounded
+task, prove containment, gate the approval, then ingest the outcome — branch,
+diff, tests, what changed, what was decided — into project truth and
+`04 - Decisions`. That is the "structured task, approval, evidence, completion
+contracts" item, and it needs no runtime.
+
+**Cheap test before building anything: use Claude Code's own parallelism, and have
+Olympus record the outcome.** If fan-out proves valuable there, build it
+deliberately, with the evidence in hand. This is the whole reason not to build it
+speculatively — the experiment is nearly free and the runtime is not.
+
+The supporting argument, recorded so it is not re-derived: a work-graph runtime
+acquires partial-failure semantics, budget accounting and retry correctness — a
+distributed-systems surface with nothing to do with knowing the operator's
+projects — and duplicates what Claude Code and Codex already ship. This document
+is a long record of what unverified surface area costs here.
+
+**[A] Note the provenance of milestones 3–4** before treating them as a plan: they
+came from `unevaluated` sources added for consideration on the same day. See the
+concrete case under "The assistant should be a cooperative adversary" in
+section 2. Weigh them; do not inherit them.
+
+### This is also the test for the memory loop
+
+Once full bodies and `04 - Decisions` are visible, **"should Olympus orchestrate
+coding agents?" should be answerable from the article's actual argument, the
+Charter, and the operator's decision history** — with Olympus able to disagree
+with a source the operator added himself. That is the cooperative adversary doing
+the one thing it exists to do.
+
+Right now it can read neither the source nor the decisions, which is why this
+question has been two assistants reasoning without inputs. **Treat it as the
+acceptance test for the memory loop, not just as an open question.** If the loop
+lands and the question still cannot be argued from the vault, the loop is not
+done.
+
+### What survives from the proposal unchanged
+
+The closing principle, kept verbatim in substance because it is correct and
+because each clause names a real failure this project has already had:
+
+> Independence without project truth becomes drift; parallelism without contracts
+> multiplies errors; proactivity without memory becomes confident noise; voice
+> without reliable action is only a chat interface.
+
+And the guard, which is now load-bearing rather than aspirational: **adding an
+article to the library must never silently rewrite how Olympus operates.**
 
 ---
 
