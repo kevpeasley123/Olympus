@@ -216,6 +216,14 @@ present and clickable, **setting restored to its original value (`1`)**.
   whether the labels hold at that size, whether cross-project edges read as
   texture or clutter, or whether the counts still sit right beneath a ring that
   large.
+- **[V] Two judgment calls are explicitly waiting on the operator's eyes**, and
+  cannot be settled by measurement: whether the empty-wedge mark at **0.18 opacity**
+  is the right visual weight, and whether the **abbreviated centre readout** reads
+  as sufficient at the budgets the disc allows. Both were built and asserted; only
+  their weight is unjudged.
+- **[V] The Chrome extension was unavailable for two consecutive sessions.**
+  `list_connected_browsers` returned an empty list, so no agent-side workaround
+  exists — see section 6 for what to try and what to do instead.
 - ~~`processing_logs` contains zero `vault-write` rows.~~ **Closed.** The
   operator approved a gated write and watched the white tick land on the day arc.
   The note it wrote, `02 - Research/2026-07-27 AI test.md`, is now visible on the
@@ -345,6 +353,126 @@ fires between them. The flag is live and assertable but draws nothing — the zo
 behaviour is deliberately unimplemented, so there is no hidden visual change at
 the threshold.
 
+### Hop 1 cannot move outward, and the reason is the label's footprint
+
+**[V] This was tested directly, because the obvious reading is wrong.** Hop 1 sat
+at 0.582 of the dial radius and looked pinned there by the label lane, which
+implied that moving labels tight to the stroke would free room to spread the note
+bands. It does not. It frees about one unit.
+
+The binding constraint is not the label's *radius* — it is the label's
+*footprint*. Label boxes are axis-aligned, and a project with a single linked note
+puts that note on the wedge's own bearing, directly beneath its own label. At a
+bearing 22.5° off horizontal, a 7-character label's half-width (18.5 units) exceeds
+the x-component of a 12-unit radial separation, so the node lands *inside* the box
+while being 12 units further in. **[V]** Separation there depends on box half-width
+and half-height, not radial distance: the largest hop 1 that keeps a single-child
+wedge clear at the reference scale is about 129. **The previous 128 was already at
+that limit. That is why it was 128.**
+
+**[V] The harness caught this, twice, on assertions written before the change** —
+first at 1:1 and then in a fully populated target state. Neither was findable by
+reading the code, and both would have shipped as a visible overlap.
+
+So the span for note bands is fixed at roughly 128 → 87, and the only real choice
+is how many bands to cut it into:
+
+| bands | step | collapses at |
+|---|---|---|
+| three | **20.5 units** | depth 3 |
+| four | 13.7 units | depth 4 |
+
+**Three is what shipped.** **[V]** The vault's deepest chain is depth 2 across 43
+real nodes, so a fourth band encodes a depth that does not occur, at the cost of
+compressing the two that do — and 13.7 units is thinner than the 12-unit step that
+made depth unreadable in the first place. `HOP_CLAMP_DEPTH` is one line if the
+vault starts growing chains.
+
+What actually improved: depth 2 → 3 went from **12 units to 20.5**, and the silent
+collapse of every depth at or beyond 3 onto one radius is now a *declared* clamp
+with a test pinning both that the bands are distinct and that the clamp fires
+exactly where it is documented. **[V]** Nothing previously asserted the bands were
+distinct, which is why the collapse was invisible.
+
+### The label lane holds a constant gap in pixels, not in units
+
+**[V] Measured mechanism of the detachment.** The label radius was in viewBox
+units, so it scaled with the dial; the font is counter-scaled, so it did not.
+Measured from the stroke's inner edge to the glyph top, the gap drifted from about
+9.6px at 1.35× to 16.2px at 2.81× while the text stayed 10px. That is why labels
+read as floating rather than belonging to a segment, and why it appeared only after
+the scale-up.
+
+The lane is now `ringInnerEdge − (5px + capHeight) / renderScale`, computed from the
+**widest** stroke (11, active) so one formula is correct for every tier. **[V]** The
+gap is exactly 12px at every scale from 0.75× to 4×, asserted.
+
+Two consequences worth keeping:
+
+- **`renderScale` is now an input to `layoutProjectRing`.** That closes the blind
+  spot recorded earlier in this section: the collision test used to measure at the
+  unscaled font size and never saw the scale, so it was merely conservative above
+  1× and wrong below it. Collisions are now measured at the size labels are
+  actually drawn.
+- **There is one lane, not two.** The old fallback moved a colliding label 8 units
+  further in, which is itself a form of floating. Collisions are resolved by
+  shortening text, then by hiding non-persistent labels. **[V]** At N=20 all five
+  active/watching labels still persist and stay distinguishable at every scale the
+  window can reach; below that floor one drops rather than overlapping, and that
+  degradation is pinned so it cannot get worse.
+
+### Unpopulated wedges get a hollow mark
+
+A wedge with no notes was indistinguishable from a wedge nobody had looked at.
+Each project owns its territory whether or not it is currently populated, so
+absence should be readable rather than inferred from a gap — the same category of
+finding as the orphan rim.
+
+One hollow dot per unpopulated wedge, at the hop-1 radius on the wedge's bearing,
+stroke-only at 0.18 opacity, sized to match the smallest real note. It disappears
+the moment a real node lands in that wedge, which is also what makes the landing
+legible.
+
+**Deliberately not a radial tick.** The day arc already owns radial marks, where
+they mean "work happened at this time". Reusing that vocabulary for "nothing is
+linked here" would be a category error. Filled means a note; hollow means territory
+that exists and is empty.
+
+Returned from the pure module as `emptyWedgeMarks` so it is assertable: **[V]**
+seven marks against the real vault's one populated wedge, zero at target state, and
+each on its own segment's exact bearing.
+
+### The hover readout lives in the interior, beneath the omega
+
+It used to render at a fixed radius near the bottom of the ring, where it overlaid
+the ring stroke and whichever labels happened to be there — three layers of text in
+one place regardless of which segment was hovered.
+
+The interior around the glyph is the only region guaranteed clear of the segment
+ring, the labels, the day arc, and every note band. It is also a fixed location, so
+the eye learns where to look and nothing reflows per segment.
+
+**The rejected alternative, recorded so it is not re-proposed:** placing the readout
+radially just inside the hovered segment, replacing its label in place. Tightest
+association, but **[V]** it lands in the label lane, whose clearance to hop-1 notes
+at target state is 3.5 units at the smallest reachable scale — it would collide in
+a populated wedge, and it reflows for every segment.
+
+**The disc has a tight budget and the content is abbreviated to fit it.** The disc
+narrows sharply toward the bottom, so each line's character budget is computed from
+the geometry at the given scale rather than assumed, and a line that cannot fit is
+**dropped rather than allowed to cross the disc** — containment outranks showing the
+whole string. **[V]** Budgets are 26/22/16 characters at 1.35×, 35/31/26 at 1.71×,
+and at 1:1 the third line drops entirely. Three lines: name + tier, then the task
+count or `TASKS UNAVAILABLE`, then branch + commit. Never a false zero.
+
+Hovering also dims the other segments and holds the hovered label at full opacity,
+so the association is visual rather than inferred. **[V]** Reduced motion is already
+covered — `.project-ring__segment`, `__label` and `__node` are all in the
+`transition: none` block, so the change is instant, and the readout has no
+transition so it still appears. **[A]** Verified by reading the CSS and confirming
+the block is still last in the file (5010 of 5063), not by toggling the OS setting.
+
 ### Annotation counter-scales; geometry does not
 
 **[V]** The instrument fills the centre column, and everything annotating it
@@ -353,15 +481,19 @@ size. `CommandInstrument` measures the dial with a `ResizeObserver` and exposes
 the ratio as `data-render-scale` on the SVG, which is the handle to read in the
 DOM.
 
-**Trap.** `layoutProjectRing` runs its label-collision test at the *unscaled*
-font size, in viewBox units, and never sees `renderScale`. Above 1× that is
-conservative — labels draw smaller than the test assumed. Below 1× it would be
-wrong in the unsafe direction, and neither harness would catch it. **[V]** It
-cannot currently fire: `tauri.conf.json` sets `minWidth: 1280` / `minHeight: 800`,
-which floors `renderScale` at 1.35. **[V]** Probed anyway across eight viewports
-from 900×600 to 2560×1440 — no rendered collisions at N=8 even at 0.77×. Safe,
-but safe by window bounds rather than by construction; lowering `minHeight` below
-646px reopens it.
+~~**Trap.** `layoutProjectRing` runs its label-collision test at the *unscaled*
+font size and never sees `renderScale`.~~ **Closed.** `renderScale` is now an
+input and collisions are measured at the drawn size — see "The label lane holds a
+constant gap in pixels" below.
+
+**[V] `MIN_WINDOW_SCALE` is 1.35, and it is a real boundary, not a convenience.**
+`tauri.conf.json` sets `minWidth: 1280` / `minHeight: 800`, and the dial is
+`min(100vh − 206px, 100vw − 560px)` over a 440-unit viewBox, so the render scale
+floors there. Geometry is asserted to *hold* at and above 1.35× and to *degrade
+gracefully* below it. Two properties genuinely do not hold below the floor, and are
+pinned as known limits rather than defended: one dense-ring label drops at N=20,
+and label boxes crowd hop-1 notes in a fully populated ring. Both are reachable
+only in the browser dev server. **Recorded so they are not rediscovered as bugs.**
 
 ### Orphan notes left the instrument and did not arrive anywhere
 
@@ -816,6 +948,17 @@ model's context are separate pieces of work, and only the first is done.
 - **[V] The Tauri window cannot be screenshotted** — `PrintWindow` returns blank
   for WebView2. Chrome against `127.0.0.1:31420` renders the same React tree and
   is the only way an agent can see the UI.
+- **[V] Chrome is frequently unavailable, and there is no agent-side fix.** Twice
+  in a row `tabs_context_mcp` reported the extension not connected and
+  `list_connected_browsers` returned `[]` — meaning zero browsers are paired with
+  the account, not that the wrong one was selected. **Nothing an agent runs can
+  repair this.** What the operator can check, in order: the extension is installed
+  from `claude.ai/chrome` and enabled; Chrome is signed in to the *same* account as
+  Claude Code; Chrome has been restarted since installing; and the extension has
+  site permission for `127.0.0.1`. **Do not burn a round retrying** — two calls is
+  enough to establish it, then say so and switch to the headless path below.
+  Any visual-weight judgment is blocked until it is connected; everything geometric
+  is not.
 - **[V] The browser has no `invoke`**, so anything vault-backed shows its failure
   or empty state there. This is why several features can only be verified by a
   human.
@@ -890,6 +1033,21 @@ components.
 returned report is preceded by assertions that would have stopped it. **[V]**
 Checked deliberately, because five tests in this project once ran green while
 asserting nothing.
+
+**[V] The real vault payload is available headlessly, and this is the strongest
+tool here.** `cargo test --lib debug_dump_the_real_vault_graph_as_json -- --nocapture`
+prints the actual payload — 43 nodes, 49 edges, 8 projects, 1 connected, max depth
+2, 14 orphans. Piping that into the pure layout modules through the SSR loader gives
+real data through real code with no browser and no desktop app. **It found what a
+screenshot would not:** that hop 1 was already at its geometric limit, which
+contradicted the brief's premise and changed the design.
+
+**Assert across render scales, not at 1:1.** Anything touching labels, the readout,
+or clearance is scale-dependent now, and 1:1 is both unreachable in the real window
+and the tightest case. Pin properties at and above `MIN_WINDOW_SCALE` (1.35), and
+pin the degradation below it separately. Asserting only at 1:1 either fails on
+geometry no operator can see, or passes on geometry that is wrong at every size
+they can.
 
 **Measure rather than reason about layout.** Every visual bug this session was
 found by reading computed values out of the live DOM — a 1px stroke that was

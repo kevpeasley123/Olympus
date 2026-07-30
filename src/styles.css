@@ -4033,6 +4033,14 @@ small {
   opacity: 0.24;
 }
 
+/* Hovering one segment dims the rest, so the association between an arc and the
+   centre readout is visual rather than inferred. The two-class selector
+   deliberately out-specifies the per-tier opacity rules above. */
+.project-ring.is-focused .project-ring__segment {
+  opacity: 0.16;
+}
+
+/* Declared after the dim rule: equal specificity, so source order decides. */
 .project-ring__segment.is-hovered {
   stroke: var(--primary);
   opacity: 1;
@@ -4078,7 +4086,15 @@ small {
   opacity: 0.58;
 }
 
-.project-ring__label.is-hovered {
+/* The hovered project's label holds full opacity while its siblings drop back.
+   Both selectors out-specify the per-tier rules above; the hovered one also
+   out-specifies the dim rule, so order between them does not matter. */
+.project-ring.is-focused .project-ring__label {
+  opacity: 0.26;
+}
+
+.project-ring__label.is-hovered,
+.project-ring.is-focused .project-ring__label.is-hovered {
   fill: var(--primary);
   opacity: 1;
 }
@@ -4103,6 +4119,18 @@ small {
   transition:
     opacity 160ms ease-out,
     fill 160ms ease-out;
+}
+
+/* Territory that exists and is empty. Hollow against the filled real notes, and
+   quiet enough that eight of them read as a faint dotted circle rather than as
+   content — which is what an unpopulated portfolio honestly looks like. Sits
+   below the faintest real node (depth 3 at 0.44) and above the track (0.07). */
+.project-ring__empty-mark {
+  fill: none;
+  stroke: var(--muted);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+  opacity: 0.18;
 }
 
 .project-ring__node--depth-1 {

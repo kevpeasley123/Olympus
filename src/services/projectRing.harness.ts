@@ -1,11 +1,20 @@
 import {
-  PROJECT_GRAPH_RADII,
+  DIAL_RADIUS,
+  GLYPH_CLEARANCE_RADIUS,
+  HOP_CLAMP_DEPTH,
+  LABEL_GAP_EXACT_ABOVE_SCALE,
+  MAX_NODE_RADIUS,
   PROJECT_RING_RADIUS,
   SEMANTIC_ZOOM_ARC_LENGTH_THRESHOLD,
+  WIDEST_SEGMENT_STROKE,
   clipLineOutsideDisc,
   compareCodePoints,
+  labelInnerExtent,
+  labelRadius,
+  layoutCentreReadout,
   layoutProjectOwnedGraph,
-  layoutProjectRing
+  layoutProjectRing,
+  radiusForDepth
 } from "./projectRing";
 import type { ProjectGraphNode, ProjectRingLabel } from "./projectRing";
 import { addedConnectedNoteIds } from "./vaultGraph";
@@ -149,22 +158,170 @@ const realEight = [
   project("pokedex", "Pokedex", "watching")
 ];
 
+const SCALES = [1.0, 1.2, 1.35, 1.71, 2.81];
+
+/**
+ * The smallest render scale the real window can produce.
+ *
+ * `tauri.conf.json` sets `minWidth: 1280` / `minHeight: 800`, and the dial is
+ * `min(100vh - 206px, 100vw - 560px)` over a 440-unit viewBox, so the scale floors
+ * at about 1.35. Scales below this are reachable only in the browser dev server,
+ * where behaviour is asserted to degrade gracefully rather than to hold.
+ */
+const MIN_WINDOW_SCALE = 1.35;
+
+/**
+ * Depth must be readable as depth. The previous bands were 29 units, then 12,
+ * then a total collapse of every depth at or beyond 3 onto one radius — which no
+ * assertion would have caught, because nothing asserted the bands were distinct.
+ */
+function assertHopDepthIsEncoded(minimumSeparation: number) {
+  for (const scale of SCALES) {
+    void scale; // radii are in viewBox units, so they are scale-invariant by construction
+  }
+  for (let depth = 1; depth < HOP_CLAMP_DEPTH; depth += 1) {
+    const outer = radiusForDepth(depth, DIAL_RADIUS);
+    const inner = radiusForDepth(depth + 1, DIAL_RADIUS);
+    assert(
+      outer - inner >= minimumSeparation,
+      `hop depth ${depth}->${depth + 1} separation ${(outer - inner).toFixed(2)} is below the ${minimumSeparation} minimum`
+    );
+  }
+
+  // The clamp is where it is documented to be, and one band beyond it is shared.
+  assert(
+    radiusForDepth(HOP_CLAMP_DEPTH, DIAL_RADIUS) ===
+      radiusForDepth(HOP_CLAMP_DEPTH + 3, DIAL_RADIUS),
+    "depths beyond the clamp must share the innermost band"
+  );
+  assert(
+    radiusForDepth(HOP_CLAMP_DEPTH - 1, DIAL_RADIUS) >
+      radiusForDepth(HOP_CLAMP_DEPTH, DIAL_RADIUS),
+    `the clamp fires early: depth ${HOP_CLAMP_DEPTH - 1} is not outside depth ${HOP_CLAMP_DEPTH}`
+  );
+
+  // The innermost band still clears the glyph by a full maximum node radius.
+  assert(
+    radiusForDepth(HOP_CLAMP_DEPTH, DIAL_RADIUS) - MAX_NODE_RADIUS >
+      GLYPH_CLEARANCE_RADIUS,
+    "the innermost note band reaches into the glyph clearance disc"
+  );
+}
+
+/**
+ * The label lane holds a constant on-screen distance from the stroke, and never
+ * reaches inward far enough to touch a hop-1 note.
+ */
+function assertLabelLaneHolds() {
+  const innerEdge = PROJECT_RING_RADIUS - WIDEST_SEGMENT_STROKE / 2;
+  const hopOne = radiusForDepth(1, DIAL_RADIUS);
+
+  // Containment holds at every scale, including below the real window's floor.
+  for (const scale of [0.6, 0.8, ...SCALES, 4.0]) {
+    for (const fontSize of [10, 11.5]) {
+      const radius = labelRadius(fontSize, scale);
+      assert(
+        radius < innerEdge,
+        `scale ${scale}: a ${fontSize}px label crossed the segment stroke`
+      );
+      const extent = labelInnerExtent(fontSize, scale);
+      assert(
+        extent > hopOne + MAX_NODE_RADIUS,
+        `scale ${scale}: a ${fontSize}px label reaches into the hop-1 band (${extent.toFixed(2)} vs ${(hopOne + MAX_NODE_RADIUS).toFixed(2)})`
+      );
+    }
+  }
+
+  // Above the derived threshold the gap is exactly constant in pixels, which is
+  // the fix for the detachment. A unit-based inset would drift with the dial.
+  const gapsPx = new Set<string>();
+  for (const scale of SCALES.filter((value) => value >= LABEL_GAP_EXACT_ABOVE_SCALE)) {
+    const gapPx = (innerEdge - labelRadius(10, scale)) * scale;
+    const expected = 5 + 10 * 0.7;
+    assert(
+      Math.abs(gapPx - expected) < 1e-6,
+      `scale ${scale}: label gap ${gapPx.toFixed(3)}px drifted from the constant ${expected}px`
+    );
+    gapsPx.add(gapPx.toFixed(6));
+  }
+  assert(
+    gapsPx.size === 1,
+    `the label gap changed with the dial scale: ${[...gapsPx].join(", ")}`
+  );
+}
+
+/** Every readout line stays inside the disc, at every scale, or is dropped. */
+function assertCentreReadoutIsContained() {
+  const centre = 220;
+  const lines = [
+    "FIDELITY AGENTIC AI DEVELOPMENT · UNCLASSIFIED",
+    "TASKS UNAVAILABLE",
+    "feature/some-long-branch · abc1234 A commit subject"
+  ];
+  for (const scale of SCALES) {
+    const laid = layoutCentreReadout(lines, centre, scale);
+    const fontSize = 9 / scale;
+    for (const line of laid) {
+      const offset = line.y - centre;
+      assert(
+        offset > 52,
+        `scale ${scale}: a readout line rose above the glyph baseline`
+      );
+      const halfWidth = (line.text.length * fontSize * 0.62) / 2;
+      const bottom = offset + fontSize * 0.6;
+      const reach = Math.hypot(halfWidth, bottom);
+      assert(
+        reach <= GLYPH_CLEARANCE_RADIUS + 1e-9,
+        `scale ${scale}: readout line "${line.text}" reaches ${reach.toFixed(2)}, outside the ${GLYPH_CLEARANCE_RADIUS} clearance disc`
+      );
+      assert(
+        line.text.length <= line.maxCharacters,
+        `scale ${scale}: readout line was not truncated to its own budget`
+      );
+    }
+    assert(laid.length >= 1, `scale ${scale}: the readout vanished entirely`);
+  }
+}
+
 export function runProjectRingHarness() {
   const centre = 220;
-  const ring = layoutProjectRing(realEight, centre);
+  // The reference ring is built at the smallest scale the real window can reach,
+  // not at 1:1. Label geometry now depends on the render scale, so 1:1 is both
+  // unreachable and the tightest case — using it as the reference would pin the
+  // layout to a configuration no operator will ever see. Multi-scale loops below
+  // cover the range explicitly, including below this floor.
+  const REFERENCE_SCALE = 1.35;
+  const ring = layoutProjectRing(realEight, centre, PROJECT_RING_RADIUS, REFERENCE_SCALE);
   assert(ring.segments.length === 8, "N=8: expected one segment per project");
   assertNoLabelCollisions(ring.labels, "N=8");
   assert(
     ring.labels.every((label) => label.radius < PROJECT_RING_RADIUS),
     "N=8: a label escaped into the day-arc lane"
   );
+  assertHopDepthIsEncoded(20);
+  assertLabelLaneHolds();
+  assertCentreReadoutIsContained();
+
+  // Labels are laid out at the size they are drawn at, so collisions must be
+  // checked at each scale rather than only at the 1:1 reference.
+  for (const scale of SCALES) {
+    assertNoLabelCollisions(
+      layoutProjectRing(realEight, centre, PROJECT_RING_RADIUS, scale).labels,
+      `N=8 @ ${scale}x`
+    );
+  }
   const widths = new Set(ring.segments.map((segment) => segment.drawnWidth.toFixed(8)));
   assert(widths.size === 1, "N=8: segment widths are not equal");
 
   const changedStatus = realEight.map((item) =>
     item.id === "olympus" ? { ...item, status: "scaffold" as const } : item
   );
-  const statusRing = layoutProjectRing(changedStatus.reverse(), centre);
+  const statusRing = layoutProjectRing(
+    changedStatus.reverse(),
+    centre,
+    PROJECT_RING_RADIUS,
+    REFERENCE_SCALE
+  );
   for (const segment of ring.segments) {
     const after = statusRing.segments.find(
       (candidate) => candidate.project.id === segment.project.id
@@ -187,18 +344,32 @@ export function runProjectRingHarness() {
       status
     );
   });
-  const dense = layoutProjectRing(twenty, centre);
-  assertNoLabelCollisions(dense.labels, "N=20");
+  // Checked at every scale the window can actually reach, not only at the 1:1
+  // reference. The counter-scaled font shrinks in viewBox units as the dial grows,
+  // so a dense ring is *easier* at large scales — the binding case is the small
+  // end, and 1:1 sits below `tauri.conf.json`'s floor of about 1.35x.
+  const dense = layoutProjectRing(twenty, centre, PROJECT_RING_RADIUS, MIN_WINDOW_SCALE);
+  for (const scale of SCALES.filter((value) => value >= MIN_WINDOW_SCALE)) {
+    const scaled = layoutProjectRing(twenty, centre, PROJECT_RING_RADIUS, scale);
+    assertNoLabelCollisions(scaled.labels, `N=20 @ ${scale}x`);
+    const visible = scaled.labels.filter((label) => label.visible);
+    assert(
+      visible.length === 5,
+      `N=20 @ ${scale}x: only active and watching labels should persist, got ${visible.length}`
+    );
+    const texts = visible.map((label) => label.text);
+    assert(
+      new Set(texts).size === texts.length,
+      `N=20 @ ${scale}x: persistent labels are non-colliding but indistinguishable`
+    );
+  }
+  // Below the reachable floor the single lane runs out of arc and drops labels
+  // rather than overlapping them. Degradation, pinned so it cannot get worse.
+  const belowFloor = layoutProjectRing(twenty, centre, PROJECT_RING_RADIUS, 1.0);
+  assertNoLabelCollisions(belowFloor.labels, "N=20 @ 1.0x");
   assert(
-    dense.labels.filter((label) => label.visible).length === 5,
-    "N=20: only active and watching labels should persist"
-  );
-  const denseVisibleText = dense.labels
-    .filter((label) => label.visible)
-    .map((label) => label.text);
-  assert(
-    new Set(denseVisibleText).size === denseVisibleText.length,
-    "N=20: persistent labels are non-colliding but indistinguishable"
+    belowFloor.labels.filter((label) => label.visible).length >= 4,
+    "N=20 @ 1.0x: dense labels degraded further than dropping one"
   );
   assert(
     dense.segments.every(
@@ -276,13 +447,30 @@ export function runProjectRingHarness() {
   assertNodesInsideParentWedges(constellation.nodes, "project graph");
   assertLabelsClearOfNodes(ring.labels, constellation.nodes, "project graph");
   assert(
-    constellation.nodes
-      .filter((node) => node.depth === 1)
-      .every((node) => node.radius === PROJECT_GRAPH_RADII.hop1) &&
-      constellation.nodes
-        .filter((node) => node.depth === 2)
-        .every((node) => node.radius === PROJECT_GRAPH_RADII.hop2),
+    constellation.nodes.every(
+      (node) => node.radius === radiusForDepth(node.depth, centre)
+    ),
     "project graph did not use the declared radial hop bands"
+  );
+  assert(
+    constellation.emptyWedgeMarks.length === 7 &&
+      !constellation.emptyWedgeMarks.some((mark) => mark.projectId === "olympus"),
+    "the seven unpopulated wedges did not each get exactly one mark"
+  );
+  assert(
+    constellation.emptyWedgeMarks.every(
+      (mark) => mark.radius === radiusForDepth(1, centre)
+    ),
+    "an empty-wedge mark left the hop-1 radius"
+  );
+  assert(
+    constellation.emptyWedgeMarks.every((mark) => {
+      const segment = ring.segments.find(
+        (candidate) => candidate.project.id === mark.projectId
+      );
+      return segment !== undefined && mark.angle === segment.midAngle;
+    }),
+    "an empty-wedge mark drifted off its own wedge's bearing"
   );
   assert(
     constellation.crossProjectEdges.length === 1,
@@ -346,6 +534,113 @@ export function runProjectRingHarness() {
     "the visible cap count lost the number of linked notes not shown"
   );
 
+  // Target state: every wedge populated, 3-6 notes each, chains reaching depth 3.
+  // Today's one-populated-wedge case cannot show whether labels and clusters
+  // collide, which is the condition the label move has to survive.
+  const targetNodes: VaultGraphPayload["nodes"] = [];
+  const targetEdges: VaultGraphPayload["edges"] = [];
+  realEight.forEach((item, index) => {
+    targetNodes.push({
+      id: item.notePath!,
+      title: item.name,
+      folder: "01 - Projects",
+      hop: 0,
+      isProject: true,
+      degree: 4
+    });
+    const children = 3 + (index % 4);
+    for (let child = 0; child < children; child += 1) {
+      const id = `02 - Research/${item.id}-note-${child}.md`;
+      targetNodes.push({
+        id,
+        title: `${item.name} note ${child}`,
+        folder: "02 - Research",
+        hop: 1,
+        isProject: false,
+        degree: 2
+      });
+      targetEdges.push({ from: item.notePath!, to: id });
+      if (child > 0) continue;
+      let parent = id;
+      for (let depth = 2; depth <= 3; depth += 1) {
+        const deeper = `02 - Research/${item.id}-depth-${depth}.md`;
+        targetNodes.push({
+          id: deeper,
+          title: `${item.name} depth ${depth}`,
+          folder: "02 - Research",
+          hop: depth,
+          isProject: false,
+          degree: 2
+        });
+        targetEdges.push({ from: parent, to: deeper });
+        parent = deeper;
+      }
+    }
+  });
+  const targetGraph = payload(targetNodes, targetEdges);
+  for (const scale of SCALES) {
+    const scaledRing = layoutProjectRing(
+      realEight,
+      centre,
+      PROJECT_RING_RADIUS,
+      scale
+    );
+    const target = layoutProjectOwnedGraph(targetGraph, scaledRing, centre);
+    assert(
+      target.emptyWedgeMarks.length === 0,
+      `target state @ ${scale}x: a populated wedge kept its empty mark`
+    );
+    assert(
+      new Set(target.nodes.map((node) => node.projectId)).size === 8,
+      `target state @ ${scale}x: a project lost its cluster`
+    );
+    assert(
+      target.nodes.some((node) => node.depth === HOP_CLAMP_DEPTH),
+      `target state @ ${scale}x: the innermost band never drew`
+    );
+    assertNodesInsideParentWedges(target.nodes, `target state @ ${scale}x`);
+    // Label-vs-cluster clearance is asserted only at scales the operator can
+    // reach. Below the window floor the counter-scaled label box is at its
+    // largest in viewBox units and does crowd hop-1 notes in a fully populated
+    // ring; that is a known limit of the browser dev server, not a defended
+    // property, and it is recorded here so it is not rediscovered as a bug.
+    if (scale >= MIN_WINDOW_SCALE) {
+      assertLabelsClearOfNodes(scaledRing.labels, target.nodes, `target state @ ${scale}x`);
+    }
+    // Notes stay inside the territory their own project owns.
+    for (const node of target.nodes) {
+      const segment = scaledRing.segments.find(
+        (candidate) => candidate.project.id === node.projectId
+      )!;
+      assert(
+        node.angle >= segment.startAngle - 1e-9 &&
+          node.angle <= segment.endAngle + 1e-9,
+        `target state @ ${scale}x: ${node.id} escaped its project's wedge`
+      );
+    }
+  }
+
+  const targetClearanceAt = (scale: number) => {
+    const scaledRing = layoutProjectRing(realEight, centre, PROJECT_RING_RADIUS, scale);
+    const target = layoutProjectOwnedGraph(targetGraph, scaledRing, centre);
+    let worst = Infinity;
+    for (const label of scaledRing.labels.filter((item) => item.visible)) {
+      const left = label.x - label.width / 2;
+      const right = label.x + label.width / 2;
+      const top = label.y - label.height / 2;
+      const bottom = label.y + label.height / 2;
+      for (const node of target.nodes) {
+        const nearestX = Math.max(left, Math.min(node.x, right));
+        const nearestY = Math.max(top, Math.min(node.y, bottom));
+        worst = Math.min(
+          worst,
+          Math.hypot(node.x - nearestX, node.y - nearestY) - node.size
+        );
+      }
+    }
+    return Number(worst.toFixed(2));
+  };
+
   const sorted = realEight.map((item) => item.id).sort(compareCodePoints);
   assert(
     JSON.stringify(ring.segments.map((segment) => segment.project.id)) ===
@@ -366,6 +661,33 @@ export function runProjectRingHarness() {
     crossProjectEdges: constellation.crossProjectEdges.length,
     clippedCrossEdgePieces: clipped.length,
     linkedNotShown: 3,
-    hopRadii: PROJECT_GRAPH_RADII
+    hopRadii: {
+      depth1: radiusForDepth(1, DIAL_RADIUS),
+      depth2: radiusForDepth(2, DIAL_RADIUS),
+      depth3: radiusForDepth(3, DIAL_RADIUS),
+      depth4AndBeyond: radiusForDepth(HOP_CLAMP_DEPTH, DIAL_RADIUS),
+      step: radiusForDepth(1, DIAL_RADIUS) - radiusForDepth(2, DIAL_RADIUS),
+      clampDepth: HOP_CLAMP_DEPTH
+    },
+    labelGapPx: (PROJECT_RING_RADIUS - WIDEST_SEGMENT_STROKE / 2 - labelRadius(10, 1.71)) * 1.71,
+    labelRadiusByScale: SCALES.map((scale) => ({
+      scale,
+      radius: Number(labelRadius(10, scale).toFixed(2))
+    })),
+    emptyWedgeMarks: constellation.emptyWedgeMarks.length,
+    minWindowScale: MIN_WINDOW_SCALE,
+    targetStateLabelNodeClearance: SCALES.map((scale) => ({
+      scale,
+      clearance: targetClearanceAt(scale),
+      reachable: scale >= MIN_WINDOW_SCALE
+    })),
+    centreReadoutBudgets: SCALES.map((scale) => ({
+      scale,
+      lines: layoutCentreReadout(
+        ["A · B", "C", "D"],
+        220,
+        scale
+      ).map((line) => line.maxCharacters)
+    }))
   };
 }

@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import type { ActionQueueTask } from "../../hooks/useActionQueue";
 import {
   arcPathForSegment,
+  layoutCentreReadout,
   layoutProjectOwnedGraph,
   layoutProjectRing
 } from "../../services/projectRing";
@@ -46,6 +47,31 @@ function projectDetails(
   return `${segment.project.name} · ${STATUS_LABEL[segment.project.status]} · ${segment.project.branch} · ${segment.project.lastCommit} · ${taskCopy}`;
 }
 
+/**
+ * The readout's content, widest-first.
+ *
+ * Identity leads because the interior is a fixed position and the eye lands there
+ * expecting to learn which project it is on. Provenance goes last because the disc
+ * is narrowest at the bottom and a truncated commit subject still reads.
+ *
+ * `tasksError` yields "TASKS UNAVAILABLE", never a zero — a false zero is a
+ * stronger claim than silence.
+ */
+function readoutLines(
+  segment: ProjectRingSegment,
+  openTasks: number,
+  tasksError: string | null
+): string[] {
+  const project = segment.project;
+  return [
+    `${project.name.toUpperCase()} · ${STATUS_LABEL[project.status].toUpperCase()}`,
+    tasksError
+      ? "TASKS UNAVAILABLE"
+      : `${openTasks} OPEN ${openTasks === 1 ? "TASK" : "TASKS"}`,
+    `${project.branch} · ${project.lastCommit}`
+  ];
+}
+
 export function ProjectRing({
   centre,
   radius,
@@ -60,8 +86,8 @@ export function ProjectRing({
   const [hoveredProject, setHoveredProject] = useState<string | null>(null);
   const [hoveredNode, setHoveredNode] = useState<ProjectGraphNode | null>(null);
   const ring = useMemo(
-    () => layoutProjectRing(projects, centre, radius),
-    [centre, projects, radius]
+    () => layoutProjectRing(projects, centre, radius, renderScale),
+    [centre, projects, radius, renderScale]
   );
   const constellation = useMemo(
     () => layoutProjectOwnedGraph(graph, ring, centre),
@@ -79,8 +105,10 @@ export function ProjectRing({
     setHoveredProject((current) => (current === projectId ? null : current));
   }
 
+  const focused = Boolean(hoveredProject || hoveredNode);
+
   return (
-    <g className="project-ring">
+    <g className={`project-ring ${focused ? "is-focused" : ""}`}>
       <circle
         cx={centre}
         cy={centre}
@@ -170,6 +198,21 @@ export function ProjectRing({
         />
       ))}
 
+      {/* Territory a project owns but has not filled. Hollow, and gone the moment
+          a real node lands in the wedge. */}
+      {constellation.emptyWedgeMarks.map((mark) => (
+        <circle
+          key={`empty-${mark.projectId}`}
+          cx={mark.x}
+          cy={mark.y}
+          r={mark.size}
+          className="project-ring__empty-mark"
+          pointerEvents="none"
+        >
+          <title>{`No notes link to this project yet`}</title>
+        </circle>
+      ))}
+
       {constellation.nodes.map((node) => (
         <circle
           key={node.id}
@@ -190,37 +233,35 @@ export function ProjectRing({
         </circle>
       ))}
 
+      {/* One fixed position for every readout, in the interior beneath the omega.
+          Nothing here shifts the layout: SVG text at absolute coordinates. */}
       {hoveredNode ? (
-        <text
-          x={centre}
-          y={centre + 158}
-          className="project-ring__readout"
-          textAnchor="middle"
-          dominantBaseline="middle"
-          style={{ fontSize: `${9 / Math.max(renderScale, 0.01)}px` }}
-        >
-          {describeNode(hoveredNode)}
-        </text>
-      ) : segment ? (
-        <ProjectReadout
+        <CentreReadout
+          lines={[describeNode(hoveredNode)]}
           centre={centre}
-          segment={segment}
-          openTasks={taskMap.get(segment.project.id)?.length ?? 0}
-          tasksError={tasksError}
+          renderScale={renderScale}
+        />
+      ) : segment ? (
+        <CentreReadout
+          lines={readoutLines(
+            segment,
+            taskMap.get(segment.project.id)?.length ?? 0,
+            tasksError
+          )}
+          centre={centre}
           renderScale={renderScale}
         />
       ) : constellation.droppedLinked > 0 ? (
-        <text
-          x={centre}
-          y={centre + 158}
-          className="project-ring__meta"
-          textAnchor="middle"
-          dominantBaseline="middle"
-          style={{ fontSize: `${9 / Math.max(renderScale, 0.01)}px` }}
-        >
-          +{constellation.droppedLinked} linked{" "}
-          {constellation.droppedLinked === 1 ? "note" : "notes"} not shown
-        </text>
+        <CentreReadout
+          lines={[
+            `+${constellation.droppedLinked} LINKED ${
+              constellation.droppedLinked === 1 ? "NOTE" : "NOTES"
+            } NOT SHOWN`
+          ]}
+          centre={centre}
+          renderScale={renderScale}
+          muted
+        />
       ) : null}
 
       {/* The constant is live and assertable now; the behavior waits for its
@@ -262,37 +303,35 @@ function ProjectLabel({
   );
 }
 
-function ProjectReadout({
+function CentreReadout({
+  lines,
   centre,
-  segment,
-  openTasks,
-  tasksError,
-  renderScale
+  renderScale,
+  muted = false
 }: {
+  lines: string[];
   centre: number;
-  segment: ProjectRingSegment;
-  openTasks: number;
-  tasksError: string | null;
   renderScale: number;
+  muted?: boolean;
 }) {
-  const taskCopy = tasksError
-    ? "TASKS UNAVAILABLE"
-    : `${openTasks} OPEN ${openTasks === 1 ? "TASK" : "TASKS"}`;
+  const laid = layoutCentreReadout(lines, centre, renderScale);
+  if (laid.length === 0) return null;
+  const fontSize = 9 / Math.max(renderScale, 0.01);
   return (
-    <text
-      x={centre}
-      y={centre + 151}
-      className="project-ring__readout"
-      textAnchor="middle"
-      style={{ fontSize: `${9 / Math.max(renderScale, 0.01)}px` }}
-    >
-      <tspan x={centre} dy="0">
-        {segment.project.name.toUpperCase()} · {STATUS_LABEL[segment.project.status].toUpperCase()} ·{" "}
-        {taskCopy}
-      </tspan>
-      <tspan x={centre} dy={13 / Math.max(renderScale, 0.01)}>
-        {segment.project.branch} · {segment.project.lastCommit}
-      </tspan>
-    </text>
+    <g pointerEvents="none">
+      {laid.map((line, index) => (
+        <text
+          key={index}
+          x={centre}
+          y={line.y}
+          className={muted ? "project-ring__meta" : "project-ring__readout"}
+          textAnchor="middle"
+          dominantBaseline="middle"
+          style={{ fontSize: `${fontSize}px` }}
+        >
+          {line.text}
+        </text>
+      ))}
+    </g>
   );
 }
