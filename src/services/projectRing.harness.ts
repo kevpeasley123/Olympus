@@ -1,5 +1,6 @@
 import {
   DIAL_RADIUS,
+  GLYPH_BASELINE_OFFSET,
   GLYPH_CLEARANCE_RADIUS,
   HOP_CLAMP_DEPTH,
   LABEL_GAP_EXACT_ABOVE_SCALE,
@@ -339,6 +340,16 @@ function assertSubRowsAreLegible(count: number, caseName: string, withinCapacity
     }
   }
 
+  // Nothing is ever dropped, at any count. Crowding is the degradation, not hiding.
+  {
+    const ring = layoutProjectRing(realEight, centre, PROJECT_RING_RADIUS, MIN_WINDOW_SCALE);
+    const laid = layoutProjectOwnedGraph(denseSingleProjectGraph(count), ring, centre);
+    assert(
+      laid.nodes.length === count,
+      `${caseName}: ${count - laid.nodes.length} note(s) vanished instead of crowding`
+    );
+  }
+
   // Determinism: reversed and repeated inputs must produce identical rows.
   const ring = layoutProjectRing(realEight, centre, PROJECT_RING_RADIUS, MIN_WINDOW_SCALE);
   const forward = denseSingleProjectGraph(count);
@@ -376,9 +387,13 @@ function assertCentreReadoutIsContained() {
     const fontSize = 9 / scale;
     for (const line of laid) {
       const offset = line.y - centre;
+      // The line's TOP must clear the glyph's ink, not its centre. Cinzel's
+      // omega has zero descent, so its ink stops exactly on the baseline and a
+      // centre-based check let the first line sit on the glyph's feet.
+      const top = offset - (9 / scale) * 0.6;
       assert(
-        offset > 52,
-        `scale ${scale}: a readout line rose above the glyph baseline`
+        top > GLYPH_BASELINE_OFFSET,
+        `scale ${scale}: readout line "${line.text}" has its top at ${top.toFixed(2)}, on or above the glyph baseline at ${GLYPH_BASELINE_OFFSET}`
       );
       const halfWidth = (line.text.length * fontSize * 0.62) / 2;
       const bottom = offset + fontSize * 0.6;
@@ -419,6 +434,37 @@ export function runProjectRingHarness() {
   assertSubRowsAreLegible(14, "dense band N=14", true);
   assertSubRowsAreLegible(6, "sparse band N=6", true);
   assertSubRowsAreLegible(28, "over-capacity band N=28", false);
+
+  // The spacing minimum and the row cap are independent, and this pins the seam.
+  // The real 14-note band must satisfy whatever `MIN_NODE_SPACING_DIAMETERS` says,
+  // so raising it fails here rather than silently under-spacing the live vault —
+  // the cap would absorb the change and the picture would not move.
+  {
+    const ring = layoutProjectRing(realEight, centre, PROJECT_RING_RADIUS, MIN_WINDOW_SCALE);
+    const band = layoutProjectOwnedGraph(denseSingleProjectGraph(14), ring, centre).nodes;
+    const rows = new Map<number, typeof band>();
+    for (const node of band) {
+      if (!rows.has(node.subRow)) rows.set(node.subRow, []);
+      rows.get(node.subRow)!.push(node);
+    }
+    let worst = Number.POSITIVE_INFINITY;
+    for (const members of rows.values()) {
+      const sorted = members.slice().sort((left, right) => left.angle - right.angle);
+      for (let index = 1; index < sorted.length; index += 1) {
+        worst = Math.min(
+          worst,
+          Math.hypot(
+            sorted[index].x - sorted[index - 1].x,
+            sorted[index].y - sorted[index - 1].y
+          )
+        );
+      }
+    }
+    assert(
+      worst >= MIN_NODE_SPACING_DIAMETERS * 2 * MAX_NODE_RADIUS,
+      `the live 14-note band spaces at ${worst.toFixed(2)} but the declared minimum is ${(MIN_NODE_SPACING_DIAMETERS * 2 * MAX_NODE_RADIUS).toFixed(2)} — the row cap cannot absorb a higher minimum, so either lower it or accept the band is below it`
+    );
+  }
 
   // Labels are laid out at the size they are drawn at, so collisions must be
   // checked at each scale rather than only at the 1:1 reference.

@@ -4034,14 +4034,20 @@ small {
 }
 
 /* Hovering one segment dims the rest, so the association between an arc and the
-   centre readout is visual rather than inferred. The two-class selector
-   deliberately out-specifies the per-tier opacity rules above. */
+   centre readout is visual rather than inferred. Out-specifies the per-tier
+   opacity rules above. */
 .project-ring.is-focused .project-ring__segment {
   opacity: 0.16;
 }
 
-/* Declared after the dim rule: equal specificity, so source order decides. */
-.project-ring__segment.is-hovered {
+/* `.project-ring.is-focused .project-ring__segment` is THREE class selectors,
+   (0,3,0) — not two. It out-specifies `.project-ring__segment.is-hovered` at
+   (0,2,0), so source order never came into it: the dim rule won `opacity` while
+   the hovered rule still won `stroke`, and the hovered segment dimmed with the
+   rest while changing colour. Measured in the running app, not readable from
+   here. The restatement below is (0,4,0) and wins outright. */
+.project-ring__segment.is-hovered,
+.project-ring.is-focused .project-ring__segment.is-hovered {
   stroke: var(--primary);
   opacity: 1;
 }

@@ -171,10 +171,23 @@ export function radiusForDepth(depth: number, dialRadius = DIAL_RADIUS): number 
  * A solid arc above a sparse scatter cannot read as parent-and-child at *any*
  * radial separation, which is why widening the hop step did not fix it.
  *
- * 1.65 diameters is calibrated against the case that motivated the work: the real
- * Olympus band of 14 notes goes from 6.7 units of spacing to 12.65 — about 21.6px at
- * the default scale, which is the target. That leaves 0.65 of a diameter, roughly 5
- * units, of clear gap between adjacent nodes in a row.
+ * **Derived on its own terms, then confirmed by looking.** Three reference points:
+ *
+ * - **1.0** — centre-to-centre equal to a diameter. Nodes touch exactly. Below this
+ *   they overlap. This is where the band was, at 0.88.
+ * - **1.5** — half a diameter of clear gap, the point at which a row of dots stops
+ *   reading as a dashed line and starts reading as discrete marks.
+ * - **1.75** — three quarters of a diameter, comfortably countable.
+ *
+ * **[V] 1.65 was confirmed in the running app**: the operator judged the real
+ * 14-note band, at 12.65 units and about 20px, as reading in countable nodes.
+ *
+ * **This constant does not encode the row cap, and raising it would not change the
+ * picture.** At 1.75 the 14-note band would ask for three rows, be refused by
+ * `MAX_SUB_ROWS`, and render at 12.65 units exactly as it does now — the only
+ * difference would be that the harness stopped calling that sufficient. The cap is
+ * geometric and the minimum is perceptual; they are independent, and a test pins
+ * the real band against whatever this value is so that raising it fails loudly.
  */
 export const MIN_NODE_SPACING_DIAMETERS = 1.65;
 
@@ -203,11 +216,20 @@ export const SUBROW_SPAN_FRACTION = 0.35;
  * reads as depth, which is the one thing it must not do.** So three rows are not
  * available, and two is the ceiling.
  *
- * Two rows space about **14 notes** in a 42° wedge — exactly today's Olympus band,
- * and more in a wider wedge, since capacity scales with arc. Beyond that no stagger
- * fits: 28 nodes of 7.58 units need 212 units of arc against 94 available. That is
- * the overflow case, not a sub-row case, and the layout degrades by crowding rather
- * than by leaving the band.
+ * **[V] Measured capacity in a 42° wedge, and the degradation past it:**
+ *
+ * | notes | spacing | reads as |
+ * |---|---|---|
+ * | 14 | 12.65 | meets the minimum — today's Olympus band, exactly at the ceiling |
+ * | 15 | 11.81 | below the minimum, still clearly separated |
+ * | 21 | 8.44 | separated but tight |
+ * | 24+ | < 7.58 | **touching again — the stroke returns** |
+ *
+ * So the threshold for reaching after cap-and-overflow is **24, not 15**: between
+ * 15 and 23 the band is under the comfortable minimum but the dots are still
+ * discrete. **[V] Nothing is ever dropped** — every reachable note is positioned at
+ * every count tested, so the band degrades by visible crowding, never by silently
+ * hiding a node. Capacity scales with arc, so a wider wedge holds more.
  */
 export const MAX_SUB_ROWS = 2;
 
@@ -937,9 +959,18 @@ export function layoutProjectOwnedGraph(
 }
 
 const READOUT_FONT_PX = 9;
-/** Below the glyph's baseline, where the interior is clear of the Ω itself. */
-const READOUT_TOP_GAP_PX = 6;
-const READOUT_LINE_PX = 9.5;
+/**
+ * Clear pixels between the glyph's baseline and the top of the first line.
+ *
+ * **[V] Cinzel's Ω has zero descent** — canvas metrics report
+ * `actualBoundingBoxDescent = 0.00` at 150px — so its ink stops exactly on the
+ * baseline at `GLYPH_BASELINE_OFFSET`. The first attempt placed the line's
+ * *centre* one gap below the baseline, which put its top 0.5 units *above* the
+ * ink and the readout sat on the glyph's feet. The half-line is now part of the
+ * offset.
+ */
+const READOUT_TOP_GAP_PX = 5;
+const READOUT_LINE_PX = 10;
 /** Matches `CommandInstrument`'s glyph `y = CENTRE + 52`. */
 export const GLYPH_BASELINE_OFFSET = 52;
 
@@ -973,7 +1004,9 @@ export function layoutCentreReadout(
   const fontSize = READOUT_FONT_PX / scale;
   const halfHeight = fontSize * 0.6;
   const characterWidth = fontSize * 0.62;
-  const first = GLYPH_BASELINE_OFFSET + READOUT_TOP_GAP_PX / scale;
+  // The offset is to the line's *top*, so half a line is part of it.
+  const first =
+    GLYPH_BASELINE_OFFSET + (READOUT_TOP_GAP_PX + READOUT_FONT_PX * 0.6) / scale;
 
   const out: CentreReadoutLine[] = [];
   for (let index = 0; index < lines.length; index += 1) {

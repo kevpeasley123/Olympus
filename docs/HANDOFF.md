@@ -210,7 +210,14 @@ present and clickable, **setting restored to its original value (`1`)**.
   file writes go straight to disk and bypass the gate entirely. **Pantheon → Add
   Entry closes this**, exercising the omega pulse and the first write tick
   together.
-- **[V] The day arc has never drawn real ticks.** The data is proven — 5 commits
+- ~~**The day arc has never drawn real ticks.**~~ **Closed. [V]** It draws them, and
+  they are correct. A cluster the operator suspected was a rendering artifact was
+  checked against real commit times: four commits between 19:09 and 20:36 land at
+  287.4°, 293.1°, 296.5° and 309.0° — the 9-to-10 o'clock region — with the tightest
+  pair 3.37° apart, which is 12 units at the 205-unit day radius. **A working session
+  genuinely looks like a tight cluster.** The "detached marker above" was the
+  now-marker at 342.5° sitting on two commits 1.85° apart. Nothing to fix.
+- **[V] The day arc previously had never drawn real ticks.** The data is proven — 5 commits
   in 24h with valid timestamps, and the tick *styles* were confirmed by injecting
   sample geometry — but the browser cannot render real data, and nobody has
   looked at the desktop app. `2f0030f` then changed what a tick looks like: it
@@ -443,6 +450,41 @@ Five things about it that are load-bearing:
 pinned by a 28-node stress case asserting containment and label clearance rather
 than spacing.
 
+**[V] The capacity curve, and where overflow actually becomes necessary:**
+
+| notes | spacing | reads as |
+|---|---|---|
+| 14 | 12.65 | meets the minimum — **today's Olympus band, exactly at the ceiling** |
+| 15 | 11.81 | below the minimum, still clearly separated |
+| 21 | 8.44 | separated but tight |
+| 24+ | < 7.58 | **touching again — the stroke returns** |
+
+**The threshold for reaching after cap-and-overflow is 24, not 15.** Between 15 and
+23 the band is under the comfortable minimum but the dots are still discrete.
+**[V] Nothing is ever dropped at any count** — every reachable note is positioned, so
+the band degrades by visible crowding rather than by silently hiding a note. A test
+pins that.
+
+**Olympus is at the ceiling on the first wedge that filled.** The fifteenth linked
+note takes it below the declared minimum. That is not a failure, but it is the point
+at which the next design decision is due.
+
+### The spacing minimum and the row cap are independent
+
+They were briefly one tuned constant, which hid the trade. Separated:
+
+- `MIN_NODE_SPACING_DIAMETERS` is **perceptual**. Reference points: 1.0 is touching,
+  1.5 is where a row of dots stops reading as a dashed line, 1.75 is comfortably
+  countable. **[V] 1.65 was confirmed by the operator judging the real band in the
+  running app**, not chosen to make the arithmetic work.
+- `MAX_SUB_ROWS` is **geometric**, and derived above.
+
+**Raising the minimum would not change the picture.** At 1.75 the 14-note band would
+ask for three rows, be refused by the cap, and render at 12.65 exactly as it does
+now — the only difference is that the harness would stop calling it sufficient. **A
+test pins the live band against whatever the minimum says**, so raising it fails
+loudly instead of silently under-spacing the real vault.
+
 ### The label lane holds a constant gap in pixels, not in units
 
 **[V] Measured mechanism of the detachment.** The label radius was in viewBox
@@ -526,6 +568,30 @@ the geometry at the given scale rather than assumed, and a line that cannot fit 
 whole string. **[V]** Budgets are 26/22/16 characters at 1.35×, 35/31/26 at 1.71×,
 and at 1:1 the third line drops entirely. Three lines: name + tier, then the task
 count or `TASKS UNAVAILABLE`, then branch + commit. Never a false zero.
+
+**[V] Two bugs in this were found by measuring the running app, and neither was
+readable from the source.**
+
+**The hovered segment dimmed with the rest.** `.project-ring.is-focused
+.project-ring__segment` is **three** class selectors — (0,3,0) — not two. It
+out-specifies `.project-ring__segment.is-hovered` at (0,2,0), so source order never
+came into it: the dim rule won `opacity` while the hovered rule still won `stroke`.
+The hovered arc changed colour and stayed dim. The comment in the CSS asserting
+"equal specificity, so source order decides" was simply wrong. Fixed by restating
+the hovered rule at (0,4,0). **[V] Verified in the app: hovered at 1, others at
+0.16.**
+
+**The readout sat on the glyph's feet.** **[V]** Canvas metrics report Cinzel's Ω
+with `actualBoundingBoxDescent = 0.00` at 150px — its ink stops *exactly* on the
+baseline. The layout placed the first line's **centre** one gap below the baseline,
+which put its **top** 0.5 units above the ink. Measured at 51.53 units against a
+baseline at 52. The offset now includes half a line, and a test asserts the line's
+top rather than its centre clears the baseline. **[V] Verified in the app at 2.04
+units of clearance.**
+
+**Both are the same class of error**: reasoning about a box when the thing that
+matters is the ink, and reasoning about specificity by counting the wrong things.
+Neither harness could have caught either, because both live in CSS and font metrics.
 
 **[V] The hit target was too small to find, and is now 40 units wide.** It was an
 18-unit invisible arc stroke centred on the ring; the readout could not be triggered
