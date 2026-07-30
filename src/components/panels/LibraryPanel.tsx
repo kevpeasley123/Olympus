@@ -21,7 +21,6 @@ import {
   PANTHEON_ORIGINS,
   PANTHEON_STANCES,
   usePantheon,
-  type PantheonEntry,
   type PantheonOrigin,
   type PantheonStance
 } from "../../hooks/usePantheon";
@@ -29,9 +28,9 @@ import { restartDesktopApp } from "../../services/launcher";
 import {
   categoryDescription,
   categoryLabel,
-  normalizeResearchRecord,
   orderedCategories
 } from "../../services/pantheonAnalysis";
+import { pantheonEntryToResearchRecord } from "../../services/pantheonRecord";
 import type { ObsidianActionResult } from "../../services/obsidian";
 import type { PantheonCategory, ResearchRecord } from "../../types";
 
@@ -1114,21 +1113,6 @@ function entryTypeLabel(sourceType: ResearchRecord["sourceType"]): string {
   }
 }
 
-function mapPantheonSourceType(input: string): ResearchRecord["sourceType"] {
-  switch (input.toLowerCase()) {
-    case "transcript":
-      return "transcript";
-    case "note":
-      return "note";
-    case "manual":
-    case "procedure":
-    case "playbook":
-      return "manual";
-    default:
-      return "article";
-  }
-}
-
 const ALLOWED_ATTACHMENT_EXTENSIONS = ["pdf", "png", "jpg", "jpeg", "webp", "txt", "md"];
 
 function AddEntryModal({
@@ -1549,35 +1533,6 @@ function AddEntryModal({
       </div>
     </div>
   );
-}
-
-function pantheonEntryToResearchRecord(entry: PantheonEntry): ResearchRecord {
-  const sourceType = mapPantheonSourceType(entry.sourceType ?? entry.entryType);
-  const createdAt = entry.created ?? entry.fileModifiedAt.slice(0, 10);
-  const sourceDate = entry.sourceDate ?? createdAt;
-  const wordCount = entry.wordCount;
-
-  const baseRecord: ResearchRecord = {
-    id: entry.id,
-    title: entry.title,
-    sourceType,
-    createdAt,
-    sourceDate,
-    tags: entry.tags,
-    summary: "",
-    content: entry.body || entry.bodyPreview,
-    category: "general-reference",
-    categoryReason: "",
-    themes: [],
-    wordCount,
-    estReadMinutes: Math.max(1, Math.ceil(wordCount / 220)),
-    freshness: "recent",
-    stance: entry.stance,
-    whyKept: entry.whyKept,
-    origin: entry.origin
-  };
-
-  return normalizeResearchRecord(baseRecord);
 }
 
 function preprocessObsidianCallouts(body: string): string {

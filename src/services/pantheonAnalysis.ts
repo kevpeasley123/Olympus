@@ -104,11 +104,16 @@ export function analyzeResearchRecord(input: AnalysisInput): Pick<
   const freshness = computeFreshness(input.sourceDate);
   const scoring = scoreCategories(normalizedTitle, normalizedContent, input.sourceType);
   const best = scoring[0];
+  const explicitCategory = categoryFromTags(input.tags);
 
-  const category = best && best.score > 0 ? best.rule.id : "general-reference";
-  const signalTerms = best?.signals.slice(0, 3) ?? [];
-  const categoryReason =
-    signalTerms.length > 0
+  const category =
+    explicitCategory ?? (best && best.score > 0 ? best.rule.id : "general-reference");
+  const signalTerms = explicitCategory
+    ? [explicitCategory]
+    : (best?.signals.slice(0, 3) ?? []);
+  const categoryReason = explicitCategory
+    ? `Categorized as ${categoryLabel(category)} because the source explicitly carries the ${explicitCategory} tag.`
+    : signalTerms.length > 0
       ? `Categorized as ${categoryLabel(category)} because it emphasizes ${signalTerms.join(", ")}.`
       : `Categorized as ${categoryLabel(category)} because it does not strongly match a narrower operating bucket yet.`;
 
@@ -230,4 +235,27 @@ function slugTag(value: string): string {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .slice(0, 32);
+}
+
+function categoryFromTags(tags: string[] | undefined): PantheonCategory | null {
+  if (!tags?.length) return null;
+
+  const candidates = new Set(
+    tags.map((tag) =>
+      tag
+        .trim()
+        .toLowerCase()
+        .replace(/^#/, "")
+        .replace(/\s+/g, "-")
+    )
+  );
+
+  return (
+    CATEGORY_ORDER.find(
+      (category) =>
+        candidates.has(category) ||
+        candidates.has(`pantheon/${category}`) ||
+        candidates.has(`category/${category}`)
+    ) ?? null
+  );
 }
