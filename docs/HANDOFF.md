@@ -1016,23 +1016,41 @@ model's context are separate pieces of work, and only the first is done.
 - **[V] The Tauri window cannot be screenshotted** — `PrintWindow` returns blank
   for WebView2. Chrome against `127.0.0.1:31420` renders the same React tree and
   is the only way an agent can see the UI.
-- **[V] Chrome is frequently unavailable, and there is no agent-side fix.** Twice
-  in a row `tabs_context_mcp` reported the extension not connected and
-  `list_connected_browsers` returned `[]` — meaning zero browsers are paired with
-  the account, not that the wrong one was selected. **Nothing an agent runs can
-  repair this.** What the operator can check, in order: the extension is installed
-  from `claude.ai/chrome` and enabled; Chrome is signed in to the *same* account as
-  Claude Code; Chrome has been restarted since installing; and the extension has
-  site permission for `127.0.0.1`. **Do not burn a round retrying** — two calls is
-  enough to establish it, then say so and switch to the headless path below.
-  Any visual-weight judgment is blocked until it is connected; everything geometric
-  is not.
+- **[V] Chrome was unavailable twice, and the cause was diagnosed: Chrome was not
+  running.** `list_connected_browsers` returned `[]` — zero browsers paired with the
+  account, not the wrong one selected — and `Get-Process chrome` found no process
+  while the executable was installed at the standard path. **A closed browser cannot
+  pair.**
+
+  **Check that first, before anything else:**
+
+  ```powershell
+  Get-Process -Name chrome -ErrorAction SilentlyContinue
+  ```
+
+  If that is empty, the extension cannot connect and no other check matters. If
+  Chrome *is* running and it still returns `[]`, then work through: the extension is
+  installed from `claude.ai/chrome` and enabled; Chrome is signed in to the *same*
+  account as Claude Code; Chrome has been restarted since installing; the extension
+  has site permission for `127.0.0.1`.
+
+  **Nothing an agent runs can repair any of those.** Do not burn a round retrying —
+  two calls establishes it, then say so and switch to the headless path below. Visual
+  *weight* judgments are blocked until it is connected; everything geometric is not.
 - **[V] The browser has no `invoke`**, so anything vault-backed shows its failure
   or empty state there. This is why several features can only be verified by a
   human.
 - **[V] A hidden or minimised Chrome tab throttles `requestAnimationFrame` to
   zero**, freezing every `motion` animation mid-fade. It looks exactly like a
   broken component. Check `document.visibilityState` before diagnosing.
+- **[V] HMR emits `Received NaN for the x1/y1/cx/cy attribute` warnings that are not
+  bugs.** When a component and the pure module it imports update in the same batch,
+  React can render one against the other's previous version, and the geometry comes
+  out non-finite for a frame. **It looks exactly like a real layout bug.** Before
+  chasing it: run the layout headlessly over the real payload at several scales,
+  including 0 — a `ResizeObserver` reports 0 before first paint — and cold-start the
+  app. **[V]** Both were clean when the warnings appeared during the sub-row work, and
+  a cold start produced zero. Trust the cold start over the HMR log.
 
 ---
 
