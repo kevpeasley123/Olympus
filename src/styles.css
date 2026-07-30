@@ -4125,12 +4125,15 @@ small {
    quiet enough that eight of them read as a faint dotted circle rather than as
    content — which is what an unpopulated portfolio honestly looks like. Sits
    below the faintest real node (depth 3 at 0.44) and above the track (0.07). */
+/* 0.24, not 0.18. At 0.18 the marks read only if you already know to look for
+   them, so absence was still being inferred on a natural glance. */
 .project-ring__empty-mark {
   fill: none;
   stroke: var(--muted);
   stroke-width: 1;
   vector-effect: non-scaling-stroke;
-  opacity: 0.18;
+  opacity: 0.24;
+  cursor: pointer;
 }
 
 .project-ring__node--depth-1 {

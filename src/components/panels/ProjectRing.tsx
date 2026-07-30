@@ -160,11 +160,15 @@ export function ProjectRing({
               }`}
               pointerEvents="none"
             />
+            {/* 40 units, not 18. Centred on the ring it spans 148-188, so the
+                whole visible unit is hittable — the stroke at 168, the label lane
+                below it, and clear space above — instead of an 11px stroke. It
+                stops short of the day arc's innermost tick at 196. */}
             <path
               d={arcPathForSegment(candidate, centre, radius)}
               fill="none"
               stroke="transparent"
-              strokeWidth={18}
+              strokeWidth={40}
               className="project-ring__hit"
               tabIndex={0}
               role="button"
@@ -195,6 +199,9 @@ export function ProjectRing({
           }
           hovered={hoveredProject === label.projectId}
           renderScale={renderScale}
+          onEnter={() => showProject(label.projectId)}
+          onLeave={() => hideProject(label.projectId)}
+          onSelect={() => onSelectProject(label.projectId)}
         />
       ))}
 
@@ -207,7 +214,9 @@ export function ProjectRing({
           cy={mark.y}
           r={mark.size}
           className="project-ring__empty-mark"
-          pointerEvents="none"
+          onMouseEnter={() => showProject(mark.projectId)}
+          onMouseLeave={() => hideProject(mark.projectId)}
+          onClick={() => onSelectProject(mark.projectId)}
         >
           <title>{`No notes link to this project yet`}</title>
         </circle>
@@ -277,12 +286,18 @@ function ProjectLabel({
   label,
   status,
   hovered,
-  renderScale
+  renderScale,
+  onEnter,
+  onLeave,
+  onSelect
 }: {
   label: ProjectRingLabel;
   status: TrackedProject["status"];
   hovered: boolean;
   renderScale: number;
+  onEnter: () => void;
+  onLeave: () => void;
+  onSelect: () => void;
 }) {
   if (!label.visible && !hovered) return null;
   return (
@@ -295,7 +310,9 @@ function ProjectLabel({
       style={{ fontSize: `${label.fontSize / Math.max(renderScale, 0.01)}px` }}
       textAnchor="middle"
       dominantBaseline="middle"
-      pointerEvents="none"
+      onMouseEnter={onEnter}
+      onMouseLeave={onLeave}
+      onClick={onSelect}
     >
       {label.text}
       <title>{label.fullText}</title>

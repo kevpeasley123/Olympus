@@ -109,8 +109,10 @@ versioned release into `C:\Program Files\Project Olympus`, and repairs an
 existing taskbar shortcut so it targets that stable installed executable rather
 than Cargo's disposable development output.
 
-**[V]** Version 0.1.1 was built and installed. Both the Start menu shortcut and
-the existing taskbar shortcut target
+**[V]** Version 0.1.1 was built and installed at the time this was written; the
+workflow has since been used again — **[V]** the installed executable is now
+**0.2.0, built 2026-07-29 17:50**, which carries code through `fe849ee`. Both the
+Start menu shortcut and the existing taskbar shortcut target
 `C:\Program Files\Project Olympus\project-olympus.exe`. Launching through the
 repaired taskbar shortcut started that exact executable. Future development
 builds can therefore replace their own artifacts without invalidating the
@@ -187,10 +189,14 @@ exists. If a decision depends on an **[A]**, verify it first.
 **[V]** `npm run build` passes. **[V]** Both frontend harnesses executed and pass.
 
 **[V] `tauri build` now succeeds** — producing installable bundles beneath the
-configured Cargo target directory. **[V]** Version 0.1.1 is installed at
-`C:\Program Files\Project Olympus`, and the repaired taskbar shortcut launches
-that stable installed executable. Pinning the Cargo development binary is
-unsupported because rebuilds replace it.
+configured Cargo target directory. **[V] Version 0.2.0, built 2026-07-29 17:50, is
+what is installed** at `C:\Program Files\Project Olympus`, and the repaired taskbar
+shortcut launches that stable installed executable. Pinning the Cargo development
+binary is unsupported because rebuilds replace it.
+
+**The installed build lags `master`, and by design.** Read its timestamp against
+`git log` before concluding a change is or is not in the app — the 17:50 build
+carries code through `fe849ee` and nothing after it.
 
 **[V] Reduced motion works, verified against the real OS setting** — toggled via
 `SystemParametersInfo`, all animations confirmed `none`, everything still
@@ -394,6 +400,49 @@ with a test pinning both that the bands are distinct and that the clamp fires
 exactly where it is documented. **[V]** Nothing previously asserted the bands were
 distinct, which is why the collapse was invisible.
 
+### Depth failed to read because of angular density, not radial spacing
+
+**[V] Judged in the running app, and the diagnosis inverted the fix.** After the
+bands were respaced to a uniform 20.5 units, depth still did not read. The cause was
+not the radial step: Olympus's 14 depth-1 notes sit **6.7 units apart in a 42° wedge
+while a node can be 7.58 units across**, so they touch and the band renders as a
+continuous stroke of dots. **A solid arc above a sparse scatter cannot read as
+parent-and-child at any radial separation.** Widening the step could never have
+fixed it, and the band count was never the variable.
+
+**Sub-rows.** When a band's measured spacing drops below `1.65 × max node diameter`,
+it splits into radially staggered rows and nodes alternate, so same-row neighbours
+are two angular slots apart. **[V]** The real Olympus band goes from 6.7 units to
+12.65 — about 21.6px at the default scale, where dots become countable again.
+
+Five things about it that are load-bearing:
+
+- **Sub-rows are the same hop and must never imply otherwise.** The offset is 7.19
+  units against a 20.5-unit step — **0.35 of a hop**, asserted to stay under half.
+  It reads as band thickness.
+- **Rows step inward, except the innermost band, which steps outward.** Inward keeps
+  the band's outer edge at its nominal radius, which is what protects the label
+  clearance above hop 1. The clamp band is bounded below by the glyph disc, so it
+  steps the other way rather than putting notes on the Ω.
+- **[V] The trigger measures the gap at the innermost row, not at the band radius.**
+  This was wrong on the first attempt — rows step inward, the same angle spans less
+  arc there, and the inner row landed below its own minimum. The harness caught it.
+- **[V] Two rows is the ceiling, derived not chosen.** The span is fixed at 0.35 of a
+  step, so the offset shrinks as rows are added. At three rows and 21 notes,
+  cross-row neighbours sit `hypot(4.2, 3.59) = 5.5` apart against a 7.58-unit
+  diameter — overlapping. Making three rows work needs a span of 0.61 of a hop,
+  where the stagger reads as depth. **Three rows are not available.**
+- **[V] Capacity is about 14 notes in a 42° wedge** — exactly today's band, and more
+  in a wider wedge since capacity scales with arc. **Beyond that, reach for cap +
+  overflow: the threshold is 15 at eight projects.** Two rejected alternatives, with
+  reasons: an overflow cap at this library size hides 6 of 21 notes, the wrong trade;
+  and sizing by degree leaves nodes nearly touching, so the line quality survives
+  while low-degree notes get harder to click.
+
+**[V]** Beyond capacity the layout degrades by crowding, never by leaving the band —
+pinned by a 28-node stress case asserting containment and label clearance rather
+than spacing.
+
 ### The label lane holds a constant gap in pixels, not in units
 
 **[V] Measured mechanism of the detachment.** The label radius was in viewBox
@@ -442,6 +491,18 @@ Returned from the pure module as `emptyWedgeMarks` so it is assertable: **[V]**
 seven marks against the real vault's one populated wedge, zero at target state, and
 each on its own segment's exact bearing.
 
+**[V] Opacity is 0.24, raised from 0.18 after looking.** At 0.18 the marks read only
+if you already knew to look for them, so absence was still being inferred on a
+natural glance. The faint-dotted-circle read was right; it needed to survive a
+glance rather than a search.
+
+**The interior is not empty space to fill.** Seven wedges hold nothing because seven
+projects have no linked notes — that is the design working. Each project owns its
+territory whether or not it is currently populated, and at target state every wedge
+has a cluster and the interior fills naturally. **Do not redistribute space from
+unpopulated wedges to populated ones, and do not spread one project's notes outside
+its own wedge.** Both are pinned by assertions.
+
 ### The hover readout lives in the interior, beneath the omega
 
 It used to render at a fixed radius near the bottom of the ring, where it overlaid
@@ -465,6 +526,13 @@ the geometry at the given scale rather than assumed, and a line that cannot fit 
 whole string. **[V]** Budgets are 26/22/16 characters at 1.35×, 35/31/26 at 1.71×,
 and at 1:1 the third line drops entirely. Three lines: name + tier, then the task
 count or `TASKS UNAVAILABLE`, then branch + commit. Never a false zero.
+
+**[V] The hit target was too small to find, and is now 40 units wide.** It was an
+18-unit invisible arc stroke centred on the ring; the readout could not be triggered
+reliably in the real window. It now spans 148–188 — the stroke at 168, the label lane
+below it, and clear space above — stopping short of the day arc's innermost tick at
+196. The label and the empty-wedge mark carry the same hover and click handlers, so
+every visible part of a project's ring furniture selects it.
 
 Hovering also dims the other segments and holds the hovered label at full opacity,
 so the association is visual rather than inferred. **[V]** Reduced motion is already

@@ -4,6 +4,9 @@ import {
   HOP_CLAMP_DEPTH,
   LABEL_GAP_EXACT_ABOVE_SCALE,
   MAX_NODE_RADIUS,
+  MAX_SUB_ROWS,
+  MIN_NODE_SPACING_DIAMETERS,
+  subRowOffset,
   PROJECT_RING_RADIUS,
   SEMANTIC_ZOOM_ARC_LENGTH_THRESHOLD,
   WIDEST_SEGMENT_STROKE,
@@ -250,6 +253,116 @@ function assertLabelLaneHolds() {
   );
 }
 
+/**
+ * Sub-rows break a crowded band back into countable nodes without becoming a hop.
+ *
+ * Built as a stress case on purpose: one wedge with `count` depth-1 notes, which is
+ * the configuration that made Olympus's band render as a continuous stroke.
+ */
+function denseSingleProjectGraph(count: number): VaultGraphPayload {
+  const anchor = "01 - Projects/Project Olympus.md";
+  const nodes: VaultGraphPayload["nodes"] = [
+    { id: anchor, title: "Project Olympus", folder: "01 - Projects", hop: 0, isProject: true, degree: count }
+  ];
+  const edges: VaultGraphPayload["edges"] = [];
+  for (let index = 0; index < count; index += 1) {
+    const id = `02 - Research/dense-note-${index.toString().padStart(2, "0")}.md`;
+    nodes.push({ id, title: `Dense ${index}`, folder: "02 - Research", hop: 1, isProject: false, degree: 1 });
+    edges.push({ from: anchor, to: id });
+  }
+  return payload(nodes, edges);
+}
+
+function assertSubRowsAreLegible(count: number, caseName: string, withinCapacity: boolean) {
+  const centre = 220;
+  const requiredSpacing = MIN_NODE_SPACING_DIAMETERS * 2 * MAX_NODE_RADIUS;
+  const depthStep = radiusForDepth(1, DIAL_RADIUS) - radiusForDepth(2, DIAL_RADIUS);
+
+  for (const scale of SCALES) {
+    const ring = layoutProjectRing(realEight, centre, PROJECT_RING_RADIUS, scale);
+    const laid = layoutProjectOwnedGraph(denseSingleProjectGraph(count), ring, centre);
+    const band = laid.nodes.filter((node) => node.depth === 1);
+    assert(band.length === count, `${caseName} @ ${scale}x: expected ${count} depth-1 notes`);
+
+    const rows = band[0].subRowCount;
+    assert(
+      band.every((node) => node.subRowCount === rows),
+      `${caseName} @ ${scale}x: one band disagreed with itself about its row count`
+    );
+    assert(
+      rows <= MAX_SUB_ROWS,
+      `${caseName} @ ${scale}x: ${rows} sub-rows exceeds the derived maximum`
+    );
+
+    // The stagger must never be mistakable for a hop.
+    const offset = subRowOffset(rows, DIAL_RADIUS);
+    assert(
+      offset < depthStep / 2,
+      `${caseName}: sub-row offset ${offset.toFixed(2)} is at or past half the ${depthStep.toFixed(2)} depth step`
+    );
+
+    // Same-row neighbours clear the minimum spacing, which is the whole point.
+    // Only asserted within sub-row capacity: two rows space about 14 notes in a
+    // 42-degree wedge, and beyond that the band degrades by crowding. The stress
+    // case below pins that degradation stays containment-safe.
+    if (rows > 1 && withinCapacity) {
+      const byRow = new Map<number, typeof band>();
+      for (const node of band) {
+        if (!byRow.has(node.subRow)) byRow.set(node.subRow, []);
+        byRow.get(node.subRow)!.push(node);
+      }
+      for (const [row, members] of byRow) {
+        const sorted = members.slice().sort((left, right) => left.angle - right.angle);
+        for (let index = 1; index < sorted.length; index += 1) {
+          const gap = Math.hypot(
+            sorted[index].x - sorted[index - 1].x,
+            sorted[index].y - sorted[index - 1].y
+          );
+          assert(
+            gap >= requiredSpacing - 1e-9,
+            `${caseName} @ ${scale}x: row ${row} spacing ${gap.toFixed(2)} is below the ${requiredSpacing.toFixed(2)} minimum`
+          );
+        }
+      }
+    }
+
+    // No node leaves its own depth band's allowance.
+    for (const node of band) {
+      assert(
+        node.radius <= radiusForDepth(1, centre) + 1e-9,
+        `${caseName} @ ${scale}x: a depth-1 node rose above its band and into the label lane`
+      );
+      assert(
+        node.radius - node.size > radiusForDepth(2, centre) + MAX_NODE_RADIUS,
+        `${caseName} @ ${scale}x: a depth-1 node crossed into the depth-2 allowance`
+      );
+    }
+  }
+
+  // Determinism: reversed and repeated inputs must produce identical rows.
+  const ring = layoutProjectRing(realEight, centre, PROJECT_RING_RADIUS, MIN_WINDOW_SCALE);
+  const forward = denseSingleProjectGraph(count);
+  const reversed: VaultGraphPayload = {
+    ...forward,
+    nodes: forward.nodes.slice().reverse(),
+    edges: forward.edges.slice().reverse()
+  };
+  const rowsOf = (graph: VaultGraphPayload) =>
+    JSON.stringify(
+      layoutProjectOwnedGraph(graph, ring, centre)
+        .nodes.map((node) => [node.id, node.subRow, node.subRowCount, node.radius])
+        .sort()
+    );
+  assert(
+    rowsOf(forward) === rowsOf(forward),
+    `${caseName}: repeated layout of the same input changed the rows`
+  );
+  assert(
+    rowsOf(forward) === rowsOf(reversed),
+    `${caseName}: reversing the input array changed the row assignment`
+  );
+}
+
 /** Every readout line stays inside the disc, at every scale, or is dropped. */
 function assertCentreReadoutIsContained() {
   const centre = 220;
@@ -301,6 +414,11 @@ export function runProjectRingHarness() {
   assertHopDepthIsEncoded(20);
   assertLabelLaneHolds();
   assertCentreReadoutIsContained();
+  // 14 is the real vault's Olympus band — the case that rendered as a stroke, and
+  // the top of what two sub-rows can space in a 42-degree wedge.
+  assertSubRowsAreLegible(14, "dense band N=14", true);
+  assertSubRowsAreLegible(6, "sparse band N=6", true);
+  assertSubRowsAreLegible(28, "over-capacity band N=28", false);
 
   // Labels are laid out at the size they are drawn at, so collisions must be
   // checked at each scale rather than only at the 1:1 reference.
@@ -641,6 +759,41 @@ export function runProjectRingHarness() {
     return Number(worst.toFixed(2));
   };
 
+  // Stress case: one wedge holding 28 depth-1 notes. Beyond what any stagger can
+  // space, so the assertion here is containment — sub-rowing must not push nodes
+  // into the label lane even when it cannot fully solve the crowding.
+  const stressClearance = (() => {
+    let worst = Infinity;
+    for (const scale of SCALES.filter((value) => value >= MIN_WINDOW_SCALE)) {
+      const scaledRing = layoutProjectRing(realEight, centre, PROJECT_RING_RADIUS, scale);
+      const stress = layoutProjectOwnedGraph(denseSingleProjectGraph(28), scaledRing, centre);
+      assertLabelsClearOfNodes(scaledRing.labels, stress.nodes, `stress N=28 @ ${scale}x`);
+      for (const node of stress.nodes) {
+        assert(
+          node.radius <= radiusForDepth(1, centre) + 1e-9,
+          `stress N=28 @ ${scale}x: a node rose above the depth-1 band`
+        );
+      }
+      for (const label of scaledRing.labels.filter((item) => item.visible)) {
+        for (const node of stress.nodes) {
+          const nearestX = Math.max(
+            label.x - label.width / 2,
+            Math.min(node.x, label.x + label.width / 2)
+          );
+          const nearestY = Math.max(
+            label.y - label.height / 2,
+            Math.min(node.y, label.y + label.height / 2)
+          );
+          worst = Math.min(
+            worst,
+            Math.hypot(node.x - nearestX, node.y - nearestY) - node.size
+          );
+        }
+      }
+    }
+    return Number(worst.toFixed(2));
+  })();
+
   const sorted = realEight.map((item) => item.id).sort(compareCodePoints);
   assert(
     JSON.stringify(ring.segments.map((segment) => segment.project.id)) ===
@@ -676,6 +829,24 @@ export function runProjectRingHarness() {
     })),
     emptyWedgeMarks: constellation.emptyWedgeMarks.length,
     minWindowScale: MIN_WINDOW_SCALE,
+    subRows: {
+      minSpacingDiameters: MIN_NODE_SPACING_DIAMETERS,
+      requiredSpacingUnits: Number((MIN_NODE_SPACING_DIAMETERS * 2 * MAX_NODE_RADIUS).toFixed(2)),
+      maxRows: MAX_SUB_ROWS,
+      offsetUnits: Number(subRowOffset(2, DIAL_RADIUS).toFixed(2)),
+      offsetAsFractionOfDepthStep: Number(
+        (
+          subRowOffset(2, DIAL_RADIUS) /
+          (radiusForDepth(1, DIAL_RADIUS) - radiusForDepth(2, DIAL_RADIUS))
+        ).toFixed(3)
+      ),
+      rowsForRealOlympusBand: (() => {
+        const ring14 = layoutProjectRing(realEight, centre, PROJECT_RING_RADIUS, MIN_WINDOW_SCALE);
+        return layoutProjectOwnedGraph(denseSingleProjectGraph(14), ring14, centre).nodes[0]
+          .subRowCount;
+      })()
+    },
+    stressN28WorstLabelClearance: stressClearance,
     targetStateLabelNodeClearance: SCALES.map((scale) => ({
       scale,
       clearance: targetClearanceAt(scale),

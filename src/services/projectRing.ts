@@ -162,6 +162,94 @@ export function radiusForDepth(depth: number, dialRadius = DIAL_RADIUS): number 
   return (HOP_1_FRACTION - band * HOP_STEP_FRACTION) * dialRadius;
 }
 
+/**
+ * Minimum centre-to-centre spacing between same-row neighbours, in node diameters.
+ *
+ * **The problem this solves is angular density, not radial spacing.** Olympus's 14
+ * depth-1 notes sit about 6.7 units apart in a 42° wedge while a node can be 7.58
+ * units across — so they touch, and the band renders as a continuous stroke of dots.
+ * A solid arc above a sparse scatter cannot read as parent-and-child at *any*
+ * radial separation, which is why widening the hop step did not fix it.
+ *
+ * 1.65 diameters is calibrated against the case that motivated the work: the real
+ * Olympus band of 14 notes goes from 6.7 units of spacing to 12.65 — about 21.6px at
+ * the default scale, which is the target. That leaves 0.65 of a diameter, roughly 5
+ * units, of clear gap between adjacent nodes in a row.
+ */
+export const MIN_NODE_SPACING_DIAMETERS = 1.65;
+
+/**
+ * How much of a depth step the sub-rows may spread across.
+ *
+ * Sub-rows are the *same hop* and must not imply otherwise, so the stagger has to
+ * read as band thickness. At 0.35 of a step the offset is 7.19 units against a
+ * 20.5-unit hop — a third of a hop, comfortably below the half-step ceiling.
+ */
+export const SUBROW_SPAN_FRACTION = 0.35;
+
+/**
+ * **Two is the maximum, and it is derived rather than chosen.**
+ *
+ * Sub-rows separate angular neighbours by staggering them radially, so the offset
+ * has to keep a *cross-row* neighbour clear too: `hypot(gap, offset) >= diameter`.
+ * The span is fixed at 0.35 of a step, so the offset *shrinks* as rows are added —
+ * 7.19 units at two rows, 3.59 at three.
+ *
+ * Worked through in a 42° wedge at the depth-1 radius, where the arc is 94 units:
+ * at three rows and 21 notes the angular gap is 4.2 units and the offset 3.59, so
+ * cross-row neighbours sit `hypot(4.2, 3.59) = 5.5` apart against a 7.58-unit
+ * diameter — they overlap. Making three rows work needs an offset of about 6.3,
+ * which is a span of 12.6 units, or 0.61 of a hop. **Past half a hop the stagger
+ * reads as depth, which is the one thing it must not do.** So three rows are not
+ * available, and two is the ceiling.
+ *
+ * Two rows space about **14 notes** in a 42° wedge — exactly today's Olympus band,
+ * and more in a wider wedge, since capacity scales with arc. Beyond that no stagger
+ * fits: 28 nodes of 7.58 units need 212 units of arc against 94 available. That is
+ * the overflow case, not a sub-row case, and the layout degrades by crowding rather
+ * than by leaving the band.
+ */
+export const MAX_SUB_ROWS = 2;
+
+/** Total radial spread of a band's sub-rows. Independent of the row count. */
+export function subRowSpan(dialRadius = DIAL_RADIUS): number {
+  return SUBROW_SPAN_FRACTION * HOP_STEP_FRACTION * dialRadius;
+}
+
+/**
+ * How many sub-rows a band needs, from its measured minimum angular gap.
+ *
+ * Triggered on measured spacing rather than node count, so one rule covers every
+ * wedge width and every band radius with no second code path. Two details that were
+ * wrong on the first attempt and are worth keeping straight:
+ *
+ * - **The gap is evaluated at the innermost row, not at the band radius.** Rows step
+ *   inward, and the same angle spans less arc there — measured at the band radius the
+ *   trigger under-counts and the inner row ends up below its own minimum.
+ * - **The diameter used is the maximum a node can draw**, not the degrees actually
+ *   present, so a note gaining a link cannot silently re-row the band.
+ */
+export function subRowCountFor(
+  minimumGapArc: number,
+  bandRadius: number,
+  dialRadius = DIAL_RADIUS
+): number {
+  const required = MIN_NODE_SPACING_DIAMETERS * 2 * MAX_NODE_RADIUS;
+  if (minimumGapArc <= 0 || bandRadius <= 0) return MAX_SUB_ROWS;
+  const innermost = Math.max(bandRadius - subRowSpan(dialRadius), 1);
+  const gapAtInnermost = minimumGapArc * (innermost / bandRadius);
+  return Math.min(
+    MAX_SUB_ROWS,
+    Math.max(1, Math.ceil(required / gapAtInnermost))
+  );
+}
+
+/** Radial offset between adjacent sub-rows. Zero when a band needs only one. */
+export function subRowOffset(rows: number, dialRadius = DIAL_RADIUS): number {
+  if (rows < 2) return 0;
+  return subRowSpan(dialRadius) / (rows - 1);
+}
+
 export interface Point {
   x: number;
   y: number;
@@ -204,6 +292,7 @@ export interface ProjectRingLayout {
 export interface ProjectGraphNode extends VaultGraphNode {
   projectId: string;
   parentId: string;
+  /** The logical hop. Sub-rowing never changes it — one band is one depth. */
   depth: number;
   x: number;
   y: number;
@@ -212,6 +301,10 @@ export interface ProjectGraphNode extends VaultGraphNode {
   size: number;
   wedgeStart: number;
   wedgeEnd: number;
+  /** Which staggered row inside the depth band, outermost first. */
+  subRow: number;
+  /** How many rows the band was split into. 1 means no stagger. */
+  subRowCount: number;
 }
 
 export interface ProjectGraphEdge {
@@ -496,6 +589,58 @@ function nodeRadius(node: VaultGraphNode): number {
   return MIN_NODE_RADIUS + Math.min(node.degree, 7) * 0.22;
 }
 
+/**
+ * Splits crowded depth bands into staggered sub-rows, in place.
+ *
+ * Each `(project, depth)` band is handled independently on its own measured
+ * spacing. Row assignment is `index % rows` over an angle-then-code-point ordering,
+ * so the same vault produces the same picture and a reversed input array produces
+ * the same rows.
+ *
+ * Rows step *inward* so the band's outer edge stays at its nominal radius — that is
+ * what protects the label clearance measured above hop 1. The innermost band is the
+ * exception and steps outward, because the glyph clearance disc bounds it from
+ * below and stepping inward would put notes on top of the Ω.
+ */
+function applySubRows(nodes: ProjectGraphNode[], dialRadius: number): void {
+  const bands = new Map<string, ProjectGraphNode[]>();
+  for (const node of nodes) {
+    const key = `${node.projectId}|${node.depth}`;
+    if (!bands.has(key)) bands.set(key, []);
+    bands.get(key)!.push(node);
+  }
+
+  for (const band of bands.values()) {
+    if (band.length < 2) continue;
+    band.sort(
+      (left, right) => left.angle - right.angle || compareCodePoints(left.id, right.id)
+    );
+
+    const bandRadius = band[0].radius;
+    let minimumGap = Number.POSITIVE_INFINITY;
+    for (let index = 1; index < band.length; index += 1) {
+      const sweep = ((band[index].angle - band[index - 1].angle) * Math.PI) / 180;
+      minimumGap = Math.min(minimumGap, sweep * bandRadius);
+    }
+
+    const rows = subRowCountFor(minimumGap, bandRadius, dialRadius);
+    if (rows < 2) continue;
+
+    const offset = subRowOffset(rows, dialRadius);
+    const outward = band[0].depth >= HOP_CLAMP_DEPTH;
+    band.forEach((node, index) => {
+      const row = index % rows;
+      const radius = outward ? bandRadius + row * offset : bandRadius - row * offset;
+      const point = pointOnProjectRing(node.angle, radius, dialRadius);
+      node.radius = radius;
+      node.x = point.x;
+      node.y = point.y;
+      node.subRow = row;
+      node.subRowCount = rows;
+    });
+  }
+}
+
 function buildNeighbours(
   graph: VaultGraphPayload,
   nodesById: Map<string, VaultGraphNode>
@@ -652,14 +797,14 @@ export function layoutProjectOwnedGraph(
   }
 
   const positioned: ProjectGraphNode[] = [];
-  const treeEdges: ProjectGraphEdge[] = [];
 
+  // Angles are final here; radii are not. Sub-rowing adjusts radius afterwards,
+  // so tree edges are built once positions are settled rather than during descent.
   function spread(
     id: string,
     projectId: string,
     wedgeStart: number,
-    wedgeEnd: number,
-    parentPoint: Point
+    wedgeEnd: number
   ) {
     const node = nodesById.get(id);
     const parentId = parent.get(id);
@@ -679,16 +824,17 @@ export function layoutProjectOwnedGraph(
       radius,
       size: nodeRadius(node),
       wedgeStart,
-      wedgeEnd
+      wedgeEnd,
+      subRow: 0,
+      subRowCount: 1
     });
-    treeEdges.push({ key: `${parentId}→${id}`, from: parentPoint, to: point });
 
     const kids = children.get(id) ?? [];
     const total = kids.reduce((sum, child) => sum + subtreeSize(child), 0);
     let cursor = wedgeStart;
     for (const child of kids) {
       const width = ((wedgeEnd - wedgeStart) * subtreeSize(child)) / total;
-      spread(child, projectId, cursor, cursor + width, point);
+      spread(child, projectId, cursor, cursor + width);
       cursor += width;
     }
   }
@@ -701,10 +847,12 @@ export function layoutProjectOwnedGraph(
     let cursor = segment.startAngle;
     for (const child of kids) {
       const width = (segment.drawnWidth * subtreeSize(child)) / total;
-      spread(child, projectId, cursor, cursor + width, segment.root);
+      spread(child, projectId, cursor, cursor + width);
       cursor += width;
     }
   }
+
+  applySubRows(positioned, centre);
 
   positioned.sort((left, right) => compareCodePoints(left.id, right.id));
   const positionedById = new Map(positioned.map((node) => [node.id, node]));
@@ -717,6 +865,25 @@ export function layoutProjectOwnedGraph(
     if (projectByAnchor.has(id) && segment) return { point: segment.root, projectId };
     return null;
   };
+
+  // Built from settled positions, so a sub-rowed child's edge still terminates on
+  // the node rather than where it sat before the stagger.
+  const treeEdges: ProjectGraphEdge[] = [];
+  for (const [child, parentId] of parent) {
+    const childNode = positionedById.get(child);
+    if (!childNode) continue;
+    const parentNode = positionedById.get(parentId);
+    const from = parentNode
+      ? { x: parentNode.x, y: parentNode.y }
+      : segmentByProject.get(owner.get(parentId) ?? "")?.root;
+    if (!from) continue;
+    treeEdges.push({
+      key: `${parentId}→${child}`,
+      from,
+      to: { x: childNode.x, y: childNode.y }
+    });
+  }
+  treeEdges.sort((left, right) => compareCodePoints(left.key, right.key));
 
   const treeKeys = new Set(
     [...parent.entries()].map(([child, selectedParent]) =>
