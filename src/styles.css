@@ -4179,13 +4179,99 @@ small {
   text-transform: uppercase;
 }
 
+/* ---- Omega presence: idle, thinking, speaking ---------------------------- */
+
+/* Duration and amplitude are custom properties so the wake behaviour — the whole
+   instrument dimming and the breath slowing after several minutes idle, coming
+   back up on movement — is a variable change here rather than a rewrite. */
+.omega-presence {
+  --breath-duration: 7s;
+  --breath-opacity-low: 0.42;
+  --breath-opacity-high: 1;
+  --breath-scale-low: 0.94;
+  --breath-scale-high: 1.06;
+}
+
+/* The breath. Opacity and scale only: both composite, where animating the glyph's
+   drop-shadow would re-raster the filter every frame over the backdrop blur. */
+.omega-glow {
+  transform-box: view-box;
+  animation: omega-breath var(--breath-duration) ease-in-out infinite;
+  will-change: transform, opacity;
+}
+
+/* Ambient, never a signal. Nothing on this instrument should be mistaken for
+   data because it moves, so the cycle is slow and the extremes are gentle. */
+@keyframes omega-breath {
+  0%,
+  100% {
+    opacity: var(--breath-opacity-low);
+    transform: scale(var(--breath-scale-low));
+  }
+  50% {
+    opacity: var(--breath-opacity-high);
+    transform: scale(var(--breath-scale-high));
+  }
+}
+
+/* Thinking: energy held, going nowhere. The glyph steps back and a thin arc
+   circles it. */
+.omega-presence--thinking .instrument-glyph {
+  opacity: 0.62;
+}
+
+.omega-presence--thinking .omega-glow {
+  opacity: 0.5;
+  animation-duration: calc(var(--breath-duration) * 0.6);
+}
+
+.omega-think-arc {
+  transform-box: view-box;
+  stroke: var(--accent);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  /* A short arc, not a ring: circumference at r=79 is ~496, so this draws about
+     an eighth of it and leaves the rest open. */
+  stroke-dasharray: 62 434;
+  opacity: 0.75;
+  animation: omega-orbit 2.4s linear infinite;
+  will-change: transform;
+}
+
+@keyframes omega-orbit {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Speaking scales the glyph itself, from the centre outward — the write pulse is
+   a ring travelling outward past the segment ring. Different object, different
+   radius, different geometry, so the two never read as the same event. The scale
+   is driven from `glyphState.ts` so the envelope stays assertable.
+
+   `.omega-scale` deliberately declares no transform-box or transform-origin:
+   **[V]** `motion` writes `fill-box` and `50% 50%` inline and wins, and that pair
+   is what makes the glyph grow in place rather than fly out of frame. Anything
+   set here is silently overridden. */
+
+.omega-presence--speaking .omega-glow {
+  animation-duration: calc(var(--breath-duration) * 0.45);
+}
+
 /* The one glowing object. Nothing else in this mode gets a shadow. */
 .instrument-glyph {
   fill: var(--accent);
   opacity: 0.9;
   filter: drop-shadow(0 0 14px rgba(217, 119, 6, 0.45))
     drop-shadow(0 0 40px rgba(217, 119, 6, 0.2));
-  transition: filter 300ms ease-out;
+  /* Opacity is transitioned too, so entering and leaving thinking eases rather
+     than cutting, and returning to idle settles back into the breath. */
+  transition:
+    filter 300ms ease-out,
+    opacity 420ms ease-out;
 }
 
 .command-instrument__svg.pulse-vault-write .instrument-glyph {
@@ -5036,8 +5122,35 @@ small {
   .health-source-dot,
   .health-indicator,
   .delegation-phase.is-active,
+  /* The omega's three presence states. The breath and the orbit stop; the states
+     stay distinguishable statically, below. */
+  .omega-glow,
+  .omega-think-arc,
   .ambient-inline-button.is-spinning {
     animation: none;
+  }
+
+  /* Motion off, meaning intact. Idle sits at the middle of its breath rather than
+     at either extreme; thinking keeps its dimmed glyph and shows the arc as a
+     static mark; speaking holds a brighter, larger glow. Three readable states
+     with nothing moving, and nothing here changes hit targets. */
+  .omega-glow {
+    opacity: 0.72;
+    transform: scale(1);
+  }
+
+  .omega-presence--thinking .omega-glow {
+    opacity: 0.5;
+  }
+
+  .omega-think-arc {
+    opacity: 0.85;
+    stroke-dasharray: 62 434;
+  }
+
+  .omega-presence--speaking .omega-glow {
+    opacity: 1;
+    transform: scale(1.06);
   }
 
   .main-grid,
@@ -5060,6 +5173,9 @@ small {
   .project-ring__segment,
   .project-ring__label,
   .project-ring__node,
+  /* The glyph fades between presence states over 420ms. Stopping the keyframes
+     but leaving the transition would keep a visible fade under the setting. */
+  .instrument-glyph,
   .background-image {
     transition: none;
   }

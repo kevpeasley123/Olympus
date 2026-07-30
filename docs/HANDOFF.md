@@ -485,6 +485,90 @@ now — the only difference is that the harness would stop calling it sufficient
 test pins the live band against whatever the minimum says**, so raising it fails
 loudly instead of silently under-spacing the real vault.
 
+### The omega has three presence states, and one of them cannot be reached yet
+
+Idle, thinking, speaking. **[V] Only idle and thinking are reachable**, and the
+reason is in section 5: `assistant.rs` calls `.send().await` and parses one complete
+JSON body. There is no stream, so there is no moment at which text starts arriving —
+built as specified, speaking would run for the whole request and stop when
+everything landed at once, which reads as *working*, not speaking.
+
+The speaking treatment and its envelope are built and asserted anyway, documented as
+unreachable, so wiring it is one field once the chat streams. `glyphState.ts` takes
+`{ pending, producing }`; `producing` is hardcoded false at the call site and
+nothing else has to move.
+
+**The reset mechanism is that there isn't one.** State is *derived* from the request
+flags, never scheduled. No state is entered by a timer, so none can be stranded by
+one — an error, a cancellation and a normal completion all clear `pending` and settle
+to idle through the same transition.
+
+**[V] The breath animates a dedicated element, not the glyph's filter.** A circle
+with a radial gradient sits behind the glyph and animates `opacity` and `transform`,
+both of which composite. Animating the glyph's own `drop-shadow` would re-raster the
+filter every frame. Radius and opacity move together by construction rather than by
+coordination. Duration and amplitude are CSS custom properties on `.omega-presence`,
+so the later wake behaviour is a variable change.
+
+**[V] Thinking circles at radius 79, and 84 was wrong.** The glyph's ink reaches
+about 76 units from centre and the innermost note band's inner extent is 83.16, so an
+arc at 84 crosses the depth-3 notes. 79 sits between them, inside the glyph clearance
+disc — which is protected empty space, since cross-project edges are already clipped
+out of it.
+
+**Speaking and the write pulse cannot be confused, and they separate on *property*,
+not just direction.** The pulse is a ring at radius 182 travelling outward past the
+segment ring, and it owns `filter` plus its own element. Speaking is the glyph's
+`transform`. **A vault write landing mid-response composes rather than conflicts**:
+the glyph keeps scaling on its envelope while the glow spikes once and the ring goes
+out. That is why the breath was given `opacity`/`transform` and the pulse left on
+`filter`.
+
+#### The transform trap is real, but the cause is not the one usually named
+
+**[V] Measured in the webview, not recalled.** `transform-box` already defaults to
+`view-box` — it is not missing and not the bug. **`transform-origin` defaults to
+`0px 0px`**, and scaling the glyph without setting it moves the element **162px right
+and 168px down**, straight out of frame. With `transform-box: fill-box` and
+`transform-origin: center`: **zero drift**.
+
+**[V] `motion` writes `transform-box: fill-box; transform-origin: 50% 50%` inline and
+overrides anything set alongside it** — which happens to be exactly the pair that
+makes an SVG scale in place. Measured at scale 1.12: zero drift, 21.4px of growth.
+So `.omega-scale` deliberately declares neither. **Setting an origin there looks like
+it works and does nothing**, which is worse than leaving it out.
+
+**[V] The audit found no existing instance of this bug.** `.ring-outer`,
+`.ring-middle` and `.ring-inner` already set `transformOrigin: "50px 50px"` inline in
+`OmegaInstrument.tsx`, correct for their 100×100 viewBox. And **`.instrument-activity`
+does not exist** — no rule, no element, anywhere. It went out with the polling dots
+and the sweeping activity ring.
+
+#### Reduced motion, verified against the real OS setting
+
+**[V] Toggled `SPI_SETCLIENTAREAANIMATION` for real and restored it to its original
+value of 1.** With the setting on: every animation count drops to zero, and the three
+states stay distinguishable statically by glow alone — **0.72 idle, 0.5 thinking, 1.0
+speaking**, with thinking also holding its dimmed glyph and a static arc. Hit targets
+stay `auto`, labels and glyph stay visible.
+
+**[V] One gap this caught.** Stopping the keyframes left the glyph's 420ms opacity
+*transition* running between states, which is still motion. `.instrument-glyph` is now
+in the `transition: none` group. Confirmed `none / 0s` afterwards. **Stopping
+`animation` is not the same as stopping motion** — check transitions too.
+
+#### The compositing worry does not apply here
+
+**[V] The two `backdrop-filter` elements are spatially disjoint from the animation.**
+The tools rail blurs at `x ≤ 60` and the chat panel at `x ≥ 1524`; the breathing glow
+occupies `x 679–904`. No overlap, so the continuous animation never composites over a
+blurred region. Three animations total on the page at rest.
+
+**[A] Frame timing was not measured in Chrome.** `requestAnimationFrame` is throttled
+to zero in a hidden tab — the trap already recorded in section 5 — and the tab sits
+behind the Tauri window, so the sampling loop never resolved. Check
+`document.visibilityState` before trying again.
+
 ### The label lane holds a constant gap in pixels, not in units
 
 **[V] Measured mechanism of the detachment.** The label radius was in viewBox

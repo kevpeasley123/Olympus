@@ -132,6 +132,7 @@ function App() {
                   tasks={actionTasks}
                   tasksLoading={actionTasksLoading}
                   tasksError={actionTasksError}
+                  assistantPending={chatPending}
                   onSelectProject={enterProject}
                   onOpenNote={(notePath) => void openVaultNote(notePath)}
                 />
