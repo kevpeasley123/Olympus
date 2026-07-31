@@ -70,6 +70,64 @@ export const SPEAKING_SCALE_CEILING = 1.12;
 export const SPEAKING_LOOP_SECONDS = 5.2;
 
 /**
+ * The shortest time the speaking state may be shown once entered.
+ *
+ * **[V] Derived from measured turns, not chosen.** Speaking windows on the live
+ * API, first `text_delta` to `message_stop`: **20ms** for a five-character
+ * reply, 1046ms for one sentence, 12585ms for three paragraphs. 20ms is not a
+ * brief flash — it is below one frame at 50fps and never renders at all.
+ *
+ * 500 works because of the *shape* of that distribution rather than its middle:
+ * time-to-first-token is near-constant (1.2–2.8s across all three), while the
+ * speaking window scales with output length. A floor therefore only ever touches
+ * the short case, and 500 clears the 1046ms reply by enough margin that it never
+ * interferes with a real one.
+ */
+export const SPEAKING_FLOOR_MS = 500;
+
+/**
+ * What to do when a turn finishes.
+ *
+ * **The floor holds the glyph, never the transcript.** `renderText` is
+ * unconditionally true — a "floor" is exactly the kind of word that becomes a
+ * `setTimeout` in front of the render if nobody pins it, so the two decisions
+ * are separated here and the harness asserts that the text decision does not
+ * vary with elapsed time.
+ *
+ * The hold is a scheduled **clear**, never a scheduled entry. That distinction
+ * is what keeps the presence model honest: no state is ever *entered* by a
+ * timer, so none can be stranded on by one. A hold that somehow never fires
+ * leaves speaking running until the next turn resets it — visible and
+ * self-correcting, not a silent lock.
+ */
+export interface TurnRelease {
+  /** Always true. Text is never gated on the animation. */
+  renderText: boolean;
+  /** Milliseconds to keep `producing` true before clearing. 0 means clear now. */
+  holdSpeakingMs: number;
+}
+
+export function planTurnRelease(
+  speakingStartedAt: number | null,
+  now: number,
+  floorMs: number = SPEAKING_FLOOR_MS
+): TurnRelease {
+  // Never entered speaking — a turn that errored before any text, or one still
+  // thinking. There is nothing to hold.
+  if (speakingStartedAt === null) {
+    return { renderText: true, holdSpeakingMs: 0 };
+  }
+
+  const shown = now - speakingStartedAt;
+  return {
+    renderText: true,
+    // `Math.max` also absorbs a clock that moved backwards, which would
+    // otherwise produce a hold longer than the floor itself.
+    holdSpeakingMs: Math.min(floorMs, Math.max(0, floorMs - shown))
+  };
+}
+
+/**
  * A canned speaking envelope, irregular by construction.
  *
  * An even rhythm reads as a machine idling. The eye interprets irregularity as

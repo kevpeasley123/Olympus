@@ -263,6 +263,21 @@ constant; everything after it scales with output length.
   Olympus speaking about the turn, not the assistant. A refusal that produced
   **no** text still errors: there is nothing to preserve, so a notice would have
   nothing to sit beside.
+- **The notice colour rule, which is a distinction and not decoration.** A
+  refusal is **amber** — the same register the instrument uses for *something
+  happened*, because a refusal is a boundary being reported, not a failure. A
+  truncation is **muted slate**, because hitting a token ceiling is mechanical
+  and must not read as a judgement about what was asked. Neither is error red;
+  neither is assistant prose. A third notice kind needs a reason to sit in one of
+  those two registers before it gets a third colour.
+- **The speaking floor is 500ms, derived from the distribution rather than
+  chosen.** It holds the *glyph* only — `planTurnRelease` returns `renderText`
+  unconditionally true and the harness asserts that across every measured window,
+  because "floor" is exactly the word that becomes a delay in front of the render
+  if nobody pins it. The hold is a scheduled **clear**, never a scheduled entry,
+  so it cannot strand a state *on*. A harness assertion fails if the floor is
+  ever raised past 1046ms — the shortest real reply measured — since past that it
+  stops covering the short case and starts delaying ordinary turns.
 - **The model readout latches at first paint** and moves only on a real
   `fallback` block, which renders as `from → to` rather than swapping in place.
   A value that changes quietly is the invisible-wrongness the readout exists to
@@ -1459,10 +1474,36 @@ miss the other three.
 | 2 | **Tests that skip silently** | a precondition is absent (no vault, no elevation) and the test returns `Ok` | make every test assert its own preconditions |
 | 3 | **Fixtures that are silently malformed** | the input describes nothing, the module correctly returns empty, real assertions run over an empty set | guard the fixture *before* measuring anything from it |
 | 4 | **Loops that discard their own cases** | iterates N times, `void`s its loop variables, asserts a constant expression — runs four times and tests once | does the assertion reference the loop variable? |
+| 5 | **Assertions about a configuration you do not run** | the documented default is real, your config overrides it, and the test pins the default — asserting the absence of something that never occurs | pin **observed** behaviour, captured live, not documented behaviour |
 
 **[V] Flavour 1** cost five tests in an earlier session. **[V] Flavour 2** is why
-`debug_*` tests assert their preconditions. **[V] Flavours 3 and 4** were both
+`debug_*` tests assert their preconditions. **[V] Flavours 3, 4, and 5** were all
 found on 2026-07-30, described below.
+
+### Flavour 5 is the subtlest, because the documentation is correct
+
+**[V] The instance.** Adaptive thinking is documented to emit `thinking_delta`
+events. That is true — at the default `display`. This app sets
+`display: "omitted"`, and at that setting a thinking block emits
+**`signature_delta`** and no `thinking_delta` ever arrives. A test written from
+the reference would have asserted that `thinking_delta` never reaches the
+transcript: green forever, covering an event the app cannot receive.
+
+**Why it is harder to catch than staleness.** Stale documentation eventually
+contradicts something observable. Documentation that is *correct about a
+different configuration* never contradicts anything — it agrees with itself, it
+agrees with the vendor, and it is wrong only about the one setup that matters.
+Reading more carefully does not help; the passage is accurate.
+
+**The only defence is running it.** This was caught by sending three real turns
+through the live API and recording the event sequence. Three billed calls, and
+the cheapest defect this project has found.
+
+**So: pin observed behaviour, not documented behaviour.** When a test encodes a
+wire format, an event name, or a response shape, the fixture should be a captured
+transcript with the date it was captured, not a hand-written guess at what the
+docs describe. Both live shapes are pinned in `assistant.rs` with
+`**[V]** Captured live on 2026-07-30` on them.
 
 **The generalisation, which is the actually useful part:** in every one of the
 four, *the test ran and reported success*. "Passed" and "exercised the thing it
@@ -1504,6 +1545,14 @@ read scalar fields rather than iterating a set that might be empty.
 **The standing check, for any new harness:** if the fixture were silently wrong,
 would anything say so? If the answer is "the assertions would pass over an empty
 set," the fixture needs a guard before the assertions do.
+
+**Pin observed behaviour, not documented behaviour.** A test that encodes a wire
+format should use a transcript captured from the live service, dated, not a
+hand-written guess at what the documentation describes. **[V] The reason is
+flavour 5 above**: documentation that is correct about a *different
+configuration* never contradicts anything and cannot be caught by reading. Where
+the live service is the authority, spend the call — the `signature_delta` finding
+cost three requests and would not have surfaced any other way.
 
 **Verify premises before planning.** Nearly every brief this session contained at
 least one false premise, and finding them was the most valuable thing done. Real

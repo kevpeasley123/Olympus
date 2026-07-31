@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { seedState } from "../data/seed";
 import { fetchMarkets, fetchProjects, fetchWeather } from "../services/liveData";
 import { isTauriRuntime } from "../services/launcher";
@@ -8,6 +8,7 @@ import {
 } from "../services/obsidian";
 import { recordObservation as recordObservationInVault } from "../services/observations";
 import { createAssistantMessage, requestAssistantReply } from "../services/assistant";
+import { planTurnRelease } from "../services/glyphState";
 import { emitInstrumentEvent } from "../services/instrumentEvents";
 import { reportPollFailure, reportPollSuccess } from "../services/pollRegistry";
 import { buildPantheonReply, createUserMessage } from "../services/pantheonChat";
@@ -209,6 +210,15 @@ export function useDashboardData() {
    */
   const [chatProducing, setChatProducing] = useState(false);
   /**
+   * When speaking began, so the floor can be measured from it.
+   *
+   * A ref rather than state: it is read inside the request's own closure at
+   * completion, and making it state would re-run the send callback mid-turn.
+   */
+  const speakingStartedAt = useRef<number | null>(null);
+  /** The pending floor timer, so a new turn can cancel a stale one. */
+  const speakingHoldTimer = useRef<number | undefined>(undefined);
+  /**
    * The model that declined, when a mid-turn fallback changed who was answering.
    *
    * Kept separate from `chatModel` so the readout can show the *transition*
@@ -391,6 +401,9 @@ export function useDashboardData() {
       setChatError(null);
       setChatProducing(false);
       setChatFellBackFrom(null);
+      // A new turn cancels any floor still holding from the previous one.
+      window.clearTimeout(speakingHoldTimer.current);
+      speakingStartedAt.current = null;
 
       try {
         const reply = await requestAssistantReply(
@@ -407,6 +420,9 @@ export function useDashboardData() {
               case "delta":
                 // The speaking signal. Idempotent by construction — React bails
                 // on an unchanged value, so every later delta is free.
+                if (speakingStartedAt.current === null) {
+                  speakingStartedAt.current = Date.now();
+                }
                 setChatProducing(true);
                 break;
               case "fellBack":
@@ -439,7 +455,24 @@ export function useDashboardData() {
         // an aborted request that skips this `finally` strands the indicator and
         // the omega's thinking *and* speaking states together.
         setChatPending(false);
-        setChatProducing(false);
+
+        // The speaking floor. A five-character reply's speaking window measured
+        // 20ms — below one frame, so the state never rendered at all.
+        //
+        // **This holds the glyph only.** The reply was appended to the
+        // conversation above, before this line runs; nothing here can delay
+        // text. And the timer only ever *clears* — no state is entered by a
+        // timer, so none can be stranded on by one.
+        const release = planTurnRelease(speakingStartedAt.current, Date.now());
+        if (release.holdSpeakingMs === 0) {
+          setChatProducing(false);
+        } else {
+          speakingHoldTimer.current = window.setTimeout(
+            () => setChatProducing(false),
+            release.holdSpeakingMs
+          );
+        }
+        speakingStartedAt.current = null;
       }
     },
     [dashboardState.conversation, dashboardState.projects, dashboardState.settings]

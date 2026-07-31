@@ -3,11 +3,13 @@ import {
   IDLE_BREATH_SCALE_FLOOR,
   IDLE_BREATH_SECONDS,
   SPEAKING_ENVELOPE,
+  SPEAKING_FLOOR_MS,
   SPEAKING_LOOP_SECONDS,
   SPEAKING_SCALE_CEILING,
   envelopePauses,
   envelopePeaks,
-  glyphStateFor
+  glyphStateFor,
+  planTurnRelease
 } from "./glyphState";
 import type { GlyphState } from "./glyphState";
 import stylesheet from "../styles.css?raw";
@@ -159,6 +161,55 @@ export function runGlyphStateHarness() {
     `an idle cycle of ${IDLE_BREATH_SECONDS}s is fast enough to read as a signal rather than as ambience`
   );
   assertStylesheetFallbacksMatchTheConstants();
+
+  // The measured speaking windows, plus the boundaries. 20 is the real
+  // five-character reply that never rendered; 1046 is the real one-sentence
+  // reply, which must pass through untouched.
+  const observed: Array<[number, number]> = [
+    [0, SPEAKING_FLOOR_MS],
+    [20, SPEAKING_FLOOR_MS - 20],
+    [499, 1],
+    [500, 0],
+    [1046, 0],
+    [12585, 0]
+  ];
+
+  for (const [shown, expectedHold] of observed) {
+    const release = planTurnRelease(1_000, 1_000 + shown);
+    assert(
+      release.holdSpeakingMs === expectedHold,
+      `a ${shown}ms speaking window asked to hold ${release.holdSpeakingMs}ms, expected ${expectedHold}ms`
+    );
+  }
+
+  // **The property the whole design rests on.** A floor is the kind of word that
+  // becomes a delay in front of the render; this asserts the text decision does
+  // not vary with elapsed time, at every case above and the never-spoke case.
+  for (const [shown] of observed) {
+    assert(
+      planTurnRelease(1_000, 1_000 + shown).renderText,
+      `text was gated at a ${shown}ms speaking window — the floor must hold the glyph, never the transcript`
+    );
+  }
+  assert(
+    planTurnRelease(null, 5_000).renderText &&
+      planTurnRelease(null, 5_000).holdSpeakingMs === 0,
+    "a turn that never entered speaking must render immediately and hold nothing"
+  );
+
+  // A clock that steps backwards must not produce a hold longer than the floor.
+  assert(
+    planTurnRelease(2_000, 1_000).holdSpeakingMs === SPEAKING_FLOOR_MS,
+    "a backwards clock produced a hold beyond the floor"
+  );
+
+  // The floor is only defensible while it sits under the shortest real reply
+  // measured. If it ever exceeds that, it has stopped covering the short case
+  // and started delaying ordinary ones.
+  assert(
+    SPEAKING_FLOOR_MS < 1046,
+    `the floor (${SPEAKING_FLOOR_MS}ms) has grown past the shortest measured real reply (1046ms) and now delays ordinary turns`
+  );
   assert(
     SPEAKING_LOOP_SECONDS < IDLE_BREATH_SECONDS,
     "speaking must cycle faster than the idle breath or the two are indistinguishable"
