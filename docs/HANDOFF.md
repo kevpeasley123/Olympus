@@ -32,12 +32,16 @@ is what makes the rest usable; several rounds have been lost to skipping it.
 Each is finished code that nobody has looked at. **None is a defect and none
 should be "fixed"** until he has judged it.
 
+**[A] Five, and the operator intends to judge them in one sitting on a cold
+`tauri dev` start.** Do not start work that would disturb any of them first.
+
 | | Where | What to look at |
 |---|---|---|
 | Depth-1 edge opacity | `--tree-edge-hop1-opacity` in `styles.css` | Compare `0.08` / `0.11` (current) / `0.15`. One variable; depth-2 stays `0.24`. |
 | The write pulse's second expansion | Command mode | Approve a gated write; the ring should go out **twice**. Fixed at `7cc6b28`, never seen. |
 | The model readout copy | Command mode, below the dial | Appears only after the first reply of a session. |
-| The omega speaking | Command mode | Send a chat message. Thinking circles the glyph, speaking scales it. |
+| The omega speaking | Command mode | Send a chat message. Thinking circles the glyph, speaking scales it. First reachable as of `86d7678`. |
+| The breath, after the source refactor | Command mode, at rest | `6c48d52` moved the breath's values from CSS into `glyphState.ts`, written inline. **[V]** The constants are unchanged — 6s / 0.94 / 1.06 / 0.48 alpha — and asserted equal to the CSS fallbacks, but **nobody has confirmed it still *looks* the same**. A structural change that silently altered the values would be its own bug. |
 
 **Firing the write pulse:** Command mode → the notebook icon in the chat panel
 header → type anything → Record → **approve** the dialog. It fires on approval,
@@ -60,13 +64,36 @@ not completion; declining fires nothing.
 5. **`tauri dev` cannot be screenshotted**, and hot reload does not add Rust
    commands. A Rust change needs a restart even in dev.
 
+### One decision a fresh session is most likely to re-make wrongly
+
+**[V] Depth-1 constellation edges were removed on 2026-07-30 and restored the
+same day.** The measurement supporting removal was correct: those 14 edges were
+84.8% of all edge ink and stated a relationship position already encodes, since a
+depth-1 node sits in its project's wedge by construction.
+
+**Removing them looked worse.** The cluster read as an ownerless scatter floating
+near the ring, and the surviving depth-2 strokes hung in it connected to nothing
+followable — worse than the spray it was meant to fix.
+
+**Ink redundancy was the right measurement for the wrong question.** It measures
+information content. The edges carry *grouping* — making visible what position
+merely encodes — and no ink-share figure can see that, because a perfectly
+redundant line can still be what makes fourteen dots read as one cluster with one
+owner. They are now a low-opacity haze, not absent.
+
+**If you find yourself computing edge redundancy and concluding they should go,
+you have re-derived a conclusion that was already tested and reverted.** Full
+account under *The right measurement for the wrong question*.
+
 ### What is not built, and was decided rather than forgotten
 
 `operator_approvals` and the fail-closed approval design (section 4.5). Research
 bodies and `04 - Decisions` reaching the assistant — the memory loop, which is
 the premise the project rests on and is still unmet. Live rendering of streamed
 text: the deltas already reach the webview on a channel, so it is a frontend-only
-change whenever it is wanted.
+change whenever it is wanted. **The panel-window segment treatment** — a settled
+design direction with no code, in section 2; two costs need measuring before any
+of it is built.
 
 ---
 
@@ -971,6 +998,55 @@ Command nodes. The second half did not: no component renders orphans, and
 `.vault-graph__node--orphan` is dead CSS. **The eleven notes nothing links to are
 currently invisible in the app.** That is a real finding being hidden, which is
 the opposite of the rim's stated purpose.
+
+### Decided, not built: segments become enclosed panel windows
+
+**[A] A design direction settled from mocks on 2026-07-30. No code exists for it,
+and none should be written speculatively** — it is recorded here so it is not
+re-derived from scratch, and so the parts of it that were *deliberately* excluded
+are not quietly reintroduced.
+
+**The direction.** A ring segment stops being a stroke and becomes an enclosed
+window: an inner arc, an outer arc, angled ends closing them, a dark fill, and an
+outline. The project's name curves **inside** the window on a `textPath` rather
+than sitting outside it in the label lane. Tier is carried by fill, outline, and
+text brightness only.
+
+**The depth treatment is part of the same direction, not a separate idea**: a
+four-layer glyph, atmospheric rings, and gradient-lit sphere nodes. Adopting the
+windows without it would leave one flat element among lit ones.
+
+**What survives unchanged, and must.** Equal segment widths. Fixed bearings by
+stable code-point `project.id` order. Both are load-bearing — the ring's whole
+claim is that a status change cannot move anything, and the harness pins it by
+re-laying out a reversed list with one status changed and asserting every angle
+is identical. **A window treatment changes how a segment is drawn, never where.**
+
+**One-accent discipline holds.** A blue secondary was considered and excluded.
+**If it is ever revisited, that needs to be an explicit decision** — not a thing
+that arrives because a mock had it in.
+
+**[A] Two costs to measure before committing, neither of them settled:**
+
+- **`textPath` legibility at small segment widths.** The name currently lives in
+  a lane sized by a formula that holds a constant 12px gap at every render scale;
+  inside the window it is bounded by the segment's own arc instead. At N=8 a
+  segment is ~42° of a 168-radius ring; at N=20 it is ~16°. **Measure the
+  available arc length against the rendered text width at `MIN_WINDOW_SCALE`
+  before drawing anything** — the existing collision-and-shortening ladder
+  (`labelRadius`, shorten-then-hide) has no equivalent along a curve.
+- **Blur-filter compositing over `backdrop-filter`.** **[V]** The current
+  instrument was cleared on exactly this question: the two `backdrop-filter`
+  elements are spatially disjoint from the breathing glow, so no continuous
+  animation composites over a blurred region. Atmospheric rings and lit spheres
+  would put filtered, animated elements across the centre column. **That
+  clearance does not transfer** — re-measure it rather than inheriting the
+  earlier conclusion.
+
+**The cheap test before the expensive build:** draw one segment as a window at
+N=8 and at N=20, static, and read the text width against the arc. That answers
+the first cost without touching the renderer, and it is the one that decides
+whether the direction is viable at all.
 
 ### Explicitly rejected — and one of them is currently in the code
 
