@@ -118,6 +118,10 @@ export function ProjectRing({
         pointerEvents="none"
       />
 
+      {/* Weighted by depth, not drawn uniformly. Depth-1 edges are perceptual
+          grouping — they say "these fourteen belong to Olympus" — and at full
+          weight fourteen of them bury the depth-2 strokes that carry actual
+          parentage. Pushed back to a haze; depth 2+ holds the legible layer. */}
       {constellation.treeEdges.map((edge) => (
         <line
           key={edge.key}
@@ -125,7 +129,9 @@ export function ProjectRing({
           y1={edge.from.y}
           x2={edge.to.x}
           y2={edge.to.y}
-          className="project-ring__tree-edge"
+          className={`project-ring__tree-edge project-ring__tree-edge--${
+            edge.depth <= 1 ? "hop1" : "deep"
+          }`}
           pointerEvents="none"
         />
       ))}

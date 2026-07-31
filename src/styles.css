@@ -4132,9 +4132,44 @@ small {
   opacity: 1;
 }
 
+/* ---- Tree edges, weighted by depth ---------------------------------------
+   Depth-1 edges and depth-2+ edges do different jobs and must not share a
+   weight.
+
+   A depth-1 edge is perceptual grouping: it says "these fourteen notes belong
+   to Olympus". Position already encodes that — the node sits in Olympus's wedge
+   by construction — but encoding is not the same as making visible. **[V] With
+   depth-1 edges removed entirely the cluster read as a loose scatter floating
+   near the ring, and the surviving depth-2 strokes hung mid-scatter connecting
+   to nothing followable.** Worse than the spray it was meant to fix.
+
+   A depth-2+ edge is parentage: with 14 candidate parents at one radius, which
+   note a deeper note hangs from cannot be read off position at all. That is the
+   layer that has to stay legible, and fourteen full-weight depth-1 strokes bury
+   it.
+
+   ==> TO COMPARE, edit `--tree-edge-hop1-opacity` below. Candidates:
+       0.08  — barely there; grouping by suggestion, edges not individually
+               traceable at all
+       0.11  — roughly a third of the original 0.24, the operator's estimate
+       0.15  — attachment clearly readable, still clearly subordinate
+   Depth 2+ stays at 0.24 in every case, so the comparison is one variable. */
+.project-ring {
+  --tree-edge-hop1-opacity: 0.11;
+}
+
 .project-ring__tree-edge {
   stroke: var(--muted);
   stroke-width: 1;
+}
+
+/* The haze. Fourteen of these at full weight are what made the cluster a spray. */
+.project-ring__tree-edge--hop1 {
+  opacity: var(--tree-edge-hop1-opacity);
+}
+
+/* The legible layer — unchanged from when both bands shared this value. */
+.project-ring__tree-edge--deep {
   opacity: 0.24;
 }
 

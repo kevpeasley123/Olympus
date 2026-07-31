@@ -964,11 +964,41 @@ With 14 candidate parents at the same radius, *which* hop-1 note a depth-2 note
 hangs from is not derivable from position. That is the tree, and it is currently
 15% of the ink.
 
-**[V] Shipped: depth-1 edges are not drawn.** Dropped rather than faded, because
-the information is *fully* redundant rather than merely low-value — fading would
-keep the ink and the crossings for the redundant 85% while leaving the
-informative 15% at lower contrast, which is the wrong trade in both directions.
-Real vault ink went **916 units → 139**, with all 7 parentage edges retained.
+### The right measurement for the wrong question
+
+**[V] Depth-1 edges were removed on 2026-07-30 and restored the same day.** The
+measurement was correct; the conclusion did not follow from it, and the reason is
+worth more than the outcome.
+
+**Ink redundancy measures information content. It cannot see grouping.** It is
+true that a depth-1 node sits in its project's wedge by construction and that the
+stroke adds no *information*. It does not follow that the stroke adds nothing.
+**Encoding a relationship and making it visible are different properties**, and a
+perfectly redundant line can still be the thing that makes fourteen scattered
+dots read as one cluster belonging to one project.
+
+**[V] What removal actually produced**, judged in the app: the cluster read as a
+loose scatter floating near the ring rather than as Olympus's notes, and the
+surviving depth-2 strokes hung mid-scatter connecting to nothing followable —
+**worse than the spray it was meant to fix**, and strange in a new way.
+
+So the claim under test changed. Not *do depth-1 edges carry information* — they
+do not, and that is settled — but *do they carry grouping*. No ink-share figure
+can answer the second, which is why the numbers were persuasive and wrong.
+
+**Generalised: before acting on a measurement, check that the quantity measured
+is the quantity the decision turns on.** A measurement can be accurate,
+reproducible, correctly attributed, and still be about something else. That is
+distinct from the analysis-error hazard above — there the number was wrong; here
+the number was right and the question was wrong.
+
+**[V] Shipped instead: depth-1 edges are pushed back, not removed.** Option (b).
+The dial is `--tree-edge-hop1-opacity` on `.project-ring`, previously a flat 0.24
+shared by both bands. Depth 2+ holds 0.24 and stays the legible layer.
+**Candidates to compare, one variable:** `0.08` (grouping by suggestion, no
+traceable strokes), `0.11` (about a third of the original, the current value),
+`0.15` (attachment clearly readable, still subordinate). **[A] Unjudged — the
+operator picks by looking.**
 
 **Cross-project edges keep their distinct treatment at zero instances.** When the
 first one appears it is the most valuable relationship in the library and must
@@ -1443,6 +1473,15 @@ model's context are separate pieces of work, and only the first is done.
   vault. **Any new PowerShell that writes a vault file must pass `-Encoding utf8`
   explicitly**, and scratch analysis files are not exempt: this cost a round when
   a piped payload dump came back with a BOM and failed to parse as JSON.
+  **[V] The read side is the worse half, and it bit within an hour of the rule
+  being written.** `Get-Content -Raw` also decodes as ANSI by default, so a
+  read-modify-write round trip — `(Get-Content -Raw) -replace … | Set-Content` —
+  silently converted every em-dash in a source file to `â€"` mojibake. `git
+  checkout` restored it. **Never round-trip a source file through PowerShell for
+  a text substitution**; use an editor that preserves encoding, or
+  `[System.IO.File]::ReadAllText` / `WriteAllText` with an explicit
+  `UTF8Encoding($false)`. Documenting the hazard did not prevent it — the same
+  lesson as `IDLE_BREATH_SECONDS`: only mechanism prevents, notes do not.
 - **[A] The repo lives inside OneDrive**, which does not read `.gitignore`. Build
   output is redirected via a **gitignored** `.cargo/config.toml`; a fresh
   checkout silently builds back into OneDrive.

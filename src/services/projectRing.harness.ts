@@ -438,34 +438,35 @@ function assertSubRowsAreLegible(count: number, caseName: string, withinCapacity
 }
 
 /**
- * Edges may only carry what position cannot.
+ * Every positioned note has exactly one parent edge, at every depth.
  *
- * **[V] The measurement this pins, against the real vault on 2026-07-30**:
- * depth-1 edges were 14 strokes and 777 units — 84.8% of all edge ink — stating
- * a relationship the layout already states, since a depth-1 node sits in its
- * project's wedge by construction. Depth 2+ is the opposite: with 14 candidate
- * parents at one radius, parentage is not derivable from position.
+ * **[V] This function briefly asserted the opposite for depth 1** — that no such
+ * edge was drawn — after a measurement showed depth-1 edges were 84.8% of all
+ * edge ink while stating a relationship position already encodes. The
+ * measurement was correct and the conclusion was not: removing them left the
+ * cluster reading as a loose scatter, with the depth-2 strokes hanging in it
+ * connected to nothing followable.
  *
- * The second assertion is the one that matters most. Dropping a whole depth band
- * is exactly the kind of change that could quietly drop a *neighbouring* band
- * too, and a missing parent edge on a deep node looks like a sparse graph rather
- * than like a bug.
+ * **Ink redundancy was the right measurement for the wrong question.** It
+ * measures information content. Depth-1 edges were doing *grouping* — making
+ * visible what position merely encodes — and no ink-share figure can see that,
+ * because a perfectly redundant line can still be what makes fourteen nodes read
+ * as one cluster. The fix was weight, not removal.
+ *
+ * So this asserts the invariant that survives either treatment: one parent edge
+ * per node, no orphans and no doubles. **Relative weighting is a CSS judgement
+ * and is deliberately asserted nowhere** — it is about legibility, which this
+ * harness cannot measure, and pinning a number here would only make it look
+ * settled.
  */
-function assertEdgesCarryOnlyWhatPositionCannot(
+function assertEveryNoteHasExactlyOneParentEdge(
   laid: ReturnType<typeof layoutProjectOwnedGraph>,
   caseName: string
 ) {
-  for (const edge of laid.treeEdges) {
-    assert(
-      edge.depth >= 2,
-      `${caseName}: a depth-${edge.depth} tree edge was drawn — position already states hop-1 parentage`
-    );
-  }
-
-  // Exactly one parent edge per deep node: not zero (the band was over-dropped)
-  // and not two (a node acquired a second parent).
-  const deepNodes = laid.nodes.filter((node) => node.depth >= 2);
-  for (const node of deepNodes) {
+  // Not zero (a band got dropped) and not two (a node acquired a second parent).
+  // A missing parent edge looks like a sparse graph rather than like a bug,
+  // which is why it is pinned rather than left to the eye.
+  for (const node of laid.nodes) {
     const arriving = laid.treeEdges.filter(
       (edge) =>
         Math.abs(edge.to.x - node.x) < 1e-9 && Math.abs(edge.to.y - node.y) < 1e-9
@@ -477,8 +478,19 @@ function assertEdgesCarryOnlyWhatPositionCannot(
   }
 
   assert(
-    laid.treeEdges.length === deepNodes.length,
-    `${caseName}: ${laid.treeEdges.length} tree edges for ${deepNodes.length} deep nodes — they must correspond exactly`
+    laid.treeEdges.length === laid.nodes.length,
+    `${caseName}: ${laid.treeEdges.length} tree edges for ${laid.nodes.length} nodes — they must correspond exactly`
+  );
+
+  // Both bands must be present, or the depth-weighted styling is decorating a
+  // set that only ever contains one of them.
+  assert(
+    laid.treeEdges.some((edge) => edge.depth <= 1),
+    `${caseName}: no depth-1 edge was drawn — the grouping layer is missing`
+  );
+  assert(
+    laid.treeEdges.some((edge) => edge.depth >= 2),
+    `${caseName}: no depth-2+ edge was drawn — the parentage layer is missing`
   );
 }
 
@@ -768,7 +780,7 @@ export function runProjectRingHarness() {
     constellation.crossProjectEdges[0].pieces.length > 0,
     "a cross-project edge exists in the data but produced no drawable pieces"
   );
-  assertEdgesCarryOnlyWhatPositionCannot(constellation, "real-shaped graph");
+  assertEveryNoteHasExactlyOneParentEdge(constellation, "real-shaped graph");
   const clipped = clipLineOutsideDisc(
     { x: centre - 120, y: centre },
     { x: centre + 120, y: centre },
@@ -891,15 +903,11 @@ export function runProjectRingHarness() {
       target.nodes.some((node) => node.depth === HOP_CLAMP_DEPTH),
       `target state @ ${scale}x: the innermost band never drew`
     );
-    // Eight populated wedges is where dropping depth-1 matters most: the fan
-    // multiplies with the number of connected anchors while parentage edges grow
-    // only with real chain depth. Asserting here proves the rule holds when the
-    // vault stops being one connected project.
-    assertEdgesCarryOnlyWhatPositionCannot(target, `target state @ ${scale}x`);
-    assert(
-      target.treeEdges.length > 0,
-      `target state @ ${scale}x: every tree edge vanished — the depth-1 drop took the parentage edges with it`
-    );
+    // Eight populated wedges is where the two bands diverge most: the depth-1
+    // fan multiplies with the number of connected anchors while parentage edges
+    // grow only with real chain depth. If the weighting is ever going to fail,
+    // it fails here first.
+    assertEveryNoteHasExactlyOneParentEdge(target, `target state @ ${scale}x`);
     assertNodesInsideParentWedges(target.nodes, `target state @ ${scale}x`);
     // Label-vs-cluster clearance is asserted only at scales the operator can
     // reach. Below the window floor the counter-scaled label box is at its

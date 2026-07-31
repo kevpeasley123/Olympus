@@ -919,29 +919,29 @@ export function layoutProjectOwnedGraph(
   // Built from settled positions, so a sub-rowed child's edge still terminates on
   // the node rather than where it sat before the stagger.
   //
-  // **Depth-1 edges are not drawn, and the reason is redundancy rather than
-  // clutter.** A depth-1 node sits inside its project's wedge at the hop-1
-  // radius, so it is a child of that wedge's single anchor *by construction* —
-  // position already states the relationship and the stroke only repeats it.
+  // **Every tree edge is drawn, including depth 1 — and `depth` on the edge is
+  // what lets the renderer weight them differently.**
   //
-  // **[V] Measured against the real vault, 2026-07-30**: 14 depth-1 edges carried
-  // 777 units of stroke — 84.8% of all edge ink — at 55.5 units each, against 7
-  // depth-2 edges totalling 139 units at 19.9 each. The fan was twice the count
-  // and 5.6× the ink of the structure it buried.
+  // **[V] Depth-1 edges were removed on 2026-07-30 and restored the same day.**
+  // The measurement behind the removal was sound and its conclusion did not
+  // follow. 14 depth-1 edges carried 777 units of stroke, 84.8% of all edge ink,
+  // stating a relationship position already encodes — a depth-1 node sits in its
+  // project's wedge by construction. That is a true statement about *information
+  // content*, and it was the wrong question.
   //
-  // Depth 2+ is the opposite case and is kept: with 14 candidate parents sitting
-  // at one radius, *which* note a deeper note hangs from cannot be read off
-  // position. Those are the only tree edges carrying information the layout does
-  // not already give, and dropping the fan is what lets them read.
+  // **Encoding a relationship and making it visible are different properties.**
+  // Without the strokes the cluster read as a loose scatter floating near the
+  // ring rather than as fourteen notes belonging to Olympus, and the surviving
+  // depth-2 edges hung mid-scatter connecting to nothing followable — worse than
+  // the spray it was meant to fix. The lines were doing perceptual grouping,
+  // which ink-share cannot measure because ink-share measures redundancy.
   //
-  // Fading was rejected in both directions: it would keep the ink and the
-  // crossings for the redundant 85% while leaving the informative 15% at lower
-  // contrast.
+  // So depth 1 is pushed back rather than removed, and depth 2+ holds its weight
+  // as the legible layer. The dial is `--tree-edge-hop1-opacity` in `styles.css`.
   const treeEdges: ProjectGraphEdge[] = [];
   for (const [child, parentId] of parent) {
     const childNode = positionedById.get(child);
     if (!childNode) continue;
-    if (childNode.depth <= 1) continue;
     const parentNode = positionedById.get(parentId);
     const from = parentNode
       ? { x: parentNode.x, y: parentNode.y }
