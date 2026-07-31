@@ -34,7 +34,7 @@ Tauri commands exposed by the desktop shell:
 | Persistence | `load_persisted_state`, `begin_operator_session`, `save_settings`, `save_tool_states`, `append_conversation_messages`, `clear_conversation` |
 | Vault | `write_memory_artifact`, `fetch_pantheon_entries`, `write_pantheon_entry`, `migrate_pantheon_schema`, `save_attachment_to_vault`, `append_profile_observation`, `fetch_operator_profile`, `fetch_recent_vault_writes`, `fetch_vault_graph`, `open_vault_note` |
 | Write gate | `resolve_vault_write` |
-| Live data | `fetch_market_quotes`, `fetch_weather`, `scan_tracked_projects`, `fetch_action_queue` |
+| Live data | `scan_tracked_projects`, `fetch_action_queue` |
 | Delegation | `start_delegation_run`, `resume_delegation_run`, `cancel_delegation_run`, `list_delegation_runs`, `fetch_delegation_diff` |
 | Shell / files | `launch_quick_app`, `restart_olympus`, `pick_attachment_file`, `extract_pdf_text` |
 
@@ -154,8 +154,6 @@ grep for `opener::` returns only the plugin init. `rfd` (native file picker) and
 
 Dashboard panels compose from `src/App.tsx`. Live data sources:
 
-- **Markets** — Yahoo Finance chart API for S&P 500, Nasdaq 100, Dow (no key required); FRED for rates (`DGS2`, `DGS10`, `DGS30`, `MORTGAGE30US`)
-- **Weather** — Open-Meteo (no key required)
 - **Pantheon** — walks `02 - Research/` and parses each note's YAML frontmatter; entries require an `olympus/research` tag. It does not read `Olympus Research.base`, which is a generated output rather than an input
 - **Projects / Git** — local repository inspection via Tauri commands. Project
   notes contribute operator-owned status, current vision, vision review date,
@@ -199,10 +197,9 @@ Copy `.env.example` to `.env` and fill in:
 
 ```
 ANTHROPIC_API_KEY=
-FRED_API_KEY=
 ```
 
-`.env` is gitignored and loaded by `load_olympus_env()` in `src-tauri/src/lib.rs`, which resolves it relative to the Cargo manifest — so it belongs at the repo root, next to `package.json`. Open-Meteo requires no key.
+`.env` is gitignored and loaded by `load_olympus_env()` in `src-tauri/src/lib.rs`, which resolves it relative to the Cargo manifest — so it belongs at the repo root, next to `package.json`.
 
 ---
 

@@ -181,11 +181,6 @@ function readLocalState(): OlympusState {
       quickApps: mergeKnownIds(seedState.quickApps, parsed.quickApps ?? []),
       projects: mergeById(seedState.projects, parsed.projects ?? []).map(normalizeProject),
       conversation: mergeById(seedState.conversation, parsed.conversation ?? []),
-      market: parsed.market ? { ...seedState.market, ...parsed.market } : seedState.market,
-      weather: parsed.weather ? { ...seedState.weather, ...parsed.weather } : seedState.weather,
-      nowPlaying: parsed.nowPlaying
-        ? { ...seedState.nowPlaying, ...parsed.nowPlaying }
-        : seedState.nowPlaying,
       settings: parsed.settings
         ? { ...seedState.settings, ...parsed.settings }
         : seedState.settings,

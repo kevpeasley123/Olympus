@@ -129,27 +129,6 @@ How it works:
 - Seeded system and assistant turns are dropped before sending, since the API requires the conversation to open on a user turn.
 - Without a key, the desktop app reports the missing key in the chat panel; the browser dev server falls back to the local keyword search over Pantheon entries.
 
-## Live Markets and Weather Setup
-
-Olympus expects one local environment variable for live market data in the Tauri desktop shell.
-
-1. Copy `.env.example` to `.env`
-2. Fill in:
-
-```text
-FRED_API_KEY=
-```
-
-Where to get it:
-- FRED (free): `https://fred.stlouisfed.org/docs/api/api_key.html`
-
-Notes:
-- Index quotes use the **Yahoo Finance** chart API for S&P 500, Nasdaq 100, and Dow — no API key required
-- Rates use **FRED** for `DGS2`, `DGS10`, `DGS30`, and `MORTGAGE30US` (30Y fixed mortgage)
-- Weather uses **Open-Meteo** and does not require an API key
-- Without `FRED_API_KEY`, index quotes still load and the rates row falls back to placeholders with a warning
-- `.env` is ignored by Git and should not be committed
-
 ## Desktop Build
 
 Tauri requires Rust and Cargo.
@@ -177,6 +156,6 @@ What is stored, and how:
 | Desktop session boundaries | `operator_sessions` | One idempotent row per launch |
 | Delegated coding runs | `delegation_runs`, `delegation_events` | Durable state and append-only milestones |
 
-Market data, weather, and the project scan are refreshed live and deliberately not persisted.
+The project scan is refreshed live and deliberately not persisted.
 
 Conversation is appended when a message is sent rather than rewritten alongside other state, so a long history costs nothing on unrelated updates. The first desktop launch after an existing browser install imports any `localStorage` state into SQLite automatically.

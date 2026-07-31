@@ -71,64 +71,6 @@ export const seedState: OlympusState = {
       launchUri: "https://youtube.com"
     }
   ],
-  market: {
-    date: today,
-    indexes: [
-      { id: "spx", label: "S&P 500", value: "5,214.18", change: "+0.6%", direction: "up" },
-      { id: "ndx", label: "Nasdaq 100", value: "18,112.44", change: "+0.9%", direction: "up" },
-      { id: "dji", label: "Dow", value: "39,842.27", change: "-0.1%", direction: "down" }
-    ],
-    rates: [
-      { id: "ust2", label: "2Y Treasury", value: "4.88%", change: "+4 bps", direction: "up" },
-      { id: "ust10", label: "10Y Treasury", value: "4.41%", change: "+2 bps", direction: "up" },
-      { id: "ust30", label: "30Y Treasury", value: "4.56%", change: "-1 bp", direction: "down" }
-    ],
-    sectors: [
-      { id: "sector-tech", label: "Tech leadership", tone: "risk-on" },
-      { id: "sector-financials", label: "Financials stable", tone: "neutral" },
-      { id: "sector-utilities", label: "Defensives softer", tone: "risk-off" }
-    ],
-    news: [
-      {
-        id: "news-macro-1",
-        headline: "Treasury yields stay firm as traders reprice the path of rate cuts",
-        summary: "A live feed can eventually replace this stub with the top macro article driving equities and rates.",
-        source: "Market feed placeholder"
-      },
-      {
-        id: "news-tech-1",
-        headline: "Large-cap tech continues to set the tone for index leadership",
-        summary: "Olympus should surface the one or two stories that best explain why Nasdaq is outperforming on the day.",
-        source: "Market feed placeholder"
-      },
-      {
-        id: "news-risk-1",
-        headline: "Risk appetite check: breadth, yields, and defensives are the tells to watch",
-        summary: "Use this area for the most useful contextual article rather than a noisy stream of headlines.",
-        source: "Market feed placeholder"
-      }
-    ],
-    summary:
-      "Risk appetite is modestly positive today, led by growth and a firmer Nasdaq while rates stay elevated.",
-    watchNote:
-      "Watch whether yields keep climbing into the close. If rates rise without equities fading, that is useful information about risk tolerance."
-  },
-  weather: {
-    label: "Tucson, AZ",
-    temperature: "74 F",
-    condition: "Clear and dry",
-    humidity: "29%",
-    wind: "6 mph",
-    feelsLike: "72 F",
-    source: "sample"
-  },
-  nowPlaying: {
-    source: "Spotify",
-    status: "idle",
-    track: "No active track",
-    artist: "Desktop media session not connected yet",
-    detail: "This widget is ready for live playback metadata once native media hooks are wired in."
-  },
   // Preview data for the browser dev server, which has no Tauri commands and so
   // never runs the real scan. `status` here is declared rather than inferred
   // only because the seed is standing in for a vault that has notes; the desktop

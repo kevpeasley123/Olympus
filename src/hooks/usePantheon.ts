@@ -45,7 +45,6 @@ export interface PantheonEntry {
 const POLL_INTERVAL_MS = 300_000;
 
 const useStore = createPollingStore<PantheonEntry[]>({
-  key: "pantheon",
   intervalMs: POLL_INTERVAL_MS,
   initial: [],
   fetcher: () => invoke<PantheonEntry[]>("fetch_pantheon_entries")

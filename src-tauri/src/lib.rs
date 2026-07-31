@@ -18,7 +18,6 @@ use commands::delegation::{
     cancel_delegation_run, fetch_delegation_diff, list_delegation_runs,
     resume_delegation_run, start_delegation_run, DelegationProcesses,
 };
-use commands::markets::fetch_market_quotes;
 use commands::observations::append_profile_observation;
 use commands::pantheon::{fetch_pantheon_entries, write_pantheon_entry};
 use commands::pantheon_migrate::migrate_pantheon_schema;
@@ -29,7 +28,6 @@ use commands::persistence::{
 };
 use commands::projects::scan_tracked_projects;
 use commands::tasks::fetch_action_queue;
-use commands::weather::fetch_weather;
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
@@ -339,9 +337,7 @@ pub fn run() {
             launch_quick_app,
             open_vault_note,
             restart_olympus,
-            fetch_market_quotes,
             scan_tracked_projects,
-            fetch_weather,
             fetch_action_queue,
             fetch_pantheon_entries,
             fetch_operator_profile,

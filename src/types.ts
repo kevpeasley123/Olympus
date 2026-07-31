@@ -18,71 +18,6 @@ export interface QuickApp {
   launchUri: string;
 }
 
-export interface MarketIndex {
-  id: string;
-  label: string;
-  value: string;
-  change: string;
-  direction: "up" | "down" | "flat";
-}
-
-export interface MarketRate {
-  id: string;
-  label: string;
-  value: string;
-  change: string;
-  direction: "up" | "down" | "flat";
-}
-
-export interface MarketSector {
-  id: string;
-  label: string;
-  tone: "risk-on" | "neutral" | "risk-off";
-}
-
-export interface MarketNewsItem {
-  id: string;
-  headline: string;
-  summary: string;
-  source: string;
-}
-
-export interface MarketSnapshot {
-  date: string;
-  indexes: MarketIndex[];
-  rates: MarketRate[];
-  sectors: MarketSector[];
-  news: MarketNewsItem[];
-  summary: string;
-  watchNote: string;
-}
-
-export interface WeatherSnapshot {
-  label: string;
-  temperature: string;
-  condition: string;
-  humidity: string;
-  wind: string;
-  feelsLike: string;
-  source: "sample";
-}
-
-export interface WeatherForecastDay {
-  dayLabel: string;
-  weatherCode: number;
-  high: string;
-  low: string;
-  isToday: boolean;
-}
-
-export interface NowPlayingSnapshot {
-  source: string;
-  status: "playing" | "paused" | "idle";
-  track: string;
-  artist: string;
-  detail: string;
-}
-
 export type PantheonCategory =
   | "agent-systems"
   | "project-origination"
@@ -207,9 +142,6 @@ export interface OlympusState {
   version: number;
   tools: ToolDefinition[];
   quickApps: QuickApp[];
-  market: MarketSnapshot;
-  weather: WeatherSnapshot;
-  nowPlaying: NowPlayingSnapshot;
   projects: TrackedProject[];
   conversation: ConversationMessage[];
   settings: OlympusSettings;

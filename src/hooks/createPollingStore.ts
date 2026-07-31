@@ -1,6 +1,4 @@
 import { useEffect, useReducer } from "react";
-import { reportPollFailure, reportPollSuccess } from "../services/pollRegistry";
-import type { PollSourceKey } from "../services/pollRegistry";
 
 /**
  * A poll shared by every consumer instead of one per mounting component.
@@ -22,12 +20,6 @@ export interface PollingStore<T> {
 }
 
 export function createPollingStore<T>(options: {
-  /**
-   * Reports to the instrument's activity dots. Omitted for polls that have no
-   * dot — a source that reports without being drawn would be invisible, and a
-   * dot without a source would be permanently dark.
-   */
-  key?: PollSourceKey;
   intervalMs: number;
   initial: T;
   fetcher: () => Promise<T>;
@@ -57,10 +49,8 @@ export function createPollingStore<T>(options: {
         data = next;
         options.onData?.(next, previous);
         error = null;
-        if (options.key) reportPollSuccess(options.key);
       } catch (caught) {
         error = String(caught);
-        if (options.key) reportPollFailure(options.key, error);
       } finally {
         loading = false;
         inFlight = null;

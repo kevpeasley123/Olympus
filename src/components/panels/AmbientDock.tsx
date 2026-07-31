@@ -1,25 +1,17 @@
 import { CircleHelp, RefreshCw, Settings2 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { MODE_LABELS } from "../../hooks/useDashboardMode";
 import type { DashboardMode } from "../../hooks/useDashboardMode";
-import type { LiveSourceHealth } from "../../types/dashboard";
 
 interface AmbientDockProps {
   onRefresh: () => void;
   mode: DashboardMode;
   onCycleMode: () => void;
-  sourceHealth: LiveSourceHealth[];
 }
 
-export function AmbientDock({
-  onRefresh,
-  mode,
-  onCycleMode,
-  sourceHealth
-}: AmbientDockProps) {
+export function AmbientDock({ onRefresh, mode, onCycleMode }: AmbientDockProps) {
   const [preferencesOpen, setPreferencesOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
-  const [statusOpen, setStatusOpen] = useState(false);
   const [refreshSpinning, setRefreshSpinning] = useState(false);
   const [now, setNow] = useState(() => new Date());
 
@@ -70,7 +62,6 @@ export function AmbientDock({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [onCycleMode]);
 
-  const overallHealth = deriveOverallHealth(sourceHealth);
   const timeLabel = now.toLocaleTimeString([], {
     hour: "numeric",
     minute: "2-digit",
@@ -81,8 +72,6 @@ export function AmbientDock({
     month: "short",
     day: "numeric"
   });
-  const lineVisible = overallHealth !== "ok";
-
   function handleRefresh() {
     setRefreshSpinning(true);
     onRefresh();
@@ -159,27 +148,6 @@ export function AmbientDock({
         </div>
       </div>
 
-      <button
-        className={`status-edge status-${overallHealth} ${lineVisible ? "is-visible" : "is-hidden"}`}
-        onClick={() => setStatusOpen((value) => !value)}
-        onMouseEnter={() => setStatusOpen(true)}
-        onMouseLeave={() => setStatusOpen(false)}
-        aria-label="Live data source health"
-        type="button"
-      >
-        {lineVisible && statusOpen ? (
-          <div className="ambient-popover status-edge-popover">
-            {sourceHealth.map((source) => (
-              <div key={source.key} className="health-popover-row">
-                <span className={`health-source-dot ${source.status}`} aria-hidden="true"></span>
-                <span>{source.label}</span>
-                <small>{formatHealthMeta(source, now)}</small>
-              </div>
-            ))}
-          </div>
-        ) : null}
-      </button>
-
       {preferencesOpen ? (
         <section className="settings-panel preferences-panel floating-preferences-panel">
           <div className="panel-header compact">
@@ -202,10 +170,6 @@ export function AmbientDock({
               <span>Memory surface</span>
               <strong>Obsidian connected</strong>
             </div>
-            <div className="preference-row">
-              <span>Markets detail</span>
-              <strong>Collapsed by default</strong>
-            </div>
           </div>
         </section>
       ) : null}
@@ -213,23 +177,3 @@ export function AmbientDock({
   );
 }
 
-function deriveOverallHealth(sources: LiveSourceHealth[]): LiveSourceHealth["status"] {
-  if (sources.some((source) => source.status === "failed")) return "failed";
-  if (sources.some((source) => source.status === "stale")) return "stale";
-  return "ok";
-}
-
-function formatHealthMeta(source: LiveSourceHealth, now: Date): string {
-  if (!source.lastFetchAt) {
-    return source.lastError ? source.lastError : "No successful fetch yet";
-  }
-
-  const secondsAgo = Math.max(0, Math.round((now.getTime() - source.lastFetchAt) / 1000));
-  if (source.status === "ok") {
-    return `OK · ${secondsAgo}s ago`;
-  }
-
-  return source.lastError
-    ? `${source.status} · ${source.lastError}`
-    : `${source.status} · ${secondsAgo}s ago`;
-}

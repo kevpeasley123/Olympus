@@ -7,13 +7,9 @@ import { ChatPanel } from "./components/panels/ChatPanel";
 import { CommandInstrument } from "./components/panels/CommandInstrument";
 import { HeaderBar } from "./components/panels/HeaderBar";
 import { LibraryPanel } from "./components/panels/LibraryPanel";
-import { MarketsPanel } from "./components/panels/MarketsPanel";
 import { ProjectsPanel } from "./components/panels/ProjectsPanel";
 import { QuickbarPanel } from "./components/panels/QuickbarPanel";
-import { StatusOverlay } from "./components/panels/StatusOverlay";
-import type { StatusRailTarget } from "./components/panels/StatusRail";
 import { ToolBelt } from "./components/panels/ToolBelt";
-import { WeatherPanel } from "./components/panels/WeatherPanel";
 import { WriteConfirmDialog } from "./components/panels/WriteConfirmDialog";
 import { openVaultNote } from "./services/launcher";
 import { useActionQueue } from "./hooks/useActionQueue";
@@ -35,9 +31,6 @@ function App() {
     chatModel,
     chatProducing,
     chatFellBackFrom,
-    markets,
-    weather,
-    sourceHealth,
     sendChatMessage,
     recordObservation,
     syncResearchBase,
@@ -54,7 +47,6 @@ function App() {
     error: actionTasksError
   } = useActionQueue();
   usePantheon();
-  const [statusPanel, setStatusPanel] = useState<StatusRailTarget | null>(null);
   /** Set when Project mode narrows its detailed briefing to one workspace. */
   const [projectFilter, setProjectFilter] = useState<string | null>(null);
 
@@ -86,14 +78,7 @@ function App() {
       <BackgroundLayer />
       <main className={`app-shell mode-${mode} ${dense ? "focus-mode" : ""}`}>
       <FadeInPanel index={0} className="panel-slot panel-slot-header">
-        <HeaderBar
-          mode={mode}
-          onSelectMode={selectMode}
-          projects={projects}
-          markets={markets}
-          weather={weather}
-          onOpenStatusPanel={setStatusPanel}
-        />
+        <HeaderBar mode={mode} onSelectMode={selectMode} projects={projects} />
       </FadeInPanel>
 
       <div className="dashboard-body">
@@ -175,21 +160,6 @@ function App() {
         </section>
       </div>
 
-      {/* Markets and Weather are resident in the header rail now. The panels
-          themselves are unchanged — the rail summarises them, it does not
-          reimplement them. */}
-      {statusPanel === "markets" ? (
-        <StatusOverlay label="Markets" onClose={() => setStatusPanel(null)}>
-          <MarketsPanel state={markets} onRetry={() => void refreshAll()} />
-        </StatusOverlay>
-      ) : null}
-
-      {statusPanel === "weather" ? (
-        <StatusOverlay label="Weather" onClose={() => setStatusPanel(null)}>
-          <WeatherPanel state={weather} onRetry={() => void refreshAll()} />
-        </StatusOverlay>
-      ) : null}
-
       <AmbientDock
         onRefresh={() => void refreshAll()}
         mode={mode}
@@ -199,7 +169,6 @@ function App() {
           setProjectFilter(null);
           cycleMode();
         }}
-        sourceHealth={sourceHealth}
       />
       <WriteConfirmDialog />
       </main>

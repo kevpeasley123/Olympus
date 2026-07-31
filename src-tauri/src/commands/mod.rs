@@ -1,7 +1,6 @@
 pub mod assistant;
 pub mod attachments;
 pub mod delegation;
-pub mod markets;
 pub mod observations;
 pub mod pantheon;
 pub mod pantheon_migrate;
@@ -15,7 +14,6 @@ pub mod vault_git;
 pub mod vault_graph;
 pub mod vault_write;
 pub mod write_confirm;
-pub mod weather;
 
 use std::path::PathBuf;
 

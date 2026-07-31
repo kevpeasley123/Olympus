@@ -205,10 +205,7 @@ select:focus {
 
 .main-grid,
 .tools-rail,
-.markets-panel,
 .projects-panel,
-.weather-panel,
-.now-playing-panel,
 .panel-slot {
   transition:
     grid-template-columns 300ms ease-out,
@@ -282,8 +279,7 @@ select:focus {
 }
 
 .panel-header,
-.conversation-input-shell,
-.weather-inline {
+.conversation-input-shell {
   display: flex;
   align-items: center;
 }
@@ -295,41 +291,6 @@ select:focus {
   transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
 }
 
-.health-source-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 999px;
-}
-
-.health-popover-row {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  align-items: center;
-  gap: var(--space-8);
-  color: var(--primary);
-  font-size: var(--text-sm);
-}
-
-.health-popover-row small {
-  color: var(--muted);
-  font-size: var(--text-sm);
-}
-
-.health-source-dot.ok {
-  background: var(--positive);
-}
-
-.health-source-dot.stale {
-  background: #f59e0b;
-}
-
-.health-source-dot.failed {
-  background: var(--negative);
-}
-
-.weather-separator {
-  color: var(--muted);
-}
 
 .ghost-action:hover,
 .send-button:hover {
@@ -338,18 +299,12 @@ select:focus {
   transform: translateY(-1px);
 }
 
-/* Three zones. The rail is sized by what it chose to show; the left zone takes
-   the remainder and absorbs the squeeze, because its one flexible part — the
-   next-action sentence — already ellipsizes.
-   `1fr auto 1fr` gave the rail exactly half the leftover whether it needed it
-   or not: at 1920 that was 741px for content wanting 872px, and the overflow
-   painted the Dow value through the weather segment. Making the rail's track
-   `auto` instead is only safe because the rail is handed an explicit budget and
-   never renders wider than it — an `auto` track takes its content width ahead
-   of any `fr`, so an unbudgeted rail would starve the left zone to nothing. */
+/* Two zones since the status rail left with the markets/weather extraction:
+   the left zone takes the remainder and the switcher hugs the right edge. The
+   budget machinery that sized the rail's `auto` track went with it. */
 .olympus-header {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: var(--space-16);
   padding: 12px 24px;
@@ -370,10 +325,6 @@ select:focus {
 
 .olympus-header__zone--center {
   justify-content: center;
-}
-
-.olympus-header__zone--right {
-  justify-content: flex-end;
 }
 
 .omega-instrument {
@@ -535,160 +486,16 @@ select:focus {
 /* Not `width: 100%` — this sits in an `auto` track, so its own content is what
    sizes the track. Forcing a percentage would make the track depend on a width
    that depends on the track. */
-.status-rail-shell {
-  position: relative;
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  min-width: 0;
-  overflow: hidden;
-}
+
 
 /* Off-layout copies of every candidate composition, measured to pick one.
    Hidden from paint, from hit-testing and from the accessibility tree. */
-.status-rail-measure {
-  position: absolute;
-  top: 0;
-  left: 0;
-  visibility: hidden;
-  pointer-events: none;
-  white-space: nowrap;
-}
+
 
 /* Each candidate must size to its own content. Without this they are
    block-level boxes in a shrink-to-fit parent, so every one of them reports
    the width of the widest sibling and the rail always picks the richest. */
-.status-rail-measure > .status-rail {
-  width: max-content;
-}
 
-.status-rail {
-  display: flex;
-  align-items: center;
-  gap: var(--space-12);
-  flex: 0 0 auto;
-  font-size: 12px;
-}
-
-.status-rail__segment {
-  display: flex;
-  align-items: center;
-  gap: var(--space-12);
-  padding: 6px 8px;
-  border: 1px solid transparent;
-  background: transparent;
-  color: var(--muted);
-  font-family: inherit;
-  font-size: inherit;
-  cursor: pointer;
-  flex: 0 0 auto;
-  white-space: nowrap;
-  transition:
-    border-color 160ms ease-out,
-    background 160ms ease-out;
-}
-
-.status-rail__segment:hover {
-  border-color: rgba(255, 158, 44, 0.35);
-  background: rgba(14, 42, 61, 0.6);
-}
-
-.status-rail__divider {
-  width: 1px;
-  height: 18px;
-  background: rgba(255, 158, 44, 0.18);
-  flex: 0 0 auto;
-}
-
-.status-rail__quote,
-.status-rail__weather {
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-4);
-  white-space: nowrap;
-}
-
-.status-rail__quote-label {
-  color: var(--muted);
-  opacity: 0.7;
-}
-
-.status-rail__quote-value {
-  color: var(--primary);
-}
-
-.status-rail__quote-delta.is-up {
-  color: var(--positive);
-}
-
-.status-rail__quote-delta.is-down {
-  color: var(--negative);
-}
-
-.status-rail__quote-delta.is-flat {
-  color: var(--muted);
-}
-
-.status-rail__weather-condition {
-  color: var(--muted);
-  opacity: 0.8;
-}
-
-.status-rail__failed {
-  color: var(--negative);
-  opacity: 0.85;
-}
-
-.status-rail__pending {
-  opacity: 0.5;
-}
-
-/* ---- Status overlay ----------------------------------------------------- */
-
-.status-overlay-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 60;
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  padding: 108px 24px 24px;
-  background: rgba(2, 10, 18, 0.55);
-  backdrop-filter: blur(2px);
-}
-
-/* Anchored under the header rather than centred, so the segment that opened it
-   stays visible above the panel it opened. */
-.status-overlay {
-  display: flex;
-  flex-direction: column;
-  width: min(720px, 100%);
-  max-height: calc(100vh - 140px);
-  min-height: 0;
-}
-
-.status-overlay__bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-12);
-  padding: 0 2px 8px;
-  flex: 0 0 auto;
-}
-
-.status-overlay__label {
-  font-size: 11px;
-  font-weight: var(--weight-medium);
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-
-.status-overlay__content {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow: auto;
-}
 
 .settings-panel,
 .panel-shell,
@@ -1128,48 +935,6 @@ small {
   width: min(520px, calc(100vw - 32px));
 }
 
-.status-edge {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 15;
-  height: 10px;
-  padding: 0;
-  border: 0;
-  background: transparent;
-}
-
-.status-edge::after {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 1px;
-}
-
-.status-edge.is-hidden {
-  opacity: 0;
-  pointer-events: none;
-}
-
-.status-edge.status-stale::after {
-  background: #f59e0b;
-  opacity: 0.6;
-  animation: status-line-pulse 1.5s ease-in-out infinite;
-}
-
-.status-edge.status-failed::after {
-  background: var(--negative);
-  opacity: 0.8;
-  animation: status-line-pulse-fast 1s ease-in-out infinite;
-}
-
-.status-edge-popover {
-  right: var(--space-16);
-  bottom: calc(100% + 8px);
-}
 
 .tool-row {
   display: flex;
@@ -1248,266 +1013,6 @@ small {
   display: none;
 }
 
-.retry-action {
-  min-height: 26px;
-  padding: 0 var(--space-8);
-  font-size: var(--text-xs);
-}
-
-
-.panel-error-text {
-  max-width: 260px;
-  color: #cbd5e1;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.markets-panel {
-  flex: 0 0 auto;
-  display: flex;
-  flex-direction: column;
-}
-
-
-
-
-
-.markets-group {
-  min-width: 0;
-}
-
-.markets-group-label {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 10px;
-  font-weight: var(--weight-medium);
-  letter-spacing: 0.16em;
-  color: var(--muted);
-  text-transform: uppercase;
-  margin-bottom: 8px;
-}
-
-.markets-group-warning {
-  display: inline-flex;
-  align-items: center;
-  color: var(--muted);
-  cursor: help;
-}
-
-.markets-grid {
-  display: grid;
-  gap: 16px;
-}
-
-.markets-grid--indexes {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
-.markets-grid--rates {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 14px;
-}
-
-.markets-divider {
-  height: 1px;
-  background: rgba(255, 255, 255, 0.05);
-  margin: 12px 0;
-}
-
-.metric-cell {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  padding-right: 16px;
-  border-right: 1px solid rgba(255, 255, 255, 0.05);
-}
-
-.markets-grid > .metric-cell:last-child {
-  padding-right: 0;
-  border-right: none;
-}
-
-.metric-cell-label {
-  font-size: 11px;
-  color: var(--muted);
-  margin-bottom: 2px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.metric-cell-row {
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
-  min-width: 0;
-}
-
-.metric-cell-value {
-  font-size: 18px;
-  font-weight: var(--weight-medium);
-  font-family: var(--font-mono);
-  font-variant-numeric: tabular-nums;
-  color: var(--primary);
-  line-height: 1;
-  white-space: nowrap;
-}
-
-.metric-cell-delta {
-  font-size: 11px;
-  font-weight: var(--weight-medium);
-  font-family: var(--font-mono);
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-
-.markets-grid--rates .metric-cell-value {
-  font-size: 17px;
-}
-
-.markets-grid--rates .metric-cell-delta {
-  font-size: 10px;
-}
-
-.markets-footer {
-  margin-top: 12px;
-  padding-top: 10px;
-  border-top: 1px solid rgba(255, 255, 255, 0.04);
-  display: flex;
-  justify-content: center;
-}
-
-.markets-news-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-8);
-  background: transparent;
-  border: none;
-  color: var(--muted);
-  font-size: 11px;
-  cursor: pointer;
-  padding: 4px 8px;
-  transition: color 100ms ease;
-}
-
-.markets-news-toggle:hover {
-  color: var(--primary);
-}
-
-.markets-news-toggle svg {
-  transition: transform 200ms ease-out;
-}
-
-.markets-news-toggle .is-expanded {
-  transform: rotate(180deg);
-}
-
-.markets-panel--compact {
-  padding: var(--panel-pad-tight);
-}
-
-.markets-panel--compact .markets-grid--indexes,
-.markets-panel--compact .markets-grid--rates {
-  gap: 14px;
-}
-
-.markets-panel--compact .metric-cell {
-  padding-right: 14px;
-}
-
-.markets-panel--compact .metric-cell-value {
-  font-size: 18px;
-}
-
-.markets-panel--compact .markets-grid--rates .metric-cell-value {
-  font-size: 16px;
-}
-
-.markets-detail {
-  max-height: 0;
-  overflow: hidden;
-  transition: max-height 200ms ease-out, opacity 200ms ease-out, margin-top 200ms ease-out;
-  opacity: 0;
-  margin-top: 0;
-}
-
-.markets-detail.is-expanded {
-  max-height: 380px;
-  opacity: 1;
-  margin-top: var(--space-12);
-}
-
-.markets-news-section {
-  display: flex;
-  flex-direction: column;
-}
-
-.markets-news-list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-12);
-}
-
-.markets-news-row {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-}
-
-.markets-news-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--space-8);
-}
-
-.markets-news-head strong {
-  color: var(--primary);
-  font-weight: var(--weight-medium);
-}
-
-.markets-news-head small {
-  color: var(--muted);
-}
-
-.subhead {
-  margin: 0 0 var(--space-12);
-  color: var(--label);
-  font-size: var(--text-xs);
-  font-weight: var(--weight-medium);
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
-
-.skeleton-line {
-  display: block;
-  border-radius: 999px;
-  background: linear-gradient(
-    90deg,
-    rgba(255, 255, 255, 0.08),
-    rgba(255, 255, 255, 0.14),
-    rgba(255, 255, 255, 0.08)
-  );
-  background-size: 220% 100%;
-  animation: skeleton-pulse 1.6s ease-in-out infinite;
-}
-
-.skeleton-label {
-  width: 56px;
-  height: 10px;
-}
-
-.skeleton-value {
-  width: 80px;
-  height: 24px;
-}
-
-.skeleton-delta {
-  width: 54px;
-  height: 12px;
-}
 
 .projects-panel {
   display: flex;
@@ -1789,8 +1294,6 @@ small {
   padding-top: 10px;
   padding-bottom: 10px;
 }
-
-
 
 
 .pantheon-search-shell {
@@ -2218,126 +1721,6 @@ small {
   font-style: italic;
 }
 
-.weather-panel {
-  flex: 0 0 auto;
-}
-
-
-
-
-.weather-strip {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-12);
-}
-
-
-.weather-inline {
-  flex-wrap: wrap;
-  gap: var(--space-4);
-  color: var(--muted);
-  font-size: var(--text-sm);
-  line-height: 1.4;
-}
-
-.weather-inline-loading {
-  margin-top: var(--space-4);
-  gap: var(--space-8);
-}
-
-.weather-temp {
-  color: var(--primary);
-  font-size: var(--text-lg);
-  font-weight: var(--weight-medium);
-}
-
-.weather-forecast-grid {
-  display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: var(--space-8);
-  padding-top: var(--space-12);
-  border-top: 1px solid var(--divider);
-}
-
-.weather-forecast-day {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-8);
-  padding: var(--space-8);
-  border-radius: 8px;
-}
-
-.weather-forecast-day.is-today {
-  background: rgba(255, 255, 255, 0.03);
-}
-
-.weather-forecast-label {
-  color: var(--muted);
-  font-size: var(--text-xs);
-  font-weight: var(--weight-medium);
-  letter-spacing: 0.14em;
-}
-
-.weather-forecast-day.is-today .weather-forecast-label {
-  color: var(--accent);
-}
-
-.weather-forecast-icon {
-  color: var(--primary);
-}
-
-.weather-forecast-temps {
-  color: var(--muted);
-  font-size: var(--text-sm);
-}
-
-.weather-forecast-temps strong {
-  color: var(--primary);
-  font-weight: var(--weight-medium);
-}
-
-.weather-forecast-temps small {
-  color: var(--muted);
-  font-size: var(--text-sm);
-}
-
-.weather-forecast-loading {
-  border-top: 1px solid var(--divider);
-  padding-top: var(--space-12);
-}
-
-.weather-forecast-skeleton {
-  display: block;
-}
-
-.weather-forecast-skeleton-day {
-  width: 28px;
-  height: 12px;
-}
-
-.weather-forecast-skeleton-icon {
-  width: 18px;
-  height: 18px;
-}
-
-.weather-forecast-skeleton-temp {
-  width: 54px;
-  height: 14px;
-}
-
-.compact-weather .weather-strip {
-  gap: var(--space-8);
-}
-
-.compact-now-playing .now-playing-body.compact-summary {
-  gap: var(--space-4);
-}
-
-.compact-now-playing .now-playing-body.compact-summary p {
-  margin: 0;
-  color: var(--muted);
-}
 
 .icon-only-action {
   width: 36px;
@@ -2346,74 +1729,6 @@ small {
   justify-content: center;
 }
 
-.weather-skeleton {
-  height: 16px;
-}
-
-.weather-skeleton-temp {
-  width: 56px;
-}
-
-.weather-skeleton-detail {
-  width: 164px;
-}
-
-.weather-temp {
-  color: var(--primary);
-  font-size: var(--text-lg);
-  font-weight: var(--weight-medium);
-  margin-left: var(--space-4);
-}
-
-.now-playing-panel {
-  flex: 0 0 auto;
-  padding-top: var(--space-16);
-  padding-bottom: var(--space-16);
-}
-
-.now-playing-state {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--muted);
-  font-size: 10px;
-  font-weight: var(--weight-medium);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.now-playing-state.playing {
-  color: var(--positive);
-}
-
-.now-playing-state.paused {
-  color: var(--accent);
-}
-
-.now-playing-body {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-  margin-top: var(--space-12);
-}
-
-.now-playing-body strong {
-  color: var(--primary);
-  font-size: var(--text-base);
-  font-weight: var(--weight-medium);
-  line-height: 1.35;
-}
-
-.now-playing-body p {
-  margin: 0;
-  color: #cbd5e1;
-  font-size: var(--text-sm);
-  line-height: 1.45;
-}
-
-.now-playing-body small {
-  margin-top: var(--space-4);
-}
 
 .conversation-panel {
   display: flex;
@@ -2654,15 +1969,6 @@ small {
   font-variant-numeric: tabular-nums;
 }
 
-@keyframes skeleton-pulse {
-  0% {
-    background-position: 100% 50%;
-  }
-  100% {
-    background-position: 0 50%;
-  }
-}
-
 @keyframes sigil-spin {
   from {
     transform: rotate(0deg);
@@ -2739,11 +2045,13 @@ small {
     min-width: 1280px;
   }
 
+
   /* The rail is 44px at every width. This used to restore the 220px column and
      silently undo the icon rail on a narrow window. */
   .main-grid {
     grid-template-columns: 44px minmax(0, 1fr) 380px;
   }
+
 
   .quickbar-grid {
     gap: var(--space-8);
@@ -2754,18 +2062,22 @@ small {
     max-width: none;
   }
 
+
   .pantheon-workspace {
     grid-template-columns: 180px minmax(0, 1fr);
   }
+
 
   .pantheon-section-toggle {
     grid-template-columns: auto minmax(0, 1fr);
   }
 
+
   .pantheon-section-description {
     grid-column: 2;
     text-align: left;
   }
+
 
   /* The header holds its three zones at every width. Only the wordmark gives
      ground — the mode switcher and the rail are the reason the band exists. */
@@ -2773,23 +2085,20 @@ small {
     font-size: 26px;
   }
 
-  .status-rail {
-    gap: var(--space-8);
-  }
-
-  .status-rail__segment {
-    gap: var(--space-8);
-  }
 
   .mode-switcher__segment {
     padding: 6px 12px;
   }
+
+
 }
 
 @media (max-width: 900px) {
   .olympus-wordmark {
     font-size: 22px;
   }
+
+
 }
 
 
@@ -4754,8 +4063,6 @@ small {
   .day-arc__now,
   .day-arc__now.is-live,
   .conversation-pending,
-  .skeleton-line,
-  .health-source-dot,
   .delegation-phase.is-active,
   /* The omega's three presence states. The breath and the orbit stop; the states
      stay distinguishable statically, below. */
@@ -4790,15 +4097,11 @@ small {
 
   .main-grid,
   .tools-rail,
-  .markets-panel,
   .projects-panel,
-  .weather-panel,
   .panel-slot,
-  .markets-detail,
   .tool-row,
   .ghost-action,
   .send-button,
-  .markets-news-toggle svg,
   .observation-seed,
   /* A ring node still brightens on hover — that is how it identifies itself —
      but it arrives instantly rather than easing in. */

@@ -16,7 +16,6 @@ export interface ActionQueueTask {
 const POLL_INTERVAL_MS = 30_000;
 
 const useStore = createPollingStore<ActionQueueTask[]>({
-  key: "tasks",
   intervalMs: POLL_INTERVAL_MS,
   initial: [],
   fetcher: () => invoke<ActionQueueTask[]>("fetch_action_queue")
