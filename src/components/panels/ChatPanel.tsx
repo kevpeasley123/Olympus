@@ -233,6 +233,15 @@ function ConversationBubble({
   return (
     <article className={`conversation-bubble ${message.role}`}>
       <p>{message.content}</p>
+      {/* Appended below the text, never in place of it. Text that streamed is
+          text that happened; retracting it would leave no way to tell a misread
+          from a broken app. The distinct treatment is the point — this is
+          Olympus speaking about the turn, not the assistant. */}
+      {message.notice && (
+        <p className={`conversation-notice conversation-notice--${message.notice.kind}`}>
+          {message.notice.message}
+        </p>
+      )}
       <div className="conversation-bubble-footer">
         {message.role === "assistant" && (
           <button type="button" className="observation-seed" onClick={onNoteThis}>

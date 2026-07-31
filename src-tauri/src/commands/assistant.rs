@@ -52,6 +52,31 @@ pub struct AssistantReply {
     pub content: String,
     /// The model that actually answered — differs from MODEL when a fallback served the turn.
     pub model: String,
+    /// Set when the turn ended for a reason the operator needs to know about.
+    ///
+    /// **Appended, never substituted.** Text that streamed is text that happened
+    /// (and was billed); retracting it would leave the operator unable to tell a
+    /// misread from a broken app. `content` always holds everything that
+    /// arrived, and this rides alongside it.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub notice: Option<AssistantNotice>,
+    /// The model that declined, when a mid-stream fallback changed who was
+    /// answering. `None` on an ordinary turn.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub fell_back_from: Option<String>,
+}
+
+/// An app-level statement about the turn, never model-generated prose.
+///
+/// It carries a `kind` rather than pre-composed wording so the webview owns
+/// presentation — the point is that it must not look like something the
+/// assistant said.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AssistantNotice {
+    /// `refusal` | `truncated`
+    pub kind: &'static str,
+    pub message: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -98,6 +123,15 @@ struct AnthropicRequest {
     messages: Vec<ApiMessage>,
     output_config: OutputConfig,
     fallbacks: &'static str,
+    /// The whole reason this path exists. Without it the response arrives as one
+    /// complete body and there is no moment at which text *starts* — which is
+    /// the moment the omega's speaking state is derived from.
+    ///
+    /// **This does not touch prompt caching.** Caching is a prefix match over
+    /// the rendered `system` and `messages`; `stream` is a transport flag and is
+    /// not part of that prefix. The stable/volatile split and the breakpoint
+    /// between them are unchanged.
+    stream: bool,
 }
 
 /// Permissive on purpose: responses carry `thinking` and `fallback` blocks
@@ -110,22 +144,47 @@ struct ContentBlock {
     text: Option<String>,
 }
 
+/// One decoded SSE event. Permissive by construction: the wire carries event
+/// types this app does not read (`content_block_stop`, `ping`, and whatever ships
+/// next), and an unknown `type` must be skipped rather than fail the turn.
+///
+/// **The nesting is `delta.type`, not a flat field.** A text chunk is
+/// `content_block_delta` → `delta: {type: "text_delta", text: "..."}`; thinking is
+/// the same envelope with `thinking_delta`. Matching on the outer type alone
+/// cannot tell them apart, and on this model that distinction is the entire
+/// signal — see `StreamOutcome::first_text_at`.
 #[derive(Debug, Deserialize)]
-struct StopDetails {
+struct StreamEvent {
+    #[serde(rename = "type")]
+    event_type: String,
     #[serde(default)]
-    category: Option<String>,
+    message: Option<StreamMessage>,
+    #[serde(default)]
+    content_block: Option<ContentBlock>,
+    #[serde(default)]
+    delta: Option<StreamDelta>,
 }
 
+/// The `message_start` envelope. Names the model that is actually answering —
+/// which is not necessarily `MODEL`, because the request carries a server-side
+/// fallback header.
 #[derive(Debug, Deserialize)]
-struct AnthropicResponse {
-    #[serde(default)]
-    content: Vec<ContentBlock>,
-    #[serde(default)]
-    stop_reason: Option<String>,
-    #[serde(default)]
-    stop_details: Option<StopDetails>,
+struct StreamMessage {
     #[serde(default)]
     model: Option<String>,
+}
+
+/// Carries both the incremental content (`content_block_delta`) and the
+/// end-of-turn metadata (`message_delta`), which is why `stop_reason` lives here
+/// rather than on the envelope.
+#[derive(Debug, Deserialize)]
+struct StreamDelta {
+    #[serde(rename = "type", default)]
+    delta_type: Option<String>,
+    #[serde(default)]
+    text: Option<String>,
+    #[serde(default)]
+    stop_reason: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -294,21 +353,153 @@ fn api_key() -> Result<String, String> {
     }
 }
 
-fn extract_text(blocks: &[ContentBlock]) -> String {
-    blocks
-        .iter()
-        .filter(|block| block.block_type == "text")
-        .filter_map(|block| block.text.as_deref())
-        .collect::<Vec<_>>()
-        .join("\n")
-        .trim()
-        .to_string()
+/// Splits an SSE byte stream into complete `data:` payloads.
+///
+/// **The hazard this exists to close is the chunk boundary.** Bytes arrive in
+/// whatever sizes the transport chooses, so a single JSON event is routinely
+/// split across two reads — and parsing a half-object yields a decode error that
+/// looks exactly like a malformed API response. Only whole lines are ever
+/// handed on, so a partial line waits in the buffer for the rest of itself.
+///
+/// `event:` lines are ignored on purpose: the Anthropic wire format repeats the
+/// type inside the `data:` JSON, so reading one source rather than two removes a
+/// way for them to disagree.
+#[derive(Debug, Default)]
+struct SseDecoder {
+    buffer: String,
+}
+
+impl SseDecoder {
+    fn push(&mut self, chunk: &str) -> Vec<String> {
+        self.buffer.push_str(chunk);
+        let mut payloads = Vec::new();
+
+        while let Some(index) = self.buffer.find('\n') {
+            let line: String = self.buffer.drain(..=index).collect();
+            let line = line.trim_end_matches(['\n', '\r']);
+
+            if let Some(rest) = line.strip_prefix("data:") {
+                let payload = rest.trim();
+                if !payload.is_empty() {
+                    payloads.push(payload.to_string());
+                }
+            }
+        }
+
+        payloads
+    }
+}
+
+/// Everything the turn produced, assembled from the event stream.
+#[derive(Debug, Default)]
+struct StreamOutcome {
+    text: String,
+    model: Option<String>,
+    stop_reason: Option<String>,
+    /// Set when a `fallback` content block appeared, naming the model that
+    /// declined. On a stream this block is the *complete* signal — sticky
+    /// routing is not consulted for streaming requests, so there is no second
+    /// channel to reconcile against.
+    fell_back_from: Option<String>,
+    /// Index of the first `text_delta`, counted in events. Non-`None` means the
+    /// turn reached the speaking state.
+    first_text_event: Option<usize>,
+    events_seen: usize,
+}
+
+/// Folds one decoded event into the outcome.
+///
+/// **Only `text_delta` contributes to the reply.** A `thinking_delta` is
+/// deliberately dropped: `display` is left at its default of `omitted`, so those
+/// deltas carry empty text anyway, and treating them as content would put the
+/// model's reasoning into the transcript. The distinction lives in `delta.type`,
+/// not the event type — both arrive as `content_block_delta`.
+fn apply_stream_event(outcome: &mut StreamOutcome, event: &StreamEvent) {
+    outcome.events_seen += 1;
+
+    match event.event_type.as_str() {
+        "message_start" => {
+            if let Some(model) = event.message.as_ref().and_then(|m| m.model.clone()) {
+                // A pre-output fallback means this names the *second* model; the
+                // first one never got to open a message.
+                outcome.model = Some(model);
+            }
+        }
+        "content_block_start" => {
+            // A fallback arrives as an ordinary content block, not a distinct SSE
+            // event type. Nothing announces it but this.
+            if let Some(block) = event.content_block.as_ref() {
+                if block.block_type == "fallback" {
+                    outcome.fell_back_from = outcome.model.clone();
+                }
+            }
+        }
+        "content_block_delta" => {
+            let Some(delta) = event.delta.as_ref() else {
+                return;
+            };
+            if delta.delta_type.as_deref() != Some("text_delta") {
+                return;
+            }
+            if let Some(text) = delta.text.as_deref() {
+                if outcome.first_text_event.is_none() && !text.is_empty() {
+                    outcome.first_text_event = Some(outcome.events_seen);
+                }
+                outcome.text.push_str(text);
+            }
+        }
+        "message_delta" => {
+            if let Some(reason) = event.delta.as_ref().and_then(|d| d.stop_reason.clone()) {
+                outcome.stop_reason = Some(reason);
+            }
+        }
+        _ => {}
+    }
+}
+
+/// Derives the app-level notice, if the turn earned one.
+///
+/// Returns `None` for an ordinary completion. A refusal or a token-limit stop
+/// produces a notice *beside* the text rather than replacing it.
+fn notice_for(stop_reason: Option<&str>, text: &str) -> Option<AssistantNotice> {
+    match stop_reason {
+        Some("refusal") if !text.is_empty() => Some(AssistantNotice {
+            kind: "refusal",
+            message: "Anthropic's safety classifiers stopped this response partway. \
+                      What appears above is what was produced before it stopped."
+                .to_string(),
+        }),
+        Some("max_tokens") => Some(AssistantNotice {
+            kind: "truncated",
+            message: "Response stopped at the token limit. It is incomplete.".to_string(),
+        }),
+        _ => None,
+    }
+}
+
+/// What the webview receives while the turn is in flight.
+///
+/// A per-invocation `Channel` rather than a global Tauri event: two chat requests
+/// can never interleave on it, so there is no request id to filter on and no way
+/// to get that filtering wrong.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase", tag = "kind")]
+pub enum AssistantStreamEvent {
+    /// The turn opened. `model` is who is actually answering.
+    Started { model: String },
+    /// Text arrived. **The first of these is the speaking signal** — it is the
+    /// moment `producing` becomes true for the omega.
+    Delta { text: String },
+    /// A mid-turn handoff. Both models are named because the readout shows the
+    /// transition rather than silently swapping one value for the other.
+    FellBack { from: String, to: String },
 }
 
 #[tauri::command]
 pub async fn send_assistant_message(
     history: Vec<ChatTurn>,
     context: AssistantContext,
+    on_event: tauri::ipc::Channel<AssistantStreamEvent>,
 ) -> Result<AssistantReply, String> {
     let key = api_key()?;
     let messages = prepare_messages(history);
@@ -330,6 +521,7 @@ pub async fn send_assistant_message(
         messages,
         output_config: OutputConfig { effort: EFFORT },
         fallbacks: "default",
+        stream: true,
     };
 
     let client = reqwest::Client::builder()
@@ -349,12 +541,10 @@ pub async fn send_assistant_message(
         .map_err(|error| format!("Could not reach the Anthropic API: {error}"))?;
 
     let status = response.status();
-    let body = response
-        .text()
-        .await
-        .map_err(|error| format!("Could not read the Anthropic response: {error}"))?;
 
+    // An error response is an ordinary JSON body, not a stream — read it whole.
     if !status.is_success() {
+        let body = response.text().await.unwrap_or_default();
         // Surface the API's own message — it names the offending field, which is
         // far more useful than a generic failure.
         let detail = serde_json::from_str::<ApiErrorEnvelope>(&body)
@@ -363,33 +553,97 @@ pub async fn send_assistant_message(
         return Err(format!("Anthropic API error ({status}). {detail}"));
     }
 
-    let parsed: AnthropicResponse = serde_json::from_str(&body)
-        .map_err(|error| format!("Could not parse the Anthropic response: {error}"))?;
+    let mut decoder = SseDecoder::default();
+    let mut outcome = StreamOutcome::default();
+    let mut announced_model: Option<String> = None;
+    let mut stream = response.bytes_stream();
+    let started = std::time::Instant::now();
+    let mut first_text_at: Option<std::time::Duration> = None;
 
-    // A refusal is a successful HTTP 200 with empty or partial content, so this
-    // has to be checked before reading the content blocks.
-    if parsed.stop_reason.as_deref() == Some("refusal") {
-        let category = parsed
-            .stop_details
-            .and_then(|details| details.category)
-            .unwrap_or_else(|| "unspecified".to_string());
-        return Err(format!(
-            "That request was declined by Anthropic's safety classifiers (category: {category})."
-        ));
+    while let Some(chunk) = futures_util::StreamExt::next(&mut stream).await {
+        let chunk = chunk.map_err(|error| format!("The response stream failed: {error}"))?;
+        let text = String::from_utf8_lossy(&chunk).into_owned();
+
+        for payload in decoder.push(&text) {
+            // An event this build does not model must not end the turn — the wire
+            // format gains types faster than this file does.
+            let Ok(event) = serde_json::from_str::<StreamEvent>(&payload) else {
+                continue;
+            };
+
+            let had_text = outcome.first_text_event.is_some();
+            let fell_back_before = outcome.fell_back_from.is_some();
+            apply_stream_event(&mut outcome, &event);
+
+            if announced_model.is_none() {
+                if let Some(model) = outcome.model.clone() {
+                    announced_model = Some(model.clone());
+                    on_event.send(AssistantStreamEvent::Started { model }).ok();
+                }
+            }
+
+            if !fell_back_before {
+                if let Some(from) = outcome.fell_back_from.clone() {
+                    // The block names no successor, so the model that follows it is
+                    // whatever `message_start` already gave us.
+                    let to = outcome.model.clone().unwrap_or_else(|| MODEL.to_string());
+                    on_event.send(AssistantStreamEvent::FellBack { from, to }).ok();
+                }
+            }
+
+            if !had_text && outcome.first_text_event.is_some() {
+                first_text_at = Some(started.elapsed());
+            }
+
+            if event.event_type == "content_block_delta" {
+                if let Some(text) = event
+                    .delta
+                    .as_ref()
+                    .filter(|d| d.delta_type.as_deref() == Some("text_delta"))
+                    .and_then(|d| d.text.clone())
+                {
+                    on_event.send(AssistantStreamEvent::Delta { text }).ok();
+                }
+            }
+        }
     }
 
-    let content = extract_text(&parsed.content);
+    let content = outcome.text.trim().to_string();
 
+    // Nothing streamed. There is no output to preserve, so an error is the honest
+    // surface — the append-never-retract rule applies to text that *arrived*.
     if content.is_empty() {
-        return Err(format!(
-            "The model returned no text (stop reason: {}).",
-            parsed.stop_reason.as_deref().unwrap_or("unknown")
-        ));
+        return match outcome.stop_reason.as_deref() {
+            Some("refusal") => Err(
+                "That request was declined by Anthropic's safety classifiers before any \
+                 text was produced."
+                    .to_string(),
+            ),
+            other => Err(format!(
+                "The model returned no text (stop reason: {}).",
+                other.unwrap_or("unknown")
+            )),
+        };
+    }
+
+    // Speaking-state timing, logged rather than tuned. The floor question — whether
+    // a short reply flashes the state — should be decided from this distribution,
+    // not from an impression of one reply.
+    if let Some(first) = first_text_at {
+        eprintln!(
+            "[Olympus::Assistant] speaking window {}ms (first text at {}ms of {}ms total, {} events)",
+            started.elapsed().saturating_sub(first).as_millis(),
+            first.as_millis(),
+            started.elapsed().as_millis(),
+            outcome.events_seen
+        );
     }
 
     Ok(AssistantReply {
+        notice: notice_for(outcome.stop_reason.as_deref(), &content),
         content,
-        model: parsed.model.unwrap_or_else(|| MODEL.to_string()),
+        model: outcome.model.unwrap_or_else(|| MODEL.to_string()),
+        fell_back_from: outcome.fell_back_from,
     })
 }
 
@@ -442,20 +696,171 @@ mod tests {
         assert_eq!(prepared[0].role, "user");
     }
 
-    #[test]
-    fn skips_thinking_blocks_when_extracting_text() {
-        let blocks = vec![
-            ContentBlock {
-                block_type: "thinking".to_string(),
-                text: None,
-            },
-            ContentBlock {
-                block_type: "text".to_string(),
-                text: Some("  the answer  ".to_string()),
-            },
-        ];
+    /// Feeds a whole SSE transcript through the decoder in one push.
+    fn drain(transcript: &str) -> StreamOutcome {
+        let mut decoder = SseDecoder::default();
+        let mut outcome = StreamOutcome::default();
+        for payload in decoder.push(transcript) {
+            let event: StreamEvent = serde_json::from_str(&payload).unwrap();
+            apply_stream_event(&mut outcome, &event);
+        }
+        outcome
+    }
 
-        assert_eq!(extract_text(&blocks), "the answer");
+    /// Replaces the old `skips_thinking_blocks_when_extracting_text`, which
+    /// tested a whole-body parser that no longer exists. The property is the
+    /// same and it now runs against the code that actually ships: only
+    /// `text_delta` reaches the transcript.
+    ///
+    /// **[V] The transcript below is the real wire shape, captured from the live
+    /// API on 2026-07-30 — and it is not what the reference implies.** At
+    /// `display: "omitted"` a thinking block emits **`signature_delta`**, not
+    /// `thinking_delta`; no `thinking_delta` arrives at all. A test written from
+    /// the reference alone would have asserted exclusion of an event this
+    /// configuration never sends. Both are covered here: `signature_delta`
+    /// because it is what actually arrives, `thinking_delta` because it would if
+    /// `display` were ever changed.
+    #[test]
+    fn thinking_deltas_never_reach_the_reply() {
+        let outcome = drain(concat!(
+            "data: {\"type\":\"content_block_start\",\"content_block\":{\"type\":\"thinking\"}}\n\n",
+            "data: {\"type\":\"content_block_delta\",\"delta\":{\"type\":\"signature_delta\",\"signature\":\"abc123\"}}\n\n",
+            "data: {\"type\":\"content_block_delta\",\"delta\":{\"type\":\"thinking_delta\",\"thinking\":\"secret reasoning\"}}\n\n",
+            "data: {\"type\":\"content_block_stop\"}\n\n",
+            "data: {\"type\":\"content_block_start\",\"content_block\":{\"type\":\"text\"}}\n\n",
+            "data: {\"type\":\"content_block_delta\",\"delta\":{\"type\":\"text_delta\",\"text\":\"the answer\"}}\n\n",
+        ));
+
+        assert_eq!(outcome.text, "the answer");
+        assert!(
+            !outcome.text.contains("secret") && !outcome.text.contains("abc123"),
+            "a non-text delta leaked into the reply"
+        );
+    }
+
+    /// **[V] Captured live on 2026-07-30.** A trivial prompt skips the thinking
+    /// block entirely — `message_start` goes straight to a text block — while a
+    /// substantive one opens thinking first. The speaking signal has to be
+    /// correct in both shapes, and in the first there is no thinking block for it
+    /// to be confused by.
+    #[test]
+    fn a_reply_with_no_thinking_block_still_reports_its_first_text() {
+        let outcome = drain(concat!(
+            "data: {\"type\":\"message_start\",\"message\":{\"model\":\"claude-opus-5\"}}\n\n",
+            "data: {\"type\":\"content_block_start\",\"content_block\":{\"type\":\"text\"}}\n\n",
+            "data: {\"type\":\"ping\"}\n\n",
+            "data: {\"type\":\"content_block_delta\",\"delta\":{\"type\":\"text_delta\",\"text\":\"ready\"}}\n\n",
+            "data: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"end_turn\"}}\n\n",
+        ));
+
+        assert_eq!(outcome.first_text_event, Some(4));
+        assert_eq!(outcome.text, "ready");
+        assert_eq!(outcome.stop_reason.as_deref(), Some("end_turn"));
+    }
+
+    /// **The speaking signal is the first `text_delta`, not the first event.**
+    /// A thinking block opens first and `message_start` precedes everything, so
+    /// deriving `producing` from either would fire during the thinking phase and
+    /// collapse the two states into one.
+    #[test]
+    fn speaking_starts_at_the_first_text_delta_not_before() {
+        let outcome = drain(concat!(
+            "data: {\"type\":\"message_start\",\"message\":{\"model\":\"claude-opus-5\"}}\n\n",
+            "data: {\"type\":\"content_block_start\",\"content_block\":{\"type\":\"thinking\"}}\n\n",
+            "data: {\"type\":\"content_block_delta\",\"delta\":{\"type\":\"thinking_delta\",\"thinking\":\"\"}}\n\n",
+            "data: {\"type\":\"content_block_delta\",\"delta\":{\"type\":\"text_delta\",\"text\":\"hi\"}}\n\n",
+        ));
+
+        assert_eq!(
+            outcome.first_text_event,
+            Some(4),
+            "speaking must begin on the text delta, not on message_start or the thinking block"
+        );
+    }
+
+    /// The chunk boundary is the whole reason the decoder buffers. A JSON object
+    /// split mid-object must not be parsed, and must not be lost.
+    #[test]
+    fn a_json_event_split_across_chunks_survives() {
+        let mut decoder = SseDecoder::default();
+
+        assert!(
+            decoder.push("data: {\"type\":\"content_bl").is_empty(),
+            "a partial line must yield nothing"
+        );
+        assert!(
+            decoder
+                .push("ock_delta\",\"delta\":{\"type\":\"text_delta\",\"text\":\"ok\"}}")
+                .is_empty(),
+            "a line without its newline is still incomplete"
+        );
+
+        let payloads = decoder.push("\n\n");
+        assert_eq!(payloads.len(), 1, "the completed line must emerge exactly once");
+
+        let event: StreamEvent = serde_json::from_str(&payloads[0]).unwrap();
+        assert_eq!(event.delta.unwrap().text.as_deref(), Some("ok"));
+    }
+
+    /// Replaces `parses_a_refusal_response`. A refusal now arrives as a
+    /// `stop_reason` on `message_delta`, *after* text may already have streamed —
+    /// so the notice is appended beside that text rather than replacing it.
+    #[test]
+    fn a_refusal_after_partial_text_keeps_the_text_and_adds_a_notice() {
+        let outcome = drain(concat!(
+            "data: {\"type\":\"content_block_delta\",\"delta\":{\"type\":\"text_delta\",\"text\":\"partial answer\"}}\n\n",
+            "data: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"refusal\"}}\n\n",
+        ));
+
+        assert_eq!(outcome.stop_reason.as_deref(), Some("refusal"));
+        assert_eq!(outcome.text, "partial answer");
+
+        let notice = notice_for(outcome.stop_reason.as_deref(), &outcome.text)
+            .expect("a refusal with text must produce a notice");
+        assert_eq!(notice.kind, "refusal");
+    }
+
+    /// A refusal that produced nothing has no text to preserve, so there is
+    /// nothing for a notice to sit beside — the command errors instead.
+    #[test]
+    fn a_refusal_with_no_text_produces_no_notice() {
+        assert!(notice_for(Some("refusal"), "").is_none());
+    }
+
+    #[test]
+    fn a_token_limit_stop_is_a_distinct_notice_from_a_refusal() {
+        let truncated = notice_for(Some("max_tokens"), "partial").unwrap();
+        assert_eq!(truncated.kind, "truncated");
+        assert!(
+            !truncated.message.to_lowercase().contains("declin"),
+            "a token-limit stop must not read as a refusal"
+        );
+        assert!(notice_for(Some("end_turn"), "all done").is_none());
+    }
+
+    /// A fallback is announced by an ordinary content block, not its own event
+    /// type — nothing else on the stream marks the handoff.
+    #[test]
+    fn a_fallback_content_block_records_the_model_that_declined() {
+        let outcome = drain(concat!(
+            "data: {\"type\":\"message_start\",\"message\":{\"model\":\"claude-opus-5\"}}\n\n",
+            "data: {\"type\":\"content_block_start\",\"content_block\":{\"type\":\"fallback\"}}\n\n",
+        ));
+
+        assert_eq!(outcome.fell_back_from.as_deref(), Some("claude-opus-5"));
+    }
+
+    /// The wire format outruns this file. An unmodelled event type must be inert,
+    /// not fatal.
+    #[test]
+    fn unknown_event_types_are_ignored_rather_than_fatal() {
+        let outcome = drain(concat!(
+            "data: {\"type\":\"ping\"}\n\n",
+            "data: {\"type\":\"some_future_event\",\"whatever\":1}\n\n",
+            "data: {\"type\":\"content_block_delta\",\"delta\":{\"type\":\"text_delta\",\"text\":\"still here\"}}\n\n",
+        ));
+
+        assert_eq!(outcome.text, "still here");
     }
 
     /// The request body cannot be verified against the live API from CI, so the
@@ -474,6 +879,7 @@ mod tests {
             }],
             output_config: OutputConfig { effort: EFFORT },
             fallbacks: "default",
+            stream: true,
         };
 
         let json: serde_json::Value = serde_json::to_value(&payload).unwrap();
@@ -481,29 +887,37 @@ mod tests {
         assert_eq!(json["model"], "claude-opus-5");
         assert_eq!(json["output_config"]["effort"], EFFORT);
         assert_eq!(json["fallbacks"], "default");
+        assert_eq!(json["stream"], true);
         assert_eq!(json["messages"][0]["role"], "user");
         assert_eq!(json["system"][0]["type"], "text");
 
-        for rejected in ["temperature", "top_p", "top_k", "budget_tokens", "thinking", "effort"] {
-            assert!(
-                json.get(rejected).is_none(),
-                "`{rejected}` must not be sent to {MODEL}"
-            );
-        }
-    }
+        // **Equality on the field set, not a subset check.** A denylist of known-
+        // rejected keys only catches the fields someone thought to name; a new
+        // top-level field would slip in unpinned, which is the floor-assertion
+        // failure wearing different clothes. Adding a field to the payload must
+        // fail here and be justified.
+        let mut sent: Vec<&str> = json
+            .as_object()
+            .expect("payload must serialize to an object")
+            .keys()
+            .map(String::as_str)
+            .collect();
+        sent.sort_unstable();
 
-    /// A refusal arrives as HTTP 200 with no text block, so the parser must not
-    /// treat the empty content array as a malformed response.
-    #[test]
-    fn parses_a_refusal_response() {
-        let parsed: AnthropicResponse = serde_json::from_str(
-            r#"{"content":[],"stop_reason":"refusal","stop_details":{"type":"refusal","category":"cyber"},"model":"claude-opus-5"}"#,
-        )
-        .unwrap();
-
-        assert_eq!(parsed.stop_reason.as_deref(), Some("refusal"));
-        assert_eq!(parsed.stop_details.unwrap().category.as_deref(), Some("cyber"));
-        assert!(extract_text(&parsed.content).is_empty());
+        assert_eq!(
+            sent,
+            vec![
+                "fallbacks",
+                "max_tokens",
+                "messages",
+                "model",
+                "output_config",
+                "stream",
+                "system",
+            ],
+            "the payload's field set changed; confirm the new field is accepted by {MODEL} \
+             before pinning it here"
+        );
     }
 
     fn context_fixture() -> AssistantContext {

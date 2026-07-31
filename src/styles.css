@@ -2754,6 +2754,33 @@ small {
   margin-bottom: 0;
 }
 
+/* Olympus speaking about the turn, not the assistant speaking. It has to be
+   unmistakably not-prose: monospace, smaller, its own rule above it. It sits
+   below the text it describes and never replaces it. */
+.conversation-notice {
+  margin: var(--space-8) 0 0;
+  padding-top: var(--space-8);
+  border-top: 1px solid rgba(148, 163, 184, 0.22);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.5;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+}
+
+/* A refusal is a boundary, not a failure — amber, the same register the
+   instrument uses for "something happened", rather than an error red. */
+.conversation-notice--refusal {
+  color: #d9a06b;
+  border-top-color: rgba(217, 119, 6, 0.32);
+}
+
+/* Truncation is mechanical. It stays in the muted register so it does not read
+   as a judgement about the request. */
+.conversation-notice--truncated {
+  color: #9aa8bd;
+}
+
 .conversation-pending {
   animation: conversation-pulse 1.4s ease-in-out infinite;
 }

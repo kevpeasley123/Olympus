@@ -199,6 +199,24 @@ export function useDashboardData() {
    * smaller form. Session state, deliberately not persisted.
    */
   const [chatModel, setChatModel] = useState<string | null>(null);
+  /**
+   * Response text is arriving. Drives the omega's speaking state.
+   *
+   * Set on the **first delta**, not on the response envelope: the envelope
+   * arrives before any text exists, so deriving this from it would make speaking
+   * start the instant thinking did and the two states would never be
+   * distinguishable. Cleared on the same path as `chatPending`.
+   */
+  const [chatProducing, setChatProducing] = useState(false);
+  /**
+   * The model that declined, when a mid-turn fallback changed who was answering.
+   *
+   * Kept separate from `chatModel` so the readout can show the *transition*
+   * rather than silently swapping one value for another — a value that changes
+   * quietly is the invisible-wrongness problem the readout exists to prevent.
+   * Cleared at the start of each turn, so it describes the last turn only.
+   */
+  const [chatFellBackFrom, setChatFellBackFrom] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -371,14 +389,36 @@ export function useDashboardData() {
 
       setChatPending(true);
       setChatError(null);
+      setChatProducing(false);
+      setChatFellBackFrom(null);
 
       try {
         const reply = await requestAssistantReply(
           history,
           dashboardState.settings,
-          dashboardState.projects
+          dashboardState.projects,
+          (event) => {
+            switch (event.kind) {
+              case "started":
+                // Latch the model at first paint. Routing noise must not churn
+                // the readout mid-response.
+                setChatModel(event.model);
+                break;
+              case "delta":
+                // The speaking signal. Idempotent by construction — React bails
+                // on an unchanged value, so every later delta is free.
+                setChatProducing(true);
+                break;
+              case "fellBack":
+                // A real change in what is answering, so it is surfaced. Both
+                // models are kept: the readout shows the handoff.
+                setChatFellBackFrom(event.from);
+                setChatModel(event.to);
+                break;
+            }
+          }
         );
-        const assistant = createAssistantMessage(reply.content);
+        const assistant = createAssistantMessage(reply.content, reply.notice);
         setChatModel(reply.model);
         setDashboardState((current) => ({
           ...current,
@@ -395,10 +435,11 @@ export function useDashboardData() {
         // Cancellation is deliberately unhandled. There is no cancel affordance
         // anywhere in the app, so it is not a reachable state and defending it
         // would be code that can never run and never be tested. **If a cancel
-        // button is ever added, it has to clear `chatPending` on this same path**
-        // — an aborted request that skips this `finally` strands the indicator
-        // and the omega's thinking state together, since both read this flag.
+        // button is ever added, it has to clear both flags on this same path** —
+        // an aborted request that skips this `finally` strands the indicator and
+        // the omega's thinking *and* speaking states together.
         setChatPending(false);
+        setChatProducing(false);
       }
     },
     [dashboardState.conversation, dashboardState.projects, dashboardState.settings]
@@ -456,6 +497,8 @@ export function useDashboardData() {
       chatPending,
       chatError,
       chatModel,
+      chatProducing,
+      chatFellBackFrom,
       nowPlaying: dashboardState.nowPlaying,
       markets,
       weather,
@@ -474,6 +517,8 @@ export function useDashboardData() {
       chatPending,
       chatError,
       chatModel,
+      chatProducing,
+      chatFellBackFrom,
       markets,
       weather,
       sourceTrackers,

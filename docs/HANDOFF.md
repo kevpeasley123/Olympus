@@ -210,6 +210,87 @@ starving the input — 4 nodes positioned against a claimed 28.
 > result looks exactly like the code being broken.** Mirror the harness's own
 > fixture, or export it — do not retype it.
 
+## 2026-07-30 — the chat streams, and speaking is reachable
+
+**[V] Verified against the live API, not the reference.** Three real turns were
+run through the exact payload `assistant.rs` sends. Two findings the reference
+alone would have got wrong:
+
+**1. At `display: "omitted"` a thinking block emits `signature_delta`, not
+`thinking_delta`.** No `thinking_delta` arrives at all. A test written from the
+reference would have asserted the exclusion of an event this configuration never
+sends — green, and covering nothing. Both are now covered.
+
+**2. A trivial prompt skips the thinking block entirely**, going
+`message_start → content_block_start/text`. The speaking signal has to be right
+in both shapes. Observed sequences:
+
+```
+one word:     message_start → content_block_start/text → ping → text_delta ×1  → …
+one sentence: message_start → content_block_start/thinking → ping → signature_delta
+              → content_block_stop → content_block_start/text → text_delta ×4  → …
+```
+
+**The speaking signal is the first `text_delta`.** Not `message_start` (fires
+before any text exists) and not `content_block_start` (a thinking block opens
+first). Deriving it from either collapses thinking and speaking into one state.
+
+### [V] The speaking-window distribution — and the flash is real
+
+Measured first `text_delta` → `message_stop`:
+
+| reply | chars | thinking window | **speaking window** |
+|---|---|---|---|
+| one word | 5 | 2752ms | **20ms** |
+| one sentence | 342 | 1250ms | 1046ms |
+| three paragraphs | 2790 | 2027ms | 12585ms |
+
+**20ms is not a flash, it is a state that never renders.** Below any perceptual
+threshold and below a single frame at 50fps. A minimum-display floor is now
+justified by numbers rather than impression — **but it is not built**, because
+the operator asked to see the distribution first. This is it.
+
+Note the shape: the *thinking* window barely moves (1.2–2.8s) while the speaking
+window spans three orders of magnitude. Latency to first token is roughly
+constant; everything after it scales with output length.
+
+### What was decided, and why
+
+- **Refusal and truncation append, never retract.** Text that streamed was
+  produced and billed; removing it would leave the operator unable to tell a
+  misread from a broken app. `AssistantNotice` rides *beside* `content` rather
+  than being folded into it, and renders in monospace above its own rule — it is
+  Olympus speaking about the turn, not the assistant. A refusal that produced
+  **no** text still errors: there is nothing to preserve, so a notice would have
+  nothing to sit beside.
+- **The model readout latches at first paint** and moves only on a real
+  `fallback` block, which renders as `from → to` rather than swapping in place.
+  A value that changes quietly is the invisible-wrongness the readout exists to
+  prevent. **[A] The fallback path has never fired** — no run declined.
+- **`thinking.display` stays `omitted`.** Surfacing reasoning is a separate
+  product decision, it costs context, and the empty-thinking default is what
+  produces a clean thinking phase.
+- **No non-streaming fallback path.** Two paths means the contract test pins one
+  and the other drifts — this project has four documented instances of exactly
+  that. `MAX_TOKENS` is 8000, well under the ~16000 where non-streaming risks a
+  timeout, so streaming buys observability, not reliability. Reverting it would
+  be honest, not a regression.
+
+### The contract test now pins the field set by equality
+
+It asserted a denylist of known-rejected keys, which only catches fields someone
+thought to name — a new top-level field would have slipped in unpinned. It now
+compares the serialized key set exactly. **[V] It caught its own author within a
+minute**: the first expected list omitted `model` and the test failed.
+
+**Prompt caching is untouched.** Caching is a prefix match over rendered `system`
+and `messages`; `stream` is a transport flag outside that prefix. The
+stable/volatile split and its breakpoint are unchanged, and the existing
+breakpoint tests still pass.
+
+**[V] Rust 172 tests pass** (was 165). `npm run build` passes. **[A] Nobody has
+watched the omega speak** — that needs a chat message sent in the running app.
+
 ## How to read the claims in this document
 
 Every factual claim is tagged:

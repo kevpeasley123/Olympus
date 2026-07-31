@@ -27,11 +27,18 @@ interface CommandInstrumentProps {
   tasksError: string | null;
   /** A chat request is in flight. Drives the glyph's thinking state. */
   assistantPending?: boolean;
+  /** Response text is arriving. Drives the glyph's speaking state. */
+  assistantProducing?: boolean;
   /**
    * The model that answered the last turn, from the API response rather than
    * from any local constant. Null before the first reply of the session.
    */
   assistantModel?: string | null;
+  /**
+   * The model that declined, when a mid-turn fallback changed who answered.
+   * Renders as a transition beside the current model rather than replacing it.
+   */
+  assistantFellBackFrom?: string | null;
   onSelectProject: (projectId: string) => void;
   onOpenNote: (notePath: string) => void;
 }
@@ -102,7 +109,9 @@ export function CommandInstrument({
   tasksLoading,
   tasksError,
   assistantPending = false,
+  assistantProducing = false,
   assistantModel = null,
+  assistantFellBackFrom = null,
   onSelectProject,
   onOpenNote
 }: CommandInstrumentProps) {
@@ -117,19 +126,32 @@ export function CommandInstrument({
   const commits = projects.flatMap((project) =>
     (project.recentCommits ?? []).map((commit) => ({ ...commit, project: project.name }))
   );
-  // `producing` stays false until the chat streams — see `glyphState.ts`. Because
-  // the state is derived rather than scheduled, an error or a cancellation that
-  // clears `assistantPending` settles back to idle through the same transition as
-  // a normal completion, and no animation can be left running.
-  const glyphState = glyphStateFor({ pending: assistantPending, producing: false });
+  // Both flags come from the same request state as the chat panel, so the line,
+  // the panel and the omega cannot disagree. Because the state is *derived*
+  // rather than scheduled, an error or a cancellation that clears them settles
+  // back to idle through the same transition as a normal completion, and no
+  // animation can be left running.
+  const glyphState = glyphStateFor({
+    pending: assistantPending,
+    producing: assistantProducing
+  });
 
-  // Derived from the same `assistantPending` that drives the glyph, so the line
-  // and the omega cannot disagree about whether a request is in flight. Order is
-  // identity then activity: the model is the stable half and should not move
-  // when the transient half appears beside it.
-  const statusParts = [assistantModel, glyphState === "thinking" ? "thinking" : null].filter(
-    (part): part is string => Boolean(part)
-  );
+  // Identity first, then activity: the model is the stable half and must not
+  // move when the transient half appears beside it.
+  //
+  // A fallback renders as `from → to` rather than swapping the value in place.
+  // Both models genuinely answered part of the turn, and a readout that quietly
+  // changed would be the invisible-wrongness this line exists to prevent — the
+  // arrow is the visible transition. It clears on the next turn.
+  const identity = assistantFellBackFrom
+    ? `${assistantFellBackFrom} → ${assistantModel ?? "?"}`
+    : assistantModel;
+
+  const statusParts = [
+    identity,
+    glyphState === "thinking" ? "thinking" : null,
+    glyphState === "speaking" ? "speaking" : null
+  ].filter((part): part is string => Boolean(part));
 
   useLayoutEffect(() => {
     const dial = dialRef.current;

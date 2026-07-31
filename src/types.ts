@@ -119,6 +119,19 @@ export interface ConversationMessage {
   role: "system" | "assistant" | "user";
   content: string;
   timestamp: string;
+  /**
+   * How the turn ended, when it ended in a way the operator needs to know about.
+   *
+   * Deliberately a sibling of `content` rather than appended text: the notice is
+   * app-level, and folding it into `content` would make it indistinguishable
+   * from something the assistant said. Optional and absent on ordinary turns —
+   * and on every message loaded from SQLite, since it describes a moment rather
+   * than the message.
+   */
+  notice?: {
+    kind: "refusal" | "truncated";
+    message: string;
+  };
 }
 
 /**

@@ -34,6 +34,8 @@ function App() {
     chatPending,
     chatError,
     chatModel,
+    chatProducing,
+    chatFellBackFrom,
     markets,
     weather,
     sourceHealth,
@@ -134,7 +136,9 @@ function App() {
                   tasksLoading={actionTasksLoading}
                   tasksError={actionTasksError}
                   assistantPending={chatPending}
+                  assistantProducing={chatProducing}
                   assistantModel={chatModel}
+                  assistantFellBackFrom={chatFellBackFrom}
                   onSelectProject={enterProject}
                   onOpenNote={(notePath) => void openVaultNote(notePath)}
                 />
