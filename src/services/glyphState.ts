@@ -13,10 +13,9 @@ export interface GlyphStateInput {
   /**
    * Response text is arriving incrementally.
    *
-   * **Always false today.** `assistant.rs` calls `.send().await` and parses one
-   * complete JSON body — there is no stream, so there is no moment at which text
-   * starts arriving. Wiring this up is the single change needed once the chat
-   * streams; nothing else here has to move.
+   * Set on the first `text_delta` of a streamed turn — not on the response
+   * envelope, which arrives before any text exists and would collapse thinking
+   * and speaking into one state. `useDashboardData` owns the wiring.
    */
   producing: boolean;
 }

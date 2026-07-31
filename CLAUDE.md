@@ -90,7 +90,9 @@ Next up:
 
 5. **Conversation log and vault promotion** — the raw log already persists; what's missing is the path from "we worked this out in chat" to a proper Markdown note in `04 - Decisions` or `02 - Research`, so Olympus can answer "when did I decide that?"
 
-`OLYMPUS-BRIEF.md` is the current session handoff and is more specific than this section.
+`docs/HANDOFF.md` is the current session handoff and is more specific than this
+section. (`OLYMPUS-BRIEF.md` and `STATE-REVIEW.md` were earlier state documents,
+both superseded by it and deleted on 2026-07-31 — git history has them.)
 
 ## Conventions
 

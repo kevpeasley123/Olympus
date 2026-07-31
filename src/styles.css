@@ -178,7 +178,6 @@ select:focus {
   border-color: rgba(255, 158, 44, 0.72);
 }
 
-.font-mono,
 .project-branch,
 .project-repo-state,
 .project-path {
@@ -262,8 +261,7 @@ select:focus {
 }
 
 .topbar h1,
-.panel-header h2,
-.strip-header h2 {
+.panel-header h2 {
   margin: 0;
   line-height: 1.05;
 }
@@ -283,88 +281,24 @@ select:focus {
   text-transform: uppercase;
 }
 
-.topbar-actions,
 .panel-header,
-.strip-header,
-.research-card-header,
-.tag-row,
-.sector-list,
 .conversation-input-shell,
-.panel-actions,
-.market-strip-top,
-.market-strip-title,
-.market-strip-actions,
 .weather-inline {
   display: flex;
   align-items: center;
 }
 
-.header-pill,
-.icon-button,
-.tool-action,
-.primary-action,
 .ghost-action,
-.card-link,
-.send-button,
-.market-toggle {
+.send-button {
   border: 1px solid rgba(90, 216, 255, 0.22);
   background: rgba(7, 20, 31, 0.85);
   transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
 }
 
-.health-indicator {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 18px;
-  height: 18px;
-  margin-right: var(--space-12);
-}
-
-.health-indicator-dot,
 .health-source-dot {
   width: 8px;
   height: 8px;
   border-radius: 999px;
-}
-
-.health-indicator-dot {
-  background: var(--positive);
-  box-shadow: 0 0 8px rgba(74, 222, 128, 0.4);
-}
-
-.health-indicator.stale .health-indicator-dot {
-  background: #f59e0b;
-  box-shadow: 0 0 8px rgba(245, 158, 11, 0.4);
-  animation: health-pulse 1s ease-in-out infinite;
-}
-
-.health-indicator.failed .health-indicator-dot {
-  background: var(--negative);
-  box-shadow: 0 0 8px rgba(248, 113, 113, 0.4);
-  animation: health-pulse 1s ease-in-out infinite;
-}
-
-.health-popover {
-  position: absolute;
-  top: calc(100% + 10px);
-  left: 0;
-  z-index: 10;
-  display: none;
-  min-width: 230px;
-  padding: var(--space-12);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: rgba(7, 20, 31, 0.96);
-  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.28);
-}
-
-.health-indicator:hover .health-popover,
-.health-indicator:focus-within .health-popover {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-8);
 }
 
 .health-popover-row {
@@ -393,44 +327,15 @@ select:focus {
   background: var(--negative);
 }
 
-.header-pill {
-  justify-content: center;
-  gap: var(--space-8);
-  min-height: 36px;
-  padding: 8px 14px;
-  color: #cbd5e1;
-  font-size: var(--text-sm);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.03);
-}
-
-.header-separator,
 .weather-separator {
   color: var(--muted);
 }
 
-.icon-button,
-.icon-button:hover,
-.tool-action:hover,
-.primary-action:hover,
 .ghost-action:hover,
-.card-link:hover,
-.send-button:hover,
-.market-toggle:hover {
+.send-button:hover {
   border-color: rgba(255, 158, 44, 0.7);
   background: rgba(14, 42, 61, 0.95);
   transform: translateY(-1px);
-}
-
-.icon-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  padding: 0;
-  border-radius: 8px;
 }
 
 /* Three zones. The rail is sized by what it chose to show; the left zone takes
@@ -843,26 +748,12 @@ select:focus {
   flex: 0 0 auto;
 }
 
-.panel-body {
-  display: flex;
-  flex: 1 1 auto;
-  flex-direction: column;
-  min-height: 0;
-  margin-top: var(--space-16);
-}
-
 .settings-panel {
   max-width: 560px;
 }
 
 .preferences-panel {
   max-width: 520px;
-}
-
-.field-block {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-8);
 }
 
 .preferences-list {
@@ -893,7 +784,6 @@ select:focus {
   font-weight: var(--weight-medium);
 }
 
-.field-block span,
 small {
   display: block;
   color: var(--muted);
@@ -901,20 +791,17 @@ small {
   line-height: 1.35;
 }
 
-.strip-header,
 .panel-header {
   justify-content: space-between;
   gap: var(--space-16);
   align-items: flex-start;
 }
 
-.strip-header.compact h2,
 .panel-header.compact h2 {
   font-size: var(--text-lg);
   font-weight: var(--weight-medium);
 }
 
-.strip-header h2,
 .panel-header h2 {
   color: var(--primary);
   font-size: var(--text-xl);
@@ -929,18 +816,13 @@ small {
   line-height: 1.55;
 }
 
-.tool-action,
-.primary-action,
 .ghost-action,
-.card-link,
 .send-button {
   min-height: 34px;
   padding: 0 12px;
 }
 
-.tool-action,
-.ghost-action,
-.card-link {
+.ghost-action {
   display: inline-flex;
   align-items: center;
   gap: var(--space-8);
@@ -950,14 +832,6 @@ small {
   border-color: rgba(82, 225, 255, 0.42);
   color: #dff8ff;
   background: rgba(35, 151, 181, 0.15);
-}
-
-.primary-action {
-  justify-content: center;
-  color: #071019;
-  border-color: var(--accent);
-  background: var(--accent);
-  font-weight: var(--weight-medium);
 }
 
 /* The left column is an icon rail. It was 220px of mostly empty space holding
@@ -990,10 +864,6 @@ small {
   flex: 0 0 auto;
 }
 
-.right-stack > .panel-slot-weather {
-  flex: 0 0 auto;
-}
-
 .right-stack > .panel-slot-chat {
   display: flex;
   flex: 1 1 auto;
@@ -1005,15 +875,6 @@ small {
   min-height: 0;
 }
 
-
-.center-stack > .panel-slot-markets {
-  flex: 0 0 auto;
-  overflow: visible;
-}
-
-.center-stack > .panel-slot-markets > * {
-  overflow: visible;
-}
 
 .tools-rail {
   display: flex;
@@ -1095,10 +956,6 @@ small {
    background image is meant to read through. */
 .tools-rail {
   padding: var(--space-12) 0;
-}
-
-.tools-rail .panel-slot-tools .strip-header {
-  display: none;
 }
 
 .quick-app-button {
@@ -1339,10 +1196,6 @@ small {
   outline-offset: -2px;
 }
 
-.tool-row-main {
-  display: contents;
-}
-
 .tool-row-icon {
   color: var(--muted);
   flex: 0 0 auto;
@@ -1393,10 +1246,6 @@ small {
 
 .tool-column.is-compact .tool-area-dot {
   display: none;
-}
-
-.panel-icon {
-  color: var(--muted);
 }
 
 .retry-action {
@@ -1630,47 +1479,6 @@ small {
   font-weight: var(--weight-medium);
   letter-spacing: 0.12em;
   text-transform: uppercase;
-}
-
-.market-news-section {
-  padding-top: var(--space-4);
-}
-
-.market-news-list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-12);
-}
-
-.market-news-row {
-  padding-bottom: var(--space-12);
-  border-bottom: 1px solid var(--divider);
-}
-
-.market-news-row:last-child {
-  padding-bottom: 0;
-  border-bottom: 0;
-}
-
-.market-news-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--space-16);
-  margin-bottom: var(--space-4);
-}
-
-.market-news-head strong {
-  color: var(--primary);
-  font-size: var(--text-base);
-  font-weight: var(--weight-medium);
-  line-height: 1.45;
-}
-
-.market-news-head small {
-  color: var(--muted);
-  font-size: var(--text-xs);
-  flex: 0 0 auto;
 }
 
 .skeleton-line {
@@ -1984,11 +1792,6 @@ small {
 
 
 
-
-.pantheon-panel .panel-actions {
-  flex-wrap: wrap;
-  justify-content: flex-end;
-}
 
 .pantheon-search-shell {
   display: flex;
@@ -2415,75 +2218,6 @@ small {
   font-style: italic;
 }
 
-.pantheon-detail-content {
-  width: min(100%, 720px);
-  margin: var(--space-24) auto 0;
-  color: #cbd5e1;
-  line-height: 1.6;
-}
-
-.pantheon-detail-content h1,
-.pantheon-detail-content h2,
-.pantheon-detail-content h3,
-.pantheon-detail-content h4 {
-  color: var(--primary);
-  font-weight: var(--weight-medium);
-}
-
-.pantheon-detail-content p,
-.pantheon-detail-content ul,
-.pantheon-detail-content ol,
-.pantheon-detail-content blockquote {
-  margin: 0 0 var(--space-16);
-}
-
-.pantheon-detail-content code {
-  padding: 0 2px;
-  border-radius: 2px;
-  background: rgba(255, 255, 255, 0.05);
-  font-family: var(--font-mono);
-}
-
-.pantheon-detail-content pre {
-  margin: 0 0 var(--space-16);
-  padding: 14px;
-  border-radius: 8px;
-  overflow-x: auto;
-  background: rgba(0, 0, 0, 0.3);
-}
-
-.pantheon-detail-content pre code {
-  padding: 0;
-  background: transparent;
-}
-
-.pantheon-detail-content blockquote {
-  padding-left: var(--space-16);
-  color: var(--muted);
-  font-style: italic;
-  border-left: 2px solid rgba(217, 119, 6, 0.4);
-}
-
-.pantheon-detail-content a {
-  color: #9dd7ff;
-}
-
-.tag-row {
-  flex-wrap: wrap;
-  gap: var(--space-8);
-}
-
-.tag-chip {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 24px;
-  padding: 0 var(--space-12);
-  border: 1px solid rgba(90, 216, 255, 0.18);
-  color: #9edff0;
-  font-size: var(--text-xs);
-}
-
 .weather-panel {
   flex: 0 0 auto;
 }
@@ -2616,21 +2350,12 @@ small {
   height: 16px;
 }
 
-.weather-skeleton-location {
-  width: 108px;
-}
-
 .weather-skeleton-temp {
   width: 56px;
 }
 
 .weather-skeleton-detail {
   width: 164px;
-}
-
-.weather-location {
-  color: var(--primary);
-  font-weight: var(--weight-medium);
 }
 
 .weather-temp {
@@ -2804,12 +2529,6 @@ small {
   }
 }
 
-.conversation-header-actions {
-  display: flex;
-  align-items: center;
-  gap: var(--space-8);
-}
-
 .ghost-icon-action {
   display: grid;
   place-items: center;
@@ -2933,16 +2652,6 @@ small {
 
 .tabular-data {
   font-variant-numeric: tabular-nums;
-}
-
-@keyframes health-pulse {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.5;
-  }
 }
 
 @keyframes skeleton-pulse {
@@ -3083,20 +2792,6 @@ small {
   }
 }
 
-
-@media (max-width: 1560px) {
-  .market-groups {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
-
-
-@media (max-width: 1320px) {
-  .market-strip-grid.indexes,
-  .market-strip-grid.rates {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
 
 .pantheon-error {
   margin: 0 0 var(--space-8);
@@ -3868,80 +3563,6 @@ small {
 }
 
 .day-arc__label {
-  fill: var(--primary);
-  font-family: var(--font-sans);
-  font-size: 13px;
-  letter-spacing: 0.04em;
-  pointer-events: none;
-}
-
-/* Arc length is count. Status is carried by lightness *and* weight moving
-   together, because four stroke weights alone are not separable at this size —
-   the step from scaffold to unclassified was 1px on a 500px ring. Two
-   correlated channels mean neither has to do the work by itself. The floor is
-   5px: nothing here is a hairline. */
-.instrument-arc {
-  cursor: pointer;
-  transition:
-    opacity 160ms ease-out,
-    stroke 160ms ease-out;
-}
-
-.instrument-arc--active {
-  stroke: var(--accent);
-  opacity: 1;
-}
-
-.instrument-arc--watching {
-  stroke: #e0a54a;
-  opacity: 0.8;
-}
-
-.instrument-arc--scaffold {
-  stroke: #9aa8bd;
-  opacity: 0.7;
-}
-
-/* Faintest, but unmistakably present and clickable — clicking it is how the
-   operator finds what still needs classifying. It was 3px at 0.45 over a
-   photograph, which read as empty track rather than as a tier. */
-.instrument-arc--unclassified {
-  stroke: var(--muted);
-  opacity: 0.55;
-}
-
-.instrument-arc--archived {
-  stroke: var(--muted);
-  opacity: 0.3;
-}
-
-.instrument-arc:hover,
-.instrument-arc.is-hovered,
-.instrument-arc:focus-visible {
-  opacity: 1;
-  stroke: var(--primary);
-  outline: none;
-}
-
-/* Uncommitted work in this tier. A slow breath, not a blink — it should be
-   noticeable when scanned, not demand attention while reading the sentence. */
-.instrument-arc.is-dirty {
-  animation: instrument-dirty-breath 3.2s ease-in-out infinite;
-}
-
-/* Narrow and high: a dirty arc must never breathe *dimmer* than the tier below
-   it, or the pulse inverts the ranking it sits inside. */
-@keyframes instrument-dirty-breath {
-  0%,
-  100% {
-    opacity: 0.78;
-  }
-  50% {
-    opacity: 1;
-  }
-}
-
-.instrument-hover-label {
   fill: var(--primary);
   font-family: var(--font-sans);
   font-size: 13px;
@@ -5127,12 +4748,6 @@ small {
   .ring-outer,
   .ring-middle,
   .ring-inner,
-  /* The dirty-repo breath. The arcs themselves stay — with motion off the ring
-     must still say which tier is which and remain clickable; only the breath
-     and the pulse stop. A dirty arc still reads through its hover label.
-     The activity sweep that used to be listed here no longer exists: the vault
-     graph replaced it and animates nothing at rest. */
-  .instrument-arc.is-dirty,
   /* The now-marker stops breathing but stays at the right position, and every
      tick keeps its hover label. Matched with `.is-live` so this beats the rule
      that turns it on: source order settles ties, not specificity gaps. */
@@ -5141,7 +4756,6 @@ small {
   .conversation-pending,
   .skeleton-line,
   .health-source-dot,
-  .health-indicator,
   .delegation-phase.is-active,
   /* The omega's three presence states. The breath and the orbit stop; the states
      stay distinguishable statically, below. */
@@ -5183,9 +4797,7 @@ small {
   .markets-detail,
   .tool-row,
   .ghost-action,
-  .card-link,
   .send-button,
-  .market-toggle,
   .markets-news-toggle svg,
   .observation-seed,
   /* A ring node still brightens on hover — that is how it identifies itself —

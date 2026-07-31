@@ -21,7 +21,6 @@ import { usePantheon } from "./hooks/usePantheon";
 import { useDashboardData } from "./hooks/useDashboardData";
 import { useDashboardMode } from "./hooks/useDashboardMode";
 import type { DashboardMode } from "./hooks/useDashboardMode";
-import type { ProjectStatus } from "./types";
 
 function App() {
   const {
@@ -56,8 +55,6 @@ function App() {
   } = useActionQueue();
   usePantheon();
   const [statusPanel, setStatusPanel] = useState<StatusRailTarget | null>(null);
-  /** Set by clicking a tier arc; Project mode opens filtered to it. */
-  const [tierFilter, setTierFilter] = useState<ProjectStatus | null>(null);
   /** Set when Project mode narrows its detailed briefing to one workspace. */
   const [projectFilter, setProjectFilter] = useState<string | null>(null);
 
@@ -67,14 +64,7 @@ function App() {
   const research = mode === "research";
   const command = mode === "command";
 
-  function enterTier(status: ProjectStatus) {
-    setProjectFilter(null);
-    setTierFilter(status);
-    setMode("project");
-  }
-
   function enterProject(projectId: string) {
-    setTierFilter(null);
     setProjectFilter(projectId);
     setMode("project");
   }
@@ -83,7 +73,6 @@ function App() {
   // never silently showing a subset the operator did not ask for.
   function selectMode(next: DashboardMode) {
     if (next !== "project") {
-      setTierFilter(null);
       setProjectFilter(null);
     }
     setMode(next);
@@ -156,12 +145,8 @@ function App() {
                     onSyncCanvas={syncProjectsCanvas}
                     noteWarnings={projectNoteWarnings}
                     focusMode={dense}
-                    tierFilter={tierFilter}
                     projectFilter={projectFilter}
-                    onClearFilter={() => {
-                      setTierFilter(null);
-                      setProjectFilter(null);
-                    }}
+                    onClearFilter={() => setProjectFilter(null)}
                     onFocusProject={enterProject}
                     onOpenNote={(notePath) => void openVaultNote(notePath)}
                   />
@@ -209,9 +194,8 @@ function App() {
         onRefresh={() => void refreshAll()}
         mode={mode}
         onCycleMode={() => {
-          // Cycling is an explicit mode change, so it clears the tier filter
-          // for the same reason clicking a segment does.
-          setTierFilter(null);
+          // Cycling is an explicit mode change, so it clears the project filter
+          // for the same reason any other mode switch does.
           setProjectFilter(null);
           cycleMode();
         }}

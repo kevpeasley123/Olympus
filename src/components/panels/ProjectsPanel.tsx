@@ -18,8 +18,6 @@ interface ProjectsPanelProps {
   /** Problems with `01 - Projects` itself, not with any one project. */
   noteWarnings?: string[];
   focusMode?: boolean;
-  /** Set by clicking a tier arc in Command mode. */
-  tierFilter?: ProjectStatus | null;
   /** Set by opening one of Project mode's detailed session paths. */
   projectFilter?: string | null;
   onClearFilter?: () => void;
@@ -44,7 +42,6 @@ export function ProjectsPanel({
   onSyncCanvas,
   noteWarnings = [],
   focusMode = false,
-  tierFilter = null,
   projectFilter = null,
   onClearFilter,
   onFocusProject,
@@ -52,9 +49,7 @@ export function ProjectsPanel({
 }: ProjectsPanelProps) {
   const projects = projectFilter
     ? allProjects.filter((project) => project.id === projectFilter)
-    : tierFilter
-      ? allProjects.filter((project) => project.status === tierFilter)
-      : allProjects;
+    : allProjects;
   const [status, setStatus] = useState<ObsidianActionResult | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [delegationProposal, setDelegationProposal] = useState<DelegationProposal | null>(null);
@@ -80,7 +75,7 @@ export function ProjectsPanel({
   const { perProject, unattributed } = attributeTasks(allProjects, tasks);
   const filterLabel = projectFilter
     ? allProjects.find((project) => project.id === projectFilter)?.name ?? "project"
-    : tierFilter;
+    : null;
 
   return (
     <section className={`dashboard-panel projects-panel ${focusMode ? "focus-projects" : ""}`}>
@@ -128,7 +123,7 @@ export function ProjectsPanel({
         )}
       </div>
       <div className="project-list">
-        {!projectFilter && !tierFilter ? (
+        {!projectFilter ? (
           <ProjectBriefing
             projects={allProjects}
             sessionBoundary={sessionBoundary}
@@ -145,7 +140,7 @@ export function ProjectsPanel({
             }
           />
         ) : null}
-        {!projectFilter && !tierFilter ? (
+        {!projectFilter ? (
           <DelegationPanel
             proposal={delegationProposal}
             onDismissProposal={() => setDelegationProposal(null)}
