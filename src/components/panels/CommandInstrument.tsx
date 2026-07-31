@@ -46,8 +46,20 @@ const DAY_RADIUS = 205;
 /**
  * The breath sits inside the glyph clearance disc at rest and swells within it,
  * so it never reaches the innermost note band at 87.
+ *
+ * **77 is the ceiling, not a preference.** `GLYPH_CLEARANCE_RADIUS` is 82 and the
+ * breath peaks at `--breath-scale-high`, so the largest radius that keeps the
+ * swell inside the protected disc is `82 / 1.06 = 77.36`. At 77 the peak reaches
+ * 81.6 with 0.4 units to spare; the innermost note band's inner extent is 83.16
+ * behind that. **Raising this further puts glow where notes are drawn** — and the
+ * gradient still carries ~0.02 alpha at 93% of its radius, so the nominal circle
+ * is close enough to the visible edge that overrunning it would show.
+ *
+ * The radius is therefore a small dial, worth about 4%. What actually makes the
+ * glow occupy more space is the gradient's midpoint, moved outward — see the
+ * stops in the render.
  */
-const GLOW_RADIUS = 74;
+const GLOW_RADIUS = 77;
 
 /**
  * Inside the glyph clearance disc, which is protected empty space — cross-project
@@ -207,9 +219,22 @@ export function CommandInstrument({
               it in place. Measured, not assumed. */}
           <g className={`omega-presence omega-presence--${glyphState}`}>
             <defs>
+              {/* The midpoint carries the apparent size, not the radius.
+                  Pushed 55% -> 68%, so the body of the glow holds its value
+                  further out and the falloff happens over the last third
+                  instead of the last half. That is what reads as a larger
+                  object, and it costs nothing against the clearance disc.
+
+                  Alphas raised because the swing was perceptible while the
+                  object was dim: the peak is what the breath reaches at full
+                  opacity, so 0.34 meant the brightest pixel on a 500px
+                  instrument was a third of one amber. Still deliberately
+                  subordinate — 0.48 against the glyph's own 0.9 keeps the
+                  glyph close to twice as bright, and the glyph is drawn on
+                  top of the brightest part of this. Ambient, never a signal. */}
               <radialGradient id="omega-glow">
-                <stop offset="0%" stopColor="#d97706" stopOpacity="0.34" />
-                <stop offset="55%" stopColor="#d97706" stopOpacity="0.13" />
+                <stop offset="0%" stopColor="#d97706" stopOpacity="0.48" />
+                <stop offset="68%" stopColor="#d97706" stopOpacity="0.2" />
                 <stop offset="100%" stopColor="#d97706" stopOpacity="0" />
               </radialGradient>
             </defs>

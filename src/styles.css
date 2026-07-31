@@ -4185,7 +4185,11 @@ small {
    instrument dimming and the breath slowing after several minutes idle, coming
    back up on movement — is a variable change here rather than a rewrite. */
 .omega-presence {
-  --breath-duration: 7s;
+  /* Thinking and speaking derive from this by multiplier (0.6 and 0.45), so the
+     three states hold their ratios — 1.67x and 1.33x — at any base. Shortening
+     the base shortens all three together and does not narrow their separation;
+     the dial for that is the multipliers, not this. */
+  --breath-duration: 6s;
   --breath-opacity-low: 0.42;
   --breath-opacity-high: 1;
   --breath-scale-low: 0.94;
