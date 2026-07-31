@@ -433,6 +433,12 @@ export function runProjectRingHarness() {
   // the top of what two sub-rows can space in a 42-degree wedge.
   assertSubRowsAreLegible(14, "dense band N=14", true);
   assertSubRowsAreLegible(6, "sparse band N=6", true);
+  // 15 is the first count past the ceiling, and the one the operator will hit
+  // next. It was previously unasserted: 14 and 28 bracketed it, so the boundary
+  // itself — the step from "meets the minimum" to "under it but still discrete"
+  // — was covered only by inference. **[V]** Verified by sweep before adding:
+  // every count from 14 to 40 positions its whole band at two rows.
+  assertSubRowsAreLegible(15, "first over-capacity band N=15", false);
   assertSubRowsAreLegible(28, "over-capacity band N=28", false);
 
   // The spacing minimum and the row cap are independent, and this pins the seam.

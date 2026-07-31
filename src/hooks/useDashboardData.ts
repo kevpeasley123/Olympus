@@ -188,6 +188,17 @@ export function useDashboardData() {
   const [projectNoteWarnings, setProjectNoteWarnings] = useState<string[]>([]);
   const [chatPending, setChatPending] = useState(false);
   const [chatError, setChatError] = useState<string | null>(null);
+  /**
+   * The model that answered the last turn, as reported by the API response.
+   *
+   * Not the Rust `MODEL` constant: the request carries a server-side fallback
+   * header, so the constant is the model *asked for* and this is the model that
+   * *replied*. If they ever diverge, reading the constant would be wrong
+   * invisibly. Null until a turn has landed this session — nothing has answered
+   * yet, and naming a model before one has is the same invisible-wrongness in a
+   * smaller form. Session state, deliberately not persisted.
+   */
+  const [chatModel, setChatModel] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -368,6 +379,7 @@ export function useDashboardData() {
           dashboardState.projects
         );
         const assistant = createAssistantMessage(reply.content);
+        setChatModel(reply.model);
         setDashboardState((current) => ({
           ...current,
           conversation: [...current.conversation, assistant]
@@ -376,6 +388,16 @@ export function useDashboardData() {
       } catch (error) {
         setChatError(errorMessage(error));
       } finally {
+        // Both reachable paths clear the indicator: success falls through, an
+        // error is caught, and either way this runs. A stuck "thinking" is worse
+        // than no indicator, so the reset is structural rather than scheduled.
+        //
+        // Cancellation is deliberately unhandled. There is no cancel affordance
+        // anywhere in the app, so it is not a reachable state and defending it
+        // would be code that can never run and never be tested. **If a cancel
+        // button is ever added, it has to clear `chatPending` on this same path**
+        // — an aborted request that skips this `finally` strands the indicator
+        // and the omega's thinking state together, since both read this flag.
         setChatPending(false);
       }
     },
@@ -433,6 +455,7 @@ export function useDashboardData() {
       chat: dashboardState.conversation,
       chatPending,
       chatError,
+      chatModel,
       nowPlaying: dashboardState.nowPlaying,
       markets,
       weather,
@@ -450,6 +473,7 @@ export function useDashboardData() {
       projectNoteWarnings,
       chatPending,
       chatError,
+      chatModel,
       markets,
       weather,
       sourceTrackers,

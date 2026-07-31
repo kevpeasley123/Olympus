@@ -33,6 +33,7 @@ function App() {
     chat,
     chatPending,
     chatError,
+    chatModel,
     markets,
     weather,
     sourceHealth,
@@ -133,6 +134,7 @@ function App() {
                   tasksLoading={actionTasksLoading}
                   tasksError={actionTasksError}
                   assistantPending={chatPending}
+                  assistantModel={chatModel}
                   onSelectProject={enterProject}
                   onOpenNote={(notePath) => void openVaultNote(notePath)}
                 />

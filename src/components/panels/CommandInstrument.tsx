@@ -12,7 +12,6 @@ import {
 import { subscribeToInstrumentEvents } from "../../services/instrumentEvents";
 import type { InstrumentEvent } from "../../services/instrumentEvents";
 import { PROJECT_RING_RADIUS } from "../../services/projectRing";
-import { tierBreakdown } from "../../services/projectTiers";
 import type { TrackedProject } from "../../types";
 import { DayArc } from "./DayArc";
 import { ProjectRing } from "./ProjectRing";
@@ -24,6 +23,11 @@ interface CommandInstrumentProps {
   tasksError: string | null;
   /** A chat request is in flight. Drives the glyph's thinking state. */
   assistantPending?: boolean;
+  /**
+   * The model that answered the last turn, from the API response rather than
+   * from any local constant. Null before the first reply of the session.
+   */
+  assistantModel?: string | null;
   onSelectProject: (projectId: string) => void;
   onOpenNote: (notePath: string) => void;
 }
@@ -82,6 +86,7 @@ export function CommandInstrument({
   tasksLoading,
   tasksError,
   assistantPending = false,
+  assistantModel = null,
   onSelectProject,
   onOpenNote
 }: CommandInstrumentProps) {
@@ -96,12 +101,19 @@ export function CommandInstrument({
   const commits = projects.flatMap((project) =>
     (project.recentCommits ?? []).map((commit) => ({ ...commit, project: project.name }))
   );
-  const tiers = tierBreakdown(projects);
   // `producing` stays false until the chat streams — see `glyphState.ts`. Because
   // the state is derived rather than scheduled, an error or a cancellation that
   // clears `assistantPending` settles back to idle through the same transition as
   // a normal completion, and no animation can be left running.
   const glyphState = glyphStateFor({ pending: assistantPending, producing: false });
+
+  // Derived from the same `assistantPending` that drives the glyph, so the line
+  // and the omega cannot disagree about whether a request is in flight. Order is
+  // identity then activity: the model is the stable half and should not move
+  // when the transient half appears beside it.
+  const statusParts = [assistantModel, glyphState === "thinking" ? "thinking" : null].filter(
+    (part): part is string => Boolean(part)
+  );
 
   useLayoutEffect(() => {
     const dial = dialRef.current;
@@ -270,13 +282,24 @@ export function CommandInstrument({
         </svg>
       </div>
 
-      {tiers.length > 0 ? (
-        <p className="command-instrument__counts tabular-data">
-          {tiers.map((slice, index) => (
-            <span key={slice.status}>
-              {index > 0 ? <span className="command-instrument__counts-sep"> · </span> : null}
-              <span className="command-instrument__count-value">{slice.count}</span>{" "}
-              {slice.status}
+      {/* Where the tier counts used to sit, at the same weight.
+
+          The counts came out because they were a legend for a vocabulary the
+          ring already teaches better: the hover readout names a project's tier
+          beside its own name, which attaches the word to the thing instead of
+          to an aggregate. What is left here is the one fact about this mode the
+          instrument cannot draw — who is answering, and whether it is answering
+          right now.
+
+          Nothing renders before the first reply of a session. Naming a model
+          that has not spoken would be the same invisible wrongness as reading
+          the request constant. */}
+      {statusParts.length > 0 ? (
+        <p className="command-instrument__status">
+          {statusParts.map((part, index) => (
+            <span key={part}>
+              {index > 0 ? <span className="command-instrument__status-sep"> · </span> : null}
+              {part}
             </span>
           ))}
         </p>

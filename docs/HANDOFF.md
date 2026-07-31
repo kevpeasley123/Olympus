@@ -1,9 +1,15 @@
 # Olympus — Planning Handoff
 
 Originally written 2026-07-27 at `1af8092`, then vision-synced on the isolated
-`codex/vision-foundation` branch. **Current as of `fe849ee` (HEAD of `master`,
-2026-07-29).** **For planning, not for coding.** Read `OLYMPUS-MANUAL.md` first;
-it is now the canonical product and operating policy.
+`codex/vision-foundation` branch. **For planning, not for coding.** Read
+`OLYMPUS-MANUAL.md` first; it is now the canonical product and operating policy.
+
+> **Currency.** This header claimed `fe849ee` for three rounds while the body was
+> being rewritten as far ahead as `ba129d4` — stale in two directions at once,
+> which is worse than stale in one, because the *body* was ahead of the header
+> and a reader trusting the header would have discarded correct content as old.
+> **Do not restate a commit here. Run `git log -1 -- docs/HANDOFF.md`** — that is
+> the only currency claim that cannot rot.
 
 ## 2026-07-29 reconciliation against HEAD
 
@@ -148,6 +154,62 @@ development app created real `operator_sessions`, `delegation_runs`, and
 through the new Project-mode button, so the full planning → waiting → editing →
 testing → complete runtime sequence is not yet acceptance evidence.
 
+## 2026-07-30 — the model readout, and the counts line coming out
+
+**[V] The counts line is gone and `projectTiers.ts` is deleted with it.** The
+line was the last consumer of the module, and the rest of the module had already
+rotted: `TIER_WEIGHT` was exported and imported by nothing, and its values had
+drifted out of agreement with the CSS that actually draws the strokes —
+`scaffold: 6` against `stroke-width: 5`. A constant nothing reads cannot be
+wrong loudly, so it was wrong quietly.
+
+**Why the tier legend did not survive anywhere.** The counts named the tier
+vocabulary, but the hover readout already names a project's tier *beside its own
+name* (`ProjectRing.tsx:67`, `OLYMPUS · ACTIVE`) — which attaches the word to the
+thing rather than to an aggregate. The aggregate itself is readable off the ring:
+eight segments, tier carried by stroke weight and colour. Project mode owns the
+portfolio list, which is where a count belongs. **Do not reinstate it as a
+smaller legend** — that reintroduces the coupling that just produced a dead
+module.
+
+**[V] The model readout replaces it, and reads the response rather than the
+request.** `AssistantReply.model` (`assistant.rs:392`) carries what the API said
+answered; it reached the frontend typed and was **discarded** at
+`useDashboardData.ts` where only `reply.content` was taken. It is now captured
+into session state and rendered in the freed position.
+
+**This distinction is the whole point of the field.** The request carries
+`fallbacks: "default"` with the `server-side-fallback-2026-07-01` beta header
+(`assistant.rs:12, 332, 344`), so Anthropic may serve a model other than the
+`MODEL` constant. Reading the constant would name the model *asked for* while
+displaying it as the model that *answered* — wrong only in the case the readout
+exists to catch, and wrong invisibly. **Nothing renders before the first reply of
+a session**, for the same reason: naming a model that has not spoken is the same
+error in a smaller form.
+
+**[V] The chat thinking indicator was already built** (`ChatPanel.tsx:138-142`),
+in the thread where the response lands, with errors in the same place. It and the
+omega both read `chatPending`, so they cannot disagree. **Cancellation is
+deliberately unhandled** — no cancel affordance exists anywhere, so it is not a
+reachable state, and defending it would be untestable code. The requirement is
+recorded at the `finally` block instead: a cancel button must clear `chatPending`
+on that same path, or it strands the indicator and the glyph together.
+
+**[V] `assertSubRowsAreLegible(15, …)` added, after confirming the drop
+assertion is live rather than merely green.** The harness covered 6, 14 and 28,
+so the first count past the ceiling was covered only by inference. Swept 14→40
+headlessly through the real module: every count positions its whole band at two
+rows, nothing is dropped. The assertion was confirmed capable of failing by
+starving the input — 4 nodes positioned against a claimed 28.
+
+> **One methodology note worth more than the result.** The first sweep reported
+> **zero** nodes positioned at every count, which read as a catastrophic bug. It
+> was the fixture: the harness's `project()` helper supplies a `notePath`, the
+> anchor joins on it, and a reconstruction that omits it positions nothing while
+> throwing no error. **A hand-rebuilt fixture that silently produces an empty
+> result looks exactly like the code being broken.** Mirror the harness's own
+> fixture, or export it — do not retype it.
+
 ## How to read the claims in this document
 
 Every factual claim is tagged:
@@ -198,6 +260,29 @@ binary is unsupported because rebuilds replace it.
 `git log` before concluding a change is or is not in the app — the 17:50 build
 carries code through `fe849ee` and nothing after it.
 
+> **[V] This trap fired on 2026-07-30 and cost a full round of verdicts.** The
+> operator judged the instrument through the taskbar shortcut and reported that
+> the segment hit target "has never fired," that the idle breath was too faint,
+> and that the readout was missing. All three were judged against a binary built
+> at **2026-07-29 17:50:18** — and the hit target shipped at `fb66834`,
+> **22:36:49 the same evening**, four hours and forty-seven minutes later. The
+> centre readout (`1832549`) and the dim-and-feet fix (`6699df2`) fell in the
+> same gap. Nothing was broken; the fixes were simply not in the executable.
+>
+> **Before acting on any visual judgment, reconcile the two:**
+>
+> ```powershell
+> (Get-Item 'C:\Program Files\Project Olympus\project-olympus.exe').LastWriteTime
+> git log -1 --format='%ci %h %s'
+> ```
+>
+> If the binary is older than the commit that shipped the thing being judged, the
+> judgment is about different code. This is the same class of error as the
+> handoff header above: a stale artifact that carries no marker saying it is
+> stale. **A `tauri dev` window is the one surface guaranteed to be current** —
+> and note that hot reload does not add Rust commands, so a Rust change still
+> needs a restart even there.
+
 **[V] Reduced motion works, verified against the real OS setting** — toggled via
 `SystemParametersInfo`, all animations confirmed `none`, everything still
 present and clickable, **setting restored to its original value (`1`)**.
@@ -247,6 +332,12 @@ present and clickable, **setting restored to its original value (`1`)**.
   omegas were fixed at `7cc6b28` — each pulse window now matches its own ripple
   times its play count — but confirming *both* plays render needs a visible
   window, which an agent cannot get.
+- **[V] `App.tsx` still holds `enterTier`, and nothing calls it.** It is the only
+  caller of `setTierFilter`, so `tierFilter` can never become non-null and
+  `ProjectsPanel`'s tier-filter chip is unreachable. Left in place rather than
+  removed: restoring click-to-filter on the ring segments is a live option, and
+  this is the wiring it would use. **Delete both, or reconnect them — do not
+  leave it a third round.**
 - **[A]** `save_attachment_to_vault` has never successfully run;
   `02 - Research/_attachments/` does not exist.
 - **[A]** `open_vault_note` compiles and is registered; nobody has clicked the
@@ -733,6 +824,31 @@ the opposite of the rim's stated purpose.
   oversight.
 - **Dots as project satellites. REJECTED.** Duplicates the dimension the outer
   ring already owns.
+
+### Open: do the constellation's edges earn their place?
+
+**Not measured yet. Carried deliberately so it does not drop.** With 21 edges
+radiating from a single anchor across a staggered outer band and an inner band,
+the cluster stopped reading as a *tree* once sub-rows landed — the operator can
+no longer trace a note back to its parent, which was the point of hop-as-radius.
+
+The likely diagnosis, recorded as opinion rather than evidence: **14 depth-1
+notes on one anchor is a fan, not a tree**, and no arrangement makes a 14-way fan
+look structured. If that holds, the edges are drawing a relationship that
+position already states — every hop-1 node is by definition a child of the one
+anchor — and they are paying for it in clutter.
+
+Three candidates, to be measured before choosing:
+
+- Drop or heavily fade **depth-1** edges only, keeping edges for hop 2+
+  parentage and cross-project links, where they carry information position does
+  not.
+- Fade **all** edges at rest, full opacity on wedge hover.
+- Something else the measurement suggests.
+
+**Measure first.** The question is how much of the ink is depth-1 edges that
+duplicate radius, and the layout module already returns `treeEdges` and
+`crossProjectEdges` separately, so the count is available headlessly.
 
 ### The radial graph is deterministic
 

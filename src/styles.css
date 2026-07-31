@@ -4284,20 +4284,21 @@ small {
     drop-shadow(0 0 46px rgba(217, 119, 6, 0.28));
 }
 
-.command-instrument__counts {
+/* Replaces the tier counts, at the same position and the same quiet weight.
+   Monospace because the content is a model identifier, which is a name to be
+   read exactly rather than prose. A status label, never a control — there is no
+   affordance here and no model switching. */
+.command-instrument__status {
   margin: 0;
   flex: 0 0 auto;
+  font-family: var(--font-mono);
   font-size: 12px;
+  letter-spacing: 0.04em;
   color: var(--muted);
   opacity: 0.7;
 }
 
-.command-instrument__count-value {
-  color: var(--primary);
-  opacity: 0.85;
-}
-
-.command-instrument__counts-sep {
+.command-instrument__status-sep {
   opacity: 0.4;
 }
 
