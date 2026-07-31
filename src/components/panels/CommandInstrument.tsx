@@ -340,6 +340,22 @@ export function CommandInstrument({
                   : { duration: 0.9, ease: "easeOut" }
               }
             >
+              {/* Highlight underlay: the same glyph nudged up, occluded by the
+                  body everywhere except a sliver along the top contours — an
+                  edge catching light, with no mask and no filter. Drawn first
+                  so the body always wins the overlap. */}
+              <text
+                x={CENTRE}
+                y={CENTRE + 50.4}
+                textAnchor="middle"
+                className="instrument-glyph-highlight"
+                fontFamily="'Cinzel', 'Times New Roman', serif"
+                fontSize="150"
+                fontWeight="500"
+                aria-hidden="true"
+              >
+                {"Ω"}
+              </text>
               <text
                 x={CENTRE}
                 y={CENTRE + 52}

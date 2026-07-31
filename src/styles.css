@@ -2897,36 +2897,91 @@ small {
   opacity: 0.07;
 }
 
+/* A segment is now a group — band fill, lit face, shade, end caps — and this
+   class carries what the old stroke carried: tier opacity, the hover dim, and
+   their transition. Band widths moved to `SEGMENT_BAND_WIDTH` in
+   ProjectRing.tsx, because the fill path needs the number; the CSS here owns
+   only colour and temperature. Warm fills for the amber tiers, cool-neutral for
+   the rest — temperature, not a second accent. */
 .project-ring__segment {
-  stroke-linecap: butt;
-  transition:
-    opacity 160ms ease-out,
-    stroke 160ms ease-out;
+  transition: opacity 160ms ease-out;
 }
 
 .project-ring__segment--active {
-  stroke: var(--accent);
-  stroke-width: 11;
+  --segment-fill: rgba(58, 36, 5, 0.72);
+  --segment-outline: rgba(217, 119, 6, 0.55);
+  --segment-face: var(--accent);
+  --segment-face-opacity: 0.95;
+  --segment-name: #ffd9a0;
   opacity: 1;
 }
 
 .project-ring__segment--watching {
-  stroke: var(--accent);
-  stroke-width: 8;
-  opacity: 0.6;
+  --segment-fill: rgba(44, 28, 6, 0.66);
+  --segment-outline: rgba(217, 119, 6, 0.4);
+  --segment-face: var(--accent);
+  --segment-face-opacity: 0.8;
+  --segment-name: #e8b56b;
+  opacity: 0.7;
 }
 
 .project-ring__segment--scaffold {
-  stroke: #9aa8bd;
-  stroke-width: 5;
-  opacity: 0.4;
+  --segment-fill: rgba(27, 36, 50, 0.6);
+  --segment-outline: rgba(168, 182, 201, 0.4);
+  --segment-face: #a8b6c9;
+  --segment-face-opacity: 0.7;
+  --segment-name: #c3cfdd;
+  opacity: 0.55;
 }
 
 /* Absence of a decision is the faintest state, not a louder warning. */
 .project-ring__segment--unclassified {
-  stroke: #9aa8bd;
-  stroke-width: 5;
-  opacity: 0.24;
+  --segment-fill: rgba(27, 36, 50, 0.55);
+  --segment-outline: rgba(168, 182, 201, 0.3);
+  --segment-face: #a8b6c9;
+  --segment-face-opacity: 0.6;
+  --segment-name: #b0bccb;
+  opacity: 0.42;
+}
+
+/* Glass, not paint: the fill is translucent so the background reads through a
+   window, and the band path's own stroke is the enclosure — outer edge, inner
+   edge and both ends in one outline. */
+.project-ring__segment-fill {
+  fill: var(--segment-fill);
+  stroke: var(--segment-outline);
+  transition: fill 160ms ease-out, stroke 160ms ease-out;
+}
+
+/* The lit face — the edge catching light from above. */
+.project-ring__segment-face {
+  stroke: var(--segment-face);
+  opacity: var(--segment-face-opacity);
+  transition: stroke 160ms ease-out;
+}
+
+/* Stacked strokes, not a filter: the wide faint pass under the face reads as
+   glow, and nothing re-rasters while the group animates opacity. */
+.project-ring__segment-glow {
+  stroke: var(--accent);
+  opacity: 0.22;
+}
+
+.project-ring__segment-shade {
+  stroke: #04080e;
+  opacity: 0.55;
+}
+
+/* The name lives inside its window now; the label lane is retired. Tier is in
+   the text brightness, hover in the swap to primary — same vocabulary the lane
+   used, curved onto the band. */
+.project-ring__window-name {
+  fill: var(--segment-name);
+  font-family: var(--font-mono);
+  font-weight: var(--weight-medium);
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  transition: fill 160ms ease-out;
 }
 
 /* Hovering one segment dims the rest, so the association between an arc and the
@@ -2938,67 +2993,31 @@ small {
 
 /* `.project-ring.is-focused .project-ring__segment` is THREE class selectors,
    (0,3,0) — not two. It out-specifies `.project-ring__segment.is-hovered` at
-   (0,2,0), so source order never came into it: the dim rule won `opacity` while
-   the hovered rule still won `stroke`, and the hovered segment dimmed with the
-   rest while changing colour. Measured in the running app, not readable from
-   here. The restatement below is (0,4,0) and wins outright. */
+   (0,2,0), so source order never came into it: when the tiers were strokes the
+   dim rule won `opacity` while the hovered rule still won `stroke`, and the
+   hovered segment dimmed while changing colour. Measured in the running app.
+   The restatement below is (0,4,0) and wins outright; the hover colour now
+   lands on the face and fill children, since the group no longer strokes. */
 .project-ring__segment.is-hovered,
 .project-ring.is-focused .project-ring__segment.is-hovered {
-  stroke: var(--primary);
   opacity: 1;
+}
+
+.project-ring__segment.is-hovered .project-ring__segment-face {
+  stroke: var(--primary);
+}
+
+.project-ring__segment.is-hovered .project-ring__segment-fill {
+  fill: rgba(67, 48, 27, 0.78);
+}
+
+.project-ring__segment.is-hovered .project-ring__window-name {
+  fill: var(--primary);
 }
 
 .project-ring__hit {
   cursor: pointer;
   outline: none;
-}
-
-.project-ring__label {
-  /* Labels have their own contrast floor. Segment opacity carries tier without
-     forcing 10px type below the readable threshold on the image background. */
-  fill: #cbd5e1;
-  font-family: var(--font-mono);
-  font-weight: var(--weight-medium);
-  letter-spacing: 0.07em;
-  paint-order: stroke;
-  stroke: rgba(7, 14, 24, 0.88);
-  stroke-width: 2.5px;
-  stroke-linejoin: round;
-  vector-effect: non-scaling-stroke;
-  transition:
-    opacity 160ms ease-out,
-    fill 160ms ease-out;
-}
-
-.project-ring__label--active {
-  fill: var(--accent);
-  opacity: 1;
-}
-
-.project-ring__label--watching {
-  fill: var(--accent);
-  opacity: 0.82;
-}
-
-.project-ring__label--scaffold {
-  opacity: 0.72;
-}
-
-.project-ring__label--unclassified {
-  opacity: 0.58;
-}
-
-/* The hovered project's label holds full opacity while its siblings drop back.
-   Both selectors out-specify the per-tier rules above; the hovered one also
-   out-specifies the dim rule, so order between them does not matter. */
-.project-ring.is-focused .project-ring__label {
-  opacity: 0.26;
-}
-
-.project-ring__label.is-hovered,
-.project-ring.is-focused .project-ring__label.is-hovered {
-  fill: var(--primary);
-  opacity: 1;
 }
 
 /* ---- Tree edges, weighted by depth ---------------------------------------
@@ -3073,16 +3092,27 @@ small {
   cursor: pointer;
 }
 
-.project-ring__node--depth-1 {
+/* Depth opacity sits on the group so the sphere layers — drop shadow, rim,
+   specular — fade with their node instead of popping at full strength on a
+   faint depth-3 dot. The values are the ones the body circles carried. */
+.project-ring__node-group--depth-1 {
   opacity: 0.78;
 }
 
-.project-ring__node--depth-2 {
+.project-ring__node-group--depth-2 {
   opacity: 0.6;
 }
 
-.project-ring__node--depth-3 {
+.project-ring__node-group--depth-3 {
   opacity: 0.44;
+}
+
+/* Rim light: cool, faint, separating the shadow edge from the background.
+   Temperature, not accent. */
+.project-ring__node-rim {
+  stroke: #9fb6d4;
+  stroke-width: 0.5;
+  opacity: 0.2;
 }
 
 .project-ring__node:hover,
@@ -3211,9 +3241,16 @@ small {
   animation-duration: calc(var(--breath-duration) * 0.45);
 }
 
-/* The one glowing object. Nothing else in this mode gets a shadow. */
+/* The one glowing object. Nothing else in this mode gets a shadow.
+   Depth pass: the flat fill became a dark body with a bright outline —
+   `paint-order: stroke` puts the stroke behind the fill, so the bright edge
+   rims the letterform instead of thickening it. The halo stays the gradient
+   disc behind; the highlight is the offset underlay text beside this. */
 .instrument-glyph {
-  fill: var(--accent);
+  fill: #c2660a;
+  stroke: #f59e0b;
+  stroke-width: 1.6;
+  paint-order: stroke;
   opacity: 0.9;
   filter: drop-shadow(0 0 14px rgba(217, 119, 6, 0.45))
     drop-shadow(0 0 40px rgba(217, 119, 6, 0.2));
@@ -3222,6 +3259,18 @@ small {
   transition:
     filter 300ms ease-out,
     opacity 420ms ease-out;
+}
+
+/* Occluded by the body except along the upper contours — the lit top edge. */
+.instrument-glyph-highlight {
+  fill: rgba(255, 216, 150, 0.5);
+  opacity: 0.9;
+  pointer-events: none;
+  transition: opacity 420ms ease-out;
+}
+
+.omega-presence--thinking .instrument-glyph-highlight {
+  opacity: 0.55;
 }
 
 .command-instrument__svg.pulse-vault-write .instrument-glyph {
@@ -4106,11 +4155,17 @@ small {
   /* A ring node still brightens on hover — that is how it identifies itself —
      but it arrives instantly rather than easing in. */
   .project-ring__segment,
-  .project-ring__label,
+  /* The depth pass moved segment colour onto these children; they transition
+     fill and stroke on hover, which is motion the parent guard no longer
+     covers. */
+  .project-ring__segment-fill,
+  .project-ring__segment-face,
+  .project-ring__window-name,
   .project-ring__node,
   /* The glyph fades between presence states over 420ms. Stopping the keyframes
      but leaving the transition would keep a visible fade under the setting. */
   .instrument-glyph,
+  .instrument-glyph-highlight,
   .background-image {
     transition: none;
   }
