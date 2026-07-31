@@ -437,6 +437,51 @@ function assertSubRowsAreLegible(count: number, caseName: string, withinCapacity
   );
 }
 
+/**
+ * Edges may only carry what position cannot.
+ *
+ * **[V] The measurement this pins, against the real vault on 2026-07-30**:
+ * depth-1 edges were 14 strokes and 777 units — 84.8% of all edge ink — stating
+ * a relationship the layout already states, since a depth-1 node sits in its
+ * project's wedge by construction. Depth 2+ is the opposite: with 14 candidate
+ * parents at one radius, parentage is not derivable from position.
+ *
+ * The second assertion is the one that matters most. Dropping a whole depth band
+ * is exactly the kind of change that could quietly drop a *neighbouring* band
+ * too, and a missing parent edge on a deep node looks like a sparse graph rather
+ * than like a bug.
+ */
+function assertEdgesCarryOnlyWhatPositionCannot(
+  laid: ReturnType<typeof layoutProjectOwnedGraph>,
+  caseName: string
+) {
+  for (const edge of laid.treeEdges) {
+    assert(
+      edge.depth >= 2,
+      `${caseName}: a depth-${edge.depth} tree edge was drawn — position already states hop-1 parentage`
+    );
+  }
+
+  // Exactly one parent edge per deep node: not zero (the band was over-dropped)
+  // and not two (a node acquired a second parent).
+  const deepNodes = laid.nodes.filter((node) => node.depth >= 2);
+  for (const node of deepNodes) {
+    const arriving = laid.treeEdges.filter(
+      (edge) =>
+        Math.abs(edge.to.x - node.x) < 1e-9 && Math.abs(edge.to.y - node.y) < 1e-9
+    );
+    assert(
+      arriving.length === 1,
+      `${caseName}: ${node.id} (depth ${node.depth}) has ${arriving.length} parent edges, expected exactly 1`
+    );
+  }
+
+  assert(
+    laid.treeEdges.length === deepNodes.length,
+    `${caseName}: ${laid.treeEdges.length} tree edges for ${deepNodes.length} deep nodes — they must correspond exactly`
+  );
+}
+
 /** Every readout line stays inside the disc, at every scale, or is dropped. */
 function assertCentreReadoutIsContained() {
   const centre = 220;
@@ -714,6 +759,16 @@ export function runProjectRingHarness() {
     constellation.crossProjectEdges.length === 1,
     "the shared note did not retain its cross-project link"
   );
+  // Cross-project edges keep their own treatment at zero instances. When the
+  // first one appears it is the most valuable relationship in the library, and
+  // it has to read that way on arrival rather than after a code change — so the
+  // renderer's ability to draw them is pinned even though the real vault has
+  // none today.
+  assert(
+    constellation.crossProjectEdges[0].pieces.length > 0,
+    "a cross-project edge exists in the data but produced no drawable pieces"
+  );
+  assertEdgesCarryOnlyWhatPositionCannot(constellation, "real-shaped graph");
   const clipped = clipLineOutsideDisc(
     { x: centre - 120, y: centre },
     { x: centre + 120, y: centre },
@@ -835,6 +890,15 @@ export function runProjectRingHarness() {
     assert(
       target.nodes.some((node) => node.depth === HOP_CLAMP_DEPTH),
       `target state @ ${scale}x: the innermost band never drew`
+    );
+    // Eight populated wedges is where dropping depth-1 matters most: the fan
+    // multiplies with the number of connected anchors while parentage edges grow
+    // only with real chain depth. Asserting here proves the rule holds when the
+    // vault stops being one connected project.
+    assertEdgesCarryOnlyWhatPositionCannot(target, `target state @ ${scale}x`);
+    assert(
+      target.treeEdges.length > 0,
+      `target state @ ${scale}x: every tree edge vanished — the depth-1 drop took the parentage edges with it`
     );
     assertNodesInsideParentWedges(target.nodes, `target state @ ${scale}x`);
     // Label-vs-cluster clearance is asserted only at scales the operator can

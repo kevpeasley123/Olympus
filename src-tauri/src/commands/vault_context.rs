@@ -72,6 +72,15 @@ fn load_stable_notes(vault: &Path) -> String {
 
 fn read_note(path: &Path) -> Option<String> {
     let raw = fs::read_to_string(path).ok()?;
+    // **`trim` does not remove a BOM.** U+FEFF has no White_Space property, so it
+    // survives into the prompt as an invisible leading character.
+    //
+    // **[V] `09 - System/User Profile.md` carries one today.** The frontmatter
+    // parsers already strip it (`pantheon.rs:87`, pinned by tests there and in
+    // `project_notes.rs`); this path did not, so two readers of the same vault
+    // disagreed about the first byte of a file. Harmless in the prompt, but the
+    // disagreement is the kind that grows a second head later.
+    let raw = raw.strip_prefix('\u{feff}').unwrap_or(&raw);
     let trimmed = raw.trim();
 
     if trimmed.is_empty() {
@@ -196,5 +205,32 @@ mod tests {
             !memory.pantheon_index.is_empty(),
             "the research index should describe the library, even when it is empty"
         );
+
+        // **[V] `User Profile.md` carries a BOM on disk today**, written by a
+        // PowerShell script using `Set-Content` with no `-Encoding`. The
+        // frontmatter parsers strip it; this loader used not to, so the two
+        // disagreed about the first byte of the same file.
+        assert!(
+            !memory.stable.contains('\u{feff}'),
+            "a BOM survived into the assistant's context — `read_note` stopped stripping it"
+        );
+    }
+
+    #[test]
+    fn a_bom_never_reaches_the_prompt() {
+        let dir = std::env::temp_dir().join("olympus-vault-context-bom");
+        fs::create_dir_all(&dir).expect("temp dir");
+        let note = dir.join("bom.md");
+        fs::write(&note, "\u{feff}# Heading\n\nBody.").expect("write");
+
+        let body = read_note(&note).expect("the note must read");
+
+        assert!(
+            !body.contains('\u{feff}'),
+            "the BOM survived — `trim` does not remove U+FEFF, it has no White_Space property"
+        );
+        assert!(body.starts_with("# Heading"), "stripping the BOM ate real content");
+
+        fs::remove_file(&note).ok();
     }
 }

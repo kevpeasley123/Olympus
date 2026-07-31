@@ -333,13 +333,41 @@ export interface ProjectGraphEdge {
   key: string;
   from: Point;
   to: Point;
+  /**
+   * The child's depth. Carried on the edge itself rather than left to be
+   * recovered from the endpoints.
+   *
+   * **[V] This field exists because its absence produced a wrong answer.** The
+   * renderer only ever reads `from.x/y` and `to.x/y`, so an analysis attributing
+   * depth through the target's id got `undefined` and silently bucketed every
+   * edge as depth 1 — reporting "100% of the ink is depth-1" when the real figure
+   * was 84.8%. The number was clean, plausible, and ran toward the conclusion
+   * being argued for. Making depth readable from the edge removes the need to
+   * re-derive it, which is where the error lived.
+   */
+  depth: number;
+}
+
+/**
+ * One drawable segment of a cross-project edge, after clipping around the glyph
+ * disc.
+ *
+ * Its own type rather than a reused `ProjectGraphEdge`: a clipped segment is not
+ * a parentage edge and has no depth, so sharing the shape would have forced a
+ * meaningless field onto it. The two were interchangeable only while both
+ * happened to be a key and two points.
+ */
+export interface CrossProjectEdgePiece {
+  key: string;
+  from: Point;
+  to: Point;
 }
 
 export interface CrossProjectEdge {
   key: string;
   fromProjectId: string;
   toProjectId: string;
-  pieces: ProjectGraphEdge[];
+  pieces: CrossProjectEdgePiece[];
 }
 
 /**
@@ -890,10 +918,30 @@ export function layoutProjectOwnedGraph(
 
   // Built from settled positions, so a sub-rowed child's edge still terminates on
   // the node rather than where it sat before the stagger.
+  //
+  // **Depth-1 edges are not drawn, and the reason is redundancy rather than
+  // clutter.** A depth-1 node sits inside its project's wedge at the hop-1
+  // radius, so it is a child of that wedge's single anchor *by construction* —
+  // position already states the relationship and the stroke only repeats it.
+  //
+  // **[V] Measured against the real vault, 2026-07-30**: 14 depth-1 edges carried
+  // 777 units of stroke — 84.8% of all edge ink — at 55.5 units each, against 7
+  // depth-2 edges totalling 139 units at 19.9 each. The fan was twice the count
+  // and 5.6× the ink of the structure it buried.
+  //
+  // Depth 2+ is the opposite case and is kept: with 14 candidate parents sitting
+  // at one radius, *which* note a deeper note hangs from cannot be read off
+  // position. Those are the only tree edges carrying information the layout does
+  // not already give, and dropping the fan is what lets them read.
+  //
+  // Fading was rejected in both directions: it would keep the ink and the
+  // crossings for the redundant 85% while leaving the informative 15% at lower
+  // contrast.
   const treeEdges: ProjectGraphEdge[] = [];
   for (const [child, parentId] of parent) {
     const childNode = positionedById.get(child);
     if (!childNode) continue;
+    if (childNode.depth <= 1) continue;
     const parentNode = positionedById.get(parentId);
     const from = parentNode
       ? { x: parentNode.x, y: parentNode.y }
@@ -902,7 +950,8 @@ export function layoutProjectOwnedGraph(
     treeEdges.push({
       key: `${parentId}→${child}`,
       from,
-      to: { x: childNode.x, y: childNode.y }
+      to: { x: childNode.x, y: childNode.y },
+      depth: childNode.depth
     });
   }
   treeEdges.sort((left, right) => compareCodePoints(left.key, right.key));

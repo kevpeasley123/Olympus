@@ -964,12 +964,34 @@ With 14 candidate parents at the same radius, *which* hop-1 note a depth-2 note
 hangs from is not derivable from position. That is the tree, and it is currently
 15% of the ink.
 
-**Recommendation: (a), and drop rather than fade.** Fading keeps the ink and the
-crossings at lower contrast; the argument here is that the information is *fully*
-redundant, not merely low-value. Removing depth-1 edges loses nothing, removes
-85% of the ink, and leaves the 7 short local strokes that actually read as
-parentage. **[A] Not built — this is a visual judgement and the numbers only make
-the case; they do not settle how it looks.**
+**[V] Shipped: depth-1 edges are not drawn.** Dropped rather than faded, because
+the information is *fully* redundant rather than merely low-value — fading would
+keep the ink and the crossings for the redundant 85% while leaving the
+informative 15% at lower contrast, which is the wrong trade in both directions.
+Real vault ink went **916 units → 139**, with all 7 parentage edges retained.
+
+**Cross-project edges keep their distinct treatment at zero instances.** When the
+first one appears it is the most valuable relationship in the library and must
+read that way on arrival, not after a code change. The harness pins that the
+renderer produces drawable pieces whenever the data contains such an edge.
+
+Three assertions hold it, at the real-vault shape and at target state:
+
+- no tree edge is drawn with depth ≤ 1;
+- every depth-2+ node has **exactly one** parent edge — not zero (the drop went
+  too far) and not two;
+- tree-edge count equals deep-node count, so the two cannot drift apart.
+
+Target state matters most here: eight populated wedges multiply the fan by
+roughly eight while parentage edges grow only with real chain depth.
+
+**A type split fell out of it.** `CrossProjectEdge.pieces` was typed as
+`ProjectGraphEdge[]`, so adding `depth` to the edge forced a meaningless field
+onto a clipped line segment. Pieces now have their own `CrossProjectEdgePiece`
+type. The two were interchangeable only while both happened to be a key and two
+points — **[V] and `tsc` caught it while all three harnesses passed**, because
+the SSR loader the harnesses run under does not typecheck. Harness green is not
+build green.
 
 At target state the case strengthens rather than weakens: eight populated wedges
 multiply depth-1 edges by roughly eight while depth-2 grows only with real chain
@@ -1407,6 +1429,20 @@ model's context are separate pieces of work, and only the first is done.
   silently blocks until the dev app is stopped.
 - **[V] Vite survives `TaskStop`.** Port 31420 stays held; the process must be
   killed by PID.
+- **[V] PowerShell writes vault notes in the wrong encoding, and it has already
+  fired.** Windows PowerShell 5.1 defaults `Set-Content`/`Add-Content` to the
+  system **ANSI** codepage and `Out-File`/`>` to **UTF-8 with BOM** — two
+  different corruptions, neither of them what you want.
+  `scripts/update-olympus-vault-sync.ps1:263-267` has five `Set-Content` calls
+  with no `-Encoding`, all writing vault notes. **`09 - System/User Profile.md`
+  carries a BOM on disk today.** The frontmatter parsers strip it
+  (`pantheon.rs:87`, pinned there and in `project_notes.rs`), but
+  `vault_context.rs::read_note` did not — `trim` does not remove U+FEFF, which
+  has no White_Space property — so it rode into the assistant's context. Fixed
+  and pinned by `a_bom_never_reaches_the_prompt`, plus an assertion on the real
+  vault. **Any new PowerShell that writes a vault file must pass `-Encoding utf8`
+  explicitly**, and scratch analysis files are not exempt: this cost a round when
+  a piped payload dump came back with a BOM and failed to parse as JSON.
 - **[A] The repo lives inside OneDrive**, which does not read `.gitignore`. Build
   output is redirected via a **gitignored** `.cargo/config.toml`; a fresh
   checkout silently builds back into OneDrive.
@@ -1499,6 +1535,47 @@ failure; only structure does.
 - **When deleting the last consumer of a module, read the whole module before
   deciding what to keep.** `TIER_WEIGHT` was already wrong; it surfaced only
   because `tierBreakdown` was going.
+
+## An analysis error that fails toward the expected conclusion
+
+**This is not a test flavour. It is worse, because there is no test involved and
+therefore nothing that can go red.**
+
+**[V] It happened twice on 2026-07-30, and both times the error ran toward the
+hypothesis:**
+
+| Measurement | Reported | Actual | Which way it erred |
+|---|---|---|---|
+| Edge ink by depth | "100% of ink is depth-1" | 84.8% | **Toward removal** — the case being argued |
+| Sub-row band positioning | "0 nodes positioned at every count" | every count positions its whole band | **Toward alarm** — looked like catastrophic breakage |
+
+The first is the dangerous one. *An argument for dropping depth-1 edges wants to
+see a large number*, and 100% is the largest available. It was clean, it was
+plausible, it arrived with units and percentages, and **nobody would have
+questioned it** — least of all the author, who had just written the hypothesis it
+confirmed. The real figure supports the same conclusion, which means the error
+would have changed nothing about the decision and everything about whether the
+decision was actually evidence-based.
+
+**Both had the same mechanical cause: a silent default in analysis code.** The
+edge measurement read `edge.to.id`, got `undefined` because tree edges carry
+points rather than ids, and fell through to `?? 1`. The band measurement omitted
+`notePath` from a fixture and got an empty layout. Neither threw.
+
+**The rules, which apply to any ad-hoc measurement and not just these two:**
+
+- **Never default in analysis code.** `?? 1`, `?? 0`, `|| []` in a measurement is
+  the same failure as a silently malformed fixture — it converts "I could not
+  determine this" into a confident value.
+- **Abort loudly when an item cannot be attributed.** The corrected edge
+  measurement counts unattributable edges and refuses to print totals if any
+  exist.
+- **Ask which way the error would run.** If a measurement supports the
+  conclusion you already hold, that is the moment to re-derive it by a second
+  route — not the moment to write it up.
+- **Prefer making the data carry what you need over recovering it.**
+  `ProjectGraphEdge` now carries `depth` outright, so no future analysis has to
+  re-derive it from endpoints. The error lived in the re-derivation.
 
 ## Four flavours of "green while covering nothing"
 
