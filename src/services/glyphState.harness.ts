@@ -34,12 +34,27 @@ export function runGlyphStateHarness() {
   // The reset rule. Whatever the state was, clearing the request returns idle —
   // this is what makes an error or a cancellation unable to strand an animation,
   // and it holds because nothing here is entered by a timer.
-  for (const [pending, producing] of cases.map(([p, q]) => [p, q] as const)) {
-    void pending;
-    void producing;
+  //
+  // **[V] This block used to assert nothing.** It looped over the four cases,
+  // `void`ed both loop variables, and then asserted the constant expression
+  // `glyphStateFor({ pending: false, producing: false }) === "idle"` — the same
+  // check four times, with the case data discarded. It could only fail if the
+  // first loop had already failed. Four iterations of one restated assertion is
+  // not coverage of a transition.
+  //
+  // What it must actually establish is that the function has no memory: enter a
+  // state, clear the request, and land on idle *regardless of where you were*.
+  // That is a two-call sequence, and it is the thing that would break if anyone
+  // ever gave this function internal state.
+  for (const [pending, producing, expected] of cases) {
+    const entered = glyphStateFor({ pending, producing });
+    assert(entered === expected, `setup: ${pending}/${producing} did not enter ${expected}`);
+
+    const cleared = glyphStateFor({ pending: false, producing: false });
     assert(
-      glyphStateFor({ pending: false, producing: false }) === "idle",
-      "clearing the request did not settle back to idle"
+      cleared === "idle",
+      `leaving ${entered} did not settle back to idle — it gave ${cleared}, ` +
+        `which means the state is being remembered rather than derived`
     );
   }
 

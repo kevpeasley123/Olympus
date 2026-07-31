@@ -29,6 +29,65 @@ function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message);
 }
 
+/**
+ * Fixtures must fail loudly, because a wrong one fails silently.
+ *
+ * **[V] The failure this exists to stop, 2026-07-30.** A reconstruction of
+ * `realEight` that omitted `notePath` positioned **zero** nodes at every count
+ * while throwing nothing. The anchor joins projects to the graph on that field,
+ * so without it no wedge owns a note and `layoutProjectOwnedGraph` correctly
+ * returns an empty layout for an input that describes nothing.
+ *
+ * That is worse than a vacuous assertion. A vacuous assertion is real code that
+ * cannot fail; this is a real assertion running against an input that silently
+ * describes nothing — so the assertions pass, or the sweep reads as catastrophic
+ * breakage, and neither points at the fixture. It cost a round diagnosing the
+ * layout module for a defect in the test data.
+ *
+ * So every fixture is validated before use rather than trusted, and the layout
+ * is validated against what the fixture *claimed*. Silence is not a result.
+ */
+function assertFixtureIsWellFormed(projects: TrackedProject[], caseName: string) {
+  assert(projects.length > 0, `${caseName}: fixture has no projects at all`);
+
+  for (const candidate of projects) {
+    assert(
+      Boolean(candidate.notePath),
+      `${caseName}: project "${candidate.id}" has no notePath — the graph anchor ` +
+        `joins on it, so this fixture would position zero nodes and throw nothing`
+    );
+    assert(
+      Boolean(candidate.id) && Boolean(candidate.name),
+      `${caseName}: a project is missing an id or a name`
+    );
+  }
+
+  const ids = new Set(projects.map((candidate) => candidate.id));
+  assert(
+    ids.size === projects.length,
+    `${caseName}: duplicate project ids — segments would collide on a stable-order key`
+  );
+}
+
+/**
+ * A layout that positions nothing for a graph that claims notes is a broken
+ * fixture, not a passing test. Asserted separately from spacing and clearance:
+ * those are properties *of* a layout, and this establishes there is one.
+ */
+function assertLayoutIsNotVacuous(
+  positioned: number,
+  claimedNotes: number,
+  caseName: string
+) {
+  if (claimedNotes === 0) return;
+  assert(
+    positioned > 0,
+    `${caseName}: the graph claims ${claimedNotes} linked note(s) and the layout ` +
+      `positioned none. Every assertion below this would pass over an empty set. ` +
+      `Check the fixture's notePath before suspecting the layout module.`
+  );
+}
+
 function project(
   id: string,
   name: string,
@@ -281,7 +340,11 @@ function assertSubRowsAreLegible(count: number, caseName: string, withinCapacity
 
   for (const scale of SCALES) {
     const ring = layoutProjectRing(realEight, centre, PROJECT_RING_RADIUS, scale);
-    const laid = layoutProjectOwnedGraph(denseSingleProjectGraph(count), ring, centre);
+    const graph = denseSingleProjectGraph(count);
+    const laid = layoutProjectOwnedGraph(graph, ring, centre);
+    // Before any property of the layout: is there a layout? An empty result here
+    // means the fixture, not the module.
+    assertLayoutIsNotVacuous(laid.nodes.length, graph.hopOneCount, `${caseName} @ ${scale}x`);
     const band = laid.nodes.filter((node) => node.depth === 1);
     assert(band.length === count, `${caseName} @ ${scale}x: expected ${count} depth-1 notes`);
 
@@ -413,6 +476,10 @@ function assertCentreReadoutIsContained() {
 
 export function runProjectRingHarness() {
   const centre = 220;
+  // Fixtures first. Every assertion below runs against these, and a malformed
+  // one produces an empty layout rather than an error — so validate the input
+  // before trusting anything measured from it.
+  assertFixtureIsWellFormed(realEight, "realEight");
   // The reference ring is built at the smallest scale the real window can reach,
   // not at 1:1. Label geometry now depends on the render scale, so 1:1 is both
   // unreachable and the tightest case — using it as the reference would pin the
@@ -514,6 +581,7 @@ export function runProjectRingHarness() {
       status
     );
   });
+  assertFixtureIsWellFormed(twenty, "N=20 portfolio");
   // Checked at every scale the window can actually reach, not only at the 1:1
   // reference. The counter-scaled font shrinks in viewBox units as the dial grows,
   // so a dense ring is *easier* at large scales — the binding case is the small

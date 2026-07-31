@@ -44,7 +44,22 @@ export function glyphStateFor({ pending, producing }: GlyphStateInput): GlyphSta
  * properties so the later wake behaviour — instrument dims and the breath slows
  * after several minutes idle — is a variable change rather than a rewrite.
  */
-export const IDLE_BREATH_SECONDS = 7;
+/**
+ * **These three must equal `--breath-duration`, `--breath-scale-low` and
+ * `--breath-scale-high` in `styles.css`, and nothing enforces it.**
+ *
+ * **[V] It has already drifted once, on 2026-07-30**: the CSS went 7s → 6s and
+ * this constant stayed at 7 for a turn. Nothing caught it, because nothing in
+ * the app imports these — only the harness does, and its assertion is a floor
+ * (`>= 6`), which 7 satisfies just as well as 6. **A constant nothing reads
+ * cannot be wrong loudly**, which is the same failure that killed `TIER_WEIGHT`.
+ *
+ * The structural fix is to make this the source and have `CommandInstrument`
+ * write the custom properties inline, so the CSS declaration becomes a fallback
+ * rather than a second truth. Deliberately not done mid-judgment; it is the
+ * first thing to do to this file.
+ */
+export const IDLE_BREATH_SECONDS = 6;
 export const IDLE_BREATH_SCALE_FLOOR = 0.94;
 export const IDLE_BREATH_SCALE_CEILING = 1.06;
 

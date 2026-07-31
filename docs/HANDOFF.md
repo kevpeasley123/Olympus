@@ -1322,6 +1322,98 @@ model's context are separate pieces of work, and only the first is done.
 
 # 6 · Working method that has been productive
 
+## A constant nothing reads cannot be wrong loudly
+
+**A standing rule, not a remark.** Dead code that compiles is invisible, and a
+*constant* is the worst case: it looks like configuration, so the next reader
+trusts it, while nothing executes it and nothing can contradict it.
+
+**[V] Four instances so far, and they are the same failure:**
+
+| | what rotted | how it was found |
+|---|---|---|
+| `VaultGraph.tsx` | whole component, replaced by `ProjectRing`, never deleted | read during an audit |
+| `nowPlaying` trail | state threaded through with no consumer | read during an audit |
+| `TIER_WEIGHT` | exported, imported by nothing, `scaffold: 6` against a `stroke-width: 5` | found only because its last sibling was being deleted |
+| `IDLE_BREATH_SECONDS` | **7 while the CSS said 6**, harness-only, floor assertion `>= 6` satisfied by both | found by auditing harness fixtures, one turn after this rule was written |
+
+**The last one is the instructive one.** It was created *by the session that
+wrote this rule*, in the turn immediately after. Changing `--breath-duration`
+from 7s to 6s left the TypeScript constant documenting the same value at 7, and
+the harness assertion that guards it is a floor — `IDLE_BREATH_SECONDS >= 6` —
+which 7 satisfies exactly as well as 6. Knowing the rule does not prevent the
+failure; only structure does.
+
+**So the rule has a mechanical form:**
+
+- **A value duplicated between CSS and TypeScript is two truths.** Make one write
+  the other — a custom property set inline from the constant — so the CSS
+  declaration is a fallback rather than a second source. `IDLE_BREATH_SECONDS`
+  still needs this; it is the first thing to do to `glyphState.ts`.
+- **A floor assertion does not pin a value.** `>= 6` catches nothing between 6
+  and infinity. If two things must be *equal*, assert equality.
+- **When deleting the last consumer of a module, read the whole module before
+  deciding what to keep.** `TIER_WEIGHT` was already wrong; it surfaced only
+  because `tierBreakdown` was going.
+
+## Four flavours of "green while covering nothing"
+
+They are distinct failures with distinct fixes, and naming them separately is the
+point — each was found by a different check, and a reader who knows only one will
+miss the other three.
+
+| # | Flavour | What it looks like | The check that finds it |
+|---|---|---|---|
+| 1 | **Assertions that assert nothing** | a test whose body prints or degrades to a default, so no comparison happens | read the body: does anything compare? |
+| 2 | **Tests that skip silently** | a precondition is absent (no vault, no elevation) and the test returns `Ok` | make every test assert its own preconditions |
+| 3 | **Fixtures that are silently malformed** | the input describes nothing, the module correctly returns empty, real assertions run over an empty set | guard the fixture *before* measuring anything from it |
+| 4 | **Loops that discard their own cases** | iterates N times, `void`s its loop variables, asserts a constant expression — runs four times and tests once | does the assertion reference the loop variable? |
+
+**[V] Flavour 1** cost five tests in an earlier session. **[V] Flavour 2** is why
+`debug_*` tests assert their preconditions. **[V] Flavours 3 and 4** were both
+found on 2026-07-30, described below.
+
+**The generalisation, which is the actually useful part:** in every one of the
+four, *the test ran and reported success*. "Passed" and "exercised the thing it
+names" are separate questions, and only the second one matters. Ask the second.
+
+## Harness fixtures must fail loudly, because a wrong one fails silently
+
+**[V] The third distinct flavour of "green while covering nothing" in this
+project, and the worst so far.** A fixture reconstruction that omitted
+`notePath` positioned **zero** nodes at every count and threw nothing. The
+anchor joins projects to the graph on that field, so an empty layout is the
+*correct* answer to an input describing nothing — the module is not at fault, and
+no assertion in it could be.
+
+**Why it beats a vacuous test for danger.** A vacuous assertion is real code that
+cannot fail. This is the inverse: real assertions running over an empty set. They
+either pass without touching anything, or — as happened — the sweep reads as
+catastrophic breakage and a round is spent diagnosing the layout module for a
+defect in the test data.
+
+**[V] Closed as of 2026-07-30.** `assertFixtureIsWellFormed` rejects a fixture
+with no projects, a project without a `notePath`, or duplicate ids;
+`assertLayoutIsNotVacuous` rejects a layout that positions nothing for a graph
+claiming notes. Both are called before any property is measured. Verified by
+negative control: all three malformed shapes throw, a well-formed fixture passes.
+
+**[V] The audit of the other two harnesses found one more.** `glyphState.harness`
+had a loop over four state cases that `void`ed both loop variables and then
+asserted a *constant expression* — the same check four times, with the case data
+discarded. It could only fail if the loop above it had already failed. Rewritten
+as the two-call sequence it was describing: enter a state, clear the request,
+assert idle. **Stated honestly, that still cannot fail while `glyphStateFor` is
+pure** — but it now tests the property it names, so it would catch the regression
+it exists to catch (the function gaining memory), where before it tested nothing.
+`pantheonRecord.harness` is structurally immune: its fixture is a typed
+`PantheonEntry`, so completeness is enforced by the compiler, and its assertions
+read scalar fields rather than iterating a set that might be empty.
+
+**The standing check, for any new harness:** if the fixture were silently wrong,
+would anything say so? If the answer is "the assertions would pass over an empty
+set," the fixture needs a guard before the assertions do.
+
 **Verify premises before planning.** Nearly every brief this session contained at
 least one false premise, and finding them was the most valuable thing done. Real
 examples: arcs described as absent were present but invisible; `quiet_hours` was
