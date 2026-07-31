@@ -11,6 +11,65 @@ Originally written 2026-07-27 at `1af8092`, then vision-synced on the isolated
 > **Do not restate a commit here. Run `git log -1 -- docs/HANDOFF.md`** — that is
 > the only currency claim that cannot rot.
 
+---
+
+## Start here
+
+**Establish the ground truth yourself. Four commands, none of them optional.**
+
+```bash
+git log -1 -- docs/HANDOFF.md          # how current this document is
+git log --oneline -12                   # what actually shipped recently
+cargo test --lib --manifest-path src-tauri/Cargo.toml
+npm run build
+```
+
+Then read section 6, *Working method*, before section 4, *Next work*. The method
+is what makes the rest usable; several rounds have been lost to skipping it.
+
+### Waiting on the operator's eyes — do not build around these
+
+Each is finished code that nobody has looked at. **None is a defect and none
+should be "fixed"** until he has judged it.
+
+| | Where | What to look at |
+|---|---|---|
+| Depth-1 edge opacity | `--tree-edge-hop1-opacity` in `styles.css` | Compare `0.08` / `0.11` (current) / `0.15`. One variable; depth-2 stays `0.24`. |
+| The write pulse's second expansion | Command mode | Approve a gated write; the ring should go out **twice**. Fixed at `7cc6b28`, never seen. |
+| The model readout copy | Command mode, below the dial | Appears only after the first reply of a session. |
+| The omega speaking | Command mode | Send a chat message. Thinking circles the glyph, speaking scales it. |
+
+**Firing the write pulse:** Command mode → the notebook icon in the chat panel
+header → type anything → Record → **approve** the dialog. It fires on approval,
+not completion; declining fires nothing.
+
+### The five things that will cost you a round
+
+1. **Read the binary's timestamp before believing a visual judgement.** The
+   installed app lags `master`. `(Get-Item 'C:\Program Files\Project
+   Olympus\project-olympus.exe').LastWriteTime` against `git log`. This has
+   already invalidated a full round of verdicts.
+2. **Harness green is not build green.** The SSR loader the harnesses run under
+   does not typecheck. Run `npm run build` too.
+3. **Never round-trip a file through PowerShell.** `Get-Content -Raw` decodes as
+   ANSI and `Set-Content` writes it; a substitution silently mangles every
+   non-ASCII character. Use an editor, or `[System.IO.File]::ReadAllText` /
+   `WriteAllText` with `UTF8Encoding($false)`.
+4. **Pin observed behaviour, not documented behaviour.** See flavour 5 — the
+   reference can be entirely correct about a configuration you do not run.
+5. **`tauri dev` cannot be screenshotted**, and hot reload does not add Rust
+   commands. A Rust change needs a restart even in dev.
+
+### What is not built, and was decided rather than forgotten
+
+`operator_approvals` and the fail-closed approval design (section 4.5). Research
+bodies and `04 - Decisions` reaching the assistant — the memory loop, which is
+the premise the project rests on and is still unmet. Live rendering of streamed
+text: the deltas already reach the webview on a channel, so it is a frontend-only
+change whenever it is wanted.
+
+---
+
 ## 2026-07-29 reconciliation against HEAD
 
 This document had drifted three commits behind `master`. What follows is the
@@ -303,8 +362,8 @@ and `messages`; `stream` is a transport flag outside that prefix. The
 stable/volatile split and its breakpoint are unchanged, and the existing
 breakpoint tests still pass.
 
-**[V] Rust 172 tests pass** (was 165). `npm run build` passes. **[A] Nobody has
-watched the omega speak** — that needs a chat message sent in the running app.
+**[V] Rust tests and `npm run build` both pass.** **[A] Nobody has watched the
+omega speak** — that needs a chat message sent in the running app.
 
 ## How to read the claims in this document
 
@@ -343,7 +402,10 @@ exists. If a decision depends on an **[A]**, verify it first.
 | `b5993a4` | Deterministic labelled project ring; instrument scaled to the centre column with counter-scaled annotation | **[V]** 371-line harness executed, passes; scale factors computed from the real CSS |
 | `fe849ee` | Pantheon category routing — explicit tag beats inferred score | **[V]** harness executed, passes: inferred → `agent-systems`, tagged → `agent-systems` with distinct rationale, unrelated → `research-references` |
 
-**[V]** Rust: **165 tests pass, 0 failed** (`cargo test --lib`, this session).
+**[V]** Rust tests pass, 0 failed. **The count is deliberately not written here** —
+it has been 133, 145, 150, 161, 165, and 173 across sessions, and every stated
+figure has been wrong within a round. Run `cargo test --lib --manifest-path
+src-tauri/Cargo.toml`; the number it prints is the number.
 **[V]** `npm run build` passes. **[V]** Both frontend harnesses executed and pass.
 
 **[V] `tauri build` now succeeds** — producing installable bundles beneath the
@@ -1128,6 +1190,16 @@ away.
 
 # 4 · Immediate next work, ordered
 
+> **[V] This section's ordering is stale; its reasoning is not.** Items 1–3 are
+> either shipped or reduced to acts of looking, and the looking is now tracked in
+> **Start here** at the top of this document, which is current. Items **4 and 5**
+> — the memory loop and verifiable approval — are the real outstanding work and
+> are unchanged.
+>
+> Each item is kept in full because the *constraints* it records still bind the
+> implementation. Read them for the reasoning, not for the priority. **The
+> priority is: the four judgements in Start here, then item 4.**
+
 ### 1. Commit approved vault writes, with attribution — DONE
 
 **[V] Shipped at `2a252bf`.** Every successful vault writer, including
@@ -1174,8 +1246,11 @@ and the first write tick in one action.
 `components/panels/ProjectRing.tsx` are what `CommandInstrument` mounts now.
 `services/vaultGraph.ts` survives as the payload type, the gate, and
 `describeNode`; `hooks/useVaultGraph.ts` still feeds the scan.
-**[V] `components/panels/VaultGraph.tsx` is dead** — nothing imports it, and it
-should be deleted along with the `.vault-graph__*` rules in `styles.css`.
+~~**[V] `components/panels/VaultGraph.tsx` is dead** — nothing imports it, and it
+should be deleted along with the `.vault-graph__*` rules in `styles.css`.~~
+**Done 2026-07-30**, component and CSS both. It survived unimported for several
+sessions while this document said "should be deleted" three separate times —
+which is the dead-code rule demonstrating itself: a note is not a mechanism.
 
 **[V]** Layout verified by executing `projectRing.harness.ts`: equal widths,
 bearing stability under a status change, code-point ordering, no label

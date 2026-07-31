@@ -3949,73 +3949,12 @@ small {
   pointer-events: none;
 }
 
-/* ---- Vault graph -------------------------------------------------------- */
-/* Hop distance is radius; angle is stable ordering. Nothing here animates at
-   rest. It replaced a sweeping ring and five poll dots, and nothing was lost by
-   dropping the motion: the day arc's now-marker already says the instrument is
-   live, and a second moving thing at this radius competed with it. */
-
-.vault-graph__edge {
-  stroke: var(--muted);
-  opacity: 0.16;
-  stroke-width: 1;
-}
-
-.vault-graph__node {
-  fill: var(--muted);
-  cursor: pointer;
-  transition:
-    opacity 160ms ease-out,
-    fill 160ms ease-out;
-}
-
-/* An anchor is what every radius is measured from, so it is the only band that
-   takes the accent. A project note linking to nothing still draws — seven of
-   those is a true finding, and hiding them would make the ring claim the
-   portfolio is more connected than it is. */
-.vault-graph__node--anchor {
-  fill: var(--accent);
-  opacity: 0.95;
-}
-
-.vault-graph__node--hop1 {
-  opacity: 0.7;
-}
-
-.vault-graph__node--hop2 {
-  opacity: 0.5;
-}
-
-.vault-graph__node--deep {
-  opacity: 0.38;
-}
-
-/* The rim. Hollow, reusing the vocabulary the poll dots used for "never
-   landed" — different data, same meaning: this one never connected. Debris
-   stays visible; the rim surfacing junk is the rim working. */
-.vault-graph__node--orphan {
-  fill: none;
-  stroke: var(--muted);
-  stroke-width: 1;
-  opacity: 0.45;
-}
-
-.vault-graph__node:hover,
-.vault-graph__node.is-hovered {
-  fill: var(--primary);
-  stroke: var(--primary);
-  opacity: 1;
-  outline: none;
-}
-
-.vault-graph__meta {
-  fill: var(--muted);
-  font-family: var(--font-sans);
-  font-size: 11px;
-  letter-spacing: 0.04em;
-  opacity: 0.6;
-  pointer-events: none;
-}
+/* The `.vault-graph__*` rules lived here and are gone with the component they
+   styled. `ProjectRing` replaced `VaultGraph` at `b5993a4`; the file survived
+   unimported for several sessions because dead code that compiles is invisible,
+   and the handoff recorded "should be deleted" three times without it happening.
+   The orphan-rim treatment is the one idea worth recovering if orphans ever
+   reach Research mode: hollow, reusing the "never landed" vocabulary. */
 
 /* ---- Project ring and constellation ------------------------------------ */
 /* One segment per project. Geometry comes only from stable ID order; status
@@ -5249,9 +5188,8 @@ small {
   .market-toggle,
   .markets-news-toggle svg,
   .observation-seed,
-  /* A graph node still brightens on hover — that is how it identifies itself —
+  /* A ring node still brightens on hover — that is how it identifies itself —
      but it arrives instantly rather than easing in. */
-  .vault-graph__node,
   .project-ring__segment,
   .project-ring__label,
   .project-ring__node,
