@@ -38,10 +38,11 @@ should be "fixed"** until he has judged it.
 | | Where | What to look at |
 |---|---|---|
 | Depth-1 edge opacity | `--tree-edge-hop1-opacity` in `styles.css` | Compare `0.08` / `0.11` (current) / `0.15`. One variable; depth-2 stays `0.24`. |
-| The write pulse's second expansion | Command mode | Approve a gated write; the ring should go out **twice**. Fixed at `7cc6b28`, never seen. |
+| ~~The write pulse's second expansion~~ | — | **Judged 2026-07-31: works.** The double expansion was seen and approved. |
 | The model readout copy | Command mode, below the dial | Appears only after the first reply of a session. |
 | The omega speaking | Command mode | Send a chat message. Thinking circles the glyph, speaking scales it. First reachable as of `86d7678`. |
-| The breath, after the source refactor | Command mode, at rest | `6c48d52` moved the breath's values from CSS into `glyphState.ts`, written inline. **[V]** The constants are unchanged — 6s / 0.94 / 1.06 / 0.48 alpha — and asserted equal to the CSS fallbacks, but **nobody has confirmed it still *looks* the same**. A structural change that silently altered the values would be its own bug. |
+| The breath, after the source refactor | Command mode, at rest | `6c48d52` moved the breath's values from CSS into `glyphState.ts`, written inline. **[V]** The constants are unchanged — 6s / 0.94 / 1.06 / 0.48 alpha — and asserted equal to the CSS fallbacks, but **nobody has confirmed it still *looks* the same**. Note: `727113f` layered the glyph the breath haloes (body/outline/highlight); the breath element itself is untouched, but the judgment now happens against the new glyph. |
+| The material pass, in the running app | Command mode | `727113f` — panel windows with names inside, sphere nodes, layered glyph. **Approved from screenshots only**; the operator has not yet seen it in `tauri dev` with the real vault. |
 
 **Firing the write pulse:** Command mode → the notebook icon in the chat panel
 header → type anything → Record → **approve** the dialog. It fires on approval,
@@ -391,6 +392,68 @@ breakpoint tests still pass.
 
 **[V] Rust tests and `npm run build` both pass.** **[A] Nobody has watched the
 omega speak** — that needs a chat message sent in the running app.
+
+## 2026-07-31 — the panel windows are built, and the label lane is retired
+
+`727113f`, one commit, frontend only. The "decided, not built" direction from
+2026-07-30 is now built, after the operator saw an AI mock of it and asked for
+it directly. **[V] Approved from before/after screenshots** (headless Chromium,
+browser mode plus a fixture preview); **[A] not yet seen in `tauri dev`** — that
+is the first thing tomorrow.
+
+**What a segment is now.** An enclosed annular-sector window: translucent glass
+fill, one outline stroke enclosing outer edge, inner edge and both ends, a lit
+face arc at the outer edge, stacked-stroke amber glow on active only. The
+project's name curves inside on a `textPath`; windows whose bearing lands in the
+lower semicircle (midAngle 90–270, zero at twelve o'clock, clockwise) draw the
+name path reversed so no glyph hangs upside down. Band thickness is uniform —
+`WINDOW_BAND_WIDTH = 23` in `ProjectRing.tsx` — because the direction narrows
+tier to fill/outline/text brightness only, never geometry. The old per-tier
+stroke widths (11/8/5) are gone with the strokes they sized.
+
+**The label lane is retired in the renderer, not the module.** `ProjectLabel`
+and its CSS were deleted; the name inside the window is the label now, capacity-
+truncated against its own arc using the module's 0.62 JetBrains Mono ratio
+(at N=8 every current name fits whole — the lane's ellipsis on FRUIT ORGANIZER
+is gone as a side effect). **`placeLabels`, the collision boxes and the
+shorten-then-hide ladder still run in `layoutProjectRing` and are computed for
+nobody.** They are harness-pinned, so removing them is deliberate surgery:
+do it as its own change once the direction survives the in-app look, and take
+the harness assertions with it. Do not "clean it up" in passing.
+
+**Two deviations made knowingly, both operator-visible in the screenshots:**
+
+- **Tier group opacities lifted** — watching 0.6→0.7, scaffold 0.4→0.55,
+  unclassified 0.24→0.42. The old values were tuned for mute strokes; a name
+  inside a 0.24 window is unreadable, and an illegible name is worse than no
+  window. The ramp still descends in the same order.
+- **The costs recorded against this direction were measured, then dissolved.**
+  Arc capacity: 42° at r=168 gives ~117 usable units against ~54 for the longest
+  name — cleared at N=8, ladder engages near N=20. Compositing: there are **zero
+  new filters** — sphere shadows and speculars are shared radial gradients, the
+  glow is stacked strokes, so the earlier backdrop-filter clearance stands
+  untouched rather than needing re-measurement.
+
+**The rest of the material pass, same commit.** Nodes gained sphere shading
+(offset specular, cool rim, gradient drop shadow) with depth opacity moved to a
+group so the layers fade together; node body classes, hover rules and depth
+values are unchanged. The glyph gained its missing layers — dark body with
+bright outline via `paint-order: stroke`, highlight underlay occluded except
+along the top contours; the glow disc, breath values, speaking scale and both
+pulse filters are untouched. New hover transitions joined the reduced-motion
+`transition: none` guard — the brief claimed no new rules would be needed, true
+for animations, false for transitions.
+
+**`depth-preview.html` + `src/depth-preview.tsx`** render the ring with fixture
+nodes on the dev server for headless visual iteration. Viewing surface only:
+asserts nothing, ships nowhere. Its fixtures mirror the harness builders,
+`notePath` included.
+
+**Still open, unchanged by tonight:** the four remaining judgments in the table
+at the top (edges, readout, speaking, breath — the pulse cleared), and one new
+question: the mock that prompted this was blue-heavy, and blue remains excluded
+unless the operator explicitly overturns it. The structure came over; the blue
+did not.
 
 ## How to read the claims in this document
 
@@ -1000,6 +1063,13 @@ currently invisible in the app.** That is a real finding being hidden, which is
 the opposite of the rim's stated purpose.
 
 ### Decided, not built: segments become enclosed panel windows
+
+> **BUILT 2026-07-31 at `727113f` — see that dated section below.** Both costs
+> were measured before building (arc capacity cleared with 2× margin at N=8;
+> the compositing question dissolved because the build uses zero new filters),
+> and the operator approved from screenshots. The section is kept because it
+> records what was *deliberately excluded*, which still binds: no blue accent,
+> no tier-varying geometry.
 
 **[A] A design direction settled from mocks on 2026-07-30. No code exists for it,
 and none should be written speculatively** — it is recorded here so it is not
