@@ -1,10 +1,14 @@
 import { motion, useReducedMotion } from "motion/react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import type { CSSProperties } from "react";
 import type { ActionQueueTask } from "../../hooks/useActionQueue";
 import { useOperatorProfile } from "../../hooks/useOperatorProfile";
 import { useVaultGraph } from "../../hooks/useVaultGraph";
 import { useVaultWrites } from "../../hooks/useVaultWrites";
 import {
+  IDLE_BREATH_SCALE_CEILING,
+  IDLE_BREATH_SCALE_FLOOR,
+  IDLE_BREATH_SECONDS,
   SPEAKING_ENVELOPE,
   SPEAKING_LOOP_SECONDS,
   glyphStateFor
@@ -217,7 +221,30 @@ export function CommandInstrument({
               declares its origin — SVG defaults `transform-origin` to `0 0`,
               which sends a scaled glyph 162px out of frame rather than growing
               it in place. Measured, not assumed. */}
-          <g className={`omega-presence omega-presence--${glyphState}`}>
+          {/* The breath's three values are written here, from `glyphState.ts`,
+              rather than declared in `styles.css`.
+
+              **[V] They were two truths and they drifted within one turn.** The
+              CSS went 7s -> 6s and `IDLE_BREATH_SECONDS` stayed at 7; nothing
+              caught it, because nothing in the app imported the constant and the
+              harness guarding it asserts a floor. A note beside the pair did not
+              prevent it, so the pair is gone: the constants are the source, this
+              writes them, and the declarations in `styles.css` are fallbacks
+              that only apply if this element never mounts.
+
+              Keep the rule rather than the instance — a value duplicated between
+              CSS and TypeScript is two truths, and one of them has to write the
+              other. */}
+          <g
+            className={`omega-presence omega-presence--${glyphState}`}
+            style={
+              {
+                "--breath-duration": `${IDLE_BREATH_SECONDS}s`,
+                "--breath-scale-low": IDLE_BREATH_SCALE_FLOOR,
+                "--breath-scale-high": IDLE_BREATH_SCALE_CEILING
+              } as CSSProperties
+            }
+          >
             <defs>
               {/* The midpoint carries the apparent size, not the radius.
                   Pushed 55% -> 68%, so the body of the glow holds its value

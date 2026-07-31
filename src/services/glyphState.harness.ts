@@ -10,9 +10,57 @@ import {
   glyphStateFor
 } from "./glyphState";
 import type { GlyphState } from "./glyphState";
+import stylesheet from "../styles.css?raw";
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message);
+}
+
+/**
+ * The breath's fallback declarations in `styles.css`, asserted **equal** to the
+ * constants that write them.
+ *
+ * **The floor assertion this replaces is how the drift hid.** `IDLE_BREATH_SECONDS
+ * >= 6` is satisfied by 6 and by 7 and by 600, so when the CSS moved to 6s and
+ * the constant stayed at 7 the harness reported success. **A floor does not pin a
+ * value.** If two things must be equal, assert equality.
+ *
+ * **[V] The CSS/TS boundary is crossable**, which is worth recording because the
+ * alternative conclusion — "this cannot be checked mechanically" — would have
+ * been wrong and would have left the pair unguarded. Vite's `?raw` import serves
+ * the stylesheet as text through the same SSR loader the harnesses already run
+ * under, so the fallbacks are readable without a DOM or a browser.
+ *
+ * These are fallbacks now, not the rendered values: `CommandInstrument` writes
+ * the custom properties inline from the constants. They still have to agree, or
+ * a path where that element never mounts animates on different numbers.
+ */
+function assertStylesheetFallbacksMatchTheConstants() {
+  const read = (property: string): string => {
+    const found = stylesheet.match(
+      new RegExp(`${property}:\\s*([^;]+);`)
+    );
+    assert(
+      found !== null,
+      `${property} is not declared in styles.css — the fallback was removed, or ` +
+        `renamed, and nothing else pins it`
+    );
+    return found[1].trim();
+  };
+
+  const pairs: Array<[string, string, number | string]> = [
+    ["--breath-duration", read("--breath-duration"), `${IDLE_BREATH_SECONDS}s`],
+    ["--breath-scale-low", read("--breath-scale-low"), IDLE_BREATH_SCALE_FLOOR],
+    ["--breath-scale-high", read("--breath-scale-high"), IDLE_BREATH_SCALE_CEILING]
+  ];
+
+  for (const [property, declared, expected] of pairs) {
+    assert(
+      declared === String(expected),
+      `${property} in styles.css is "${declared}" but glyphState.ts says ` +
+        `"${expected}". The constant is the source; edit it there, not in the CSS.`
+    );
+  }
 }
 
 export function runGlyphStateHarness() {
@@ -102,10 +150,15 @@ export function runGlyphStateHarness() {
     IDLE_BREATH_SCALE_FLOOR < 1 && IDLE_BREATH_SCALE_CEILING > 1,
     "the idle breath must move through its rendered size, not sit to one side of it"
   );
+  // Kept as a *perceptual* floor, which is what a floor is legitimately for:
+  // below about 6s the cycle starts reading as a signal rather than as ambience.
+  // It deliberately does not pin the value — that is the equality check below,
+  // and conflating the two is what let the drift through.
   assert(
     IDLE_BREATH_SECONDS >= 6,
     `an idle cycle of ${IDLE_BREATH_SECONDS}s is fast enough to read as a signal rather than as ambience`
   );
+  assertStylesheetFallbacksMatchTheConstants();
   assert(
     SPEAKING_LOOP_SECONDS < IDLE_BREATH_SECONDS,
     "speaking must cycle faster than the idle breath or the two are indistinguishable"

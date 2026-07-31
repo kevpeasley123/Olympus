@@ -45,19 +45,21 @@ export function glyphStateFor({ pending, producing }: GlyphStateInput): GlyphSta
  * after several minutes idle — is a variable change rather than a rewrite.
  */
 /**
- * **These three must equal `--breath-duration`, `--breath-scale-low` and
- * `--breath-scale-high` in `styles.css`, and nothing enforces it.**
+ * **These three are the source for the idle breath. Tune them here.**
  *
- * **[V] It has already drifted once, on 2026-07-30**: the CSS went 7s → 6s and
- * this constant stayed at 7 for a turn. Nothing caught it, because nothing in
- * the app imports these — only the harness does, and its assertion is a floor
- * (`>= 6`), which 7 satisfies just as well as 6. **A constant nothing reads
- * cannot be wrong loudly**, which is the same failure that killed `TIER_WEIGHT`.
+ * `CommandInstrument` writes them onto `.omega-presence` as `--breath-duration`,
+ * `--breath-scale-low` and `--breath-scale-high`; the declarations in
+ * `styles.css` are fallbacks that apply only if that element never mounts, and
+ * `glyphState.harness.ts` asserts the two agree **by equality**.
  *
- * The structural fix is to make this the source and have `CommandInstrument`
- * write the custom properties inline, so the CSS declaration becomes a fallback
- * rather than a second truth. Deliberately not done mid-judgment; it is the
- * first thing to do to this file.
+ * **[V] They were two truths and drifted within one turn, on 2026-07-30**: the
+ * CSS went 7s → 6s while this stayed at 7. Nothing caught it — nothing in the
+ * app imported these, only the harness, and its assertion was a floor (`>= 6`)
+ * which 7 satisfied exactly as well as 6. **A constant nothing reads cannot be
+ * wrong loudly**, the same failure that killed `TIER_WEIGHT`.
+ *
+ * Both halves of that were fixed rather than noted, because a note beside the
+ * pair had already failed to prevent it once.
  */
 export const IDLE_BREATH_SECONDS = 6;
 export const IDLE_BREATH_SCALE_FLOOR = 0.94;

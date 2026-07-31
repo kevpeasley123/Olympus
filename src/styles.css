@@ -4184,11 +4184,26 @@ small {
 /* Duration and amplitude are custom properties so the wake behaviour — the whole
    instrument dimming and the breath slowing after several minutes idle, coming
    back up on movement — is a variable change here rather than a rewrite. */
+/* FALLBACKS ONLY — do not tune these three.
+   `--breath-duration`, `--breath-scale-low` and `--breath-scale-high` are written
+   inline by `CommandInstrument` from `IDLE_BREATH_SECONDS`,
+   `IDLE_BREATH_SCALE_FLOOR` and `IDLE_BREATH_SCALE_CEILING` in `glyphState.ts`,
+   which is the source. The values here apply only if that element never mounts,
+   and are kept in sync by an equality assertion in `glyphState.harness.ts`.
+
+   **[V] They used to be a second truth and they drifted within one turn** — the
+   CSS went 7s while the constant stayed 7s and the harness floor (`>= 6`)
+   accepted both. Editing a value here rather than in `glyphState.ts` recreates
+   exactly that.
+
+   The two opacity values are *not* duplicated: nothing in TypeScript reads them,
+   so this is their only definition and they are edited here.
+
+   Thinking and speaking derive from the duration by multiplier (0.6 and 0.45),
+   so the three states hold their ratios — 1.67x and 1.33x — at any base.
+   Shortening the base shortens all three together and does not narrow their
+   separation; the dial for that is the multipliers, not this. */
 .omega-presence {
-  /* Thinking and speaking derive from this by multiplier (0.6 and 0.45), so the
-     three states hold their ratios — 1.67x and 1.33x — at any base. Shortening
-     the base shortens all three together and does not narrow their separation;
-     the dial for that is the multipliers, not this. */
   --breath-duration: 6s;
   --breath-opacity-low: 0.42;
   --breath-opacity-high: 1;

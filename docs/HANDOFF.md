@@ -1348,10 +1348,20 @@ failure; only structure does.
 
 - **A value duplicated between CSS and TypeScript is two truths.** Make one write
   the other — a custom property set inline from the constant — so the CSS
-  declaration is a fallback rather than a second source. `IDLE_BREATH_SECONDS`
-  still needs this; it is the first thing to do to `glyphState.ts`.
+  declaration is a fallback rather than a second source. **[V] Done for the
+  breath**: `CommandInstrument` writes `--breath-duration`, `--breath-scale-low`
+  and `--breath-scale-high` onto `.omega-presence` from `glyphState.ts`, and the
+  `styles.css` block is labelled fallback-only. The two opacity values are *not*
+  duplicated — nothing in TypeScript reads them — so they stay in the CSS.
 - **A floor assertion does not pin a value.** `>= 6` catches nothing between 6
-  and infinity. If two things must be *equal*, assert equality.
+  and infinity. If two things must be *equal*, assert equality. **[V] The
+  CSS/TS boundary is crossable and this was worth checking rather than assuming**
+  — Vite's `?raw` import serves the stylesheet as text through the same SSR
+  loader the harnesses run under, so `glyphState.harness.ts` now parses the
+  fallbacks and asserts equality against the constants. Concluding "not
+  mechanically possible" would have been wrong and would have left the pair
+  unguarded. The perceptual floor is kept *alongside* it, doing the job a floor
+  is legitimately for.
 - **When deleting the last consumer of a module, read the whole module before
   deciding what to keep.** `TIER_WEIGHT` was already wrong; it surfaced only
   because `tierBreakdown` was going.
