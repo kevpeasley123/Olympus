@@ -942,9 +942,47 @@ Three candidates, to be measured before choosing:
 - Fade **all** edges at rest, full opacity on wedge hover.
 - Something else the measurement suggests.
 
-**Measure first.** The question is how much of the ink is depth-1 edges that
-duplicate radius, and the layout module already returns `treeEdges` and
-`crossProjectEdges` separately, so the count is available headlessly.
+### [V] Measured, 2026-07-30 — the tree is not absent, it is outnumbered
+
+Real vault payload (43 nodes, 49 edges, 8 projects, 1 connected) through the real
+layout module at 1.71×, measuring **stroke length**, not just count:
+
+| | edges | ink | share |
+|---|---|---|---|
+| tree, depth 1 | 14 | 777 units | **84.8%** |
+| tree, depth 2 | 7 | 139 units | 15.2% |
+| cross-project | 0 | 0 | 0% |
+
+**85% of all edge ink states something position already states.** Every depth-1
+node sits inside its project's wedge at the hop-1 radius, so it is a child of that
+wedge's one anchor by construction — the edge repeats that fact 14 times, and
+each of those strokes averages 55.5 units against 19.9 for a depth-2 edge. The
+fan is 2× the count and 5.6× the ink of the structure it buries.
+
+**The 7 depth-2 edges are the only ones carrying information the layout cannot.**
+With 14 candidate parents at the same radius, *which* hop-1 note a depth-2 note
+hangs from is not derivable from position. That is the tree, and it is currently
+15% of the ink.
+
+**Recommendation: (a), and drop rather than fade.** Fading keeps the ink and the
+crossings at lower contrast; the argument here is that the information is *fully*
+redundant, not merely low-value. Removing depth-1 edges loses nothing, removes
+85% of the ink, and leaves the 7 short local strokes that actually read as
+parentage. **[A] Not built — this is a visual judgement and the numbers only make
+the case; they do not settle how it looks.**
+
+At target state the case strengthens rather than weakens: eight populated wedges
+multiply depth-1 edges by roughly eight while depth-2 grows only with real chain
+depth, which the vault has almost none of.
+
+> **[V] The first run of this measurement returned "100% of ink is depth-1", and
+> it was wrong.** `treeEdges` carry *points*, not node ids — the renderer reads
+> only `edge.from.x/y` — so attributing depth via `edge.to.id` yielded
+> `undefined` and bucketed every edge as depth 1. The wrong answer was clean,
+> plausible, and would have over-stated the case. **Second time this session a
+> hand-built measurement produced a confident wrong number**; the fix was the
+> same as for the harness fixtures — attribute by matching coordinates to nodes,
+> and abort loudly if any edge cannot be attributed rather than defaulting it.
 
 ### The radial graph is deterministic
 
