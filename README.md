@@ -17,7 +17,7 @@ The independently verified project baseline and remaining gaps are recorded in
 
 - Desktop shell: Tauri + React + TypeScript + Vite
 - Visual identity: futuristic AI lab with professional command-center density
-- Core screen: an ambient omega instrument with the active project's next action
+- Core screen: an ambient omega instrument whose labelled project ring and linked-note constellation remain readable across the room
 - Modules: Command instrument, detailed Project briefing and portfolio, Pantheon research, chat, and live context
 - Memory surface: Obsidian-flavored Markdown artifacts, with JSON Canvas and Bases export previews
 - Safety model: recoverable work proceeds autonomously; risky or divergent vault writes use the implemented approval gate described in `ARCHITECTURE.md`

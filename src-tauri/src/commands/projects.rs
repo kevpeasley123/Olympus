@@ -532,42 +532,25 @@ mod tests {
         root
     }
 
-    /// The day arc's commit ticks, against this repository.
-    ///
-    /// Asserts its own precondition rather than passing on an empty result —
-    /// a tick source that silently returns nothing looks identical to a quiet
-    /// day, and five debug tests in this project have failed that way before.
+    /// The day arc's commit ticks against a repository with a commit created
+    /// inside the window. A real checkout is allowed to have a quiet day; using
+    /// it as the fixture made the test fail with the passage of time rather than
+    /// with a parser regression.
     #[test]
-    fn debug_recent_commits_for_this_repo() {
-        let repo = std::env::current_dir()
-            .expect("cwd")
-            .parent()
-            .expect("repo root")
-            .to_path_buf();
+    fn recent_commits_include_a_commit_created_inside_the_window() {
+        let root = temp_git_repo("recent-commit");
 
-        if git_command(&repo, &["rev-parse", "--is-inside-work-tree"]).is_err() {
-            eprintln!("[projects] not a git repo, skipping");
-            return;
-        }
+        let commits = recent_commits(&root);
 
-        let commits = recent_commits(&repo);
-        eprintln!("=== RECENT COMMITS (last 24h) ===");
-        for commit in &commits {
-            eprintln!("  {} | {}", commit.at, commit.subject);
-        }
-        eprintln!("=== {} total ===", commits.len());
-
+        assert_eq!(commits.len(), 1, "the fresh fixture has exactly one commit");
+        assert_eq!(commits[0].subject, "seed");
         assert!(
-            !commits.is_empty(),
-            "this repository has commits today, so an empty result means the \
-             parser is broken rather than the day being quiet"
+            commits[0].at.contains('T'),
+            "expected an ISO date, got {:?}",
+            commits[0]
         );
-        for commit in &commits {
-            assert!(
-                commit.at.contains('T') && !commit.subject.is_empty(),
-                "expected an ISO date and a subject, got {commit:?}"
-            );
-        }
+
+        let _ = fs::remove_dir_all(root);
     }
 
     #[test]

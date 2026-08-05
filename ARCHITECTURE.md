@@ -160,10 +160,11 @@ Dashboard panels compose from `src/App.tsx`. Live data sources:
   and committed next action; Git contributes branch, commit, and working-tree
   facts. `src/services/projectBriefing.ts` reconciles those with attributed
   tasks into Project mode's grounded session paths. Command consumes the same
-  sources only for its single committed next-action sentence, tier arcs, and
-  quiet counts. The scan reads commits across all refs and lists linked
-  worktrees, including their uncommitted file counts, so delegated progress is
-  visible before it reaches the primary branch.
+  sources for the deterministic project-window ring, linked-note constellation,
+  day-arc commit ticks, and the hovered project's name and open-task count. The
+  scan reads commits across all refs and lists linked worktrees, including their
+  uncommitted file counts, so delegated progress is visible before it reaches
+  the primary branch.
 
 - **Session boundary** — `operator_sessions` records one idempotent row per
   desktop webview lifetime. Project mode's “since last session” list is queried

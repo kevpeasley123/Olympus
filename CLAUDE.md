@@ -88,7 +88,12 @@ Done:
 
 Next up:
 
-5. **Conversation log and vault promotion** — the raw log already persists; what's missing is the path from "we worked this out in chat" to a proper Markdown note in `04 - Decisions` or `02 - Research`, so Olympus can answer "when did I decide that?"
+5. **Decision history in assistant context** — give the in-app assistant
+   size-bounded, read-only access to `04 - Decisions/Decision Log.md`, labelled
+   as historical evidence rather than standing instruction. Keep Profile
+   Observations excluded. This closes only the decision-visibility half of the
+   curated-memory loop; selective Pantheon body retrieval and chat promotion
+   remain separate work.
 
 `docs/HANDOFF.md` is the current session handoff and is more specific than this
 section. (`OLYMPUS-BRIEF.md` and `STATE-REVIEW.md` were earlier state documents,

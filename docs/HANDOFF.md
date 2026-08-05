@@ -27,22 +27,23 @@ npm run build
 Then read section 6, *Working method*, before section 4, *Next work*. The method
 is what makes the rest usable; several rounds have been lost to skipping it.
 
-### Waiting on the operator's eyes — do not build around these
+### Operator visual judgment — current
 
-Each is finished code that nobody has looked at. **None is a defect and none
-should be "fixed"** until he has judged it.
+The cold `tauri dev` review happened on 2026-08-04 against the real vault. The
+operator approved the depth-1 edge opacity, idle breath, material project
+windows, sphere nodes, layered glyph, and the speaking animation. He especially
+liked the speaking animation.
 
-**[A] Five, and the operator intends to judge them in one sitting on a cold
-`tauri dev` start.** Do not start work that would disturb any of them first.
+The project hover readout was initially too dense. It was reduced from three
+lines (name/tier, tasks, branch/commit) to two (project name, open tasks) at
+`ba9e1d6` and approved in the same live window. Do not reintroduce repository
+detail into Command; it belongs in Project mode.
+
+One item remains unjudged separately:
 
 | | Where | What to look at |
 |---|---|---|
-| Depth-1 edge opacity | `--tree-edge-hop1-opacity` in `styles.css` | Compare `0.08` / `0.11` (current) / `0.15`. One variable; depth-2 stays `0.24`. |
-| ~~The write pulse's second expansion~~ | — | **Judged 2026-07-31: works.** The double expansion was seen and approved. |
 | The model readout copy | Command mode, below the dial | Appears only after the first reply of a session. |
-| The omega speaking | Command mode | Send a chat message. Thinking circles the glyph, speaking scales it. First reachable as of `86d7678`. |
-| The breath, after the source refactor | Command mode, at rest | `6c48d52` moved the breath's values from CSS into `glyphState.ts`, written inline. **[V]** The constants are unchanged — 6s / 0.94 / 1.06 / 0.48 alpha — and asserted equal to the CSS fallbacks, but **nobody has confirmed it still *looks* the same**. Note: `727113f` layered the glyph the breath haloes (body/outline/highlight); the breath element itself is untouched, but the judgment now happens against the new glyph. |
-| The material pass, in the running app | Command mode | `727113f` — panel windows with names inside, sphere nodes, layered glyph. **Approved from screenshots only**; the operator has not yet seen it in `tauri dev` with the real vault. |
 
 **Firing the write pulse:** Command mode → the notebook icon in the chat panel
 header → type anything → Record → **approve** the dialog. It fires on approval,
@@ -92,9 +93,9 @@ account under *The right measurement for the wrong question*.
 bodies and `04 - Decisions` reaching the assistant — the memory loop, which is
 the premise the project rests on and is still unmet. Live rendering of streamed
 text: the deltas already reach the webview on a channel, so it is a frontend-only
-change whenever it is wanted. **The panel-window segment treatment** — a settled
-design direction with no code, in section 2; two costs need measuring before any
-of it is built.
+change whenever it is wanted. The panel-window segment treatment is built and
+approved; the old label-lane layout calculations are still computed for no
+renderer and should be removed only as a deliberate harness update.
 
 ---
 
@@ -124,7 +125,7 @@ work is on `master` as `2a252bf`; `agent/briefing-delegation-foundation` is now
 redundant.
 
 **[V] Test counts moved.** Rust is **165 passing, 0 failed** (was 150, then 161).
-`npm run build` passes. Both frontend harnesses were **executed, not merely
+`npm run build` passes. The frontend harnesses were **executed, not merely
 read** — see section 6 for the headless method that made that possible.
 
 **[V] The instrument scale-up landed, and it has no scale factor.** The dial is
@@ -163,9 +164,10 @@ The operator resolved several questions and rejected several inherited product
 claims later in this document:
 
 - Olympus is a private, single-operator command station and AI thinking partner.
-- Command is the ambient, across-the-room mode: the full omega instrument, one
+- At this 2026-07-27 checkpoint, Command was the full omega instrument, one
   active-project next-action sentence, quiet tier counts, and right-column chat.
-  Cards, lists, and scroll containers in its centre column are mode drift.
+  The sentence and counts were later removed deliberately; the enduring rule is
+  that cards, lists, and scroll containers in its centre column are mode drift.
 - The multi-project briefing and its grounded active/optional session paths live
   in Project mode, with the primary active path as the hero and other paths as
   secondary cards.
@@ -191,7 +193,8 @@ pass. Browser verification at 1280 × 720 found a 440px Command instrument, a
 56px next-action sentence, quiet 12px counts, and no centre-column cards, lists,
 or scroll containers. Project mode rendered the active hero, one optional
 watching path, all three truth labels, and working project focus. Human judgment
-of the live Tauri window remains distinct evidence.
+of the live Tauri window remains distinct evidence. These measurements describe
+that dated build, not the current Command composition.
 
 ## 2026-07-28 stable Windows launcher
 
@@ -202,10 +205,10 @@ versioned release into `C:\Program Files\Project Olympus`, and repairs an
 existing taskbar shortcut so it targets that stable installed executable rather
 than Cargo's disposable development output.
 
-**[V]** Version 0.1.1 was built and installed at the time this was written; the
-workflow has since been used again — **[V]** the installed executable is now
-**0.2.0, built 2026-07-29 17:50**, which carries code through `fe849ee`. Both the
-Start menu shortcut and the existing taskbar shortcut target
+**[V]** Version 0.1.1 was built and installed at the time this was written;
+0.2.0 followed on 2026-07-29. **[V] The installed executable is now 0.2.1,
+built 2026-08-04 from `master` at `e38c1a4`.** Both the Start menu shortcut and
+the existing taskbar shortcut target
 `C:\Program Files\Project Olympus\project-olympus.exe`. Launching through the
 repaired taskbar shortcut started that exact executable. Future development
 builds can therefore replace their own artifacts without invalidating the
@@ -390,8 +393,9 @@ and `messages`; `stream` is a transport flag outside that prefix. The
 stable/volatile split and its breakpoint are unchanged, and the existing
 breakpoint tests still pass.
 
-**[V] Rust tests and `npm run build` both pass.** **[A] Nobody has watched the
-omega speak** — that needs a chat message sent in the running app.
+**[V] Rust tests and `npm run build` both pass.** At the time of this section,
+nobody had watched the omega speak. **[V] The operator watched and approved it
+in the live app on 2026-08-04.**
 
 ## 2026-07-31 — the panel windows are built, and the label lane is retired
 
@@ -449,11 +453,27 @@ nodes on the dev server for headless visual iteration. Viewing surface only:
 asserts nothing, ships nowhere. Its fixtures mirror the harness builders,
 `notePath` included.
 
-**Still open, unchanged by tonight:** the four remaining judgments in the table
-at the top (edges, readout, speaking, breath — the pulse cleared), and one new
-question: the mock that prompted this was blue-heavy, and blue remains excluded
-unless the operator explicitly overturns it. The structure came over; the blue
-did not.
+**At the end of 2026-07-31**, four judgments remained open (edges, readout,
+speaking, breath — the pulse had cleared), plus one new question: the mock that
+prompted this was blue-heavy, and blue remains excluded unless the operator
+explicitly overturns it. The structure came over; the blue did not. The
+2026-08-04 section below records the later judgments.
+
+## 2026-08-04 — material pass approved and installed
+
+The operator reviewed the real-vault build in a cold `tauri dev` window. He
+approved the material project windows, sphere nodes, layered glyph, depth-1 edge
+opacity, idle breath, and speaking animation. The project hover readout was the
+one rejected detail: tier plus branch/commit provenance made it read like a
+miniature Project briefing. `ba9e1d6` reduces it to project name and open-task
+count; `TASKS UNAVAILABLE` remains distinct from a false zero. The revised
+readout was approved live.
+
+The visual branch was fast-forwarded into `master`, versioned as 0.2.1 at
+`e38c1a4`, pushed, built as an MSI, and installed. The stable executable reports
+0.2.1 and the existing taskbar shortcut resolves to it. The assistant-model
+readout below the dial was not judged separately from the project hover readout
+and remains the only open visual-copy item from the earlier table.
 
 ## How to read the claims in this document
 
@@ -475,38 +495,43 @@ exists. If a decision depends on an **[A]**, verify it first.
 
 ## Shipped and confirmed working
 
+This is an evidence ledger, not a current component inventory. Later rows may
+supersede earlier ones; removed surfaces are labelled explicitly.
+
 | Commit | What | Evidence |
 |---|---|---|
 | `6a70f3a` `55e11f8` | Pantheon capture schema — stance, why_kept, origin, written_by; migration run against the real vault | **[A]** verified in an earlier session, not re-checked here |
-| `4e8f04c` | Header restructure — three zones, three modes, status rail, omega | **[V]** geometry and mode switching read from live DOM |
+| `4e8f04c` | Historical header restructure — three zones, three modes, status rail, omega; the status rail was later removed at `120bda3` | **[V]** geometry and mode switching read from live DOM before removal |
 | `dd84593` | Action Queue dissolved into per-project task attribution | **[V]** 13 checks against real vault data: 17 tasks, 10 attributed, 7 surfaced |
 | `20a81f8` | Capture form — body field moved to second, Save states its blocker | **[V]** field order and all three button states read from live DOM |
-| `b210698` | Status rail budget and unit-dropping | **[V]** candidates measured at 610/530/403/269/201; ladder fired live at 900px |
+| `b210698` | Historical status-rail budget and unit-dropping; removed at `120bda3` | **[V]** candidates measured at 610/530/403/269/201 before removal |
 | `b03788f` `4c8e5c2` | Command mode as the omega instrument | **[V]** structure, arc geometry, stroke ramp read from live DOM |
 | `3d16d42` | Write-event log, commit history, vault link index | **[V]** graph built against real vault; commit parser asserts non-empty |
 | `0a6708e` | Day arc; reduced-motion source-order fix | **[V]** 19 geometry checks; OS setting toggled for real |
 | `16f9280` | Graph gate fix, background reframe, tick-parser test | **[V]** gate confirmed closed at `connectedProjects=1` |
 | `62a2cc2` | Stable Windows launcher and local release workflow | **[V]** 0.1.1 installed; repaired taskbar shortcut launched it |
 | `2a252bf` | Session boundary, all-refs commit scan, worktree enumeration, exact-file vault commits, Claude Code pilot boundary | **[V]** Rust tests pin the worktree and exact-file-commit behaviour and pass |
-| `2f0030f` | Day arc work ticks cross the track and drop the elapsed-arc amber | **[V]** code read; **[A]** never seen drawing real ticks |
+| `2f0030f` | Day arc work ticks cross the track and drop the elapsed-arc amber | **[V]** code read and operator approved the live ticks |
 | `b5993a4` | Deterministic labelled project ring; instrument scaled to the centre column with counter-scaled annotation | **[V]** 371-line harness executed, passes; scale factors computed from the real CSS |
 | `fe849ee` | Pantheon category routing — explicit tag beats inferred score | **[V]** harness executed, passes: inferred → `agent-systems`, tagged → `agent-systems` with distinct rationale, unrelated → `research-references` |
+| `120bda3` | Markets, Weather, status rail, and their supporting infrastructure removed after review found no current product purpose | **[V]** source removed; production build passes |
+| `727113f` | Material Command pass — project windows, sphere nodes, layered glyph | **[V]** frontend harnesses and build pass; operator approved in live `tauri dev` on 2026-08-04 |
+| `ba9e1d6` | Project hover readout reduced to project name and open-task count | **[V]** build and harnesses pass; operator approved live |
+| `e38c1a4` | Project Olympus 0.2.1 release | **[V]** MSI built and installed; stable executable and taskbar target verified |
 
 **[V]** Rust tests pass, 0 failed. **The count is deliberately not written here** —
 it has been 133, 145, 150, 161, 165, and 173 across sessions, and every stated
 figure has been wrong within a round. Run `cargo test --lib --manifest-path
 src-tauri/Cargo.toml`; the number it prints is the number.
-**[V]** `npm run build` passes. **[V]** Both frontend harnesses executed and pass.
+**[V]** `npm run build` passes. **[V]** All three frontend harnesses execute and pass.
 
-**[V] `tauri build` now succeeds** — producing installable bundles beneath the
-configured Cargo target directory. **[V] Version 0.2.0, built 2026-07-29 17:50, is
-what is installed** at `C:\Program Files\Project Olympus`, and the repaired taskbar
-shortcut launches that stable installed executable. Pinning the Cargo development
-binary is unsupported because rebuilds replace it.
-
-**The installed build lags `master`, and by design.** Read its timestamp against
-`git log` before concluding a change is or is not in the app — the 17:50 build
-carries code through `fe849ee` and nothing after it.
+**[V] `tauri build` succeeds** — producing installable bundles beneath the
+configured Cargo target directory. **[V] Version 0.2.1 was built and installed
+on 2026-08-04 from release commit `e38c1a4`**. It contains all current production
+code; the later truth-repair commit changes documentation and a test only, so it
+does not require another installation. The repaired taskbar shortcut targets
+`C:\Program Files\Project Olympus\project-olympus.exe`. Pinning the Cargo
+development binary remains unsupported because rebuilds replace it.
 
 > **[V] This trap fired on 2026-07-30 and cost a full round of verdicts.** The
 > operator judged the instrument through the taskbar shortcut and reported that
