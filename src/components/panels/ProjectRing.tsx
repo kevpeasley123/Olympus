@@ -118,11 +118,11 @@ function projectDetails(
 }
 
 /**
- * The readout's content, widest-first.
+ * The glanceable Command readout.
  *
- * Identity leads because the interior is a fixed position and the eye lands there
- * expecting to learn which project it is on. Provenance goes last because the disc
- * is narrowest at the bottom and a truncated commit subject still reads.
+ * Command needs only enough information to identify the hovered project and show
+ * whether it has work waiting. Tier, branch, and commit provenance belong in
+ * Project mode; repeating them here turns an ambient label into a miniature brief.
  *
  * `tasksError` yields "TASKS UNAVAILABLE", never a zero — a false zero is a
  * stronger claim than silence.
@@ -134,11 +134,10 @@ function readoutLines(
 ): string[] {
   const project = segment.project;
   return [
-    `${project.name.toUpperCase()} · ${STATUS_LABEL[project.status].toUpperCase()}`,
+    project.name.toUpperCase(),
     tasksError
       ? "TASKS UNAVAILABLE"
-      : `${openTasks} OPEN ${openTasks === 1 ? "TASK" : "TASKS"}`,
-    `${project.branch} · ${project.lastCommit}`
+      : `${openTasks} OPEN ${openTasks === 1 ? "TASK" : "TASKS"}`
   ];
 }
 
