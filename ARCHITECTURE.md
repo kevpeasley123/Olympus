@@ -171,7 +171,14 @@ Dashboard panels compose from `src/App.tsx`. Live data sources:
   from the previous recorded launch time; when none exists, the UI says it is
   falling back rather than pretending a time window.
 
-- **Chat** — `send_assistant_message` calls the Anthropic API from Rust, so the API key never reaches the webview
+- **Chat** — `send_assistant_message` calls the Anthropic API from Rust, so the
+  API key never reaches the webview. The request includes the stable System
+  notes plus at most the newest 16,000 characters of `04 - Decisions/Decision
+  Log.md`, in a separate section labelled as historical evidence rather than
+  standing instruction. Current operator direction and current project vision
+  explicitly outrank it. `09 - System/Profile Observations.md` remains excluded,
+  and Pantheon entries still reach the model as titles and metadata only, never
+  article bodies.
 
 Seeded fallbacks live in `src/data/seed.ts`. State is plain React (`useState` / `useEffect` / `useMemo`). `src/services/storage.ts` selects a persistence backend per runtime: SQLite in the desktop shell, `localStorage` in the browser dev server, with one source of truth each. State hydrates asynchronously after mount, and the save effect is gated on hydration so seed defaults cannot overwrite stored state on first render.
 

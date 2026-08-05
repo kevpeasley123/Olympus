@@ -306,7 +306,7 @@ pub async fn append_profile_observation(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::commands::vault_context::STABLE_NOTES;
+    use crate::commands::vault_context::{DECISION_HISTORY_NOTE, STABLE_NOTES};
 
     /// The decision this module exists to encode. An inference that reaches the
     /// assistant's durable context is a preference by the next turn.
@@ -318,6 +318,10 @@ mod tests {
                 .any(|(_, relative)| *relative == OBSERVATIONS_NOTE),
             "{OBSERVATIONS_NOTE} must stay out of STABLE_NOTES — model inferences fed back into \
              the prompt become indistinguishable from the operator's own instructions"
+        );
+        assert_ne!(
+            DECISION_HISTORY_NOTE, OBSERVATIONS_NOTE,
+            "the historical-evidence channel must never point at model-authored observations"
         );
     }
 

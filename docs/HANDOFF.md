@@ -34,6 +34,17 @@ operator approved the depth-1 edge opacity, idle breath, material project
 windows, sphere nodes, layered glyph, and the speaking animation. He especially
 liked the speaking animation.
 
+### Curated-memory boundary — current
+
+The decision-visibility half is now implemented. The assistant receives at most
+the newest 16,000 characters of `04 - Decisions/Decision Log.md` in a separately
+labelled historical-evidence section. The prompt says old decisions are not
+commands and that current operator instructions and current project vision take
+precedence.
+`09 - System/Profile Observations.md` remains excluded and has an assertion
+guarding both context paths. Pantheon article bodies remain out of model context;
+only their index metadata is present.
+
 The project hover readout was initially too dense. It was reduced from three
 lines (name/tier, tasks, branch/commit) to two (project name, open tasks) at
 `ba9e1d6` and approved in the same live window. Do not reintroduce repository
@@ -89,13 +100,14 @@ account under *The right measurement for the wrong question*.
 
 ### What is not built, and was decided rather than forgotten
 
-`operator_approvals` and the fail-closed approval design (section 4.5). Research
-bodies and `04 - Decisions` reaching the assistant — the memory loop, which is
-the premise the project rests on and is still unmet. Live rendering of streamed
-text: the deltas already reach the webview on a channel, so it is a frontend-only
-change whenever it is wanted. The panel-window segment treatment is built and
-approved; the old label-lane layout calculations are still computed for no
-renderer and should be removed only as a deliberate harness update.
+`operator_approvals` and the fail-closed approval design (section 4.5). Selective
+research-body retrieval and deliberate promotion from chat — the remaining half
+of the memory loop. Decision history now reaches the assistant under the
+boundary above. Live rendering of streamed text: the deltas already reach the
+webview on a channel, so it is a frontend-only change whenever it is wanted. The
+panel-window segment treatment is built and approved; the old label-lane layout
+calculations are still computed for no renderer and should be removed only as a
+deliberate harness update.
 
 ---
 
@@ -1667,7 +1679,7 @@ Things a fresh session rediscovers the hard way.
 - **[A]** Thinking blocks return empty text — filter for `type == "text"`, never
   take `content[0]`. A refusal is HTTP 200 with `stop_reason: "refusal"`.
 
-**The premise that is currently unmet**
+**The memory premise: one half now met**
 
 Both claims below were **[A]** in earlier revisions. **[V] Both were re-verified
 against the code on 2026-07-29 and both still hold.**
@@ -1678,13 +1690,12 @@ against the code on 2026-07-29 and both still hold.**
   model in the payload itself that "the bodies are not included here". Fifty
   sources could be added and nothing about its thinking would change. **The
   curriculum decision in section 2 is therefore aspirational, not implemented.**
-- **[V] `04 - Decisions` is entirely invisible to the assistant.** `STABLE_NOTES`
-  contains exactly four entries — `09 - System/User Profile.md`,
-  `09 - System/Olympus Charter.md`, `05 - Skills/Skill Index.md`,
-  `06 - Agents/Agent Index.md`. No decisions note, and the Pantheon index only
-  scans `02 - Research`. **Contradiction detection is impossible until this
-  changes**, which blocks the cooperative-adversary intent and the Daily Brief
-  question.
+- **[V] Decision visibility was added on 2026-08-04.** `04 -
+  Decisions/Decision Log.md` is loaded separately from authoritative
+  `STABLE_NOTES`, capped at the newest 16,000 characters, and labelled in the
+  prompt as historical evidence rather than standing instruction. Tests pin the
+  source note, cap, truncation direction, cache placement, authority wording,
+  and continued exclusion of Profile Observations.
 
 Note the shape of this: `fe849ee` made research bodies reach the *Research
 surface*, and the vault note briefly read as though the assistant had gained

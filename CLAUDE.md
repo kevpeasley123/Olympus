@@ -85,15 +85,17 @@ Done:
 2. **Real model behind the chat panel** — replaced a keyword scorer and hardcoded reply templates with an actual Anthropic call, with pending and error states in the UI.
 3. **The write gate** — every vault write declares a `WriteIntent`, is proven contained, and asks the operator before touching anything it did not author. See `ARCHITECTURE.md`.
 4. **Observations** — `append_profile_observation` adds one dated line to `09 - System/Profile Observations.md`, atomically and always with confirmation. Written from the Chat panel; deliberately kept out of the assistant's own context.
+5. **Decision history in assistant context** — the in-app assistant receives at
+   most the newest 16,000 characters of `04 - Decisions/Decision Log.md`, in a
+   separate cached section labelled as historical evidence rather than standing
+   instruction. Current direction outranks it, and Profile Observations remain
+   excluded.
 
 Next up:
 
-5. **Decision history in assistant context** — give the in-app assistant
-   size-bounded, read-only access to `04 - Decisions/Decision Log.md`, labelled
-   as historical evidence rather than standing instruction. Keep Profile
-   Observations excluded. This closes only the decision-visibility half of the
-   curated-memory loop; selective Pantheon body retrieval and chat promotion
-   remain separate work.
+6. **Complete the curated-memory loop** — selective Pantheon body retrieval and
+   deliberate chat promotion remain separate work. Do not turn the entire
+   research library into standing prompt context.
 
 `docs/HANDOFF.md` is the current session handoff and is more specific than this
 section. (`OLYMPUS-BRIEF.md` and `STATE-REVIEW.md` were earlier state documents,

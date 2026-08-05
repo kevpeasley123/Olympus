@@ -2,9 +2,9 @@
 //!
 //! Split into two tiers because of how prompt caching works: the API matches a
 //! prefix, so anything that changes invalidates every byte after it. `stable`
-//! holds notes that change rarely and sits behind the cache breakpoint;
-//! `pantheon_index` changes whenever an entry is added, so it is rendered after
-//! it and left uncached.
+//! and `decision_history` hold durable notes and sit behind the cache
+//! breakpoint; `pantheon_index` changes whenever an entry is added, so it is
+//! rendered after it and left uncached.
 
 use std::fs;
 use std::path::Path;
@@ -15,6 +15,18 @@ use super::pantheon::parse_pantheon_from_vault;
 /// Caps any single note so one long file cannot crowd out the rest of the
 /// context. The vault notes are small today; this is a guard, not a budget.
 const MAX_NOTE_CHARS: usize = 6_000;
+
+/// Decision history grows without bound and is evidence rather than an
+/// instruction source. Keep a deliberate, independent budget and retain the
+/// newest end when it eventually exceeds that budget — recent reversals and
+/// corrections are more dangerous to omit than the oldest entries.
+const MAX_DECISION_HISTORY_CHARS: usize = 16_000;
+const DECISION_HISTORY_TRUNCATION: &str =
+    "[... earlier decision history omitted to fit context ...]\n\n";
+
+/// Kept separate from `STABLE_NOTES` because the prompt assigns it a different
+/// authority: historical evidence, never standing instruction.
+pub const DECISION_HISTORY_NOTE: &str = "04 - Decisions/Decision Log.md";
 
 /// Vault-relative notes that describe the operator and the system itself.
 /// Ordered most- to least-important so truncation degrades sensibly.
@@ -33,14 +45,18 @@ pub const STABLE_NOTES: &[(&str, &str)] = &[
 pub struct VaultMemory {
     /// Operator profile, charter, and the skill/agent indexes.
     pub stable: String,
+    /// Historical evidence about choices and their reasons, not instructions.
+    pub decision_history: String,
     /// One line per research entry — titles and metadata, never bodies.
     pub pantheon_index: String,
 }
 
 /// Reads the vault from disk. Blocking; call it from a blocking context.
 pub fn load_vault_memory() -> VaultMemory {
+    let vault = get_vault_path();
     VaultMemory {
-        stable: load_stable_notes(&get_vault_path()),
+        stable: load_stable_notes(&vault),
+        decision_history: load_decision_history(&vault),
         pantheon_index: load_pantheon_index(),
     }
 }
@@ -71,6 +87,18 @@ fn load_stable_notes(vault: &Path) -> String {
 }
 
 fn read_note(path: &Path) -> Option<String> {
+    let trimmed = read_trimmed_note(path)?;
+
+    if trimmed.chars().count() <= MAX_NOTE_CHARS {
+        return Some(trimmed);
+    }
+
+    let mut clipped: String = trimmed.chars().take(MAX_NOTE_CHARS).collect();
+    clipped.push_str("\n\n[... note truncated for context ...]");
+    Some(clipped)
+}
+
+fn read_trimmed_note(path: &Path) -> Option<String> {
     let raw = fs::read_to_string(path).ok()?;
     // **`trim` does not remove a BOM.** U+FEFF has no White_Space property, so it
     // survives into the prompt as an invisible leading character.
@@ -87,13 +115,47 @@ fn read_note(path: &Path) -> Option<String> {
         return None;
     }
 
-    if trimmed.chars().count() <= MAX_NOTE_CHARS {
-        return Some(trimmed.to_string());
+    Some(trimmed.to_string())
+}
+
+fn load_decision_history(vault: &Path) -> String {
+    let path = vault.join(DECISION_HISTORY_NOTE);
+    match read_recent_note(&path, MAX_DECISION_HISTORY_CHARS) {
+        Some(history) => history,
+        None => {
+            eprintln!(
+                "[Olympus::VaultContext] missing or unreadable: {DECISION_HISTORY_NOTE}"
+            );
+            String::new()
+        }
+    }
+}
+
+fn read_recent_note(path: &Path, maximum: usize) -> Option<String> {
+    let note = read_trimmed_note(path)?;
+    let character_count = note.chars().count();
+    if character_count <= maximum {
+        return Some(note);
     }
 
-    let mut clipped: String = trimmed.chars().take(MAX_NOTE_CHARS).collect();
-    clipped.push_str("\n\n[... note truncated for context ...]");
-    Some(clipped)
+    let marker_count = DECISION_HISTORY_TRUNCATION.chars().count();
+    if maximum <= marker_count {
+        return Some(note.chars().skip(character_count - maximum).collect());
+    }
+    let tail_budget = maximum.saturating_sub(marker_count);
+    let mut tail: String = note
+        .chars()
+        .skip(character_count.saturating_sub(tail_budget))
+        .collect();
+
+    // Starting on the next whole line avoids presenting half a decision as if
+    // it were complete. The removed fragment counts against the budget, so the
+    // returned context can never grow past `maximum`.
+    if let Some(newline) = tail.find('\n') {
+        tail = tail[newline + 1..].to_string();
+    }
+
+    Some(format!("{DECISION_HISTORY_TRUNCATION}{tail}"))
 }
 
 fn load_pantheon_index() -> String {
@@ -159,6 +221,15 @@ fn load_pantheon_index() -> String {
 mod tests {
     use super::*;
 
+    fn temp_note_dir(label: &str) -> std::path::PathBuf {
+        let directory = std::env::temp_dir().join(format!(
+            "olympus-vault-context-{label}-{}",
+            std::process::id()
+        ));
+        fs::create_dir_all(&directory).expect("temp dir");
+        directory
+    }
+
     #[test]
     fn read_note_returns_none_for_a_missing_file() {
         assert!(read_note(Path::new("does-not-exist-anywhere.md")).is_none());
@@ -167,6 +238,66 @@ mod tests {
     #[test]
     fn stable_notes_are_skipped_when_the_vault_is_absent() {
         assert!(load_stable_notes(Path::new("C:/no-such-vault-here")).is_empty());
+    }
+
+    #[test]
+    fn decision_history_loads_from_its_exact_vault_note() {
+        let vault = temp_note_dir("decision-load");
+        let decisions = vault.join("04 - Decisions");
+        fs::create_dir_all(&decisions).expect("decision directory");
+        fs::write(
+            decisions.join("Decision Log.md"),
+            "# Decision Log\n\n## 2026-08-04\nKeep historical evidence separate.",
+        )
+        .expect("write decision log");
+
+        let history = load_decision_history(&vault);
+
+        assert_eq!(
+            history,
+            "# Decision Log\n\n## 2026-08-04\nKeep historical evidence separate."
+        );
+        fs::remove_dir_all(&vault).ok();
+    }
+
+    #[test]
+    fn oversized_decision_history_keeps_only_the_newest_whole_lines() {
+        let directory = temp_note_dir("decision-tail");
+        let note = directory.join("decisions.md");
+        let mut content = String::from("OLDEST DECISION MUST DISAPPEAR\n");
+        for index in 0..40 {
+            content.push_str(&format!(
+                "decision-{index:02}: {}\n",
+                "x".repeat(24)
+            ));
+        }
+        content.push_str("NEWEST DECISION MUST SURVIVE");
+        fs::write(&note, content).expect("write oversized decision log");
+
+        let maximum = 256;
+        let history = read_recent_note(&note, maximum).expect("read decision log");
+        let retained = history
+            .strip_prefix(DECISION_HISTORY_TRUNCATION)
+            .expect("truncation must be explicit");
+
+        assert!(history.chars().count() <= maximum);
+        assert!(!history.contains("OLDEST DECISION MUST DISAPPEAR"));
+        assert!(history.contains("NEWEST DECISION MUST SURVIVE"));
+        assert!(
+            retained.starts_with("decision-") || retained.starts_with("NEWEST DECISION"),
+            "the retained tail began in the middle of a line: {retained:?}"
+        );
+        fs::remove_dir_all(&directory).ok();
+    }
+
+    #[test]
+    fn decision_history_is_not_part_of_authoritative_stable_notes() {
+        assert!(
+            STABLE_NOTES
+                .iter()
+                .all(|(_, relative)| *relative != DECISION_HISTORY_NOTE),
+            "decision history must remain a separately labelled evidence channel"
+        );
     }
 
     /// Exercised against the operator's real vault so a renamed or moved System
@@ -179,8 +310,9 @@ mod tests {
     fn debug_load_real_vault_memory() {
         let memory = load_vault_memory();
         eprintln!(
-            "[vault-context] stable={} chars, pantheon index={} chars",
+            "[vault-context] stable={} chars, decision history={} chars, pantheon index={} chars",
             memory.stable.chars().count(),
+            memory.decision_history.chars().count(),
             memory.pantheon_index.chars().count()
         );
 
@@ -200,6 +332,15 @@ mod tests {
                 "`{label}` is missing from the loaded context"
             );
         }
+
+        assert!(
+            memory.decision_history.contains("# Decision Log"),
+            "the Decision Log is missing from the assistant's historical evidence"
+        );
+        assert!(
+            memory.decision_history.chars().count() <= MAX_DECISION_HISTORY_CHARS,
+            "decision history exceeded its explicit context boundary"
+        );
 
         assert!(
             !memory.pantheon_index.is_empty(),
