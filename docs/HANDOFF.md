@@ -142,3 +142,23 @@ passed. The installed desktop rendered the tilted full-ring geometry. Version 0.
 release code is `5659090`; installed binary matches except for Tauri bundle marker.
 Database integrity and row preservation passed. Receipt and backup are in the parent
 workspace `output/olympus-0.3.5-install`. No remote push.
+
+## 0.3.6 adaptive constellation and edge-on visibility
+
+At operator request, linked notes now occupy a spacious star field behind Omega
+rather than narrow project depth bands. Soft folder affinity, deterministic bounded
+candidate placement, real relationship lines, project hover highlighting, and keyboard
+note targets preserve function as notes grow. The existing 120-node backend cap and
+linked-not-shown disclosure remain. See `PROJECT-CONSTELLATION.md` for scope and limits.
+
+Ring projection now uses nonzero 2D scale with non-scaling SVG strokes to avoid
+zero-area 3D layers disappearing edge-on. The two/five cycle remains. Frontend build
+and all five service harnesses passed, including sparse/crowded placement, spacing,
+input-order determinism, parent edge endpoints, and appended-note stability.
+
+0.3.6 is installed and running; release code `9102275` matches the installed binary
+except for the expected Tauri bundle marker. Database integrity and row preservation
+passed. Receipt and backup: parent workspace `output/olympus-0.3.6-install`.
+Desktop capture returned an unrelated full-screen application despite targeting the
+verified Olympus window; final live visual acceptance is therefore unverified.
+No unrelated application was controlled, and no remote push was performed.
