@@ -162,3 +162,10 @@ passed. Receipt and backup: parent workspace `output/olympus-0.3.6-install`.
 Desktop capture returned an unrelated full-screen application despite targeting the
 verified Olympus window; final live visual acceptance is therefore unverified.
 No unrelated application was controlled, and no remote push was performed.
+
+## 0.3.7 ring-count tuning
+
+Installed 0.3.7 reduces the expanded inner rings to three total: two permanent,
+one intermittent. Timing and constellation unchanged. Production desktop build and
+component rendering checks passed (default 2, expanded 3). Release `bc5988d`.
+Backup: parent workspace `output/olympus-0.3.7-install/before.sqlite`. No remote push.
