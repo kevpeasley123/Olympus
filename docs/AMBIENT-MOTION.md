@@ -74,3 +74,10 @@ project each ring from an open ellipse through edge-on and back, with opposing
 CSS projection, not a WebGL scene or a physically occluding 3D model.
 Reduced motion shows the permanent pair at static tilts and hides the burst.
 No extra dependencies, timers, or per-frame JavaScript.
+
+## Edge-on ring correction (0.3.6)
+
+Replaces the zero-area CSS 3D projection with a 2D orthographic projection.
+Each full SVG ring narrows to scaleX 0.012, then opens again; non-scaling strokes
+retain thickness through the edge-on phase. No backface culling or zero scale.
+The separate axis wrappers and 10/14-second cycles remain.

@@ -1,3 +1,4 @@
+import { layoutProjectConstellation } from "../../services/projectConstellation";
 import { AMBIENT } from "../../services/ambientMotion";
 import type { CSSProperties } from "react";
 import { useMemo, useState } from "react";
@@ -5,7 +6,6 @@ import type { ActionQueueTask } from "../../hooks/useActionQueue";
 import {
   arcPathForSegment,
   layoutCentreReadout,
-  layoutProjectOwnedGraph,
   layoutProjectRing,
   pointOnProjectRing
 } from "../../services/projectRing";
@@ -163,7 +163,7 @@ export function ProjectRing({
     [centre, projects, radius, renderScale]
   );
   const constellation = useMemo(
-    () => layoutProjectOwnedGraph(graph, ring, centre),
+    () => layoutProjectConstellation(graph, ring, centre),
     [centre, graph, ring]
   );
   const signalEdges = constellation.treeEdges.filter(edge => edge.depth > 1);
@@ -183,21 +183,12 @@ export function ProjectRing({
   const focused = Boolean(hoveredProject || hoveredNode);
 
   return (
-    <g className={`project-ring ${focused ? "is-focused" : ""}`}>
+    <g className={`project-ring project-ring--constellation ${focused ? "is-focused" : ""}`}>
       <defs>
-        {/* Sphere shading is gradients, never `filter: blur`. A gradient blob
-            composites; a per-node Gaussian would re-raster on every hover-dim
-            transition, and the count scales with the vault. This is the same
-            constraint that keeps the breath off the glyph's drop-shadow. */}
-        <radialGradient id="ring-node-shadow">
-          <stop offset="0%" stopColor="#000000" stopOpacity="0.32" />
-          <stop offset="60%" stopColor="#000000" stopOpacity="0.14" />
-          <stop offset="100%" stopColor="#000000" stopOpacity="0" />
-        </radialGradient>
-        <radialGradient id="ring-node-spec">
-          <stop offset="0%" stopColor="#ffffff" stopOpacity="0.9" />
-          <stop offset="55%" stopColor="#ffffff" stopOpacity="0.25" />
-          <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
+        <radialGradient id="constellation-star-halo">
+          <stop offset="0%" stopColor="#bddfff" stopOpacity=".45" />
+          <stop offset="40%" stopColor="#84b8ef" stopOpacity=".13" />
+          <stop offset="100%" stopColor="#84b8ef" stopOpacity="0" />
         </radialGradient>
       </defs>
       <circle
@@ -369,13 +360,11 @@ export function ProjectRing({
       ))}
 
       {constellation.nodes.map((node, index) => (
-        /* Depth opacity moved from the body circle to the group, so the shadow,
-           rim and specular fade with their node instead of popping at full
-           strength on a depth-3 ghost. The body keeps the class the hover rules
-           and the reduced-motion guard already target. */
+        /* Stable note identity retains hover targets as the constellation grows. */
         <g
           key={node.id}
           style={{ "--node-phase": `${-(index * 3.17)}s`, "--node-drift-duration": `${AMBIENT.nodeDrift + index % 7 * 2}s` } as CSSProperties}
+          data-project-focus={hoveredProject ? (hoveredProject === node.projectId ? "selected" : "muted") : undefined}
           className={`project-ring__node-group project-ring__node-group--depth-${Math.min(
             node.depth,
             3
@@ -388,14 +377,8 @@ export function ProjectRing({
             return first || second ? <circle key={ambientNodeEvent} cx={node.x} cy={node.y} r={node.size + 1}
               className="ambient-node-signal" style={{ animationDelay: second ? `${AMBIENT.responseMs}ms` : "0ms" }} pointerEvents="none" /> : null;
           })()}
-          <circle
-            cx={node.x + node.size * 0.42}
-            cy={node.y + node.size * 0.55}
-            r={node.size * 1.1}
-            fill="url(#ring-node-shadow)"
-            className="project-ring__node-drop"
-            pointerEvents="none"
-          />
+          <circle cx={node.x} cy={node.y} r={node.size * 3.5}
+            fill="url(#constellation-star-halo)" pointerEvents="none" />
           <circle
             cx={node.x}
             cy={node.y}
@@ -410,22 +393,14 @@ export function ProjectRing({
           >
             <title>{describeNode(node)}</title>
           </circle>
-          <circle
-            cx={node.x}
-            cy={node.y}
-            r={node.size}
-            fill="none"
-            className="project-ring__node-rim"
-            pointerEvents="none"
-          />
-          <circle
-            cx={node.x - node.size * 0.33}
-            cy={node.y - node.size * 0.4}
-            r={node.size * 0.38}
-            fill="url(#ring-node-spec)"
-            className="project-ring__node-spec"
-            pointerEvents="none"
-          />
+          <circle cx={node.x} cy={node.y} r={Math.max(node.size, 4 / Math.max(renderScale, .01))}
+            fill="transparent" className="project-ring__star-hit" tabIndex={0} role="button"
+            aria-label={`${describeNode(node)} — open note`}
+            onMouseEnter={() => { setHoveredProject(null); setHoveredNode(node); }}
+            onMouseLeave={() => setHoveredNode(null)}
+            onFocus={() => { setHoveredProject(null); setHoveredNode(node); }}
+            onBlur={() => setHoveredNode(null)} onClick={() => onOpenNote(node.id)}
+            onKeyDown={event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onOpenNote(node.id); } }} />
         </g>
       ))}
 

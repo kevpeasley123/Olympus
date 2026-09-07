@@ -4218,26 +4218,29 @@ small {
 .ambient-inner-axis--2 { transform: rotate(12deg); }
 .ambient-inner-axis--3 { transform: rotate(112deg); }
 .ambient-inner-axis--4 { transform: rotate(152deg); }
-.ambient-inner { transform: perspective(600px) rotateY(36deg); }
+.ambient-inner { transform: scaleX(.8); }
 .ambient-inner .ambient-energy { stroke-width: 1.4; opacity: .72; }
-.ambient-inner--primary { animation: ambient-tumble var(--ambient-innerPrimary) linear infinite; }
+.ambient-inner--primary { animation: ambient-tumble var(--ambient-innerPrimary) ease-in-out infinite; }
 .ambient-inner--secondary {
-  transform: perspective(600px) rotateY(116deg);
-  animation: ambient-tumble-secondary var(--ambient-innerSecondary) linear infinite;
+  transform: scaleX(.45);
+  animation: ambient-tumble-secondary var(--ambient-innerSecondary) ease-in-out infinite;
 }
 .ambient-inner--secondary .ambient-energy { opacity: .6; }
 .ambient-inner-burst { animation: ambient-ring-envelope var(--ambient-sweep) ease-in-out both; }
-.ambient-inner--extra { animation: ambient-tumble var(--ambient-innerPrimary) linear infinite; }
+.ambient-inner--extra { animation: ambient-tumble var(--ambient-innerPrimary) ease-in-out infinite; }
 .ambient-inner--extra-1 { animation-name: ambient-tumble-secondary; animation-duration: var(--ambient-innerSecondary); }
 .ambient-inner--extra-2 { animation-direction: reverse; }
 .ambient-inner--extra .ambient-energy { opacity: .48; stroke-width: 1.2; }
+/* Orthographic projection with a finite edge-on width avoids a zero-area 3D
+   layer. SVG non-scaling strokes remain visible even at the narrowest phase. */
 @keyframes ambient-tumble {
-  from { transform: perspective(600px) rotateY(36deg); }
-  to { transform: perspective(600px) rotateY(396deg); }
+  0%, 100% { transform: scaleX(1); }
+  25%, 75% { transform: scaleX(.012); }
+  50% { transform: scaleX(1); }
 }
 @keyframes ambient-tumble-secondary {
-  from { transform: perspective(600px) rotateY(116deg); }
-  to { transform: perspective(600px) rotateY(-244deg); }
+  0%, 50%, 100% { transform: scaleX(.012); }
+  25%, 75% { transform: scaleX(1); }
 }
 @keyframes ambient-ring-envelope {
   0%, 100% { opacity: 0; }
@@ -4294,3 +4297,19 @@ small {
 
 .ambient-completion { fill: none; stroke: #d97706; stroke-width: .7; transform-origin: 220px 220px; transform-box: view-box; animation: ambient-completion var(--ambient-nodePulse) ease-out both; }
 @keyframes ambient-completion { from { transform: scale(1); opacity: .3; } to { transform: scale(2.4); opacity: 0; } }
+
+/* Real vault notes as a star field behind the foreground Omega. */
+.project-ring--constellation .project-ring__node { fill: #d6eaff; }
+.project-ring--constellation .project-ring__node-group { transition: opacity 240ms ease; }
+.project-ring--constellation .project-ring__node-group--depth-1 { opacity: .92; }
+.project-ring--constellation .project-ring__node-group--depth-2 { opacity: .78; }
+.project-ring--constellation .project-ring__node-group--depth-3 { opacity: .65; }
+.project-ring--constellation .project-ring__node-group[data-project-focus="muted"] { opacity: .18; }
+.project-ring--constellation .project-ring__node-group[data-project-focus="selected"] { opacity: 1; }
+.project-ring--constellation .project-ring__node-group[data-project-focus="selected"] .project-ring__node { fill: #ffc47d; }
+.project-ring--constellation .project-ring__tree-edge { stroke: #a2c3e3; stroke-width: .65; vector-effect: non-scaling-stroke; }
+.project-ring--constellation .project-ring__tree-edge--hop1 { opacity: .1; }
+.project-ring--constellation .project-ring__tree-edge--deep { opacity: .3; }
+.project-ring--constellation .project-ring__cross-edge { stroke-width: .65; opacity: .3; }
+.project-ring__star-hit { cursor: pointer; }
+.project-ring__star-hit:focus-visible { stroke: #ffc47d; stroke-width: 1; outline: none; }
