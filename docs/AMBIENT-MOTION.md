@@ -81,3 +81,8 @@ Replaces the zero-area CSS 3D projection with a 2D orthographic projection.
 Each full SVG ring narrows to scaleX 0.012, then opens again; non-scaling strokes
 retain thickness through the edge-on phase. No backface culling or zero scale.
 The separate axis wrappers and 10/14-second cycles remain.
+
+## Ring count (0.3.7)
+
+Operator tuning: two persistent inner rings, with only the radius-104 ring added
+during the existing burst. Three total at peak; timing and edge-on fix unchanged.

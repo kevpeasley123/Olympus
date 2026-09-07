@@ -24,7 +24,7 @@ export function AmbientOrbits({ centre, events, complete }: { centre: number; ev
       </g>
     </g>
     {events.sweep > 0 && <g key={`sweep-${events.sweep}`} className="ambient-inner-burst">
-      {[104, 114, 124].map((radius, index) => <g key={radius}
+      {[104].map((radius, index) => <g key={radius}
         className={`ambient-inner-axis ambient-inner-axis--${index + 2}`}>
         <g className={`ambient-inner ambient-inner--extra ambient-inner--extra-${index}`}>
           <circle cx={centre} cy={centre} r={radius} className="ambient-energy" />
