@@ -22,6 +22,8 @@ pub struct ConversationMessage {
     pub role: String,
     pub content: String,
     pub timestamp: String,
+    #[serde(default)]
+    pub research: Vec<super::research_retrieval::ResearchExcerpt>,
 }
 
 #[derive(Debug, Serialize)]
@@ -266,7 +268,7 @@ pub fn load_persisted_state(db: State<Db>) -> Result<PersistedState, String> {
 
     let mut conversation_query = connection
         .prepare(
-            "SELECT id, role, content, timestamp FROM conversation_messages \
+            "SELECT id, role, content, timestamp, COALESCE((SELECT sources_json FROM conversation_research WHERE message_id = conversation_messages.id), '[]') FROM conversation_messages \
              ORDER BY created_at ASC, rowid ASC",
         )
         .map_err(|error| error.to_string())?;
@@ -277,6 +279,7 @@ pub fn load_persisted_state(db: State<Db>) -> Result<PersistedState, String> {
                 role: row.get(1)?,
                 content: row.get(2)?,
                 timestamp: row.get(3)?,
+                research: serde_json::from_str(&row.get::<_, String>(4)?).map_err(|e| rusqlite::Error::FromSqlConversionFailure(4, rusqlite::types::Type::Text, Box::new(e)))?,
             })
         })
         .map_err(|error| error.to_string())?
@@ -336,9 +339,17 @@ pub fn append_conversation_messages(
     messages: Vec<ConversationMessage>,
 ) -> Result<(), String> {
     let mut connection = locked(&db)?;
+    store_messages(&mut connection, messages)
+}
+
+pub(crate) fn store_messages(connection: &mut Connection, messages: Vec<ConversationMessage>) -> Result<(), String> {
     let transaction = connection.transaction().map_err(|e| e.to_string())?;
 
     for message in messages {
+        transaction.execute(
+            "INSERT INTO conversation_research (message_id, sources_json) VALUES (?1, ?2) ON CONFLICT(message_id) DO UPDATE SET sources_json = excluded.sources_json",
+            params![message.id, serde_json::to_string(&message.research).map_err(|e| e.to_string())?],
+        ).map_err(|e| e.to_string())?;
         transaction
             .execute(
                 "INSERT INTO conversation_messages (id, role, content, timestamp) \
@@ -356,6 +367,7 @@ pub fn append_conversation_messages(
 #[tauri::command]
 pub fn clear_conversation(db: State<Db>) -> Result<(), String> {
     let connection = locked(&db)?;
+    connection.execute("DELETE FROM conversation_research", []).map_err(|e| e.to_string())?;
     connection
         .execute("DELETE FROM conversation_messages", [])
         .map(|_| ())

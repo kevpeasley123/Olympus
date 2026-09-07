@@ -217,7 +217,7 @@ export function useDashboardData() {
             }
           }
         );
-        const assistant = createAssistantMessage(reply.content, reply.notice);
+        const assistant = createAssistantMessage(reply.content, reply.notice, reply.research);
         setChatModel(reply.model);
         setDashboardState((current) => ({
           ...current,

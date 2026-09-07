@@ -1905,6 +1905,17 @@ small {
   background: rgba(7, 20, 31, 0.7);
 }
 
+/* Keep the review controls reachable at the minimum desktop height. */
+.memory-composer {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.memory-composer > * { flex-shrink: 0; }
+.memory-composer .observation-actions { flex-wrap: wrap; }
+.memory-composer .section-copy { margin: 0; }
+
 .observation-label {
   color: var(--label);
   font-size: var(--text-xs);

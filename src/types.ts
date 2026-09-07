@@ -49,7 +49,19 @@ export interface ResearchRecord {
   origin?: string;
 }
 
+export interface ResearchExcerpt {
+  title: string;
+  sourceFile: string;
+  sourceDate: string | null;
+  stance: string;
+  origin: string | null;
+  excerpt: string;
+  truncated: boolean;
+  fingerprint: string;
+}
+
 export interface ConversationMessage {
+  research?: ResearchExcerpt[];
   id: string;
   role: "system" | "assistant" | "user";
   content: string;

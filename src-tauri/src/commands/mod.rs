@@ -2,6 +2,8 @@ pub mod assistant;
 pub mod attachments;
 pub mod delegation;
 pub mod observations;
+pub mod memory_promotion;
+pub mod research_retrieval;
 pub mod pantheon;
 pub mod pantheon_migrate;
 pub mod persistence;

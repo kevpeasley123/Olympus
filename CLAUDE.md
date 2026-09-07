@@ -91,11 +91,9 @@ Done:
    instruction. Current direction outranks it, and Profile Observations remain
    excluded.
 
-Next up:
+6. **Selective research and chat promotion** — the isolated memory branch supplies bounded question-relevant excerpts, persists their provenance with replies, and adds a reviewed chat-to-Decision-Log path. Desktop acceptance remains separate from compilation and tests. See `docs/CURATED-MEMORY.md`.
 
-6. **Complete the curated-memory loop** — selective Pantheon body retrieval and
-   deliberate chat promotion remain separate work. Do not turn the entire
-   research library into standing prompt context.
+Next: review `docs/OPERATOR-APPROVAL-DESIGN.md`, then implement verified approval and evidence-based completion before any Olympus delegation pilot. Do not turn the research library into standing prompt instructions.
 
 `docs/HANDOFF.md` is the current session handoff and is more specific than this
 section. (`OLYMPUS-BRIEF.md` and `STATE-REVIEW.md` were earlier state documents,

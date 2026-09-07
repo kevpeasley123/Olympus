@@ -794,12 +794,13 @@ mod tests {
     /// catch them.
     #[test]
     fn debug_scan_the_real_projects_root() {
-        // ...\Projects\Olympus\src-tauri -> ...\Projects
-        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .parent()
-            .and_then(Path::parent)
-            .expect("the crate lives two levels under the projects root")
-            .to_path_buf();
+        // Worktrees need not live beneath the configured projects directory.
+        let root = std::env::var_os("OLYMPUS_TEST_PROJECTS_ROOT")
+            .map(PathBuf::from)
+            .unwrap_or_else(|| super::super::get_vault_path()
+                .parent().and_then(Path::parent)
+                .expect("the configured vault lives under Projects/Obsidian vaults")
+                .to_path_buf());
 
         assert!(
             root.join("Olympus").is_dir(),

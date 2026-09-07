@@ -1,5 +1,6 @@
 import { ChevronRight, Compass, NotebookPen } from "lucide-react";
 import { useState } from "react";
+import { MemoryPromotion } from "./MemoryPromotion";
 import type { ConversationMessage } from "../../types";
 import type { ObsidianActionResult } from "../../services/obsidian";
 import { OBSERVATION_MAX_CHARS } from "../../services/observations";
@@ -43,6 +44,7 @@ export function ChatPanel({
   compact = false
 }: ChatPanelProps) {
   const [draft, setDraft] = useState("");
+  const [memorySource, setMemorySource] = useState<ConversationMessage | null>(null);
   // Local, so leaving Command and coming back re-collapses it. That is right
   // for a mode meant to be glanced at.
   const [expanded, setExpanded] = useState(false);
@@ -65,6 +67,7 @@ export function ChatPanel({
   const hiddenCount = messages.length - visibleMessages.length;
 
   function openComposer(seed: string) {
+    setMemorySource(null);
     setObservation(collapse(seed).slice(0, OBSERVATION_MAX_CHARS));
     setObservationStatus(null);
   }
@@ -133,6 +136,7 @@ export function ChatPanel({
             key={message.id}
             message={message}
             onNoteThis={() => openComposer(message.content)}
+            onSaveMemory={() => { setObservation(null); setMemorySource(message); }}
           />
         ))}
         {pending && (
@@ -146,6 +150,8 @@ export function ChatPanel({
           </article>
         )}
       </div>
+
+      {memorySource && <MemoryPromotion key={memorySource.id} message={memorySource} onClose={() => setMemorySource(null)} />}
 
       {observation !== null && (
         <div className="observation-composer">
@@ -225,10 +231,12 @@ export function ChatPanel({
 
 function ConversationBubble({
   message,
-  onNoteThis
+  onNoteThis,
+  onSaveMemory
 }: {
   message: ConversationMessage;
   onNoteThis: () => void;
+  onSaveMemory: () => void;
 }) {
   return (
     <article className={`conversation-bubble ${message.role}`}>
@@ -242,10 +250,21 @@ function ConversationBubble({
           {message.notice.message}
         </p>
       )}
+      {message.research && message.research.length > 0 && <details className="section-copy">
+        <summary>Research supplied to this reply ({message.research.length})</summary>
+        <p>These are source excerpts supplied to Olympus, not a claim that every source supports its answer.</p>
+        {message.research.map(source => <details key={source.sourceFile}>
+          <summary>{source.title} — {source.stance}</summary>
+          <p>{source.sourceDate ?? "Undated"} · {source.origin ?? "Origin unspecified"} · {source.truncated ? "Partial excerpt" : "Full body"}</p>
+          <p>{source.sourceFile}</p>
+          <blockquote>{source.excerpt}</blockquote>
+        </details>)}
+      </details>}
       <div className="conversation-bubble-footer">
+        {message.role !== "system" && <button type="button" className="observation-seed" onClick={onSaveMemory}>Save memory</button>}
         {message.role === "assistant" && (
           <button type="button" className="observation-seed" onClick={onNoteThis}>
-            Note this
+            Note observation
           </button>
         )}
         <small className="tabular-data">{message.timestamp}</small>

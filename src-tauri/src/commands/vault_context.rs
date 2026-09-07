@@ -49,6 +49,7 @@ pub struct VaultMemory {
     pub decision_history: String,
     /// One line per research entry — titles and metadata, never bodies.
     pub pantheon_index: String,
+    pub research: Vec<super::research_retrieval::ResearchExcerpt>,
 }
 
 /// Reads the vault from disk. Blocking; call it from a blocking context.
@@ -58,7 +59,17 @@ pub fn load_vault_memory() -> VaultMemory {
         stable: load_stable_notes(&vault),
         decision_history: load_decision_history(&vault),
         pantheon_index: load_pantheon_index(),
+        research: Vec::new(),
     }
+}
+
+pub fn load_vault_memory_for_query(question: &str) -> VaultMemory {
+    let mut memory = load_vault_memory();
+    match parse_pantheon_from_vault() {
+        Ok(entries) => memory.research = super::research_retrieval::retrieve(&entries, question),
+        Err(error) => memory.pantheon_index.push_str(&format!("\nResearch retrieval unavailable: {error}")),
+    }
+    memory
 }
 
 fn load_stable_notes(vault: &Path) -> String {

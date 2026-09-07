@@ -141,3 +141,8 @@ CREATE TABLE IF NOT EXISTS processing_logs (
   payload_json TEXT NOT NULL DEFAULT '{}',
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE IF NOT EXISTS conversation_research (
+  message_id TEXT PRIMARY KEY,
+  sources_json TEXT NOT NULL
+);

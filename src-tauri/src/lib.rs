@@ -19,6 +19,7 @@ use commands::delegation::{
     resume_delegation_run, start_delegation_run, DelegationProcesses,
 };
 use commands::observations::append_profile_observation;
+use commands::memory_promotion::promote_chat_memory;
 use commands::pantheon::{fetch_pantheon_entries, write_pantheon_entry};
 use commands::pantheon_migrate::migrate_pantheon_schema;
 use commands::profile::fetch_operator_profile;
@@ -343,6 +344,7 @@ pub fn run() {
             fetch_operator_profile,
             resolve_vault_write,
             append_profile_observation,
+            promote_chat_memory,
             write_pantheon_entry,
             migrate_pantheon_schema,
             fetch_recent_vault_writes,

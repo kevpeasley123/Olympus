@@ -13,6 +13,7 @@ export interface AssistantNotice {
 }
 
 export interface AssistantReply {
+  research: import("../types").ResearchExcerpt[];
   content: string;
   model: string;
   /** Present when the turn was refused or truncated. Appended, never substituted. */
@@ -85,13 +86,15 @@ export async function requestAssistantReply(
 
 export function createAssistantMessage(
   content: string,
-  notice?: AssistantNotice
+  notice?: AssistantNotice,
+  research?: import("../types").ResearchExcerpt[]
 ): ConversationMessage {
   return {
     id: `conversation-assistant-${Date.now()}`,
     role: "assistant",
     content,
     notice,
+    research,
     timestamp: new Date().toLocaleTimeString([], {
       hour: "2-digit",
       minute: "2-digit",

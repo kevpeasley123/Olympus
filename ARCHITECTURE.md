@@ -32,7 +32,7 @@ Tauri commands exposed by the desktop shell:
 | --- | --- |
 | Assistant | `send_assistant_message` |
 | Persistence | `load_persisted_state`, `begin_operator_session`, `save_settings`, `save_tool_states`, `append_conversation_messages`, `clear_conversation` |
-| Vault | `write_memory_artifact`, `fetch_pantheon_entries`, `write_pantheon_entry`, `migrate_pantheon_schema`, `save_attachment_to_vault`, `append_profile_observation`, `fetch_operator_profile`, `fetch_recent_vault_writes`, `fetch_vault_graph`, `open_vault_note` |
+| Vault | `write_memory_artifact`, `fetch_pantheon_entries`, `write_pantheon_entry`, `migrate_pantheon_schema`, `save_attachment_to_vault`, `append_profile_observation`, `promote_chat_memory`, `fetch_operator_profile`, `fetch_recent_vault_writes`, `fetch_vault_graph`, `open_vault_note` |
 | Write gate | `resolve_vault_write` |
 | Live data | `scan_tracked_projects`, `fetch_action_queue` |
 | Delegation | `start_delegation_run`, `resume_delegation_run`, `cancel_delegation_run`, `list_delegation_runs`, `fetch_delegation_diff` |
@@ -42,13 +42,14 @@ The SQLite connection is opened once during `setup()` and held in managed state,
 
 ## Vault writes
 
-Olympus has written to the vault since April 2026. Four commands do it. All four resolve the vault root in Rust via `commands::get_vault_path()`; **no caller supplies a path** (this was unified in `62c957e` — `write_memory_artifact` previously took the root from the frontend).
+Olympus has written to the vault since April 2026. Five commands do it. All five resolve the vault root in Rust via `commands::get_vault_path()`; **no caller supplies a path** (this was unified in `62c957e` — `write_memory_artifact` previously took the root from the frontend).
 
 | Command | Operation | Target | Declared intent | Asks first? |
 | --- | --- | --- | --- | --- |
 | `write_pantheon_entry` | create | `02 - Research/<date> <title>.md` | `CreateUnique` | No — `ensure_unique_path` (`pantheon.rs`) suffixes on collision, so nothing is destroyed |
 | `save_attachment_to_vault` | create | `02 - Research/_attachments/<file>` | `CreateUnique` | No — `ensure_unique_attachment_path` (`attachments.rs:55`) suffixes |
 | `write_memory_artifact` | **overwrite** | `00 - Dashboard/Olympus Research.base`, `Olympus Projects.canvas` | `RegenerateDerived` | Only when the file diverged from what Olympus last wrote, or was never fingerprinted |
+| `promote_chat_memory` | **append** | `04 - Decisions/Decision Log.md` | `AppendAuthored` | **Always**, with the complete bounded addition |
 | `append_profile_observation` | **append** | `09 - System/Profile Observations.md` | `AppendAuthored` | **Always** |
 
 No command deletes or renames a note the operator can see.
@@ -72,7 +73,7 @@ index. Unrelated staged and unstaged vault work is never adopted.
 
 ### The appender
 
-`append_profile_observation` is the only writer that adds to an existing note, and the only one that always asks. Two properties are load-bearing:
+`append_profile_observation` and `promote_chat_memory` append to existing notes and always ask. The observation-specific invariants below remain unchanged; the separate promotion path is documented in `docs/CURATED-MEMORY.md`. Two properties are load-bearing:
 
 - **The write is atomic.** The whole file is composed in memory, written to a dot-prefixed temp file in the same directory, flushed with `sync_all`, and renamed over the target. A plain append interrupted mid-write leaves half an entry in a note the operator reads by hand.
 - **The note is not read back.** `09 - System/Profile Observations.md` is deliberately absent from `vault_context::STABLE_NOTES`. Inferences that re-entered the assistant's context would arrive on the next turn indistinguishable from the operator's own stated preferences. `observations.rs` carries a test asserting the absence.
@@ -212,3 +213,7 @@ ANTHROPIC_API_KEY=
 ---
 
 For higher-level system framing, project context, and decision history, see the Obsidian vault — particularly `09 - System/System Architecture.md`, `09 - System/Dashboard Information Architecture.md`, and `04 - Decisions/Decision Log.md`. The original April 25, 2026 codebase discovery report is archived at `09 - System/2026-04-25 Olympus Architecture Discovery.md`.
+
+## Curated-memory implementation
+
+See [CURATED-MEMORY.md](docs/CURATED-MEMORY.md) for bounded retrieval, persisted source snapshots, and reviewed chat promotion. These additions grant no delegation authority. [OPERATOR-APPROVAL-DESIGN.md](docs/OPERATOR-APPROVAL-DESIGN.md) is proposed, not implemented.
