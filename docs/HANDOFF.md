@@ -131,3 +131,14 @@ in opposite directions. The existing sweep event adds three arcs for 3.8 seconds
 then returns to two. No baseline remount, new timer, dependency, or layout change.
 Reduced motion freezes the two baseline arcs and hides transient sweeps. Production
 frontend build and all four service harnesses passed.
+
+## 0.3.5 full rings on separate axes
+
+The operator requested full thin rings rotating into/out of the screen. Inner arcs
+are now complete SVG circles with independent CSS perspective/rotateY projections
+and distinct fixed axes. Two persist; three join on the existing burst cycle. Omega
+stays foreground, labels stationary. Production build and four service harnesses
+passed. The installed desktop rendered the tilted full-ring geometry. Version 0.3.5
+release code is `5659090`; installed binary matches except for Tauri bundle marker.
+Database integrity and row preservation passed. Receipt and backup are in the parent
+workspace `output/olympus-0.3.5-install`. No remote push.
