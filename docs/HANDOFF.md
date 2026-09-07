@@ -11,9 +11,9 @@ Read `OLYMPUS-MANUAL.md`, then this file. Previous chronological notes are prese
 - The installed executable reports 0.2.1. Its timestamp is later than `c7ed98a`, but that does not prove an exact binary/source match.
 - Baseline verification: production frontend build, all three frontend harnesses, and 177 Rust tests passed. No paid agent run was performed during that review.
 
-## Current implementation branch
+## Installed release
 
-`agent/curated-memory`, based on `c7ed98a`. These changes are included in the 0.3.0 release candidate:
+`agent/curated-memory`, based on `c7ed98a`, was fast-forwarded into local `master`. Release code is `5cdc397`; 0.3.0 is installed and running. These changes are included:
 
 - Question-based Pantheon retrieval selects up to three sources and up to 4,000 body characters per source. Lexical ranking is deterministic; short ambiguous follow-ups may require the operator to name a source or topic. This is not semantic retrieval.
 - Retrieved sources carry title, path, date, stance, origin, partial/full status, and body fingerprint. They are evidence after the prompt-cache breakpoint, never standing instructions.
@@ -56,3 +56,12 @@ Run `projectRing`, `pantheonRecord`, and `glyphState` harnesses through Vite's S
 - Database backup integrity passed; the 0.2.1 rollback installer was preserved before installation.
 - Installation receipts and backups live outside source under the workspace `output/olympus-0.3.0-install`.
 - Paid delegation, actual desktop memory promotion, and end-to-end restart recovery still need operator acceptance.
+
+### Installation verified on 2026-09-06 (Phoenix)
+
+Windows reports 0.3.0 at `C:/Program Files/Project Olympus/project-olympus.exe`.
+The window is responding. The installed binary matches the release output except for
+Tauri's expected three-byte bundle marker (`MSI` versus `UNK`). Database integrity is
+`ok`, all previous table row counts were preserved, and all seven new tables exist.
+The taskbar shortcut points to the installed executable. Local changes are committed;
+no remote push was performed. The full receipt is in the external output folder above.

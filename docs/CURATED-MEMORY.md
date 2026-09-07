@@ -1,6 +1,6 @@
 # Curated memory — implementation and verification
 
-Status: implemented for the 0.3.0 release on `agent/curated-memory`, based on `c7ed98a`. Runtime installation evidence is recorded separately from source verification.
+Status: included in installed release 0.3.0 (`5cdc397`), integrated into local `master`. See `HANDOFF.md` for installation evidence and remaining desktop acceptance.
 
 ## Behavior
 
