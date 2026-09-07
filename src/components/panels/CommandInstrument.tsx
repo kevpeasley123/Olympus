@@ -12,7 +12,6 @@ import { useVaultWrites } from "../../hooks/useVaultWrites";
 import {
   IDLE_BREATH_SCALE_CEILING,
   IDLE_BREATH_SCALE_FLOOR,
-  IDLE_BREATH_SECONDS,
   SPEAKING_ENVELOPE,
   SPEAKING_LOOP_SECONDS,
   glyphStateFor
@@ -270,25 +269,13 @@ export function CommandInstrument({
               declares its origin — SVG defaults `transform-origin` to `0 0`,
               which sends a scaled glyph 162px out of frame rather than growing
               it in place. Measured, not assumed. */}
-          {/* The breath's three values are written here, from `glyphState.ts`,
-              rather than declared in `styles.css`.
-
-              **[V] They were two truths and they drifted within one turn.** The
-              CSS went 7s -> 6s and `IDLE_BREATH_SECONDS` stayed at 7; nothing
-              caught it, because nothing in the app imported the constant and the
-              harness guarding it asserts a floor. A note beside the pair did not
-              prevent it, so the pair is gone: the constants are the source, this
-              writes them, and the declarations in `styles.css` are fallbacks
-              that only apply if this element never mounts.
-
-              Keep the rule rather than the instance — a value duplicated between
-              CSS and TypeScript is two truths, and one of them has to write the
-              other. */}
+          {/* Ambient timing comes from AMBIENT. Existing active-state scale bounds
+              remain shared with glyphState; idle illumination barely changes size. */}
           <g
             className={`omega-presence omega-presence--${glyphState}`}
             style={
               {
-                "--breath-duration": `${IDLE_BREATH_SECONDS}s`,
+                "--breath-duration": `${AMBIENT.breath}s`,
                 "--breath-scale-low": glyphState === "idle" ? 1 : IDLE_BREATH_SCALE_FLOOR,
                 "--breath-scale-high": glyphState === "idle" ? 1.005 : IDLE_BREATH_SCALE_CEILING
               } as CSSProperties
