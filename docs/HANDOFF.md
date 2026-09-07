@@ -102,3 +102,10 @@ Production build, four service harnesses, and the browser lifecycle fixture pass
 Desktop preview with a separate database preserved the existing layout and live graph.
 No quantitative frame-rate claim is made. Memory promotion and delegation acceptance
 remain unfinished; the animation request did not establish those outcomes.
+
+Installation verified on 2026-09-07: 0.3.2 is installed and open. Release code is
+`370d0eb`; the installed binary matches it except for Tauri's expected bundle marker.
+Database integrity passed and existing table counts were preserved. The installed
+screenshot retained the original layout and fonts (the dev preview's junction-related
+font-serving warning does not affect the package). Backups and receipt are in the parent
+workspace at `output/olympus-0.3.2-install`. Local source is integrated; nothing was pushed.
