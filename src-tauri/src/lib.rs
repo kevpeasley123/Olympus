@@ -16,7 +16,7 @@ use commands::attachments::{
 use commands::assistant::send_assistant_message;
 use commands::delegation::{
     cancel_delegation_run, fetch_delegation_diff, list_delegation_runs,
-    resume_delegation_run, start_delegation_run, DelegationProcesses,
+    resume_delegation_run, start_delegation_run, prepare_delegation_run, prepare_delegation_resume, DelegationProcesses,
 };
 use commands::observations::append_profile_observation;
 use commands::memory_promotion::promote_chat_memory;
@@ -322,6 +322,9 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
             let connection = open_database(app.handle())?;
+            let session_id = commands::delegation::run_id();
+            connection.execute("INSERT INTO operator_sessions(id) VALUES (?1)", [&session_id])?;
+            app.manage(commands::approvals::ApprovalState::new(session_id));
             app.manage(Db(Mutex::new(connection)));
             app.manage(DelegationProcesses::default());
             Ok(())
@@ -352,11 +355,18 @@ pub fn run() {
             pick_attachment_file,
             extract_pdf_text,
             save_attachment_to_vault,
+            prepare_delegation_run,
+            prepare_delegation_resume,
+            commands::approvals::cancel_delegation_proposal,
             start_delegation_run,
             resume_delegation_run,
             cancel_delegation_run,
             list_delegation_runs,
-            fetch_delegation_diff
+            fetch_delegation_diff,
+            commands::delegation_review::fetch_delegation_review,
+            commands::delegation_review::run_delegation_check,
+            commands::delegation_review::delegation_review_fingerprint,
+            commands::delegation_review::complete_delegation_review
         ])
         .run(tauri::generate_context!())
         .expect("error while running Project Olympus");

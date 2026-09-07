@@ -45,6 +45,7 @@ proposed
   -> editing
   -> testing
   -> reviewing
+  -> awaiting_review
   -> complete
 
 Any active phase -> waiting
@@ -150,3 +151,17 @@ The first delegation path is not complete until it demonstrates:
 6. an outcome summary that matches the diff;
 7. preservation of the result without pushing or merging;
 8. a tested cancellation and recovery path.
+
+## 0.3.0 implementation
+
+Vault next actions are context only. The operator edits a task and acceptance criteria,
+reviews a backend proposal valid for ten minutes, and explicitly approves planning.
+Implementation requires a separate review of the persisted plan and workspace.
+Approval records are immutable and consumed once before launch. Restart requires fresh
+review; cancellation preserves the workspace and revokes pending scope.
+
+An agent result ends at `awaiting_review`. The review UI records fixed build/test checks
+and per-criterion evidence against a workspace fingerprint. Completion requires an
+explicit operator review; latest failed or stale checks block completion. Manual evidence
+is recorded as manual evidence. The app does not infer that every project needs the
+same checks. See `OPERATOR-APPROVAL-DESIGN.md` for limits and pilot acceptance work.

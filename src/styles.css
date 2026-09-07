@@ -4187,3 +4187,9 @@ small {
     transform: none !important;
   }
 }
+
+/* Exact approval scope and review evidence must remain readable in Project mode. */
+.delegation-checkpoint { min-width: 0; overflow-wrap: anywhere; }
+.delegation-checkpoint pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 320px; overflow: auto; }
+.delegation-panel .observation-input { width: 100%; box-sizing: border-box; min-width: 0; }
+.delegation-checkpoint label { display: block; margin-top: 8px; }

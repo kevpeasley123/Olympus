@@ -1,6 +1,6 @@
 //! Recoverable Claude Code delegation pilot.
 //!
-//! The webview supplies a tracked project ID and the already-recorded task. It
+//! The webview proposes a tracked project and task, then confirms a backend proposal. It
 //! never supplies an executable, workspace, branch, shell command, or raw argv.
 //! Olympus resolves the project, creates a dedicated worktree, runs a fixed
 //! Claude Code adapter, and preserves the result for review without push/merge.
@@ -21,11 +21,11 @@ use serde_json::Value;
 use sha2::{Digest, Sha256};
 use tauri::{AppHandle, Emitter, Manager, State};
 
+use super::approvals::{ApprovalState, Proposal, Subject};
 use super::persistence::Db;
-use super::project_notes::load_project_notes;
 
 const EVENT_NAME: &str = "delegation-run-updated";
-const MAX_TASK_CHARS: usize = 1_000;
+const MAX_TASK_CHARS: usize = 4_000;
 const MAX_DIFF_CHARS: usize = 120_000;
 const MODEL: &str = "sonnet";
 const MAX_BUDGET_USD: &str = "5";
@@ -38,8 +38,15 @@ pub struct DelegationProcesses(pub Mutex<HashMap<String, mpsc::Sender<()>>>);
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StartDelegationRequest {
+    pub proposal_id: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PrepareDelegationRequest {
     pub project_id: String,
     pub task: String,
+    pub criteria: Vec<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -79,7 +86,7 @@ enum Stage {
     Implement,
 }
 
-fn git(root: &Path, args: &[&str]) -> Result<String, String> {
+pub(crate) fn git(root: &Path, args: &[&str]) -> Result<String, String> {
     let output = Command::new("git")
         .arg("-C")
         .arg(root)
@@ -96,7 +103,9 @@ fn git(root: &Path, args: &[&str]) -> Result<String, String> {
         });
     }
 
-    Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+    Ok(String::from_utf8_lossy(&output.stdout)
+        .trim_end_matches(&['\r', '\n'][..])
+        .to_string())
 }
 
 fn project_id(name: &str) -> String {
@@ -139,7 +148,9 @@ fn resolve_project(db: &Db, requested_id: &str) -> Result<(String, PathBuf), Str
 
         let canonical = path.canonicalize().map_err(|error| error.to_string())?;
         if canonical.parent() != Some(root.as_path()) {
-            return Err("The selected project is not a direct child of the configured root.".to_string());
+            return Err(
+                "The selected project is not a direct child of the configured root.".to_string(),
+            );
         }
         git(&canonical, &["rev-parse", "--is-inside-work-tree"])
             .map_err(|_| "The selected project is not a Git repository.".to_string())?;
@@ -149,7 +160,7 @@ fn resolve_project(db: &Db, requested_id: &str) -> Result<(String, PathBuf), Str
     Err("The selected project is not tracked under the configured projects root.".to_string())
 }
 
-fn run_id() -> String {
+pub(crate) fn run_id() -> String {
     let nanos = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
@@ -221,7 +232,7 @@ fn active_run_for_project(db: &Db, project_id: &str) -> Result<Option<String>, S
     connection
         .query_row(
             "SELECT id FROM delegation_runs WHERE project_id = ?1 AND phase IN \
-             ('approved', 'preparing', 'planning', 'editing', 'testing', 'reviewing', 'waiting') \
+             ('approved', 'preparing', 'planning', 'editing', 'testing', 'reviewing', 'waiting', 'awaiting_review') \
              ORDER BY started_at DESC LIMIT 1",
             params![project_id],
             |row| row.get::<_, String>(0),
@@ -294,10 +305,14 @@ const RUN_SELECT: &str = "SELECT id, project_id, project_name, task, driver, mod
 workspace, branch, base_commit, agent_session_id, process_id, milestone, checkpoint, outcome, \
 changed_files_json, diff_summary, error, started_at, updated_at FROM delegation_runs";
 
-fn load_run(db: &Db, id: &str) -> Result<DelegationRun, String> {
+pub(crate) fn load_run(db: &Db, id: &str) -> Result<DelegationRun, String> {
     let connection = db.0.lock().map_err(|error| error.to_string())?;
     connection
-        .query_row(&format!("{RUN_SELECT} WHERE id = ?1"), params![id], row_to_run)
+        .query_row(
+            &format!("{RUN_SELECT} WHERE id = ?1"),
+            params![id],
+            row_to_run,
+        )
         .map_err(|error| error.to_string())
 }
 
@@ -310,7 +325,8 @@ fn phase_rank(phase: &str) -> u8 {
         "editing" => 4,
         "testing" => 5,
         "reviewing" => 6,
-        "complete" => 7,
+        "awaiting_review" => 7,
+        "complete" => 8,
         _ => 0,
     }
 }
@@ -326,6 +342,7 @@ fn effective_phase(current: &str, requested: &str) -> String {
                 | "editing"
                 | "testing"
                 | "reviewing"
+                | "awaiting_review"
                 | "complete"
         )
     };
@@ -337,13 +354,7 @@ fn effective_phase(current: &str, requested: &str) -> String {
     }
 }
 
-fn progress(
-    app: &AppHandle,
-    id: &str,
-    phase: &str,
-    milestone: &str,
-    checkpoint: Option<&str>,
-) {
+fn progress(app: &AppHandle, id: &str, phase: &str, milestone: &str, checkpoint: Option<&str>) {
     let db = app.state::<Db>();
     let current = load_run(db.inner(), id).ok();
     let effective_phase = current
@@ -398,22 +409,37 @@ fn cancellation(app: &AppHandle, id: &str, milestone: &str) {
     }
 }
 
+fn parse_agent_result(value: &Value) -> Result<String, String> {
+    if value.get("is_error").and_then(Value::as_bool) == Some(true) {
+        return Err(
+            "Claude Code reported an error result; no successful outcome was established.".into(),
+        );
+    }
+    let summary = value
+        .get("result")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .trim();
+    if summary.chars().count() > 20_000 {
+        return Err("The agent result exceeds the review limit; preserve the workspace and prepare a smaller task.".into());
+    }
+    Ok(summary.to_string())
+}
+
 fn inspect_stream_line(
     app: &AppHandle,
     id: &str,
     stage: Stage,
     line: &str,
-    result: &Arc<Mutex<String>>,
+    result: &Arc<Mutex<Result<String, String>>>,
 ) {
     let Ok(value) = serde_json::from_str::<Value>(line) else {
         return;
     };
 
     if value.get("type").and_then(Value::as_str) == Some("result") {
-        if let Some(summary) = value.get("result").and_then(Value::as_str) {
-            if let Ok(mut stored) = result.lock() {
-                *stored = summary.trim().to_string();
-            }
+        if let Ok(mut stored) = result.lock() {
+            *stored = parse_agent_result(&value);
         }
         return;
     }
@@ -526,6 +552,15 @@ fn implementation_prompt(run: &DelegationRun) -> String {
 
 fn spawn_claude(app: AppHandle, run: DelegationRun, stage: Stage) -> Result<(), String> {
     let executable = claude_executable()?;
+    let (criteria, approved_plan) = contract(app.state::<Db>().inner(), &run.id)?;
+    let evidence_contract = format!(
+        "\n\nAcceptance criteria:\n{}",
+        criteria
+            .iter()
+            .map(|c| format!("- {c}"))
+            .collect::<Vec<_>>()
+            .join("\n")
+    );
     let mut command = Command::new(executable);
     command
         .current_dir(&run.workspace)
@@ -540,14 +575,19 @@ fn spawn_claude(app: AppHandle, run: DelegationRun, stage: Stage) -> Result<(), 
                 .args(["--session-id", &run.agent_session_id])
                 .args(["--permission-mode", "plan"])
                 .args(["--tools", "Read,Glob,Grep"])
-                .arg(plan_prompt(&run));
+                .arg(format!("{}{}", plan_prompt(&run), evidence_contract));
         }
         Stage::Implement => {
             command
                 .args(["--resume", &run.agent_session_id])
                 .args(["--permission-mode", "dontAsk"])
                 .args(["--allowedTools", IMPLEMENTATION_TOOLS])
-                .arg(implementation_prompt(&run));
+                .arg(format!(
+                    "{}{}\n\nApproved plan:\n{}",
+                    implementation_prompt(&run),
+                    evidence_contract,
+                    approved_plan
+                ));
         }
     }
     allowed_environment(&mut command);
@@ -578,7 +618,9 @@ fn spawn_claude(app: AppHandle, run: DelegationRun, stage: Stage) -> Result<(), 
         .map_err(|error| error.to_string())?
         .insert(run.id.clone(), cancel_sender);
 
-    let result = Arc::new(Mutex::new(String::new()));
+    let result = Arc::new(Mutex::new(Err(
+        "Claude Code returned no result record.".to_string()
+    )));
     let stderr_text = Arc::new(Mutex::new(String::new()));
     let stdout_app = app.clone();
     let stdout_id = run.id.clone();
@@ -631,7 +673,7 @@ fn spawn_claude(app: AppHandle, run: DelegationRun, stage: Stage) -> Result<(), 
 }
 
 #[cfg(target_os = "windows")]
-fn terminate_process_tree(process_id: u32) -> bool {
+pub(crate) fn terminate_process_tree(process_id: u32) -> bool {
     Command::new("taskkill")
         .args(["/PID", &process_id.to_string(), "/T", "/F"])
         .output()
@@ -640,7 +682,7 @@ fn terminate_process_tree(process_id: u32) -> bool {
 }
 
 #[cfg(not(target_os = "windows"))]
-fn terminate_process_tree(_process_id: u32) -> bool {
+pub(crate) fn terminate_process_tree(_process_id: u32) -> bool {
     false
 }
 
@@ -670,7 +712,7 @@ fn monitor_child(
     cancel_receiver: mpsc::Receiver<()>,
     stdout_thread: thread::JoinHandle<()>,
     stderr_thread: thread::JoinHandle<()>,
-    result: Arc<Mutex<String>>,
+    result: Arc<Mutex<Result<String, String>>>,
     stderr_text: Arc<Mutex<String>>,
 ) {
     let mut cancelled = false;
@@ -692,6 +734,10 @@ fn monitor_child(
 
     let _ = stdout_thread.join();
     let _ = stderr_thread.join();
+    let approval_state = app.state::<ApprovalState>();
+    let Ok(_transition) = approval_state.execution.lock() else {
+        return;
+    };
     if let Ok(mut active) = app.state::<DelegationProcesses>().0.lock() {
         active.remove(&run.id);
     }
@@ -739,12 +785,48 @@ fn monitor_child(
         return;
     }
 
-    let summary = result
+    let summary = match result
         .lock()
-        .map(|value| value.trim().to_string())
-        .unwrap_or_default();
+        .map_err(|e| e.to_string())
+        .and_then(|value| value.clone())
+    {
+        Ok(summary) => summary,
+        Err(error) => {
+            fail(&app, &run.id, &error);
+            return;
+        }
+    };
 
     if stage == Stage::Plan {
+        if summary.is_empty() {
+            fail(
+                &app,
+                &run.id,
+                "The planning process returned no plan. Prepare a fresh planning review.",
+            );
+            return;
+        }
+        let saved = app
+            .state::<Db>()
+            .0
+            .lock()
+            .map_err(|e| e.to_string())
+            .and_then(|connection| {
+                connection
+                    .execute(
+                        "UPDATE delegation_contracts SET plan = ?2 WHERE run_id = ?1",
+                        params![run.id, summary],
+                    )
+                    .map_err(|e| e.to_string())
+            });
+        if !matches!(saved, Ok(1)) {
+            fail(
+                &app,
+                &run.id,
+                "The plan could not be saved; implementation is blocked.",
+            );
+            return;
+        }
         let checkpoint = if summary.is_empty() {
             "Review the proposed plan, then approve implementation or cancel the preserved run."
                 .to_string()
@@ -773,12 +855,13 @@ fn monitor_child(
             let db = app.state::<Db>();
             if let Ok(connection) = db.0.lock() {
                 let outcome = if summary.is_empty() {
-                    "Claude Code completed; review the preserved diff before any merge.".to_string()
+                    "Claude Code exited successfully; the outcome is unverified until review."
+                        .to_string()
                 } else {
                     summary
                 };
                 let _ = connection.execute(
-                    "UPDATE delegation_runs SET phase = 'complete', milestone = 'Reviewable result \
+                    "UPDATE delegation_runs SET phase = 'awaiting_review', milestone = 'Reviewable result \
                      ready; nothing pushed or merged', checkpoint = NULL, outcome = ?2, \
                      changed_files_json = ?3, diff_summary = ?4, process_id = NULL, error = NULL, \
                      updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?1",
@@ -798,26 +881,231 @@ fn monitor_child(
     }
 }
 
-fn collect_review(run: &DelegationRun) -> Result<(Vec<String>, String), String> {
+pub(crate) fn untracked_files(workspace: &Path) -> Result<Vec<String>, String> {
+    Ok(git(
+        workspace,
+        &["ls-files", "--others", "--exclude-standard", "-z"],
+    )?
+    .split('\0')
+    .filter(|p| !p.is_empty())
+    .map(str::to_string)
+    .collect())
+}
+
+pub(crate) fn collect_review(run: &DelegationRun) -> Result<(Vec<String>, String), String> {
     let workspace = PathBuf::from(&run.workspace);
-    let status = git(&workspace, &["status", "--porcelain"])?;
-    let mut files: Vec<String> = status
-        .lines()
-        .filter_map(|line| line.get(3..).map(str::trim))
-        .filter(|path| !path.is_empty())
-        .map(str::to_string)
-        .collect();
+    let mut files: Vec<String> = git(
+        &workspace,
+        &[
+            "diff",
+            "--no-ext-diff",
+            "--name-only",
+            "-z",
+            &run.base_commit,
+        ],
+    )?
+    .split('\0')
+    .filter(|p| !p.is_empty())
+    .map(str::to_string)
+    .collect();
+    files.extend(untracked_files(&workspace)?);
     files.sort();
     files.dedup();
-    let summary = git(&workspace, &["diff", "--stat", &run.base_commit])?;
+    let summary = git(
+        &workspace,
+        &["diff", "--no-ext-diff", "--stat", &run.base_commit],
+    )?;
     Ok((
         files,
-        if summary.trim().is_empty() {
-            "No tracked diff; review the changed-file list for new files.".to_string()
+        if summary.is_empty() {
+            "No tracked diff; inspect any new files below.".into()
         } else {
             summary
         },
     ))
+}
+
+pub(crate) fn workspace_hash(workspace: &Path, base: &str) -> Result<String, String> {
+    let mut hash = Sha256::new();
+    hash.update(git(workspace, &["rev-parse", "HEAD"])?);
+    hash.update(git(
+        workspace,
+        &["diff", "--no-ext-diff", "--no-textconv", "--binary", base],
+    )?);
+    let root = workspace.canonicalize().map_err(|e| e.to_string())?;
+    for name in untracked_files(workspace)? {
+        hash.update(name.as_bytes());
+        hash.update([0]);
+        let path = workspace
+            .join(&name)
+            .canonicalize()
+            .map_err(|e| e.to_string())?;
+        if !path.starts_with(&root) {
+            return Err("An untracked file points outside the workspace.".into());
+        }
+        let mut file = fs::File::open(path).map_err(|e| e.to_string())?;
+        let mut buffer = [0u8; 8192];
+        loop {
+            let n = file.read(&mut buffer).map_err(|e| e.to_string())?;
+            if n == 0 {
+                break;
+            }
+            hash.update(&buffer[..n]);
+        }
+        hash.update([0]);
+    }
+    Ok(format!("{:x}", hash.finalize()))
+}
+
+pub(crate) fn contract(db: &Db, id: &str) -> Result<(Vec<String>, String), String> {
+    let connection = db.0.lock().map_err(|e| e.to_string())?;
+    let (criteria, plan): (String, String) = connection
+        .query_row(
+            "SELECT criteria_json, plan FROM delegation_contracts WHERE run_id = ?1",
+            [id],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )
+        .map_err(|_| {
+            "This legacy run has no verifiable task contract; preserve it and prepare a new run."
+                .to_string()
+        })?;
+    Ok((
+        serde_json::from_str(&criteria).map_err(|e| e.to_string())?,
+        plan,
+    ))
+}
+
+fn planning_subject(
+    app: &AppHandle,
+    db: &Db,
+    request: &PrepareDelegationRequest,
+    id: &str,
+) -> Result<Subject, String> {
+    if request.task.trim().is_empty() || request.task.chars().count() > MAX_TASK_CHARS {
+        return Err("A task of 1–4,000 characters is required.".into());
+    }
+    if request.criteria.is_empty()
+        || request.criteria.len() > 8
+        || request
+            .criteria
+            .iter()
+            .any(|c| c.trim().is_empty() || c.chars().count() > 400)
+    {
+        return Err("Provide 1–8 acceptance criteria, each up to 400 characters.".into());
+    }
+    if active_run_for_project(db, &request.project_id)?.is_some() {
+        return Err("Review or cancel the project's existing run first.".into());
+    }
+    let (project_name, repository) = resolve_project(db, &request.project_id)?;
+    if !git(&repository, &["status", "--porcelain"])?.is_empty() {
+        return Err(
+            "The primary checkout has uncommitted work. Protect it before preparing a run.".into(),
+        );
+    }
+    let base_commit = git(&repository, &["rev-parse", "HEAD"])?;
+    let driver = format!("Claude Code {}", claude_version(&claude_executable()?)?);
+    let workspace = app
+        .path()
+        .app_data_dir()
+        .map_err(|e| e.to_string())?
+        .join("delegations")
+        .join(id);
+    Ok(Subject {
+        project_id: request.project_id.clone(),
+        project_name,
+        repository: repository.to_string_lossy().into(),
+        workspace_hash: workspace_hash(&repository, &base_commit)?,
+        base_commit,
+        driver,
+        model: MODEL.into(),
+        stage: "plan".into(),
+        task: request.task.clone(),
+        criteria: request.criteria.clone(),
+        scope: "plan-v1: Read,Glob,Grep; no edits; $5 ceiling".into(),
+        run_id: id.into(),
+        workspace: workspace.to_string_lossy().into(),
+        plan: String::new(),
+    })
+}
+
+fn resume_subject(db: &Db, id: &str) -> Result<Subject, String> {
+    let run = load_run(db, id)?;
+    if run.phase != "waiting" {
+        return Err("Only a waiting run can be reviewed for resumption.".into());
+    }
+    if run.process_id.is_some_and(process_is_running) {
+        return Err("A detached process is still running; cancel it before recovery.".into());
+    }
+    let (criteria, plan) = contract(db, id)?;
+    let (project_name, repository) = resolve_project(db, &run.project_id)?;
+    if git(&repository, &["rev-parse", "HEAD"])? != run.base_commit {
+        return Err("The project's base changed. Preserve this run and prepare a new task.".into());
+    }
+    let workspace = PathBuf::from(&run.workspace)
+        .canonicalize()
+        .map_err(|e| e.to_string())?;
+    let actual_common = git(
+        &workspace,
+        &["rev-parse", "--path-format=absolute", "--git-common-dir"],
+    )?;
+    let expected_common = git(
+        &repository,
+        &["rev-parse", "--path-format=absolute", "--git-common-dir"],
+    )?;
+    if PathBuf::from(actual_common)
+        .canonicalize()
+        .map_err(|e| e.to_string())?
+        != PathBuf::from(expected_common)
+            .canonicalize()
+            .map_err(|e| e.to_string())?
+    {
+        return Err("The preserved workspace no longer belongs to this repository.".into());
+    }
+    Ok(Subject {
+        project_id: run.project_id,
+        project_name,
+        repository: repository.to_string_lossy().into(),
+        workspace_hash: workspace_hash(&workspace, &run.base_commit)?,
+        base_commit: run.base_commit,
+        driver: format!("Claude Code {}", claude_version(&claude_executable()?)?),
+        model: MODEL.into(),
+        stage: if plan.is_empty() { "plan" } else { "implement" }.into(),
+        task: run.task,
+        criteria,
+        scope: if plan.is_empty() {
+            "plan-v1: Read,Glob,Grep; no edits; $5 ceiling".into()
+        } else {
+            format!("implement-v1: {IMPLEMENTATION_TOOLS}; $5 ceiling; no commit/push/merge")
+        },
+        run_id: run.id,
+        workspace: run.workspace,
+        plan,
+    })
+}
+
+#[tauri::command]
+pub fn prepare_delegation_run(
+    app: AppHandle,
+    db: State<Db>,
+    request: PrepareDelegationRequest,
+) -> Result<Proposal, String> {
+    let state = app.state::<ApprovalState>();
+    let _transition = state.execution.lock().map_err(|e| e.to_string())?;
+    state.prepare(
+        run_id(),
+        planning_subject(&app, db.inner(), &request, &run_id())?,
+    )
+}
+
+#[tauri::command]
+pub fn prepare_delegation_resume(
+    app: AppHandle,
+    db: State<Db>,
+    request: RunRequest,
+) -> Result<Proposal, String> {
+    let state = app.state::<ApprovalState>();
+    let _transition = state.execution.lock().map_err(|e| e.to_string())?;
+    state.prepare(run_id(), resume_subject(db.inner(), &request.run_id)?)
 }
 
 #[tauri::command]
@@ -826,86 +1114,40 @@ pub fn start_delegation_run(
     db: State<Db>,
     request: StartDelegationRequest,
 ) -> Result<DelegationRun, String> {
-    let task = request.task.split_whitespace().collect::<Vec<_>>().join(" ");
-    if task.is_empty() {
-        return Err("A committed project task is required.".to_string());
+    let state = app.state::<ApprovalState>();
+    let _transition = state.execution.lock().map_err(|e| e.to_string())?;
+    let proposal = state.get(&request.proposal_id)?;
+    if proposal.subject.stage != "plan" || !proposal.subject.plan.is_empty() {
+        return Err("This is not a planning proposal.".into());
     }
-    if task.chars().count() > MAX_TASK_CHARS {
-        return Err(format!("Keep the delegated task under {MAX_TASK_CHARS} characters."));
-    }
-    if let Some(existing) = active_run_for_project(db.inner(), &request.project_id)? {
-        return Err(format!(
-            "This project already has an active delegated run ({existing}). Review or cancel it first."
-        ));
-    }
-
-    let (project_name, project_path) = resolve_project(db.inner(), &request.project_id)?;
-    let notes = load_project_notes();
-    let committed_task = notes
-        .lookup(&project_name)
-        .and_then(|note| note.next_step.as_deref())
-        .map(|task| task.split_whitespace().collect::<Vec<_>>().join(" "))
-        .ok_or_else(|| {
-            "This project has no committed next action in its vault note, so Olympus will not \
-             invent a task for Claude Code."
-                .to_string()
-        })?;
-    if committed_task != task {
-        return Err(
-            "The proposed task no longer matches the project's committed next action. Refresh \
-             Project mode and approve the current task."
-                .to_string(),
-        );
-    }
-    let dirty = git(&project_path, &["status", "--porcelain"])?;
-    if !dirty.trim().is_empty() {
-        return Err(
-            "The project's primary checkout has uncommitted work. Protect or commit it before \
-             delegation so the run starts from a known base."
-                .to_string(),
-        );
-    }
-
-    let executable = claude_executable()?;
-    let version = claude_version(&executable)?;
-    let id = run_id();
-    let branch = format!("olympus/run-{}", &id[..8]);
-    let base_commit = git(&project_path, &["rev-parse", "HEAD"])?;
-    let workspace_root = app
-        .path()
-        .app_data_dir()
-        .map_err(|error| error.to_string())?
-        .join("delegations");
-    fs::create_dir_all(&workspace_root).map_err(|error| error.to_string())?;
-    let workspace = workspace_root.join(&id);
-    let workspace_text = workspace.to_string_lossy().to_string();
-
-    git(
-        &project_path,
-        &[
-            "worktree",
-            "add",
-            "-b",
-            &branch,
-            &workspace_text,
-            &base_commit,
-        ],
+    let subject = planning_subject(
+        &app,
+        db.inner(),
+        &PrepareDelegationRequest {
+            project_id: proposal.subject.project_id.clone(),
+            task: proposal.subject.task.clone(),
+            criteria: proposal.subject.criteria.clone(),
+        },
+        &proposal.subject.run_id,
     )?;
-
+    {
+        let mut connection = db.0.lock().map_err(|e| e.to_string())?;
+        state.consume(&mut connection, &request.proposal_id, &subject)?;
+    }
     let run = DelegationRun {
-        id: id.clone(),
-        project_id: request.project_id,
-        project_name,
-        task,
-        driver: format!("Claude Code {version}"),
-        model: MODEL.to_string(),
-        phase: "preparing".to_string(),
-        workspace: workspace_text,
-        branch,
-        base_commit,
-        agent_session_id: id,
+        id: subject.run_id.clone(),
+        project_id: subject.project_id,
+        project_name: subject.project_name,
+        task: subject.task,
+        driver: subject.driver,
+        model: subject.model,
+        phase: "preparing".into(),
+        workspace: subject.workspace,
+        branch: format!("olympus/run-{}", &subject.run_id[..8]),
+        base_commit: subject.base_commit,
+        agent_session_id: subject.run_id.clone(),
         process_id: None,
-        milestone: "Isolated branch and worktree created".to_string(),
+        milestone: "Approval consumed; preparing isolated workspace".into(),
         checkpoint: None,
         outcome: None,
         changed_files: Vec::new(),
@@ -914,44 +1156,80 @@ pub fn start_delegation_run(
         started_at: String::new(),
         updated_at: String::new(),
     };
-
-    if let Err(error) = insert_run(db.inner(), &run) {
+    // Record the attempted run before filesystem/process preparation. Consent remains consumed on failure.
+    insert_run(db.inner(), &run)?;
+    let preparation = (|| -> Result<(), String> {
+        db.0.lock()
+            .map_err(|e| e.to_string())?
+            .execute(
+                "INSERT INTO delegation_contracts(run_id,criteria_json) VALUES (?1,?2)",
+                params![
+                    run.id,
+                    serde_json::to_string(&subject.criteria).map_err(|e| e.to_string())?
+                ],
+            )
+            .map_err(|e| e.to_string())?;
+        fs::create_dir_all(
+            Path::new(&run.workspace)
+                .parent()
+                .ok_or("Missing workspace parent")?,
+        )
+        .map_err(|e| e.to_string())?;
+        git(
+            Path::new(&subject.repository),
+            &[
+                "worktree",
+                "add",
+                "-b",
+                &run.branch,
+                &run.workspace,
+                &run.base_commit,
+            ],
+        )?;
+        spawn_claude(app.clone(), run.clone(), Stage::Plan)
+    })();
+    if let Err(error) = preparation {
+        fail(&app, &run.id, &error);
         return Err(format!(
-            "The worktree was created at {}, but the run record failed: {error}. It was preserved.",
-            run.workspace
+            "{error}. Approval was consumed; the failed attempt and any workspace are preserved."
         ));
     }
-    let stored = load_run(db.inner(), &run.id)?;
-    spawn_claude(app.clone(), stored.clone(), Stage::Plan).map_err(|error| {
-        fail(&app, &stored.id, &error);
-        error
-    })?;
-    load_run(db.inner(), &stored.id)
+    load_run(db.inner(), &run.id)
 }
 
 #[tauri::command]
 pub fn resume_delegation_run(
     app: AppHandle,
     db: State<Db>,
-    request: RunRequest,
+    request: StartDelegationRequest,
 ) -> Result<DelegationRun, String> {
-    let run = load_run(db.inner(), &request.run_id)?;
-    if run.phase != "waiting" {
-        return Err("Only a run waiting at a checkpoint can continue.".to_string());
+    let state = app.state::<ApprovalState>();
+    let _transition = state.execution.lock().map_err(|e| e.to_string())?;
+    let proposal = state.get(&request.proposal_id)?;
+    let subject = resume_subject(db.inner(), &proposal.subject.run_id)?;
+    {
+        let mut connection = db.0.lock().map_err(|e| e.to_string())?;
+        state.consume(&mut connection, &request.proposal_id, &subject)?;
     }
-    if !Path::new(&run.workspace).is_dir() {
-        return Err("The run's preserved worktree is missing; recovery cannot continue.".to_string());
+    let mut run = load_run(db.inner(), &subject.run_id)?;
+    let stage = if subject.stage == "plan" {
+        Stage::Plan
+    } else {
+        Stage::Implement
+    };
+    if stage == Stage::Plan {
+        run.agent_session_id = run_id();
+        db.0.lock()
+            .map_err(|e| e.to_string())?
+            .execute(
+                "UPDATE delegation_runs SET agent_session_id=?2 WHERE id=?1",
+                params![run.id, run.agent_session_id],
+            )
+            .map_err(|e| e.to_string())?;
     }
-    if run.process_id.is_some_and(process_is_running) {
-        return Err(
-            "A detached Claude process is still running for this preserved run. Cancel it before \
-             starting recovery."
-                .to_string(),
-        );
-    }
-    spawn_claude(app.clone(), run.clone(), Stage::Implement).map_err(|error| {
-        fail(&app, &run.id, &error);
-        error
+    spawn_claude(app.clone(), run.clone(), stage).map_err(|e| {
+        fail(&app, &run.id, &e);
+        e
     })?;
     load_run(db.inner(), &run.id)
 }
@@ -962,6 +1240,12 @@ pub fn cancel_delegation_run(
     db: State<Db>,
     request: RunRequest,
 ) -> Result<DelegationRun, String> {
+    let state = app.state::<ApprovalState>();
+    let _transition = state.execution.lock().map_err(|e| e.to_string())?;
+    {
+        let connection = db.0.lock().map_err(|e| e.to_string())?;
+        state.revoke_run(&connection, &request.run_id)?;
+    }
     let run = load_run(db.inner(), &request.run_id)?;
     if matches!(run.phase.as_str(), "complete" | "failed" | "cancelled") {
         return Ok(run);
@@ -998,10 +1282,9 @@ pub fn cancel_delegation_run(
 }
 
 #[tauri::command]
-pub fn list_delegation_runs(
-    app: AppHandle,
-    db: State<Db>,
-) -> Result<Vec<DelegationRun>, String> {
+pub fn list_delegation_runs(app: AppHandle, db: State<Db>) -> Result<Vec<DelegationRun>, String> {
+    let state = app.state::<ApprovalState>();
+    let _transition = state.execution.lock().map_err(|e| e.to_string())?;
     let active: Vec<String> = app
         .state::<DelegationProcesses>()
         .0
@@ -1070,14 +1353,25 @@ pub fn fetch_delegation_diff(db: State<Db>, request: RunRequest) -> Result<Strin
         return Err("The delegated worktree is missing.".to_string());
     }
 
-    let mut diff = git(&workspace, &["diff", "--no-color", &run.base_commit])?;
-    let status = git(&workspace, &["status", "--porcelain"])?;
-    for path in status
-        .lines()
-        .filter(|line| line.starts_with("?? "))
-        .filter_map(|line| line.get(3..))
-    {
-        let target = workspace.join(path);
+    let mut diff = git(
+        &workspace,
+        &[
+            "diff",
+            "--no-ext-diff",
+            "--no-textconv",
+            "--no-color",
+            &run.base_commit,
+        ],
+    )?;
+    let root = workspace.canonicalize().map_err(|e| e.to_string())?;
+    for path in untracked_files(&workspace)? {
+        let target = workspace
+            .join(&path)
+            .canonicalize()
+            .map_err(|e| e.to_string())?;
+        if !target.starts_with(&root) {
+            return Err("A new file points outside the workspace.".into());
+        }
         if target.is_file() {
             let contents = fs::read_to_string(&target)
                 .unwrap_or_else(|_| "[binary or unreadable file]".to_string());
@@ -1131,5 +1425,51 @@ mod tests {
         assert_eq!(effective_phase("planning", "waiting"), "waiting");
         assert_eq!(effective_phase("waiting", "editing"), "editing");
         assert_eq!(effective_phase("testing", "planning"), "testing");
+    }
+}
+
+#[cfg(test)]
+mod result_boundary_tests {
+    use super::*;
+    #[test]
+    fn agent_errors_and_oversized_results_are_not_plans() {
+        assert!(
+            parse_agent_result(&serde_json::json!({"is_error":true,"result":"failed"})).is_err()
+        );
+        assert!(parse_agent_result(&serde_json::json!({"result":"x".repeat(20_001)})).is_err());
+        assert_eq!(
+            parse_agent_result(&serde_json::json!({"is_error":false,"result":" reviewed plan "}))
+                .unwrap(),
+            "reviewed plan"
+        );
+    }
+}
+
+#[cfg(test)]
+mod workspace_evidence_tests {
+    use super::*;
+    #[test]
+    fn fingerprints_include_committed_edits_and_new_file_contents() {
+        let root = std::env::temp_dir().join(format!("olympus-evidence-{}", run_id()));
+        fs::create_dir_all(&root).unwrap();
+        git(&root, &["init"]).unwrap();
+        git(&root, &["config", "user.name", "Olympus test"]).unwrap();
+        git(&root, &["config", "user.email", "test@example.invalid"]).unwrap();
+        fs::write(root.join("tracked.txt"), "before").unwrap();
+        git(&root, &["add", "."]).unwrap();
+        git(&root, &["commit", "-m", "base"]).unwrap();
+        let base = git(&root, &["rev-parse", "HEAD"]).unwrap();
+        let initial = workspace_hash(&root, &base).unwrap();
+        fs::write(root.join("tracked.txt"), "after").unwrap();
+        git(&root, &["commit", "-am", "change"]).unwrap();
+        let committed = workspace_hash(&root, &base).unwrap();
+        assert_ne!(initial, committed);
+        fs::write(root.join(" new file.txt"), "new evidence").unwrap();
+        assert_eq!(untracked_files(&root).unwrap(), vec![" new file.txt"]);
+        let new_file = workspace_hash(&root, &base).unwrap();
+        assert_ne!(committed, new_file);
+        fs::write(root.join(" new file.txt"), "changed evidence").unwrap();
+        assert_ne!(new_file, workspace_hash(&root, &base).unwrap());
+        fs::remove_dir_all(root).unwrap();
     }
 }

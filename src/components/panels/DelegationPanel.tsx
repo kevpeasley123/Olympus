@@ -1,8 +1,13 @@
+import { DelegationReview } from "./DelegationReview";
 import { listen } from "@tauri-apps/api/event";
 import { Bot, GitBranch, Square, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   cancelDelegationRun,
+  prepareDelegationRun,
+  prepareDelegationResume,
+  cancelDelegationProposal,
+  type ApprovalProposal,
   fetchDelegationDiff,
   listDelegationRuns,
   resumeDelegationRun,
@@ -34,6 +39,12 @@ export function DelegationPanel({
   proposal,
   onDismissProposal
 }: DelegationPanelProps) {
+  const [draftTask, setDraftTask] = useState("");
+  const [criteria, setCriteria] = useState("");
+  const [prepared, setPrepared] = useState<ApprovalProposal | null>(null);
+  const [resuming, setResuming] = useState(false);
+  const [reviewRun, setReviewRun] = useState<string | null>(null);
+  useEffect(() => { setDraftTask(proposal?.task ?? ""); setCriteria(""); setPrepared(null); }, [proposal]);
   const [runs, setRuns] = useState<DelegationRun[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -90,12 +101,25 @@ export function DelegationPanel({
     }
   }
 
-  async function start() {
-    if (!proposal) return;
-    const run = await act("start", () =>
-      startDelegationRun(proposal.projectId, proposal.task)
-    );
-    if (run) onDismissProposal();
+  async function prepare(runId?: string) {
+    setBusy("prepare"); setError(null); setPrepared(null);
+    try {
+      setResuming(Boolean(runId));
+      setPrepared(runId ? await prepareDelegationResume(runId) : await prepareDelegationRun(proposal!.projectId, draftTask, criteria.split("\n").map(s => s.trim()).filter(Boolean)));
+    } catch (reason) { setError(message(reason)); }
+    finally { setBusy(null); }
+  }
+
+  async function approve() {
+    if (!prepared) return;
+    const run = await act("approve", () => resuming ? resumeDelegationRun(prepared.id) : startDelegationRun(prepared.id));
+    setPrepared(null);
+    if (run && !resuming) onDismissProposal();
+  }
+
+  async function dismissReview() {
+    if (prepared) await cancelDelegationProposal(prepared.id).catch(reason => setError(message(reason)));
+    setPrepared(null);
   }
 
   async function reviewDiff(runId: string) {
@@ -136,13 +160,18 @@ export function DelegationPanel({
           <button
             type="button"
             className="delegation-proposal__dismiss"
-            onClick={onDismissProposal}
+            onClick={() => { void dismissReview(); onDismissProposal(); }}
             aria-label="Dismiss delegation proposal"
+            disabled={busy !== null}
           >
             <X size={14} />
           </button>
           <span className="delegation-panel__label">Proposed task · {proposal.projectName}</span>
-          <p>{proposal.task}</p>
+          <p>Proposed work — not execution approval.</p>
+          <label className="delegation-panel__label" htmlFor="delegation-task">Task</label>
+          <textarea id="delegation-task" className="observation-input" rows={4} value={draftTask} disabled={busy !== null || prepared !== null} onChange={e => setDraftTask(e.target.value)} />
+          <label className="delegation-panel__label" htmlFor="delegation-criteria">Acceptance criteria — one per line</label>
+          <textarea id="delegation-criteria" className="observation-input" rows={3} value={criteria} disabled={busy !== null || prepared !== null} onChange={e => setCriteria(e.target.value)} />
           <div className="delegation-proposal__boundary">
             Olympus will create a dedicated branch and worktree. Claude will plan first and stop
             for your approval before editing. Nothing will be pushed or merged.
@@ -151,15 +180,15 @@ export function DelegationPanel({
             <button
               type="button"
               className="delegation-action delegation-action--primary"
-              disabled={!desktop || busy !== null}
-              onClick={() => void start()}
+              disabled={!desktop || busy !== null || prepared !== null || !draftTask.trim() || !criteria.trim()}
+              onClick={() => void prepare()}
             >
-              {busy === "start" ? "Preparing…" : "Start planning"}
+              {busy === "prepare" ? "Preparing…" : "Review planning scope"}
             </button>
             <button
               type="button"
               className="delegation-action"
-              onClick={onDismissProposal}
+              onClick={() => { void dismissReview(); onDismissProposal(); }}
               disabled={busy !== null}
             >
               Not now
@@ -170,6 +199,22 @@ export function DelegationPanel({
           ) : null}
         </article>
       ) : null}
+
+      {prepared && <article className="delegation-checkpoint">
+        <span className="delegation-panel__label">Operator review · {prepared.subject.stage}</span>
+        <p>{prepared.subject.projectName} · {prepared.subject.driver} · {prepared.subject.model}</p>
+        <p className="tabular-data">Base: {prepared.subject.baseCommit}</p>
+        <pre>{prepared.subject.task}</pre>
+        <ul>{prepared.subject.criteria.map((criterion, i) => <li key={i}>{criterion}</li>)}</ul>
+        {prepared.subject.plan && <><span className="delegation-panel__label">Plan to implement</span><pre>{prepared.subject.plan}</pre></>}
+        <p>{prepared.subject.scope}</p>
+        <p className="tabular-data">Preserved workspace: {prepared.subject.workspace}</p>
+        <p>Review expires at {new Date(prepared.expiresAt * 1000).toLocaleTimeString()}. Changes require fresh review.</p>
+        <div className="delegation-actions">
+          <button className="delegation-action" disabled={busy !== null} onClick={() => void dismissReview()}>Cancel review</button>
+          <button className="delegation-action delegation-action--primary" disabled={busy !== null} onClick={() => void approve()}>{busy === "approve" ? "Starting…" : prepared.subject.stage === "plan" ? "Approve planning" : "Approve implementation"}</button>
+        </div>
+      </article>}
 
       {error ? <p className="delegation-error">{error}</p> : null}
 
@@ -206,7 +251,7 @@ export function DelegationPanel({
 
               {run.outcome ? (
                 <section className="delegation-outcome">
-                  <span className="delegation-panel__label">Outcome</span>
+                  <span className="delegation-panel__label">Agent-reported outcome — unverified until review</span>
                   <p>{run.outcome}</p>
                   {run.diffSummary ? <pre>{run.diffSummary}</pre> : null}
                   {run.changedFiles.length > 0 ? (
@@ -224,10 +269,10 @@ export function DelegationPanel({
                     className="delegation-action delegation-action--primary"
                     disabled={busy !== null}
                     onClick={() =>
-                      void act(`resume-${run.id}`, () => resumeDelegationRun(run.id))
+                      void prepare(run.id)
                     }
                   >
-                    {busy === `resume-${run.id}` ? "Resuming…" : "Approve and implement"}
+                    {busy === "prepare" ? "Preparing…" : "Review resume scope"}
                   </button>
                 ) : null}
                 {!["complete", "failed", "cancelled"].includes(run.phase) ? (
@@ -243,7 +288,7 @@ export function DelegationPanel({
                     {busy === `cancel-${run.id}` ? "Cancelling…" : "Cancel"}
                   </button>
                 ) : null}
-                {["complete", "failed", "cancelled"].includes(run.phase) ? (
+                {["awaiting_review", "complete", "failed", "cancelled"].includes(run.phase) ? (
                   <button
                     type="button"
                     className="delegation-action"
@@ -255,6 +300,8 @@ export function DelegationPanel({
                 ) : null}
               </div>
 
+              {run.phase === "awaiting_review" && <button className="delegation-action delegation-action--primary" onClick={() => setReviewRun(reviewRun === run.id ? null : run.id)}>Review result and evidence</button>}
+              {reviewRun === run.id && ["awaiting_review", "testing"].includes(run.phase) && <DelegationReview runId={run.id} onComplete={updated => { setRuns(current => [updated, ...current.filter(r => r.id !== updated.id)]); setReviewRun(null); }} />}
               {diffs[run.id] ? (
                 <pre className="delegation-diff">{diffs[run.id]}</pre>
               ) : null}

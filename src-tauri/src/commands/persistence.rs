@@ -136,15 +136,16 @@ pub fn fetch_recent_vault_writes(db: State<Db>) -> Result<Vec<VaultWriteEvent>, 
 
 /// Starts one idempotent desktop session and returns the prior launch boundary.
 ///
-/// React StrictMode mounts effects twice in development. The frontend keeps one
-/// UUID for the page lifetime, and the primary key makes both invocations
-/// resolve to the same session rather than advancing the boundary twice.
+/// The backend owns one session per desktop process. Repeated frontend calls
+/// resolve to that session rather than advancing the boundary twice.
 #[tauri::command]
 pub fn begin_operator_session(
     db: State<Db>,
     request: BeginSessionRequest,
+    session: State<super::approvals::ApprovalState>,
 ) -> Result<SessionBoundary, String> {
-    begin_operator_session_in(db.inner(), &request.session_id)
+    let _ = request; // Legacy frontend session IDs are not authority.
+    begin_operator_session_in(db.inner(), &session.session_id)
 }
 
 fn begin_operator_session_in(db: &Db, raw_session_id: &str) -> Result<SessionBoundary, String> {
@@ -181,15 +182,7 @@ fn begin_operator_session_in(db: &Db, raw_session_id: &str) -> Result<SessionBou
         .optional()
         .map_err(|error| error.to_string())?;
 
-    // The boundary history is operational evidence, not an audit archive.
-    // Keeping the latest 100 sessions is ample while preventing unbounded rows.
-    transaction
-        .execute(
-            "DELETE FROM operator_sessions WHERE id NOT IN \
-             (SELECT id FROM operator_sessions ORDER BY started_at DESC LIMIT 100)",
-            [],
-        )
-        .map_err(|error| error.to_string())?;
+    // Session rows now anchor immutable approvals and must retain their provenance.
 
     transaction.commit().map_err(|error| error.to_string())?;
 

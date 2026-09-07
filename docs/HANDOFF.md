@@ -13,7 +13,7 @@ Read `OLYMPUS-MANUAL.md`, then this file. Previous chronological notes are prese
 
 ## Current implementation branch
 
-`agent/curated-memory`, based on `c7ed98a`. These changes are isolated and not installed:
+`agent/curated-memory`, based on `c7ed98a`. These changes are included in the 0.3.0 release candidate:
 
 - Question-based Pantheon retrieval selects up to three sources and up to 4,000 body characters per source. Lexical ranking is deterministic; short ambiguous follow-ups may require the operator to name a source or topic. This is not semantic retrieval.
 - Retrieved sources carry title, path, date, stance, origin, partial/full status, and body fingerprint. They are evidence after the prompt-cache breakpoint, never standing instructions.
@@ -23,12 +23,12 @@ Read `OLYMPUS-MANUAL.md`, then this file. Previous chronological notes are prese
 
 See `docs/CURATED-MEMORY.md` for behavior, verification, and remaining acceptance work.
 
-## What is still blocked or unfinished
+## Approval boundary and remaining acceptance
 
-1. **Approval provenance:** design review is required before implementation. See `docs/OPERATOR-APPROVAL-DESIGN.md`. Existing delegation still checks matching vault prose, not a verified approval event. Do not start an Olympus delegation run before that boundary is implemented.
-2. **Completion evidence:** a successful agent exit plus a collected diff currently becomes `complete`. Explicit verification and outcome contracts must replace that inference.
+1. **Approval provenance implemented:** backend-owned, expiring proposals bind the exact task, criteria, repository, base, driver, stage, plan, and workspace. SQLite records approval and consumption before launch; Markdown cannot authorize it. See `docs/OPERATOR-APPROVAL-DESIGN.md`.
+2. **Completion evidence implemented:** successful agent exit becomes `awaiting_review`. The UI records actual checks and per-criterion operator evidence against a workspace fingerprint before completion.
 3. **Desktop acceptance:** demonstrate retrieval, source disclosure, persisted provenance, promotion approval/decline, and rereading new memory in the actual desktop app.
-4. **Delegation acceptance:** after the approval design and implementation, demonstrate planning, checkpoint, isolated edit, verification, review, cancellation, and restart recovery.
+4. **Delegation acceptance:** demonstrate planning, checkpoint, isolated edit, verification, review, cancellation, and restart recovery.
 5. Proactive briefs, fan-out, multiple writers, and voice remain later work. The memory milestone does not authorize them automatically.
 
 ## Settled product boundaries
@@ -45,3 +45,14 @@ cargo test --lib --manifest-path src-tauri/Cargo.toml
 ```
 
 Run `projectRing`, `pantheonRecord`, and `glyphState` harnesses through Vite's SSR loader. Report build, unit-test, browser, desktop, and operator evidence separately. Build output belongs outside OneDrive; isolate Cargo targets for concurrent worktrees.
+
+## 0.3.0 release verification
+
+- Production frontend build passed; existing buffer externalization, eval, and bundle-size warnings remain.
+- All 192 Rust tests passed, including exact approval scope, replay/session/cancellation boundaries,
+  immutable records, error-result rejection, criterion evidence validation, and committed/untracked file fingerprints.
+- All three frontend harnesses passed. Browser fixture rendered task/criteria preparation and
+  per-criterion review controls; the fixture did not execute a coding agent.
+- Database backup integrity passed; the 0.2.1 rollback installer was preserved before installation.
+- Installation receipts and backups live outside source under the workspace `output/olympus-0.3.0-install`.
+- Paid delegation, actual desktop memory promotion, and end-to-end restart recovery still need operator acceptance.

@@ -101,7 +101,7 @@ export function ProjectBriefing({
 
       <footer className="project-briefing__legend">
         <span>
-          <i className="briefing-key briefing-key--committed" /> Committed by you
+          <i className="briefing-key briefing-key--committed" /> Recorded in vault
         </span>
         <span>
           <i className="briefing-key briefing-key--recommended" /> Recommended by Olympus
@@ -181,7 +181,7 @@ function ProjectBriefCard({
         </section>
 
         <section className="briefing-card__committed">
-          <span className="briefing-card__label">Committed next</span>
+          <span className="briefing-card__label">Recorded next action · execution unverified</span>
           <p>{brief.committedAction ?? "No committed next action."}</p>
         </section>
       </div>
@@ -203,11 +203,11 @@ function ProjectBriefCard({
       ) : null}
 
       <div className="briefing-card__actions">
-        {brief.committedAction && project.path ? (
+        {project.path ? (
           <button
             type="button"
             className="briefing-card__delegate"
-            onClick={() => onProposeDelegation(project, brief.committedAction as string)}
+            onClick={() => onProposeDelegation(project, brief.committedAction ?? "")}
           >
             Prepare Claude run
           </button>

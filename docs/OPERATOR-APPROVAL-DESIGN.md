@@ -1,10 +1,10 @@
-# Verifiable operator approval — proposed design
+# Verifiable operator approval
 
-Status: ready for operator review; not implemented. This replaces the earlier draft in the historical handoff. Memory work can proceed independently; no Olympus delegation run should start before this boundary exists.
+Status: implemented for 0.3.0. The boundary is covered by backend tests; a live desktop delegation pilot remains acceptance work.
 
 ## Problem and resulting behavior
 
-Today a task matching `next_step` passes the delegation check. An agent can write that prose, so the check cannot establish operator consent. Under this proposal, a vault commitment is planning context only. Starting or resuming an agent requires a backend-created approval event for the exact displayed task and execution scope.
+Previously a task matching `next_step` passed the delegation check. An agent can write that prose, so the check could not establish operator consent. In 0.3.0, a vault commitment is planning context only. Starting or resuming an agent requires a backend-created approval event for the exact displayed task and execution scope.
 
 Example: approving “Add bounded research retrieval” for project Olympus at commit A does not authorize a reworded task, project Pokedex, a different base commit, a different driver, or implementation of a plan that was never reviewed.
 
@@ -62,6 +62,6 @@ Losing SQLite loses verifiability and requires fresh approval. This deliberately
 - Diff collection includes committed changes and untracked files.
 - A real desktop pilot demonstrates approval, checkpoint, edit, checks, review, cancellation, and recovery without push or merge.
 
-## Decision requested
+## Implementation boundary
 
-Approve this event-based, stage-specific design for implementation, including fresh review after restart and `awaiting_review` instead of automatic completion. This decision approves building the mechanism; individual delegated tasks still require the resulting in-app review flow.
+Individual delegated tasks require the in-app review flow. Installing this mechanism does not approve a task. Approval and consumption are recorded together before launch; failed launches require new approval. Verification records bind to the workspace fingerprint. Manual artifact or behavior review is explicitly labelled and does not claim an automated test ran.

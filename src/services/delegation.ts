@@ -9,6 +9,7 @@ export type DelegationPhase =
   | "testing"
   | "reviewing"
   | "waiting"
+  | "awaiting_review"
   | "complete"
   | "failed"
   | "cancelled";
@@ -40,16 +41,30 @@ export function listDelegationRuns(): Promise<DelegationRun[]> {
   return invoke<DelegationRun[]>("list_delegation_runs");
 }
 
-export function startDelegationRun(projectId: string, task: string): Promise<DelegationRun> {
-  return invoke<DelegationRun>("start_delegation_run", {
-    request: { projectId, task }
-  });
+export interface ApprovalProposal {
+  id: string;
+  sessionId: string;
+  expiresAt: number;
+  subject: {
+    projectId: string; projectName: string; repository: string; baseCommit: string;
+    driver: string; model: string; stage: string; task: string; criteria: string[];
+    scope: string; runId: string; workspace: string; workspaceHash: string; plan: string;
+  };
 }
-
-export function resumeDelegationRun(runId: string): Promise<DelegationRun> {
-  return invoke<DelegationRun>("resume_delegation_run", {
-    request: { runId }
-  });
+export function prepareDelegationRun(projectId: string, task: string, criteria: string[]): Promise<ApprovalProposal> {
+  return invoke("prepare_delegation_run", { request: { projectId, task, criteria } });
+}
+export function prepareDelegationResume(runId: string): Promise<ApprovalProposal> {
+  return invoke("prepare_delegation_resume", { request: { runId } });
+}
+export function cancelDelegationProposal(proposalId: string): Promise<void> {
+  return invoke("cancel_delegation_proposal", { proposalId });
+}
+export function startDelegationRun(proposalId: string): Promise<DelegationRun> {
+  return invoke("start_delegation_run", { request: { proposalId } });
+}
+export function resumeDelegationRun(proposalId: string): Promise<DelegationRun> {
+  return invoke("resume_delegation_run", { request: { proposalId } });
 }
 
 export function cancelDelegationRun(runId: string): Promise<DelegationRun> {

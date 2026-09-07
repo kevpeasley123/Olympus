@@ -1,6 +1,6 @@
 # Curated memory — implementation and verification
 
-Status: implemented on isolated branch `agent/curated-memory`, based on `c7ed98a`. Not merged, pushed, packaged, or installed. The stable app remains 0.2.1.
+Status: implemented for the 0.3.0 release on `agent/curated-memory`, based on `c7ed98a`. Runtime installation evidence is recorded separately from source verification.
 
 ## Behavior
 

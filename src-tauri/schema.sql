@@ -146,3 +146,35 @@ CREATE TABLE IF NOT EXISTS conversation_research (
   message_id TEXT PRIMARY KEY,
   sources_json TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS operator_approvals (
+  id TEXT PRIMARY KEY, session_id TEXT NOT NULL REFERENCES operator_sessions(id),
+  run_id TEXT NOT NULL, stage TEXT NOT NULL, task_text TEXT NOT NULL, task_hash TEXT NOT NULL,
+  subject_json TEXT NOT NULL, subject_hash TEXT NOT NULL,
+  approved_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+CREATE TABLE IF NOT EXISTS approval_consumptions (
+  approval_id TEXT PRIMARY KEY REFERENCES operator_approvals(id), run_id TEXT NOT NULL, stage TEXT NOT NULL,
+  consumed_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+CREATE TABLE IF NOT EXISTS approval_revocations (
+  approval_id TEXT PRIMARY KEY REFERENCES operator_approvals(id), session_id TEXT NOT NULL, reason TEXT NOT NULL,
+  revoked_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+CREATE TRIGGER IF NOT EXISTS approvals_no_update BEFORE UPDATE ON operator_approvals BEGIN SELECT RAISE(ABORT, 'Approvals are immutable'); END;
+CREATE TRIGGER IF NOT EXISTS approvals_no_delete BEFORE DELETE ON operator_approvals BEGIN SELECT RAISE(ABORT, 'Approvals are immutable'); END;
+CREATE TRIGGER IF NOT EXISTS consumption_no_update BEFORE UPDATE ON approval_consumptions BEGIN SELECT RAISE(ABORT, 'Consumption is immutable'); END;
+CREATE TRIGGER IF NOT EXISTS consumption_no_delete BEFORE DELETE ON approval_consumptions BEGIN SELECT RAISE(ABORT, 'Consumption is immutable'); END;
+CREATE TRIGGER IF NOT EXISTS revocation_no_update BEFORE UPDATE ON approval_revocations BEGIN SELECT RAISE(ABORT, 'Revocation is immutable'); END;
+CREATE TRIGGER IF NOT EXISTS revocation_no_delete BEFORE DELETE ON approval_revocations BEGIN SELECT RAISE(ABORT, 'Revocation is immutable'); END;
+CREATE TABLE IF NOT EXISTS delegation_contracts (
+  run_id TEXT PRIMARY KEY, criteria_json TEXT NOT NULL, plan TEXT NOT NULL DEFAULT ''
+);
+CREATE TABLE IF NOT EXISTS delegation_checks (
+  id TEXT PRIMARY KEY, run_id TEXT NOT NULL, check_name TEXT NOT NULL, exit_code INTEGER,
+  output TEXT NOT NULL, workspace_hash TEXT NOT NULL, started_at TEXT NOT NULL, finished_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS delegation_reviews (
+  run_id TEXT PRIMARY KEY, session_id TEXT NOT NULL, criteria_evidence_json TEXT NOT NULL,
+  workspace_hash TEXT NOT NULL, reviewed_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
