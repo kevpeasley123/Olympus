@@ -4197,7 +4197,7 @@ small {
 /* Alive idle: decorative layers only; project segments and text never rotate. */
 .ambient-orbits { opacity: .92; transition: opacity 420ms ease; }
 .command-instrument__dial:hover .ambient-orbits { opacity: 1; }
-.ambient-orbit, .ambient-tracer, .ambient-sweep {
+.ambient-orbit, .ambient-tracer, .ambient-sweep, .ambient-inner {
   transform-box: view-box; transform-origin: 220px 220px;
 }
 .ambient-orbit--outer { animation: ambient-orbit var(--ambient-orbitSlow) linear infinite; }
@@ -4211,7 +4211,14 @@ small {
 .ambient-orbit-wake { stroke: #d97706; stroke-width: 3; opacity: .5; stroke-linecap: round; }
 .ambient-marker { fill: #f3a345; opacity: .9; }
 .ambient-energy { stroke: #d97706; stroke-width: 3; opacity: .7; stroke-linecap: round; }
+/* Two steady inner rotators; the timed burst adds three without resetting these. */
+.ambient-inner--primary { animation: ambient-orbit var(--ambient-innerPrimary) linear infinite; }
+.ambient-inner--secondary { animation: ambient-orbit var(--ambient-innerSecondary) linear infinite reverse; }
+.ambient-inner--secondary .ambient-energy { opacity: .5; stroke-width: 2; }
 .ambient-sweep { animation: ambient-pass var(--ambient-sweep) linear both; }
+.ambient-sweep--1 { animation-direction: reverse; }
+.ambient-sweep--1 .ambient-energy { opacity: .5; stroke-width: 2; }
+.ambient-sweep--2 .ambient-energy { opacity: .4; stroke-width: 2; }
 .ambient-tracer { animation: ambient-pass var(--ambient-tracer) linear both; }
 .ambient-tail { stroke: #e68a23; stroke-width: 3; stroke-linecap: round; }
 .ambient-tracer-head { fill: #ffc875; opacity: 1; }

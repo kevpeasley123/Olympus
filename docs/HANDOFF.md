@@ -109,3 +109,25 @@ Database integrity passed and existing table counts were preserved. The installe
 screenshot retained the original layout and fonts (the dev preview's junction-related
 font-serving warning does not affect the package). Backups and receipt are in the parent
 workspace at `output/olympus-0.3.2-install`. Local source is integrated; nothing was pushed.
+
+## 0.3.3 across-room ambient visibility
+
+The operator found 0.3.2 too subtle. Longer illuminated orbit arcs, larger markers
+and tracer tails, brighter signals, and wider core breathing contrast now carry the
+motion. Orbit periods are 80/48 seconds; tracer starts are nominally 8–12 seconds.
+Layout, project labels, background, reduced-motion handling, and lifecycle logic remain
+unchanged. Release code: `ccb826b`. Production build and all four service harnesses
+passed; an installed desktop snapshot showed the brighter arcs and preserved layout.
+The operator stopped the follow-up visual inspection with Escape.
+Windows reports 0.3.3; the installed binary matches the build except for the expected
+Tauri bundle marker. Database integrity and existing row preservation passed. Backups
+and receipt: parent workspace `output/olympus-0.3.3-install`. Physical across-room
+comfort remains an operator judgment. No remote push was performed.
+
+## 0.3.4 persistent inner rotators
+
+At operator request, two inner arcs now rotate continuously at 10/14-second periods
+in opposite directions. The existing sweep event adds three arcs for 3.8 seconds,
+then returns to two. No baseline remount, new timer, dependency, or layout change.
+Reduced motion freezes the two baseline arcs and hides transient sweeps. Production
+frontend build and all four service harnesses passed.

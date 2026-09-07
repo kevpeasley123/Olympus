@@ -2,8 +2,7 @@
 
 The fixed 440-unit SVG remains the layout authority. ProjectRing owns stationary
 segments, labels, and node positions. AmbientOrbits adds decorative, pointer-transparent
-SVG tracks at radii 194 and 190, between the project band and day arc. The inner sweep
-stays at radius 80 inside the protected core. No project segment or label is rotated.
+SVG tracks at radii 194 and 190, between the project band and day arc. Inner decorative arcs occupy radii 80–108 around the core. No project segment or label is rotated.
 
 ## Tuning
 
@@ -13,7 +12,8 @@ and separation. Seconds flow into CSS custom properties through ambientVariables
 - Secondary ticks: 48 seconds counter-clockwise, with a 64-unit amber accent arc.
 - Core lighting: 6 seconds, glow opacity 0.45–1; idle glow scale 1–1.005, glyph stationary.
 - Tracer: 4.6 seconds, bright point with 70-unit fading tail and 2.8-unit head; nominal 8–12-second starts.
-- Inner sweep: 3.8 seconds, 84-unit illuminated arc, nominal 8–13-second starts.
+- Inner baseline: two always-visible arcs at radii 80/87, rotating in opposite directions every 10/14 seconds.
+- Inner burst: three additional arcs at radii 94/101/108 fade through one 3.8-second revolution on nominal 8–13-second starts; five inner rotators at peak.
 - Node drift: 23–35 seconds, no more than about 2 screen pixels from its anchor.
 - Node signals: 5–11-second starts; actual linked neighbors react 450ms apart.
 - Micro arcs: 4–9-second starts; fade over 2.6 seconds.
@@ -56,3 +56,10 @@ thicker strokes, larger markers, stronger node signals, and wider core-light con
 make movement easier to perceive at a distance. Track radii, labels, tiles, node anchors,
 and background treatment are unchanged. Only the decorative orbit groups rotate.
 No additional blur, dependency, or per-frame JavaScript was introduced.
+
+## Persistent inner motion (0.3.4)
+
+Two inner arcs remain visible between events. The existing sweep queue temporarily
+adds three more, with offset starting angles and alternating direction. The baseline
+arcs never remount when a burst starts. Reduced motion keeps the baseline arcs static
+and suppresses the transient three. Durations remain in AMBIENT; no new timers.
