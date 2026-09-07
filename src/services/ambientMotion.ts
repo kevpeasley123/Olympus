@@ -4,10 +4,10 @@ import type { CSSProperties } from "react";
 export type OlympusVisualState = "idle" | "listening" | "thinking" | "speaking" | "executing" | "complete" | "error";
 export type AmbientEvent = "tracer" | "sweep" | "node" | "micro";
 export const AMBIENT = {
-  orbitSlow: 104, orbitMedium: 64, breath: 6, tracer: 4.6, sweep: 3.8,
+  orbitSlow: 80, orbitMedium: 48, breath: 6, tracer: 4.6, sweep: 3.8,
   nodeDrift: 23, nodePulse: 2.8, micro: 2.6, background: 47,
   separationMs: 1500, initialMs: 2200, staggerMs: 1800, responseMs: 450,
-  intervals: { tracer: [10000, 15000], sweep: [9000, 15000], node: [5000, 11000], micro: [4000, 9000] }
+  intervals: { tracer: [8000, 12000], sweep: [8000, 13000], node: [5000, 11000], micro: [4000, 9000] }
 } as const;
 export const ambientVariables = Object.fromEntries(
   Object.entries(AMBIENT).filter(([key, value]) => typeof value === "number" && !key.endsWith("Ms"))

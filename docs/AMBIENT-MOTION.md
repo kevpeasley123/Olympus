@@ -9,11 +9,11 @@ stays at radius 80 inside the protected core. No project segment or label is rot
 
 Edit `src/services/ambientMotion.ts`: AMBIENT is the source for durations, event intervals,
 and separation. Seconds flow into CSS custom properties through ambientVariables.
-- Outer orbit: 104 seconds clockwise; a tiny amber marker.
-- Secondary ticks: 64 seconds counter-clockwise.
-- Core lighting: 6 seconds, about 17% variation; idle glow scale 1–1.005, glyph stationary.
-- Tracer: 4.6 seconds, bright point with short fading tail; nominal 10–15-second starts.
-- Inner sweep: 3.8 seconds, nominal 9–15-second starts.
+- Outer orbit: 80 seconds clockwise; a 100-unit amber arc and larger marker.
+- Secondary ticks: 48 seconds counter-clockwise, with a 64-unit amber accent arc.
+- Core lighting: 6 seconds, glow opacity 0.45–1; idle glow scale 1–1.005, glyph stationary.
+- Tracer: 4.6 seconds, bright point with 70-unit fading tail and 2.8-unit head; nominal 8–12-second starts.
+- Inner sweep: 3.8 seconds, 84-unit illuminated arc, nominal 8–13-second starts.
 - Node drift: 23–35 seconds, no more than about 2 screen pixels from its anchor.
 - Node signals: 5–11-second starts; actual linked neighbors react 450ms apart.
 - Micro arcs: 4–9-second starts; fade over 2.6 seconds.
@@ -48,3 +48,11 @@ to update while visible even with reduced motion. No background timers catch up 
   confirmed the original composition and stationary labels with the real vault graph.
 - No quantitative 60-FPS benchmark has been claimed. The implementation uses transform
   and opacity animation with a small bounded number of SVG additions.
+
+## Across-room visibility (0.3.3)
+
+Operator feedback superseded the original very faint treatment. Longer amber arcs,
+thicker strokes, larger markers, stronger node signals, and wider core-light contrast
+make movement easier to perceive at a distance. Track radii, labels, tiles, node anchors,
+and background treatment are unchanged. Only the decorative orbit groups rotate.
+No additional blur, dependency, or per-frame JavaScript was introduced.
