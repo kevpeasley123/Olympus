@@ -13,17 +13,22 @@ export function AmbientOrbits({ centre, events, complete }: { centre: number; ev
       <circle cx={centre} cy={centre} r={190} className="ambient-ticks" strokeDasharray="1 31 3 52" />
       <circle cx={centre} cy={centre} r={190} className="ambient-accent" strokeDasharray="64 1130" />
     </g>
-    <g className="ambient-inner ambient-inner--primary">
-      <circle cx={centre} cy={centre} r={80} className="ambient-energy" pathLength={360} strokeDasharray="72 288" />
+    <g className="ambient-inner-axis ambient-inner-axis--0">
+      <g className="ambient-inner ambient-inner--primary">
+        <circle cx={centre} cy={centre} r={84} className="ambient-energy" />
+      </g>
     </g>
-    <g className="ambient-inner ambient-inner--secondary">
-      <circle cx={centre} cy={centre} r={87} className="ambient-energy" pathLength={360} strokeDasharray="52 308" strokeDashoffset={150} />
+    <g className="ambient-inner-axis ambient-inner-axis--1">
+      <g className="ambient-inner ambient-inner--secondary">
+        <circle cx={centre} cy={centre} r={94} className="ambient-energy" />
+      </g>
     </g>
     {events.sweep > 0 && <g key={`sweep-${events.sweep}`} className="ambient-inner-burst">
-      {[94, 101, 108].map((radius, index) => <g key={radius}
-        className={`ambient-sweep ambient-sweep--${index}`}>
-        <circle cx={centre} cy={centre} r={radius} className="ambient-energy"
-          pathLength={360} strokeDasharray={`${40 + index * 14} ${320 - index * 14}`} strokeDashoffset={index * 120} />
+      {[104, 114, 124].map((radius, index) => <g key={radius}
+        className={`ambient-inner-axis ambient-inner-axis--${index + 2}`}>
+        <g className={`ambient-inner ambient-inner--extra ambient-inner--extra-${index}`}>
+          <circle cx={centre} cy={centre} r={radius} className="ambient-energy" />
+        </g>
       </g>)}
     </g>}
     {events.tracer > 0 && <g key={`tracer-${events.tracer}`} className="ambient-tracer">

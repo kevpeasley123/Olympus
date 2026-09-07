@@ -63,3 +63,14 @@ Two inner arcs remain visible between events. The existing sweep queue temporari
 adds three more, with offset starting angles and alternating direction. The baseline
 arcs never remount when a burst starts. Reduced motion keeps the baseline arcs static
 and suppresses the transient three. Durations remain in AMBIENT; no new timers.
+
+## Multi-axis full rings (0.3.5)
+
+Supersedes the inner arc geometry above: full thin circles at radii 84/94 form
+the permanent pair; radii 104/114/124 join on the existing 3.8-second envelope.
+Fixed axis wrappers orient five distinct planes. CSS perspective and rotateY
+project each ring from an open ellipse through edge-on and back, with opposing
+10/14-second rotations. The glyph stays in the foreground. This is decorative
+CSS projection, not a WebGL scene or a physically occluding 3D model.
+Reduced motion shows the permanent pair at static tilts and hides the burst.
+No extra dependencies, timers, or per-frame JavaScript.
