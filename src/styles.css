@@ -4193,3 +4193,72 @@ small {
 .delegation-checkpoint pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 320px; overflow: auto; }
 .delegation-panel .observation-input { width: 100%; box-sizing: border-box; min-width: 0; }
 .delegation-checkpoint label { display: block; margin-top: 8px; }
+
+/* Alive idle: decorative layers only; project segments and text never rotate. */
+.ambient-orbits { opacity: .7; transition: opacity 420ms ease; }
+.command-instrument__dial:hover .ambient-orbits { opacity: .88; }
+.ambient-orbit, .ambient-tracer, .ambient-sweep {
+  transform-box: view-box; transform-origin: 220px 220px;
+}
+.ambient-orbit--outer { animation: ambient-orbit var(--ambient-orbitSlow) linear infinite; }
+.ambient-orbit--secondary { animation: ambient-orbit var(--ambient-orbitMedium) linear infinite reverse; }
+.ambient-track, .ambient-ticks, .ambient-accent, .ambient-energy, .ambient-tail, .ambient-micro {
+  fill: none; vector-effect: non-scaling-stroke;
+}
+.ambient-track { stroke: #8595a7; stroke-width: .65; opacity: .16; }
+.ambient-ticks { stroke: #8796a9; stroke-width: 1.2; opacity: .22; }
+.ambient-accent { stroke: #d97706; stroke-width: 1; opacity: .22; }
+.ambient-marker { fill: #e58a22; opacity: .48; }
+.ambient-energy { stroke: #d97706; stroke-width: 1.4; opacity: .3; stroke-linecap: round; }
+.ambient-sweep { animation: ambient-pass var(--ambient-sweep) linear both; }
+.ambient-tracer { animation: ambient-pass var(--ambient-tracer) linear both; }
+.ambient-tail { stroke: #e68a23; stroke-width: 1.5; stroke-linecap: round; }
+.ambient-tracer-head { fill: #f8ad4b; opacity: .82; }
+.ambient-micro { stroke: #de8524; stroke-width: 1.3; animation: ambient-signal var(--ambient-micro) ease-in-out both; }
+@keyframes ambient-orbit { to { transform: rotate(360deg); } }
+@keyframes ambient-pass {
+  0% { transform: rotate(0deg); opacity: 0; }
+  8% { opacity: .72; }
+  85% { opacity: .72; }
+  100% { transform: rotate(360deg); opacity: 0; }
+}
+@keyframes ambient-signal { 0%, 100% { opacity: 0; } 35% { opacity: .55; } }
+.command-instrument .project-ring__node-group {
+  animation: ambient-node-drift var(--node-drift-duration) ease-in-out var(--node-phase) infinite;
+}
+@keyframes ambient-node-drift {
+  0%, 100% { transform: translate(0, 0); }
+  45% { transform: translate(var(--ambient-drift), calc(var(--ambient-drift) * -.6)); }
+  75% { transform: translate(calc(var(--ambient-drift) * .3), calc(var(--ambient-drift) * .4)); }
+}
+.ambient-node-signal { fill: #d97706; animation: ambient-signal var(--ambient-nodePulse) ease-in-out both; }
+.ambient-edge-signal { stroke: #d97706; stroke-width: .6; vector-effect: non-scaling-stroke; animation: ambient-edge-signal var(--ambient-nodePulse) ease-in-out both; }
+@keyframes ambient-edge-signal { 0%, 100% { opacity: 0; } 40% { opacity: .3; } }
+.command-instrument .omega-presence--idle {
+  --breath-opacity-low: .72; --breath-opacity-high: .84;
+  --breath-scale-low: 1; --breath-scale-high: 1.005;
+}
+/* Keep the glyph stationary: illumination comes from opacity, not animated filters. */
+.command-instrument .omega-presence--idle .instrument-glyph-highlight {
+  animation: ambient-core-light var(--ambient-breath) ease-in-out infinite;
+}
+@keyframes ambient-core-light { 0%, 100% { opacity: .75; } 50% { opacity: .87; } }
+.command-instrument__dial:hover .omega-presence--idle { --breath-opacity-low: .77; --breath-opacity-high: .89; }
+.command-instrument[data-visual-state="listening"] .omega-glow { --breath-opacity-low: .8; --breath-opacity-high: .94; }
+.command-instrument[data-visual-state="thinking"] .ambient-orbit--outer,
+.command-instrument[data-visual-state="executing"] .ambient-orbit--outer { animation-duration: calc(var(--ambient-orbitSlow) * .8); }
+.command-instrument[data-visual-state="executing"] .ambient-energy { opacity: .42; }
+.command-instrument[data-visual-state="complete"] .omega-glow { animation: ambient-complete var(--ambient-nodePulse) ease-out both; }
+@keyframes ambient-complete { 0% { opacity: .85; transform: scale(1); } 60% { opacity: .35; transform: scale(1.08); } 100% { opacity: .72; transform: scale(1); } }
+/* Animate only the existing vignette; the artwork itself stays sharp and unchanged. */
+.background-vignette { animation: ambient-atmosphere var(--ambient-background) ease-in-out infinite; }
+@keyframes ambient-atmosphere { 0%, 100% { transform: translate(0, 0); opacity: 1; } 50% { transform: translate(2px, -1px); opacity: .96; } }
+.command-instrument[data-motion="paused"] *,
+.background-vignette[data-motion="paused"] { animation-play-state: paused !important; }
+@media (prefers-reduced-motion: reduce) {
+  .command-instrument *, .background-vignette { animation: none !important; transition: none !important; }
+  .ambient-tracer, .ambient-sweep, .ambient-micro, .ambient-node-signal { display: none; }
+}
+
+.ambient-completion { fill: none; stroke: #d97706; stroke-width: .7; transform-origin: 220px 220px; transform-box: view-box; animation: ambient-completion var(--ambient-nodePulse) ease-out both; }
+@keyframes ambient-completion { from { transform: scale(1); opacity: .3; } to { transform: scale(2.4); opacity: 0; } }

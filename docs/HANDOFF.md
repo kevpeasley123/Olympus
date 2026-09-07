@@ -89,3 +89,16 @@ The missing-key launch issue was traced to building from a worktree without its 
 `.env`. The existing configuration was restored, then the operator replaced an invalid
 key. The replacement passed a read-only API authentication check. Configuration must stay
 outside Git; a future installer should remove dependence on the build checkout path.
+
+## 0.3.2 ambient Command update
+
+The operator requested quiet idle motion without layout changes. The localized update
+adds decorative counter-rotating SVG orbits, intermittent single tracers and inner sweeps,
+small node drift, signals along real graph edges, micro arcs, and existing-vignette motion.
+Labels and project segments stay stationary. The running-build freshness fix from 0.3.1
+is included. See `AMBIENT-MOTION.md` for files, timings, state extension points, and tests.
+
+Production build, four service harnesses, and the browser lifecycle fixture passed.
+Desktop preview with a separate database preserved the existing layout and live graph.
+No quantitative frame-rate claim is made. Memory promotion and delegation acceptance
+remain unfinished; the animation request did not establish those outcomes.

@@ -1,3 +1,5 @@
+import { AMBIENT } from "../../services/ambientMotion";
+import type { CSSProperties } from "react";
 import { useMemo, useState } from "react";
 import type { ActionQueueTask } from "../../hooks/useActionQueue";
 import {
@@ -14,6 +16,7 @@ import type { VaultGraphPayload } from "../../services/vaultGraph";
 import type { TrackedProject } from "../../types";
 
 interface ProjectRingProps {
+  ambientNodeEvent?: number;
   centre: number;
   radius: number;
   projects: TrackedProject[];
@@ -149,6 +152,7 @@ export function ProjectRing({
   tasks,
   tasksError,
   renderScale,
+  ambientNodeEvent = 0,
   onSelectProject,
   onOpenNote
 }: ProjectRingProps) {
@@ -162,6 +166,8 @@ export function ProjectRing({
     () => layoutProjectOwnedGraph(graph, ring, centre),
     [centre, graph, ring]
   );
+  const signalEdges = constellation.treeEdges.filter(edge => edge.depth > 1);
+  const signalEdge = ambientNodeEvent > 0 ? signalEdges[ambientNodeEvent % signalEdges.length] : undefined;
   const taskMap = useMemo(() => attributeTasks(projects, tasks).perProject, [projects, tasks]);
   const segment = ring.segments.find((candidate) => candidate.project.id === hoveredProject);
 
@@ -220,6 +226,9 @@ export function ProjectRing({
           pointerEvents="none"
         />
       ))}
+
+      {signalEdge && <line key={`signal-${ambientNodeEvent}`} x1={signalEdge.from.x} y1={signalEdge.from.y}
+        x2={signalEdge.to.x} y2={signalEdge.to.y} className="ambient-edge-signal" pointerEvents="none" />}
 
       {constellation.crossProjectEdges.flatMap((edge) =>
         edge.pieces.map((piece) => (
@@ -359,18 +368,26 @@ export function ProjectRing({
         </circle>
       ))}
 
-      {constellation.nodes.map((node) => (
+      {constellation.nodes.map((node, index) => (
         /* Depth opacity moved from the body circle to the group, so the shadow,
            rim and specular fade with their node instead of popping at full
            strength on a depth-3 ghost. The body keeps the class the hover rules
            and the reduced-motion guard already target. */
         <g
           key={node.id}
+          style={{ "--node-phase": `${-(index * 3.17)}s`, "--node-drift-duration": `${AMBIENT.nodeDrift + index % 7 * 2}s` } as CSSProperties}
           className={`project-ring__node-group project-ring__node-group--depth-${Math.min(
             node.depth,
             3
           )}`}
         >
+          {ambientNodeEvent > 0 && (() => {
+            const edge = signalEdge;
+            const first = edge && Math.hypot(edge.from.x - node.x, edge.from.y - node.y) < 0.1;
+            const second = edge && Math.hypot(edge.to.x - node.x, edge.to.y - node.y) < 0.1;
+            return first || second ? <circle key={ambientNodeEvent} cx={node.x} cy={node.y} r={node.size + 1}
+              className="ambient-node-signal" style={{ animationDelay: second ? `${AMBIENT.responseMs}ms` : "0ms" }} pointerEvents="none" /> : null;
+          })()}
           <circle
             cx={node.x + node.size * 0.42}
             cy={node.y + node.size * 0.55}

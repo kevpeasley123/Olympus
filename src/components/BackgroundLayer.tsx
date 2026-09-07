@@ -1,4 +1,6 @@
-import { motion, useMotionValue, useReducedMotion, useSpring } from "motion/react";
+import { useMotionPermission } from "../hooks/useAmbientMotion";
+import { ambientVariables } from "../services/ambientMotion";
+import { motion, useMotionValue, useSpring } from "motion/react";
 import { useEffect } from "react";
 
 /**
@@ -18,14 +20,14 @@ const MAX_SHIFT = 10;
 const SPRING = { stiffness: 40, damping: 20, mass: 0.6 };
 
 export function BackgroundLayer() {
-  const reducedMotion = useReducedMotion();
+  const running = useMotionPermission();
   const x = useMotionValue(0);
   const y = useMotionValue(0);
   const smoothX = useSpring(x, SPRING);
   const smoothY = useSpring(y, SPRING);
 
   useEffect(() => {
-    if (reducedMotion) {
+    if (!running) {
       // Also reset, in case the preference is turned on mid-session.
       x.set(0);
       y.set(0);
@@ -44,16 +46,16 @@ export function BackgroundLayer() {
 
     window.addEventListener("pointermove", handlePointerMove, { passive: true });
     return () => window.removeEventListener("pointermove", handlePointerMove);
-  }, [reducedMotion, x, y]);
+  }, [running, x, y]);
 
   return (
     <>
       <motion.div
         className="background-image"
-        style={reducedMotion ? undefined : { x: smoothX, y: smoothY }}
+        style={running ? { x: smoothX, y: smoothY } : { x: 0, y: 0 }}
         aria-hidden="true"
       />
-      <div className="background-vignette" aria-hidden="true" />
+      <div className="background-vignette" data-motion={running ? "running" : "paused"} style={ambientVariables} aria-hidden="true" />
     </>
   );
 }

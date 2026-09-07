@@ -1,4 +1,8 @@
-import { motion, useReducedMotion } from "motion/react";
+import { AmbientOrbits } from "./AmbientOrbits";
+import { useAmbientMotion } from "../../hooks/useAmbientMotion";
+import { AMBIENT, ambientVariables } from "../../services/ambientMotion";
+import type { OlympusVisualState } from "../../services/ambientMotion";
+import { motion } from "motion/react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import type { ActionQueueTask } from "../../hooks/useActionQueue";
@@ -21,6 +25,7 @@ import { DayArc } from "./DayArc";
 import { ProjectRing } from "./ProjectRing";
 
 interface CommandInstrumentProps {
+  visualState?: OlympusVisualState;
   projects: TrackedProject[];
   tasks: ActionQueueTask[];
   tasksLoading: boolean;
@@ -108,6 +113,7 @@ export function CommandInstrument({
   tasks,
   tasksLoading,
   tasksError,
+  visualState,
   assistantPending = false,
   assistantProducing = false,
   assistantModel = null,
@@ -119,7 +125,6 @@ export function CommandInstrument({
   const [pulse, setPulse] = useState<InstrumentEvent | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const [renderScale, setRenderScale] = useState(1);
-  const reducedMotion = useReducedMotion();
   const profile = useOperatorProfile();
   const { writes } = useVaultWrites();
   const { graph } = useVaultGraph();
@@ -135,6 +140,16 @@ export function CommandInstrument({
     pending: assistantPending,
     producing: assistantProducing
   });
+
+  const [completionSettled, setCompletionSettled] = useState(false);
+  useEffect(() => {
+    setCompletionSettled(false);
+    if (visualState !== "complete") return;
+    const timer = window.setTimeout(() => setCompletionSettled(true), AMBIENT.nodePulse * 1000);
+    return () => window.clearTimeout(timer);
+  }, [visualState]);
+  const ambientState = visualState === "complete" && completionSettled ? "idle" : visualState ?? glyphState;
+  const ambient = useAmbientMotion(ambientState);
 
   // Identity first, then activity: the model is the stable half and must not
   // move when the transient half appears beside it.
@@ -181,12 +196,22 @@ export function CommandInstrument({
   }, []);
 
   useEffect(() => {
-    const clock = window.setInterval(() => setNow(Date.now()), 10_000);
-    return () => window.clearInterval(clock);
+    let clock: number | undefined;
+    const visibilityChanged = () => {
+      window.clearInterval(clock);
+      if (document.visibilityState !== "visible") return;
+      setNow(Date.now());
+      clock = window.setInterval(() => setNow(Date.now()), 10_000);
+    };
+    visibilityChanged();
+    document.addEventListener("visibilitychange", visibilityChanged);
+    return () => { window.clearInterval(clock); document.removeEventListener("visibilitychange", visibilityChanged); };
   }, []);
 
   return (
-    <div className="command-instrument">
+    <div className="command-instrument" data-visual-state={ambientState}
+      data-motion={ambient.running ? "running" : "paused"}
+      style={{ ...ambientVariables, "--ambient-drift": `${2 / renderScale}px` } as CSSProperties}>
       <div className="command-instrument__dial" ref={dialRef}>
         <svg
           viewBox={`0 0 ${SIZE} ${SIZE}`}
@@ -195,6 +220,7 @@ export function CommandInstrument({
           aria-label="Portfolio instrument"
           data-render-scale={renderScale.toFixed(3)}
         >
+          <AmbientOrbits centre={CENTRE} events={ambient.events} complete={ambientState === "complete" && ambient.running} />
           <DayArc
             centre={CENTRE}
             radius={DAY_RADIUS}
@@ -202,7 +228,7 @@ export function CommandInstrument({
             quietHours={profile?.quietHours ?? null}
             commits={commits}
             writes={writes}
-            reducedMotion={Boolean(reducedMotion)}
+            reducedMotion={!ambient.running}
             renderScale={renderScale}
           />
 
@@ -211,6 +237,7 @@ export function CommandInstrument({
             radius={PROJECT_RING_RADIUS}
             projects={projects}
             graph={graph}
+            ambientNodeEvent={ambient.events.node}
             tasks={tasks}
             tasksError={tasksLoading ? "tasks loading" : tasksError}
             renderScale={renderScale}
@@ -218,7 +245,7 @@ export function CommandInstrument({
             onOpenNote={onOpenNote}
           />
 
-          {(pulse === "vault-write" || pulse === "graph-node") && !reducedMotion ? (
+          {(pulse === "vault-write" || pulse === "graph-node") && ambient.running ? (
             <motion.circle
               cx={CENTRE}
               cy={CENTRE}
@@ -262,8 +289,8 @@ export function CommandInstrument({
             style={
               {
                 "--breath-duration": `${IDLE_BREATH_SECONDS}s`,
-                "--breath-scale-low": IDLE_BREATH_SCALE_FLOOR,
-                "--breath-scale-high": IDLE_BREATH_SCALE_CEILING
+                "--breath-scale-low": glyphState === "idle" ? 1 : IDLE_BREATH_SCALE_FLOOR,
+                "--breath-scale-high": glyphState === "idle" ? 1.005 : IDLE_BREATH_SCALE_CEILING
               } as CSSProperties
             }
           >
@@ -325,12 +352,12 @@ export function CommandInstrument({
             <motion.g
               className="omega-scale"
               animate={
-                glyphState === "speaking" && !reducedMotion
+                glyphState === "speaking" && ambient.running
                   ? { scale: SPEAKING_ENVELOPE.scale }
                   : { scale: 1 }
               }
               transition={
-                glyphState === "speaking" && !reducedMotion
+                glyphState === "speaking" && ambient.running
                   ? {
                       duration: SPEAKING_LOOP_SECONDS,
                       times: SPEAKING_ENVELOPE.times,
