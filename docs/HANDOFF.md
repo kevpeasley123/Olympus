@@ -65,3 +65,27 @@ Tauri's expected three-byte bundle marker (`MSI` versus `UNK`). Database integri
 `ok`, all previous table row counts were preserved, and all seven new tables exist.
 The taskbar shortcut points to the installed executable. Local changes are committed;
 no remote push was performed. The full receipt is in the external output folder above.
+
+## Desktop acceptance and 0.3.1 freshness fix
+
+The 0.3.0 live research reply (`conversation-assistant-1788760144858`) supplied three
+4,000-character excerpts. All three bodies and fingerprints matched their vault sources;
+stance and origin were retained. The reply and source snapshots survived restart, and
+the operator confirmed the source disclosure reappeared.
+
+The answer nevertheless recommended implementing approval machinery already present in
+0.3.0. That is a failed implementation-freshness check, not a retrieval failure. The old
+prompt supplied historical decisions without facts about its running build. The 0.3.1
+candidate adds backend-owned running-version and capability facts outside the cache
+breakpoint, distinguishes implementation from acceptance/approval, and states the exact
+number of supplied source bodies separately from the library index. No live ledger or
+completed pilot is claimed. Model behavior still requires a repeated desktop query.
+
+Promotion decline/approval, rereading promoted memory, and the bounded delegation pilot
+remain acceptance work. Do not promote the stale answer unchanged. Evidence records are
+outside source at `output/olympus-acceptance` in the parent workspace.
+
+The missing-key launch issue was traced to building from a worktree without its ignored
+`.env`. The existing configuration was restored, then the operator replaced an invalid
+key. The replacement passed a read-only API authentication check. Configuration must stay
+outside Git; a future installer should remove dependence on the build checkout path.
