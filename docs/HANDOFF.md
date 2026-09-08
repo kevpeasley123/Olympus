@@ -1,3 +1,7 @@
+## Latest: 0.9.0 reasoning migration (2026-09-08)
+
+Approved Sol primary (medium), explicit one-request Astra Deep Analysis (high), Realtime speech unchanged, and explicit Claude comparison. Implemented backend routing, Responses streaming/structured voice, model selector and durable request diagnostics/message provenance. See MODEL-ROUTING.md for contracts and verification limits. Local release only; 3D work remains postponed. Earlier release notes below are historical.
+
 # Olympus — Current handoff
 
 Read `OLYMPUS-MANUAL.md`, then this file. Previous chronological notes are preserved in

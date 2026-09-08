@@ -4520,3 +4520,12 @@ small {
 .voice-catalog .ghost-action { font-size:9px; }
 
 .voice-catalog { color-scheme:dark; scrollbar-color:#40556a #0b1420; scrollbar-width:thin; }
+
+.model-route-control { display:flex; align-items:center; gap:8px; color:#91a5b8; font:10px var(--font-mono); padding:5px 0; }
+.model-route-control select { background:#101d29; border:1px solid #35495b; color:#d5dde6; font:10px var(--font-mono); padding:4px; max-width:180px; }
+.model-route-control small { color:#e3ac65; font-size:9px; }
+.model-diagnostics { color:#98aabd; font:10px var(--font-mono); border-bottom:1px solid #35495b; padding:10px 0; margin-bottom:14px; }
+.model-diagnostics-list { max-height:280px; overflow:auto; margin-top:10px; }
+.model-diagnostics-list summary { padding:6px 0; }
+.model-diagnostics pre { white-space:pre-wrap; overflow-wrap:anywhere; font-size:9px; }
+.message-model { color:#91a5b8; font-size:9px; }

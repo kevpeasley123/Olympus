@@ -38,9 +38,13 @@ Break these and something breaks quietly rather than loudly.
 
 **Conversation appends, preferences upsert.** Settings and tool flags are small and bounded, so they rewrite freely. Chat history is unbounded and appends at send time. Never fold conversation back into a whole-state save — it would rewrite the entire history every time the 60-second project scan ticks.
 
+## Primary reasoning
+
+The default route is OpenAI Responses (Sol, medium), with explicit one-request Astra Deep Analysis (high). Read `docs/MODEL-ROUTING.md`. Central IDs live in `commands/models.rs`. Preserve local history, `store: false`, structured voice output, and request provenance. Claude Code delegation remains a separate execution driver.
+
 ## Anthropic API constraints
 
-The chat panel calls `claude-opus-5` from `src-tauri/src/commands/assistant.rs`. These are current and counterintuitive — **verify against the `claude-api` skill rather than writing from memory**, which is likely stale:
+The explicit Claude comparison route calls `claude-opus-5` from `src-tauri/src/commands/assistant.rs`. These are current and counterintuitive — **verify against the `claude-api` skill rather than writing from memory**, which is likely stale:
 
 - `temperature`, `top_p`, `top_k`, and `budget_tokens` all return **400** on this model. Don't add them.
 - `effort` goes inside `output_config`, not top-level.

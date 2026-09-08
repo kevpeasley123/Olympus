@@ -62,6 +62,7 @@ export interface ResearchExcerpt {
 }
 
 export interface ConversationMessage {
+  request?: import("./services/modelRouting").ModelRequest;
   voice?: import("./services/voiceContract").VoiceMessageMetadata;
   research?: ResearchExcerpt[];
   id: string;

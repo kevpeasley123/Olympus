@@ -1,3 +1,4 @@
+import {consumeNextModel} from "../services/modelRouting";
 import { normalizeVoicePreferences, type VoicePreferences } from "../services/voicePreferences";
 import { useActionQueue } from "./useActionQueue";
 import { useDelegationRuns } from "./useDelegationRuns";
@@ -198,7 +199,9 @@ export function useDashboardData() {
         return;
       }
 
+      const capability=consumeNextModel();
       requestInFlight.current = true;
+      setChatModel(null);
       setChatPending(true);
       setChatError(null);
       setChatProducing(false);
@@ -238,9 +241,10 @@ export function useDashboardData() {
                 break;
             }
           },
-          {voiceDepth, commandBoard: boardRef.current}
+          {capability, voiceDepth, commandBoard: boardRef.current}
         );
         const assistant = createAssistantMessage(reply.content, reply.notice, reply.research);
+        assistant.request=reply.request;
         if (reply.voice) assistant.voice = {kind:"output",spokenResponse:reply.voice.spokenResponse,playback:"pending",requiresConfirmation:reply.voice.requiresConfirmation};
         setChatModel(reply.model);
         dashboardRef.current = {...dashboardRef.current,conversation:[...dashboardRef.current.conversation,assistant]};

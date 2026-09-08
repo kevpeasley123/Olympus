@@ -27,7 +27,7 @@ use super::persistence::Db;
 const EVENT_NAME: &str = "delegation-run-updated";
 const MAX_TASK_CHARS: usize = 4_000;
 const MAX_DIFF_CHARS: usize = 120_000;
-const MODEL: &str = "sonnet";
+const MODEL: &str = super::models::CODING_MODEL;
 const MAX_BUDGET_USD: &str = "5";
 const IMPLEMENTATION_TOOLS: &str = "Read,Glob,Grep,Edit,Write,Bash(git status:*),Bash(git diff:*),Bash(npm run build:*),Bash(npm test:*),Bash(cargo test:*),Bash(cargo check:*)";
 static NEXT_ID: AtomicU64 = AtomicU64::new(1);

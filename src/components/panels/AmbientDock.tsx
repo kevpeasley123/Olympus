@@ -1,3 +1,4 @@
+import {ModelDiagnostics} from "./ModelSettings";
 import { VoiceSettings } from "./VoiceSettings";
 import type { VoicePreferences } from "../../services/voicePreferences";
 import { CircleHelp, RefreshCw, Settings2 } from "lucide-react";
@@ -161,6 +162,7 @@ export function AmbientDock({ onRefresh, mode, onCycleMode, voicePreferences, on
               <h2>Olympus Voice</h2>
             </div>
           </div>
+          <ModelDiagnostics/>
           <VoiceSettings preferences={voicePreferences} onChange={onVoicePreferences} ready={settingsReady}/>
           <button className="ghost-action" type="button" onClick={()=>setPreferencesOpen(false)}>Close preferences</button>
         </section>

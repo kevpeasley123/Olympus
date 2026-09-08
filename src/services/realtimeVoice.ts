@@ -43,6 +43,15 @@ const browserDependencies: VoiceDependencies = {
 export class RealtimeVoice {
   private preferences:VoicePreferences={...DEFAULT_VOICE_PREFERENCES};
   private previewMode=false;
+  private audioDiagnostic:{id:string;kind:string;startedAt:string;started:number;done:boolean;usage:unknown}|null=null;
+  private transcriptionDiagnostics=new Map<string,{id:string;kind:string;startedAt:string;started:number;done:boolean;usage:unknown}>();
+  private diagnosticSerial=0;
+  private diagnostic(kind:string){return {id:`voice-${Date.now()}-${++this.diagnosticSerial}-${Math.random().toString(36).slice(2)}`,kind,startedAt:new Date().toISOString(),started:performance.now(),done:false,usage:null as unknown};}
+  private reportDiagnostic(item:NonNullable<RealtimeVoice["audioDiagnostic"]>,status:string){
+    if(item.done)return;
+    if(status!=="started")item.done=true;
+    if(isTauriRuntime())void invoke("record_voice_request",{event:{id:item.id,kind:item.kind,startedAt:item.startedAt,latencyMs:Math.round(performance.now()-item.started),status,usage:item.usage}}).catch(()=>{});
+  }
   private auditionPaused=false;
   private ignoredItems=new Set<string>();
   private snapshot:VoiceSnapshot={...initial};
@@ -136,6 +145,7 @@ export class RealtimeVoice {
   stop(){
     ++this.connectionGeneration;++this.turnGeneration;
     this.finishOutput("interrupted");
+    for(const item of this.transcriptionDiagnostics.values())this.reportDiagnostic(item,"interrupted");this.transcriptionDiagnostics.clear();
     this.abort?.abort();this.abort=null;
     this.timers.forEach(clearTimeout);this.timers=[];clearTimeout(this.idleTimer);
     this.dc?.close();this.dc=null;this.pc?.close();this.pc=null;
@@ -158,6 +168,7 @@ export class RealtimeVoice {
     if(this.snapshot.active){this.patch({phase:"LISTENING",level:0});this.armIdle();}
   }
   private finishOutput(playback:"completed"|"interrupted"|"unavailable"){
+    if(this.audioDiagnostic)this.reportDiagnostic(this.audioDiagnostic,playback==="completed"?"completed":playback==="interrupted"?"interrupted":"failed");
     if(this.output?.messageId)this.callbacks?.update(this.output.messageId,{playback,audioTranscript:this.generatedTranscript||undefined});
     this.captureEnabled(true);this.patch({outputMessageId:undefined});this.output=null;this.activeResponse=null;this.generatedTranscript="";
   }
@@ -169,6 +180,7 @@ export class RealtimeVoice {
     if(this.ignoredItems.has(event.item_id))return;
     if(type==="input_audio_buffer.speech_started" && this.output && !this.preferences.bargeInEnabled){this.ignoredItems.add(event.item_id);return;}
     if(type==="input_audio_buffer.speech_started"){
+      const item=this.diagnostic("transcription");this.transcriptionDiagnostics.set(event.item_id,item);this.reportDiagnostic(item,"started");
       this.interrupt();this.itemTurns.set(event.item_id,this.turnGeneration);this.turnConnections.set(event.item_id,this.connectionGeneration);this.patch({phase:"LISTENING",inputText:"",inputMessageId:`voice-user-${event.item_id}`});
     }else if(type==="input_audio_buffer.speech_stopped"){
       clearTimeout(this.idleTimer);this.patch({phase:"PROCESSING"});
@@ -179,10 +191,12 @@ export class RealtimeVoice {
     }else if(type==="conversation.item.input_audio_transcription.delta"){
       if(this.itemTurns.get(event.item_id)===this.turnGeneration)this.patch({inputText:this.snapshot.inputText+(event.delta??"")});
     }else if(type==="conversation.item.input_audio_transcription.completed"){
+      const item=this.transcriptionDiagnostics.get(event.item_id);if(item){item.usage=event.usage??null;this.reportDiagnostic(item,"completed");this.transcriptionDiagnostics.delete(event.item_id);}
       if(this.seen.has(event.item_id))return;
       if(!this.order.includes(event.item_id))this.order.push(event.item_id);
       this.ready.set(event.item_id,String(event.transcript??""));void this.drain();
     }else if(type==="conversation.item.input_audio_transcription.failed"){
+      const item=this.transcriptionDiagnostics.get(event.item_id);if(item)this.reportDiagnostic(item,"failed");
       this.fail("Speech could not be transcribed. Please retry or type your command.");
     }else if(type==="response.created"){
       if(!this.output||event.response?.metadata?.turn!==String(this.outputGeneration)){
@@ -203,6 +217,7 @@ export class RealtimeVoice {
       this.patch({phase:"IDLE",level:0});this.armIdle();if(this.previewMode)this.stop();
     }else if(type==="response.done"){
       if(event.response?.id!==this.activeResponse)return;
+      if(this.audioDiagnostic){this.audioDiagnostic.usage=event.response?.usage??null;this.reportDiagnostic(this.audioDiagnostic,event.response?.status==="completed"?"completed":"failed");}
       if(event.response?.status!=="completed"){
         this.finishOutput("unavailable");this.patch({phase:"IDLE",level:0,error:"Spoken playback was not completed. The visual answer is available."});this.armIdle();if(this.previewMode)this.fail("Voice preview did not complete. Try again.");
       }
@@ -234,6 +249,7 @@ export class RealtimeVoice {
   private speak(answer:VoiceAnswer){
     if(this.auditionPaused){if(answer.messageId)this.callbacks?.update(answer.messageId,{playback:"interrupted"});return;}
     if(!this.preferences.bargeInEnabled)this.captureEnabled(false);
+    this.audioDiagnostic=this.diagnostic(this.previewMode?"preview":"audio");this.reportDiagnostic(this.audioDiagnostic,"started");
     this.output=answer;this.outputGeneration=this.turnGeneration;this.generatedTranscript="";
     this.patch({phase:"PROCESSING",outputText:answer.spokenResponse,outputMessageId:answer.messageId,error:null});
     this.send({type:"response.create",response:{conversation:"none",metadata:{turn:String(this.outputGeneration)},output_modalities:["audio"],

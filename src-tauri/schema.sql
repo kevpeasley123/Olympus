@@ -180,3 +180,7 @@ CREATE TABLE IF NOT EXISTS delegation_reviews (
 );
 
 CREATE TABLE IF NOT EXISTS conversation_voice (message_id TEXT PRIMARY KEY, metadata_json TEXT NOT NULL);
+
+-- Request provenance is independent of chat contents and never stores prompts.
+CREATE TABLE IF NOT EXISTS model_requests (id TEXT PRIMARY KEY, record_json TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS conversation_model (message_id TEXT PRIMARY KEY, request_id TEXT NOT NULL);

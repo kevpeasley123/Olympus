@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::time::Duration;
 
-pub const MODEL: &str = "gpt-realtime-2.1";
+pub const MODEL: &str = super::models::REALTIME_MODEL;
 fn voice_catalog() -> Value { serde_json::from_str(include_str!("../../../src/config/olympusVoice.json")).expect("bundled voice configuration") }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all="camelCase")]
@@ -71,7 +71,7 @@ pub fn session_config(settings:&VoiceSettings, preview:bool) -> Value {
     json!({"expires_after":{"anchor":"created_at","seconds":60},"session":{
         "type":"realtime","model":MODEL,"instructions":speech_instructions(settings),
         "output_modalities":["audio"],"max_output_tokens":800,
-        "audio":{"input":{"transcription":{"model":"gpt-4o-mini-transcribe","language":"en"},
+        "audio":{"input":{"transcription":{"model":super::models::TRANSCRIPTION_MODEL,"language":"en"},
             "noise_reduction":{"type":"near_field"},
             "turn_detection":if preview { Value::Null } else {json!({"type":"server_vad","threshold":0.5,"prefix_padding_ms":300,"silence_duration_ms":650,"create_response":false,"interrupt_response":settings.barge_in_enabled})}},
             "output":{"voice":settings.selected_voice,"speed":1.0}}
@@ -79,8 +79,7 @@ pub fn session_config(settings:&VoiceSettings, preview:bool) -> Value {
 }
 #[derive(Serialize)]
 pub struct ClientSecret { value: String, expires_at: u64 }
-#[tauri::command]
-pub async fn create_voice_session(settings:Option<VoiceSettings>, preview:Option<bool>) -> Result<ClientSecret, String> {
+async fn create_voice_session_inner(settings:Option<VoiceSettings>, preview:Option<bool>) -> Result<ClientSecret, String> {
     let settings=settings.unwrap_or_default(); settings.validate()?;
     let key = std::env::var("OPENAI_API_KEY").ok().filter(|v| !v.trim().is_empty())
         .ok_or("Voice needs OPENAI_API_KEY in the Olympus project .env. Add it and restart Olympus. Text remains available.")?;
@@ -92,6 +91,17 @@ pub async fn create_voice_session(settings:Option<VoiceSettings>, preview:Option
     }
     let value: Value = response.json().await.map_err(|_| "Voice session response could not be read.")?;
     Ok(ClientSecret { value: value["value"].as_str().filter(|s| !s.is_empty()).ok_or("Voice session did not provide a client secret.")?.into(), expires_at:value["expires_at"].as_u64().ok_or("Voice session expiry missing.")? })
+}
+
+#[tauri::command]
+pub async fn create_voice_session(db:tauri::State<'_,super::persistence::Db>,settings:Option<VoiceSettings>,preview:Option<bool>)->Result<ClientSecret,String>{
+    let mut record=super::models::RequestRecord::new(&super::models::resolve(super::models::Capability::Primary),"realtime_session_credentials");
+    record.requested_model=MODEL.into();record.capability="REALTIME".into();record.reasoning_effort=None;
+    super::models::save(db.inner(),&record)?;let started=std::time::Instant::now();
+    let result=create_voice_session_inner(settings,preview).await;
+    record.latency_ms=Some(started.elapsed().as_millis() as u64);record.status=if result.is_ok(){"credentials_issued"}else{"failed"}.into();
+    if result.is_err(){record.error_code=Some("realtime_session_failed".into());}
+    if super::models::save(db.inner(),&record).is_err(){eprintln!("[Olympus::Models] Could not finish Realtime credential diagnostic");}result
 }
 #[cfg(test)]
 mod tests {

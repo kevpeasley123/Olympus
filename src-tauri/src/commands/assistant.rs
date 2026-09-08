@@ -11,7 +11,7 @@ const ANTHROPIC_VERSION: &str = "2023-06-01";
 /// Routes a declined request to Anthropic's recommended fallback model rather
 /// than surfacing the refusal.
 const FALLBACK_BETA: &str = "server-side-fallback-2026-07-01";
-const MODEL: &str = "claude-opus-5";
+const MODEL: &str = super::models::CLAUDE_MODEL;
 const MAX_TOKENS: u32 = 8_000;
 const EFFORT: &str = "medium";
 /// Bounds cost and latency as a conversation grows. The vault, not the message
@@ -36,6 +36,7 @@ pub struct ProjectSummary {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AssistantContext {
+    #[serde(default)] pub capability: super::models::Capability,
     #[serde(default)] pub voice_depth: Option<String>,
     #[serde(default)] pub command_board: serde_json::Value,
     pub projects_root_path: String,
@@ -52,6 +53,7 @@ pub struct ChatTurn {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AssistantReply {
+    pub request: Option<super::models::RequestRecord>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub voice: Option<super::voice::VoiceAnswer>,
     pub research: Vec<ResearchExcerpt>,
@@ -161,6 +163,7 @@ struct ContentBlock {
 /// signal — see `StreamOutcome::first_text_at`.
 #[derive(Debug, Deserialize)]
 struct StreamEvent {
+    #[serde(default)] usage: Option<serde_json::Value>,
     #[serde(rename = "type")]
     event_type: String,
     #[serde(default)]
@@ -176,6 +179,7 @@ struct StreamEvent {
 /// fallback header.
 #[derive(Debug, Deserialize)]
 struct StreamMessage {
+    #[serde(default)] usage: Option<serde_json::Value>,
     #[serde(default)]
     model: Option<String>,
 }
@@ -304,6 +308,9 @@ fn running_build_facts() -> String {
 /// invalidate the cached prefix.
 fn build_volatile_system(context: &AssistantContext, memory: &VaultMemory) -> String {
     let mut prompt = running_build_facts();
+    let route = super::models::resolve(context.capability);
+    prompt.push_str(&format!("\nRequested reasoning route: {}/{} ({:?}, effort {}). Actual serving model is confirmed only by response metadata. This build supports primary reasoning {}, explicit one-request Deep Analysis {}, and explicit Claude comparison. Request diagnostics and message provenance are available in Preferences. These routes do not grant execution authority.\n", route.provider, route.model, route.capability, route.effort, super::models::PRIMARY_MODEL, super::models::DEEP_MODEL));
+
     prompt.push_str("\n## Environment\n\n");
     prompt.push_str(&format!(
         "- Obsidian vault: {}\n",
@@ -556,11 +563,11 @@ pub enum AssistantStreamEvent {
     FellBack { from: String, to: String },
 }
 
-#[tauri::command]
-pub async fn send_assistant_message(
+async fn send_anthropic_message(
     history: Vec<ChatTurn>,
     context: AssistantContext,
     on_event: tauri::ipc::Channel<AssistantStreamEvent>,
+    record: &mut super::models::RequestRecord,
 ) -> Result<AssistantReply, String> {
     let key = api_key()?;
     let messages = prepare_messages(history);
@@ -636,7 +643,13 @@ pub async fn send_assistant_message(
 
             let had_text = outcome.first_text_event.is_some();
             let fell_back_before = outcome.fell_back_from.is_some();
+            if let Some(usage)=event.message.as_ref().and_then(|m|m.usage.clone()).or(event.usage.clone()) {
+                let existing=record.usage.get_or_insert_with(||serde_json::json!({}));
+                if let (Some(to),Some(from))=(existing.as_object_mut(),usage.as_object()){to.extend(from.clone());}
+            }
             apply_stream_event(&mut outcome, &event);
+            record.actual_model=outcome.model.clone();
+            record.fallback_from=outcome.fell_back_from.clone();
 
             if announced_model.is_none() {
                 if let Some(model) = outcome.model.clone() {
@@ -656,6 +669,7 @@ pub async fn send_assistant_message(
 
             if !had_text && outcome.first_text_event.is_some() {
                 first_text_at = Some(started.elapsed());
+                record.first_token_ms=Some(started.elapsed().as_millis() as u64);
             }
 
             if event.event_type == "content_block_delta" {
@@ -705,13 +719,52 @@ pub async fn send_assistant_message(
     let voice = context.voice_depth.as_deref().map(|depth| super::voice::parse_answer(&content, depth)).transpose()?;
     let content = voice.as_ref().map(|answer| answer.visual_response.clone()).unwrap_or(content);
     Ok(AssistantReply {
+        request: None,
         voice,
         research: memory.research,
         notice: notice_for(outcome.stop_reason.as_deref(), &content),
         content,
-        model: outcome.model.unwrap_or_else(|| MODEL.to_string()),
+        model: outcome.model.unwrap_or_else(|| format!("{MODEL} (requested; unconfirmed)")),
         fell_back_from: outcome.fell_back_from,
     })
+}
+
+
+/// Shared command boundary. Provider selection never changes project authority.
+#[tauri::command]
+pub async fn send_assistant_message(
+    db: tauri::State<'_, super::persistence::Db>,
+    history: Vec<ChatTurn>, context: AssistantContext,
+    on_event: tauri::ipc::Channel<AssistantStreamEvent>,
+)->Result<AssistantReply,String>{
+    use super::models;
+    let route=models::resolve(context.capability);
+    let mut record=models::RequestRecord::new(&route,if context.voice_depth.is_some(){"voice_reasoning"}else{"command"});
+    models::save(db.inner(),&record)?;
+    let start=std::time::Instant::now();
+    let result=if route.provider=="anthropic" {
+        send_anthropic_message(history,context,on_event,&mut record).await
+    }else{
+        async {
+            let messages=prepare_messages(history);
+            if messages.is_empty(){return Err("There is no conversation to send yet.".into());}
+            let question=messages.iter().rev().find(|m|m.role=="user").map(|m|m.content.clone()).unwrap_or_default();
+            let memory=tauri::async_runtime::spawn_blocking(move||load_vault_memory_for_query(&question)).await.map_err(|_|"Vault context could not be loaded")?;
+            let instructions=build_system_blocks(&context,&memory).into_iter().map(|b|b.text).collect::<Vec<_>>().join("\n\n");
+            let input=messages.into_iter().map(|m|serde_json::json!({"role":m.role,"content":m.content})).collect();
+            let output=super::responses::complete(&route,&instructions,input,context.voice_depth.is_some(),&on_event,&mut record).await?;
+            if context.voice_depth.is_some() && output.notice.as_ref().is_some_and(|n|n.kind=="truncated") {return Err("The structured voice answer was interrupted. Please retry; no incomplete JSON was added to the conversation.".into());}
+            let voice=if output.notice.is_none(){context.voice_depth.as_deref().map(|depth|super::voice::parse_answer(&output.text,depth)).transpose().map_err(|error|{record.status="failed".into();record.error_code=Some("invalid_voice_contract".into());error})?}else{None};
+            Ok(AssistantReply{content:voice.as_ref().map(|v|v.visual_response.clone()).unwrap_or(output.text),voice,research:memory.research,model:record.actual_model.clone().unwrap_or_else(||format!("{} (requested; unconfirmed)",route.model)),notice:output.notice,fell_back_from:None,request:None})
+        }.await
+    };
+    record.latency_ms=Some(start.elapsed().as_millis() as u64);
+    match &result{
+        Ok(reply)=>{if record.status=="started"{record.status=reply.notice.as_ref().map(|n|if n.kind=="refusal"{"refused"}else{"incomplete"}).unwrap_or("completed").into();}record.fallback_from=reply.fell_back_from.clone();},
+        Err(_)=>{record.status="failed".into();if record.error_code.is_none(){record.error_code=Some("request_failed".into());}}
+    }
+    if let Err(error)=models::save(db.inner(),&record){eprintln!("[Olympus::Models] Could not finish request record: {error}");}
+    result.map(|mut reply|{reply.request=Some(record);reply})
 }
 
 #[cfg(test)]
@@ -1001,6 +1054,7 @@ mod tests {
 
     fn context_fixture() -> AssistantContext {
         AssistantContext {
+            capability: crate::commands::models::Capability::Primary,
             voice_depth: None, command_board: serde_json::Value::Null,
             projects_root_path: "C:/projects".to_string(),
             projects: vec![ProjectSummary {
@@ -1136,6 +1190,37 @@ mod tests {
         assert!(blocks[1].text.contains("does not include a live approval or acceptance ledger"));
         assert!(!blocks[1].text.contains("Historical plan:"));
         assert!(blocks[1].cache_control.is_none());
+    }
+
+    #[test]
+    #[ignore = "Paid acceptance with synthetic project/research context only"]
+    fn live_olympus_behavior(){
+      dotenvy::from_path(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../.env")).ok();
+      let runtime=tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
+      runtime.block_on(async{
+        let mut context=context_fixture();context.projects[0].name="Atlas".into();context.projects[0].next_step="Review the proposed scope".into();
+        context.command_board=serde_json::json!([{"project":{"id":"atlas","name":"Atlas"},"operationalStatus":"NEEDS_YOU","nextMove":"Review proposed scope","nextMoveOwner":"OPERATOR","recommendationSource":"deterministic"}]);
+        let memory=VaultMemory{stable:"Operator uses Olympus to review project evidence. No standing execution approval.".into(),research:vec![ResearchExcerpt{title:"Fixture Evidence Review".into(),source_file:"02 - Research/Fixture.md".into(),source_date:None,stance:"unevaluated".into(),origin:Some("test fixture".into()),excerpt:"The pilot recommends comparing a proposed change against recorded evidence before authorizing execution.".into(),truncated:false,fingerprint:"fixture".into()}],..VaultMemory::default()};
+        for (name,question,voice) in [
+          ("command","Hello Olympus. In one sentence, explain your role.",false),
+          ("attention_next_move","What projects need my attention? Recommend the next move for Atlas and distinguish it from approval.",false),
+          ("research","Summarize Fixture Evidence Review and name the supplied source. Has its recommendation been approved?",false),
+          ("navigation","Open project Atlas. Do not approve or execute anything.",true),
+          ("voice_continuity","What was the pilot code I told you earlier? Keep the answer concise.",true)
+        ]{
+          context.voice_depth=voice.then(||"ANSWER".into());
+          let instructions=build_system_blocks(&context,&memory).into_iter().map(|b|b.text).collect::<Vec<_>>().join("\n\n");
+          let input=vec![serde_json::json!({"role":"user","content":"Our pilot code is ORBIT-42. Remember that in this conversation."}),serde_json::json!({"role":"assistant","content":"The pilot code is ORBIT-42. Spoken summary: Pilot code ORBIT-42."}),serde_json::json!({"role":"user","content":question})];
+          let route=super::super::models::resolve(super::super::models::Capability::Primary);
+          let mut record=super::super::models::RequestRecord::new(&route,name);
+          let channel=tauri::ipc::Channel::new(|_|Ok(()));
+          let output=super::super::responses::complete(&route,&instructions,input,voice,&channel,&mut record).await.unwrap();
+          assert_eq!(record.status,"completed");
+          if voice{let answer=super::super::voice::parse_answer(&output.text,"ANSWER").unwrap();if name=="navigation"{assert!(answer.proposed_actions.iter().any(|a|matches!(a,super::super::voice::VoiceUiAction::OpenProject{project_id} if project_id=="atlas")));}if name=="voice_continuity"{assert!(answer.spoken_response.contains("ORBIT-42"));}}
+          if name=="research"{assert!(output.text.contains("Fixture Evidence Review"));}
+          println!("ACCEPTANCE {name}: {}",output.text);
+        }
+      });
     }
 
 }

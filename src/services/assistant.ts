@@ -13,6 +13,7 @@ export interface AssistantNotice {
 }
 
 export interface AssistantReply {
+  request?: import("./modelRouting").ModelRequest;
   voice?: import("./voiceContract").VoiceAnswer;
   research: import("../types").ResearchExcerpt[];
   content: string;
@@ -50,7 +51,7 @@ export async function requestAssistantReply(
   settings: OlympusSettings,
   projects: TrackedProject[],
   onEvent?: (event: AssistantStreamEvent) => void,
-  options?: {voiceDepth?: import("./voiceContract").VoiceDepth; commandBoard?: unknown}
+  options?: {capability?: import("./modelRouting").ModelCapability; voiceDepth?: import("./voiceContract").VoiceDepth; commandBoard?: unknown}
 ): Promise<AssistantReply> {
   if (!isTauriRuntime()) {
     throw new Error(
@@ -72,6 +73,7 @@ export async function requestAssistantReply(
     history: turns,
     onEvent: channel,
     context: {
+      capability: options?.capability,
       voiceDepth: options?.voiceDepth,
       commandBoard: options?.commandBoard,
       projectsRootPath: settings.projectsRootPath,

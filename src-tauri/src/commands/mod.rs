@@ -29,3 +29,6 @@ pub fn get_vault_path() -> PathBuf {
 }
 
 pub mod voice;
+
+pub mod models;
+pub mod responses;

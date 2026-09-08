@@ -326,12 +326,16 @@ pub fn run() {
             let session_id = commands::delegation::run_id();
             connection.execute("INSERT INTO operator_sessions(id) VALUES (?1)", [&session_id])?;
             app.manage(commands::approvals::ApprovalState::new(session_id));
+            connection.execute("UPDATE model_requests SET record_json=json_set(record_json,'$.status','interrupted','$.errorCode','application_restarted') WHERE json_extract(record_json,'$.status')='started'", [])?;
             app.manage(Db(Mutex::new(connection)));
             app.manage(DelegationProcesses::default());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
             send_assistant_message,
+            commands::models::model_routes,
+            commands::models::model_diagnostics,
+            commands::models::record_voice_request,
             create_voice_session,
             load_persisted_state,
             save_settings,

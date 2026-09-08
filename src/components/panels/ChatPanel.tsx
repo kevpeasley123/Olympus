@@ -1,3 +1,4 @@
+import {ModelRouteControl} from "./ModelSettings";
 import { realtimeVoice, voicePreview, useVoiceState } from "../../services/realtimeVoice";
 import { VOICE_CLIENT } from "../../services/voiceContract";
 import { Mic, MicOff, Volume2, VolumeX, Square, Keyboard } from "lucide-react";
@@ -273,6 +274,7 @@ export function ChatPanel({ messages, onSendMessage, onRecordObservation, pendin
           <button type="button" className="ghost-icon-action" aria-label="Open conversation history" title="Conversation history" onClick={showHistory}><History size={14} /></button>
         </div>
         {projectContext && <details className="console-project-context"><summary>{projectContext.label} context attached</summary><pre>{projectContext.context}</pre><button className="ghost-action" onClick={() => setProjectContext(null)}>Remove context</button></details>}
+        <ModelRouteControl disabled={pending}/>
         <div className="console-input-row">
           <textarea ref={inputRef} aria-label="Command to Olympus" rows={1} placeholder="Ask Olympus anything…" value={draft}
             onFocus={() => { if (mode === "dormant") showLive(); }} onChange={event => setDraft(event.target.value)}
@@ -336,7 +338,7 @@ const ConversationBubble = memo(function ConversationBubble({
             Note observation
           </button>
         )}
-        <small className="tabular-data">{message.timestamp}</small>
+        <small className="tabular-data">{message.timestamp}{message.request && <span className="message-model" title={`${message.request.provider} / ${message.request.actualModel ?? message.request.requestedModel} / ${message.request.id}`}> · {message.request.actualModel ?? "model unconfirmed"}</span>}</small>
       </div>}
     </article>
   );

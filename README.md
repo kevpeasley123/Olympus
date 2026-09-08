@@ -113,21 +113,13 @@ workspace.
 
 ## Assistant Setup
 
-The chat panel is backed by the Anthropic API. Add your key to `.env` in the repo root:
+Text and voice reasoning use OpenAI Responses from Rust. Add `OPENAI_API_KEY` to the ignored project-root `.env`; optional `ANTHROPIC_API_KEY` enables explicit Claude comparison. Keys never reach the webview. API usage is billed separately from chat subscriptions.
 
-```text
-ANTHROPIC_API_KEY=
-```
-
-Get one at `https://console.anthropic.com/settings/keys`. API usage is billed separately from any Claude subscription, so the account also needs credit.
-
-How it works:
-
-- The request is made from the Rust side (`src-tauri/src/commands/assistant.rs`), so the key never reaches the webview.
-- Model is `claude-opus-5` at `medium` effort. Thinking is on by default on this model; `max_tokens` covers thinking and response together.
-- History is capped at the last 40 turns per request to bound cost. The vault, not the message log, is the long-term memory.
-- Seeded system and assistant turns are dropped before sending, since the API requires the conversation to open on a user turn.
-- Without a key, the desktop app reports the missing key in the chat panel; the browser dev server falls back to the local keyword search over Pantheon entries.
+- Default: Sol (`gpt-5.6-sol`, medium). The Next answer selector offers one-request Deep Analysis (`gpt-6-astra`, high) and Claude comparison, then returns to Sol.
+- `src-tauri/src/commands/models.rs` owns model IDs and routes. There is no automatic provider fallback.
+- OpenAI requests use `store: false`, local history (last 40 messages), and shared Olympus/vault/project instructions. Realtime still handles speech; it does not replace the reasoning layer.
+- Preferences → Model diagnostics shows backend request records and reported token usage; assistant messages retain model provenance across reloads. Client-reported audio/transcription records are explicitly distinguished from confirmed reasoning model metadata.
+- See [model routing](docs/MODEL-ROUTING.md) for contracts and verification limits.
 
 ## Desktop Build
 
