@@ -287,3 +287,12 @@ from the shared catalog and validated session creation settings.
 production typecheck/build passed. Browser checks verified all six settings after
 actual reload, preview failure recovery and unchanged conversation/project data.
 Real acoustic barge-in and microphone reconnection remain operator acceptance tests.
+
+Installed/reopened 0.8.0 (00287ec). Native inspection confirmed the Preferences UI.
+The operator selected Cedar/Concise during inspection; SQLite contains all six
+preferences with that selection, and conversation row count is unchanged. Integrity,
+row preservation and binary comparison passed (expected Tauri bundle marker only).
+A live preview was attempted, but the operator changed controls during inspection;
+acoustic success is not claimed. Browser reload persistence, all 16 console checks,
+and the voice layout fixture passed. Backup/receipt: parent workspace
+output/olympus-0.8.0-install. No remote push.
