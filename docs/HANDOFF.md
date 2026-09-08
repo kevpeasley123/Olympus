@@ -296,3 +296,23 @@ A live preview was attempted, but the operator changed controls during inspectio
 acoustic success is not claimed. Browser reload persistence, all 16 console checks,
 and the voice layout fixture passed. Backup/receipt: parent workspace
 output/olympus-0.8.0-install. No remote push.
+
+
+## Voice Lab 0.8.1 — installed 2026-09-08
+
+Release `6ed3bc1` is integrated into local master and installed. Preferences now
+shows all ten Realtime voices with separate Preview and Use controls. The shared
+catalog and existing SQLite preference remain authoritative; the stored Cedar
+selection was preserved. Auditions temporarily pause capture/playback without
+closing the live session. Applying a voice still recreates the audio transport.
+
+Verification: 55 frontend voice protocol assertions and six Rust voice tests
+passed; production typecheck/build and MSI packaging passed. Browser Voice Lab
+fixture passed persistence through reload and conversation/project preservation.
+All ten real Realtime API generations completed with nonempty audio and exact
+sample transcripts. Speaker playback for every voice and physical microphone
+barge-in remain operator acceptance, not claimed from API tests.
+Installed binary matches release output after the expected MSI marker normalization;
+database integrity is ok and all previous row counts were preserved. Backup and
+receipt: workspace `output/olympus-0.8.1-install`. No remote push. The proposed
+3D overhaul remains unimplemented pending the next task.
