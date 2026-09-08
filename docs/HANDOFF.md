@@ -207,3 +207,11 @@ phases. General ownership, readiness, blockers and external waiting remain unkno
 Git activity never implies execution. See PROJECT-COMMAND-BOARD.md for derivation.
 Pure status checks (15), existing six service harnesses, browser board checks (12),
 and TypeScript/Vite production build passed. No lint command is configured.
+
+Installed 0.5.0 (release 3c2121c), reopened on Project mode. Native inspection
+confirmed all eight live projects, eight Olympus tasks, one watchlist project,
+seven explicitly unknown states, and working Open Project/back navigation. No
+operator checkpoints or active delegated runs are recorded. The existing 16-check
+console browser regression fixture also passed. Installed binary matches the build
+apart from the Tauri bundle marker; database integrity and row preservation passed.
+Backup/receipt: parent workspace output/olympus-0.5.0-install. No remote push.
