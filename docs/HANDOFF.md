@@ -242,3 +242,13 @@ all existing row counts are preserved, and the additive voice table exists.
 Backup and receipt: parent workspace output/olympus-0.6.0-install. Live audio remains
 unverified pending key configuration. Main and implementation branches integrated
 locally; no remote push.
+
+## 0.6.1 Voice connection diagnostics
+
+Operator configured the OpenAI key; the first reported live connection failed with
+HTTP 429 at the WebRTC calls endpoint, after credential creation. This status alone
+does not prove a billing problem or a temporary rate limit. The frontend now parses
+known API error codes into actionable quota, credit, spend or rate-limit messages,
+with an honest generic fallback. Raw error bodies/unknown codes are never displayed.
+Ten targeted classification and redaction checks and TypeScript/Vite build passed.
+No billing settings changed and no claim of successful live audio.

@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useSyncExternalStore } from "react";
 import { isTauriRuntime } from "./launcher";
+import { voiceHttpError } from "./voiceHttpError";
 import { VOICE_CLIENT, voiceDepthFor, voiceErrorMessage } from "./voiceContract";
 import type { VoiceAnswer, VoiceDepth, VoiceMessageMetadata, VoicePhase, VoiceUiAction } from "./voiceContract";
 
@@ -26,7 +27,7 @@ const browserDependencies: VoiceDependencies = {
   audio:()=>new Audio(),
   exchange:async(sdp,secret,signal)=>{
     const response=await fetch("https://api.openai.com/v1/realtime/calls",{method:"POST",headers:{Authorization:`Bearer ${secret}`,"Content-Type":"application/sdp"},body:sdp,signal});
-    if(!response.ok)throw Error(`Voice connection failed (HTTP ${response.status}). Text remains available.`);
+    if(!response.ok)throw Error(voiceHttpError(response.status, await response.json().catch(()=>null)));
     return response.text();
   },
   meter:(stream,level)=>{
