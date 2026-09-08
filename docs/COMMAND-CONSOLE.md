@@ -59,3 +59,15 @@ turns are separate evidence, recorded in HANDOFF.
 Later improvements: history search, named sessions, database-backed history pagination,
 and observable activity entries once actual action telemetry is available. Current
 history is paged for rendering but still loaded from SQLite at startup.
+
+## Changed files
+
+UI: src/components/panels/ChatPanel.tsx, src/App.tsx, src/styles.css.
+Scrolling/tuning: src/hooks/useConversationScroll.ts, src/services/commandConsole.ts.
+Stream/events: src/services/conversationStream.ts, src/hooks/useDashboardData.ts,
+src/services/instrumentEvents.ts, and both CommandInstrument.tsx and
+OmegaInstrument.tsx under src/components/panels.
+Checks: src/services/commandConsole.harness.ts, console-harness.html,
+src/console-harness.tsx. Product docs: OLYMPUS-MANUAL.md, this document, and
+docs/HANDOFF.md. Version metadata: package.json/package-lock.json, Cargo.toml/
+Cargo.lock, and tauri.conf.json.

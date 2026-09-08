@@ -169,3 +169,25 @@ Installed 0.3.7 reduces the expanded inner rings to three total: two permanent,
 one intermittent. Timing and constellation unchanged. Production desktop build and
 component rendering checks passed (default 2, expanded 3). Release `bc5988d`.
 Backup: parent workspace `output/olympus-0.3.7-install/before.sqlite`. No remote push.
+
+## 0.4.0 Command Console
+
+The operator replaced the permanent chat sidebar with Dormant/Engaged/Transcript
+modes. Dormant shows only the command bar; engaged mounts three recent exchanges;
+transcript pages older history intentionally. Scroll following uses an 80px threshold
+and preserves a visible message anchor during prepends. Actual streamed text is now
+batched into a console-only subscription, with send/first-output instrument events.
+Existing memory, observation, research disclosure, and write gates remain.
+
+Production TypeScript/Vite and desktop packaging passed. All six service harnesses
+passed. The isolated browser fixture passed 16 checks spanning modes, latest opening,
+stream following/pausing, history anchors, preserved drafts, keyboard shortcuts, final
+text, and availability of memory/observation forms. No live API request or vault write
+was used for those tests. See COMMAND-CONSOLE.md for behavior and tuning.
+
+Windows reports 0.4.0; release code 4fa1931 matches the installed binary except for
+Tauri's expected bundle marker. Database integrity and existing row preservation
+passed. Backup/receipt: parent workspace output/olympus-0.4.0-install. Desktop
+inspection confirmed dormant layout, Ctrl+K opening, and the latest saved reply at the
+bottom with the central instrument clear. Further native history interaction was left
+to the operator when input was detected; browser history tests passed. No remote push.
