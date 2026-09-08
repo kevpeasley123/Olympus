@@ -4509,3 +4509,14 @@ small {
 .voice-catalog { margin:10px 0; border:1px solid #2d4253; padding:6px 10px; }
 .voice-catalog > div { display:flex; justify-content:space-between; border-bottom:1px solid #26333e; }
 .voice-catalog [aria-pressed="true"] { color:#efb56b; }
+
+/* Voice Lab keeps audition and persisted selection separate. */
+.voice-lab-title { font:11px var(--font-mono); letter-spacing:.14em; color:#b9c9d7; }
+.voice-catalog { max-height:320px; overflow-y:auto; }
+.voice-catalog > div { align-items:center; gap:8px; padding:8px 0; }
+.voice-lab-identity { display:flex; flex-direction:column; min-width:85px; margin-right:auto; font:10px var(--font-mono); }
+.voice-lab-identity small { font-size:8px; color:#94a6b9; margin-top:4px; }
+.voice-lab-identity span, .voice-catalog [data-selected="true"] strong { color:#efb56b; }
+.voice-catalog .ghost-action { font-size:9px; }
+
+.voice-catalog { color-scheme:dark; scrollbar-color:#40556a #0b1420; scrollbar-width:thin; }

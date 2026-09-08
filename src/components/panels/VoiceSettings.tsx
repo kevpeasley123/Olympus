@@ -3,34 +3,31 @@ import { CURATED_VOICES, OLYMPUS_VOICES, VOICE_PREVIEW_PHRASE, type VoicePrefere
 import { realtimeVoice, voicePreview } from "../../services/realtimeVoice";
 
 export function VoiceSettings({preferences,onChange,ready=true}:{preferences:VoicePreferences;onChange:(patch:Partial<VoicePreferences>)=>void;ready?:boolean}) {
-  const [advanced,setAdvanced]=useState(false);
   const [previewing,setPreviewing]=useState<string|null>(null);
   const preview=useSyncExternalStore(voicePreview.subscribe,voicePreview.getSnapshot,voicePreview.getSnapshot);
-  useEffect(()=>()=>voicePreview.stop(),[]);
+  useEffect(()=>{
+    const release=voicePreview.subscribe(()=>{const state=voicePreview.getSnapshot();realtimeVoice.setAuditionPaused(state.active||state.connecting);});
+    return ()=>{voicePreview.stop();release();realtimeVoice.setAuditionPaused(false);};
+  },[]);
   const busy=preview.active||preview.connecting;
-  const voices=advanced ? OLYMPUS_VOICES : [...new Set([...CURATED_VOICES,preferences.selectedVoice])];
   function change(patch:Partial<VoicePreferences>){voicePreview.stop();onChange(patch);}
   function play(voice:string){
-    realtimeVoice.stop();setPreviewing(voice);
+    setPreviewing(voice);
     void voicePreview.startPreview({...preferences,selectedVoice:voice});
   }
   return <fieldset className="voice-settings" disabled={!ready}>
     <legend>VOICE</legend>
-    <label className="voice-setting-row">Olympus Voice
-      <select aria-label="Olympus Voice" value={preferences.selectedVoice} onChange={event=>change({selectedVoice:event.target.value})}>
-        {voices.map(voice=><option key={voice} value={voice}>{voice[0].toUpperCase()+voice.slice(1)}</option>)}
-      </select>
-    </label>
-    <div className="voice-settings-actions">
-      <button type="button" className="ghost-action" onClick={()=>play(preferences.selectedVoice)} disabled={busy}>Preview</button>
-      {busy && <button type="button" className="ghost-action" onClick={()=>voicePreview.stop()}>Stop preview</button>}
-      <button type="button" className="ghost-action" aria-expanded={advanced} onClick={()=>setAdvanced(value=>!value)}>{advanced ? "Fewer voices" : "All voices"}</button>
-    </div>
-    {advanced && <div className="voice-catalog">{OLYMPUS_VOICES.map(voice=><div key={voice}>
-      <button type="button" className="ghost-action" aria-pressed={preferences.selectedVoice===voice} onClick={()=>change({selectedVoice:voice})}>{voice[0].toUpperCase()+voice.slice(1)}</button>
-      <button type="button" className="ghost-action" aria-label={`Preview ${voice}`} disabled={busy} onClick={()=>play(voice)}>Preview</button>
-    </div>)}</div>}
-    <p className="voice-settings-hint">Previews use API audio, pause the microphone, and stay out of chat. Resume conversation with the microphone button.</p>
+    <h3 className="voice-lab-title">VOICE LAB</h3>
+    <div className="voice-catalog">{OLYMPUS_VOICES.map(voice=><div key={voice} data-selected={preferences.selectedVoice===voice}>
+      <div className="voice-lab-identity"><strong>{voice.toUpperCase()}</strong>
+        {CURATED_VOICES.includes(voice) && <small>OpenAI recommended</small>}
+        {preferences.selectedVoice===voice && <span>Selected</span>}
+      </div>
+      <button type="button" className="ghost-action" aria-label={`Preview ${voice}`} onClick={()=>play(voice)}>Preview</button>
+      <button type="button" className="ghost-action" aria-label={`Use ${voice} as Olympus voice`} disabled={preferences.selectedVoice===voice} onClick={()=>change({selectedVoice:voice})}>Use as Olympus voice</button>
+    </div>)}</div>
+    {busy && <button type="button" className="ghost-action" onClick={()=>voicePreview.stop()}>Stop preview</button>}
+    <p className="voice-settings-hint">Isolated API audio audition. The live microphone pauses during previews and resumes afterward. The sample counts are fictional, not a project status report.</p>
     <details className="voice-preview-sample"><summary>Preview phrase</summary><p>{VOICE_PREVIEW_PHRASE}</p></details>
     <p className="voice-preview-status" role="status">{preview.error || (busy ? `${preview.connecting ? "Connecting" : "Previewing"} ${previewing}…` : "")}</p>
     <label className="voice-setting-row">Speaking Style<select aria-label="Speaking Style" value={preferences.speechStyle} onChange={event=>change({speechStyle:event.target.value as VoicePreferences["speechStyle"]})}>

@@ -24,9 +24,9 @@ async function run(){
     result().textContent="PASS: all six preferences restored after actual page reload.";return;
   }
   const before=await loadState();
-  [...document.querySelectorAll('button')].find(button=>button.textContent==="All voices")!.click();await wait();
+  document.querySelector<HTMLButtonElement>('[aria-label="Use verse as Olympus voice"]')!.click();await wait();
   if(document.querySelectorAll('.voice-catalog > div').length!==10)throw Error("Missing voices");
-  for(const [label,value] of [["Olympus Voice","verse"],["Speaking Style","concise"],["Response Depth","detailed"]]){
+  for(const [label,value] of [["Speaking Style","concise"],["Response Depth","detailed"]]){
     const select=document.querySelector<HTMLSelectElement>(`select[aria-label="${label}"]`)!;select.value=value;select.dispatchEvent(new Event("change",{bubbles:true}));await wait();
   }
   for(const input of document.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')){if(input.checked)input.click();await wait();}

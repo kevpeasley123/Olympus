@@ -1,12 +1,33 @@
 {
-  "voices": ["marin", "cedar", "alloy", "ash", "ballad", "coral", "echo", "sage", "shimmer", "verse"],
-  "curatedVoices": ["marin", "cedar"],
-  "defaults": {"selectedVoice":"marin", "speechStyle":"measured", "responseDepth":"standard", "autoSpeak":true, "captionsEnabled":true, "bargeInEnabled":true},
-  "previewPhrase": "Olympus online. Your projects and conversation are ready. I will keep recommendations clear and supporting details available when you need them.",
+  "voices": [
+    "marin",
+    "cedar",
+    "alloy",
+    "ash",
+    "ballad",
+    "coral",
+    "echo",
+    "sage",
+    "shimmer",
+    "verse"
+  ],
+  "curatedVoices": [
+    "marin",
+    "cedar"
+  ],
+  "defaults": {
+    "selectedVoice": "marin",
+    "speechStyle": "measured",
+    "responseDepth": "standard",
+    "autoSpeak": true,
+    "captionsEnabled": true,
+    "bargeInEnabled": true
+  },
+  "previewPhrase": "Olympus online. Eight projects are currently being tracked. Two require your attention, and I have a recommendation when you're ready.",
   "behavior": "Speak calmly and naturally, with measured pacing, natural pauses and composed, intelligent delivery. Be slightly formal, concise and clear. Avoid exaggerated enthusiasm, customer-service speech patterns and unnecessary acknowledgements. Deliver recommendations clearly; include supporting detail only when useful. Never imitate a named fictional character or real person.",
   "styles": {
-    "measured":"Use deliberate pacing and restrained emphasis.",
-    "conversational":"Use relaxed, fluid phrasing and a natural conversational cadence while remaining composed.",
-    "concise":"Use direct, economical delivery with short pauses and no embellishment."
+    "measured": "Use deliberate pacing and restrained emphasis.",
+    "conversational": "Use relaxed, fluid phrasing and a natural conversational cadence while remaining composed.",
+    "concise": "Use direct, economical delivery with short pauses and no embellishment."
   }
 }

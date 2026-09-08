@@ -43,6 +43,7 @@ const browserDependencies: VoiceDependencies = {
 export class RealtimeVoice {
   private preferences:VoicePreferences={...DEFAULT_VOICE_PREFERENCES};
   private previewMode=false;
+  private auditionPaused=false;
   private ignoredItems=new Set<string>();
   private snapshot:VoiceSnapshot={...initial};
   private listeners=new Set<()=>void>();
@@ -82,7 +83,13 @@ export class RealtimeVoice {
   async startPreview(value:VoicePreferences) {
     this.stop();this.preferences=normalizeVoicePreferences(value);await this.start(true);
   }
-  private captureEnabled(enabled:boolean){this.stream?.getTracks().forEach(track=>{track.enabled=enabled;});}
+  setAuditionPaused(paused:boolean){
+    if(this.auditionPaused===paused)return;
+    this.auditionPaused=paused;
+    if(paused){this.interrupt();this.send({type:"input_audio_buffer.clear"});}
+    this.captureEnabled(!this.output || this.preferences.bargeInEnabled);
+  }
+  private captureEnabled(enabled:boolean){this.stream?.getTracks().forEach(track=>{track.enabled=enabled&&!this.auditionPaused;});}
   private patch(patch:Partial<VoiceSnapshot>){if(Object.entries(patch).every(([key,value])=>this.snapshot[key as keyof VoiceSnapshot]===value))return;this.snapshot={...this.snapshot,...patch};for(const listener of this.listeners)listener();}
   private send(event:unknown){if(this.dc?.readyState === "open")this.dc.send(JSON.stringify(event));}
   private armIdle(){clearTimeout(this.idleTimer);this.idleTimer=setTimeout(()=>this.stop(),VOICE_CLIENT.idleTimeoutMs);}
@@ -100,7 +107,7 @@ export class RealtimeVoice {
       if(secret.expires_at*1000<=Date.now())throw Error("Voice credentials expired. Activate the microphone again.");
       const stream=preview ? null : await this.deps.microphone();
       if(generation!==this.connectionGeneration){stream?.getTracks().forEach(track=>track.stop());return;}
-      this.stream=stream;
+      this.stream=stream;this.captureEnabled(true);
       const pc=this.deps.peer();this.pc=pc;
       const audio=this.deps.audio();this.audio=audio;audio.autoplay=true;audio.muted=true;
       audio.onerror=()=>{if(generation===this.connectionGeneration)this.fail("Voice playback failed. Your answer remains on screen.");};
@@ -158,6 +165,7 @@ export class RealtimeVoice {
   handleEvent(event:Record<string,any>){
     const type=event.type;
     if(this.previewMode && (String(type).startsWith("input_audio_buffer.") || String(type).startsWith("conversation.item.input_audio_transcription.")))return;
+    if(this.auditionPaused && type==="input_audio_buffer.speech_started"){this.ignoredItems.add(event.item_id);return;}
     if(this.ignoredItems.has(event.item_id))return;
     if(type==="input_audio_buffer.speech_started" && this.output && !this.preferences.bargeInEnabled){this.ignoredItems.add(event.item_id);return;}
     if(type==="input_audio_buffer.speech_started"){
@@ -200,7 +208,7 @@ export class RealtimeVoice {
       }
     }else if(type==="error"){
       // A late response.cancel can race completion; it is safe to ignore only this precise code.
-      if(event.error?.code!=="response_cancel_not_active")this.fail("Realtime voice reported an error. The conversation is preserved; reactivate voice or continue typing.");
+      if(event.error?.code!=="response_cancel_not_active")this.fail(`Realtime voice error (${String(event.error?.code ?? "unknown")}): ${String(event.error?.message ?? "Unknown API error")}`);
     }
   }
   private async drain(){
@@ -224,6 +232,7 @@ export class RealtimeVoice {
     finally{this.processing=false;if(this.order.length&&this.ready.has(this.order[0]))void this.drain();}
   }
   private speak(answer:VoiceAnswer){
+    if(this.auditionPaused){if(answer.messageId)this.callbacks?.update(answer.messageId,{playback:"interrupted"});return;}
     if(!this.preferences.bargeInEnabled)this.captureEnabled(false);
     this.output=answer;this.outputGeneration=this.turnGeneration;this.generatedTranscript="";
     this.patch({phase:"PROCESSING",outputText:answer.spokenResponse,outputMessageId:answer.messageId,error:null});

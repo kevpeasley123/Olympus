@@ -38,12 +38,25 @@ export async function runVoicePreferencesHarness() {
   await session.applyPreferences({...defaults,autoSpeak:false,captionsEnabled:false});const responses=sent.filter(e=>e.type==="response.create").length;await utterance("silent");
   check(sent.filter(e=>e.type==="response.create").length===responses && history.length===count+1,"Auto Speak off keeps visual answer without generating speech");
   check(!session.getSnapshot().captionsEnabled,"Live captions setting reaches renderer");
+  const liveCaptures=captures, liveClosed=closed;
+  session.setAuditionPaused(true);
+  check(session.getSnapshot().active && !tracks[tracks.length-1].enabled,"Audition keeps live session connected and pauses capture");
+  const auditionHistory=history.length;await utterance("audition-leak");
+  check(history.length===auditionHistory,"Audition audio cannot become a command");
+  session.setAuditionPaused(false);
+  check(tracks[tracks.length-1].enabled && captures===liveCaptures && closed===liveClosed,"Audition restores existing microphone without reconnect");
   session.stop();const beforePreview=history.length, capturesBefore=captures;
   await session.startPreview({...defaults,selectedVoice:"sage"});
   check(captures===capturesBefore && secrets[secrets.length-1].preview,"Preview is receive-only without microphone");
   check(sent[sent.length-1].response.input[0].content[0].text===JSON.stringify({spokenResponse:VOICE_PREVIEW_PHRASE}),"Preview uses centralized fixed phrase");
   session.handleEvent({type:"input_audio_buffer.speech_started",item_id:"preview-no-input"});check(history.length===beforePreview,"Preview bypasses conversation and reasoning");
   session.handleEvent({type:"response.created",response:{id:"preview",metadata:sent[sent.length-1].response.metadata}});session.handleEvent({type:"output_audio_buffer.stopped",response_id:"preview"});check(!session.getSnapshot().active,"Preview closes connection on completion");
+  for(const voice of OLYMPUS_VOICES){
+    const previousClosed=closed;
+    await session.startPreview({...defaults,selectedVoice:voice});
+    check(secrets[secrets.length-1].settings.selectedVoice===voice && closed>=previousClosed,"Every catalog voice can replace a preview");
+  }
+  session.stop();
   const custom={...defaults,selectedVoice:"verse",speechStyle:"concise" as const,responseDepth:"detailed" as const,autoSpeak:false,captionsEnabled:false,bargeInEnabled:false};
   check(JSON.stringify(readVoicePreferences(JSON.stringify(custom)))===JSON.stringify(custom),"All six preferences survive serialization");
   check(normalizeVoicePreferences({selectedVoice:"invalid"}).selectedVoice===defaults.selectedVoice,"Unknown voice falls back safely");

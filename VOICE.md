@@ -140,3 +140,27 @@ https://developers.openai.com/api/docs/guides/realtime-conversations#voice-optio
 Verification includes 22 settings/session protocol checks, existing 20 voice checks,
 201 Rust tests, TypeScript/build, and browser UI plus actual reload persistence.
 Simulated microphone reconnection and interruption are not physical acoustic tests.
+
+
+## Voice Lab — 0.8.1
+
+All ten Realtime voices are visible in Preferences > Voice Lab. The shared
+`src/config/olympusVoice.json` remains the single frontend/backend catalog;
+Cedar and Marin are marked OpenAI recommended, with no personality claims.
+Preview and Use as Olympus voice are separate actions. The fixed sample contains
+fictional project counts for fair comparison and never enters conversation.
+
+Auditions use the existing isolated receive-only Realtime adapter. Starting a new
+preview closes the previous preview. The live conversation stays connected;
+capture and playback pause during audition and capture resumes after completion,
+stop, error or closing settings. Applying a voice keeps the existing session
+recreation and SQLite `voicePreferences` persistence. No default was changed.
+
+Verification: 35 preferences/preview protocol checks, 20 existing voice checks;
+browser fixture verified all six preferences through a real page reload and
+unchanged conversation/project state. Ten live Realtime WebSocket generations
+on gpt-realtime-2.1 returned completed audio and exact sample transcripts, with
+no rejected voices. This is API generation evidence, not a ten-voice physical
+speaker or microphone acceptance test. Build includes TypeScript; no lint script
+is configured. Official catalog checked 2026-09-08:
+https://developers.openai.com/api/docs/guides/realtime-conversations#voice-options
