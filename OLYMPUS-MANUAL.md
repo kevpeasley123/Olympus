@@ -16,8 +16,8 @@ system that maintains project truth, memory, decisions, and delegated work.
 ## Opening experience
 
 On launch, Command is the ambient, glanceable state of Olympus. It should be
-readable from across the room: the full omega instrument and chat in the right
-column. The instrument is the mode, not an illustration beside another
+readable from across the room: the full omega instrument with a compact command console anchored at the
+bottom-right. Conversation expands on demand, with history a deliberate mode. The instrument is the mode, not an illustration beside another
 interface. Project names live on the ring; hovering one may show only its name
 and open-task count. Briefing prose and repository details belong in Project
 mode.
@@ -80,7 +80,9 @@ not commands to repeat an old choice forever.
 
 The ambient command and conversation surface. Its centre column contains the
 full-size omega instrument: the day arc, labelled project-window ring, linked
-note constellation, and central glyph. Chat remains in the right column.
+note constellation, and central glyph. The bottom-right Command Console remains
+compact when dormant, opens recent dialogue when engaged, and exposes a larger
+transcript only when requested.
 
 Command's defining test is “one instrument, readable across the room.”
 A proposal that adds a card, list, or scroll container to its centre column

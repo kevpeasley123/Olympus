@@ -1,9 +1,22 @@
-import { ChevronRight, Compass, NotebookPen } from "lucide-react";
-import { useState } from "react";
+import { ChevronRight, NotebookPen, X, History } from "lucide-react";
+import type { CSSProperties } from "react";
+import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { MemoryPromotion } from "./MemoryPromotion";
 import type { ConversationMessage } from "../../types";
 import type { ObsidianActionResult } from "../../services/obsidian";
 import { OBSERVATION_MAX_CHARS } from "../../services/observations";
+import { CONSOLE, consoleStepBack, liveConversationStart } from "../../services/commandConsole";
+import type { ConsoleMode } from "../../services/commandConsole";
+import { useConversationScroll } from "../../hooks/useConversationScroll";
+import { useConversationStream } from "../../services/conversationStream";
+import { subscribeToInstrumentEvents } from "../../services/instrumentEvents";
+
+const consoleMarkdownComponents: import("react-markdown").Components = {
+  a: ({ children, href }) => <a href={href} target="_blank" rel="noopener noreferrer">{children}</a>,
+  img: ({ alt, src }) => <a href={src} target="_blank" rel="noopener noreferrer">{alt || "View image"}</a>
+};
 
 interface ChatPanelProps {
   messages: ConversationMessage[];
@@ -11,66 +24,88 @@ interface ChatPanelProps {
   onRecordObservation: (text: string) => Promise<ObsidianActionResult>;
   pending?: boolean;
   error?: string | null;
-  /**
-   * Command mode only: show the last exchange rather than the whole
-   * transcript. Defaults off, so Project and Research are untouched — a wall of
-   * transcript is correct in the modes you lean into, and the loudest thing on
-   * screen in the one that is deliberately sparse.
-   */
-  compact?: boolean;
 }
+function collapse(text: string): string { return text.split(/\s+/).filter(Boolean).join(" "); }
 
-/** The last user turn and everything after it — one exchange, not one message. */
-function lastExchange(messages: ConversationMessage[]): ConversationMessage[] {
-  for (let index = messages.length - 1; index >= 0; index -= 1) {
-    if (messages[index].role === "user") {
-      return messages.slice(index);
-    }
-  }
-  return messages.slice(-1);
-}
-
-/** One claim per entry, so the gate's capped diff preview shows all of it. */
-function collapse(text: string): string {
-  return text.split(/\s+/).filter(Boolean).join(" ");
-}
-
-export function ChatPanel({
-  messages,
-  onSendMessage,
-  onRecordObservation,
-  pending = false,
-  error = null,
-  compact = false
-}: ChatPanelProps) {
+export function ChatPanel({ messages, onSendMessage, onRecordObservation, pending = false, error = null }: ChatPanelProps) {
+  const [mode, setMode] = useState<ConsoleMode>("dormant");
   const [draft, setDraft] = useState("");
   const [memorySource, setMemorySource] = useState<ConversationMessage | null>(null);
-  // Local, so leaving Command and coming back re-collapses it. That is right
-  // for a mode meant to be glanced at.
-  const [expanded, setExpanded] = useState(false);
-  // null closes the composer; "" opens it empty. Distinguishing the two is what
-  // lets an assistant message prefill it without also opening it on every edit.
   const [observation, setObservation] = useState<string | null>(null);
   const [observationStatus, setObservationStatus] = useState<ObsidianActionResult | null>(null);
   const [recording, setRecording] = useState(false);
+  const [liveStart, setLiveStart] = useState(() => liveConversationStart(messages));
+  const [historyStart, setHistoryStart] = useState(0);
+  const [responseReady, setResponseReady] = useState(false);
+  const [signal, setSignal] = useState<string | null>(null);
+  const waitingForReply = useRef(false);
+  const panelRef = useRef<HTMLElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const streamText = useConversationStream();
+  const scroll = useConversationScroll(mode !== "dormant");
+  const editingMemory = memorySource !== null || observation !== null;
+  const visibleMessages = mode === "transcript" ? messages.slice(historyStart) : messages.slice(liveStart);
+  const status = pending ? (streamText ? "RESPONDING" : "PROCESSING") : error ? "RESPONSE ERROR" : responseReady ? "RESPONSE READY" : "OLYMPUS READY";
 
+  function showLive(smooth = false) {
+    setMode("engaged"); setLiveStart(liveConversationStart(messages)); setResponseReady(false); scroll.latest(smooth);
+  }
+  function stepBack() {
+    if (editingMemory) return;
+    if (mode === "transcript") showLive();
+    else { setMode(consoleStepBack(mode)); panelRef.current?.focus(); }
+  }
+  function showHistory() {
+    scroll.preserve(); setHistoryStart(Math.max(0, liveStart - CONSOLE.historyPage)); setMode("transcript");
+  }
   function submit() {
     if (!draft.trim() || pending) return;
-    onSendMessage(draft);
-    setDraft("");
-    // Sending is the moment you start caring about the reply.
-    setExpanded(true);
+    waitingForReply.current = true;
+    showLive(); onSendMessage(draft); setDraft("");
   }
+  useLayoutEffect(() => {
+    if (mode === "engaged" && scroll.following.current) setLiveStart(liveConversationStart(messages));
+  }, [messages, mode, scroll.isFollowing]);
+  useEffect(() => {
+    if (waitingForReply.current && !pending && (error || messages[messages.length - 1]?.role === "assistant")) {
+      waitingForReply.current = false; setResponseReady(!error && mode === "dormant");
+    }
+  }, [messages, pending, error, mode]);
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout>;
+    const unsubscribe = subscribeToInstrumentEvents(event => {
+      if (event !== "command-received" && event !== "response-start") return;
+      setSignal(event); clearTimeout(timer); timer = setTimeout(() => setSignal(null), CONSOLE.signalMs);
+    });
+    return () => { unsubscribe(); clearTimeout(timer); };
+  }, []);
+  useEffect(() => {
+    const focusConsole = () => inputRef.current?.focus();
+    const shortcut = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k" && !event.altKey) {
+        if (document.querySelector('[aria-modal="true"]')) return;
+        event.preventDefault(); focusConsole();
+      }
+    };
+    window.addEventListener("olympus:focus-console", focusConsole);
+    window.addEventListener("keydown", shortcut);
+    return () => { window.removeEventListener("olympus:focus-console", focusConsole); window.removeEventListener("keydown", shortcut); };
+  }, []);
+  useEffect(() => {
+    const outside = (event: PointerEvent) => {
+      if (!editingMemory && mode === "engaged" && !panelRef.current?.contains(event.target as Node)) setMode("dormant");
+    };
+    document.addEventListener("pointerdown", outside);
+    return () => document.removeEventListener("pointerdown", outside);
+  }, [mode, editingMemory]);
 
-  const collapsed = compact && !expanded;
-  const visibleMessages = collapsed ? lastExchange(messages) : messages;
-  const hiddenCount = messages.length - visibleMessages.length;
-
-  function openComposer(seed: string) {
+  const openComposer = useCallback((seed: string) => {
     setMemorySource(null);
     setObservation(collapse(seed).slice(0, OBSERVATION_MAX_CHARS));
     setObservationStatus(null);
-  }
+  }, []);
+  const noteMessage = useCallback((message: ConversationMessage) => openComposer(message.content), [openComposer]);
+  const saveMessage = useCallback((message: ConversationMessage) => { setObservation(null); setMemorySource(message); }, []);
 
   const observationLength = observation ? collapse(observation).length : 0;
   const observationTooLong = observationLength > OBSERVATION_MAX_CHARS;
@@ -95,62 +130,48 @@ export function ChatPanel({
     }
   }
 
-  return (
-    // Dense: the thread is prose, and the background image must not read
-    // behind it.
-    <section
-      className={`dashboard-panel conversation-panel surface-dense ${
-        collapsed ? "conversation-panel--collapsed" : ""
-      }`}
-    >
-      <div className="panel-head">
-        <span className="panel-head__icon">
-          <Compass size={15} />
-        </span>
-        <p className="panel-head__title">Chat</p>
-        <span className="panel-head__meta" />
-        <div className="panel-head__actions">
-          <button
-            type="button"
-            className="ghost-icon-action"
-            title="Record an observation in the vault"
-            aria-label="Record an observation in the vault"
-            onClick={() => (observation === null ? openComposer("") : setObservation(null))}
-          >
-            <NotebookPen size={15} />
-          </button>
-        </div>
-      </div>
-      <div className="conversation-thread">
-        {collapsed && hiddenCount > 0 ? (
-          <button
-            type="button"
-            className="conversation-expand"
-            onClick={() => setExpanded(true)}
-          >
-            Show {hiddenCount} earlier {hiddenCount === 1 ? "message" : "messages"}
-          </button>
-        ) : null}
-        {visibleMessages.map((message) => (
-          <ConversationBubble
-            key={message.id}
-            message={message}
-            onNoteThis={() => openComposer(message.content)}
-            onSaveMemory={() => { setObservation(null); setMemorySource(message); }}
-          />
-        ))}
-        {pending && (
-          <article className="conversation-bubble assistant conversation-pending">
-            <p>Thinking...</p>
-          </article>
-        )}
-        {error && (
-          <article className="conversation-bubble assistant conversation-error">
-            <p>{error}</p>
-          </article>
-        )}
-      </div>
 
+  return (
+    <section ref={panelRef} tabIndex={-1} className="command-console" data-mode={mode} data-signal={signal ?? undefined}
+      aria-label="Olympus Command Console" style={{ "--console-transition": `${CONSOLE.transitionMs}ms`, "--console-signal": `${CONSOLE.signalMs}ms` } as CSSProperties}
+      onKeyDown={event => {
+        if (event.key === "Escape" && !event.nativeEvent.isComposing && !editingMemory) { event.preventDefault(); event.stopPropagation(); stepBack(); }
+      }}>
+      {mode !== "dormant" && <div className="console-aperture">
+        <header className="console-header">
+          <span>{mode === "transcript" ? "TRANSCRIPT" : "LIVE CONVERSATION"}</span>
+          <div className="console-header-actions">
+            <button type="button" className="ghost-icon-action" title="Record an observation" aria-label="Record an observation" disabled={recording}
+              onClick={() => observation === null ? openComposer("") : setObservation(null)}><NotebookPen size={14} /></button>
+            <button type="button" className="ghost-icon-action" aria-label={mode === "transcript" ? "Return to live conversation" : "Minimize console"}
+              disabled={editingMemory} onClick={stepBack}><X size={15} /></button>
+          </div>
+        </header>
+        <div className="console-history-controls">
+          {mode === "engaged" ? <button type="button" onClick={showHistory}>↑ Earlier conversation{liveStart > 0 ? ` · ${liveStart} messages` : ""}</button> :
+            <button type="button" onClick={() => showLive(true)}>↓ Return to latest</button>}
+        </div>
+        <div ref={scroll.viewportRef} className="console-viewport" role="log" aria-label={mode === "transcript" ? "Conversation transcript" : "Recent conversation"}
+          aria-live="off" tabIndex={0} onScroll={scroll.onScroll}
+          onWheel={event => { if (event.deltaY < 0) scroll.interrupt(); }}
+          onTouchStart={scroll.interrupt}
+          onKeyDown={event => { if (["ArrowUp", "PageUp", "Home"].includes(event.key)) scroll.interrupt(); }}>
+          <div ref={scroll.contentRef} className="console-messages">
+            {mode === "transcript" && historyStart > 0 && <button type="button" className="console-load-history"
+              onClick={() => { scroll.preserve(); setHistoryStart(Math.max(0, historyStart - CONSOLE.historyPage)); }}>
+              ↑ Load earlier · {historyStart} messages</button>}
+            {visibleMessages.map(message => <ConversationBubble key={message.id} message={message}
+              onNoteThis={noteMessage} onSaveMemory={saveMessage} />)}
+            {pending && <article className="conversation-bubble assistant console-stream" data-message-id="stream">
+              <p className="console-message-label">OLYMPUS</p>
+              {streamText ? <div className="console-markdown"><ReactMarkdown remarkPlugins={[remarkGfm]} skipHtml components={consoleMarkdownComponents}>{streamText}</ReactMarkdown></div> : <p className="console-processing">Processing command…</p>}
+            </article>}
+            {error && <p className="console-error" role="alert">{error}</p>}
+            {visibleMessages.length === 0 && !pending && <p className="console-empty">The console is ready for your command.</p>}
+          </div>
+        </div>
+        {!scroll.isFollowing && <button type="button" className="console-latest" onClick={() => scroll.latest(true)}>↓ Latest</button>}
+        <div className="console-tools">
       {memorySource && <MemoryPromotion key={memorySource.id} message={memorySource} onClose={() => setMemorySource(null)} />}
 
       {observation !== null && (
@@ -168,8 +189,8 @@ export function ChatPanel({
             placeholder="Something Olympus should know about how you work."
             onChange={(event) => setObservation(event.target.value)}
             onKeyDown={(event) => {
-              if (event.key === "Escape") {
-                setObservation(null);
+              if (event.key === "Escape" && !recording) {
+                event.stopPropagation(); setObservation(null);
               }
               if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
                 event.preventDefault();
@@ -207,40 +228,38 @@ export function ChatPanel({
         </p>
       )}
 
-      <div className="conversation-input-shell">
-        <input
-          placeholder={pending ? "Waiting for a reply..." : "Ask Olympus anything..."}
-          value={draft}
-          disabled={pending}
-          onFocus={() => setExpanded(true)}
-          onChange={(event) => setDraft(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === "Enter") {
-              event.preventDefault();
-              submit();
-            }
-          }}
-        />
-        <button className="send-button" onClick={submit} disabled={!draft.trim() || pending}>
-          <ChevronRight size={16} />
-        </button>
+        </div>
+      </div>}
+      <div className="console-command-bar">
+        <div className="console-status-line"><span className="console-omega" aria-hidden="true">Ω</span>
+          <span role="status" className="console-status">{status}</span>
+          <button type="button" className="ghost-icon-action" aria-label="Open conversation history" title="Conversation history" onClick={showHistory}><History size={14} /></button>
+        </div>
+        <div className="console-input-row">
+          <textarea ref={inputRef} aria-label="Command to Olympus" rows={1} placeholder="Ask Olympus anything…" value={draft}
+            onFocus={() => { if (mode === "dormant") showLive(); }} onChange={event => setDraft(event.target.value)}
+            onKeyDown={event => { if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); submit(); } }} />
+          <button type="button" className="send-button" aria-label="Send command" onClick={submit} disabled={!draft.trim() || pending}><ChevronRight size={18} /></button>
+        </div>
       </div>
     </section>
   );
 }
 
-function ConversationBubble({
+const ConversationBubble = memo(function ConversationBubble({
   message,
   onNoteThis,
   onSaveMemory
 }: {
   message: ConversationMessage;
-  onNoteThis: () => void;
-  onSaveMemory: () => void;
+  onNoteThis: (message: ConversationMessage) => void;
+  onSaveMemory: (message: ConversationMessage) => void;
 }) {
   return (
-    <article className={`conversation-bubble ${message.role}`}>
-      <p>{message.content}</p>
+    <article className={`conversation-bubble ${message.role}`} data-message-id={message.id}>
+      <p className="console-message-label">{message.role === "user" ? "COMMAND" : message.role === "assistant" ? "OLYMPUS" : "SYSTEM"}</p>
+      {message.role === "user" ? <p className="console-command-text"><span aria-hidden="true">› </span>{message.content}</p> :
+        <div className="console-markdown"><ReactMarkdown remarkPlugins={[remarkGfm]} skipHtml components={consoleMarkdownComponents}>{message.content}</ReactMarkdown></div>}
       {/* Appended below the text, never in place of it. Text that streamed is
           text that happened; retracting it would leave no way to tell a misread
           from a broken app. The distinct treatment is the point — this is
@@ -261,9 +280,9 @@ function ConversationBubble({
         </details>)}
       </details>}
       <div className="conversation-bubble-footer">
-        {message.role !== "system" && <button type="button" className="observation-seed" onClick={onSaveMemory}>Save memory</button>}
+        {message.role !== "system" && <button type="button" className="observation-seed" onClick={() => onSaveMemory(message)}>Save memory</button>}
         {message.role === "assistant" && (
-          <button type="button" className="observation-seed" onClick={onNoteThis}>
+          <button type="button" className="observation-seed" onClick={() => onNoteThis(message)}>
             Note observation
           </button>
         )}
@@ -271,4 +290,4 @@ function ConversationBubble({
       </div>
     </article>
   );
-}
+});

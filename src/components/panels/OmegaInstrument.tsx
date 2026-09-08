@@ -22,7 +22,9 @@ const PULSE_MS: Record<InstrumentEvent, number> = {
   /** One landing confirmation. */
   "graph-node": 700,
   /** One. */
-  poll: 700
+  poll: 700,
+  "command-received": 700,
+  "response-start": 700
 };
 
 /**

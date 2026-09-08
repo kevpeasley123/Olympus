@@ -143,8 +143,7 @@ function App() {
             )}
           </section>
 
-          {/* Chat stays in the right column in every mode, including Research —
-              it is the one surface that should not move when the mode does. */}
+          {/* The console stays anchored while its transcript aperture opens upward. */}
           <section className="right-stack dashboard-column">
             <FadeInPanel index={8} className="panel-slot panel-slot-chat">
               <ChatPanel
@@ -153,7 +152,6 @@ function App() {
                 onRecordObservation={recordObservation}
                 pending={chatPending}
                 error={chatError}
-                compact={command}
               />
             </FadeInPanel>
           </section>

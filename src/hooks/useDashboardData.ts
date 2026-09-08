@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { conversationStream } from "../services/conversationStream";
 import { seedState } from "../data/seed";
 import { fetchProjects } from "../services/liveData";
 import { isTauriRuntime } from "../services/launcher";
@@ -44,6 +45,7 @@ export function useDashboardData() {
   /** Problems with `01 - Projects` itself, which belong to no single project. */
   const [projectNoteWarnings, setProjectNoteWarnings] = useState<string[]>([]);
   const [chatPending, setChatPending] = useState(false);
+  const requestInFlight = useRef(false);
   const [chatError, setChatError] = useState<string | null>(null);
   /**
    * The model that answered the last turn, as reported by the API response.
@@ -156,7 +158,9 @@ export function useDashboardData() {
   const sendChatMessage = useCallback(
     async (text: string) => {
       const trimmed = text.trim();
-      if (!trimmed) return;
+      if (!trimmed || requestInFlight.current) return;
+      conversationStream.reset();
+      emitInstrumentEvent("command-received");
 
       const user = createUserMessage(trimmed);
 
@@ -180,6 +184,7 @@ export function useDashboardData() {
         return;
       }
 
+      requestInFlight.current = true;
       setChatPending(true);
       setChatError(null);
       setChatProducing(false);
@@ -205,7 +210,9 @@ export function useDashboardData() {
                 // on an unchanged value, so every later delta is free.
                 if (speakingStartedAt.current === null) {
                   speakingStartedAt.current = Date.now();
+                  emitInstrumentEvent("response-start");
                 }
+                conversationStream.append(event.text);
                 setChatProducing(true);
                 break;
               case "fellBack":
@@ -225,8 +232,16 @@ export function useDashboardData() {
         }));
         void appendConversationMessages([assistant]);
       } catch (error) {
+        const partial = conversationStream.current().trim();
+        if (partial) {
+          const interrupted = createAssistantMessage(partial, { kind: "truncated", message: "Response interrupted. This is the output received before the error." });
+          setDashboardState(current => ({ ...current, conversation: [...current.conversation, interrupted] }));
+          void appendConversationMessages([interrupted]);
+        }
         setChatError(errorMessage(error));
       } finally {
+        requestInFlight.current = false;
+        conversationStream.reset();
         // Both reachable paths clear the indicator: success falls through, an
         // error is caught, and either way this runs. A stuck "thinking" is worse
         // than no indicator, so the reset is structural rather than scheduled.

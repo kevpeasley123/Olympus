@@ -96,7 +96,9 @@ const THINK_ARC_RADIUS = 79;
 const PULSE_MS: Record<InstrumentEvent, number> = {
   "vault-write": 2800,
   "graph-node": 1400,
-  poll: 700
+  poll: 700,
+  "command-received": 700,
+  "response-start": 1400
 };
 
 const RIPPLE_SECONDS = 1.4;
@@ -244,7 +246,7 @@ export function CommandInstrument({
             onOpenNote={onOpenNote}
           />
 
-          {(pulse === "vault-write" || pulse === "graph-node") && ambient.running ? (
+          {(pulse === "vault-write" || pulse === "graph-node" || pulse === "response-start") && ambient.running ? (
             <motion.circle
               cx={CENTRE}
               cy={CENTRE}

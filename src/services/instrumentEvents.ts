@@ -8,7 +8,7 @@
  * something is happening, and it must never imply a write landed that didn't.
  */
 
-export type InstrumentEvent = "vault-write" | "graph-node" | "poll";
+export type InstrumentEvent = "vault-write" | "graph-node" | "poll" | "command-received" | "response-start";
 
 type Listener = (event: InstrumentEvent) => void;
 
