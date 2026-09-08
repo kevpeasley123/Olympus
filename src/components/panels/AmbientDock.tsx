@@ -1,15 +1,20 @@
+import { VoiceSettings } from "./VoiceSettings";
+import type { VoicePreferences } from "../../services/voicePreferences";
 import { CircleHelp, RefreshCw, Settings2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { MODE_LABELS } from "../../hooks/useDashboardMode";
 import type { DashboardMode } from "../../hooks/useDashboardMode";
 
 interface AmbientDockProps {
+  voicePreferences: VoicePreferences;
+  onVoicePreferences:(patch:Partial<VoicePreferences>)=>void;
+  settingsReady:boolean;
   onRefresh: () => void;
   mode: DashboardMode;
   onCycleMode: () => void;
 }
 
-export function AmbientDock({ onRefresh, mode, onCycleMode }: AmbientDockProps) {
+export function AmbientDock({ onRefresh, mode, onCycleMode, voicePreferences, onVoicePreferences, settingsReady }: AmbientDockProps) {
   const [preferencesOpen, setPreferencesOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [refreshSpinning, setRefreshSpinning] = useState(false);
@@ -153,24 +158,11 @@ export function AmbientDock({ onRefresh, mode, onCycleMode }: AmbientDockProps) 
           <div className="panel-header compact">
             <div>
               <p className="eyebrow">Preferences</p>
-              <h2>Command Surface</h2>
+              <h2>Olympus Voice</h2>
             </div>
           </div>
-          <p className="section-copy">
-            Olympus should keep operational preferences light on the home screen. Deep workspace
-            configuration like vault paths and project roots should live in a later admin/setup
-            view, not in the primary dashboard.
-          </p>
-          <div className="preferences-list">
-            <div className="preference-row">
-              <span>Dashboard mode</span>
-              <strong>Projects first</strong>
-            </div>
-            <div className="preference-row">
-              <span>Memory surface</span>
-              <strong>Obsidian connected</strong>
-            </div>
-          </div>
+          <VoiceSettings preferences={voicePreferences} onChange={onVoicePreferences} ready={settingsReady}/>
+          <button className="ghost-action" type="button" onClick={()=>setPreferencesOpen(false)}>Close preferences</button>
         </section>
       ) : null}
     </>

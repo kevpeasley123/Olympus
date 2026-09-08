@@ -99,3 +99,44 @@ it can safely be supported. Wake word/custom voices remain later work.
 - https://developers.openai.com/api/docs/guides/realtime-vad
 - https://developers.openai.com/api/docs/models/gpt-realtime-2.1
 - https://developers.openai.com/api/docs/models/gpt-4o-mini-transcribe
+
+## Voice settings (0.8.0)
+
+Open the existing bottom-right Preferences control for Olympus Voice. The curated
+selector offers Marin and Cedar; All voices exposes all ten currently documented
+Realtime identities without invented personality descriptions. Each can be previewed
+using the identical neutral Olympus phrase. Preview uses a receive-only Realtime
+connection, pauses the conversation microphone, never invokes the reasoning handler
+and never appends messages. Resume microphone explicitly after a preview.
+
+The single catalog is src/config/olympusVoice.json, imported by TypeScript and
+embedded/validated by Rust. It owns voice IDs, curated membership, defaults, preview
+phrase and behavior/style instructions. Add future supported voices there after
+checking official Realtime documentation, then rebuild the application.
+
+The six preferences (selectedVoice, speechStyle, responseDepth, autoSpeak,
+captionsEnabled, bargeInEnabled) extend OlympusSettings. Existing persistPreferences
+stores their normalized JSON as the voicePreferences key in SQLite settings; browser
+fixtures use the existing localStorage path. Older installations receive defaults.
+No conversation table or project-state migration is involved.
+
+Voice/style/interruption changes stop playback, close the old peer/data channel,
+release capture and request fresh credentials with the selected voice. Existing
+connection/turn generations suppress stale audio. Only the transport restarts;
+the common reasoning handler, project context, conversation and message IDs remain.
+There is no Agents SDK / RealtimeAgent in this application.
+
+Auto Speak governs voice-turn audio generation; disabling it preserves visual answers
+and explicit Replay. Live Captions hides only in-progress recognition; persisted
+turns stay readable. Interruption off both disables server auto-interruption and
+pauses input capture during output; manual Interrupt restores capture. Brief uses a
+25-word spoken limit, Standard preserves the existing 55-word default, Detailed uses
+the existing bounded deep-dive contract. Explicit requests for briefings/deep dives
+still override the default. Behavior instructions remain separate from voice identity.
+
+Official voice list and immutable-after-audio limitation verified 2026-09-08:
+https://developers.openai.com/api/docs/guides/realtime-conversations#voice-options
+
+Verification includes 22 settings/session protocol checks, existing 20 voice checks,
+201 Rust tests, TypeScript/build, and browser UI plus actual reload persistence.
+Simulated microphone reconnection and interruption are not physical acoustic tests.

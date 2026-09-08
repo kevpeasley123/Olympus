@@ -1,4 +1,4 @@
-import { realtimeVoice, useVoiceState } from "../../services/realtimeVoice";
+import { realtimeVoice, voicePreview, useVoiceState } from "../../services/realtimeVoice";
 import { VOICE_CLIENT } from "../../services/voiceContract";
 import { Mic, MicOff, Volume2, VolumeX, Square, Keyboard } from "lucide-react";
 import { ChevronRight, NotebookPen, X, History } from "lucide-react";
@@ -50,7 +50,7 @@ export function ChatPanel({ messages, onSendMessage, onRecordObservation, pendin
   const scroll = useConversationScroll(mode !== "dormant");
   const editingMemory = memorySource !== null || observation !== null;
   const visibleMessages = mode === "transcript" ? messages.slice(historyStart) : messages.slice(liveStart);
-  const liveInput = voice.active && voice.inputMessageId && !messages.some(message => message.id === voice.inputMessageId)
+  const liveInput = voice.active && voice.captionsEnabled && voice.inputMessageId && !messages.some(message => message.id === voice.inputMessageId)
     ? {id:voice.inputMessageId,role:"user" as const,content:voice.inputText || "Listening…",timestamp:"",voice:{kind:"input" as const}} : null;
   const renderedMessages = liveInput ? [...visibleMessages,liveInput] : visibleMessages;
   const status = voice.connecting ? "CONNECTING VOICE" : voice.active ? (voice.phase === "IDLE" ? "MICROPHONE ON" : voice.phase) : voice.phase === "ERROR" ? "VOICE UNAVAILABLE" : pending ? (streamText ? "RESPONDING" : "PROCESSING") : error ? "RESPONSE ERROR" : responseReady ? "RESPONSE READY" : "OLYMPUS READY";
@@ -67,14 +67,14 @@ export function ChatPanel({ messages, onSendMessage, onRecordObservation, pendin
     scroll.preserve(); setHistoryStart(Math.max(0, liveStart - CONSOLE.historyPage)); setMode("transcript");
   }
   useEffect(() => {
-    if (voice.active || voice.connecting) { setMode("engaged"); setLiveStart(liveConversationStart(messages)); }
+    if ((voice.active || voice.connecting) && mode === "dormant") { setMode("engaged"); setLiveStart(liveConversationStart(messages)); }
   }, [voice.active, voice.connecting]);
   useEffect(() => {
     const shortcut = (event:KeyboardEvent) => {
       if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.code === VOICE_CLIENT.shortcutCode && !event.repeat) {
         if (document.querySelector('[aria-modal="true"]')) return;
         event.preventDefault();
-        if (realtimeVoice.getSnapshot().active || realtimeVoice.getSnapshot().connecting) realtimeVoice.stop(); else void realtimeVoice.start();
+        if (realtimeVoice.getSnapshot().active || realtimeVoice.getSnapshot().connecting) realtimeVoice.stop(); else { voicePreview.stop(); void realtimeVoice.start(); }
       }
     };
     window.addEventListener("keydown",shortcut);return () => window.removeEventListener("keydown",shortcut);
@@ -122,6 +122,7 @@ export function ChatPanel({ messages, onSendMessage, onRecordObservation, pendin
   }, []);
   useEffect(() => {
     const outside = (event: PointerEvent) => {
+      if ((event.target as Element)?.closest?.(".floating-preferences-panel, .ambient-bottom-right")) return;
       if (!editingMemory && mode === "engaged" && !panelRef.current?.contains(event.target as Node)) setMode("dormant");
     };
     document.addEventListener("pointerdown", outside);
@@ -276,7 +277,7 @@ export function ChatPanel({ messages, onSendMessage, onRecordObservation, pendin
           <textarea ref={inputRef} aria-label="Command to Olympus" rows={1} placeholder="Ask Olympus anything…" value={draft}
             onFocus={() => { if (mode === "dormant") showLive(); }} onChange={event => setDraft(event.target.value)}
             onKeyDown={event => { if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); submit(); } }} />
-          <button type="button" className="voice-mic-button" aria-label={voice.active || voice.connecting ? "Stop voice and microphone" : "Start voice conversation"} aria-pressed={voice.active} title="Voice · Ctrl+Shift+M" onClick={() => { if (voice.active || voice.connecting) realtimeVoice.stop(); else void realtimeVoice.start(); }}>{voice.active || voice.connecting ? <MicOff size={16}/> : <Mic size={16}/>}</button>
+          <button type="button" className="voice-mic-button" aria-label={voice.active || voice.connecting ? "Stop voice and microphone" : "Start voice conversation"} aria-pressed={voice.active} title="Voice · Ctrl+Shift+M" onClick={() => { if (voice.active || voice.connecting) realtimeVoice.stop(); else { voicePreview.stop(); void realtimeVoice.start(); } }}>{voice.active || voice.connecting ? <MicOff size={16}/> : <Mic size={16}/>}</button>
           <button type="button" className="send-button" aria-label="Send command" onClick={submit} disabled={!draft.trim() || pending}><ChevronRight size={18} /></button>
         </div>
       </div>

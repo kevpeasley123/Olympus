@@ -1,3 +1,4 @@
+import type { VoicePreferences } from "./services/voicePreferences";
 export type ToolStatus = "ready" | "planned" | "draft";
 export type ToolCategory = "Media" | "Research" | "Workflow";
 
@@ -147,7 +148,7 @@ export interface TrackedProject {
 /// The vault root is owned by Rust (`commands::get_vault_path`) so the app has
 /// a single source of truth for where the vault lives. It is deliberately not
 /// a setting.
-export interface OlympusSettings {
+export interface OlympusSettings extends VoicePreferences {
   projectsRootPath: string;
 }
 

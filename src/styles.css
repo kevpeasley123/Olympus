@@ -4496,3 +4496,16 @@ small {
 .command-console .conversation-bubble small { color:#99a9ba; }
 .command-console .conversation-bubble-footer { border-top:1px solid #ffffff0b; padding-top:8px; }
 .console-voice-status { max-height:110px; }
+
+.floating-preferences-panel { max-height:calc(100vh - 90px); overflow-y:auto; width:min(410px,calc(100vw - 32px)); }
+.voice-settings { border:0; padding:0; margin:0; min-width:0; }
+.voice-settings legend { color:#c99759; font:10px var(--font-mono); letter-spacing:.16em; margin-bottom:12px; }
+.voice-setting-row { display:flex; justify-content:space-between; align-items:center; gap:14px; padding:11px 0; border-bottom:1px solid #293847; font-size:12px; color:#c2ceda; }
+.voice-setting-row select { max-width:55%; background:#0c1825; border:1px solid #405368; color:#dae4ec; border-radius:2px; padding:7px; font:11px var(--font-mono); }
+.voice-setting-row input { color-scheme:dark; accent-color:#ce974d; width:16px; height:16px; }
+.voice-settings-actions { display:flex; gap:8px; margin-top:10px; flex-wrap:wrap; }
+.voice-settings-hint, .voice-preview-sample { color:#94a6b9; font-size:10px; line-height:1.6; }
+.voice-preview-status { font-size:11px; color:#d8b588; }
+.voice-catalog { margin:10px 0; border:1px solid #2d4253; padding:6px 10px; }
+.voice-catalog > div { display:flex; justify-content:space-between; border-bottom:1px solid #26333e; }
+.voice-catalog [aria-pressed="true"] { color:#efb56b; }

@@ -1,3 +1,4 @@
+import { normalizeVoicePreferences, readVoicePreferences } from "./voicePreferences";
 import { invoke } from "@tauri-apps/api/core";
 import { seedState } from "../data/seed";
 import { isTauriRuntime } from "./launcher";
@@ -72,7 +73,8 @@ export async function persistPreferences(state: OlympusState): Promise<void> {
   try {
     await invoke("save_settings", {
       settings: {
-        projectsRootPath: state.settings.projectsRootPath
+        projectsRootPath: state.settings.projectsRootPath,
+        voicePreferences: JSON.stringify(normalizeVoicePreferences(state.settings))
       }
     });
     await invoke("save_tool_states", {
@@ -126,6 +128,7 @@ function applyPersistedState(persisted: PersistedState): OlympusState {
   return {
     ...seedState,
     settings: {
+      ...readVoicePreferences(persisted.settings.voicePreferences),
       projectsRootPath: persisted.settings.projectsRootPath ?? seedState.settings.projectsRootPath
     },
     tools: seedState.tools.map((tool) =>
@@ -182,7 +185,7 @@ function readLocalState(): OlympusState {
       projects: mergeById(seedState.projects, parsed.projects ?? []).map(normalizeProject),
       conversation: mergeById(seedState.conversation, parsed.conversation ?? []),
       settings: parsed.settings
-        ? { ...seedState.settings, ...parsed.settings }
+        ? { ...seedState.settings, ...parsed.settings, ...normalizeVoicePreferences(parsed.settings) }
         : seedState.settings,
       version: seedState.version
     };

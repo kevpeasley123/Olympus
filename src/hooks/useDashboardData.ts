@@ -1,3 +1,4 @@
+import { normalizeVoicePreferences, type VoicePreferences } from "../services/voicePreferences";
 import { useActionQueue } from "./useActionQueue";
 import { useDelegationRuns } from "./useDelegationRuns";
 import { buildProjectCommandBoard } from "../services/projectCommandBoard";
@@ -44,6 +45,9 @@ export function useDashboardData() {
   const [dashboardState, setDashboardState] = useState<OlympusState>(seedState);
   const dashboardRef = useRef(dashboardState);
   dashboardRef.current = dashboardState;
+  const updateVoicePreferences = useCallback((patch:Partial<VoicePreferences>) => {
+    setDashboardState(current => ({...current, settings:{...current.settings,...normalizeVoicePreferences({...current.settings,...patch})}}));
+  }, []);
   const taskStore = useActionQueue();
   const runStore = useDelegationRuns();
   const commandBoard = buildProjectCommandBoard(dashboardState.projects, taskStore.tasks, runStore.data, {tasks:!taskStore.error && !taskStore.loading,runs:!runStore.error && !runStore.loading});
@@ -335,6 +339,8 @@ export function useDashboardData() {
 
   return useMemo(
     () => ({
+      settings: dashboardState.settings,
+      settingsReady: hydrated,
       tools: dashboardState.tools.filter((tool) => tool.id !== "tool-prompt-builder"),
       quickApps: dashboardState.quickApps,
       projects: dashboardState.projects,
@@ -349,6 +355,7 @@ export function useDashboardData() {
       chatFellBackFrom,
       sendChatMessage,
       updateVoiceMessage,
+      updateVoicePreferences,
       recordObservation,
       syncResearchBase,
       syncProjectsCanvas,
@@ -356,6 +363,7 @@ export function useDashboardData() {
     }),
     [
       dashboardState,
+      hydrated,
       sessionBoundary,
       projectsError,
       projectNoteWarnings,
@@ -366,6 +374,7 @@ export function useDashboardData() {
       chatFellBackFrom,
       sendChatMessage,
       updateVoiceMessage,
+      updateVoicePreferences,
       recordObservation,
       syncResearchBase,
       syncProjectsCanvas,

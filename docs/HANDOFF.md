@@ -273,3 +273,17 @@ identity/deduplication checks, and all 16 console browser regressions passed.
 TypeScript and production build passed; no lint script is configured. Browser
 screenshot confirmed asymmetric role surfaces. No live API or microphone test was
 needed for this presentation change. Version files advance to 0.7.0.
+
+## 0.8.0 Voice preferences
+
+Existing Preferences now exposes centralized Realtime voice selection, uniform
+preview, speaking style, response depth, Auto Speak, Live Captions and interruption.
+See VOICE.md for persistence and restart details. Ten supported voices verified
+against official docs on 2026-09-08. No conversational architecture or agent change.
+Voice was formerly the VOICE = marin constant in commands/voice.rs; it now comes
+from the shared catalog and validated session creation settings.
+
+201 Rust tests, 22 preference/session checks, 20 existing voice checks and the
+production typecheck/build passed. Browser checks verified all six settings after
+actual reload, preview failure recovery and unchanged conversation/project data.
+Real acoustic barge-in and microphone reconnection remain operator acceptance tests.

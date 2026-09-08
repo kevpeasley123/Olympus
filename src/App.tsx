@@ -1,4 +1,4 @@
-import { realtimeVoice, useVoiceState } from "./services/realtimeVoice";
+import { realtimeVoice, voicePreview, useVoiceState } from "./services/realtimeVoice";
 import { validateVoiceNavigation } from "./services/voiceContract";
 import { operationalStatuses, type OperationalStatus } from "./services/projectCommandBoard";
 import { MotionConfig, motion, useReducedMotion } from "motion/react";
@@ -23,6 +23,7 @@ import type { DashboardMode } from "./hooks/useDashboardMode";
 
 function App() {
   const {
+    settings, settingsReady, updateVoicePreferences,
     tools,
     quickApps,
     projects,
@@ -85,7 +86,8 @@ function App() {
       }
     });
   }, [sendChatMessage, updateVoiceMessage, projects, setMode]);
-  useEffect(() => () => realtimeVoice.stop(), []);
+  useEffect(() => { if(settingsReady)void realtimeVoice.applyPreferences(settings); }, [settings,settingsReady]);
+  useEffect(() => () => {realtimeVoice.stop();voicePreview.stop();}, []);
 
   // Switching modes by any other route clears the filter, so Project mode is
   // never silently showing a subset the operator did not ask for.
@@ -188,6 +190,7 @@ function App() {
       </div>
 
       <AmbientDock
+        voicePreferences={settings} onVoicePreferences={updateVoicePreferences} settingsReady={settingsReady}
         onRefresh={() => void refreshAll()}
         mode={mode}
         onCycleMode={() => {

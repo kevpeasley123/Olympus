@@ -1,6 +1,6 @@
 import { operationalStatuses, type OperationalStatus } from "./projectCommandBoard";
 export type VoicePhase = "IDLE" | "LISTENING" | "PROCESSING" | "SPEAKING" | "ERROR";
-export type VoiceDepth = "ANSWER" | "BRIEF" | "DEEP_DIVE";
+export type VoiceDepth = "SHORT" | "ANSWER" | "BRIEF" | "DEEP_DIVE";
 export type VoiceUiAction = {type:"show_projects";status?:OperationalStatus|"ALL"} | {type:"open_project"|"review_proposal";projectId:string};
 export interface VoiceAnswer {
   spokenResponse:string;
