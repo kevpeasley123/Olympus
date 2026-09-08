@@ -217,3 +217,13 @@ For higher-level system framing, project context, and decision history, see the 
 ## Curated-memory implementation
 
 See [CURATED-MEMORY.md](docs/CURATED-MEMORY.md) for bounded retrieval, persisted source snapshots, and reviewed chat promotion. These additions grant no delegation authority. [OPERATOR-APPROVAL-DESIGN.md](docs/OPERATOR-APPROVAL-DESIGN.md) is proposed, not implemented.
+
+
+## Voice adapter
+
+Phase 1 voice reuses the common assistant turn handler and project command projection.
+Rust mints short-lived Realtime credentials; browser WebRTC owns audio lifecycle.
+The reasoning reply has validated spoken/visual channels; the audio adapter receives
+only the concise spoken text. All action execution remains behind existing approval
+commands. Additive conversation_voice metadata shares message IDs with the existing
+conversation log. See VOICE.md for lifecycle, configuration and verification limits.

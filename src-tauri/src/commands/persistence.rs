@@ -18,6 +18,7 @@ pub struct ToolState {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ConversationMessage {
+    #[serde(default)] pub voice: Option<serde_json::Value>,
     pub id: String,
     pub role: String,
     pub content: String,
@@ -261,13 +262,14 @@ pub fn load_persisted_state(db: State<Db>) -> Result<PersistedState, String> {
 
     let mut conversation_query = connection
         .prepare(
-            "SELECT id, role, content, timestamp, COALESCE((SELECT sources_json FROM conversation_research WHERE message_id = conversation_messages.id), '[]') FROM conversation_messages \
+            "SELECT id, role, content, timestamp, COALESCE((SELECT sources_json FROM conversation_research WHERE message_id = conversation_messages.id), '[]'), (SELECT metadata_json FROM conversation_voice WHERE message_id = conversation_messages.id) FROM conversation_messages \
              ORDER BY created_at ASC, rowid ASC",
         )
         .map_err(|error| error.to_string())?;
     let conversation = conversation_query
         .query_map([], |row| {
             Ok(ConversationMessage {
+                voice: row.get::<_, Option<String>>(5)?.map(|s| serde_json::from_str(&s)).transpose().map_err(|e| rusqlite::Error::FromSqlConversionFailure(5, rusqlite::types::Type::Text, Box::new(e)))?,
                 id: row.get(0)?,
                 role: row.get(1)?,
                 content: row.get(2)?,
@@ -339,6 +341,9 @@ pub(crate) fn store_messages(connection: &mut Connection, messages: Vec<Conversa
     let transaction = connection.transaction().map_err(|e| e.to_string())?;
 
     for message in messages {
+        if let Some(voice) = &message.voice {
+            transaction.execute("INSERT INTO conversation_voice (message_id, metadata_json) VALUES (?1, ?2) ON CONFLICT(message_id) DO UPDATE SET metadata_json=excluded.metadata_json", params![message.id, serde_json::to_string(voice).map_err(|e| e.to_string())?]).map_err(|e| e.to_string())?;
+        }
         transaction.execute(
             "INSERT INTO conversation_research (message_id, sources_json) VALUES (?1, ?2) ON CONFLICT(message_id) DO UPDATE SET sources_json = excluded.sources_json",
             params![message.id, serde_json::to_string(&message.research).map_err(|e| e.to_string())?],
@@ -360,6 +365,7 @@ pub(crate) fn store_messages(connection: &mut Connection, messages: Vec<Conversa
 #[tauri::command]
 pub fn clear_conversation(db: State<Db>) -> Result<(), String> {
     let connection = locked(&db)?;
+    connection.execute("DELETE FROM conversation_voice", []).map_err(|e| e.to_string())?;
     connection.execute("DELETE FROM conversation_research", []).map_err(|e| e.to_string())?;
     connection
         .execute("DELETE FROM conversation_messages", [])
@@ -370,6 +376,23 @@ pub fn clear_conversation(db: State<Db>) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn spoken_and_typed_messages_share_history_and_voice_metadata_survives_updates() {
+        let mut db = Connection::open_in_memory().unwrap();
+        db.execute_batch(include_str!("../../schema.sql")).unwrap();
+        let message = |id: &str, voice: Option<serde_json::Value>| ConversationMessage {
+            id: id.into(), role: "assistant".into(), content: "Full visual detail".into(), timestamp: "12:00".into(), research: vec![], voice,
+        };
+        store_messages(&mut db, vec![message("typed", None), message("spoken", Some(serde_json::json!({"kind":"output","spokenResponse":"Short answer","playback":"pending"}))), message("typed-after",None)]).unwrap();
+        store_messages(&mut db, vec![message("spoken",Some(serde_json::json!({"kind":"output","spokenResponse":"Short answer","audioTranscript":"Short","playback":"interrupted"})))]).unwrap();
+        assert_eq!(db.query_row("SELECT count(*) FROM conversation_messages", [], |r| r.get::<_,i64>(0)).unwrap(),3);
+        let raw: String=db.query_row("SELECT metadata_json FROM conversation_voice WHERE message_id='spoken'",[],|r|r.get(0)).unwrap();
+        let value: serde_json::Value=serde_json::from_str(&raw).unwrap();
+        assert_eq!(value["playback"],"interrupted");assert_eq!(value["spokenResponse"],"Short answer");
+        let order:Vec<String>=db.prepare("SELECT id FROM conversation_messages ORDER BY rowid").unwrap().query_map([],|r|r.get(0)).unwrap().collect::<Result<_,_>>().unwrap();
+        assert_eq!(order, vec!["typed","spoken","typed-after"]);
+    }
 
     fn session_db() -> Db {
         let connection = Connection::open_in_memory().unwrap();

@@ -13,6 +13,7 @@ export interface AssistantNotice {
 }
 
 export interface AssistantReply {
+  voice?: import("./voiceContract").VoiceAnswer;
   research: import("../types").ResearchExcerpt[];
   content: string;
   model: string;
@@ -48,7 +49,8 @@ export async function requestAssistantReply(
   history: ConversationMessage[],
   settings: OlympusSettings,
   projects: TrackedProject[],
-  onEvent?: (event: AssistantStreamEvent) => void
+  onEvent?: (event: AssistantStreamEvent) => void,
+  options?: {voiceDepth?: import("./voiceContract").VoiceDepth; commandBoard?: unknown}
 ): Promise<AssistantReply> {
   if (!isTauriRuntime()) {
     throw new Error(
@@ -58,7 +60,7 @@ export async function requestAssistantReply(
 
   const turns: ChatTurn[] = history.map((message) => ({
     role: message.role,
-    content: message.content
+    content: conversationTurnContent(message)
   }));
 
   // A Channel rather than a global Tauri event: it belongs to this invocation,
@@ -70,6 +72,8 @@ export async function requestAssistantReply(
     history: turns,
     onEvent: channel,
     context: {
+      voiceDepth: options?.voiceDepth,
+      commandBoard: options?.commandBoard,
       projectsRootPath: settings.projectsRootPath,
       projects: projects.map((project) => ({
         name: project.name,
@@ -101,4 +105,10 @@ export function createAssistantMessage(
       hour12: false
     })
   };
+}
+
+/** Keep conversational references to the spoken abstraction available on later typed turns. */
+export function conversationTurnContent(message: ConversationMessage): string {
+  if (message.voice?.kind !== "output") return message.content;
+  return `${message.content}\n\nSpoken summary: ${message.voice.spokenResponse ?? "Unavailable"}\nPlayback: ${message.voice.playback ?? "unconfirmed"}. An interrupted transcript may contain words not heard.\nAudio transcript: ${message.voice.audioTranscript ?? "Unavailable"}`;
 }

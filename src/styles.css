@@ -4459,3 +4459,17 @@ small {
 .command-board-scroll::-webkit-scrollbar { width:6px; }
 .command-board-scroll::-webkit-scrollbar-track { background:#0c1621; }
 .command-board-scroll::-webkit-scrollbar-thumb { background:#36495b; }
+
+.voice-mic-button { background:transparent; border:0; color:#b8a18a; cursor:pointer; padding:8px; flex-shrink:0; }
+.voice-mic-button[aria-pressed="true"] { color:#86c5d0; }
+.console-voice-status { font-size:10px; line-height:1.5; color:#abc2cf; padding:8px 0; border-bottom:1px solid #2a3949; max-height:200px; overflow-y:auto; }
+.console-voice-status p { margin:5px 0; overflow-wrap:anywhere; }
+.console-voice-status strong { font-size:8px; color:#c5a27e; }
+.console-voice-controls { display:flex; gap:8px; flex-wrap:wrap; }
+.console-voice-controls button { font-size:9px; display:flex; gap:4px; align-items:center; }
+.console-spoken-record { border-left:2px solid #6b9ba7; padding:8px 10px; margin:10px 0; color:#bbc9d6; font-size:12px; line-height:1.5; }
+.console-spoken-record strong { color:#b7a18b; font-size:9px; }
+.console-spoken-record small { color:#879bab; font-size:10px; }
+.command-instrument[data-visual-state="listening"] .omega-glow { opacity:.8; }
+.command-instrument[data-visual-state="speaking"][data-voice-energy="active"] .omega-glow { filter:brightness(1.18); }
+@media(prefers-reduced-motion:reduce) { .command-instrument[data-voice-energy] .omega-glow { filter:none; } }

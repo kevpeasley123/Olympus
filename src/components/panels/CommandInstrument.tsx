@@ -25,6 +25,7 @@ import { ProjectRing } from "./ProjectRing";
 
 interface CommandInstrumentProps {
   visualState?: OlympusVisualState;
+  voiceLevel?: number;
   projects: TrackedProject[];
   tasks: ActionQueueTask[];
   tasksLoading: boolean;
@@ -115,6 +116,7 @@ export function CommandInstrument({
   tasksLoading,
   tasksError,
   visualState,
+  voiceLevel = 0,
   assistantPending = false,
   assistantProducing = false,
   assistantModel = null,
@@ -137,7 +139,7 @@ export function CommandInstrument({
   // rather than scheduled, an error or a cancellation that clears them settles
   // back to idle through the same transition as a normal completion, and no
   // animation can be left running.
-  const glyphState = glyphStateFor({
+  const glyphState = visualState === "speaking" ? "speaking" : visualState === "thinking" ? "thinking" : visualState ? "idle" : glyphStateFor({
     pending: assistantPending,
     producing: assistantProducing
   });
@@ -210,7 +212,7 @@ export function CommandInstrument({
   }, []);
 
   return (
-    <div className="command-instrument" data-visual-state={ambientState}
+    <div className="command-instrument" data-visual-state={ambientState} data-voice-energy={voiceLevel > 0.15 ? "active" : "quiet"}
       data-motion={ambient.running ? "running" : "paused"}
       style={{ ...ambientVariables, "--ambient-drift": `${2 / renderScale}px` } as CSSProperties}>
       <div className="command-instrument__dial" ref={dialRef}>

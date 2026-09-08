@@ -14,6 +14,7 @@ use commands::attachments::{
     extract_pdf_text, pick_attachment_file, save_attachment_to_vault,
 };
 use commands::assistant::send_assistant_message;
+use commands::voice::create_voice_session;
 use commands::delegation::{
     cancel_delegation_run, fetch_delegation_diff, list_delegation_runs,
     resume_delegation_run, start_delegation_run, prepare_delegation_run, prepare_delegation_resume, DelegationProcesses,
@@ -331,6 +332,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             send_assistant_message,
+            create_voice_session,
             load_persisted_state,
             save_settings,
             save_tool_states,

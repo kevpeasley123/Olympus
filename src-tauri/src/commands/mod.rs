@@ -27,3 +27,5 @@ pub const VAULT_PATH: &str =
 pub fn get_vault_path() -> PathBuf {
     PathBuf::from(VAULT_PATH)
 }
+
+pub mod voice;

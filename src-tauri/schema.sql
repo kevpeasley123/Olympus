@@ -178,3 +178,5 @@ CREATE TABLE IF NOT EXISTS delegation_reviews (
   run_id TEXT PRIMARY KEY, session_id TEXT NOT NULL, criteria_evidence_json TEXT NOT NULL,
   workspace_hash TEXT NOT NULL, reviewed_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );
+
+CREATE TABLE IF NOT EXISTS conversation_voice (message_id TEXT PRIMARY KEY, metadata_json TEXT NOT NULL);

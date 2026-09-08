@@ -185,3 +185,21 @@ reached.
 Do not turn missing data into confident prose. Show that a vision, next action,
 task scan, or runtime verification is absent. Trust is more important than
 making every surface look complete.
+
+
+## Deliberate voice interaction
+
+Voice is another interface to the same conversation, project truth and reasoning
+backend. The operator deliberately activates the console microphone (or Ctrl+Shift+M).
+No wake word or background activation. While armed, microphone capture is clearly
+labelled, including during answers; Stop voice ends capture. Silence ends a session
+after two minutes; sessions have a fifteen-minute cap.
+
+Each voice answer has a concise spoken abstraction and full visual detail from one
+reasoning turn. Neither is authorization. Audio can be interrupted immediately;
+the visual answer remains available and playback status distinguishes interrupted
+or unavailable audio. Navigation actions may focus Projects; approvals and writes
+require the existing explicit on-screen scope review. Voice confirmation is not
+supported in Phase 1. Text remains available when voice is unavailable.
+
+See VOICE.md for configuration, verification limits and the next phase.

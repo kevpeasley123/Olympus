@@ -4,7 +4,7 @@ import { formatPath } from "../../utils/formatPath";
 import type { ObsidianActionResult } from "../../services/obsidian";
 import { useActionQueue, type ActionQueueTask } from "../../hooks/useActionQueue";
 import { attributeTasks, groupBySourceFile } from "../../services/taskAttribution";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useDelegationRuns } from "../../hooks/useDelegationRuns";
 import { buildProjectCommandBoard, operationalStatuses, reviewProjectContext, sortCommandProjects, type OperationalStatus } from "../../services/projectCommandBoard";
 import { isTauriRuntime } from "../../services/launcher";
@@ -14,6 +14,7 @@ import {
 } from "./DelegationPanel";
 
 interface ProjectsPanelProps {
+  requestedStatus?: {status:OperationalStatus|"ALL";revision:number};
   projects: TrackedProject[];
   sessionBoundary: SessionBoundary | null;
   onSyncCanvas: () => Promise<ObsidianActionResult>;
@@ -39,6 +40,7 @@ const STATUS_LABELS: Record<ProjectStatus, string> = {
 const VISIBLE_TASK_LIMIT = 3;
 
 export function ProjectsPanel({
+  requestedStatus,
   projects: allProjects,
   sessionBoundary,
   onSyncCanvas,
@@ -53,6 +55,7 @@ export function ProjectsPanel({
   const [syncing, setSyncing] = useState(false);
   const [delegationProposal, setDelegationProposal] = useState<DelegationProposal | null>(null);
   const [filter, setFilter] = useState<OperationalStatus | "ALL">("ALL");
+  useEffect(() => { if (requestedStatus) setFilter(requestedStatus.status); }, [requestedStatus]);
   const [sort, setSort] = useState<"priority" | "recent" | "name">("priority");
   const { tasks, error: tasksError, loading: tasksLoading } = useActionQueue();
   const { data: runs, error: runsError, loading: runsLoading } = useDelegationRuns();

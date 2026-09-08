@@ -1,6 +1,9 @@
+import { realtimeVoice, useVoiceState } from "./services/realtimeVoice";
+import { validateVoiceNavigation } from "./services/voiceContract";
+import { operationalStatuses, type OperationalStatus } from "./services/projectCommandBoard";
 import { MotionConfig, motion, useReducedMotion } from "motion/react";
 import type { ReactNode } from "react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { BackgroundLayer } from "./components/BackgroundLayer";
 import { AmbientDock } from "./components/panels/AmbientDock";
 import { ChatPanel } from "./components/panels/ChatPanel";
@@ -32,11 +35,14 @@ function App() {
     chatProducing,
     chatFellBackFrom,
     sendChatMessage,
+    updateVoiceMessage,
     recordObservation,
     syncResearchBase,
     syncProjectsCanvas,
     refreshAll
   } = useDashboardData();
+  const voice = useVoiceState();
+  const [voiceFilter, setVoiceFilter] = useState<{status:OperationalStatus|"ALL"; revision:number}>({status:"ALL",revision:0});
   const { mode, setMode, cycleMode } = useDashboardMode();
   // Subscribed here, not only inside the panels that display them, so both
   // scans run in every mode. Without this the instrument's task and pantheon
@@ -60,6 +66,26 @@ function App() {
     setProjectFilter(projectId);
     setMode("project");
   }
+
+  useEffect(() => {
+    realtimeVoice.configure({
+      answer: sendChatMessage,
+      update: updateVoiceMessage,
+      navigate: candidate => {
+        const action=validateVoiceNavigation(candidate,projects);if(!action)return;
+        // Navigation only. Never dispatch approval, execution, or vault mutation here.
+        if (action.type === "show_projects") {
+          const status = action.status ?? "ALL";
+          if (status !== "ALL" && !operationalStatuses.includes(status)) return;
+          setProjectFilter(null); setMode("project");
+          setVoiceFilter(current => ({status,revision:current.revision+1}));
+        } else if (["open_project","review_proposal"].includes(action.type) && "projectId" in action && projects.some(project => project.id === action.projectId)) {
+          setProjectFilter(action.projectId); setMode("project");
+        }
+      }
+    });
+  }, [sendChatMessage, updateVoiceMessage, projects, setMode]);
+  useEffect(() => () => realtimeVoice.stop(), []);
 
   // Switching modes by any other route clears the filter, so Project mode is
   // never silently showing a subset the operator did not ask for.
@@ -105,6 +131,8 @@ function App() {
             {command ? (
               <FadeInPanel index={1} className="panel-slot panel-slot-instrument">
                 <CommandInstrument
+                  visualState={voice.active || voice.phase === "ERROR" ? ({IDLE:"idle",LISTENING:"listening",PROCESSING:"thinking",SPEAKING:"speaking",ERROR:"error"} as const)[voice.phase] : undefined}
+                  voiceLevel={voice.level}
                   projects={projects}
                   tasks={actionTasks}
                   tasksLoading={actionTasksLoading}
@@ -125,6 +153,7 @@ function App() {
               <>
                 <FadeInPanel index={4} className="panel-slot panel-slot-projects">
                   <ProjectsPanel
+                    requestedStatus={voiceFilter}
                     projects={projects}
                     sessionBoundary={sessionBoundary}
                     onSyncCanvas={syncProjectsCanvas}
@@ -148,7 +177,7 @@ function App() {
             <FadeInPanel index={8} className="panel-slot panel-slot-chat">
               <ChatPanel
                 messages={chat}
-                onSendMessage={sendChatMessage}
+                onSendMessage={text => { realtimeVoice.stop(); void sendChatMessage(text); }}
                 onRecordObservation={recordObservation}
                 pending={chatPending}
                 error={chatError}

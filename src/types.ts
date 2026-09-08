@@ -61,6 +61,7 @@ export interface ResearchExcerpt {
 }
 
 export interface ConversationMessage {
+  voice?: import("./services/voiceContract").VoiceMessageMetadata;
   research?: ResearchExcerpt[];
   id: string;
   role: "system" | "assistant" | "user";

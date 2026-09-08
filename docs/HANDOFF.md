@@ -215,3 +215,22 @@ operator checkpoints or active delegated runs are recorded. The existing 16-chec
 console browser regression fixture also passed. Installed binary matches the build
 apart from the Tauri bundle marker; database integrity and row preservation passed.
 Backup/receipt: parent workspace output/olympus-0.5.0-install. No remote push.
+
+## 0.6.0 Voice Phase 1
+
+Deliberate microphone activation now shares the Command Console history, reasoning
+handler and Project Command Board context. Rust issues ephemeral OpenAI Realtime
+credentials; WebRTC uses gpt-realtime-2.1 / marin for transcription and concise
+spoken output. One reasoning answer produces spoken and visual channels. Speech
+interruption clears playback and suppresses stale audio while preserving accepted
+turns in the visual history. Navigation actions are strictly allowlisted; existing
+execution approval gates remain authoritative. Voice metadata persists in an
+additive SQLite sidecar. See VOICE.md for architecture, files and tuning.
+
+TypeScript, production build, MSI packaging, all 199 Rust tests, 20 simulated voice
+checks and existing service harnesses passed. Console browser regression passed
+16 checks; the voice browser fixture verified failure recovery, draft preservation
+and interruption labels. No lint command exists. Live microphone permissions,
+WebRTC audio, echo handling, voice quality and physical barge-in remain unverified:
+OPENAI_API_KEY is not configured. The ignored worktree .env has a blank setting
+ready for the operator. No permanent credential reaches the frontend.

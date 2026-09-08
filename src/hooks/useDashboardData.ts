@@ -1,3 +1,7 @@
+import { useActionQueue } from "./useActionQueue";
+import { useDelegationRuns } from "./useDelegationRuns";
+import { buildProjectCommandBoard } from "../services/projectCommandBoard";
+import type { VoiceDepth, VoiceAnswer, VoiceMessageMetadata } from "../services/voiceContract";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { conversationStream } from "../services/conversationStream";
 import { seedState } from "../data/seed";
@@ -38,6 +42,12 @@ function errorMessage(error: unknown): string {
 
 export function useDashboardData() {
   const [dashboardState, setDashboardState] = useState<OlympusState>(seedState);
+  const dashboardRef = useRef(dashboardState);
+  dashboardRef.current = dashboardState;
+  const taskStore = useActionQueue();
+  const runStore = useDelegationRuns();
+  const commandBoard = buildProjectCommandBoard(dashboardState.projects, taskStore.tasks, runStore.data, {tasks:!taskStore.error && !taskStore.loading,runs:!runStore.error && !runStore.loading});
+  const boardRef = useRef(commandBoard); boardRef.current = commandBoard;
   const [hydrated, setHydrated] = useState(false);
   const [sessionBoundary, setSessionBoundary] = useState<SessionBoundary | null>(null);
   const [sessionReady, setSessionReady] = useState(false);
@@ -156,21 +166,21 @@ export function useDashboardData() {
   }, [refreshProjects, sessionReady]);
 
   const sendChatMessage = useCallback(
-    async (text: string) => {
+    async (text: string, voiceDepth?: VoiceDepth): Promise<VoiceAnswer | undefined> => {
+      if (voiceDepth) while (requestInFlight.current) await new Promise(resolve => window.setTimeout(resolve, 80));
       const trimmed = text.trim();
       if (!trimmed || requestInFlight.current) return;
       conversationStream.reset();
       emitInstrumentEvent("command-received");
 
       const user = createUserMessage(trimmed);
+      if (voiceDepth) user.voice = {kind:"input"};
 
       // The user's turn lands immediately and is part of the history the model
       // sees, so it is captured before the request goes out.
-      const history = [...dashboardState.conversation, user];
-      setDashboardState((current) => ({
-        ...current,
-        conversation: [...current.conversation, user]
-      }));
+      const history = [...dashboardRef.current.conversation, user];
+      dashboardRef.current = {...dashboardRef.current, conversation:history};
+      setDashboardState(dashboardRef.current);
       void appendConversationMessages([user]);
 
       if (!isTauriRuntime()) {
@@ -196,8 +206,8 @@ export function useDashboardData() {
       try {
         const reply = await requestAssistantReply(
           history,
-          dashboardState.settings,
-          dashboardState.projects,
+          dashboardRef.current.settings,
+          dashboardRef.current.projects,
           (event) => {
             switch (event.kind) {
               case "started":
@@ -206,6 +216,7 @@ export function useDashboardData() {
                 setChatModel(event.model);
                 break;
               case "delta":
+                if (voiceDepth) break; // Never stream the JSON response envelope into the console.
                 // The speaking signal. Idempotent by construction — React bails
                 // on an unchanged value, so every later delta is free.
                 if (speakingStartedAt.current === null) {
@@ -222,15 +233,16 @@ export function useDashboardData() {
                 setChatModel(event.to);
                 break;
             }
-          }
+          },
+          {voiceDepth, commandBoard: boardRef.current}
         );
         const assistant = createAssistantMessage(reply.content, reply.notice, reply.research);
+        if (reply.voice) assistant.voice = {kind:"output",spokenResponse:reply.voice.spokenResponse,playback:"pending",requiresConfirmation:reply.voice.requiresConfirmation};
         setChatModel(reply.model);
-        setDashboardState((current) => ({
-          ...current,
-          conversation: [...current.conversation, assistant]
-        }));
+        dashboardRef.current = {...dashboardRef.current,conversation:[...dashboardRef.current.conversation,assistant]};
+        setDashboardState(dashboardRef.current);
         void appendConversationMessages([assistant]);
+        return reply.voice ? {...reply.voice,messageId:assistant.id} : undefined;
       } catch (error) {
         const partial = conversationStream.current().trim();
         if (partial) {
@@ -246,12 +258,8 @@ export function useDashboardData() {
         // error is caught, and either way this runs. A stuck "thinking" is worse
         // than no indicator, so the reset is structural rather than scheduled.
         //
-        // Cancellation is deliberately unhandled. There is no cancel affordance
-        // anywhere in the app, so it is not a reachable state and defending it
-        // would be code that can never run and never be tested. **If a cancel
-        // button is ever added, it has to clear both flags on this same path** —
-        // an aborted request that skips this `finally` strands the indicator and
-        // the omega's thinking *and* speaking states together.
+        // Voice interruption cancels audio delivery, not the accepted reasoning turn.
+        // Its visual answer is retained; both input modes release the same lock here.
         setChatPending(false);
 
         // The speaking floor. A five-character reply's speaking window measured
@@ -275,6 +283,15 @@ export function useDashboardData() {
     },
     [dashboardState.conversation, dashboardState.projects, dashboardState.settings]
   );
+
+  const updateVoiceMessage = useCallback((id: string, metadata: Partial<VoiceMessageMetadata>) => {
+    const existing = dashboardRef.current.conversation.find(message => message.id === id);
+    if (!existing?.voice) return;
+    const updated = {...existing, voice:{...existing.voice,...metadata}};
+    dashboardRef.current = {...dashboardRef.current,conversation:dashboardRef.current.conversation.map(message => message.id === id ? updated : message)};
+    setDashboardState(dashboardRef.current);
+    void appendConversationMessages([updated]);
+  }, []);
 
   const syncResearchBase = useCallback(async () => {
     try {
@@ -331,6 +348,7 @@ export function useDashboardData() {
       chatProducing,
       chatFellBackFrom,
       sendChatMessage,
+      updateVoiceMessage,
       recordObservation,
       syncResearchBase,
       syncProjectsCanvas,
@@ -347,6 +365,7 @@ export function useDashboardData() {
       chatProducing,
       chatFellBackFrom,
       sendChatMessage,
+      updateVoiceMessage,
       recordObservation,
       syncResearchBase,
       syncProjectsCanvas,
