@@ -166,7 +166,7 @@ export function useDashboardData() {
   }, [refreshProjects, sessionReady]);
 
   const sendChatMessage = useCallback(
-    async (text: string, voiceDepth?: VoiceDepth): Promise<VoiceAnswer | undefined> => {
+    async (text: string, voiceDepth?: VoiceDepth, voiceMessageId?: string): Promise<VoiceAnswer | undefined> => {
       if (voiceDepth) while (requestInFlight.current) await new Promise(resolve => window.setTimeout(resolve, 80));
       const trimmed = text.trim();
       if (!trimmed || requestInFlight.current) return;
@@ -174,7 +174,7 @@ export function useDashboardData() {
       emitInstrumentEvent("command-received");
 
       const user = createUserMessage(trimmed);
-      if (voiceDepth) user.voice = {kind:"input"};
+      if (voiceDepth) { user.voice = {kind:"input"}; if (voiceMessageId) user.id = voiceMessageId; }
 
       // The user's turn lands immediately and is part of the history the model
       // sees, so it is captured before the request goes out.

@@ -9,7 +9,9 @@ export function useConversationScroll(open: boolean) {
   const smooth = useRef(false);
   const restore = useRef<{ id: string; offset: number } | null>(null);
   const forceLatest = useRef(true);
+  const restoreFrame = useRef<number | null>(null);
   const [isFollowing, setIsFollowing] = useState(true);
+  useLayoutEffect(() => () => { if (restoreFrame.current !== null) cancelAnimationFrame(restoreFrame.current); }, []);
   function follow(value: boolean) { following.current = value; setIsFollowing(value); }
   function latest(animate = false) {
     restore.current = null;
@@ -40,7 +42,7 @@ export function useConversationScroll(open: boolean) {
     smooth.current = false;
     follow(near);
   }
-  function interrupt() { smooth.current = false; forceLatest.current = false; follow(false); }
+  function interrupt() { restore.current = null; smooth.current = false; forceLatest.current = false; follow(false); }
   // Runs after DOM changes, before paint: prepending restores a real visible anchor.
   useLayoutEffect(() => {
     const viewport = viewportRef.current;
@@ -49,7 +51,17 @@ export function useConversationScroll(open: boolean) {
       const anchor = [...viewport.querySelectorAll<HTMLElement>("[data-message-id]")]
         .find(element => element.dataset.messageId === restore.current!.id);
       if (anchor) viewport.scrollTop += anchor.getBoundingClientRect().top - viewport.getBoundingClientRect().top - restore.current.offset;
-      restore.current = null;
+      // Child response previews measure themselves during layout. Re-anchor after
+      // their disclosure controls settle, before releasing the preserved position.
+      if (restoreFrame.current !== null) cancelAnimationFrame(restoreFrame.current);
+      restoreFrame.current = requestAnimationFrame(() => {
+        const saved = restore.current;
+        if (!saved) return;
+        const settled = [...viewport.querySelectorAll<HTMLElement>("[data-message-id]")]
+          .find(element => element.dataset.messageId === saved.id);
+        if (settled) viewport.scrollTop += settled.getBoundingClientRect().top - viewport.getBoundingClientRect().top - saved.offset;
+        restore.current = null; restoreFrame.current = null;
+      });
     } else if ((forceLatest.current || following.current) && !smooth.current) {
       viewport.scrollTop = viewport.scrollHeight;
     }

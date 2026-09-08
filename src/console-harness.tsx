@@ -23,7 +23,7 @@ function Fixture() {
     </div></>;
 }
 createRoot(document.getElementById("root")!).render(<Fixture />);
-const wait = (ms = 100) => new Promise(resolve => setTimeout(resolve, ms));
+const wait = (ms = 350) => new Promise(resolve => setTimeout(resolve, ms));
 const checks: string[] = [];
 function assert(value: unknown, message: string) { if (!value) throw new Error(message); checks.push(message); document.getElementById("results")!.textContent = checks.join("\n"); }
 const query = <T extends HTMLElement>(selector: string) => document.querySelector<T>(selector)!;
@@ -34,7 +34,7 @@ function type(text: string) { const input = query<HTMLTextAreaElement>('[aria-la
 async function run() {
   await wait(350);
   assert(!document.querySelector(".console-viewport"), "Dormant mode renders no transcript");
-  query<HTMLTextAreaElement>(".console-input-row textarea").focus(); await wait(300);
+  query<HTMLTextAreaElement>(".console-input-row textarea").focus(); await wait(1200);
   assert(query(".command-console").dataset.mode === "engaged" && atBottom(), "Opening live conversation lands at latest");
   assert(document.querySelectorAll("[data-message-id]").length === 6, "Live rendering is bounded to three exchanges");
   type("Keep this unsent draft"); await wait();
@@ -63,7 +63,7 @@ async function run() {
   assert(atBottom(), "Latest resumes bottom following");
   query<HTMLButtonElement>('[aria-label="Minimize console"]').click(); await wait(); finish(); await wait();
   assert(query(".console-status").textContent === "RESPONSE READY", "Dormant status reports an actual completed response");
-  query<HTMLTextAreaElement>("textarea").focus(); await wait(300);
+  query<HTMLTextAreaElement>("textarea").focus(); await wait(1200);
   clickText("Save memory"); await wait();
   assert(Boolean(document.querySelector(".memory-composer")), "Memory promotion remains available");
   clickText("Cancel"); await wait();

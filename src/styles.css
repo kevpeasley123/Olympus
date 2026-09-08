@@ -4473,3 +4473,26 @@ small {
 .command-instrument[data-visual-state="listening"] .omega-glow { opacity:.8; }
 .command-instrument[data-visual-state="speaking"][data-voice-energy="active"] .omega-glow { filter:brightness(1.18); }
 @media(prefers-reduced-motion:reduce) { .command-instrument[data-voice-energy] .omega-glow { filter:none; } }
+
+/* Conversation roles are spatially distinct; identity remains textual. */
+.command-console .conversation-bubble { width:fit-content; max-width:88%; margin:22px auto 0 0; padding:13px 14px 10px; background:#0b1723; border:1px solid #28404e; border-left:2px solid #487684; border-radius:3px; }
+.command-console .conversation-bubble.user { max-width:68%; margin-left:auto; margin-right:0; background:#1b2735; border:1px solid #394b60; }
+.command-console .conversation-bubble.system { max-width:90%; margin-left:auto; border-style:dashed; background:#111923; }
+.command-console .conversation-bubble[data-same-speaker="true"] { margin-top:8px; }
+.command-console .conversation-bubble:first-child { margin-top:4px; }
+.command-console .conversation-bubble .console-message-label { display:flex; align-items:center; gap:6px; color:#a4b7c6; }
+.command-console .conversation-bubble.user .console-message-label { justify-content:flex-end; }
+.command-console .conversation-bubble .console-command-text { color:#e0e6ed; margin:0; }
+.console-modality { display:inline-flex; opacity:.65; }
+.console-turn-state { font-size:8px; color:#8bc3cb; letter-spacing:.04em; }
+.console-response-preview[data-collapsed="true"] { max-height:220px; overflow:hidden; }
+.console-response-preview > :first-child { margin-top:0; }
+.console-response-preview > :last-child { margin-bottom:0; }
+.console-expand-response, .console-response-details > summary { color:#b4cbd4; font-size:10px; margin-top:10px; cursor:pointer; }
+.console-expand-response { background:none; border:0; padding:0; }
+.console-response-details[open] > summary { margin-bottom:12px; }
+.console-audio-footer { display:flex; align-items:center; flex-wrap:wrap; gap:8px; margin-top:10px; }
+.console-audio-footer details { width:100%; font-size:10px; color:#8da4b6; }
+.command-console .conversation-bubble small { color:#99a9ba; }
+.command-console .conversation-bubble-footer { border-top:1px solid #ffffff0b; padding-top:8px; }
+.console-voice-status { max-height:110px; }

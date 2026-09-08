@@ -1,6 +1,6 @@
 import { realtimeVoice, useVoiceState } from "../../services/realtimeVoice";
 import { VOICE_CLIENT } from "../../services/voiceContract";
-import { Mic, MicOff, Volume2, VolumeX, Square } from "lucide-react";
+import { Mic, MicOff, Volume2, VolumeX, Square, Keyboard } from "lucide-react";
 import { ChevronRight, NotebookPen, X, History } from "lucide-react";
 import type { CSSProperties } from "react";
 import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
@@ -50,6 +50,9 @@ export function ChatPanel({ messages, onSendMessage, onRecordObservation, pendin
   const scroll = useConversationScroll(mode !== "dormant");
   const editingMemory = memorySource !== null || observation !== null;
   const visibleMessages = mode === "transcript" ? messages.slice(historyStart) : messages.slice(liveStart);
+  const liveInput = voice.active && voice.inputMessageId && !messages.some(message => message.id === voice.inputMessageId)
+    ? {id:voice.inputMessageId,role:"user" as const,content:voice.inputText || "Listening…",timestamp:"",voice:{kind:"input" as const}} : null;
+  const renderedMessages = liveInput ? [...visibleMessages,liveInput] : visibleMessages;
   const status = voice.connecting ? "CONNECTING VOICE" : voice.active ? (voice.phase === "IDLE" ? "MICROPHONE ON" : voice.phase) : voice.phase === "ERROR" ? "VOICE UNAVAILABLE" : pending ? (streamText ? "RESPONDING" : "PROCESSING") : error ? "RESPONSE ERROR" : responseReady ? "RESPONSE READY" : "OLYMPUS READY";
 
   function showLive(smooth = false) {
@@ -65,7 +68,7 @@ export function ChatPanel({ messages, onSendMessage, onRecordObservation, pendin
   }
   useEffect(() => {
     if (voice.active || voice.connecting) { setMode("engaged"); setLiveStart(liveConversationStart(messages)); }
-  }, [voice.active, voice.connecting, messages]);
+  }, [voice.active, voice.connecting]);
   useEffect(() => {
     const shortcut = (event:KeyboardEvent) => {
       if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.code === VOICE_CLIENT.shortcutCode && !event.repeat) {
@@ -186,14 +189,16 @@ export function ChatPanel({ messages, onSendMessage, onRecordObservation, pendin
             {mode === "transcript" && historyStart > 0 && <button type="button" className="console-load-history"
               onClick={() => { scroll.preserve(); setHistoryStart(Math.max(0, historyStart - CONSOLE.historyPage)); }}>
               ↑ Load earlier · {historyStart} messages</button>}
-            {visibleMessages.map(message => <ConversationBubble key={message.id} message={message}
+            {renderedMessages.map((message,index) => <ConversationBubble key={message.id} message={message}
+              sameSpeaker={index > 0 && renderedMessages[index-1].role === message.role} live={message === liveInput}
+              speaking={voice.phase === "SPEAKING" && voice.outputMessageId === message.id}
               onNoteThis={noteMessage} onSaveMemory={saveMessage} />)}
             {pending && <article className="conversation-bubble assistant console-stream" data-message-id="stream">
               <p className="console-message-label">OLYMPUS</p>
               {streamText ? <div className="console-markdown"><ReactMarkdown remarkPlugins={[remarkGfm]} skipHtml components={consoleMarkdownComponents}>{streamText}</ReactMarkdown></div> : <p className="console-processing">Processing command…</p>}
             </article>}
             {error && <p className="console-error" role="alert">{error}</p>}
-            {visibleMessages.length === 0 && !pending && <p className="console-empty">The console is ready for your command.</p>}
+            {renderedMessages.length === 0 && !pending && <p className="console-empty">The console is ready for your command.</p>}
           </div>
         </div>
         {!scroll.isFollowing && <button type="button" className="console-latest" onClick={() => scroll.latest(true)}>↓ Latest</button>}
@@ -259,8 +264,6 @@ export function ChatPanel({ messages, onSendMessage, onRecordObservation, pendin
       <div className="console-command-bar">
         {(voice.active || voice.connecting || voice.error) && <div className="console-voice-status" role="status" aria-live="polite">
           <span>{voice.error || (voice.connecting ? "Connecting voice…" : "Microphone on · audio sent to OpenAI · stop to end")}</span>
-          {voice.inputText && <p><strong>USER SPOKE</strong> {voice.inputText}</p>}
-          {voice.outputText && <p><strong>OLYMPUS SPOKEN RESPONSE</strong> {voice.outputText}</p>}
           {voice.active && <div className="console-voice-controls"><button className="ghost-action" onClick={() => realtimeVoice.mute()} aria-pressed={voice.muted} aria-label={voice.muted ? "Unmute voice output" : "Mute voice output"}>{voice.muted ? <VolumeX size={13}/> : <Volume2 size={13}/>} {voice.muted ? "Unmute" : "Mute"}</button><button className="ghost-action" onClick={() => realtimeVoice.interrupt()}><Square size={12}/> Interrupt</button><button className="ghost-action" onClick={() => realtimeVoice.stop()}>Stop voice</button></div>}
         </div>}
 
@@ -284,29 +287,32 @@ export function ChatPanel({ messages, onSendMessage, onRecordObservation, pendin
 const ConversationBubble = memo(function ConversationBubble({
   message,
   onNoteThis,
-  onSaveMemory
+  onSaveMemory, sameSpeaker = false, live = false, speaking = false
 }: {
   message: ConversationMessage;
+  sameSpeaker?: boolean; live?: boolean; speaking?: boolean;
   onNoteThis: (message: ConversationMessage) => void;
   onSaveMemory: (message: ConversationMessage) => void;
 }) {
+  const spoken = message.voice?.kind === "output" ? message.voice.spokenResponse : undefined;
+  const primary = spoken || message.content;
   return (
-    <article className={`conversation-bubble ${message.role}`} data-message-id={message.id}>
-      <p className="console-message-label">{message.voice?.kind === "input" ? "USER SPOKE" : message.voice?.kind === "output" ? "OLYMPUS · VOICE TURN" : message.role === "user" ? "COMMAND" : message.role === "assistant" ? "OLYMPUS" : "SYSTEM / ACTION EVENT"}</p>
-      {message.role === "user" ? <p className="console-command-text"><span aria-hidden="true">› </span>{message.content}</p> :
-        <div className="console-markdown"><ReactMarkdown remarkPlugins={[remarkGfm]} skipHtml components={consoleMarkdownComponents}>{message.content}</ReactMarkdown></div>}
-      {message.voice?.kind === "output" && <section className="console-spoken-record">
-        <strong>{message.voice.playback === "completed" ? "OLYMPUS SPOKE" : "SPOKEN RESPONSE"}</strong>
-        <p>{message.voice.spokenResponse}</p>
-        <small>{message.voice.playback === "interrupted" ? "Playback interrupted; displayed text may include unspoken words." : message.voice.playback === "unavailable" ? "Audio unavailable or muted; text preserved." : message.voice.playback === "pending" ? "Audio delivery not confirmed." : "Playback completed."}</small>
-        {message.voice.audioTranscript && <details><summary>Audio transcript</summary><p>{message.voice.audioTranscript}</p></details>}
-        {message.voice.requiresConfirmation && <p className="conversation-notice">Authorization required. Review and confirm the exact scope in the project’s existing approval controls. This conversation has not approved or executed anything.</p>}
-        <ReplayVoice text={message.voice.spokenResponse ?? ""}/>
-      </section>}
-      {/* Appended below the text, never in place of it. Text that streamed is
-          text that happened; retracting it would leave no way to tell a misread
-          from a broken app. The distinct treatment is the point — this is
-          Olympus speaking about the turn, not the assistant. */}
+    <article className={`conversation-bubble ${message.role}`} data-message-id={message.id} data-same-speaker={sameSpeaker} data-live={live || undefined} aria-label={message.role === "user" ? "You" : message.role === "assistant" ? "Olympus" : "System event"}>
+      <p className="console-message-label">
+        {message.role === "assistant" && <span className="console-omega" aria-hidden="true">Ω</span>}
+        {message.role === "user" ? "YOU" : message.role === "assistant" ? "OLYMPUS" : "SYSTEM"}
+        <span className="console-modality" title={message.voice ? "Voice message" : "Typed message"}>{message.voice ? <Mic size={10} aria-label="Voice"/> : <Keyboard size={10} aria-label="Text"/>}</span>
+        {live && <span className="console-turn-state">Listening</span>}
+        {speaking && <span className="console-turn-state">Speaking</span>}
+      </p>
+      {message.role === "user" ? <p className="console-command-text">{primary}</p> : <ResponseText text={primary}/>}
+      {spoken && spoken !== message.content && <details className="console-response-details"><summary>View full response ↓</summary><ResponseText text={message.content} unrestricted/></details>}
+      {message.voice?.kind === "output" && <div className="console-audio-footer">
+        <ReplayVoice text={spoken ?? ""}/>
+        <small>{speaking ? "Playing" : message.voice.playback === "interrupted" ? "Playback interrupted · some words may not have played" : message.voice.playback === "unavailable" ? "Audio unavailable · text preserved" : message.voice.playback === "pending" ? "Preparing audio" : "Played"}</small>
+        {message.voice.audioTranscript && message.voice.audioTranscript.trim() !== spoken?.trim() && <details><summary>Playback details</summary><p>{message.voice.audioTranscript}</p></details>}
+      </div>}
+      {message.voice?.requiresConfirmation && <p className="conversation-notice">Authorization required. Review and confirm the exact scope in the project’s existing approval controls.</p>}
       {message.notice && (
         <p className={`conversation-notice conversation-notice--${message.notice.kind}`}>
           {message.notice.message}
@@ -322,7 +328,7 @@ const ConversationBubble = memo(function ConversationBubble({
           <blockquote>{source.excerpt}</blockquote>
         </details>)}
       </details>}
-      <div className="conversation-bubble-footer">
+      {!live && <div className="conversation-bubble-footer">
         {message.role !== "system" && <button type="button" className="observation-seed" onClick={() => onSaveMemory(message)}>Save memory</button>}
         {message.role === "assistant" && (
           <button type="button" className="observation-seed" onClick={() => onNoteThis(message)}>
@@ -330,12 +336,26 @@ const ConversationBubble = memo(function ConversationBubble({
           </button>
         )}
         <small className="tabular-data">{message.timestamp}</small>
-      </div>
+      </div>}
     </article>
   );
 });
 
 function ReplayVoice({text}:{text:string}) {
   const voice=useVoiceState();
-  return <button className="observation-seed" disabled={!voice.active || !text || voice.phase === "PROCESSING"} title="Activate voice to replay this spoken summary" onClick={() => realtimeVoice.replay(text)}>Replay spoken summary</button>;
+  return <button className="observation-seed" disabled={!voice.active || !text || voice.phase === "PROCESSING"} title="Activate voice to replay this spoken summary" onClick={() => realtimeVoice.replay(text)}>Replay</button>;
+}
+
+function ResponseText({text, unrestricted = false}:{text:string; unrestricted?:boolean}) {
+  const [expanded,setExpanded]=useState(false);
+  const [overflows,setOverflows]=useState(false);
+  const content=useRef<HTMLDivElement>(null);
+  useLayoutEffect(()=>{
+    const node=content.current;if(!node)return;
+    const measure=()=>setOverflows(node.scrollHeight>220);
+    measure();const observer=new ResizeObserver(measure);observer.observe(node);return()=>observer.disconnect();
+  },[text]);
+  return <><div ref={content} className="console-markdown console-response-preview" data-collapsed={!unrestricted && !expanded || undefined}>
+    <ReactMarkdown remarkPlugins={[remarkGfm]} skipHtml components={consoleMarkdownComponents}>{text}</ReactMarkdown>
+  </div>{!unrestricted && overflows && <button className="console-expand-response" aria-expanded={expanded} onClick={()=>setExpanded(value=>!value)}>{expanded ? "Show less ↑" : "View full response ↓"}</button>}</>;
 }

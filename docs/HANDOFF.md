@@ -252,3 +252,24 @@ known API error codes into actionable quota, credit, spend or rate-limit message
 with an honest generic fallback. Raw error bodies/unknown codes are never displayed.
 Ten targeted classification and redaction checks and TypeScript/Vite build passed.
 No billing settings changed and no claim of successful live audio.
+
+## 0.7.0 Asymmetric conversation layout
+
+User turns align right (68% maximum width), Olympus turns left (88%) with steel
+and navy surfaces, cyan structure and an orange Omega. Both voice and text use
+ConversationBubble in ChatPanel. Spoken summaries are the primary voice content;
+full visual answers remain available under View full response. Long typed answers
+have a measured 220px preview with expansion. Small identity/modality labels remain.
+The lower bar contains microphone status, mute, interrupt and stop controls only.
+
+Realtime snapshot exposes transient input/output message IDs. The common turn
+handler uses the input ID for the persisted message, so React retains the same
+bubble on finalization without duplicate content. No new persistence store or
+model/voice configuration changes. Consecutive speakers use tighter spacing.
+History restoration now accounts for measured response disclosure heights.
+
+Verification: 20 simulated voice protocol checks, voice browser layout/disclosure/
+identity/deduplication checks, and all 16 console browser regressions passed.
+TypeScript and production build passed; no lint script is configured. Browser
+screenshot confirmed asymmetric role surfaces. No live API or microphone test was
+needed for this presentation change. Version files advance to 0.7.0.
