@@ -234,3 +234,11 @@ and interruption labels. No lint command exists. Live microphone permissions,
 WebRTC audio, echo handling, voice quality and physical barge-in remain unverified:
 OPENAI_API_KEY is not configured. The ignored worktree .env has a blank setting
 ready for the operator. No permanent credential reaches the frontend.
+
+Installed and reopened 0.6.0, release b257220. Native inspection confirms the
+microphone control in the existing console. Windows version and binary comparison
+passed (only the expected Tauri bundle marker differs). SQLite integrity is ok,
+all existing row counts are preserved, and the additive voice table exists.
+Backup and receipt: parent workspace output/olympus-0.6.0-install. Live audio remains
+unverified pending key configuration. Main and implementation branches integrated
+locally; no remote push.
