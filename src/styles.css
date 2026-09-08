@@ -4391,3 +4391,71 @@ small {
 @media (max-width: 1000px) { .focus-mode .main-grid { grid-template-columns: 44px minmax(0, 1fr); } }
 
 .console-viewport { mask-image: linear-gradient(to bottom, transparent, #000 12px, #000); }
+
+/* Project Command: one scrolling overview, details mounted only on navigation. */
+.project-command { min-width: 0; overflow: hidden; display:flex; flex-direction:column; }
+.command-board-heading { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:18px 20px 14px; border-bottom:1px solid #253343; flex-shrink:0; }
+.command-board-heading h2 { margin:5px 0 0; font-size:19px; letter-spacing:.09em; color:#e6e9ed; overflow-wrap:anywhere; }
+.command-board-heading>span,.command-board-kicker { font:10px "JetBrains Mono",monospace; letter-spacing:.12em; color:#ab9178; }
+.command-board-scroll { overflow-y:auto; overflow-x:hidden; min-height:0; padding:16px 20px; display:flex; flex-direction:column; gap:16px; scrollbar-gutter:stable; }
+.command-board-scroll>* { flex-shrink:0; min-width:0; }
+.command-board-brief { border-left:2px solid #b47849; background:#111c29; padding:12px 15px; }
+.command-board-brief>div { display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap; }
+.command-board-brief h3,.command-attention h3 { margin:0; font:11px "JetBrains Mono",monospace; letter-spacing:.07em; color:#d7b18c; }
+.command-board-brief span { font:8px "JetBrains Mono",monospace; color:#8c99a8; }
+.command-board-brief p,.command-attention p { font-size:12px; line-height:1.6; margin:9px 0; color:#b9c4cf; }
+.command-board-brief button { padding-left:0; font-size:11px; }
+.command-attention { border-bottom:1px solid #253343; padding-bottom:10px; }
+.command-attention h3 { display:flex; justify-content:space-between; }
+.command-attention-item { display:flex; align-items:center; gap:12px; justify-content:space-between; padding:12px 0; border-top:1px solid #253343; margin-top:10px; }
+.command-attention-item strong { font-size:12px; color:#e3d0bd; }
+.command-attention-item small { color:#a2afbd; }
+.command-board-filters { display:flex; flex-wrap:wrap; gap:4px 12px; }
+.command-board-filters button { background:none; border:0; border-bottom:1px solid transparent; color:#8999a9; font:9px "JetBrains Mono",monospace; padding:7px 0; cursor:pointer; }
+.command-board-filters button[aria-pressed="true"] { color:#e6b586; border-color:#d29864; }
+.command-board-filters button span { opacity:.7; }
+.command-board-list-heading { display:flex; justify-content:space-between; align-items:center; font:9px "JetBrains Mono",monospace; color:#95a5b5; }
+.command-board-list-heading select { background:#101b28; color:#bdc9d5; border:1px solid #2a3b4d; padding:5px; margin-left:8px; }
+.command-board-rows { display:flex; flex-direction:column; gap:10px; }
+.command-project-row { padding:14px 15px 11px; border:1px solid #263545; background:#0e1925; min-width:0; }
+.command-project-row.status-needs_you { border-left:2px solid #c38b57; }
+.command-project-row>header { display:flex; justify-content:space-between; align-items:center; gap:12px; }
+.command-project-row h3 { margin:0; color:#e0e6ec; font-size:14px; overflow-wrap:anywhere; }
+.command-operational-status { color:#bba68e; font:9px "JetBrains Mono",monospace; flex-shrink:0; }
+.command-project-purpose { margin:5px 0 12px; font-size:11px; color:#8293a4; overflow-wrap:anywhere; }
+.command-project-columns { display:grid; grid-template-columns:1fr 1.1fr 1fr; gap:16px; }
+.command-project-columns section { min-width:0; }
+.command-project-columns h4 { margin:0 0 6px; font:9px "JetBrains Mono",monospace; color:#9aacbd; letter-spacing:.04em; }
+.command-project-columns h4 span { display:block; font-size:8px; color:#c6a17e; margin-top:4px; }
+.command-project-columns p { margin:0; color:#bcc7d2; font-size:11px; line-height:1.55; overflow-wrap:anywhere; }
+.command-project-columns small { display:block; font-size:9px; color:#8391a0; margin-top:5px; }
+.command-project-row>footer { display:flex; justify-content:space-between; align-items:center; gap:10px; border-top:1px solid #213040; padding-top:8px; margin-top:12px; }
+.command-project-row>footer>div { display:flex; gap:5px 12px; flex-wrap:wrap; font-size:9px; color:#8495a6; }
+.command-project-row>footer button { flex-shrink:0; font-size:10px; }
+.command-board-notice { color:#94a2b0; font-size:10px; line-height:1.5; margin:0; overflow-wrap:anywhere; }
+.command-project-detail { color:#b9c7d4; font-size:13px; line-height:1.6; overflow-wrap:anywhere; }
+.command-project-detail h3 { color:#cfb59b; font-size:11px; margin:18px 0 6px; }
+.command-board-actions { display:flex; gap:12px; flex-wrap:wrap; }
+.command-unattributed { color:#a8b6c4; font-size:11px; }
+.command-board-scroll .project-card,.command-board-scroll .delegation-panel { min-width:0; overflow-wrap:anywhere; }
+.command-board-scroll .project-card-header,.command-board-scroll .project-top-meta { flex-wrap:wrap; }
+.command-board-scroll .project-path { white-space:normal; overflow-wrap:anywhere; }
+.command-board-scroll pre { white-space:pre-wrap; overflow-wrap:anywhere; }
+.console-project-context { font-size:10px; color:#bca489; padding:4px 0; }
+.console-project-context pre { max-height:160px; overflow:auto; white-space:pre-wrap; overflow-wrap:anywhere; }
+
+@media(max-width:1050px) { .command-project-columns { grid-template-columns:1fr; } .command-board-scroll { padding:12px; } .command-project-row>footer { align-items:flex-start; } }
+
+.project-command.dashboard-panel { padding:0; }
+.command-board-heading { padding:14px 16px 12px; }
+.command-board-scroll { padding:12px 16px; gap:12px; flex:1 1 auto; }
+.command-board-brief { padding:10px 12px; }
+.command-board-brief .ghost-action { min-height:24px; padding:4px 8px; }
+.command-board-list-heading label { display:flex; align-items:center; gap:6px; margin:0; }
+.command-board-list-heading select { width:auto; min-height:24px; font-size:10px; }
+.command-attention>p { margin:6px 0 0; font-size:11px; }
+.project-command .projects-footer { margin:0; padding:8px 16px; }
+.project-command .ghost-action { font-size:10px; }
+.command-board-scroll::-webkit-scrollbar { width:6px; }
+.command-board-scroll::-webkit-scrollbar-track { background:#0c1621; }
+.command-board-scroll::-webkit-scrollbar-thumb { background:#36495b; }

@@ -1,7 +1,7 @@
 import { DelegationReview } from "./DelegationReview";
-import { listen } from "@tauri-apps/api/event";
+import { useDelegationRuns } from "../../hooks/useDelegationRuns";
 import { Bot, GitBranch, Square, X } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   cancelDelegationRun,
   prepareDelegationRun,
@@ -9,7 +9,6 @@ import {
   cancelDelegationProposal,
   type ApprovalProposal,
   fetchDelegationDiff,
-  listDelegationRuns,
   resumeDelegationRun,
   startDelegationRun,
   type DelegationRun
@@ -24,6 +23,7 @@ export interface DelegationProposal {
 
 interface DelegationPanelProps {
   proposal: DelegationProposal | null;
+  projectId?: string;
   onDismissProposal: () => void;
 }
 
@@ -37,7 +37,7 @@ function isActive(run: DelegationRun): boolean {
 
 export function DelegationPanel({
   proposal,
-  onDismissProposal
+  onDismissProposal, projectId
 }: DelegationPanelProps) {
   const [draftTask, setDraftTask] = useState("");
   const [criteria, setCriteria] = useState("");
@@ -45,53 +45,20 @@ export function DelegationPanel({
   const [resuming, setResuming] = useState(false);
   const [reviewRun, setReviewRun] = useState<string | null>(null);
   useEffect(() => { setDraftTask(proposal?.task ?? ""); setCriteria(""); setPrepared(null); }, [proposal]);
-  const [runs, setRuns] = useState<DelegationRun[]>([]);
+  const { data: runs, refresh, error: runsError } = useDelegationRuns();
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [diffs, setDiffs] = useState<Record<string, string>>({});
   const desktop = isTauriRuntime();
 
-  const refresh = useCallback(async () => {
-    if (!desktop) return;
-    try {
-      setRuns(await listDelegationRuns());
-    } catch (reason) {
-      setError(message(reason));
-    }
-  }, [desktop]);
-
-  useEffect(() => {
-    void refresh();
-    if (!desktop) return;
-
-    let disposed = false;
-    let unlisten: (() => void) | undefined;
-    void listen<DelegationRun>("delegation-run-updated", (event) => {
-      if (disposed) return;
-      setRuns((current) => [
-        event.payload,
-        ...current.filter((run) => run.id !== event.payload.id)
-      ]);
-    }).then((dispose) => {
-      if (disposed) dispose();
-      else unlisten = dispose;
-    });
-    const timer = window.setInterval(() => void refresh(), 3_000);
-    return () => {
-      disposed = true;
-      unlisten?.();
-      window.clearInterval(timer);
-    };
-  }, [desktop, refresh]);
-
-  const visibleRuns = useMemo(() => runs.slice(0, 5), [runs]);
+  const visibleRuns = useMemo(() => runs.filter(run => !projectId || run.projectId === projectId), [runs, projectId]);
 
   async function act(label: string, action: () => Promise<DelegationRun>) {
     setBusy(label);
     setError(null);
     try {
       const run = await action();
-      setRuns((current) => [run, ...current.filter((item) => item.id !== run.id)]);
+      await refresh();
       return run;
     } catch (reason) {
       setError(message(reason));
@@ -143,7 +110,7 @@ export function DelegationPanel({
     }
   }
 
-  if (!proposal && visibleRuns.length === 0) return null;
+  if (!proposal && visibleRuns.length === 0 && !runsError) return null;
 
   return (
     <section className="delegation-panel" aria-label="Coding agent delegation">
@@ -216,7 +183,7 @@ export function DelegationPanel({
         </div>
       </article>}
 
-      {error ? <p className="delegation-error">{error}</p> : null}
+      {error || runsError ? <p className="delegation-error">{error || runsError}</p> : null}
 
       {visibleRuns.length > 0 ? (
         <div className="delegation-runs">
@@ -301,7 +268,7 @@ export function DelegationPanel({
               </div>
 
               {run.phase === "awaiting_review" && <button className="delegation-action delegation-action--primary" onClick={() => setReviewRun(reviewRun === run.id ? null : run.id)}>Review result and evidence</button>}
-              {reviewRun === run.id && ["awaiting_review", "testing"].includes(run.phase) && <DelegationReview runId={run.id} onComplete={updated => { setRuns(current => [updated, ...current.filter(r => r.id !== updated.id)]); setReviewRun(null); }} />}
+              {reviewRun === run.id && ["awaiting_review", "testing"].includes(run.phase) && <DelegationReview runId={run.id} onComplete={() => { void refresh(); setReviewRun(null); }} />}
               {diffs[run.id] ? (
                 <pre className="delegation-diff">{diffs[run.id]}</pre>
               ) : null}

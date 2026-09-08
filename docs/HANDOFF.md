@@ -191,3 +191,19 @@ passed. Backup/receipt: parent workspace output/olympus-0.4.0-install. Desktop
 inspection confirmed dormant layout, Ctrl+K opening, and the latest saved reply at the
 bottom with the central instrument clear. Further native history interaction was left
 to the operator when input was detected; browser history tests passed. No remote push.
+
+
+## 0.5.0 Project Command Board
+
+Project mode now opens an operational overview with a deterministic brief,
+recorded operator checkpoints, compact state/next-move/owner/recommendation rows,
+status filtering and priority/recency/name sorting. Open Project mounts a single
+workspace with the original Canvas and delegation authorization boundaries intact.
+Shared delegation polling supplies the board and detail view. Console review attaches
+inspectable context without replacing an unsent draft or automatically sending.
+
+Status is a read-only projection of vault classification/intent and actual delegation
+phases. General ownership, readiness, blockers and external waiting remain unknown;
+Git activity never implies execution. See PROJECT-COMMAND-BOARD.md for derivation.
+Pure status checks (15), existing six service harnesses, browser board checks (12),
+and TypeScript/Vite production build passed. No lint command is configured.

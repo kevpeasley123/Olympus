@@ -22,17 +22,12 @@ interface. Project names live on the ring; hovering one may show only its name
 and open-task count. Briefing prose and repository details belong in Project
 mode.
 
-Project mode carries the readable session briefing:
-
-1. What changed since the last working session?
-2. Where does each active project stand?
-3. What did Kevin already commit to doing next?
-4. What does Olympus recommend now?
-5. What is risky, contradictory, stale, or waiting for a decision?
-6. Which two or three paths would make meaningful progress today?
-
-The briefing uses plain language first. Technical details remain available when
-they affect a decision or are requested.
+Project mode opens the Project Command Board: compact operational status,
+operator checkpoints, next move and owner, and clearly labelled deterministic
+recommendations. Detailed vision, recent work, tasks and delegation controls belong
+behind Open Project. Unknown state stays explicit; recorded intent does not imply
+readiness, approval or execution. Review with Olympus supplies context to the existing
+Command Console and waits for the operator to send. See PROJECT-COMMAND-BOARD.md.
 
 ## Project truth
 

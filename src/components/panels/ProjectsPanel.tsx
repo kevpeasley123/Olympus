@@ -1,11 +1,13 @@
-import { FolderGit2, GitBranch, ListChecks, X } from "lucide-react";
+import { GitBranch, ListChecks } from "lucide-react";
 import type { ProjectStatus, SessionBoundary, TrackedProject } from "../../types";
 import { formatPath } from "../../utils/formatPath";
 import type { ObsidianActionResult } from "../../services/obsidian";
 import { useActionQueue, type ActionQueueTask } from "../../hooks/useActionQueue";
 import { attributeTasks, groupBySourceFile } from "../../services/taskAttribution";
 import { useState } from "react";
-import { ProjectBriefing } from "./ProjectBriefing";
+import { useDelegationRuns } from "../../hooks/useDelegationRuns";
+import { buildProjectCommandBoard, operationalStatuses, reviewProjectContext, sortCommandProjects, type OperationalStatus } from "../../services/projectCommandBoard";
+import { isTauriRuntime } from "../../services/launcher";
 import {
   DelegationPanel,
   type DelegationProposal
@@ -47,139 +49,82 @@ export function ProjectsPanel({
   onFocusProject,
   onOpenNote
 }: ProjectsPanelProps) {
-  const projects = projectFilter
-    ? allProjects.filter((project) => project.id === projectFilter)
-    : allProjects;
   const [status, setStatus] = useState<ObsidianActionResult | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [delegationProposal, setDelegationProposal] = useState<DelegationProposal | null>(null);
-  // The Action Queue dissolved into this panel, so its fetch moved with it
-  // rather than a second one being added alongside.
-  const { tasks, error: tasksError } = useActionQueue();
-
+  const [filter, setFilter] = useState<OperationalStatus | "ALL">("ALL");
+  const [sort, setSort] = useState<"priority" | "recent" | "name">("priority");
+  const { tasks, error: tasksError, loading: tasksLoading } = useActionQueue();
+  const { data: runs, error: runsError, loading: runsLoading } = useDelegationRuns();
+  const rows = buildProjectCommandBoard(allProjects, tasks, runs, { tasks: !tasksError && !tasksLoading, runs: !runsError && !runsLoading });
+  const selected = rows.find(row => row.project.id === projectFilter);
+  const visible = sortCommandProjects(rows.filter(row => filter === "ALL" || row.operationalStatus === filter), sort);
+  const attention = rows.filter(row => row.operatorDecisions.length > 0);
+  const { perProject, unattributed } = attributeTasks(allProjects, tasks);
+  const warnings = [...noteWarnings, ...allProjects.flatMap(project => project.warnings)];
+  const label = (value: string) => value.replace(/_/g, " ");
   async function handleSyncCanvas() {
     setSyncing(true);
-    const result = await onSyncCanvas();
-    setStatus(result);
-    setSyncing(false);
+    try { setStatus(await onSyncCanvas()); } finally { setSyncing(false); }
   }
-
-  // A note whose status failed to parse looks exactly like a project nobody
-  // classified, so the count has to be visible rather than only logged.
-  const warningCount =
-    noteWarnings.length + projects.reduce((total, project) => total + project.warnings.length, 0);
-
-  // Attribute against the whole portfolio before filtering the visible cards.
-  // Otherwise tasks belonging to a hidden project are falsely presented as
-  // unattributed whenever Project mode focuses one workspace.
-  const { perProject, unattributed } = attributeTasks(allProjects, tasks);
-  const filterLabel = projectFilter
-    ? allProjects.find((project) => project.id === projectFilter)?.name ?? "project"
-    : null;
-
-  return (
-    <section className={`dashboard-panel projects-panel ${focusMode ? "focus-projects" : ""}`}>
-      <div className="projects-panel-top">
-        <div className="panel-head">
-          <span className="panel-head__icon">
-            <FolderGit2 size={15} />
-          </span>
-          <p className="panel-head__title">Projects</p>
-          <span className="panel-head__meta tabular-data">
-            {projects.length === 1 ? "1 project" : `${projects.length} projects`}
-          </span>
-          {/* A filtered panel must say it is filtered and offer the way out, or
-              it reads as a project list that lost most of its projects. */}
-          {filterLabel ? (
-            <button
-              type="button"
-              className="ghost-action projects-filter-chip"
-              onClick={onClearFilter}
-              title={`Showing ${filterLabel} only — click to show all ${allProjects.length}`}
-            >
-              {filterLabel}
-              <X size={13} />
-            </button>
-          ) : null}
-          {tasks.length > 0 ? (
-            <span className="panel-head__meta tabular-data">
-              {tasks.length === 1 ? "1 open task" : `${tasks.length} open tasks`}
-            </span>
-          ) : null}
+  return <section className={`dashboard-panel projects-panel project-command ${focusMode ? "focus-projects" : ""}`}>
+    <header className="command-board-heading">
+      <div><span className="command-board-kicker">OLYMPUS / PORTFOLIO</span><h2>{selected ? selected.project.name : "PROJECT COMMAND"}</h2></div>
+      {projectFilter ? <button className="ghost-action" onClick={onClearFilter}>← All projects</button> : <span>{rows.filter(row => row.operationalStatus !== "COMPLETE").length} OPEN</span>}
+    </header>
+    <div className="command-board-scroll">
+      {!isTauriRuntime() && <p className="command-board-notice">Browser preview · example project data. Desktop provides live records.</p>}
+      {(tasksError || runsError || tasksLoading || runsLoading) && <p className="command-board-notice">{tasksError || runsError ? "Some sources are unavailable. Counts and execution state may be incomplete." : "Reading tasks and execution records…"}</p>}
+      {warnings.length > 0 && <details className="command-board-notice"><summary>{warnings.length} source warnings</summary>{warnings.map((warning,i) => <p key={i}>{warning}</p>)}</details>}
+      {projectFilter && !selected ? <p>Project is no longer available. Return to the portfolio.</p> : selected ? <>
+        <section className="command-project-detail">
+          <span className="command-board-kicker">{label(selected.operationalStatus)} · {selected.project.status}</span>
+          <h3>Project intent</h3><p>{selected.project.vision || selected.project.summary || "No vision recorded."}</p>
+          {selected.project.notePath && <button className="ghost-action" onClick={() => onOpenNote(selected.project.notePath!)}>Open project note</button>}
+          <h3>Current state</h3><p>{selected.currentState}</p>
+          <h3>Recorded next action · execution unverified</h3><p>{selected.nextAction || "Not recorded"}</p>
+          <h3>Ω Olympus recommends · rule-based</h3><p>{selected.olympusRecommendation}</p>
+          <h3>{sessionBoundary?.previousSessionStartedAt ? "Commits since previous session" : "Recent commits"}</h3>
+          <ul>{(sessionBoundary?.previousSessionStartedAt ? selected.project.sinceSessionCommits : selected.project.recentCommits).map((commit,i) => <li key={i}>{commit.subject} · {commit.at}</li>)}</ul>
+          <p>Blockers and general operator decisions: not recorded as structured fields. Delegation checkpoints appear below.</p>
+          <div className="command-board-actions"><button className="ghost-action" onClick={() => reviewProjectContext([selected])}>Review with Olympus</button>
+          {selected.project.path && <button className="ghost-action" onClick={() => setDelegationProposal({projectId:selected.project.id,projectName:selected.project.name,task:selected.nextAction ?? ""})}>Prepare Claude run</button>}</div>
+        </section>
+        <DelegationPanel projectId={selected.project.id} proposal={delegationProposal?.projectId === selected.project.id ? delegationProposal : null} onDismissProposal={() => setDelegationProposal(null)} />
+        <ProjectCard project={selected.project} tasks={perProject.get(selected.project.id) ?? []} />
+      </> : <>
+        <section className="command-board-brief" aria-label="Olympus brief">
+          <div><h3>Ω OLYMPUS BRIEF</h3><span>DETERMINISTIC STATUS SUMMARY</span></div>
+          <p>{attention.length} projects have recorded operator checkpoints. {rows.filter(row => row.operationalStatus === "IN_PROGRESS").length} have active delegated work. {rows.filter(row => row.operationalStatus === "MONITORING").length} are on the watchlist. {rows.filter(row => row.operationalStatus === "UNKNOWN").length} have unconfirmed operational state.</p>
+          <button className="ghost-action" onClick={() => reviewProjectContext(rows)}>Review priorities with Olympus →</button>
+        </section>
+        <section className="command-attention" aria-label="Needs your attention">
+          <h3>NEEDS YOUR ATTENTION <span>{attention.reduce((sum,row) => sum+row.operatorDecisions.length,0)}</span></h3>
+          {attention.length ? attention.map(row => <div className="command-attention-item" key={row.project.id}><div><strong>{row.project.name}</strong>{row.operatorDecisions.map(decision => <p key={decision.runId}>{decision.text}</p>)}<small>Ω Review evidence before approving.</small></div><button className="ghost-action" onClick={() => onFocusProject(row.project.id)}>Review →</button></div>) : <p>No operator checkpoints are confirmed{runsError || runsLoading ? "; execution records are not currently available" : ". General task ownership is not recorded"}.</p>}
+        </section>
+        <nav className="command-board-filters" aria-label="Filter projects by operational status">
+          {(["ALL", ...operationalStatuses] as const).map(value => <button key={value} aria-pressed={filter === value} onClick={() => setFilter(value)}>{label(value)} <span>{value === "ALL" ? rows.length : rows.filter(row => row.operationalStatus === value).length}</span></button>)}
+        </nav>
+        <div className="command-board-list-heading"><span>{visible.length} PROJECTS</span><label>Sort <select value={sort} onChange={event => setSort(event.target.value as typeof sort)}><option value="priority">Priority</option><option value="recent">Recently changed</option><option value="name">Name</option></select></label></div>
+        <div className="command-board-rows">
+          {visible.map(row => <article className={`command-project-row status-${row.operationalStatus.toLowerCase()}`} key={row.project.id}>
+            <header><h3>{row.project.name}</h3><span className="command-operational-status">{label(row.operationalStatus)}</span></header>
+            <p className="command-project-purpose">{row.project.summary || "Purpose not recorded"}</p>
+            <div className="command-project-columns">
+              <section><h4>STATE</h4><p>{row.currentState}</p></section>
+              <section><h4>NEXT MOVE <span>{row.nextMoveOwner === "OPERATOR" ? "YOU" : row.nextMoveOwner ?? "OWNER UNKNOWN"}</span></h4><p>{row.nextMove || (row.nextMoveOwner === "NONE" ? "No current move recorded or expected." : "Not recorded")}</p></section>
+              <section><h4>Ω OLYMPUS RECOMMENDS</h4><p>{row.olympusRecommendation}</p><small>Rule-based suggestion · not approval</small></section>
+            </div>
+            <footer><div><span>{row.openTaskCount ?? "Unknown"} open tasks</span><span>{row.operatorDecisions.length} delegation checkpoints</span><span>{row.project.status} · {row.project.statusSource}</span><span>{row.lastMeaningfulChange ? `${row.lastMeaningfulChange.source}: ${new Date(row.lastMeaningfulChange.at).toLocaleDateString()}` : "Change date unavailable"}</span></div><button className="ghost-action" onClick={() => onFocusProject(row.project.id)}>Open project →</button></footer>
+          </article>)}
+          {!visible.length && <p>No projects match this status.</p>}
         </div>
-        {status && <p className={`section-copy action-feedback ${status.tone}`}>{status.message}</p>}
-        {tasksError && (
-          <p className="section-copy action-feedback warning">Couldn't reach the vault parser.</p>
-        )}
-        {warningCount > 0 && (
-          <p
-            className="section-copy action-feedback warning"
-            title={[...noteWarnings, ...projects.flatMap((project) => project.warnings)].join("\n")}
-          >
-            {warningCount === 1
-              ? "1 project note has a problem."
-              : `${warningCount} project notes have problems.`}
-          </p>
-        )}
-      </div>
-      <div className="project-list">
-        {!projectFilter ? (
-          <ProjectBriefing
-            projects={allProjects}
-            sessionBoundary={sessionBoundary}
-            tasks={tasks}
-            tasksError={tasksError}
-            onSelectProject={onFocusProject}
-            onOpenNote={onOpenNote}
-            onProposeDelegation={(project, task) =>
-              setDelegationProposal({
-                projectId: project.id,
-                projectName: project.name,
-                task
-              })
-            }
-          />
-        ) : null}
-        {!projectFilter ? (
-          <DelegationPanel
-            proposal={delegationProposal}
-            onDismissProposal={() => setDelegationProposal(null)}
-          />
-        ) : null}
-
-        <div className="project-directory-heading">
-          <span>{filterLabel ? `${filterLabel} projects` : "All projects"}</span>
-          <span className="tabular-data">{projects.length}</span>
-        </div>
-
-        {projects.map((project) => (
-          <ProjectCard
-            key={project.id}
-            project={project}
-            tasks={perProject.get(project.id) ?? []}
-          />
-        ))}
-
-        {!projectFilter && unattributed.length > 0 ? (
-          <UnattributedTasks tasks={unattributed} />
-        ) : null}
-      </div>
-      {/* Demoted out of the header. It rewrites a file wholesale, and it should
-          not be the most prominent affordance in the centrepiece panel. It has
-          been gated since c62018a — it prompts when the canvas diverged from
-          what Olympus last wrote — so this is about prominence, not safety. */}
-      <footer className="projects-footer">
-        <button
-          className="ghost-action"
-          onClick={() => void handleSyncCanvas()}
-          disabled={syncing}
-          title="Regenerate 00 - Dashboard/Olympus Projects.canvas from the current project list"
-        >
-          {syncing ? "Updating..." : "Update Canvas"}
-        </button>
-      </footer>
-    </section>
-  );
+        <p className="command-board-notice">Ready, blocked, and external waiting require explicit readiness or dependency evidence; these fields are not yet recorded. A next-step note alone does not authorize Olympus to execute.</p>
+        {unattributed.length > 0 && <details className="command-unattributed"><summary>{unattributed.length} tasks without a project</summary><UnattributedTasks tasks={unattributed} /></details>}
+      </>}
+    </div>
+    <footer className="projects-footer">{status && <p className={`section-copy action-feedback ${status.tone}`}>{status.message}</p>}<button className="ghost-action" onClick={() => void handleSyncCanvas()} disabled={syncing}>{syncing ? "Updating…" : "Update Canvas"}</button></footer>
+  </section>;
 }
 
 function ProjectCard({ project, tasks }: { project: TrackedProject; tasks: ActionQueueTask[] }) {

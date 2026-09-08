@@ -65,7 +65,7 @@ function daysBetween(earlier: string, now: Date): number | null {
 
 export function formatProjectActivity(project: TrackedProject, now: Date): string {
   if (project.linkedWorktrees.some((worktree) => worktree.changedFiles > 0)) {
-    return "Delegated work in progress";
+    return "Uncommitted worktree changes";
   }
 
   if (!project.lastCommitAt) {
