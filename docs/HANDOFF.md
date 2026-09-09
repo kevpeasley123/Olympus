@@ -1,3 +1,5 @@
+0.10.1: operator requested exactly two continuous inner rings. Removed the intermittent third ring from both SVG and hybrid renderers.
+
 Installed optional hybrid preview 0.10.0 from e1ed675. 36 conversation rows and settings preserved; enable Dimensional core in Preferences for this session. See COMMAND-3D-IMPLEMENTATION.md for acceptance limits.
 
 Latest rendering work: optional hybrid core prototype 0.10.0. See COMMAND-3D-IMPLEMENTATION.md; original SVG remains default pending operator visual acceptance.

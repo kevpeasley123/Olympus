@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { setHybridEnabled, useHybridEnabled, type CommandLayout } from "../../services/hybridCore";
 import type { OlympusVisualState } from "../../services/ambientMotion";
-export interface HybridFrame { state: OlympusVisualState; voiceLevel: number; running: boolean; sweep: number; hoverProject: string | null }
+export interface HybridFrame { state: OlympusVisualState; voiceLevel: number; running: boolean; hoverProject: string | null }
 interface Props extends HybridFrame { layout: CommandLayout; onReady: (ready: boolean) => void; onError: (reason: string) => void }
 export function HybridCoreSetting() {
   const enabled = useHybridEnabled();

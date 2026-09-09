@@ -23,14 +23,6 @@ export function AmbientOrbits({ centre, events, complete }: { centre: number; ev
         <circle cx={centre} cy={centre} r={94} className="ambient-energy" />
       </g>
     </g>
-    {events.sweep > 0 && <g key={`sweep-${events.sweep}`} className="ambient-inner-burst">
-      {[104].map((radius, index) => <g key={radius}
-        className={`ambient-inner-axis ambient-inner-axis--${index + 2}`}>
-        <g className={`ambient-inner ambient-inner--extra ambient-inner--extra-${index}`}>
-          <circle cx={centre} cy={centre} r={radius} className="ambient-energy" />
-        </g>
-      </g>)}
-    </g>}
     {events.tracer > 0 && <g key={`tracer-${events.tracer}`} className="ambient-tracer">
       {[0, 1, 2, 3, 4].map(i => <circle key={i} cx={centre} cy={centre} r={194}
         className="ambient-tail" strokeDasharray="14 1205" strokeDashoffset={(i + 1) * 14} opacity={0.85 - i * 0.16} />)}

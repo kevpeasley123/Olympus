@@ -59,7 +59,7 @@ export function mountHybridScene(host: HTMLDivElement, layout: CommandLayout, cu
   }
   track(185,.55,structural,-8); track(190,.35,cool,-15); track(194,.45,structural,-20);
   const orbital: T.Mesh[]=[];
-  for (let i=0;i<3;i++) {
+  for (let i=0;i<2;i++) {
     const material=cool.clone(); material.color.set(i===0?ORANGE:BLUE); material.emissive.set(i===0?ORANGE:0x609cce); material.emissiveIntensity=.55;
     orbital.push(track(84+i*10,.48,material,5+i*2));
   }
@@ -78,7 +78,7 @@ export function mountHybridScene(host: HTMLDivElement, layout: CommandLayout, cu
   const tracer=mesh(new T.SphereGeometry(1.35,10,8),glow,-1);
   const signal=mesh(new T.SphereGeometry(1.2,10,8),glow,0);
   let frame: number | undefined, timer: number | undefined;
-  let stopped=false, time=0, previous=0, lastSweep=0, sweepAt=-100;
+  let stopped=false, time=0, previous=0;
   const lost=(event:Event)=>{event.preventDefault();fail("Graphics context lost.");};canvas.addEventListener("webglcontextlost",lost);
   const resize=()=>{const {width,height}=host.getBoundingClientRect();renderer.setSize(Math.max(1,width),Math.max(1,height),false);};
   const observer=new ResizeObserver(resize);observer.observe(host);resize();
@@ -88,10 +88,8 @@ export function mountHybridScene(host: HTMLDivElement, layout: CommandLayout, cu
     frame=undefined;timer=undefined;
     const value=current(), moving=value.running&&document.visibilityState==="visible";
     if(moving&&previous)time+=Math.min((now-previous)/1000,.05);previous=now;
-    if(value.sweep!==lastSweep){lastSweep=value.sweep;sweepAt=time;}
     orbital.forEach((ring,i)=>{
       ring.rotation.set(time*(i%2?-.22:.28)+i*.8, time*.16+i*.65, i*.9);
-      ring.visible=i<2||(moving&&time-sweepAt<3.8);
     });
     const energy=value.state==="speaking"?(moving?Math.min(1,Math.max(0,value.voiceLevel)):.15):value.state==="thinking"?.35:value.state==="listening"?.22:0;
     glow.emissiveIntensity=.23+(moving?Math.sin(time*.8)*.06:0)+energy*.55;

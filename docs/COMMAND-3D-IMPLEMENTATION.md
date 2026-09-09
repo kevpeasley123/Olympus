@@ -9,7 +9,7 @@ The first implementation is optional: Preferences → Dimensional core. It is se
 - `HybridCommandCore.tsx`: lifecycle, lazy initialization and preview control. `CommandInstrument.tsx` computes one shared layout and supplies existing state/voice level. `ProjectRing.tsx` reuses the same layout and forwards hover/focus ownership.
 - DOM/SVG retains labels, transparent keyboard/mouse hit areas, tooltips, day arc, status text, navigation, console and voice controls. Node halos and interaction highlights remain SVG. No AI, persistence, approval or project backend changes.
 
-The camera stays fixed. Project positions and constellation coordinates do not move with perspective; depth comes from bevel lighting, shallow occlusion and orbit rotation. Two tubular rings remain present; the existing elevated sweep adds one ring for 3.8 seconds. Tubes have finite cross-section and remain visible edge-on, with natural partial occlusion by the core.
+The camera stays fixed. Project positions and constellation coordinates do not move with perspective; depth comes from bevel lighting, shallow occlusion and orbit rotation. Two tubular rings remain present continuously. The intermittent third ring was removed at the operator’s request in 0.10.1. Tubes have finite cross-section and remain visible edge-on, with natural partial occlusion by the core.
 
 ## State and motion
 
@@ -29,7 +29,7 @@ No sustained native GPU frame-rate benchmark or physical voice session is claime
 
 ## Next design pass
 
-Operator review first: compare still-frame familiarity and 5–10 second depth impression, then assess labels and edge-on motion. Future polish can refine the Omega silhouette, segment materials, quieter connection contrast, and selective signal routing. Preserve current project map and the two-plus-one ring rule throughout.
+Operator review first: compare still-frame familiarity and 5–10 second depth impression, then assess labels and edge-on motion. Future polish can refine the Omega silhouette, segment materials, quieter connection contrast, and selective signal routing. Preserve current project map and the two continuous rings rule throughout.
 
 ## Local installation receipt
 

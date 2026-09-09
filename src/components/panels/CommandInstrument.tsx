@@ -225,7 +225,7 @@ export function CommandInstrument({
       style={{ ...ambientVariables, "--ambient-drift": `${2 / renderScale}px` } as CSSProperties}>
       <div className="command-instrument__dial" ref={dialRef}>
         {hybrid && !hybridError && <HybridCommandCore layout={layout} state={ambientState} voiceLevel={voiceLevel}
-          running={ambient.running} sweep={ambient.events.sweep} hoverProject={hoverProject}
+          running={ambient.running} hoverProject={hoverProject}
           onReady={setHybridReady} onError={setHybridError} />}
         <svg
           viewBox={`0 0 ${SIZE} ${SIZE}`}

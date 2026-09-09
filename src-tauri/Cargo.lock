@@ -3202,7 +3202,7 @@ dependencies = [
 
 [[package]]
 name = "project-olympus"
-version = "0.10.0"
+version = "0.10.1"
 dependencies = [
  "chrono",
  "dotenvy",
