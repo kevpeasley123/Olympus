@@ -10,3 +10,7 @@ Installed 2026-09-08 from release commit `0c61f96`; local master and the impleme
 - Existing build warnings remain: gray-matter eval/browser buffer, large frontend bundle, and one unused Anthropic content field. No configured lint script exists.
 
 The app is open for operator testing. Use Next answer to choose Deep Analysis or Claude comparison; the selection resets to Sol after one request. Preferences contains Model diagnostics. See MODEL-ROUTING.md for the complete routing contract.
+
+## Operator acceptance
+
+Kevin reports that his conversation test worked correctly. This closes the reported basic conversation acceptance gap; it does not establish microphone interruption or restart provenance acceptance.

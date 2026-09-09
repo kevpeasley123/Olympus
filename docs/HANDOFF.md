@@ -1,3 +1,5 @@
+Current direction: operator reports successful conversation test; proceed to the 3D inspection/proposal in COMMAND-3D-DESIGN.md.
+
 Installed 0.9.0: see RELEASE-0.9.0.md for the verified receipt and desktop-test limitations.
 
 ## Latest: 0.9.0 reasoning migration (2026-09-08)
