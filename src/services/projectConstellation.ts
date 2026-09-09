@@ -58,7 +58,7 @@ export function layoutProjectConstellation(graph: VaultGraphPayload, ring: Proje
     const fromProjectId = owner(edge.from), toProjectId = owner(edge.to);
     if (!from || !to || !fromProjectId || !toProjectId || fromProjectId === toProjectId) return [];
     const key = `${edge.from}↔${edge.to}`;
-    return [{ key, fromProjectId, toProjectId,
+    return [{ key, fromProjectId, toProjectId, from, to,
       pieces: clipLineOutsideDisc(from, to, centre).map((piece, index) => ({ ...piece, key: `${key}:${index}` })) }];
   });
   crossProjectEdges.sort((a, b) => compareCodePoints(a.key, b.key));

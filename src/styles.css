@@ -2782,6 +2782,9 @@ small {
 }
 
 .command-instrument__dial {
+  /* Scale the complete apparatus, including labels and aligned hit targets. */
+  transform: scale(1.4);
+  transform-origin: center;
   min-height: 0;
   display: flex;
   align-items: center;
@@ -4544,7 +4547,7 @@ small {
 .command-instrument[data-renderer="hybrid"] .project-ring__segment-shade,
 .command-instrument[data-renderer="hybrid"] .project-ring__tree-edge,
 .command-instrument[data-renderer="hybrid"] .project-ring__cross-edge,
-.command-instrument[data-renderer="hybrid"] .ambient-edge-signal { opacity: 0; }
+.command-instrument[data-renderer="hybrid"] .ambient-edge-signal { display: none; }
 .command-instrument[data-renderer="hybrid"] .project-ring__node-group { animation: none; }
 .command-instrument[data-renderer="hybrid"] .project-ring__node { opacity: .15; }
 .command-instrument[data-renderer="hybrid"] .project-ring__node.is-hovered { opacity: 1; }
@@ -4552,3 +4555,10 @@ small {
 .hybrid-setting input { accent-color:#df893b; width:16px; height:16px; flex:0 0 16px; }
 .hybrid-setting small { display:block; color:#7f94a6; margin-top:4px; }
 .hybrid-status { color:#c3a582; font-size:11px; max-width:440px; }
+
+/* The shallow camera adds bounded node parallax.
+   Keep their existing accessible targets forgiving at those depths. */
+.command-instrument[data-renderer="hybrid"] .project-ring circle[role="button"] { stroke:transparent; stroke-width:10; vector-effect:none; pointer-events:all; }
+
+/* Active project identity is independent of hover; no text bloom. */
+.command-instrument[data-renderer="hybrid"] .project-ring__window-name--active { fill: #e2b77c; }

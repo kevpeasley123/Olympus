@@ -1,5 +1,5 @@
 import { HybridCommandCore } from "./HybridCommandCore";
-import { commandLayout, useHybridEnabled } from "../../services/hybridCore";
+import { commandLayout, HYBRID_OVERLAY_TRANSFORM, useHybridEnabled } from "../../services/hybridCore";
 import { AmbientOrbits } from "./AmbientOrbits";
 import { useAmbientMotion } from "../../hooks/useAmbientMotion";
 import { AMBIENT, ambientVariables } from "../../services/ambientMotion";
@@ -228,6 +228,7 @@ export function CommandInstrument({
           running={ambient.running} hoverProject={hoverProject}
           onReady={setHybridReady} onError={setHybridError} />}
         <svg
+          style={hybrid && hybridReady && !hybridError ? { transform: HYBRID_OVERLAY_TRANSFORM, transformOrigin: "50% 50%" } : undefined}
           viewBox={`0 0 ${SIZE} ${SIZE}`}
           className={`command-instrument__svg ${pulse ? `is-pulsing pulse-${pulse}` : ""}`}
           role="group"
