@@ -30,3 +30,11 @@ No sustained native GPU frame-rate benchmark or physical voice session is claime
 ## Next design pass
 
 Operator review first: compare still-frame familiarity and 5–10 second depth impression, then assess labels and edge-on motion. Future polish can refine the Omega silhouette, segment materials, quieter connection contrast, and selective signal routing. Preserve current project map and the two-plus-one ring rule throughout.
+
+## Local installation receipt
+
+0.10.0 installed from `e1ed675`; local main and implementation checkout match. The installed executable matches the release binary after the installer bundle marker is normalized. SQLite integrity is ok; all 36 existing conversation rows and every saved settings key/value match the pre-install backup. Evidence and backup are in workspace `output/olympus-0.10.0-install/`.
+
+Native launch of the original/default Command view was visually verified. The native 3D toggle was not exercised; user window activity interrupted that check. Browser fixture and state/keyboard checks are the verified rendering evidence. No physical voice test or sustained native GPU benchmark was performed. No remote push.
+
+Three.js currently logs a deprecation notice for SVGLoader.createShapes (still functional); migrate that helper to ShapePath.toShapes during the next rendering pass. Deliberate context-loss tests also produced an expected cleanup extension warning. These do not invalidate the passed fallback checks.
