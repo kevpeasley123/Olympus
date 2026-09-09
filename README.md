@@ -151,3 +151,7 @@ What is stored, and how:
 The project scan is refreshed live and deliberately not persisted.
 
 Conversation is appended when a message is sent rather than rewritten alongside other state, so a long history costs nothing on unrelated updates. The first desktop launch after an existing browser install imports any `localStorage` state into SQLite automatically.
+
+## Dimensional command preview
+
+In 0.10.0, Preferences → **Dimensional core** enables the optional hybrid 3D instrument for the current session. The original SVG remains the default and fallback. Project positions, readable labels and interactions are preserved. See [implementation and validation](docs/COMMAND-3D-IMPLEMENTATION.md).

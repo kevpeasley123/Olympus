@@ -4529,3 +4529,26 @@ small {
 .model-diagnostics-list summary { padding:6px 0; }
 .model-diagnostics pre { white-space:pre-wrap; overflow-wrap:anywhere; font-size:9px; }
 .message-model { color:#91a5b8; font-size:9px; }
+
+/* Optional dimensional renderer: SVG retains all semantic labels and interaction targets. */
+.command-instrument__dial { position: relative; }
+.hybrid-core { position: absolute; inset: 0; pointer-events: none; }
+.hybrid-core canvas { display: block; width: 100%; height: 100%; }
+.command-instrument__svg { position: relative; }
+.command-instrument[data-renderer="hybrid"] .omega-presence,
+.command-instrument[data-renderer="hybrid"] .ambient-orbits,
+.command-instrument[data-renderer="hybrid"] .project-ring__track,
+.command-instrument[data-renderer="hybrid"] .project-ring__segment-fill,
+.command-instrument[data-renderer="hybrid"] .project-ring__segment-glow,
+.command-instrument[data-renderer="hybrid"] .project-ring__segment-face,
+.command-instrument[data-renderer="hybrid"] .project-ring__segment-shade,
+.command-instrument[data-renderer="hybrid"] .project-ring__tree-edge,
+.command-instrument[data-renderer="hybrid"] .project-ring__cross-edge,
+.command-instrument[data-renderer="hybrid"] .ambient-edge-signal { opacity: 0; }
+.command-instrument[data-renderer="hybrid"] .project-ring__node-group { animation: none; }
+.command-instrument[data-renderer="hybrid"] .project-ring__node { opacity: .15; }
+.command-instrument[data-renderer="hybrid"] .project-ring__node.is-hovered { opacity: 1; }
+.hybrid-setting { display:flex; align-items:center; gap:10px; padding:12px 0; border-bottom:1px solid #263746; color:#cbd6df; font-size:12px; }
+.hybrid-setting input { accent-color:#df893b; width:16px; height:16px; flex:0 0 16px; }
+.hybrid-setting small { display:block; color:#7f94a6; margin-top:4px; }
+.hybrid-status { color:#c3a582; font-size:11px; max-width:440px; }

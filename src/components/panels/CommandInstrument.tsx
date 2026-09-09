@@ -1,9 +1,11 @@
+import { HybridCommandCore } from "./HybridCommandCore";
+import { commandLayout, useHybridEnabled } from "../../services/hybridCore";
 import { AmbientOrbits } from "./AmbientOrbits";
 import { useAmbientMotion } from "../../hooks/useAmbientMotion";
 import { AMBIENT, ambientVariables } from "../../services/ambientMotion";
 import type { OlympusVisualState } from "../../services/ambientMotion";
 import { motion } from "motion/react";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import type { ActionQueueTask } from "../../hooks/useActionQueue";
 import { useOperatorProfile } from "../../hooks/useOperatorProfile";
@@ -131,6 +133,12 @@ export function CommandInstrument({
   const profile = useOperatorProfile();
   const { writes } = useVaultWrites();
   const { graph } = useVaultGraph();
+  const hybrid = useHybridEnabled();
+  const [hybridReady, setHybridReady] = useState(false);
+  const [hybridError, setHybridError] = useState<string | null>(null);
+  const [hoverProject, setHoverProject] = useState<string | null>(null);
+  const layout = useMemo(() => commandLayout(projects, graph, renderScale), [projects, graph, renderScale]);
+  useEffect(() => { setHybridReady(false); setHybridError(null); }, [hybrid]);
   const commits = projects.flatMap((project) =>
     (project.recentCommits ?? []).map((commit) => ({ ...commit, project: project.name }))
   );
@@ -213,9 +221,12 @@ export function CommandInstrument({
 
   return (
     <div className="command-instrument" data-visual-state={ambientState} data-voice-energy={voiceLevel > 0.15 ? "active" : "quiet"}
-      data-motion={ambient.running ? "running" : "paused"}
+      data-motion={ambient.running ? "running" : "paused"} data-renderer={hybrid && hybridReady && !hybridError ? "hybrid" : "svg"}
       style={{ ...ambientVariables, "--ambient-drift": `${2 / renderScale}px` } as CSSProperties}>
       <div className="command-instrument__dial" ref={dialRef}>
+        {hybrid && !hybridError && <HybridCommandCore layout={layout} state={ambientState} voiceLevel={voiceLevel}
+          running={ambient.running} sweep={ambient.events.sweep} hoverProject={hoverProject}
+          onReady={setHybridReady} onError={setHybridError} />}
         <svg
           viewBox={`0 0 ${SIZE} ${SIZE}`}
           className={`command-instrument__svg ${pulse ? `is-pulsing pulse-${pulse}` : ""}`}
@@ -236,6 +247,8 @@ export function CommandInstrument({
           />
 
           <ProjectRing
+            layout={layout}
+            onHoverProject={setHoverProject}
             centre={CENTRE}
             radius={PROJECT_RING_RADIUS}
             projects={projects}
@@ -402,6 +415,7 @@ export function CommandInstrument({
           Nothing renders before the first reply of a session. Naming a model
           that has not spoken would be the same invisible wrongness as reading
           the request constant. */}
+      {hybridError && <p className="hybrid-status" role="status">3D unavailable — original view restored. {hybridError}</p>}
       {statusParts.length > 0 ? (
         <p className="command-instrument__status">
           {statusParts.map((part, index) => (

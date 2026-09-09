@@ -1,3 +1,5 @@
+Latest rendering work: optional hybrid core prototype 0.10.0. See COMMAND-3D-IMPLEMENTATION.md; original SVG remains default pending operator visual acceptance.
+
 Current direction: operator reports successful conversation test; proceed to the 3D inspection/proposal in COMMAND-3D-DESIGN.md.
 
 Installed 0.9.0: see RELEASE-0.9.0.md for the verified receipt and desktop-test limitations.

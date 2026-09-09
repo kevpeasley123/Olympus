@@ -1,7 +1,8 @@
+import type { CommandLayout } from "../../services/hybridCore";
 import { layoutProjectConstellation } from "../../services/projectConstellation";
 import { AMBIENT } from "../../services/ambientMotion";
 import type { CSSProperties } from "react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ActionQueueTask } from "../../hooks/useActionQueue";
 import {
   arcPathForSegment,
@@ -16,6 +17,8 @@ import type { VaultGraphPayload } from "../../services/vaultGraph";
 import type { TrackedProject } from "../../types";
 
 interface ProjectRingProps {
+  layout?: CommandLayout;
+  onHoverProject?: (id: string | null) => void;
   ambientNodeEvent?: number;
   centre: number;
   radius: number;
@@ -149,6 +152,8 @@ export function ProjectRing({
   radius,
   projects,
   graph,
+  layout,
+  onHoverProject,
   tasks,
   tasksError,
   renderScale,
@@ -159,12 +164,12 @@ export function ProjectRing({
   const [hoveredProject, setHoveredProject] = useState<string | null>(null);
   const [hoveredNode, setHoveredNode] = useState<ProjectGraphNode | null>(null);
   const ring = useMemo(
-    () => layoutProjectRing(projects, centre, radius, renderScale),
-    [centre, projects, radius, renderScale]
+    () => layout?.ring ?? layoutProjectRing(projects, centre, radius, renderScale),
+    [layout, centre, projects, radius, renderScale]
   );
   const constellation = useMemo(
-    () => layoutProjectConstellation(graph, ring, centre),
-    [centre, graph, ring]
+    () => layout?.constellation ?? layoutProjectConstellation(graph, ring, centre),
+    [layout, centre, graph, ring]
   );
   const signalEdges = constellation.treeEdges.filter(edge => edge.depth > 1);
   const signalEdge = ambientNodeEvent > 0 ? signalEdges[ambientNodeEvent % signalEdges.length] : undefined;
@@ -180,6 +185,7 @@ export function ProjectRing({
     setHoveredProject((current) => (current === projectId ? null : current));
   }
 
+  useEffect(() => { onHoverProject?.(hoveredProject ?? hoveredNode?.projectId ?? null); }, [hoveredProject, hoveredNode, onHoverProject]);
   const focused = Boolean(hoveredProject || hoveredNode);
 
   return (
