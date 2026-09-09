@@ -4,8 +4,8 @@ import { layoutProjectConstellation } from "./projectConstellation";
 import type { TrackedProject } from "../types";
 import type { VaultGraphPayload } from "./vaultGraph";
 
-// Deliberately session-only while the rendering prototype is being evaluated.
-let enabled = false;
+// Approved dimensional renderer is the default; fallback can be selected per session.
+let enabled = true;
 const listeners = new Set<() => void>();
 export function setHybridEnabled(value: boolean) { enabled = value; listeners.forEach(fn => fn()); }
 export function useHybridEnabled() { return useSyncExternalStore(fn => { listeners.add(fn); return () => listeners.delete(fn); }, () => enabled); }

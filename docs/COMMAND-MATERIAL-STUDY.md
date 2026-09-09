@@ -105,3 +105,17 @@ Glass diagnosis: Three.js transmission captures opaque objects, excluding transp
 The accepted base smoked-glass material remains unchanged. Active status adds localized amber energy through the existing two edge channels, a faint narrow warmth at the recessed outer edge, and a modest warm label lift. One tracer traverses part of the outer channel for 2.8 seconds every 7 seconds; reduced motion suppresses the tracer. No geometry, lighting, camera, or other animation changes.
 
 `ACTIVE_PROJECT` in `commandMaterialStudy.ts` centralizes intensity, internal warmth, and tracer timing. State comes from `project.status === 'active'`, independently of hover or selection. Only Olympus is active in the material-study fixture; real project data is unchanged. This remains a browser study, not an installed release.
+
+
+## System-state preview refinements
+
+Listening opens both orbital paths toward the camera over 2.8 seconds and emits faint waves every second. Thinking rotates at 10x idle speed with a continuous angular clock. Speaking scales only the Omega glyph/contour up to 18.2% from supplied voice energy; preview speech is explicitly simulated. Idle now expands/contracts the radial orange halo from .75 to 1.45 scale over its 5.6-second breath.
+
+Executing uses coordinated tilted orbitals, a steady stronger core, and target-project connection signals. Optional `execution` input (`projectId`, `operation` counter) passes through CommandInstrument and HybridFrame; operation changes cause a short core/edge pulse. Completion state emits one outward wave and uses the existing return-to-idle lifecycle. The application does not yet expose a live execution provider; the fixture supplies an explicitly simulated target and manual operation/completion buttons. No automatic fake progress or live executor integration is claimed. Reduced motion suppresses animated effects.
+
+
+## 0.11.0 release
+
+Operator authorized committing and installing all refinements. The dimensional renderer now starts enabled, retaining the session fallback control. Executing rings rotate across axes and launch five white signals per second. Error eases to fixed ring orientations, dips once, and holds a blood-red Omega; preview-only retry/dismiss controls demonstrate recovery. No live executor or simulated speech controls are bundled into the production app.
+
+Release validation: frontend build/typecheck, 28 browser regression checks, and Rust library tests passed (paid live acceptance excluded). Database backup and integrity check completed before installation. Local installer artifacts and receipt are stored in the parent workspace output/olympus-0.11.0-install directory.

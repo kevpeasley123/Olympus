@@ -26,8 +26,9 @@ export const MATERIAL_TUNING = {
   structurePrimary: .38, structureSecondary: .12,
 };
 // Idle-only motion profile. Other system states retain their existing behavior.
+export const OMEGA_SPEECH = { scaleGain:.182, attackSeconds:.045, releaseSeconds:.20 };
 export const OMEGA_IDLE = {
-  breathDuration:5.6, breathStrength:.13,
+  breathDuration:5.6, breathStrength:.13, haloBreathMin:.75, haloBreathMax:1.45,
   heartbeatMinInterval:10.5, heartbeatMaxInterval:14.8,
   primaryStrength:.13, primaryDuration:.8,
   secondaryStrength:.055, secondaryDelay:1.02, secondaryDuration:.6,
@@ -40,7 +41,7 @@ export function createIdleCoreCycle(random:()=>number=Math.random){
   const interval=()=>t.heartbeatMinInterval+Math.max(0,Math.min(1,random()))*(t.heartbeatMaxInterval-t.heartbeatMinInterval);
   let elapsed=0,lastPulse=-100,nextPulse=interval();
   return (delta:number,moving:boolean)=>{
-    if(!moving)return {envelope:1,pulse:0,ripple:0,rippleProgress:0};
+    if(!moving)return {envelope:1,breath:0,pulse:0,ripple:0,rippleProgress:0};
     elapsed+=Math.max(0,delta);
     while(elapsed>=nextPulse){lastPulse=nextPulse;nextPulse+=interval();}
     const phase=(elapsed%t.breathDuration)/t.breathDuration;
@@ -55,7 +56,7 @@ export function createIdleCoreCycle(random:()=>number=Math.random){
     const pulse=t.primaryStrength*pulseShape(age,t.primaryDuration)+t.secondaryStrength*pulseShape(age-t.secondaryDelay,t.secondaryDuration);
     const rippleProgress=(age-t.rippleDelay)/t.rippleDuration;
     const ripple=rippleProgress>0&&rippleProgress<1?Math.sin(Math.PI*rippleProgress)**2*t.rippleStrength:0;
-    return {envelope:1+t.breathStrength*breath+pulse,pulse,ripple,rippleProgress};
+    return {envelope:1+t.breathStrength*breath+pulse,breath,pulse,ripple,rippleProgress};
   };
 }
 const heartbeatPeriod=MATERIAL_TUNING.heartbeatIntervals.reduce((a,b)=>a+b,0);
@@ -138,10 +139,13 @@ export function buildCommandMaterialStudy(scene:T.Scene,renderer:T.WebGLRenderer
   }
   const haloMaterial=new T.MeshBasicMaterial({map:contour,transparent:true,opacity:.75,blending:T.AdditiveBlending,depthWrite:false,toneMapped:false});
   mesh(new T.PlaneGeometry(160,160),haloMaterial,11.2);
+  const glyph=new T.Group();
+  for(const child of group.children.slice(coreStart))glyph.add(child);
+  group.add(glyph);
   const radialMaterial=new T.ShaderMaterial({
-    uniforms:{intensity:{value:.13}},transparent:true,depthWrite:false,blending:T.AdditiveBlending,
+    uniforms:{intensity:{value:.13},tint:{value:new T.Vector3(1,.25,.035)}},transparent:true,depthWrite:false,blending:T.AdditiveBlending,
     vertexShader:`varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
-    fragmentShader:`varying vec2 vUv;uniform float intensity;void main(){float r=length(vUv-.5)*2.;float glow=pow(max(0.,1.-r),3.);gl_FragColor=vec4(1.,.25,.035,glow*intensity);}`,
+    fragmentShader:`varying vec2 vUv;uniform float intensity;uniform vec3 tint;void main(){float r=length(vUv-.5)*2.;float glow=pow(max(0.,1.-r),3.);gl_FragColor=vec4(tint,glow*intensity);}`,
   });
   const radialHalo=mesh(new T.PlaneGeometry(220,220),radialMaterial,-15);
   const coreLight=new T.PointLight(0xff8c36,70,150,1);coreLight.position.set(0,0,28);group.add(coreLight);
@@ -268,21 +272,33 @@ export function buildCommandMaterialStudy(scene:T.Scene,renderer:T.WebGLRenderer
 
   }
   const idleCycle=createIdleCoreCycle();
-  let previousTime=0,wasIdle=false;
+  let previousTime=0,wasIdle=false,speechAmount=0;
   return {
     studyIds,
-    update(time:number,energy:number,moving:boolean,hover:string|null,idle=false){
+    update(time:number,energy:number,moving:boolean,hover:string|null,idle=false,speaking=false,executing=false,executionProject?:string,operationPulse=0,completing=false,errorAge=-1){
+      const frameDelta=Math.min(.05,Math.max(0,time-previousTime));
+      const target=speaking&&moving?Math.max(0,Math.min(1,energy)):0;
+      const response=target>speechAmount?OMEGA_SPEECH.attackSeconds:OMEGA_SPEECH.releaseSeconds;
+      speechAmount=moving?speechAmount+(target-speechAmount)*(1-Math.exp(-frameDelta/response)):0;
+      glyph.scale.setScalar(1+OMEGA_SPEECH.scaleGain*speechAmount);
       const delta=idle&&wasIdle?Math.max(0,time-previousTime):0;
       previousTime=time;wasIdle=idle;
       const idleSample=idle?idleCycle(delta,moving):null;
-      const envelope=idleSample?.envelope??coreGlowEnvelope(time,moving),t=MATERIAL_TUNING;
+      const error=errorAge>=0;
+      const dip=error&&moving&&errorAge<1.4?.20*Math.sin(Math.PI*errorAge/1.4)**2:0;
+      face.color.set(error?0x480609:0x6c3611);
+      face.emissive.set(error?0xa30813:0xd87520);
+      radialMaterial.uniforms.tint.value.set(1,error?.008:.25,error?.018:.035);
+      warmLines.color.set(error?0xc91422:0xffa13d);
+      haloMaterial.color.set(error?0xd51022:0xffffff);
+      const envelope=error?.95-dip:executing?1.12+operationPulse*.10:idleSample?.envelope??coreGlowEnvelope(time,moving),t=MATERIAL_TUNING;
       face.emissiveIntensity=t.coreEmission*envelope+energy*.5;
       haloMaterial.opacity=t.haloOpacity*envelope+energy*.12;
-      radialMaterial.uniforms.intensity.value=t.radialHalo*envelope+energy*.06;
-      radialHalo.scale.setScalar(idle?1+(idleSample!.pulse/OMEGA_IDLE.primaryStrength)*OMEGA_IDLE.haloExpansion:1+(envelope-1)*.15);
+      radialMaterial.uniforms.intensity.value=t.radialHalo*envelope*(idle&&moving?.85+.55*idleSample!.breath:1)+energy*.06;
+      radialHalo.scale.setScalar(idle?(moving?OMEGA_IDLE.haloBreathMin+(OMEGA_IDLE.haloBreathMax-OMEGA_IDLE.haloBreathMin)*idleSample!.breath+(idleSample!.pulse/OMEGA_IDLE.primaryStrength)*OMEGA_IDLE.haloExpansion:1):1+(envelope-1)*.15);
       coreLight.intensity=t.localLight*(idle?1+(envelope-1)*OMEGA_IDLE.localLightBoost:envelope)+energy*25;
       const progress=idleSample?.rippleProgress??(heartbeatAge(time)-.95)/1.8;
-      ripple.visible=moving&&(idleSample?idleSample.ripple>0:progress>=0&&progress<=1);
+      ripple.visible=!error&&!executing&&!completing&&moving&&(idleSample?idleSample.ripple>0:progress>=0&&progress<=1);
       if(ripple.visible){
         const start=idle?OMEGA_IDLE.rippleStart:t.rippleStart,end=idle?OMEGA_IDLE.rippleEnd:t.rippleEnd;
         ripple.scale.setScalar(start+(end-start)*progress);
@@ -293,7 +309,8 @@ export function buildCommandMaterialStudy(scene:T.Scene,renderer:T.WebGLRenderer
       panels.forEach(p=>{
         const selected=hover===p.id;
         p.face.emissiveIntensity=0;
-        p.rim.opacity=PROJECT_GLASS.rimOpacity+(p.active?PROJECT_GLASS.activeRimBoost*.25:0)+(selected?PROJECT_GLASS.hoverRimBoost:0);
+        p.rim.color.set(error&&p.id===executionProject?0xe57950:p.active?0xe7bb7a:0xa9d5e8);
+        p.rim.opacity=PROJECT_GLASS.rimOpacity+(p.active?PROJECT_GLASS.activeRimBoost*.25:0)+(selected?PROJECT_GLASS.hoverRimBoost:0)+(p.id===executionProject?.10+operationPulse*.10:0);
       });
     },
     dispose(){engraving.dispose();contour.dispose();environmentTarget.dispose();scene.environment=null;}

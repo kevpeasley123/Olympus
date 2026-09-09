@@ -28,6 +28,7 @@ import { ProjectRing } from "./ProjectRing";
 interface CommandInstrumentProps {
   visualState?: OlympusVisualState;
   voiceLevel?: number;
+  execution?: { projectId: string; operation: number };
   projects: TrackedProject[];
   tasks: ActionQueueTask[];
   tasksLoading: boolean;
@@ -119,6 +120,7 @@ export function CommandInstrument({
   tasksError,
   visualState,
   voiceLevel = 0,
+  execution,
   assistantPending = false,
   assistantProducing = false,
   assistantModel = null,
@@ -224,7 +226,7 @@ export function CommandInstrument({
       data-motion={ambient.running ? "running" : "paused"} data-renderer={hybrid && hybridReady && !hybridError ? "hybrid" : "svg"}
       style={{ ...ambientVariables, "--ambient-drift": `${2 / renderScale}px` } as CSSProperties}>
       <div className="command-instrument__dial" ref={dialRef}>
-        {hybrid && !hybridError && <HybridCommandCore layout={layout} state={ambientState} voiceLevel={voiceLevel}
+        {hybrid && !hybridError && <HybridCommandCore layout={layout} state={ambientState} voiceLevel={voiceLevel} execution={execution}
           running={ambient.running} hoverProject={hoverProject}
           onReady={setHybridReady} onError={setHybridError} />}
         <svg

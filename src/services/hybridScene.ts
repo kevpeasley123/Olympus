@@ -11,6 +11,8 @@ import { buildCommandMaterialStudy } from "./commandMaterialStudy";
 import { INNER_CORE_SCALE, HYBRID_CAMERA, CONSTELLATION_DEPTH, nodeDepth, type CommandLayout } from "./hybridCore";
 import type { HybridFrame } from "../components/panels/HybridCommandCore";
 
+export const LISTENING_RINGS = { transitionSeconds:2.8, waveInterval:1, waveDuration:.95, waveTravel:23, waveOpacity:.10 };
+const EXECUTING_MOTION = { launchesPerSecond:5, transitSeconds:1.2, rotationSpeed:2 };
 const ORANGE = 0xee842d, BLUE = 0x739fbd;
 const point = (angle: number, radius: number) => new T.Vector2(Math.sin(angle * Math.PI / 180) * radius, Math.cos(angle * Math.PI / 180) * radius);
 function band(start: number, end: number, inner: number, outer: number) {
@@ -85,6 +87,17 @@ export function mountHybridScene(host: HTMLDivElement, layout: CommandLayout, cu
       group.add(new T.Mesh(new T.TorusGeometry(84+i*10,tube,8,192),material));
     }
   }
+  // Reuse one wave per orbital path; no per-frame allocations or React updates.
+  const listeningWaves=orbital.map((ring,i)=>{
+    const material=new T.MeshBasicMaterial({color:i===0?0xffcf7a:0xe5efff,transparent:true,opacity:0,depthWrite:false,blending:T.AdditiveBlending,toneMapped:false});
+    const wave=mesh(new T.RingGeometry(.995,1,192),material,ring.position.z);
+    wave.quaternion.copy(camera.quaternion);wave.visible=false;
+    return {mesh:wave,material,radius:(84+i*10)*INNER_CORE_SCALE};
+  });
+  const transitionStarts=orbital.map(ring=>ring.quaternion.clone());
+  const idleOrientation=new T.Quaternion(),idleEuler=new T.Euler();
+  let listening=false,transition=1,listeningTime=0,orbitalTime=0,executing=false,operationAge=100,completionAge=100;
+  let previousOperation:number|undefined,previousState="idle",executionTime=0,errorState=false,errorAge=100,ringFlowTime=0;
   const nodeGeometry=new T.SphereGeometry(1,10,8);
   const nodes: {mesh:T.Mesh; project:string; material:T.MeshStandardMaterial; base:number; z:number; period:number}[]=[];
   for (const n of layout.constellation.nodes) {
@@ -112,7 +125,11 @@ export function mountHybridScene(host: HTMLDivElement, layout: CommandLayout, cu
     line(pos(edge.from),pos(edge.to),SCENE_FINISH.network.crossOpacity,fraction(piece.from),fraction(piece.to));
   }
   const signalLight=new T.MeshBasicMaterial({color:new T.Color(2.2,2.2,2.2),toneMapped:false});
-  const signal=mesh(new T.SphereGeometry(1.2,10,8),signalLight,0);
+  const signalGeometry=new T.SphereGeometry(1.2,10,8);
+  const signal=mesh(signalGeometry,signalLight,0);
+  const executionSignals=Array.from({length:Math.ceil(EXECUTING_MOTION.launchesPerSecond*EXECUTING_MOTION.transitSeconds)},()=>{
+    const orb=mesh(signalGeometry,signalLight,0);orb.visible=false;return orb;
+  });
   let frame: number | undefined, timer: number | undefined;
   let stopped=false, time=0, previous=0;
   const lost=(event:Event)=>{event.preventDefault();fail("Graphics context lost.");};canvas.addEventListener("webglcontextlost",lost);
@@ -123,14 +140,48 @@ export function mountHybridScene(host: HTMLDivElement, layout: CommandLayout, cu
     if(stopped)return;
     frame=undefined;timer=undefined;
     const value=current(), moving=value.running&&document.visibilityState==="visible";
-    if(moving&&previous)time+=Math.min((now-previous)/1000,.05);previous=now;
+    const delta=moving&&previous?Math.min((now-previous)/1000,.05):0;
+    time+=delta;previous=now;
+    orbitalTime+=value.state==="error"?0:delta*(value.state==="thinking"?10:1);
+    if(value.state!=="error")ringFlowTime+=delta;
+    const nextError=value.state==="error";
+    errorAge=nextError?(errorState?errorAge+delta:0):100;
+    const nextExecuting=value.state==="executing";
+    executionTime=nextExecuting?(executing?executionTime+delta:0):0;
+    operationAge+=delta;completionAge+=delta;
+    if(nextExecuting&&executing&&value.execution?.operation!==undefined&&previousOperation!==undefined&&value.execution.operation!==previousOperation)operationAge=0;
+    if(value.state==="complete"&&previousState!=="complete")completionAge=0;
+    previousOperation=value.execution?.operation;previousState=value.state;
+    const operationPulse=moving&&nextExecuting&&operationAge<.65?Math.sin(Math.PI*operationAge/.65)**2:0;
+    const nextListening=value.state==="listening";
+    if(nextListening!==listening||nextExecuting!==executing||nextError!==errorState){
+      listening=nextListening;executing=nextExecuting;errorState=nextError;transition=0;listeningTime=0;
+      orbital.forEach((ring,i)=>transitionStarts[i].copy(ring.quaternion));
+    }
+    transition=moving?Math.min(1,transition+delta/LISTENING_RINGS.transitionSeconds):1;
+    const ease=transition*transition*(3-2*transition);
     orbital.forEach((ring,i)=>{
-      ring.rotation.set(time*(i%2?-.22:.28)+i*.8, time*.16+i*.65, i*.9);
+      idleOrientation.setFromEuler(idleEuler.set(orbitalTime*(i%2?-.22:.28)+i*.8,orbitalTime*.16+i*.65,i*.9));
+      if(executing)idleOrientation.setFromEuler(idleEuler.set(.32+i*.22+orbitalTime*.28*EXECUTING_MOTION.rotationSpeed,.28+i*.18+orbitalTime*.16*EXECUTING_MOTION.rotationSpeed,orbitalTime*.20+i*Math.PI));
+      if(errorState)idleOrientation.setFromEuler(idleEuler.set(i===0?.55:-.48,i===0?-.65:.65,i*.7));
+      ring.quaternion.copy(transitionStarts[i]).slerp(listening?camera.quaternion:idleOrientation,ease);
     });
-    ringLightMaterials.forEach((material,i)=>{material.uniforms.phase.value=time*.48+Math.floor(i/5)*2.1;});
-    const energy=value.state==="speaking"?(moving?Math.min(1,Math.max(0,value.voiceLevel)):.15):value.state==="thinking"?.35:value.state==="listening"?.22:0;
+    if(listening&&transition===1)listeningTime+=delta;
+    listeningWaves.forEach((wave,index)=>{
+      const completing=value.state==="complete"&&completionAge<1.6;
+      const age=listeningTime%LISTENING_RINGS.waveInterval,progress=completing?completionAge/1.6:age/LISTENING_RINGS.waveDuration;
+      wave.mesh.visible=moving&&(completing?index===1:listening&&transition===1&&progress<1);
+      if(wave.mesh.visible){
+        wave.mesh.scale.setScalar(wave.radius+LISTENING_RINGS.waveTravel*progress);
+        wave.material.opacity=LISTENING_RINGS.waveOpacity*Math.sin(Math.PI*progress)**2;
+      }
+    });
+    canvas.dataset.listeningOpen=String(listening&&transition===1);
+    canvas.dataset.listeningWaves=String(listeningWaves.filter(wave=>wave.mesh.visible).length);
+    ringLightMaterials.forEach((material,i)=>{material.uniforms.phase.value=ringFlowTime*.48+Math.floor(i/5)*2.1;});
+    const energy=value.state==="speaking"?(moving?Math.min(1,Math.max(0,value.voiceLevel)):.15):value.state==="thinking"?.35:value.state==="listening"?.22:executing?.18+operationPulse*.3:0;
     glow.emissiveIntensity=.23+(moving?Math.sin(time*.8)*.06:0)+energy*.55;
-    study.update(time, energy, moving, value.hoverProject, value.state==="idle");
+    study.update(time, energy, moving, value.hoverProject, value.state==="idle", value.state==="speaking", executing, executing||errorState?value.execution?.projectId:undefined, operationPulse, value.state==="complete", errorState?errorAge:-1);
     glow.color.set(value.state==="error"?0xe57854:ORANGE);
     frames.forEach(f=>{f.material.emissiveIntensity=value.hoverProject===f.id?1.1:f.active?.45:.2;});
     nodes.forEach((n,i)=>{n.mesh.position.z=n.z+(moving?Math.sin(time*Math.PI*2/n.period+i*2.4)*CONSTELLATION_DEPTH.driftAmount:0);n.material.emissiveIntensity=n.base+(value.hoverProject===n.project?.6:0)+(moving?Math.sin(time*.35+i)*.07:0);});
@@ -140,9 +191,19 @@ export function mountHybridScene(host: HTMLDivElement, layout: CommandLayout, cu
       attribute.setXYZ(1,a.x+(b.x-a.x)*to,a.y+(b.y-a.y)*to,a.z+(b.z-a.z)*to);
       attribute.needsUpdate=true;
     }
-    const edges=layout.constellation.treeEdges;
-    signal.visible=moving&&edges.length>0&&time%4.5<2;
-    if(signal.visible){const e=edges[Math.floor(time/4.5)%edges.length];signal.position.copy(pos(e.from)).lerp(pos(e.to),(time%4.5)/2);}
+    const edges=executing?layout.constellation.treeEdges.filter(edge=>edge.to.projectId===value.execution?.projectId):layout.constellation.treeEdges;
+    signal.visible=!errorState&&!executing&&moving&&edges.length>0&&time%4.5<2;
+    const launch=Math.floor(executionTime*EXECUTING_MOTION.launchesPerSecond);
+    executionSignals.forEach((orb,index)=>{
+      const event=launch-index,age=executionTime-event/EXECUTING_MOTION.launchesPerSecond;
+      orb.visible=executing&&moving&&edges.length>0&&event>=0&&age<EXECUTING_MOTION.transitSeconds;
+      if(orb.visible){
+        const edge=edges[event%edges.length];
+        orb.position.copy(pos(edge.to)).lerp(pos(edge.from),age/EXECUTING_MOTION.transitSeconds);
+      }
+    });
+    canvas.dataset.executionSignals=String(executionSignals.filter(orb=>orb.visible).length);
+    if(signal.visible){const e=edges[Math.floor(time/4.5)%edges.length];signal.position.copy(pos(executing?e.to:e.from)).lerp(pos(executing?e.from:e.to),(time%4.5)/2);}
     const signature = `${value.state}/${moving?value.voiceLevel:0}/${value.hoverProject}/${canvas.width}/${canvas.height}/${value.running}`;
     try { if(document.visibilityState==="visible" && (moving || signature !== lastSignature)) { renderer.info.reset();composer.render(); renderCount++; lastSignature=signature; } }
     catch { fail("Rendering stopped unexpectedly."); return; }
