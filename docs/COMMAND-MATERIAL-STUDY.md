@@ -119,3 +119,7 @@ Executing uses coordinated tilted orbitals, a steady stronger core, and target-p
 Operator authorized committing and installing all refinements. The dimensional renderer now starts enabled, retaining the session fallback control. Executing rings rotate across axes and launch five white signals per second. Error eases to fixed ring orientations, dips once, and holds a blood-red Omega; preview-only retry/dismiss controls demonstrate recovery. No live executor or simulated speech controls are bundled into the production app.
 
 Release validation: frontend build/typecheck, 28 browser regression checks, and Rust library tests passed (paid live acceptance excluded). Database backup and integrity check completed before installation. Local installer artifacts and receipt are stored in the parent workspace output/olympus-0.11.0-install directory.
+
+## Live Command integration
+
+The live shell uses a smaller `scale(1.12)` override for the approved command dial; the isolated material study retains its original study scale. The Three.js scene no longer assigns an opaque background color. The renderer clears with alpha zero and the transparent canvas sits over the existing Olympus page background, so the live view does not inherit the study's rectangular navy stage.

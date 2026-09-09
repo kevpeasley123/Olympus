@@ -2781,6 +2781,11 @@ small {
   min-height: 0;
 }
 
+.panel-slot-instrument .command-instrument__dial {
+  /* Live-shell fit: 20% smaller than the approved 1.4 study scale. */
+  transform: scale(1.12);
+}
+
 .command-instrument__dial {
   /* Scale the complete apparatus, including labels and aligned hit targets. */
   transform: scale(1.4);

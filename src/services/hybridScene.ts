@@ -36,7 +36,7 @@ export function mountHybridScene(host: HTMLDivElement, layout: CommandLayout, cu
   renderer.toneMapping = T.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.05;
   host.appendChild(canvas);
-  const scene = new T.Scene();scene.background=new T.Color(0x1c2738);
+  const scene = new T.Scene(); // Transparent scene: the live page supplies the environment background.
   const camera = new T.OrthographicCamera(-220,220,220,-220,1,1000); camera.position.set(HYBRID_CAMERA.x,HYBRID_CAMERA.y,HYBRID_CAMERA.z); camera.lookAt(0,0,0);
   scene.add(new T.HemisphereLight(0xc5e2ff,0x07121f,.65));
   const light = new T.DirectionalLight(0xddefff,2.1); light.position.set(-100,160,230); scene.add(light);
