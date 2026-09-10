@@ -8,6 +8,7 @@ export const SCENE_FINISH={
   network:{rear:.32,mid:.58,front:.95,treeOpacity:.09,crossOpacity:.10},
 };
 import { buildCommandMaterialStudy } from "./commandMaterialStudy";
+import { buildConstellationField } from "./constellationField";
 import { INNER_CORE_SCALE, HYBRID_CAMERA, CONSTELLATION_DEPTH, nodeDepth, type CommandLayout } from "./hybridCore";
 import type { HybridFrame } from "../components/panels/HybridCommandCore";
 
@@ -97,6 +98,7 @@ export function mountHybridScene(host: HTMLDivElement, layout: CommandLayout, cu
   const cool = new T.MeshStandardMaterial({ color: BLUE, emissive: 0x284d70, emissiveIntensity: .55, metalness: .65, roughness: .3 });
   function mesh(geometry: T.BufferGeometry, material: T.Material, z = 0) { const m = new T.Mesh(geometry,material); m.position.z=z; scene.add(m); return m; }
   const study = buildCommandMaterialStudy(scene, renderer, layout);
+  const field = buildConstellationField(scene);
   renderer.info.autoReset=false;
   const sceneTarget=new T.WebGLRenderTarget(1,1,{type:T.HalfFloatType,samples:4});
   const composer=new EffectComposer(renderer,sceneTarget);
@@ -284,6 +286,7 @@ export function mountHybridScene(host: HTMLDivElement, layout: CommandLayout, cu
     canvas.dataset.listeningWaves=String(listeningWaves.filter(wave=>wave.mesh.visible).length);
     ringLightMaterials.forEach((material,i)=>{material.uniforms.phase.value=ringFlowTime*.48+Math.floor(i/5)*2.1;});
     const energy=value.state==="speaking"?(moving?Math.min(1,Math.max(0,value.voiceLevel)):.15):value.state==="thinking"?.35:value.state==="listening"?.22:executing?.18+operationPulse*.3:0;
+    field.update(energy);
     const speechTarget=value.state==='speaking'?energy:0;
     const voiceResponse=speechTarget>voiceUniforms.energy.value?VOICE_SIGNATURE.attackSeconds:VOICE_SIGNATURE.releaseSeconds;
     const voicePresence=value.state==='speaking'?1:0;

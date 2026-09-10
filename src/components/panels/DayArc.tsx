@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import {
   arcPath,
   buildTicks,
@@ -47,6 +47,11 @@ export function DayArc({
   const marker = pointOnRing(elapsed, centre, radius);
   const stableScale = Math.max(renderScale, 0.01);
   const tickHalfLength = 9 / stableScale;
+  const trackerId = useId().replace(/:/g, "");
+  const tailFraction = 24 / (stableScale * 2 * Math.PI * radius);
+  const tailStart = pointOnRing(elapsed - tailFraction, centre, radius);
+  const wake = arcPath(elapsed - tailFraction, elapsed, centre, radius);
+  const railResponse = arcPath(elapsed - tailFraction, elapsed + tailFraction * .28, centre, radius);
 
   // Quiet hours are the one thing here that comes from the operator profile.
   // A missing or malformed field renders nothing at all rather than blocking
@@ -103,15 +108,31 @@ export function DayArc({
         );
       })}
 
-      {/* Now. A ringed dot rather than a filled one, so it reads as a position
-          on the ring rather than as another tick. */}
-      <circle
-        cx={marker.x}
-        cy={marker.y}
-        r={5 / stableScale}
-        className={`day-arc__now ${reducedMotion ? "" : "is-live"}`}
-        pointerEvents="none"
-      />
+      {/* The time tracker rides the existing rail; its wake follows the same radius. */}
+      <defs>
+        <radialGradient id={`${trackerId}-halo`}>
+          <stop offset="0" stopColor="#ffb45e" stopOpacity=".34"/>
+          <stop offset=".4" stopColor="#e18b37" stopOpacity=".16"/>
+          <stop offset="1" stopColor="#d97706" stopOpacity="0"/>
+        </radialGradient>
+        <linearGradient id={`${trackerId}-wake`} gradientUnits="userSpaceOnUse" x1={tailStart.x} y1={tailStart.y} x2={marker.x} y2={marker.y}>
+          <stop offset="0" stopColor="#d97706" stopOpacity="0"/>
+          <stop offset=".65" stopColor="#e99540" stopOpacity=".38"/>
+          <stop offset="1" stopColor="#ffd292" stopOpacity=".85"/>
+        </linearGradient>
+      </defs>
+      <g className={`day-arc__tracker ${reducedMotion ? "" : "is-live"}`} pointerEvents="none">
+        <path d={railResponse} className="day-arc__tracker-channel"/>
+        <path d={wake} stroke={`url(#${trackerId}-wake)`} className="day-arc__tracker-reflection"/>
+        <path d={wake} stroke={`url(#${trackerId}-wake)`} className="day-arc__tracker-wake"/>
+        <g transform={`translate(${marker.x} ${marker.y}) rotate(${elapsed * 360})`}>
+          <circle r={5 / stableScale} className="day-arc__tracker-beacon"/>
+          <ellipse rx={12 / stableScale} ry={8 / stableScale} fill={`url(#${trackerId}-halo)`}/>
+          <circle r={5 / stableScale} className="day-arc__tracker-housing"/>
+          <circle r={3.2 / stableScale} className="day-arc__tracker-inset"/>
+          <circle r={1.65 / stableScale} className={`day-arc__tracker-core ${reducedMotion ? "" : "is-live"}`}/>
+        </g>
+      </g>
 
       {label ? (
         <text

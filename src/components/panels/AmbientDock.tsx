@@ -7,6 +7,8 @@ import { MODE_LABELS } from "../../hooks/useDashboardMode";
 import type { DashboardMode } from "../../hooks/useDashboardMode";
 
 interface AmbientDockProps {
+  preferencesOpen:boolean;
+  onPreferencesOpen:(open:boolean)=>void;
   voicePreferences: VoicePreferences;
   onVoicePreferences:(patch:Partial<VoicePreferences>)=>void;
   settingsReady:boolean;
@@ -15,8 +17,7 @@ interface AmbientDockProps {
   onCycleMode: () => void;
 }
 
-export function AmbientDock({ onRefresh, mode, onCycleMode, voicePreferences, onVoicePreferences, settingsReady }: AmbientDockProps) {
-  const [preferencesOpen, setPreferencesOpen] = useState(false);
+export function AmbientDock({ onRefresh, mode, onCycleMode, voicePreferences, onVoicePreferences, settingsReady, preferencesOpen, onPreferencesOpen:setPreferencesOpen }: AmbientDockProps) {
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [refreshSpinning, setRefreshSpinning] = useState(false);
   const [now, setNow] = useState(() => new Date());
@@ -141,17 +142,17 @@ export function AmbientDock({ onRefresh, mode, onCycleMode, voicePreferences, on
           ) : null}
         </div>
 
-        <div className="ambient-floating-control">
+        {mode!=="command"&&<div className="ambient-floating-control">
           <button
             className="ambient-corner-button"
-            onClick={() => setPreferencesOpen((value) => !value)}
+            onClick={() => setPreferencesOpen(!preferencesOpen)}
             title="Open preferences"
             aria-label="Open preferences"
             type="button"
           >
             <Settings2 size={16} />
           </button>
-        </div>
+        </div>}
       </div>
 
       {preferencesOpen ? (

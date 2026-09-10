@@ -22,6 +22,7 @@ import { useDashboardMode } from "./hooks/useDashboardMode";
 import type { DashboardMode } from "./hooks/useDashboardMode";
 
 function App() {
+  const [preferencesOpen,setPreferencesOpen]=useState(false);
   const {
     settings, settingsReady, updateVoicePreferences,
     tools,
@@ -179,6 +180,7 @@ function App() {
           <section className="right-stack dashboard-column">
             <FadeInPanel index={8} className="panel-slot panel-slot-chat">
               <ChatPanel
+                onOpenPreferences={()=>setPreferencesOpen(true)}
                 messages={chat}
                 onSendMessage={text => { realtimeVoice.stop(); void sendChatMessage(text); }}
                 onRecordObservation={recordObservation}
@@ -191,6 +193,7 @@ function App() {
       </div>
 
       <AmbientDock
+        preferencesOpen={preferencesOpen} onPreferencesOpen={setPreferencesOpen}
         voicePreferences={settings} onVoicePreferences={updateVoicePreferences} settingsReady={settingsReady}
         onRefresh={() => void refreshAll()}
         mode={mode}

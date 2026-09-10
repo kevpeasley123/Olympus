@@ -10,7 +10,7 @@ export const PROJECT_GLASS = {
   ior:1.38, thickness:7, clearcoat:.25, clearcoatRoughness:.18,
   bevelOpacity:.55, bevelReflection:1.1,
   reflection:.7, attenuation:0x536a7b, attenuationDistance:18,
-  rimOpacity:.035, activeRimBoost:.035, hoverRimBoost:.07,
+  rimOpacity:.075, activeRimBoost:.035, hoverRimBoost:.07,
   inactiveChannel:.045, activeChannel:.18,
   backingColor:0x07111a, backingDetailOpacity:.10, surfaceReflection:.4,
 };
@@ -27,6 +27,7 @@ export const MATERIAL_TUNING = {
 };
 // Idle-only motion profile. Other system states retain their existing behavior.
 export const OMEGA_SPEECH = { scaleGain:.2184, attackSeconds:.045, releaseSeconds:.20 };
+export const PROJECT_HOVER={enterSeconds:.06,leaveSeconds:.075,outlineOpacity:.42,glassEmission:.045,labelLift:.26};
 export const OMEGA_IDLE = {
   breathDuration:5.6, breathStrength:.13, haloBreathMin:.75, haloBreathMax:1.45,
   heartbeatMinInterval:10.5, heartbeatMaxInterval:14.8,
@@ -235,6 +236,21 @@ export function buildCommandMaterialStudy(scene:T.Scene,renderer:T.WebGLRenderer
   const labelTexture=new T.CanvasTexture(labelAtlas);labelTexture.colorSpace=T.SRGBColorSpace;
   labelTexture.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());
   const engravingLabel=mesh(new T.PlaneGeometry(440,440),new T.MeshBasicMaterial({map:labelTexture,transparent:true,depthWrite:false,toneMapped:false}),-2);
+  const labelHover=layout.ring.segments.map(s=>new T.Vector3(s.startAngle*Math.PI/180,(s.endAngle-s.startAngle)*Math.PI/180,0));
+  if(labelHover.length){
+    (engravingLabel.material as T.Material).onBeforeCompile=shader=>{
+      shader.uniforms.labelHover={value:labelHover};
+      shader.fragmentShader=`uniform vec3 labelHover[${labelHover.length}];\n`+shader.fragmentShader;
+      shader.fragmentShader=shader.fragmentShader.replace('#include <map_fragment>',`
+        #include <map_fragment>
+        float labelAngle=atan(vMapUv.x-.5,vMapUv.y-.5);
+        for(int i=0;i<${labelHover.length};i++){
+          float offset=mod(labelAngle-labelHover[i].x+12.5663706,6.2831853);
+          if(offset<labelHover[i].y)diffuseColor.rgb*=1.0+labelHover[i].z*${PROJECT_HOVER.labelLift};
+        }
+      `);
+    };
+  }
   engravingLabel.name='Internal glass lettering';engravingLabel.renderOrder=19;
   const diffusionCanvas=document.createElement('canvas');diffusionCanvas.width=diffusionCanvas.height=2048;
   const diffusionContext=diffusionCanvas.getContext('2d')!;
@@ -242,7 +258,7 @@ export function buildCommandMaterialStudy(scene:T.Scene,renderer:T.WebGLRenderer
   const diffusionTexture=new T.CanvasTexture(diffusionCanvas);diffusionTexture.colorSpace=T.SRGBColorSpace;
   const diffusionLabel=mesh(new T.PlaneGeometry(440,440),new T.MeshBasicMaterial({map:diffusionTexture,transparent:true,opacity:.16,depthWrite:false,blending:T.AdditiveBlending,toneMapped:false}),-2.2);
   diffusionLabel.name='Subsurface lettering diffusion';diffusionLabel.renderOrder=18;
-  const panels:{id:string;face:T.MeshPhysicalMaterial;active:boolean;rim:T.LineBasicMaterial}[]=[];
+  const panels:{id:string;face:T.MeshPhysicalMaterial;active:boolean;rim:T.LineBasicMaterial;hoverEdge:T.ShaderMaterial;hover:number;labelIndex:number}[]=[];
   for(const segment of layout.ring.segments){
     if(!studyIds.has(segment.project.id))continue;
     const {startAngle:a,endAngle:b}=segment,active=segment.project.status==='active';
@@ -296,6 +312,9 @@ export function buildCommandMaterialStudy(scene:T.Scene,renderer:T.WebGLRenderer
     mountingGeometry.addGroup(groupStart,mountingPositions.count-groupStart,groupMaterial);
     mountingGeometry.computeVertexNormals();
     mesh(mountingGeometry,[tabHousing,endCapMaterial],-13);
+    // Close the existing narrow frame at the glass lip. Its recessed rear rails
+    // otherwise leave a scenery-colored fringe beside the transparent bevel.
+    mesh(new T.ShapeGeometry(mountingFrame),tabHousing,-1.7);
     // Existing bevel/side faces catch more light than the front pane.
     const bevelGlass=glass.clone();bevelGlass.opacity=PROJECT_GLASS.bevelOpacity;
     bevelGlass.envMapIntensity=PROJECT_GLASS.bevelReflection*1.15;bevelGlass.roughness=.08;
@@ -316,7 +335,10 @@ export function buildCommandMaterialStudy(scene:T.Scene,renderer:T.WebGLRenderer
       };
       backGlass.customProgramCacheKey=()=>"olympus-active-recess-v1";
     }
-    mesh(new T.ShapeGeometry(annulus(a+.6,b-.6,157,179)),backGlass,-12);
+    // A dark lining directly behind the engraved face closes the optical window.
+    // The old smaller plate at Z=-12 left view-dependent scenery slivers around
+    // the pane. This follows its existing footprint and stays behind the labels.
+    mesh(new T.ShapeGeometry(annulus(a+.3,b-.3,156.1,179.9)),backGlass,-3.25);
     const channel:T.Material=active?new T.ShaderMaterial({
       uniforms:{clock:{value:0},motion:{value:0},start:{value:a},span:{value:b-a},strength:{value:ACTIVE_PROJECT.edgeIntensity},duration:{value:ACTIVE_PROJECT.tracerDuration},interval:{value:ACTIVE_PROJECT.tracerInterval}},
       transparent:true,depthWrite:false,toneMapped:false,
@@ -340,10 +362,28 @@ export function buildCommandMaterialStudy(scene:T.Scene,renderer:T.WebGLRenderer
     const rim=new T.LineBasicMaterial({vertexColors:true,color:active?0xe7bb7a:0xa9d5e8,transparent:true,opacity:PROJECT_GLASS.rimOpacity,depthWrite:false});
     const outline=annulus(a,b,155.2,180.8).getPoints(256);
     const rimGeometry=new T.BufferGeometry().setFromPoints(outline.map(p=>new T.Vector3(p.x,p.y,-.5)));
-    const rimColors=outline.flatMap(p=>{const response=.16+.84*Math.max(0,(p.x*-.65+p.y*.76)/p.length())**3;return [response,response,response];});
+    const rimColors=outline.flatMap(p=>{const response=.35+.65*Math.max(0,(p.x*-.65+p.y*.76)/p.length())**3;return [response,response,response];});
     rimGeometry.setAttribute('color',new T.Float32BufferAttribute(rimColors,3));
     group.add(new T.LineLoop(rimGeometry,rim));
-    panels.push({id:segment.project.id,face:glass,active,rim});
+    // A feathered perimeter replaces the hard one-pixel hover line.
+    const hoverEdge=new T.ShaderMaterial({
+      uniforms:{strength:{value:0},centerAngle:{value:(a+b)*Math.PI/360},halfAngle:{value:(b-a)*Math.PI/360}},
+      transparent:true,depthWrite:false,toneMapped:false,
+      vertexShader:`varying vec2 edgePosition;void main(){edgePosition=position.xy;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
+      fragmentShader:`varying vec2 edgePosition;uniform float strength,centerAngle,halfAngle;
+        void main(){
+          float radius=length(edgePosition);
+          float angle=atan(edgePosition.x,edgePosition.y);
+          float relative=atan(sin(angle-centerAngle),cos(angle-centerAngle));
+          vec2 q=abs(vec2(radius-168.,relative*radius))-vec2(12.8,halfAngle*radius);
+          float distanceToEdge=abs(length(max(q,0.))+min(max(q.x,q.y),0.));
+          float glow=.58*exp(-pow(distanceToEdge/.65,2.))+.42*exp(-pow(distanceToEdge/1.65,2.));
+          gl_FragColor=vec4(1.,.48,.16,strength*glow);
+        }`,
+    });
+    const hoverOutline=mesh(new T.ShapeGeometry(annulus(a-1.2,b+1.2,152.2,183.8)),hoverEdge,-.45);
+    hoverOutline.renderOrder=21;
+    panels.push({id:segment.project.id,face:glass,active,rim,hoverEdge,hover:0,labelIndex:layout.ring.segments.indexOf(segment)});
 
   }
   const idleCycle=createIdleCoreCycle();
@@ -383,7 +423,10 @@ export function buildCommandMaterialStudy(scene:T.Scene,renderer:T.WebGLRenderer
       activeChannels.forEach(material=>{material.uniforms.clock.value=time;material.uniforms.motion.value=moving?1:0;});
       panels.forEach(p=>{
         const selected=hover===p.id;
-        p.face.emissiveIntensity=0;
+        p.hover=moving?p.hover+((selected?1:0)-p.hover)*(1-Math.exp(-frameDelta/(selected?PROJECT_HOVER.enterSeconds:PROJECT_HOVER.leaveSeconds))):(selected?1:0);
+        p.hoverEdge.uniforms.strength.value=p.hover*PROJECT_HOVER.outlineOpacity;
+        p.face.emissive.set(0xb87432);p.face.emissiveIntensity=p.hover*PROJECT_HOVER.glassEmission;
+        labelHover[p.labelIndex].z=p.hover;
         p.rim.color.set(error&&p.id===executionProject?0xe57950:p.active?0xe7bb7a:0xa9d5e8);
         p.rim.opacity=PROJECT_GLASS.rimOpacity+(p.active?PROJECT_GLASS.activeRimBoost*.25:0)+(selected?PROJECT_GLASS.hoverRimBoost:0)+(p.id===executionProject?.10+operationPulse*.10:0);
       });

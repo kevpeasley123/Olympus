@@ -2,7 +2,7 @@ import {ModelRouteControl} from "./ModelSettings";
 import { realtimeVoice, voicePreview, useVoiceState } from "../../services/realtimeVoice";
 import { VOICE_CLIENT } from "../../services/voiceContract";
 import { Mic, MicOff, Volume2, VolumeX, Square, Keyboard } from "lucide-react";
-import { ChevronRight, NotebookPen, X, History } from "lucide-react";
+import { ChevronRight, NotebookPen, X, History, Settings2 } from "lucide-react";
 import type { CSSProperties } from "react";
 import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
@@ -23,6 +23,7 @@ const consoleMarkdownComponents: import("react-markdown").Components = {
 };
 
 interface ChatPanelProps {
+  onOpenPreferences?:()=>void;
   messages: ConversationMessage[];
   onSendMessage: (message: string) => void;
   onRecordObservation: (text: string) => Promise<ObsidianActionResult>;
@@ -31,7 +32,7 @@ interface ChatPanelProps {
 }
 function collapse(text: string): string { return text.split(/\s+/).filter(Boolean).join(" "); }
 
-export function ChatPanel({ messages, onSendMessage, onRecordObservation, pending = false, error = null }: ChatPanelProps) {
+export function ChatPanel({ messages, onSendMessage, onRecordObservation, pending = false, error = null,onOpenPreferences }: ChatPanelProps) {
   const voice = useVoiceState();
   const [mode, setMode] = useState<ConsoleMode>("dormant");
   const [draft, setDraft] = useState("");
@@ -264,17 +265,18 @@ export function ChatPanel({ messages, onSendMessage, onRecordObservation, pendin
         </div>
       </div>}
       <div className="console-command-bar">
+        <div className="console-status-line"><span className="console-omega" aria-hidden="true">Ω</span>
+          <span role="status" className="console-status">{status}</span>
+          <ModelRouteControl disabled={pending}/>
+          {onOpenPreferences&&<button type="button" className="ghost-icon-action" aria-label="Open preferences" title="Open preferences" onClick={onOpenPreferences}><Settings2 size={14}/></button>}
+          <button type="button" className="ghost-icon-action" aria-label="Open conversation history" title="Conversation history" onClick={showHistory}><History size={14} /></button>
+        </div>
         {(voice.active || voice.connecting || voice.error) && <div className="console-voice-status" role="status" aria-live="polite">
           <span>{voice.error || (voice.connecting ? "Connecting voice…" : "Microphone on · audio sent to OpenAI · stop to end")}</span>
           {voice.active && <div className="console-voice-controls"><button className="ghost-action" onClick={() => realtimeVoice.mute()} aria-pressed={voice.muted} aria-label={voice.muted ? "Unmute voice output" : "Mute voice output"}>{voice.muted ? <VolumeX size={13}/> : <Volume2 size={13}/>} {voice.muted ? "Unmute" : "Mute"}</button><button className="ghost-action" onClick={() => realtimeVoice.interrupt()}><Square size={12}/> Interrupt</button><button className="ghost-action" onClick={() => realtimeVoice.stop()}>Stop voice</button></div>}
         </div>}
 
-        <div className="console-status-line"><span className="console-omega" aria-hidden="true">Ω</span>
-          <span role="status" className="console-status">{status}</span>
-          <button type="button" className="ghost-icon-action" aria-label="Open conversation history" title="Conversation history" onClick={showHistory}><History size={14} /></button>
-        </div>
         {projectContext && <details className="console-project-context"><summary>{projectContext.label} context attached</summary><pre>{projectContext.context}</pre><button className="ghost-action" onClick={() => setProjectContext(null)}>Remove context</button></details>}
-        <ModelRouteControl disabled={pending}/>
         <div className="console-input-row">
           <textarea ref={inputRef} aria-label="Command to Olympus" rows={1} placeholder="Ask Olympus anything…" value={draft}
             onFocus={() => { if (mode === "dormant") showLive(); }} onChange={event => setDraft(event.target.value)}

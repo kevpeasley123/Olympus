@@ -10,5 +10,22 @@ mockIPC(command=>{
 });
 createRoot(document.getElementById("root")!).render(<main className="settings-panel" style={{margin:40,maxWidth:440}}><output id="result">Waiting</output><ModelRouteControl/><ModelDiagnostics/></main>);
 const wait=()=>new Promise(r=>setTimeout(r,600));
-async function run(){await wait();const select=document.querySelector<HTMLSelectElement>('select')!;if(select.options.length!==3)throw Error("Backend catalog not rendered");select.value="DEEP_REASONING";select.dispatchEvent(new Event("change",{bubbles:true}));await wait();if(consumeNextModel()!=="DEEP_REASONING"||consumeNextModel()!=="PRIMARY")throw Error("Escalation not one-shot");await wait();if(select.value!=="PRIMARY")throw Error("UI did not reset");document.querySelector<HTMLDetailsElement>('.model-diagnostics')!.open=true;await wait();if(!document.body.textContent?.includes("actual-fixture-snapshot"))throw Error("Actual model missing");document.getElementById("result")!.textContent="PASS: backend catalog, explicit one-shot escalation, UI reset and actual-model diagnostics";}
+async function run(){
+ await wait();
+ const trigger=document.querySelector<HTMLButtonElement>('[aria-haspopup="menu"]')!;
+ trigger.click();await wait();
+ const options=[...document.querySelectorAll<HTMLButtonElement>('[role="menuitemradio"]')];
+ if(options.length!==3)throw Error("Backend catalog not rendered");
+ if(!options[0].textContent?.includes("SOL")||!options[1].textContent?.includes("ASTRA"))throw Error("Friendly route names missing");
+ options[1].click();await wait();
+ if(!trigger.textContent?.includes("ASTRA")||document.querySelector('[role="menu"]'))throw Error("Selection not reflected or menu stayed open");
+ if(consumeNextModel()!=="DEEP_REASONING"||consumeNextModel()!=="PRIMARY")throw Error("Escalation not one-shot");
+ await wait();if(!trigger.textContent?.includes("SOL"))throw Error("UI did not reset");
+ trigger.click();await wait();
+ document.querySelector<HTMLElement>('[role="menuitemradio"]')!.dispatchEvent(new KeyboardEvent("keydown",{key:"Escape",bubbles:true}));
+ await wait();if(document.querySelector('[role="menu"]')||document.activeElement!==trigger)throw Error("Escape did not close menu and restore focus");
+ document.querySelector<HTMLDetailsElement>('.model-diagnostics')!.open=true;await wait();
+ if(!document.body.textContent?.includes("actual-fixture-snapshot"))throw Error("Actual model missing");
+ document.getElementById("result")!.textContent="PASS: backend catalog, friendly names, one-shot selection, UI reset, Escape focus and actual-model diagnostics";
+}
 void run().catch(e=>{document.getElementById("result")!.textContent=`FAIL: ${e}`;});

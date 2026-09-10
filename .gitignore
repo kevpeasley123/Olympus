@@ -3,6 +3,8 @@ dist/
 target/
 src-tauri/target/
 .vite/
+# Local review artifacts, private profile copies, and release backups.
+/output/
 .env
 *.log
 tauri-run.err

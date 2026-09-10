@@ -81,57 +81,26 @@ body {
   background-attachment: fixed;
 }
 
-/* Sits between the image and the app. Darkest over the centre column, so the
-   busiest region stays legible no matter which image is loaded — the inverse of
-   a conventional vignette, which darkens the edges. */
-.background-vignette {
-  position: fixed;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  background: radial-gradient(
-    ellipse 55% 65% at 50% 50%,
-    rgba(4, 7, 14, 0.62) 0%,
-    rgba(4, 7, 14, 0.25) 55%,
-    transparent 100%
-  );
-}
-
-/* Overscanned so the parallax translation never exposes an edge. */
+/* Static environmental depth. The original asset remains available for rollback. */
 .background-image {
-  position: fixed;
-  inset: -24px;
-  z-index: -1;
-  pointer-events: none;
-  /* The veil rides on the image rather than on `body`, so it dims the picture
-     without dimming the panels stacked above it. It was 0.90/0.92 before, which
-     is why the image was invisible; at this strength the structure reads
-     through without the picture competing with text. */
-  /* The image is framed to its lower band, not shown whole.
-     The asset contains its own rendered interface — holographic panels, an
-     ANALYTICS label, a second OLYMPUS wordmark, and city platforms built from
-     large concentric circles. Those compete with the instrument because they
-     read as UI, and the circles worst of all: the instrument is a ring.
-     All of it sits in the upper half of the frame. Anchoring to the bottom and
-     zooming crops the interface out while keeping what belongs — colonnades,
-     cliff faces, causeway, mist, light in stone.
-     Repositioning at `cover` could not do this: the asset is 16:9 and so is the
-     layer, so there was exactly 0px of horizontal slack to move. The zoom is
-     what creates room to reframe.
-     150% is chosen against a measured boundary, not by eye. It shows the image
-     from y=430 of 941; the panels end at y=420, the wordmark banner at y=450,
-     and the concentric platforms begin at y=390 — so this leaves 40px of
-     margin above the nearest offender. 190% was clean but flattened the picture
-     into texture; 135% was tried and clearly fails, putting the OLYMPUS banner
-     and the platforms back on screen. Lowering this further reintroduces them. */
-  background-image:
-    linear-gradient(rgba(7, 13, 26, 0.78), rgba(7, 13, 26, 0.84)),
-    url("./assets/Olympus background asset.png");
-  background-position: center, 50% 100%;
-  background-repeat: no-repeat, no-repeat;
-  background-size: cover, 150%;
-  will-change: transform;
+  position:fixed;
+  inset:0;
+  z-index:-1;
+  pointer-events:none;
+  background:#07101b url("./assets/olympus-environment-v2.png") center / cover no-repeat;
+  filter:saturate(.63) brightness(.64) contrast(1.10);
 }
+.background-vignette {
+  position:fixed;
+  inset:0;
+  z-index:0;
+  pointer-events:none;
+  background:
+    linear-gradient(180deg,rgba(3,8,15,.27),transparent 24%,rgba(3,8,15,.18) 70%,rgba(3,8,15,.66)),
+    radial-gradient(ellipse 48% 64% at 33% 51%,rgba(3,9,17,.36),transparent 90%),
+    linear-gradient(90deg,rgba(3,9,17,.22),transparent 48%,rgba(5,13,24,.22));
+}
+.background-vignette.background-vignette--cinematic { animation:none; }
 
 button,
 input,
@@ -444,38 +413,43 @@ select:focus {
 
 /* ---- Mode switcher ------------------------------------------------------ */
 
+/* One housing; each mode retains its existing live state and action. */
 .mode-switcher {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  padding: 3px;
-  border: 1px solid rgba(255, 158, 44, 0.18);
-  background: rgba(9, 26, 40, 0.55);
+  display:flex;
+  align-items:stretch;
+  gap:0;
+  padding:0;
+  border:1px solid #283442;
+  border-radius:7px;
+  background:linear-gradient(180deg,rgba(27,37,49,.95),rgba(9,17,28,.96));
+  box-shadow:inset 0 1px rgba(210,225,240,.05),0 3px 12px rgba(0,0,0,.22);
 }
-
 .mode-switcher__segment {
-  padding: 6px 18px;
-  border: none;
-  background: transparent;
-  color: var(--muted);
-  font-family: inherit;
-  font-size: 12px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  cursor: pointer;
-  transition:
-    color 160ms ease-out,
-    background 160ms ease-out;
+  position:relative;
+  padding:10px 22px;
+  border:1px solid transparent;
+  border-radius:0;
+  background:transparent;
+  color:#9aaec3;
+  font-family:inherit;
+  font-size:12px;
+  font-weight:500;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+  cursor:pointer;
+  transition:color 180ms ease-out,background 180ms ease-out,box-shadow 180ms ease-out;
 }
-
-.mode-switcher__segment:hover {
-  color: var(--primary);
-}
-
+.mode-switcher__segment + .mode-switcher__segment { border-left-color:rgba(133,158,187,.08); }
+.mode-switcher__segment:first-child { border-radius:6px 0 0 6px; }
+.mode-switcher__segment:last-child { border-radius:0 6px 6px 0; }
+.mode-switcher__segment:hover { color:#dbe4ed; background:rgba(128,161,191,.05); }
 .mode-switcher__segment.is-active {
-  background: rgba(255, 158, 44, 0.14);
-  color: var(--accent);
+  color:#f3b65f;
+  border-color:rgba(215,141,62,.65);
+  background:radial-gradient(ellipse at 50% 120%,rgba(220,131,41,.16),transparent 85%),linear-gradient(180deg,rgba(126,79,39,.19),rgba(87,56,32,.13));
+  box-shadow:inset 0 1px rgba(251,190,105,.12),0 0 14px rgba(206,119,29,.06);
 }
+.mode-switcher__segment:focus-visible { outline:2px solid #efbd7a; outline-offset:3px; z-index:1; }
 
 /* ---- Status rail -------------------------------------------------------- */
 
@@ -4529,9 +4503,21 @@ small {
 
 .voice-catalog { color-scheme:dark; scrollbar-color:#40556a #0b1420; scrollbar-width:thin; }
 
-.model-route-control { display:flex; align-items:center; gap:8px; color:#91a5b8; font:10px var(--font-mono); padding:5px 0; }
-.model-route-control select { background:#101d29; border:1px solid #35495b; color:#d5dde6; font:10px var(--font-mono); padding:4px; max-width:180px; }
-.model-route-control small { color:#e3ac65; font-size:9px; }
+.model-route-control { position:relative; flex:0 0 auto; color:#91a5b8; font:10px var(--font-mono); }
+.model-route-trigger { background:transparent; border:1px solid transparent; color:#c5b18f; font:9px var(--font-mono); padding:4px; white-space:nowrap; cursor:pointer; }
+.model-route-trigger:hover,.model-route-trigger[aria-expanded="true"] { border-color:#685039; color:#efbd7a; background:#15202b; }
+.model-route-trigger:focus-visible,.model-route-menu button:focus-visible { outline:1px solid #dc954d; outline-offset:2px; }
+.model-route-trigger:disabled { opacity:.45; cursor:default; }
+.model-route-menu { position:absolute; bottom:calc(100% + 10px); right:0; width:206px; z-index:40; padding:5px; background:#0b1520; border:1px solid #354757; box-shadow:0 8px 24px #0008; }
+.model-route-menu button { display:flex; flex-direction:column; gap:4px; width:100%; text-align:left; padding:9px 10px; border:0; border-left:2px solid transparent; background:transparent; color:#b9c5d1; font:10px var(--font-mono); cursor:pointer; }
+.model-route-menu button[aria-checked="true"] { border-left-color:#e19a4b; background:#211e1a; color:#f0be7d; }
+.model-route-menu button:hover { background:#1b2935; }
+.model-route-menu small { color:#93a5b7; font:10px var(--font-mono); }
+.model-route-menu p { margin:6px 10px; color:#7e92a5; font:9px/1.5 var(--font-mono); }
+.console-status-line { gap:6px; }
+.console-status-line .console-status { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.console-command-bar { container-type:inline-size; }
+@container (max-width:340px) { .model-route-prefix { display:none; } }
 .model-diagnostics { color:#98aabd; font:10px var(--font-mono); border-bottom:1px solid #35495b; padding:10px 0; margin-bottom:14px; }
 .model-diagnostics-list { max-height:280px; overflow:auto; margin-top:10px; }
 .model-diagnostics-list summary { padding:6px 0; }
@@ -4578,4 +4564,33 @@ small {
 .command-instrument[data-renderer="hybrid"] .project-ring__window-name--active {
   fill: #f0c789;
   filter: drop-shadow(0 0 0.8px rgba(240, 160, 66, 0.4));
+}
+
+/* One contained time-tracker head, with a short wake on the existing day rail. */
+.day-arc__tracker-channel { fill:none; stroke:#080f17; stroke-width:3; stroke-opacity:.55; stroke-linecap:round; vector-effect:non-scaling-stroke; }
+.day-arc__tracker-reflection { fill:none; stroke-width:4.5; opacity:.3; stroke-linecap:round; vector-effect:non-scaling-stroke; filter:blur(1.2px); }
+.day-arc__tracker-wake { fill:none; stroke-width:1.2; stroke-linecap:round; vector-effect:non-scaling-stroke; }
+.day-arc__tracker-housing { fill:#101a22; stroke:#ecaa62; stroke-width:1.1; vector-effect:non-scaling-stroke; }
+.day-arc__tracker-inset { fill:#382719; stroke:#9e6939; stroke-width:.55; vector-effect:non-scaling-stroke; }
+.day-arc__tracker-core { fill:#ffe0a3; filter:drop-shadow(0 0 1.4px #f3a345); }
+.day-arc__tracker-core.is-live { animation:day-arc-now-breath 4s ease-in-out infinite; }
+@media (prefers-reduced-motion:reduce) { .day-arc__tracker-core.is-live { animation:none; } }
+
+/* A quiet attention cue; the tracker's actual day position stays authoritative. */
+.day-arc__tracker-beacon { fill:none; stroke:#f3b469; stroke-width:.75; opacity:0; vector-effect:non-scaling-stroke; transform-box:fill-box; transform-origin:center; }
+.day-arc__tracker.is-live .day-arc__tracker-beacon { animation:tracker-beacon 5.5s ease-out infinite; }
+.day-arc__tracker.is-live .day-arc__tracker-wake { animation:tracker-wake 5.5s ease-in-out infinite; }
+@keyframes tracker-beacon {
+  0%, 18% { opacity:0; transform:scale(1); }
+  25% { opacity:.48; transform:scale(1.08); }
+  53% { opacity:0; transform:scale(1.85); }
+  100% { opacity:0; transform:scale(1.85); }
+}
+@keyframes tracker-wake {
+  0%, 15%, 65%, 100% { opacity:.42; }
+  30%, 38% { opacity:1; }
+}
+@media (prefers-reduced-motion:reduce) {
+  .day-arc__tracker.is-live .day-arc__tracker-beacon,
+  .day-arc__tracker.is-live .day-arc__tracker-wake { animation:none; }
 }

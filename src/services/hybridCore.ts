@@ -13,7 +13,7 @@ export const CONSTELLATION_DEPTH = {
   rearIntensity:.24, midIntensity:.58, frontIntensity:.95,
   driftAmount:1.1, driftMinPeriod:23, driftPeriodSpread:14,
   perspectiveDistance:360,
-  parallaxX:2.5*Math.PI/180, parallaxY:1.875*Math.PI/180, parallaxResponse:4,
+  parallaxX:3.25*Math.PI/180, parallaxY:2.4375*Math.PI/180, parallaxResponse:4,
   rearLine:.40, frontLine:1.18, haloOpacity:.18,
   protectedRadius:48, foregroundRadius:85,
 };

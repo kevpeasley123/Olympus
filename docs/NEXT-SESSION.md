@@ -1,3 +1,52 @@
+# Release checkpoint: 0.13.0
+
+The operator authorized committing, pushing and installing all accumulated app changes. This release contains the Command environment and mode housing, broad opaque portal/falloff, glass-edge repair, soft project hover, refined day-rail tracker, stronger constellation parallax, and console model/preferences placement described below. Version manifests are 0.13.0 on agent/curated-memory; no master merge is implied.
+
+Local output/profile-import copies and rollback artifacts are excluded from Git. The operator profile itself was installed in the local vault separately. Release backup, verification and installation receipt: ../output/olympus-0.13.0-install. Read that receipt and the installed executable version for actual installation status; this source checkpoint alone does not prove installation.
+
+Release verification: production frontend and Windows MSI build passed; 211 Rust tests passed (2 ignored); model-routing controls and all 16 console checks passed. All 42 renderer checks passed on the final art source. Live audio/backend replies are not claimed by these simulated UI checks.
+
+# Broad portal falloff (pre-release development)
+
+- Supersedes the tight opaque rear-sphere boundary below. The backing now follows the ring plane out to radius 191 (inside the existing rail at 192), with a long blue-black luminance transition from radius 72 outward.
+- Main space stays fully opaque through radius 155.5. A smooth quintic alpha taper spans 155.5–191 behind the ring architecture, with no sharp threshold or new rim. The backing renders before metal/linings and transparent glass, without writing depth; existing curved front shading and core response remain.
+- Only constellationField.ts changed in production. Ring/glass geometry, labels, constellation, Omega/orbits, lighting and page UI are preserved. Pre-pass source: output/command-art-milestone-1/baseline/constellationField-before-wide-falloff.ts.
+- Added composited-pixel coverage at the project opening and through the outer gap: alpha 255, 244, 144, 24, 0 at radii 150, 162, 172, 182, 190. Main portal stays opaque and the outer fade completes within the rail.
+- Production build, diff whitespace check and all 42 renderer checks pass. Full Command and populated environment study inspected in browser. A reduced-motion timing check failed during concurrent preview reloads and passed on the isolated rerun; no lifecycle code changed. No release commit/push/install in this pass.
+
+# Portal boundary refinement (working tree)
+
+- Removed the pronounced grazing-angle rim: reflection strength .14 -> .012 with broad shading that fades before the silhouette, instead of an edge band.
+- Field radius 155.5 seats its opaque boundary within the existing ring lip; only the portal changed. Deeper edge color falloff preserves subtle atmosphere without alpha fading or scenery bleed-through.
+- Omega illumination, constellation topology/depth/parallax, repaired glass, project geometry, UI and background remain unchanged. Previous opaque field source retained in output/command-art-milestone-1/baseline/constellationField-opaque.ts.
+
+# Portal and glass-edge correction (working tree)
+
+- The constellation interior is now opaque blue-black space: rear hemisphere outputs alpha 1 with no blending. Color falloff supplies depth; opacity does not fade into the environment. Radius 153 fits inside the existing project-ring opening. Outside the aperture, the WebGL canvas remains transparent.
+- Glass repair: the dark lining follows the existing pane footprint at Z=-3.25 (behind labels); a narrow metal lip closes the existing mounting-frame perimeter at Z=-1.7. No project position, label, hit path, pane dimensions or outer-ring geometry changed. The quiet rim has a modestly higher minimum visibility; accepted warm hover remains soft.
+- Renderer harness now reads actual composited pixels to assert fully opaque portal samples and fully transparent outside-canvas samples. No sample graph was added to the live app.
+
+# Command art direction: first milestone (working tree)
+
+See COMMAND-ART-MILESTONE-1.md for the audit, phased plan, asset provenance/prompt, verification and scoped rollback. The environment, constellation enclosure and mode-selector styling are implemented. No release install/commit/push performed for this milestone. Earlier accepted working changes below remain intact.
+
+- Environment: sibling image preserves Olympus citadel composition, removes baked-in HUD, adds warm/cool atmospheric depth; static CSS compositing replaces background drift.
+- Field: rear atmosphere plus faint asymmetric curved reflection; existing nodes, connections, Z assignments, camera, parallax, ring/Omega and voice behavior preserved.
+- Navigation: existing actions in one dark segmented housing with a restrained amber active boundary.
+- Populated material study now has an environment toggle. Its nodes remain labeled fixture data; the live browser fallback does not invent a vault graph.
+
+# Working changes: command interaction refinements (September 10, 2026)
+
+These changes are implemented in the working tree after the installed 0.12.0 checkpoint below; they have not been committed, pushed, or installed.
+
+- Project hover adds a separate soft orange perimeter glow (feathered shader, replacing the initial crisp line), restrained warm glass emission and localized label brightness. Exponential transitions settle in approximately 180 ms entering / 225 ms leaving. Active styling remains independent; no geometry or depth translation changed.
+- Console model selection and the existing preferences control now share the status header. The voice notice stays below that header. The input no longer has a standalone model configuration row.
+- Compact custom menu uses SOL / ASTRA / CLAUDE (existing explicit comparison route). Backend catalog and shared one-request state remain authoritative in desktop; selection resets to Sol on consumption. Realtime remains separate, with no AUTO. Browser-only options are explicitly labeled as preview.
+- Verified: production build, model-routing fixture (catalog, friendly names, one-shot routing/reset, Escape focus and diagnostics), all 16 console fixture checks, and visual hover/menu/preferences inspection in the full-page browser preview. The focus-dependent console fixture requires a visible browser tab. No live backend reasoning or voice call was made.
+- Outer day-rail marker refined into one contained tracker: inset bright core, thin housing, soft local halo, 24-screen-pixel fading wake and tight rail reflection. Existing time-of-day position, marker radius and ring geometry preserved. This is the DayArc current-time marker, not a new autonomous scanning animation. Production build and full-page visual inspection pass; no browser errors.
+- Latest constellation adjustment: pointer parallax increased a further 30%, from 2.5 / 1.875 to 3.25 / 2.4375 degrees equivalent. Depth, fixed camera and response damping unchanged.
+- Full development preview: http://127.0.0.1:31429/ . Material study remains available at /material-study.html.
+
 # Current checkpoint: 0.12.0 (September 10, 2026)
 
 This section supersedes the historical checkpoint below. The operator requested saving, committing, pushing the current branch, and installing all accepted changes.
