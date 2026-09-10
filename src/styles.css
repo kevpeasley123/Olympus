@@ -4571,6 +4571,7 @@ small {
 /* Crisp illuminated lettering; the small glow never replaces the letterform. */
 .command-instrument[data-renderer="hybrid"] .project-ring__segment { opacity: 1; }
 .command-instrument[data-renderer="hybrid"] .project-ring__window-name {
+  visibility: hidden; /* Visible lettering is rendered inside the 3D glass. */
   fill: #dcae70;
   filter: drop-shadow(0 0 0.65px rgba(224, 145, 57, 0.32));
 }

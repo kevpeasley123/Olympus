@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import "@fontsource/jetbrains-mono/500.css";
 import type { CommandLayout } from "../../services/hybridCore";
 import type { OlympusVisualState } from "../../services/ambientMotion";
 export interface HybridFrame { state: OlympusVisualState; voiceLevel: number; running: boolean; hoverProject: string | null; execution?: { projectId: string; operation: number } }
@@ -16,7 +17,8 @@ export function HybridCommandCore(props: Props) {
     layer.className = "hybrid-core__layer";
     layer.style.visibility = "hidden";
     host.current?.appendChild(layer);
-    void import("../../services/hybridScene").then(({mountHybridScene})=>{
+    void import("../../services/hybridScene").then(async ({mountHybridScene})=>{
+      await document.fonts.load('500 12px "JetBrains Mono"');
       if(cancelled || !host.current)return;
       dispose=mountHybridScene(layer,latest.current.layout,()=>latest.current,()=>{
         if(cancelled)return;

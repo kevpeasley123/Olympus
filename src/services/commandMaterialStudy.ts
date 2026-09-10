@@ -152,11 +152,10 @@ export function buildCommandMaterialStudy(scene:T.Scene,renderer:T.WebGLRenderer
   core.scale.setScalar(INNER_CORE_SCALE);group.add(core);
   // The selected study section follows the existing map, never an independently arranged scene.
   const studyIds=new Set(layout.ring.segments.map(segment=>segment.project.id));
-  // Three physical systems replace the stacked HUD rails and decorative ticks.
-  const chassis=new T.MeshPhysicalMaterial({color:0x293945,metalness:.82,roughness:.27,envMapIntensity:1.05,clearcoat:.12,clearcoatRoughness:.3});
-  const chassisSides=new T.MeshStandardMaterial({color:0x111c27,metalness:.78,roughness:.23,envMapIntensity:.85});
-  const secondary=new T.MeshStandardMaterial({color:0x334653,metalness:.8,roughness:.3,envMapIntensity:.65});
-  const channelBed=new T.MeshStandardMaterial({color:0x060b10,metalness:.35,roughness:.48});
+  // The chassis and energy channel surround an open gap outside the cassettes.
+  const chassis=new T.MeshPhysicalMaterial({color:0x314450,metalness:.82,roughness:.22,envMapIntensity:1.4,clearcoat:.12,clearcoatRoughness:.3});
+  const chassisSides=new T.MeshStandardMaterial({color:0x0d1822,metalness:.78,roughness:.22,envMapIntensity:1.05});
+  const channelBed=new T.MeshStandardMaterial({color:0x03070c,metalness:.25,roughness:.62});
   const circularBand=(inner:number,outer:number)=>{
     const shape=new T.Shape();shape.absarc(0,0,outer,0,Math.PI*2,false);
     const hole=new T.Path();hole.absarc(0,0,inner,0,Math.PI*2,true);shape.holes.push(hole);
@@ -167,22 +166,82 @@ export function buildCommandMaterialStudy(scene:T.Scene,renderer:T.WebGLRenderer
   const primaryGeometry=new T.ExtrudeGeometry(circularBand(198,205),{depth:8,steps:1,bevelEnabled:true,bevelSize:.45,bevelThickness:.45,bevelSegments:6,curveSegments:256});
   const primary=mesh(primaryGeometry,[chassis,chassisSides],-12);
   primary.name="Primary structural band";
-  const recessed=mesh(extrude(circularBand(185,189),3,.3,256),secondary,-11);
-  recessed.name="Secondary recessed rail";
   mesh(extrude(circularBand(192,193),1,.12,256),channelBed,-10);
-  // Four deliberate light paths use the existing recessed energy channel.
-  for(const [start,end,gain] of [[24,36,2.4],[105,122,1.8],[211,220,2.1],[287,301,1.5]]){
-    const railLight=new T.MeshBasicMaterial({color:new T.Color(1,.32,.055).multiplyScalar(gain),toneMapped:false});
-    mesh(new T.ShapeGeometry(annulus(start,end,192.15,192.85)),railLight,-8.8);
-    const position=polar((start+end)/2,193.5);
-    const spill=new T.PointLight(0xff942e,11*gain,19,1.5);
+  // Long, asymmetrically spaced light sources remain within the existing channel.
+  const energySections=[
+    {start:12,end:48,gain:3.2,warm:true},
+    {start:91,end:132,gain:2.6,warm:true},
+    {start:196,end:224,gain:2.9,warm:true},
+    {start:280,end:311,gain:2.4,warm:true},
+    {start:153,end:173,gain:1.1,warm:false},
+    {start:331,end:351,gain:1.25,warm:false},
+  ];
+  for(const {start,end,gain,warm} of energySections){
+    const hotspot=.28+.1*Math.sin(start*.071);
+    const secondaryHotspot=.7+.08*Math.cos(start*.053);
+    const railLight=new T.MeshStandardMaterial({color:0x080e14,emissive:warm?0xff821e:0x9dcced,emissiveIntensity:gain*1.15,metalness:.2,roughness:.34});
+    railLight.onBeforeCompile=shader=>{
+      shader.uniforms.channelStart={value:start};shader.uniforms.channelSpan={value:end-start};
+      shader.uniforms.channelWarm={value:warm?1:0};
+      shader.uniforms.channelHotspot={value:hotspot};shader.uniforms.channelSecondary={value:secondaryHotspot};
+      shader.vertexShader='varying vec2 energyPosition;\n'+shader.vertexShader;
+      shader.vertexShader=shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nenergyPosition=position.xy;');
+      shader.fragmentShader='varying vec2 energyPosition; uniform float channelStart,channelSpan,channelWarm,channelHotspot,channelSecondary;\n'+shader.fragmentShader;
+      shader.fragmentShader=shader.fragmentShader.replace('#include <emissivemap_fragment>',`#include <emissivemap_fragment>
+        float along=clamp(mod(degrees(atan(energyPosition.x,energyPosition.y))-channelStart+360.,360.)/channelSpan,0.,1.);
+        float across=abs(length(energyPosition)-192.5)/.42;
+        float core=exp(-pow(across/mix(.27,.34,channelWarm),2.));
+        float shoulder=mix(.08,.16,channelWarm)*exp(-pow(across/mix(.56,.76,channelWarm),2.));
+        float ends=smoothstep(0.,.13,along)*smoothstep(0.,.17,1.-along);
+        float primaryLobe=exp(-pow((along-channelHotspot)/.15,2.));
+        float secondaryLobe=exp(-pow((along-channelSecondary)/.22,2.));
+        float sourceBalance=.56+.46*primaryLobe+.24*secondaryLobe;
+        totalEmissiveRadiance*= (core+shoulder)*ends*sourceBalance;
+      `);
+    };
+    railLight.customProgramCacheKey=()=> 'contained-energy-channel-v2';
+    mesh(new T.ShapeGeometry(annulus(start,end,192.08,192.92)),railLight,-8.8);
+    const position=polar(start+(end-start)*hotspot,195);
+    const spill=new T.PointLight(warm?0xff942e:0xafd6ef,(warm?18:13)*gain,15,1.5);
     spill.position.set(position.x,position.y,-5);group.add(spill);
   }
   const rippleMaterial=new T.MeshBasicMaterial({color:0xffab54,transparent:true,opacity:0,depthWrite:false,blending:T.AdditiveBlending,toneMapped:false});
   const ripple=mesh(new T.RingGeometry(.995,1,256),rippleMaterial,-8);
-  const tabHousing=frameMetal.clone();tabHousing.color.set(0x0c1b27);tabHousing.roughness=.48;tabHousing.envMapIntensity=.3;
-  const endCapMaterial=new T.MeshStandardMaterial({color:0x101b25,metalness:.65,roughness:.42,envMapIntensity:.35});
+  const tabHousing=frameMetal.clone();tabHousing.color.set(0x152736);tabHousing.roughness=.3;tabHousing.envMapIntensity=.65;
+  const endCapMaterial=new T.MeshStandardMaterial({color:0x12212c,metalness:.65,roughness:.34,envMapIntensity:.48});
   const activeChannels:T.ShaderMaterial[]=[];
+  // A shared high-resolution engraving atlas lives below the front glass plane.
+  const labelAtlas=document.createElement('canvas');labelAtlas.width=labelAtlas.height=2048;
+  const labelContext=labelAtlas.getContext('2d')!;
+  const atlasScale=2048/440;labelContext.scale(atlasScale,atlasScale);
+  labelContext.textAlign='center';labelContext.textBaseline='middle';
+  for(const segment of layout.ring.segments){
+    const active=segment.project.status==='active';
+    const fontSize=(active?11.5:10)/Math.max(layout.labelScale,.01);
+    labelContext.font=`500 ${fontSize}px "JetBrains Mono"`;
+    const spacing=fontSize*.09,advance=labelContext.measureText('M').width+spacing;
+    const capacity=Math.floor(((segment.endAngle-segment.startAngle)*Math.PI*168/180-12)/(fontSize*.62));
+    const original=segment.project.name.toUpperCase();
+    const name=original.length<=capacity?original:original.slice(0,Math.max(0,capacity-1))+'…';
+    const flipped=segment.midAngle>90&&segment.midAngle<270;
+    labelContext.fillStyle=active?'#f2bc74':'#ddb17a';
+    Array.from(name).forEach((letter,i)=>{
+      const offset=(i-(name.length-1)/2)*advance/168;
+      const angle=segment.midAngle*Math.PI/180+(flipped?-offset:offset);
+      labelContext.save();labelContext.translate(220+Math.sin(angle)*168,220-Math.cos(angle)*168);
+      labelContext.rotate(angle+(flipped?Math.PI:0));labelContext.fillText(letter,0,0);labelContext.restore();
+    });
+  }
+  const labelTexture=new T.CanvasTexture(labelAtlas);labelTexture.colorSpace=T.SRGBColorSpace;
+  labelTexture.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());
+  const engravingLabel=mesh(new T.PlaneGeometry(440,440),new T.MeshBasicMaterial({map:labelTexture,transparent:true,depthWrite:false,toneMapped:false}),-2);
+  engravingLabel.name='Internal glass lettering';engravingLabel.renderOrder=19;
+  const diffusionCanvas=document.createElement('canvas');diffusionCanvas.width=diffusionCanvas.height=2048;
+  const diffusionContext=diffusionCanvas.getContext('2d')!;
+  diffusionContext.filter=`blur(${atlasScale*.32}px)`;diffusionContext.drawImage(labelAtlas,0,0);
+  const diffusionTexture=new T.CanvasTexture(diffusionCanvas);diffusionTexture.colorSpace=T.SRGBColorSpace;
+  const diffusionLabel=mesh(new T.PlaneGeometry(440,440),new T.MeshBasicMaterial({map:diffusionTexture,transparent:true,opacity:.16,depthWrite:false,blending:T.AdditiveBlending,toneMapped:false}),-2.2);
+  diffusionLabel.name='Subsurface lettering diffusion';diffusionLabel.renderOrder=18;
   const panels:{id:string;face:T.MeshPhysicalMaterial;active:boolean;rim:T.LineBasicMaterial}[]=[];
   for(const segment of layout.ring.segments){
     if(!studyIds.has(segment.project.id))continue;
@@ -239,7 +298,7 @@ export function buildCommandMaterialStudy(scene:T.Scene,renderer:T.WebGLRenderer
     mesh(mountingGeometry,[tabHousing,endCapMaterial],-13);
     // Existing bevel/side faces catch more light than the front pane.
     const bevelGlass=glass.clone();bevelGlass.opacity=PROJECT_GLASS.bevelOpacity;
-    bevelGlass.envMapIntensity=PROJECT_GLASS.bevelReflection;bevelGlass.roughness=.08;
+    bevelGlass.envMapIntensity=PROJECT_GLASS.bevelReflection*1.15;bevelGlass.roughness=.08;
     // Front-only tuning after the bevel clone: construction and edge material stay fixed.
     glass.opacity=FRONT_GLASS.opacity;glass.roughness=FRONT_GLASS.roughness;
     const pane=mesh(extrude(annulus(a+.3,b-.3,156.1,179.9),7,.4),[glass,bevelGlass],-8);
@@ -329,6 +388,6 @@ export function buildCommandMaterialStudy(scene:T.Scene,renderer:T.WebGLRenderer
         p.rim.opacity=PROJECT_GLASS.rimOpacity+(p.active?PROJECT_GLASS.activeRimBoost*.25:0)+(selected?PROJECT_GLASS.hoverRimBoost:0)+(p.id===executionProject?.10+operationPulse*.10:0);
       });
     },
-    dispose(){engraving.dispose();contour.dispose();environmentTarget.dispose();scene.environment=null;}
+    dispose(){labelTexture.dispose();diffusionTexture.dispose();engraving.dispose();contour.dispose();environmentTarget.dispose();scene.environment=null;}
   };
 }
