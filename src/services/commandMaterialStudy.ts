@@ -26,7 +26,7 @@ export const MATERIAL_TUNING = {
   structurePrimary: .38, structureSecondary: .12,
 };
 // Idle-only motion profile. Other system states retain their existing behavior.
-export const OMEGA_SPEECH = { scaleGain:.182, attackSeconds:.045, releaseSeconds:.20 };
+export const OMEGA_SPEECH = { scaleGain:.2184, attackSeconds:.045, releaseSeconds:.20 };
 export const OMEGA_IDLE = {
   breathDuration:5.6, breathStrength:.13, haloBreathMin:.75, haloBreathMax:1.45,
   heartbeatMinInterval:10.5, heartbeatMaxInterval:14.8,

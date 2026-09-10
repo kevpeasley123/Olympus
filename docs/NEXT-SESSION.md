@@ -1,3 +1,19 @@
+# Current checkpoint: 0.12.0 (September 10, 2026)
+
+This section supersedes the historical checkpoint below. The operator requested saving, committing, pushing the current branch, and installing all accepted changes.
+
+- Release manifests: 0.12.0. Working branch: agent/curated-memory. Do not infer a master merge.
+- Constellation: stable ID-based Z distribution over +/-34 units; unchanged base X/Y coordinates and topology. The 64-node study has 11 foreground, 13 rear and 40 middle nodes. Continuous depth response, instanced soft halos, 3D connections and a network-only orbital depth pass.
+- Camera remains orthographic. Constellation-only shader perspective preserves the surrounding instrument; pointer parallax is now 2.5 degrees horizontal and 1.875 vertical equivalent, with smooth return to rest.
+- Omega speaking scale gain: .2184 (20% above the prior .182). Timing and resting scale preserved.
+- Accepted voice visual: separate localized amber peaks rise from the existing orange orbital and travel around it. Both original rings stay intact. Final peak amplitude: 28.6 (30% above 22); travelSpeed .60. Existing voice energy drives height and brightness with damped response/fade.
+- Rejected alternatives: a standalone third waveform ring and speech light bands within Omega. Both were removed. Do not restore them.
+- Existing glass labels, ring lighting, geometry and state behavior remain as described below.
+- Verification: production build and 38 browser fixture checks pass. Simulated speaking and pointer response were visually inspected. Real-data desktop graphics, live audio, and acoustic response are separate acceptance evidence, not established by fixture checks.
+- Installation backup and receipt directory: ../output/olympus-0.12.0-install. Read its receipt and the installed executable version to establish actual installation status; preparing this release does not itself prove installation.
+
+---
+
 # Olympus — next-session handoff
 
 Updated September 9, 2026. This is a checkpoint, not authorization to invent another visual pass.
