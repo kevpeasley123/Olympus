@@ -77,18 +77,11 @@ export function DayArc({
         r={radius}
         fill="none"
         className="day-arc__track"
+        opacity={0}
         onMouseEnter={() => setArcHovered(true)}
         onMouseLeave={() => setArcHovered(false)}
       />
 
-      {elapsed > 0.001 ? (
-        <path
-          d={arcPath(0, elapsed, centre, radius)}
-          className="day-arc__elapsed"
-          fill="none"
-          pointerEvents="none"
-        />
-      ) : null}
 
       {ticks.map((tick, index) => {
         // Ticks cross the track decisively. The previous 12-unit hairline used

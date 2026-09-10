@@ -31,7 +31,8 @@ export function mountHybridScene(host: HTMLDivElement, layout: CommandLayout, cu
   try { renderer = new T.WebGLRenderer({ canvas, context, alpha: true, antialias: true }); }
   catch { fail("The graphics device could not start."); return () => {}; }
   renderer.setClearColor(0x000000, 0);
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  // Modest supersampling on 1x displays keeps bevels from breaking into pixels.
+  renderer.setPixelRatio(Math.min(Math.max(window.devicePixelRatio || 1, 1.5), 2));
   renderer.outputColorSpace = T.SRGBColorSpace;
   renderer.toneMapping = T.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.05;
@@ -45,7 +46,6 @@ export function mountHybridScene(host: HTMLDivElement, layout: CommandLayout, cu
   const glow = new T.MeshStandardMaterial({ color: ORANGE, emissive: ORANGE, emissiveIntensity: .45, metalness: .45, roughness: .28 });
   const cool = new T.MeshStandardMaterial({ color: BLUE, emissive: 0x284d70, emissiveIntensity: .55, metalness: .65, roughness: .3 });
   function mesh(geometry: T.BufferGeometry, material: T.Material, z = 0) { const m = new T.Mesh(geometry,material); m.position.z=z; scene.add(m); return m; }
-  function track(radius: number, width: number, material: T.Material, z: number) { return mesh(new T.TorusGeometry(radius,width,8,192),material,z); }
   const study = buildCommandMaterialStudy(scene, renderer, layout);
   renderer.info.autoReset=false;
   const sceneTarget=new T.WebGLRenderTarget(1,1,{type:T.HalfFloatType,samples:4});
@@ -64,7 +64,6 @@ export function mountHybridScene(host: HTMLDivElement, layout: CommandLayout, cu
     mesh(new T.ShapeGeometry(band(segment.startAngle+.25,segment.endAngle-.25,178,179)),active?glow:cool,-1);
     mesh(new T.ShapeGeometry(band(segment.startAngle+.25,segment.endAngle-.25,157,157.45)),cool,-1);
   }
-  track(185,.55,structural,-8); track(190,.35,cool,-15); track(194,.45,structural,-20);
   // Two continuous light paths. Layered additive halos have no metal reflections.
   const orbital: T.Group[]=[];
   const ringLightMaterials:T.ShaderMaterial[]=[];
@@ -133,7 +132,8 @@ export function mountHybridScene(host: HTMLDivElement, layout: CommandLayout, cu
   let frame: number | undefined, timer: number | undefined;
   let stopped=false, time=0, previous=0;
   const lost=(event:Event)=>{event.preventDefault();fail("Graphics context lost.");};canvas.addEventListener("webglcontextlost",lost);
-  const resize=()=>{const {width,height}=host.getBoundingClientRect();renderer.setSize(Math.max(1,width),Math.max(1,height),false);composer.setSize(Math.max(1,width),Math.max(1,height));};
+  let renderWidth=0,renderHeight=0;
+  const resize=()=>{const {width,height}=host.getBoundingClientRect();if(width<=0||height<=0||(width===renderWidth&&height===renderHeight))return;renderWidth=width;renderHeight=height;renderer.setSize(width,height,false);composer.setSize(width,height);};
   const observer=new ResizeObserver(resize);observer.observe(host);resize();
   let announced=false, lastSignature="", lastStats=0, renderCount=0;
   function render(now:number) {
@@ -142,7 +142,7 @@ export function mountHybridScene(host: HTMLDivElement, layout: CommandLayout, cu
     const value=current(), moving=value.running&&document.visibilityState==="visible";
     const delta=moving&&previous?Math.min((now-previous)/1000,.05):0;
     time+=delta;previous=now;
-    orbitalTime+=value.state==="error"?0:delta*(value.state==="thinking"?10:1);
+    orbitalTime+=value.state==="error"?0:delta*(value.state==="thinking"?14:1);
     if(value.state!=="error")ringFlowTime+=delta;
     const nextError=value.state==="error";
     errorAge=nextError?(errorState?errorAge+delta:0):100;
@@ -205,7 +205,7 @@ export function mountHybridScene(host: HTMLDivElement, layout: CommandLayout, cu
     canvas.dataset.executionSignals=String(executionSignals.filter(orb=>orb.visible).length);
     if(signal.visible){const e=edges[Math.floor(time/4.5)%edges.length];signal.position.copy(pos(executing?e.to:e.from)).lerp(pos(executing?e.from:e.to),(time%4.5)/2);}
     const signature = `${value.state}/${moving?value.voiceLevel:0}/${value.hoverProject}/${canvas.width}/${canvas.height}/${value.running}`;
-    try { if(document.visibilityState==="visible" && (moving || signature !== lastSignature)) { renderer.info.reset();composer.render(); renderCount++; lastSignature=signature; } }
+    try { if(document.visibilityState==="visible" && host.getBoundingClientRect().width>0 && (moving || signature !== lastSignature)) { renderer.info.reset();composer.render(); renderCount++; lastSignature=signature; } }
     catch { fail("Rendering stopped unexpectedly."); return; }
     if(!announced && renderCount){announced=true;ready();}
     if(now-lastStats>500){lastStats=now;canvas.dataset.rings=String(orbital.filter(r=>r.visible).length);canvas.dataset.frames=String(renderCount);canvas.dataset.drawCalls=String(renderer.info.render.calls);canvas.dataset.nodes=String(nodes.length);}

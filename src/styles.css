@@ -2782,8 +2782,8 @@ small {
 }
 
 .panel-slot-instrument .command-instrument__dial {
-  /* Live-shell fit: 20% smaller than the approved 1.4 study scale. */
-  transform: scale(1.12);
+  /* Live-shell fit: a further 20% reduction from the previous 1.12 scale. */
+  transform: scale(0.896);
 }
 
 .command-instrument__dial {
@@ -4541,6 +4541,9 @@ small {
 /* Optional dimensional renderer: SVG retains all semantic labels and interaction targets. */
 .command-instrument__dial { position: relative; }
 .hybrid-core { position: absolute; inset: 0; pointer-events: none; }
+.center-stack > .panel-slot-instrument[hidden] { display:none; }
+.hybrid-core__layer { position:absolute; inset:0; background:transparent; }
+.command-instrument[data-scene-ready="false"] .hybrid-core { visibility:hidden; }
 .hybrid-core canvas { display: block; width: 100%; height: 100%; }
 .command-instrument__svg { position: relative; }
 .command-instrument[data-renderer="hybrid"] .omega-presence,
@@ -4565,5 +4568,13 @@ small {
    Keep their existing accessible targets forgiving at those depths. */
 .command-instrument[data-renderer="hybrid"] .project-ring circle[role="button"] { stroke:transparent; stroke-width:10; vector-effect:none; pointer-events:all; }
 
-/* Active project identity is independent of hover; no text bloom. */
-.command-instrument[data-renderer="hybrid"] .project-ring__window-name--active { fill: #e2b77c; }
+/* Crisp illuminated lettering; the small glow never replaces the letterform. */
+.command-instrument[data-renderer="hybrid"] .project-ring__segment { opacity: 1; }
+.command-instrument[data-renderer="hybrid"] .project-ring__window-name {
+  fill: #dcae70;
+  filter: drop-shadow(0 0 0.65px rgba(224, 145, 57, 0.32));
+}
+.command-instrument[data-renderer="hybrid"] .project-ring__window-name--active {
+  fill: #f0c789;
+  filter: drop-shadow(0 0 0.8px rgba(240, 160, 66, 0.4));
+}

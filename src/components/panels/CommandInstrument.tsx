@@ -1,6 +1,5 @@
 import { HybridCommandCore } from "./HybridCommandCore";
-import { commandLayout, HYBRID_OVERLAY_TRANSFORM, useHybridEnabled } from "../../services/hybridCore";
-import { AmbientOrbits } from "./AmbientOrbits";
+import { commandLayout, HYBRID_OVERLAY_TRANSFORM } from "../../services/hybridCore";
 import { useAmbientMotion } from "../../hooks/useAmbientMotion";
 import { AMBIENT, ambientVariables } from "../../services/ambientMotion";
 import type { OlympusVisualState } from "../../services/ambientMotion";
@@ -12,10 +11,6 @@ import { useOperatorProfile } from "../../hooks/useOperatorProfile";
 import { useVaultGraph } from "../../hooks/useVaultGraph";
 import { useVaultWrites } from "../../hooks/useVaultWrites";
 import {
-  IDLE_BREATH_SCALE_CEILING,
-  IDLE_BREATH_SCALE_FLOOR,
-  SPEAKING_ENVELOPE,
-  SPEAKING_LOOP_SECONDS,
   glyphStateFor
 } from "../../services/glyphState";
 import { subscribeToInstrumentEvents } from "../../services/instrumentEvents";
@@ -26,6 +21,7 @@ import { DayArc } from "./DayArc";
 import { ProjectRing } from "./ProjectRing";
 
 interface CommandInstrumentProps {
+  active?: boolean;
   visualState?: OlympusVisualState;
   voiceLevel?: number;
   execution?: { projectId: string; operation: number };
@@ -63,35 +59,6 @@ const CENTRE = SIZE / 2;
 const DAY_RADIUS = 205;
 
 /**
- * The breath sits inside the glyph clearance disc at rest and swells within it,
- * so it never reaches the innermost note band at 87.
- *
- * **77 is the ceiling, not a preference.** `GLYPH_CLEARANCE_RADIUS` is 82 and the
- * breath peaks at `--breath-scale-high`, so the largest radius that keeps the
- * swell inside the protected disc is `82 / 1.06 = 77.36`. At 77 the peak reaches
- * 81.6 with 0.4 units to spare; the innermost note band's inner extent is 83.16
- * behind that. **Raising this further puts glow where notes are drawn** — and the
- * gradient still carries ~0.02 alpha at 93% of its radius, so the nominal circle
- * is close enough to the visible edge that overrunning it would show.
- *
- * The radius is therefore a small dial, worth about 4%. What actually makes the
- * glow occupy more space is the gradient's midpoint, moved outward — see the
- * stops in the render.
- */
-const GLOW_RADIUS = 77;
-
-/**
- * Inside the glyph clearance disc, which is protected empty space — cross-project
- * edges are clipped out of it and no note band reaches in.
- *
- * **[V] 84 was wrong.** The glyph's ink reaches about 76 units from centre and the
- * innermost note band's inner extent is 83.16, so an arc at 84 would have crossed
- * the depth-3 notes. 79 sits between the two with margin on both sides and never
- * leaves the disc at 82.
- */
-const THINK_ARC_RADIUS = 79;
-
-/**
  * How long each pulse stays mounted.
  *
  * A vault write plays twice. A newly linked graph node uses the same outward
@@ -118,6 +85,7 @@ export function CommandInstrument({
   tasks,
   tasksLoading,
   tasksError,
+  active = true,
   visualState,
   voiceLevel = 0,
   execution,
@@ -135,12 +103,12 @@ export function CommandInstrument({
   const profile = useOperatorProfile();
   const { writes } = useVaultWrites();
   const { graph } = useVaultGraph();
-  const hybrid = useHybridEnabled();
+  const [renderAttempt, setRenderAttempt] = useState(0);
   const [hybridReady, setHybridReady] = useState(false);
   const [hybridError, setHybridError] = useState<string | null>(null);
   const [hoverProject, setHoverProject] = useState<string | null>(null);
   const layout = useMemo(() => commandLayout(projects, graph, renderScale), [projects, graph, renderScale]);
-  useEffect(() => { setHybridReady(false); setHybridError(null); }, [hybrid]);
+
   const commits = projects.flatMap((project) =>
     (project.recentCommits ?? []).map((commit) => ({ ...commit, project: project.name }))
   );
@@ -187,6 +155,7 @@ export function CommandInstrument({
 
     const measure = () => {
       const next = dial.getBoundingClientRect().width / SIZE;
+      if (next <= 0) return;
       setRenderScale((current) => (Math.abs(current - next) < 0.001 ? current : next));
     };
     measure();
@@ -223,21 +192,20 @@ export function CommandInstrument({
 
   return (
     <div className="command-instrument" data-visual-state={ambientState} data-voice-energy={voiceLevel > 0.15 ? "active" : "quiet"}
-      data-motion={ambient.running ? "running" : "paused"} data-renderer={hybrid && hybridReady && !hybridError ? "hybrid" : "svg"}
+      data-motion={ambient.running ? "running" : "paused"} data-renderer="hybrid" data-scene-ready={hybridReady && !hybridError}
       style={{ ...ambientVariables, "--ambient-drift": `${2 / renderScale}px` } as CSSProperties}>
       <div className="command-instrument__dial" ref={dialRef}>
-        {hybrid && !hybridError && <HybridCommandCore layout={layout} state={ambientState} voiceLevel={voiceLevel} execution={execution}
-          running={ambient.running} hoverProject={hoverProject}
+        {<HybridCommandCore key={renderAttempt} layout={layout} state={ambientState} voiceLevel={voiceLevel} execution={execution}
+          running={active && ambient.running} hoverProject={hoverProject}
           onReady={setHybridReady} onError={setHybridError} />}
         <svg
-          style={hybrid && hybridReady && !hybridError ? { transform: HYBRID_OVERLAY_TRANSFORM, transformOrigin: "50% 50%" } : undefined}
+          style={{ transform: HYBRID_OVERLAY_TRANSFORM, transformOrigin: "50% 50%", visibility: hybridReady && !hybridError ? "visible" : "hidden" }}
           viewBox={`0 0 ${SIZE} ${SIZE}`}
           className={`command-instrument__svg ${pulse ? `is-pulsing pulse-${pulse}` : ""}`}
           role="group"
           aria-label="Portfolio instrument"
           data-render-scale={renderScale.toFixed(3)}
         >
-          <AmbientOrbits centre={CENTRE} events={ambient.events} complete={ambientState === "complete" && ambient.running} />
           <DayArc
             centre={CENTRE}
             radius={DAY_RADIUS}
@@ -284,125 +252,6 @@ export function CommandInstrument({
             />
           ) : null}
 
-          {/* The glyph and everything that makes it feel present. Grouped so the
-              three states are one class swap, and so every transform here
-              declares its origin — SVG defaults `transform-origin` to `0 0`,
-              which sends a scaled glyph 162px out of frame rather than growing
-              it in place. Measured, not assumed. */}
-          {/* Ambient timing comes from AMBIENT. Existing active-state scale bounds
-              remain shared with glyphState; idle illumination barely changes size. */}
-          <g
-            className={`omega-presence omega-presence--${glyphState}`}
-            style={
-              {
-                "--breath-duration": `${AMBIENT.breath}s`,
-                "--breath-scale-low": glyphState === "idle" ? 1 : IDLE_BREATH_SCALE_FLOOR,
-                "--breath-scale-high": glyphState === "idle" ? 1.005 : IDLE_BREATH_SCALE_CEILING
-              } as CSSProperties
-            }
-          >
-            <defs>
-              {/* The midpoint carries the apparent size, not the radius.
-                  Pushed 55% -> 68%, so the body of the glow holds its value
-                  further out and the falloff happens over the last third
-                  instead of the last half. That is what reads as a larger
-                  object, and it costs nothing against the clearance disc.
-
-                  Alphas raised because the swing was perceptible while the
-                  object was dim: the peak is what the breath reaches at full
-                  opacity, so 0.34 meant the brightest pixel on a 500px
-                  instrument was a third of one amber. Still deliberately
-                  subordinate — 0.48 against the glyph's own 0.9 keeps the
-                  glyph close to twice as bright, and the glyph is drawn on
-                  top of the brightest part of this. Ambient, never a signal. */}
-              <radialGradient id="omega-glow">
-                <stop offset="0%" stopColor="#d97706" stopOpacity="0.48" />
-                <stop offset="68%" stopColor="#d97706" stopOpacity="0.2" />
-                <stop offset="100%" stopColor="#d97706" stopOpacity="0" />
-              </radialGradient>
-            </defs>
-
-            {/* The breath. A dedicated element so the cycle animates opacity and
-                transform, which composite, instead of the glyph's own
-                drop-shadow filter, which would re-raster every frame over the
-                backdrop blur. Radius and opacity move together by construction. */}
-            <circle
-              className="omega-glow"
-              cx={CENTRE}
-              cy={CENTRE}
-              r={GLOW_RADIUS}
-              fill="url(#omega-glow)"
-              pointerEvents="none"
-              style={{ transformOrigin: `${CENTRE}px ${CENTRE}px` }}
-            />
-
-            {/* Thinking circles around; speaking emits from. Direction of motion
-                is what separates them without a label. */}
-            {glyphState === "thinking" ? (
-              <circle
-                className="omega-think-arc"
-                cx={CENTRE}
-                cy={CENTRE}
-                r={THINK_ARC_RADIUS}
-                fill="none"
-                pointerEvents="none"
-                style={{ transformOrigin: `${CENTRE}px ${CENTRE}px` }}
-              />
-            ) : null}
-
-            {/* No transform-origin here on purpose. **[V]** `motion` writes
-                `transform-box: fill-box; transform-origin: 50% 50%` inline and
-                overrides anything set alongside it — which is exactly the pair
-                that makes an SVG scale in place, so the trap is already closed.
-                Measured at scale 1.12: zero drift, 21.4px of growth. Setting an
-                origin here looks like it works and does nothing. */}
-            <motion.g
-              className="omega-scale"
-              animate={
-                glyphState === "speaking" && ambient.running
-                  ? { scale: SPEAKING_ENVELOPE.scale }
-                  : { scale: 1 }
-              }
-              transition={
-                glyphState === "speaking" && ambient.running
-                  ? {
-                      duration: SPEAKING_LOOP_SECONDS,
-                      times: SPEAKING_ENVELOPE.times,
-                      repeat: Infinity,
-                      ease: "easeInOut"
-                    }
-                  : { duration: 0.9, ease: "easeOut" }
-              }
-            >
-              {/* Highlight underlay: the same glyph nudged up, occluded by the
-                  body everywhere except a sliver along the top contours — an
-                  edge catching light, with no mask and no filter. Drawn first
-                  so the body always wins the overlap. */}
-              <text
-                x={CENTRE}
-                y={CENTRE + 50.4}
-                textAnchor="middle"
-                className="instrument-glyph-highlight"
-                fontFamily="'Cinzel', 'Times New Roman', serif"
-                fontSize="150"
-                fontWeight="500"
-                aria-hidden="true"
-              >
-                {"Ω"}
-              </text>
-              <text
-                x={CENTRE}
-                y={CENTRE + 52}
-                textAnchor="middle"
-                className="instrument-glyph"
-                fontFamily="'Cinzel', 'Times New Roman', serif"
-                fontSize="150"
-                fontWeight="500"
-              >
-                {"Ω"}
-              </text>
-            </motion.g>
-          </g>
         </svg>
       </div>
 
@@ -418,7 +267,7 @@ export function CommandInstrument({
           Nothing renders before the first reply of a session. Naming a model
           that has not spoken would be the same invisible wrongness as reading
           the request constant. */}
-      {hybridError && <p className="hybrid-status" role="status">3D unavailable — original view restored. {hybridError}</p>}
+      {hybridError && <p className="hybrid-status" role="status">3D view unavailable. {hybridError} <button onClick={() => { setHybridError(null); setHybridReady(false); setRenderAttempt(n => n + 1); }}>Retry 3D view</button></p>}
       {statusParts.length > 0 ? (
         <p className="command-instrument__status">
           {statusParts.map((part, index) => (

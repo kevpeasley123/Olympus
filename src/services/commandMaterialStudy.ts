@@ -116,15 +116,13 @@ export function buildCommandMaterialStudy(scene:T.Scene,renderer:T.WebGLRenderer
   const environmentTarget=pmrem.fromScene(environment,.04);scene.environment=environmentTarget.texture;scene.environmentIntensity=.48;
   environment.dispose();pmrem.dispose();
   const engraving=engravedTexture(), contour=contourTexture();
-  const steel=new T.MeshPhysicalMaterial({color:0x526b80,metalness:.95,roughness:.26,envMapIntensity:1.3,clearcoat:.4,clearcoatRoughness:.22});
   const frameMetal=new T.MeshPhysicalMaterial({color:0x1c303f,metalness:.85,roughness:.25,envMapIntensity:.55,clearcoat:.4});
   const dark=new T.MeshStandardMaterial({color:0x070d15,metalness:.7,roughness:.42});
-  const blueEdge=new T.MeshBasicMaterial({color:0x739dbb,transparent:true,opacity:MATERIAL_TUNING.structurePrimary});
   const lines=new T.LineBasicMaterial({color:0x547891,transparent:true,opacity:MATERIAL_TUNING.structureSecondary});
   const warmLines=new T.LineBasicMaterial({color:0xffa13d,transparent:true,opacity:.8,toneMapped:false});
   const group=new T.Group();group.name="Command material study";scene.add(group);
   const mesh=(geometry:T.BufferGeometry,material:T.Material|T.Material[],z:number)=>{const m=new T.Mesh(geometry,material);m.position.z=z;group.add(m);return m;};
-  const extrude=(shape:T.Shape|T.Shape[],depth:number,bevel=.4)=>new T.ExtrudeGeometry(shape,{depth,steps:1,bevelEnabled:true,bevelSize:bevel,bevelThickness:bevel,bevelSegments:6,curveSegments:64});
+  const extrude=(shape:T.Shape|T.Shape[],depth:number,bevel=.4,curveSegments=64)=>new T.ExtrudeGeometry(shape,{depth,steps:1,bevelEnabled:true,bevelSize:bevel,bevelThickness:bevel,bevelSegments:6,curveSegments});
   const coreStart=group.children.length;
   const shapes=new SVGLoader().parse(`<svg xmlns="http://www.w3.org/2000/svg"><path d="${OMEGA}"/></svg>`).paths.flatMap(path=>path.toShapes());
   const body=extrude(shapes,7,.65);body.scale(1,-1,1);body.setIndex(Array.from({length:body.getAttribute('position').count},(_,i)=>i%3===1?i+1:i%3===2?i-1:i));
@@ -154,28 +152,36 @@ export function buildCommandMaterialStudy(scene:T.Scene,renderer:T.WebGLRenderer
   core.scale.setScalar(INNER_CORE_SCALE);group.add(core);
   // The selected study section follows the existing map, never an independently arranged scene.
   const studyIds=new Set(layout.ring.segments.map(segment=>segment.project.id));
-  // Dimensional outer bezel supports the existing day markers at radius 205.
-  const outerBezel=mesh(new T.TorusGeometry(205,1.15,20,384),steel,-3.5);
-  outerBezel.name="Outer command bezel";
-  mesh(new T.TorusGeometry(205,.26,12,384),blueEdge,-2.25);
-  mesh(new T.TorusGeometry(205,.8,16,384),dark,-6);
-  // Interrupted rear rail sections and inset light channels stay inside the footprint.
-  const railLight=new T.MeshBasicMaterial({color:0xc17a35,toneMapped:false});
-  const railTicks:number[]=[];
-  for(let i=0;i<16;i++){
-    const a=i*22.5;
-    mesh(extrude(annulus(a+1,a+20.5,197.5,201),2,.25),frameMetal,-14);
-    mesh(extrude(annulus(a+2,a+20,188.5,190),1.3,.2),dark,-7);
-    if(i%3===0)mesh(new T.ShapeGeometry(annulus(a+5,a+10,201.2,201.8)),railLight,-9);
+  // Three physical systems replace the stacked HUD rails and decorative ticks.
+  const chassis=new T.MeshPhysicalMaterial({color:0x293945,metalness:.82,roughness:.27,envMapIntensity:1.05,clearcoat:.12,clearcoatRoughness:.3});
+  const chassisSides=new T.MeshStandardMaterial({color:0x111c27,metalness:.78,roughness:.23,envMapIntensity:.85});
+  const secondary=new T.MeshStandardMaterial({color:0x334653,metalness:.8,roughness:.3,envMapIntensity:.65});
+  const channelBed=new T.MeshStandardMaterial({color:0x060b10,metalness:.35,roughness:.48});
+  const circularBand=(inner:number,outer:number)=>{
+    const shape=new T.Shape();shape.absarc(0,0,outer,0,Math.PI*2,false);
+    const hole=new T.Path();hole.absarc(0,0,inner,0,Math.PI*2,true);shape.holes.push(hole);
+    return shape;
+  };
+  // Keep the outside silhouette and front plane fixed; deepen only toward the rear.
+  // Separate cap/side materials reveal the recess without another outline or mesh.
+  const primaryGeometry=new T.ExtrudeGeometry(circularBand(198,205),{depth:8,steps:1,bevelEnabled:true,bevelSize:.45,bevelThickness:.45,bevelSegments:6,curveSegments:256});
+  const primary=mesh(primaryGeometry,[chassis,chassisSides],-12);
+  primary.name="Primary structural band";
+  const recessed=mesh(extrude(circularBand(185,189),3,.3,256),secondary,-11);
+  recessed.name="Secondary recessed rail";
+  mesh(extrude(circularBand(192,193),1,.12,256),channelBed,-10);
+  // Four deliberate light paths use the existing recessed energy channel.
+  for(const [start,end,gain] of [[24,36,2.4],[105,122,1.8],[211,220,2.1],[287,301,1.5]]){
+    const railLight=new T.MeshBasicMaterial({color:new T.Color(1,.32,.055).multiplyScalar(gain),toneMapped:false});
+    mesh(new T.ShapeGeometry(annulus(start,end,192.15,192.85)),railLight,-8.8);
+    const position=polar((start+end)/2,193.5);
+    const spill=new T.PointLight(0xff942e,11*gain,19,1.5);
+    spill.position.set(position.x,position.y,-5);group.add(spill);
   }
-  for(let i=0;i<180;i++){
-    const p=polar(i*2,193),q=polar(i*2,i%5===0?195:193.7);
-    railTicks.push(p.x,p.y,-10,q.x,q.y,-10);
-  }
-  group.add(new T.LineSegments(new T.BufferGeometry().setAttribute('position',new T.Float32BufferAttribute(railTicks,3)),lines));
   const rippleMaterial=new T.MeshBasicMaterial({color:0xffab54,transparent:true,opacity:0,depthWrite:false,blending:T.AdditiveBlending,toneMapped:false});
   const ripple=mesh(new T.RingGeometry(.995,1,256),rippleMaterial,-8);
   const tabHousing=frameMetal.clone();tabHousing.color.set(0x0c1b27);tabHousing.roughness=.48;tabHousing.envMapIntensity=.3;
+  const endCapMaterial=new T.MeshStandardMaterial({color:0x101b25,metalness:.65,roughness:.42,envMapIntensity:.35});
   const activeChannels:T.ShaderMaterial[]=[];
   const panels:{id:string;face:T.MeshPhysicalMaterial;active:boolean;rim:T.LineBasicMaterial}[]=[];
   for(const segment of layout.ring.segments){
@@ -203,10 +209,34 @@ export function buildCommandMaterialStudy(scene:T.Scene,renderer:T.WebGLRenderer
     };
     glass.customProgramCacheKey=()=>"olympus-glass-soft-reflection-v6";
     // Open-backed housing: only the perimeter is solid, preserving the glass window.
-    for(const [inner,outer] of [[155.2,156.1],[179.9,180.8]])
-      mesh(extrude(annulus(a,b,inner,outer),10,.18),tabHousing,-13);
-    for(const [start,end] of [[a,a+.3],[b-.3,b]])
-      mesh(extrude(annulus(start,end,156.1,179.9),10,.12),tabHousing,-13);
+    const mountingFrame=annulus(a+.16,b-.16,155.2,180.8);
+    mountingFrame.holes.push(new T.Path(annulus(a+.3,b-.3,156.1,179.9).getPoints()));
+    const mountingGeometry=extrude(mountingFrame,10,.12);
+    const mountingPositions=mountingGeometry.getAttribute('position');
+    const distanceToEnd=(x:number,y:number)=>{
+      const angle=(Math.atan2(x,y)*180/Math.PI-a+720)%360;
+      return Math.min(angle,Math.abs(b-a-angle),360-angle);
+    };
+    // Sink only the end-cap region; the long supporting rails retain their depth.
+    for(let i=0;i<mountingPositions.count;i++){
+      const d=distanceToEnd(mountingPositions.getX(i),mountingPositions.getY(i));
+      const recess=1-T.MathUtils.smoothstep(d,.3,.75);
+      mountingPositions.setZ(i,mountingPositions.getZ(i)-2.2*recess);
+    }
+    mountingGeometry.clearGroups();
+    let groupStart=0,groupMaterial=-1;
+    for(let i=0;i<mountingPositions.count;i+=3){
+      const x=(mountingPositions.getX(i)+mountingPositions.getX(i+1)+mountingPositions.getX(i+2))/3;
+      const y=(mountingPositions.getY(i)+mountingPositions.getY(i+1)+mountingPositions.getY(i+2))/3;
+      const materialIndex=distanceToEnd(x,y)<.6?1:0;
+      if(materialIndex!==groupMaterial){
+        if(i>groupStart)mountingGeometry.addGroup(groupStart,i-groupStart,groupMaterial);
+        groupStart=i;groupMaterial=materialIndex;
+      }
+    }
+    mountingGeometry.addGroup(groupStart,mountingPositions.count-groupStart,groupMaterial);
+    mountingGeometry.computeVertexNormals();
+    mesh(mountingGeometry,[tabHousing,endCapMaterial],-13);
     // Existing bevel/side faces catch more light than the front pane.
     const bevelGlass=glass.clone();bevelGlass.opacity=PROJECT_GLASS.bevelOpacity;
     bevelGlass.envMapIntensity=PROJECT_GLASS.bevelReflection;bevelGlass.roughness=.08;
@@ -246,7 +276,7 @@ export function buildCommandMaterialStudy(scene:T.Scene,renderer:T.WebGLRenderer
         gl_FragColor=vec4(vec3(4.5,1.2,.18)*(1.+tracer*.5),min(.95,strength*(localized+tracer*.55)));}`,
     }):new T.MeshBasicMaterial({color:0x9fc9df,transparent:true,opacity:PROJECT_GLASS.inactiveChannel,depthWrite:false,toneMapped:false});
     if(active)activeChannels.push(channel as T.ShaderMaterial);
-    for(const [inner,outer] of [[156.6,156.85],[179.15,179.4]])
+    for(const [inner,outer] of active?[[156.6,156.85],[179.15,179.4]]:[])
       mesh(new T.ShapeGeometry(annulus(a+1,b-1,inner,outer)),channel,-1.2);
     const rim=new T.LineBasicMaterial({vertexColors:true,color:active?0xe7bb7a:0xa9d5e8,transparent:true,opacity:PROJECT_GLASS.rimOpacity,depthWrite:false});
     const outline=annulus(a,b,155.2,180.8).getPoints(256);
@@ -254,20 +284,6 @@ export function buildCommandMaterialStudy(scene:T.Scene,renderer:T.WebGLRenderer
     const rimColors=outline.flatMap(p=>{const response=.16+.84*Math.max(0,(p.x*-.65+p.y*.76)/p.length())**3;return [response,response,response];});
     rimGeometry.setAttribute('color',new T.Float32BufferAttribute(rimColors,3));
     group.add(new T.LineLoop(rimGeometry,rim));
-    // Quiet recessed edge and a sparse internal etch, leaving the face see-through.
-    const rearRim=new T.LineBasicMaterial({color:0x294352,transparent:true,opacity:.04,depthWrite:false});
-    group.add(new T.LineLoop(new T.BufferGeometry().setFromPoints(outline.map(p=>new T.Vector3(p.x,p.y,-12.5))),rearRim));
-    const etch=new T.LineBasicMaterial({color:active?0xb69a74:0x8faebd,transparent:true,opacity:PROJECT_GLASS.backingDetailOpacity,depthWrite:false});
-    const etchPoints:T.Vector3[]=[];
-    for(const radius of [160,176]){
-      for(let angle=a+3;angle<b-3;angle+=.4){const next=Math.min(angle+.4,b-3),p=polar(angle,radius),q=polar(next,radius);etchPoints.push(new T.Vector3(p.x,p.y,-11.8),new T.Vector3(q.x,q.y,-11.8));}
-    }
-    // Sparse backplate registrations, seen through the front sheet and its air gap.
-    for(const angle of [a+(b-a)*.27,a+(b-a)*.73]){
-      const p=polar(angle,163),q=polar(angle,170);
-      etchPoints.push(new T.Vector3(p.x,p.y,-11.8),new T.Vector3(q.x,q.y,-11.8));
-    }
-    group.add(new T.LineSegments(new T.BufferGeometry().setFromPoints(etchPoints),etch));
     panels.push({id:segment.project.id,face:glass,active,rim});
 
   }

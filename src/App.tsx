@@ -130,9 +130,10 @@ function App() {
             {/* Command is the instrument and nothing else — no list, no strip,
                 no panel chrome. If a scrolling list appears here it has become
                 Project mode with a different tab lit. */}
-            {command ? (
-              <FadeInPanel index={1} className="panel-slot panel-slot-instrument">
+            {<div className="panel-slot panel-slot-instrument" hidden={!command}>
+
                 <CommandInstrument
+                  active={command}
                   visualState={voice.active || voice.phase === "ERROR" ? ({IDLE:"idle",LISTENING:"listening",PROCESSING:"thinking",SPEAKING:"speaking",ERROR:"error"} as const)[voice.phase] : undefined}
                   voiceLevel={voice.level}
                   projects={projects}
@@ -146,8 +147,8 @@ function App() {
                   onSelectProject={enterProject}
                   onOpenNote={(notePath) => void openVaultNote(notePath)}
                 />
-              </FadeInPanel>
-            ) : research ? (
+              </div>}
+            {command ? null : research ? (
               <FadeInPanel index={1} className="panel-slot panel-slot-library-resident">
                 <LibraryPanel onViewDatabase={syncResearchBase} resident />
               </FadeInPanel>
