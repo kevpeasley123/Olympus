@@ -1,3 +1,28 @@
+# Release checkpoint: 0.14.0 (September 10, 2026)
+
+The operator authorized committing, pushing and installing the accepted layered parallax and proportional distant-star refinements. Version manifests are 0.14.0 on agent/curated-memory. This checkpoint supersedes the uncommitted/uninstalled status in the historical development notes below; no master merge is implied.
+
+- Instrument pointer drift is limited to +/-5 horizontal and +/-3 vertical screen pixels. The environment counter-moves up to 4/3 pixels with slower damping and an 8px overscan margin. Shared motion permission, recentering and aligned SVG/WebGL targets are preserved.
+- Small artistic background stars scale with actual rendered note count and available space: up to floor(count * .6), capped at 72, with 38 stars in the 64-node material study. Stable placement, three size tiers and rear depth add texture without changing real graph data or interactions.
+- Verification: production frontend and Windows MSI build passed; 211 Rust tests passed (2 ignored); all 58 renderer checks passed on the final art source, and the populated material study was visually inspected. Live backend replies/audio are not claimed by these UI checks.
+- Release logs, database/app backups, verification and installation receipt belong in ../output/olympus-0.14.0-install, outside the repository. Read receipt.json and the installed executable version for actual push/install status; this source checkpoint alone does not prove installation. Private data and review artifacts remain excluded from Git.
+
+# Proportional distant stars (working tree after 0.13.0)
+
+- Added artistic background points behind the real constellation in the existing network pass. Three small size tiers and restrained cool brightness create a finer star-map texture. Real note coordinates, graph topology, labels, ownership, counts and interactions stay authoritative.
+- Density is derived from the number of actually rendered notes: floor(count * .6), capped at 72. The 64-node study receives 38 points; eight nodes receive up to four; empty graphs receive none. Deterministic node-seeded candidates favor open space around the rendered nodes, avoid the Omega/project rim, and skip crowded gaps. Input order does not reshuffle the layer.
+- The stars sit at Z -36 to -48, behind the real nodes, with existing perspective/parallax/depth handling. One instanced draw uses a small generated point texture. No independent timers, fabricated links or click targets are added; geometry, material, instance buffers and texture are disposed during existing scene cleanup.
+- Latest drift request: instrument +/-5 horizontal and +/-3 vertical pixels; background counter-motion +/-4 horizontal and +/-3 vertical pixels. Existing damping, overscan and reduced-motion handling are preserved.
+- Verified production build, diff whitespace check and all 58 renderer checks, including sparse/empty/crowded density, stable placement, depth/clearance, size tiers and preserved real-node counts. Populated material study visually inspected with 64 real nodes and 38 artistic stars. The fixture logged a createRoot warning during hot reload; a fresh reload renders correctly. Development changes remain uncommitted/uninstalled after 0.13.0.
+
+# Layered scene parallax (working tree after 0.13.0)
+
+- Pointer movement across the page gently translates the complete Command dial by up to +/-5 horizontal and +/-3 vertical screen pixels. The background counter-moves by up to 4/3 pixels with slower spring damping. The existing constellation depth/parallax remains independent.
+- useSceneParallax shares pointer/lifecycle handling with separate instrument/background profiles. CSS translation on the shared WebGL/SVG wrapper preserves dial scale, labels, project/note targets, portal containment and camera. The background has an 8px overscan margin to prevent exposed page edges; its vignette and the interface stay fixed. There are no React state updates per animation frame or additional WebGL scenes.
+- Page exit, window blur and resize recenter smoothly. Inactive Command stops the dial's spring; the background remains available in other modes. Hidden view and reduced motion remove listeners and immediately stop/reset both layers; touch does not drive either effect.
+- Production build and all 51 renderer checks pass, including background counter-motion, edge coverage, recentering and reduced motion. Full-page pointer movement visually inspected with opposite shifts confirmed on both layers. One existing constellation return timing check failed under load in the earlier pass and passed on rerun; its behavior was unchanged.
+- This refinement is available in the development pages; it has not been committed, pushed or installed. Installed release remains 0.13.0.
+
 # Release checkpoint: 0.13.0
 
 The operator authorized committing, pushing and installing all accumulated app changes. This release contains the Command environment and mode housing, broad opaque portal/falloff, glass-edge repair, soft project hover, refined day-rail tracker, stronger constellation parallax, and console model/preferences placement described below. Version manifests are 0.13.0 on agent/curated-memory; no master merge is implied.

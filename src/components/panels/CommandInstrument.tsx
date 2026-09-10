@@ -1,6 +1,7 @@
 import { HybridCommandCore } from "./HybridCommandCore";
 import { commandLayout, HYBRID_OVERLAY_TRANSFORM } from "../../services/hybridCore";
 import { useAmbientMotion } from "../../hooks/useAmbientMotion";
+import { useSceneParallax } from "../../hooks/useSceneParallax";
 import { AMBIENT, ambientVariables } from "../../services/ambientMotion";
 import type { OlympusVisualState } from "../../services/ambientMotion";
 import { motion } from "motion/react";
@@ -131,6 +132,7 @@ export function CommandInstrument({
   }, [visualState]);
   const ambientState = visualState === "complete" && completionSettled ? "idle" : visualState ?? glyphState;
   const ambient = useAmbientMotion(ambientState);
+  const instrumentParallax = useSceneParallax(active && ambient.running, "instrument");
 
   // Identity first, then activity: the model is the stable half and must not
   // move when the transient half appears beside it.
@@ -194,7 +196,7 @@ export function CommandInstrument({
     <div className="command-instrument" data-visual-state={ambientState} data-voice-energy={voiceLevel > 0.15 ? "active" : "quiet"}
       data-motion={ambient.running ? "running" : "paused"} data-renderer="hybrid" data-scene-ready={hybridReady && !hybridError}
       style={{ ...ambientVariables, "--ambient-drift": `${2 / renderScale}px` } as CSSProperties}>
-      <div className="command-instrument__dial" ref={dialRef}>
+      <motion.div className="command-instrument__dial" ref={dialRef} style={instrumentParallax}>
         {<HybridCommandCore key={renderAttempt} layout={layout} state={ambientState} voiceLevel={voiceLevel} execution={execution}
           running={active && ambient.running} hoverProject={hoverProject}
           onReady={setHybridReady} onError={setHybridError} />}
@@ -253,7 +255,7 @@ export function CommandInstrument({
           ) : null}
 
         </svg>
-      </div>
+      </motion.div>
 
       {/* Where the tier counts used to sit, at the same weight.
 

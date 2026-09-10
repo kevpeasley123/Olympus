@@ -6,6 +6,7 @@ import {mockIPC} from "@tauri-apps/api/mocks";
 import {CommandInstrument} from "./components/panels/CommandInstrument";
 import {commandLayout,nodeDepth,CONSTELLATION_DEPTH,HYBRID_OVERLAY_TRANSFORM} from "./services/hybridCore";
 import {runProjectConstellationHarness} from "./services/projectConstellation.harness";
+import {layoutBackdropStars,BACKDROP_STARS} from "./services/constellationBackdrop";
 import {EMPTY_VAULT_GRAPH,type VaultGraphPayload} from "./services/vaultGraph";
 import type {TrackedProject} from "./types";
 import type {OlympusVisualState} from "./services/ambientMotion";
@@ -50,6 +51,20 @@ const lateCycle=createIdleCoreCycle(()=>1);
 assert(lateCycle(OMEGA_IDLE.heartbeatMinInterval+.32,true).pulse===0,'Random interval varies heartbeat onset');
 assert(coreGlowEnvelope(2.65,true)>1.12 && coreGlowEnvelope(0,true)===1,"5.3-second core breath");const baseline=(t:number)=>1+MATERIAL_TUNING.breathGain*(.5-.5*Math.cos(t*Math.PI*2/MATERIAL_TUNING.breathSeconds));assert(coreGlowEnvelope(12.025,true)-baseline(12.025)>.119,"Primary machine pulse");assert(coreGlowEnvelope(12.875,true)-baseline(12.875)>.054,"Weaker secondary machine pulse");assert(MATERIAL_TUNING.heartbeatIntervals.every(t=>t>=11&&t<=15)&&new Set(MATERIAL_TUNING.heartbeatIntervals).size>1,"Irregular 11–15 second heartbeat intervals");assert(heartbeatAge(25.9)<.001,"Second irregular event starts on schedule");assert(coreGlowEnvelope(12.1,false)===1,"Reduced motion freezes core envelope");await wait(600);const original=[...document.querySelectorAll('.project-ring__hit')].map(e=>e.getAttribute('d'));assert(runProjectConstellationHarness().passed,"Existing constellation invariants");const layout=commandLayout(projects,graph,1);assert(layout.constellation.nodes.every(n=>Number.isFinite(nodeDepth(n.id))&&Math.abs(nodeDepth(n.id))<=CONSTELLATION_DEPTH.range),"Bounded deterministic node depth");await ready();await wait(600);assert(JSON.stringify(original)===JSON.stringify([...document.querySelectorAll('.project-ring__hit')].map(e=>e.getAttribute('d'))),"Project hit geometry unchanged");assert(document.querySelectorAll('.hybrid-core canvas').length===1,"One WebGL canvas");const canvas=document.querySelector<HTMLCanvasElement>('.hybrid-core canvas')!;assert(canvas.dataset.nodes==='64',"All 64 real fixture nodes retained");assert(canvas.dataset.rings==='2',"Exactly two continuous rings");document.querySelector<SVGElement>('.project-ring__hit')!.dispatchEvent(new MouseEvent('click',{bubbles:true}));await wait(100);assert(document.body.textContent?.includes('Selected p'),"Existing project action preserved");assert(!document.querySelector('.omega-presence')&&!document.querySelector('[data-renderer="svg"]'),"No legacy Omega or SVG renderer");
 // Read the composited canvas in-frame: opacity is a pixel property, not a material flag.
+const artStars=layoutBackdropStars(layout.constellation.nodes);
+const sparseStars=layoutBackdropStars(layout.constellation.nodes.slice(0,8));
+assert(layoutBackdropStars([]).length===0,'Empty real graphs have no invented background stars');
+assert(sparseStars.length<=4&&artStars.length>sparseStars.length&&artStars.length<=BACKDROP_STARS.cap,
+  'Artistic star density scales with the rendered graph and stays bounded');
+const crowdedStars=layoutBackdropStars(Array.from({length:160},(_,i)=>({...layout.constellation.nodes[i%64],id:`crowded-${i}`})));
+assert(crowdedStars.length<=72&&crowdedStars.length>artStars.length,'Crowded maps cap the decorative layer instead of filling it without limit');
+assert(JSON.stringify(artStars)===JSON.stringify(layoutBackdropStars([...layout.constellation.nodes].reverse())),
+  'Artistic stars remain stable across reloads and node input order');
+assert(artStars.every(star=>Math.hypot(star.x,star.y)>=68&&Math.hypot(star.x,star.y)<=139&&star.z<=-36&&
+  layout.constellation.nodes.every(node=>Math.hypot(star.x-(node.x-220),star.y-(220-node.y))-node.size>=6)),
+  'Distant stars occupy clear portal space away from Omega and real node centers');
+assert(new Set(artStars.map(star=>star.size)).size===3,'Distant stars use three smaller size tiers');
+assert(Number(canvas.dataset.artStars)===artStars.length&&canvas.dataset.nodes==='64','Decorative stars render separately from the 64 interactive notes');
 const alphaAt=await new Promise<number[]>(resolve=>requestAnimationFrame(()=>{
   const gl=canvas.getContext('webgl2')!,pixel=new Uint8Array(4);
   resolve([[.5,.68],[.38,.5],[.6,.4],[.02,.02]].map(([x,y])=>{
@@ -96,6 +111,37 @@ assert(depths.filter(z=>z>CONSTELLATION_DEPTH.range*.5).length>=8 && depths.filt
 assert(depths.filter(z=>z< -CONSTELLATION_DEPTH.range*.5).length>=10 && depths.filter(z=>z< -CONSTELLATION_DEPTH.range*.5).length<=15,'Ten to fifteen deep anchors in the 64-node fixture');
 assert(layout.constellation.nodes.every((n,i)=>nodeDepth(n.id)===depths[i]),'Depth assignments are stable across repeated evaluation');
 const dial=canvas.closest('.command-instrument__dial')!;
+const overlay=dial.querySelector('svg')!;
+if(!document.querySelector('.background-image')){
+  [...document.querySelectorAll('button')].find(button=>button.textContent==='Show Olympus environment')!.click();
+  await wait(300);
+}
+const environment=document.querySelector('.background-image')!;
+const restingEnvironment=environment.getBoundingClientRect();
+const restingCanvas=canvas.getBoundingClientRect(),restingOverlay=overlay.getBoundingClientRect();
+window.dispatchEvent(new PointerEvent('pointermove',{clientX:window.innerWidth,clientY:window.innerHeight,pointerType:'mouse'}));
+await wait(1600);
+const movedCanvas=canvas.getBoundingClientRect(),movedOverlay=overlay.getBoundingClientRect();
+const travelX=movedCanvas.x-restingCanvas.x,travelY=movedCanvas.y-restingCanvas.y;
+assert(travelX>4.3&&travelX<5.2&&travelY>2.5&&travelY<3.2,'Environment pointer gently moves the whole instrument within 5 by 3 pixels');
+const movedEnvironment=environment.getBoundingClientRect();
+const environmentX=movedEnvironment.x-restingEnvironment.x,environmentY=movedEnvironment.y-restingEnvironment.y;
+assert(environmentX< -3.4&&environmentX> -4.1&&environmentY< -2.5&&environmentY> -3.1,'Background counter-drifts within 4 by 3 pixels');
+assert(movedEnvironment.left<0&&movedEnvironment.top<0&&movedEnvironment.right>window.innerWidth&&movedEnvironment.bottom>window.innerHeight,
+  'Moving background still covers all viewport edges');
+assert(Math.abs(movedOverlay.x-restingOverlay.x-travelX)<.05&&Math.abs(movedOverlay.y-restingOverlay.y-travelY)<.05&&
+  Math.abs(movedCanvas.width-restingCanvas.width)<.05&&canvas===document.querySelector('.hybrid-core canvas'),
+  'WebGL and SVG targets travel together without resizing or recreating the scene');
+document.documentElement.dispatchEvent(new PointerEvent('pointerleave'));
+await wait(1600);
+assert(Math.abs(canvas.getBoundingClientRect().x-restingCanvas.x)<.1&&Math.abs(canvas.getBoundingClientRect().y-restingCanvas.y)<.1,
+  'Leaving the environment smoothly recenters the instrument');
+assert(Math.abs(environment.getBoundingClientRect().x-restingEnvironment.x)<.15&&Math.abs(environment.getBoundingClientRect().y-restingEnvironment.y)<.15,
+  'Leaving the page also recenters the background');
+window.dispatchEvent(new PointerEvent('pointermove',{clientX:window.innerWidth,clientY:window.innerHeight,pointerType:'touch'}));
+await wait(100);
+assert(Math.abs(canvas.getBoundingClientRect().x-restingCanvas.x)<.1&&Math.abs(environment.getBoundingClientRect().x-restingEnvironment.x)<.1,
+  'Touch does not shift either scene layer');
 const bounds=canvas.getBoundingClientRect();
 dial.dispatchEvent(new PointerEvent('pointermove',{clientX:bounds.right,clientY:bounds.top,pointerType:'mouse',bubbles:true}));
 await wait(900);
@@ -108,7 +154,20 @@ canvas.getContext('webgl2')!.getExtension('WEBGL_lose_context')!.loseContext();a
 assert(document.querySelector('[data-scene-ready="false"]')&&document.body.textContent?.includes('Graphics context lost'),"Context loss hides the complete scene without 2D fallback");
 (document.querySelector('.hybrid-status button') as HTMLButtonElement).click();await ready();
 assert(document.querySelectorAll('.hybrid-core canvas').length===1,"Retry recreates one healthy 3D scene");
-reduced=true;motionListeners.forEach(fn=>fn());await wait(850);let frozen=document.querySelector<HTMLCanvasElement>('.hybrid-core canvas')!.dataset.frames;await wait(800);assert(document.querySelector<HTMLCanvasElement>('.hybrid-core canvas')!.dataset.frames===frozen,'Reduced motion stops GPU animation');reduced=false;motionListeners.forEach(fn=>fn());await wait(700);assert(document.querySelector<HTMLCanvasElement>('.hybrid-core canvas')!.dataset.frames!==frozen,'Motion resumes');visibility='hidden';document.dispatchEvent(new Event('visibilitychange'));await wait(850);frozen=document.querySelector<HTMLCanvasElement>('.hybrid-core canvas')!.dataset.frames;await wait(800);assert(document.querySelector<HTMLCanvasElement>('.hybrid-core canvas')!.dataset.frames===frozen,'Hidden view stops GPU rendering');visibility='visible';document.dispatchEvent(new Event('visibilitychange'));await wait(700);assert(document.querySelector<HTMLCanvasElement>('.hybrid-core canvas')!.dataset.frames!==frozen,'Visible view resumes');
+reduced=true;motionListeners.forEach(fn=>fn());await wait(850);
+window.dispatchEvent(new PointerEvent('pointermove',{clientX:window.innerWidth,clientY:window.innerHeight,pointerType:'mouse'}));
+let frozen=document.querySelector<HTMLCanvasElement>('.hybrid-core canvas')!.dataset.frames;
+await wait(800);
+assert(getComputedStyle(dial).translate.split(' ').every(value=>Math.abs(parseFloat(value))<.01),'Reduced motion centers the whole instrument and ignores pointer travel');
+assert(getComputedStyle(environment).translate.split(' ').every(value=>Math.abs(parseFloat(value))<.01),'Reduced motion also centers and freezes the background');
+assert(document.querySelector<HTMLCanvasElement>('.hybrid-core canvas')!.dataset.frames===frozen,'Reduced motion stops GPU animation');
+reduced=false;motionListeners.forEach(fn=>fn());await wait(700);
+assert(document.querySelector<HTMLCanvasElement>('.hybrid-core canvas')!.dataset.frames!==frozen,'Motion resumes');
+visibility='hidden';document.dispatchEvent(new Event('visibilitychange'));await wait(850);
+frozen=document.querySelector<HTMLCanvasElement>('.hybrid-core canvas')!.dataset.frames;await wait(800);
+assert(document.querySelector<HTMLCanvasElement>('.hybrid-core canvas')!.dataset.frames===frozen,'Hidden view stops GPU rendering');
+visibility='visible';document.dispatchEvent(new Event('visibilitychange'));await wait(700);
+assert(document.querySelector<HTMLCanvasElement>('.hybrid-core canvas')!.dataset.frames!==frozen,'Visible view resumes');
 const originalContext=HTMLCanvasElement.prototype.getContext;
 const lossExtension=document.querySelector<HTMLCanvasElement>('.hybrid-core canvas')!.getContext('webgl2')!.getExtension('WEBGL_lose_context')!;
 HTMLCanvasElement.prototype.getContext=function(this:HTMLCanvasElement,...args:any[]){return args[0]==='webgl2'?null:(originalContext as any).apply(this,args)} as any;

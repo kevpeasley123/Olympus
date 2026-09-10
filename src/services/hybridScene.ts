@@ -9,6 +9,7 @@ export const SCENE_FINISH={
 };
 import { buildCommandMaterialStudy } from "./commandMaterialStudy";
 import { buildConstellationField } from "./constellationField";
+import { layoutBackdropStars } from "./constellationBackdrop";
 import { INNER_CORE_SCALE, HYBRID_CAMERA, CONSTELLATION_DEPTH, nodeDepth, type CommandLayout } from "./hybridCore";
 import type { HybridFrame } from "../components/panels/HybridCommandCore";
 
@@ -203,6 +204,32 @@ export function mountHybridScene(host: HTMLDivElement, layout: CommandLayout, cu
   haloGradient.addColorStop(0,'rgba(180,218,255,.7)');haloGradient.addColorStop(.25,'rgba(160,206,255,.22)');haloGradient.addColorStop(1,'rgba(140,196,255,0)');
   haloContext.fillStyle=haloGradient;haloContext.fillRect(0,0,64,64);
   const haloTexture=new T.CanvasTexture(haloCanvas);haloTexture.colorSpace=T.SRGBColorSpace;
+  const distantStars=layoutBackdropStars(layout.constellation.nodes);
+  canvas.dataset.artStars=String(distantStars.length);
+  let backdrop:T.InstancedMesh|undefined;
+  let backdropTexture:T.CanvasTexture|undefined;
+  if(distantStars.length){
+    const starCanvas=document.createElement('canvas');starCanvas.width=starCanvas.height=32;
+    const starContext=starCanvas.getContext('2d')!;
+    const starGradient=starContext.createRadialGradient(16,16,0,16,16,16);
+    starGradient.addColorStop(0,'rgba(255,255,255,1)');
+    starGradient.addColorStop(.22,'rgba(255,255,255,.95)');
+    starGradient.addColorStop(.5,'rgba(255,255,255,.18)');
+    starGradient.addColorStop(1,'rgba(255,255,255,0)');
+    starContext.fillStyle=starGradient;starContext.fillRect(0,0,32,32);
+    backdropTexture=new T.CanvasTexture(starCanvas);backdropTexture.colorSpace=T.SRGBColorSpace;
+    const material=new T.MeshBasicMaterial({map:backdropTexture,color:0xadc7e4,transparent:true,opacity:.85,depthWrite:false,blending:T.AdditiveBlending,toneMapped:false});
+    volumeMaterial(material);
+    backdrop=new T.InstancedMesh(new T.PlaneGeometry(1,1),material,distantStars.length);
+    backdrop.name="Decorative distant stars";backdrop.renderOrder=-1;backdrop.frustumCulled=false;
+    const matrix=new T.Matrix4(),position=new T.Vector3(),scale=new T.Vector3();
+    distantStars.forEach((star,i)=>{
+      matrix.compose(position.set(star.x,star.y,star.z),camera.quaternion,scale.setScalar(star.size));
+      backdrop!.setMatrixAt(i,matrix);
+      backdrop!.setColorAt(i,new T.Color().setScalar(star.intensity));
+    });
+    networkScene.add(backdrop);
+  }
   const haloMaterial=new T.MeshBasicMaterial({map:haloTexture,transparent:true,opacity:CONSTELLATION_DEPTH.haloOpacity,depthWrite:false,blending:T.AdditiveBlending,toneMapped:false});volumeMaterial(haloMaterial);
   const halos=new T.InstancedMesh(new T.PlaneGeometry(1,1),haloMaterial,nodes.length);
   halos.instanceMatrix.setUsage(T.DynamicDrawUsage);halos.frustumCulled=false;networkScene.add(halos);
@@ -348,7 +375,7 @@ export function mountHybridScene(host: HTMLDivElement, layout: CommandLayout, cu
   return ()=>{stopped=true;interaction.removeEventListener('pointermove',movePointer);interaction.removeEventListener('pointerleave',resetPointer);window.removeEventListener('blur',resetPointer);if(frame!==undefined)cancelAnimationFrame(frame);if(timer!==undefined)clearTimeout(timer);observer.disconnect();canvas.removeEventListener("webglcontextlost",lost);
     const geometries=new Set<T.BufferGeometry>(),materials=new Set<T.Material>();
     for(const root of [scene,networkScene])root.traverse(o=>{const drawable=o as T.Mesh;if(drawable.geometry)geometries.add(drawable.geometry);if(drawable.material)(Array.isArray(drawable.material)?drawable.material:[drawable.material]).forEach(m=>materials.add(m));});
-    halos.dispose();haloTexture.dispose();
+    halos.dispose();backdrop?.dispose();haloTexture.dispose();backdropTexture?.dispose();
     geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose()); structural.dispose();cool.dispose();glow.dispose();study.dispose();bloomPass.dispose();outputPass.dispose();composer.dispose();renderer.dispose();renderer.forceContextLoss();canvas.remove();
   };
 }

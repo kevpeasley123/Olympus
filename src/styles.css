@@ -81,10 +81,11 @@ body {
   background-attachment: fixed;
 }
 
-/* Static environmental depth. The original asset remains available for rollback. */
+/* Overscan keeps the moving image beyond every viewport edge. */
 .background-image {
   position:fixed;
-  inset:0;
+  inset:-8px;
+  translate: calc(var(--scene-parallax-x, 0) * 1px) calc(var(--scene-parallax-y, 0) * 1px);
   z-index:-1;
   pointer-events:none;
   background:#07101b url("./assets/olympus-environment-v2.png") center / cover no-repeat;
@@ -2763,6 +2764,7 @@ small {
 .command-instrument__dial {
   /* Scale the complete apparatus, including labels and aligned hit targets. */
   transform: scale(1.4);
+  translate: calc(var(--scene-parallax-x, 0) * 1px) calc(var(--scene-parallax-y, 0) * 1px);
   transform-origin: center;
   min-height: 0;
   display: flex;
