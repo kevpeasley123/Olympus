@@ -344,9 +344,16 @@ mod tests {
             );
         }
 
+        // Long logs deliberately retain their newest lines, so their leading
+        // heading is no longer present. Verify the actual retained source tail.
+        let decision_note = read_trimmed_note(&get_vault_path().join(DECISION_HISTORY_NOTE))
+            .expect("the real Decision Log must be readable");
+        let retained = memory.decision_history
+            .strip_prefix(DECISION_HISTORY_TRUNCATION)
+            .unwrap_or(&memory.decision_history);
         assert!(
-            memory.decision_history.contains("# Decision Log"),
-            "the Decision Log is missing from the assistant's historical evidence"
+            !retained.is_empty() && decision_note.ends_with(retained),
+            "the Decision Log's newest evidence is missing or differs from its source"
         );
         assert!(
             memory.decision_history.chars().count() <= MAX_DECISION_HISTORY_CHARS,

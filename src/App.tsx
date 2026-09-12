@@ -14,7 +14,7 @@ import { ProjectsPanel } from "./components/panels/ProjectsPanel";
 import { QuickbarPanel } from "./components/panels/QuickbarPanel";
 import { ToolBelt } from "./components/panels/ToolBelt";
 import { WriteConfirmDialog } from "./components/panels/WriteConfirmDialog";
-import { openVaultNote } from "./services/launcher";
+import { isTauriRuntime, openVaultNote } from "./services/launcher";
 import { useActionQueue } from "./hooks/useActionQueue";
 import { usePantheon } from "./hooks/usePantheon";
 import { useDashboardData } from "./hooks/useDashboardData";
@@ -135,7 +135,7 @@ function App() {
 
                 <CommandInstrument
                   active={command}
-                  visualState={voice.active || voice.phase === "ERROR" ? ({IDLE:"idle",LISTENING:"listening",PROCESSING:"thinking",SPEAKING:"speaking",ERROR:"error"} as const)[voice.phase] : undefined}
+                  visualState={voice.active || voice.phase === "ERROR" ? (voice.phase==="IDLE"&&chatPending ? "thinking" : ({IDLE:"idle",LISTENING:"listening",PROCESSING:"thinking",SPEAKING:"speaking",ERROR:"error"} as const)[voice.phase]) : undefined}
                   voiceLevel={voice.level}
                   projects={projects}
                   tasks={actionTasks}
@@ -181,8 +181,11 @@ function App() {
             <FadeInPanel index={8} className="panel-slot panel-slot-chat">
               <ChatPanel
                 onOpenPreferences={()=>setPreferencesOpen(true)}
+                autoSpeak={settings.autoSpeak}
+                onAutoSpeakChange={autoSpeak=>updateVoicePreferences({autoSpeak})}
+                voiceSettingsReady={settingsReady}
                 messages={chat}
-                onSendMessage={text => { realtimeVoice.stop(); void sendChatMessage(text); }}
+                onSendMessage={text => { voicePreview.stop(); void realtimeVoice.sendText(text,isTauriRuntime()); }}
                 onRecordObservation={recordObservation}
                 pending={chatPending}
                 error={chatError}

@@ -33,7 +33,13 @@ export function HybridCommandCore(props: Props) {
         latest.current.onError(reason);
         latest.current.onReady(false);
       });
-    }).catch(()=>{if(!cancelled)latest.current.onError("Rendering initialization failed.");});
+    }).catch(error=>{
+      if(cancelled)return;
+      console.error("[Olympus] Command instrument initialization failed",error);
+      latest.current.onError(import.meta.env.DEV && error instanceof Error
+        ? `Rendering initialization failed: ${error.message}`
+        : "Rendering initialization failed.");
+    });
     return ()=>{
       cancelled=true;
       // Retain the completed scene until its replacement has painted.

@@ -179,7 +179,9 @@ export function useDashboardData() {
       emitInstrumentEvent("command-received");
 
       const user = createUserMessage(trimmed);
-      if (voiceDepth) { user.voice = {kind:"input"}; if (voiceMessageId) user.id = voiceMessageId; }
+      // Output modality is independent of input modality: a typed request may
+      // ask for a spoken answer, but only a transcription has a voice input ID.
+      if (voiceMessageId) { user.voice = {kind:"input"}; user.id = voiceMessageId; }
 
       // The user's turn lands immediately and is part of the history the model
       // sees, so it is captured before the request goes out.
@@ -249,7 +251,9 @@ export function useDashboardData() {
         setChatModel(reply.model);
         dashboardRef.current = {...dashboardRef.current,conversation:[...dashboardRef.current.conversation,assistant]};
         setDashboardState(dashboardRef.current);
-        void appendConversationMessages([assistant]);
+        // Persist the planned summary before the transport can record a fast
+        // connection failure or playback receipt for this same message.
+        await appendConversationMessages([assistant]);
         return reply.voice ? {...reply.voice,messageId:assistant.id} : undefined;
       } catch (error) {
         const partial = conversationStream.current().trim();

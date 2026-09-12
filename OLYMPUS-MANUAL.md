@@ -195,6 +195,11 @@ No wake word or background activation. While armed, microphone capture is clearl
 labelled, including during answers; Stop voice ends capture. Silence ends a session
 after two minutes; sessions have a fifteen-minute cap.
 
+The Command Console's Text | Voice toggle controls reply output independently of
+microphone capture. Text keeps replies written; Voice also reads a concise spoken
+answer, including for typed messages. This is the same saved preference as Auto
+Speak in Voice Lab. Choosing Voice does not activate the microphone.
+
 Each voice answer has a concise spoken abstraction and full visual detail from one
 reasoning turn. Neither is authorization. Audio can be interrupted immediately;
 the visual answer remains available and playback status distinguishes interrupted

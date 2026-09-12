@@ -6,10 +6,10 @@ import { voiceHttpError } from "./voiceHttpError";
 import { VOICE_CLIENT, voiceErrorMessage } from "./voiceContract";
 import type { VoiceAnswer, VoiceDepth, VoiceMessageMetadata, VoicePhase, VoiceUiAction } from "./voiceContract";
 
-export interface VoiceSnapshot { phase:VoicePhase; captionsEnabled:boolean; active:boolean; connecting:boolean; muted:boolean; inputText:string; inputMessageId?:string; outputMessageId?:string; outputText:string; error:string|null; level:number }
-const initial: VoiceSnapshot = {phase:"IDLE",captionsEnabled:true,active:false,connecting:false,muted:false,inputText:"",outputText:"",error:null,level:0};
+export interface VoiceSnapshot { phase:VoicePhase; captionsEnabled:boolean; active:boolean; connecting:boolean; microphoneOn:boolean; muted:boolean; inputText:string; inputMessageId?:string; outputMessageId?:string; outputText:string; error:string|null; level:number }
+const initial: VoiceSnapshot = {phase:"IDLE",captionsEnabled:true,active:false,connecting:false,microphoneOn:false,muted:false,inputText:"",outputText:"",error:null,level:0};
 interface VoiceCallbacks {
-  answer:(text:string,depth:VoiceDepth,messageId?:string)=>Promise<VoiceAnswer|undefined>;
+  answer:(text:string,depth?:VoiceDepth,messageId?:string)=>Promise<VoiceAnswer|undefined>;
   update:(id:string,metadata:Partial<VoiceMessageMetadata>)=>void;
   navigate:(action:VoiceUiAction)=>void;
 }
@@ -43,6 +43,8 @@ const browserDependencies: VoiceDependencies = {
 export class RealtimeVoice {
   private preferences:VoicePreferences={...DEFAULT_VOICE_PREFERENCES};
   private previewMode=false;
+  private outputOnly=false;
+  private finishConnecting:(()=>void)|null=null;
   private audioDiagnostic:{id:string;kind:string;startedAt:string;started:number;done:boolean;usage:unknown}|null=null;
   private transcriptionDiagnostics=new Map<string,{id:string;kind:string;startedAt:string;started:number;done:boolean;usage:unknown}>();
   private diagnosticSerial=0;
@@ -86,8 +88,10 @@ export class RealtimeVoice {
     const reconnect=next.selectedVoice!==this.preferences.selectedVoice || next.speechStyle!==this.preferences.speechStyle || next.bargeInEnabled!==this.preferences.bargeInEnabled;
     const wasActive=this.snapshot.active||this.snapshot.connecting;
     this.preferences=next;this.patch({captionsEnabled:next.captionsEnabled});
-    if(reconnect && wasActive){this.stop();await this.start();}
-    else if(!next.autoSpeak && this.output && !this.previewMode)this.interrupt();
+    const preview=this.previewMode, outputOnly=this.outputOnly;
+    if(!next.autoSpeak && outputOnly && !preview && wasActive)this.stop();
+    else if(reconnect && wasActive){this.stop();await this.start(preview,outputOnly);}
+    else if(!next.autoSpeak && this.output && !preview)this.interrupt();
   }
   async startPreview(value:VoicePreferences) {
     this.stop();this.preferences=normalizeVoicePreferences(value);await this.start(true);
@@ -102,25 +106,28 @@ export class RealtimeVoice {
   private patch(patch:Partial<VoiceSnapshot>){if(Object.entries(patch).every(([key,value])=>this.snapshot[key as keyof VoiceSnapshot]===value))return;this.snapshot={...this.snapshot,...patch};for(const listener of this.listeners)listener();}
   private send(event:unknown){if(this.dc?.readyState === "open")this.dc.send(JSON.stringify(event));}
   private armIdle(){clearTimeout(this.idleTimer);this.idleTimer=setTimeout(()=>this.stop(),VOICE_CLIENT.idleTimeoutMs);}
-  async start(preview=false){
+  async start(preview=false,outputOnly=preview){
     if(this.snapshot.active||this.snapshot.connecting)return;
-    this.previewMode=preview;this.ignoredItems.clear();
+    this.previewMode=preview;this.outputOnly=outputOnly;this.ignoredItems.clear();
     const generation=++this.connectionGeneration;
-    this.patch({active:false,connecting:true,error:null,phase:"IDLE",inputText:"",inputMessageId:undefined,outputMessageId:undefined,outputText:""});
+    const connected=new Promise<void>(resolve=>{this.finishConnecting=resolve;});
+    this.patch({active:false,connecting:true,microphoneOn:!outputOnly,error:null,phase:"IDLE",inputText:"",inputMessageId:undefined,outputMessageId:undefined,outputText:""});
     this.abort=new AbortController();
     const timeout=setTimeout(()=>{if(generation===this.connectionGeneration)this.fail("Voice connection timed out. Try again; text remains available.");},VOICE_CLIENT.connectTimeoutMs);
     this.timers.push(timeout);
     try {
-      const secret=await this.deps.secret(this.preferences,preview);
+      // The existing receive-only session configuration disables VAD for both
+      // auditions and typed replies. Only auditions play the fixed sample.
+      const secret=await this.deps.secret(this.preferences,outputOnly);
       if(generation!==this.connectionGeneration)return;
-      if(secret.expires_at*1000<=Date.now())throw Error("Voice credentials expired. Activate the microphone again.");
-      const stream=preview ? null : await this.deps.microphone();
+      if(secret.expires_at*1000<=Date.now())throw Error("Voice credentials expired. Retry voice; text remains available.");
+      const stream=outputOnly ? null : await this.deps.microphone();
       if(generation!==this.connectionGeneration){stream?.getTracks().forEach(track=>track.stop());return;}
       this.stream=stream;this.captureEnabled(true);
       const pc=this.deps.peer();this.pc=pc;
       const audio=this.deps.audio();this.audio=audio;audio.autoplay=true;audio.muted=true;
       audio.onerror=()=>{if(generation===this.connectionGeneration)this.fail("Voice playback failed. Your answer remains on screen.");};
-      if(preview)pc.addTransceiver("audio",{direction:"recvonly"});
+      if(outputOnly)pc.addTransceiver("audio",{direction:"recvonly"});
       for(const track of stream?.getTracks()??[]) {track.onended=()=>{if(generation===this.connectionGeneration)this.fail("Microphone disconnected. Reconnect it and activate voice again.");};pc.addTrack(track,stream!);}
       pc.ontrack=event=>{
         if(generation!==this.connectionGeneration)return;
@@ -128,22 +135,26 @@ export class RealtimeVoice {
         try{this.meterStop?.();this.meterStop=this.deps.meter?.(remote,level=>{if(this.snapshot.phase==="SPEAKING"&&!this.snapshot.muted)this.patch({level:level>0.15 ? 0.2 : 0});})??null;}catch{/* Meter is decorative; playback and transcript remain available. */}
         void audio.play().catch(()=>{if(generation===this.connectionGeneration)this.fail("Audio playback was blocked. Check your output device and reactivate voice. The answer remains readable.");});
       };
-      pc.onconnectionstatechange=()=>{if(generation===this.connectionGeneration && ["failed","disconnected"].includes(pc.connectionState))this.fail("Voice connection dropped. Activate the microphone to reconnect; text remains available.");};
+      pc.onconnectionstatechange=()=>{if(generation===this.connectionGeneration && ["failed","disconnected"].includes(pc.connectionState))this.fail("Voice connection dropped. Retry voice or Replay; text remains available.");};
       const dc=pc.createDataChannel("oai-events");this.dc=dc;
       dc.onmessage=event=>{if(generation!==this.connectionGeneration)return;try{this.handleEvent(JSON.parse(String(event.data)));}catch{this.fail("Voice returned an unreadable event. Text remains available.");}};
       dc.onclose=()=>{if(generation===this.connectionGeneration)this.fail("Voice session ended. Activate voice to reconnect.");};
       dc.onerror=()=>{if(generation===this.connectionGeneration)this.fail("Voice connection encountered an error. Text remains available.");};
-      dc.onopen=()=>{if(generation!==this.connectionGeneration)return;clearTimeout(timeout);this.patch({active:true,connecting:false,phase:"LISTENING"});this.armIdle();if(preview)this.speak({spokenResponse:VOICE_PREVIEW_PHRASE,visualResponse:"",proposedActions:[],requiresConfirmation:false,conversationState:"awaiting_input"});};
+      dc.onopen=()=>{if(generation!==this.connectionGeneration)return;clearTimeout(timeout);this.patch({active:true,connecting:false,phase:outputOnly?"IDLE":"LISTENING"});this.finishConnecting?.();this.finishConnecting=null;this.armIdle();if(preview)this.speak({spokenResponse:VOICE_PREVIEW_PHRASE,visualResponse:"",proposedActions:[],requiresConfirmation:false,conversationState:"awaiting_input"});};
       const offer=await pc.createOffer();await pc.setLocalDescription(offer);
       if(generation!==this.connectionGeneration)return;
       const answer=await this.deps.exchange(offer.sdp!,secret.value,this.abort.signal);
       if(generation!==this.connectionGeneration)return;
       await pc.setRemoteDescription({type:"answer",sdp:answer});
       this.timers.push(setTimeout(()=>{if(generation===this.connectionGeneration)this.stop();},VOICE_CLIENT.maxSessionMs));
+      // setRemoteDescription does not imply the data channel is open. Never
+      // silently drop the first typed reply by sending before onopen.
+      await connected;
     }catch(error){if(generation===this.connectionGeneration)this.fail(voiceErrorMessage(error));}
   }
   stop(){
     ++this.connectionGeneration;++this.turnGeneration;
+    this.finishConnecting?.();this.finishConnecting=null;
     this.finishOutput("interrupted");
     for(const item of this.transcriptionDiagnostics.values())this.reportDiagnostic(item,"interrupted");this.transcriptionDiagnostics.clear();
     this.abort?.abort();this.abort=null;
@@ -155,9 +166,9 @@ export class RealtimeVoice {
     // Completed utterances were accepted commands. Let their queued visual answers
     // finish even after mic exit, but never deliver their audio into a new session.
     this.order=this.order.filter(id=>this.ready.has(id));
-    this.patch({active:false,connecting:false,phase:"IDLE",level:0,error:null,inputMessageId:undefined});
+    this.patch({active:false,connecting:false,microphoneOn:false,phase:"IDLE",level:0,error:null,inputMessageId:undefined});
   }
-  private fail(message:string){this.stop();this.patch({phase:"ERROR",error:message});}
+  private fail(message:string){this.finishOutput("unavailable");this.stop();this.patch({phase:"ERROR",error:message});}
   mute(){this.patch({muted:!this.snapshot.muted});if(this.audio)this.audio.muted=this.snapshot.muted||!this.output;}
   interrupt(){
     ++this.turnGeneration;
@@ -165,7 +176,7 @@ export class RealtimeVoice {
     if(this.activeResponse)this.send({type:"response.cancel",response_id:this.activeResponse});
     this.send({type:"output_audio_buffer.clear"});
     this.finishOutput("interrupted");
-    if(this.snapshot.active){this.patch({phase:"LISTENING",level:0});this.armIdle();}
+    if(this.snapshot.active){this.patch({phase:this.outputOnly?"IDLE":"LISTENING",level:0});this.armIdle();}
   }
   private finishOutput(playback:"completed"|"interrupted"|"unavailable"){
     if(this.audioDiagnostic)this.reportDiagnostic(this.audioDiagnostic,playback==="completed"?"completed":playback==="interrupted"?"interrupted":"failed");
@@ -175,7 +186,7 @@ export class RealtimeVoice {
   /** Public to allow deterministic protocol tests with fake audio; never a UI command bridge. */
   handleEvent(event:Record<string,any>){
     const type=event.type;
-    if(this.previewMode && (String(type).startsWith("input_audio_buffer.") || String(type).startsWith("conversation.item.input_audio_transcription.")))return;
+    if(this.outputOnly && (String(type).startsWith("input_audio_buffer.") || String(type).startsWith("conversation.item.input_audio_transcription.")))return;
     if(this.auditionPaused && type==="input_audio_buffer.speech_started"){this.ignoredItems.add(event.item_id);return;}
     if(this.ignoredItems.has(event.item_id))return;
     if(type==="input_audio_buffer.speech_started" && this.output && !this.preferences.bargeInEnabled){this.ignoredItems.add(event.item_id);return;}
@@ -214,12 +225,12 @@ export class RealtimeVoice {
       if(event.response_id!==this.activeResponse||!this.output)return;
       this.finishOutput(this.snapshot.muted?"unavailable":"completed");
       // Keep session armed for follow-up and barge-in; UI explicitly says microphone on.
-      this.patch({phase:"IDLE",level:0});this.armIdle();if(this.previewMode)this.stop();
+      this.patch({phase:"IDLE",level:0});this.armIdle();if(this.outputOnly)this.stop();
     }else if(type==="response.done"){
       if(event.response?.id!==this.activeResponse)return;
       if(this.audioDiagnostic){this.audioDiagnostic.usage=event.response?.usage??null;this.reportDiagnostic(this.audioDiagnostic,event.response?.status==="completed"?"completed":"failed");}
       if(event.response?.status!=="completed"){
-        this.finishOutput("unavailable");this.patch({phase:"IDLE",level:0,error:"Spoken playback was not completed. The visual answer is available."});this.armIdle();if(this.previewMode)this.fail("Voice preview did not complete. Try again.");
+        this.fail(this.previewMode ? "Voice preview did not complete. Try again." : "Spoken playback was not completed. The visual answer is available.");
       }
     }else if(type==="error"){
       // A late response.cancel can race completion; it is safe to ignore only this precise code.
@@ -258,9 +269,38 @@ export class RealtimeVoice {
     const outputGeneration=this.outputGeneration;
     this.timers.push(setTimeout(()=>{if(this.output&&this.outputGeneration===outputGeneration)this.fail("Voice output timed out. The full answer remains in your conversation.");},60000));
   }
-  replay(text:string){
-    if(!this.snapshot.active||!text.trim())return;
-    this.interrupt();this.speak({spokenResponse:text,visualResponse:"",proposedActions:[],requiresConfirmation:false,conversationState:"awaiting_input"});
+  /** Typed input and spoken input share the same reasoning/history handler.
+   * Audio output never implicitly grants microphone access. */
+  async sendText(text:string,audioAvailable=true){
+    if(!text.trim())return;
+    this.stop();
+    const speakReply=audioAvailable&&this.preferences.autoSpeak;
+    const connecting=speakReply ? this.start(false,true) : Promise.resolve();
+    const connection=this.connectionGeneration,turn=this.turnGeneration;
+    try {
+      const answer=await this.callbacks?.answer(text,speakReply?preferredDepth(text,this.preferences):undefined);
+      if(!speakReply||!answer){if(speakReply&&connection===this.connectionGeneration)this.stop();return;}
+      await connecting;
+      if(connection!==this.connectionGeneration||turn!==this.turnGeneration||!this.snapshot.active||!this.preferences.autoSpeak){
+        if(answer.messageId)this.callbacks?.update(answer.messageId,{playback:this.snapshot.phase==="ERROR"?"unavailable":"interrupted"});
+        return;
+      }
+      for(const action of answer.proposedActions)this.callbacks?.navigate(action);
+      this.speak(answer);
+    }catch(error){if(connection===this.connectionGeneration)this.fail(voiceErrorMessage(error));}
+  }
+  async replay(text:string,messageId?:string){
+    if(!text.trim())return;
+    if(this.snapshot.connecting)this.stop();
+    this.interrupt();
+    const turn=this.turnGeneration;
+    if(messageId)this.callbacks?.update(messageId,{playback:"pending"});
+    if(!this.snapshot.active)await this.start(false,true);
+    if(turn!==this.turnGeneration||!this.snapshot.active){
+      if(messageId)this.callbacks?.update(messageId,{playback:this.snapshot.phase==="ERROR"?"unavailable":"interrupted"});
+      return;
+    }
+    this.speak({spokenResponse:text,visualResponse:"",proposedActions:[],requiresConfirmation:false,conversationState:"awaiting_input",messageId});
   }
 }
 export const realtimeVoice=new RealtimeVoice();

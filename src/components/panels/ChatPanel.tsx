@@ -1,7 +1,7 @@
 import {ModelRouteControl} from "./ModelSettings";
 import { realtimeVoice, voicePreview, useVoiceState } from "../../services/realtimeVoice";
 import { VOICE_CLIENT } from "../../services/voiceContract";
-import { Mic, MicOff, Volume2, VolumeX, Square, Keyboard } from "lucide-react";
+import { Mic, MicOff, Volume2, VolumeX, Square, Keyboard, MessageSquare } from "lucide-react";
 import { ChevronRight, NotebookPen, X, History, Settings2 } from "lucide-react";
 import type { CSSProperties } from "react";
 import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
@@ -24,6 +24,9 @@ const consoleMarkdownComponents: import("react-markdown").Components = {
 
 interface ChatPanelProps {
   onOpenPreferences?:()=>void;
+  autoSpeak?:boolean;
+  onAutoSpeakChange?:(enabled:boolean)=>void;
+  voiceSettingsReady?:boolean;
   messages: ConversationMessage[];
   onSendMessage: (message: string) => void;
   onRecordObservation: (text: string) => Promise<ObsidianActionResult>;
@@ -32,8 +35,9 @@ interface ChatPanelProps {
 }
 function collapse(text: string): string { return text.split(/\s+/).filter(Boolean).join(" "); }
 
-export function ChatPanel({ messages, onSendMessage, onRecordObservation, pending = false, error = null,onOpenPreferences }: ChatPanelProps) {
+export function ChatPanel({ messages, onSendMessage, onRecordObservation, pending = false, error = null,onOpenPreferences,autoSpeak=false,onAutoSpeakChange,voiceSettingsReady=true }: ChatPanelProps) {
   const voice = useVoiceState();
+  const microphoneActive=voice.microphoneOn&&(voice.active||voice.connecting);
   const [mode, setMode] = useState<ConsoleMode>("dormant");
   const [draft, setDraft] = useState("");
   const [projectContext, setProjectContext] = useState<{label:string;context:string} | null>(null);
@@ -55,7 +59,7 @@ export function ChatPanel({ messages, onSendMessage, onRecordObservation, pendin
   const liveInput = voice.active && voice.captionsEnabled && voice.inputMessageId && !messages.some(message => message.id === voice.inputMessageId)
     ? {id:voice.inputMessageId,role:"user" as const,content:voice.inputText || "Listening…",timestamp:"",voice:{kind:"input" as const}} : null;
   const renderedMessages = liveInput ? [...visibleMessages,liveInput] : visibleMessages;
-  const status = voice.connecting ? "CONNECTING VOICE" : voice.active ? (voice.phase === "IDLE" ? "MICROPHONE ON" : voice.phase) : voice.phase === "ERROR" ? "VOICE UNAVAILABLE" : pending ? (streamText ? "RESPONDING" : "PROCESSING") : error ? "RESPONSE ERROR" : responseReady ? "RESPONSE READY" : "OLYMPUS READY";
+  const status = voice.connecting ? "CONNECTING VOICE" : voice.active ? (voice.phase === "IDLE" ? (pending ? "PROCESSING" : voice.microphoneOn ? "MICROPHONE ON" : "AUDIO READY") : voice.phase) : voice.phase === "ERROR" ? "VOICE UNAVAILABLE" : pending ? (streamText ? "RESPONDING" : "PROCESSING") : error ? "RESPONSE ERROR" : responseReady ? "RESPONSE READY" : "OLYMPUS READY";
 
   function showLive(smooth = false) {
     setMode("engaged"); setLiveStart(liveConversationStart(messages)); setResponseReady(false); scroll.latest(smooth);
@@ -76,7 +80,8 @@ export function ChatPanel({ messages, onSendMessage, onRecordObservation, pendin
       if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.code === VOICE_CLIENT.shortcutCode && !event.repeat) {
         if (document.querySelector('[aria-modal="true"]')) return;
         event.preventDefault();
-        if (realtimeVoice.getSnapshot().active || realtimeVoice.getSnapshot().connecting) realtimeVoice.stop(); else { voicePreview.stop(); void realtimeVoice.start(); }
+        const state=realtimeVoice.getSnapshot();
+        if (state.microphoneOn&&(state.active||state.connecting)) realtimeVoice.stop(); else { voicePreview.stop(); realtimeVoice.stop(); void realtimeVoice.start(); }
       }
     };
     window.addEventListener("keydown",shortcut);return () => window.removeEventListener("keydown",shortcut);
@@ -267,13 +272,19 @@ export function ChatPanel({ messages, onSendMessage, onRecordObservation, pendin
       <div className="console-command-bar">
         <div className="console-status-line"><span className="console-omega" aria-hidden="true">Ω</span>
           <span role="status" className="console-status">{status}</span>
+          {onAutoSpeakChange&&<div className="console-reply-mode" role="group" aria-label="Reply mode">
+            <button type="button" aria-label="Text-only replies" aria-pressed={!autoSpeak} disabled={!voiceSettingsReady}
+              title="Reply in text only" onClick={()=>onAutoSpeakChange(false)}><MessageSquare size={12} aria-hidden="true"/>Text</button>
+            <button type="button" aria-label="Voice and text replies" aria-pressed={autoSpeak} disabled={!voiceSettingsReady}
+              title="Speak replies and keep the written answer; microphone stays off unless enabled separately" onClick={()=>onAutoSpeakChange(true)}><Volume2 size={12} aria-hidden="true"/>Voice</button>
+          </div>}
           <ModelRouteControl disabled={pending}/>
           {onOpenPreferences&&<button type="button" className="ghost-icon-action" aria-label="Open preferences" title="Open preferences" onClick={onOpenPreferences}><Settings2 size={14}/></button>}
           <button type="button" className="ghost-icon-action" aria-label="Open conversation history" title="Conversation history" onClick={showHistory}><History size={14} /></button>
         </div>
         {(voice.active || voice.connecting || voice.error) && <div className="console-voice-status" role="status" aria-live="polite">
-          <span>{voice.error || (voice.connecting ? "Connecting voice…" : "Microphone on · audio sent to OpenAI · stop to end")}</span>
-          {voice.active && <div className="console-voice-controls"><button className="ghost-action" onClick={() => realtimeVoice.mute()} aria-pressed={voice.muted} aria-label={voice.muted ? "Unmute voice output" : "Mute voice output"}>{voice.muted ? <VolumeX size={13}/> : <Volume2 size={13}/>} {voice.muted ? "Unmute" : "Mute"}</button><button className="ghost-action" onClick={() => realtimeVoice.interrupt()}><Square size={12}/> Interrupt</button><button className="ghost-action" onClick={() => realtimeVoice.stop()}>Stop voice</button></div>}
+          <span>{voice.error || (voice.connecting ? (voice.microphoneOn ? "Connecting microphone…" : "Connecting audio · microphone off") : voice.microphoneOn ? "Microphone on · audio sent to OpenAI · stop to end" : "Spoken reply · microphone off")}</span>
+          {(voice.active||voice.connecting) && <div className="console-voice-controls">{voice.active&&<><button className="ghost-action" onClick={() => realtimeVoice.mute()} aria-pressed={voice.muted} aria-label={voice.muted ? "Unmute voice output" : "Mute voice output"}>{voice.muted ? <VolumeX size={13}/> : <Volume2 size={13}/>} {voice.muted ? "Unmute" : "Mute"}</button><button className="ghost-action" onClick={() => realtimeVoice.interrupt()}><Square size={12}/> Interrupt</button></>}<button className="ghost-action" onClick={() => realtimeVoice.stop()}>Stop voice</button></div>}
         </div>}
 
         {projectContext && <details className="console-project-context"><summary>{projectContext.label} context attached</summary><pre>{projectContext.context}</pre><button className="ghost-action" onClick={() => setProjectContext(null)}>Remove context</button></details>}
@@ -281,7 +292,7 @@ export function ChatPanel({ messages, onSendMessage, onRecordObservation, pendin
           <textarea ref={inputRef} aria-label="Command to Olympus" rows={1} placeholder="Ask Olympus anything…" value={draft}
             onFocus={() => { if (mode === "dormant") showLive(); }} onChange={event => setDraft(event.target.value)}
             onKeyDown={event => { if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); submit(); } }} />
-          <button type="button" className="voice-mic-button" aria-label={voice.active || voice.connecting ? "Stop voice and microphone" : "Start voice conversation"} aria-pressed={voice.active} title="Voice · Ctrl+Shift+M" onClick={() => { if (voice.active || voice.connecting) realtimeVoice.stop(); else { voicePreview.stop(); void realtimeVoice.start(); } }}>{voice.active || voice.connecting ? <MicOff size={16}/> : <Mic size={16}/>}</button>
+          <button type="button" className="voice-mic-button" aria-label={microphoneActive ? "Stop voice and microphone" : "Start voice conversation"} aria-pressed={microphoneActive} title="Microphone · Ctrl+Shift+M" onClick={() => { if (microphoneActive) realtimeVoice.stop(); else { voicePreview.stop(); realtimeVoice.stop(); void realtimeVoice.start(); } }}>{microphoneActive ? <MicOff size={16}/> : <Mic size={16}/>}</button>
           <button type="button" className="send-button" aria-label="Send command" onClick={submit} disabled={!draft.trim() || pending}><ChevronRight size={18} /></button>
         </div>
       </div>
@@ -313,8 +324,8 @@ const ConversationBubble = memo(function ConversationBubble({
       {message.role === "user" ? <p className="console-command-text">{primary}</p> : <ResponseText text={primary}/>}
       {spoken && spoken !== message.content && <details className="console-response-details"><summary>View full response ↓</summary><ResponseText text={message.content} unrestricted/></details>}
       {message.voice?.kind === "output" && <div className="console-audio-footer">
-        <ReplayVoice text={spoken ?? ""}/>
-        <small>{speaking ? "Playing" : message.voice.playback === "interrupted" ? "Playback interrupted · some words may not have played" : message.voice.playback === "unavailable" ? "Audio unavailable · text preserved" : message.voice.playback === "pending" ? "Preparing audio" : "Played"}</small>
+        <ReplayVoice text={spoken ?? ""} messageId={message.id}/>
+        <small>{speaking ? "Playing" : message.voice.playback === "interrupted" ? "Playback interrupted · some words may not have played" : message.voice.playback === "unavailable" ? "Audio unavailable · text preserved" : message.voice.playback === "pending" ? "Preparing audio" : message.voice.playback === "completed" ? "Played" : "Playback unconfirmed"}</small>
         {message.voice.audioTranscript && message.voice.audioTranscript.trim() !== spoken?.trim() && <details><summary>Playback details</summary><p>{message.voice.audioTranscript}</p></details>}
       </div>}
       {message.voice?.requiresConfirmation && <p className="conversation-notice">Authorization required. Review and confirm the exact scope in the project’s existing approval controls.</p>}
@@ -346,9 +357,9 @@ const ConversationBubble = memo(function ConversationBubble({
   );
 });
 
-function ReplayVoice({text}:{text:string}) {
+function ReplayVoice({text,messageId}:{text:string;messageId:string}) {
   const voice=useVoiceState();
-  return <button className="observation-seed" disabled={!voice.active || !text || voice.phase === "PROCESSING"} title="Activate voice to replay this spoken summary" onClick={() => realtimeVoice.replay(text)}>Replay</button>;
+  return <button className="observation-seed" disabled={!text || voice.connecting || voice.phase === "PROCESSING"} title="Replay this spoken summary; the microphone stays off unless already enabled" onClick={() => {voicePreview.stop();void realtimeVoice.replay(text,messageId);}}>Replay</button>;
 }
 
 function ResponseText({text, unrestricted = false}:{text:string; unrestricted?:boolean}) {

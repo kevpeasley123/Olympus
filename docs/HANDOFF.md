@@ -1,3 +1,5 @@
+Latest release checkpoint: **0.15.0**, September 12, 2026, on `agent/curated-memory`: typed spoken replies, a persisted Text | Voice toggle in the chat header, independent audio Replay, and accurate playback/failure state. See [NEXT-SESSION.md](NEXT-SESSION.md) for current verification and the external installation receipt location. Older release notes below are historical.
+
 0.10.1: operator requested exactly two continuous inner rings. Removed the intermittent third ring from both SVG and hybrid renderers.
 
 Installed optional hybrid preview 0.10.0 from e1ed675. 36 conversation rows and settings preserved; enable Dimensional core in Preferences for this session. See COMMAND-3D-IMPLEMENTATION.md for acceptance limits.

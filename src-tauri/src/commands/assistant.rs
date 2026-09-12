@@ -298,7 +298,7 @@ fn running_build_facts() -> String {
          configuration readiness, a successful live pilot, any operator approval, or any completed \
          task. This turn does not include a live approval or acceptance ledger. Do not claim one. \
          Chat cannot launch these mechanisms; the operator uses their dedicated UI.\n\
-         Deliberate Realtime voice is available with a separately configured OpenAI API key: shared conversation and project context, concise spoken plus detailed visual answers, and interruptible playback. Voice navigation can open Projects; voice cannot authorize execution. No general fan-out scheduler is included.\n",
+         Deliberate Realtime voice is available with a separately configured OpenAI API key: shared conversation and project context, concise spoken plus detailed visual answers, and interruptible playback. Auto Speak in Preferences > Voice Lab controls spoken replies to typed messages and microphone conversations. Typed reply audio does not activate the microphone; only the microphone button or shortcut does. Voice navigation can open Projects; voice cannot authorize execution. No general fan-out scheduler is included.\n",
         env!("CARGO_PKG_VERSION")
     )
 }
@@ -309,6 +309,11 @@ fn running_build_facts() -> String {
 fn build_volatile_system(context: &AssistantContext, memory: &VaultMemory) -> String {
     let mut prompt = running_build_facts();
     let route = super::models::resolve(context.capability);
+    prompt.push_str(if context.voice_depth.is_some() {
+        "\nAudio delivery: prepare the spoken/visual answer contract. Playback happens separately after generation and may be muted, disabled, interrupted, or unavailable. You have no playback receipt for this answer. Never claim you enabled voice, activated the microphone, spoke, or successfully played audio. Answer the user's request directly; the app reports actual playback status.\n"
+    } else {
+        "\nAudio delivery: this turn requests text only. You cannot activate voice, change Auto Speak, or play audio through response prose. If asked for voice, explain that Preferences > Voice Lab > Auto Speak enables spoken replies to typed messages, or the microphone button starts a microphone conversation. Never claim audio played or a setting changed.\n"
+    });
     prompt.push_str(&format!("\nRequested reasoning route: {}/{} ({:?}, effort {}). Actual serving model is confirmed only by response metadata. This build supports primary reasoning {}, explicit one-request Deep Analysis {}, and explicit Claude comparison. Request diagnostics and message provenance are available in Preferences. These routes do not grant execution authority.\n", route.provider, route.model, route.capability, route.effort, super::models::PRIMARY_MODEL, super::models::DEEP_MODEL));
 
     prompt.push_str("\n## Environment\n\n");
@@ -1050,6 +1055,19 @@ mod tests {
         assert_eq!(voice[0].text,text[0].text);
         assert!(voice[1].text.contains("pokedex") && voice[1].text.contains("UNKNOWN"));
         assert!(voice[1].text.contains("spokenResponse") && voice[1].text.contains("cannot approve"));
+    }
+
+    #[test]
+    fn audio_delivery_is_not_claimed_from_generated_prose() {
+        let mut context=context_fixture();
+        let text=build_volatile_system(&context,&VaultMemory::default());
+        assert!(text.contains("this turn requests text only"));
+        assert!(text.contains("Preferences > Voice Lab > Auto Speak"));
+        context.voice_depth=Some("ANSWER".into());
+        let spoken=build_volatile_system(&context,&VaultMemory::default());
+        assert!(spoken.contains("no playback receipt for this answer"));
+        assert!(spoken.contains("Typed reply audio does not activate the microphone"));
+        assert!(!spoken.contains("this turn requests text only"));
     }
 
     fn context_fixture() -> AssistantContext {
