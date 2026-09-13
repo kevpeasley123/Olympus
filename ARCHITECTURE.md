@@ -1,3 +1,5 @@
+Current development: [Communication Intelligence v3](docs/COMMUNICATION-INTELLIGENCE-V3.md) supersedes the v2-only/no-model description below. The native manual workflow uses bounded structured primary-model assessment with conditional cached-thread expansion; source ownership and execution boundaries remain unchanged.
+
 See the adopted [v2 architecture critique](docs/COMMUNICATION-ARCHITECTURE-CRITIQUE.md) for the current skill boundaries and workflow.
 
 ## Communication Intelligence (September 12, 2026)

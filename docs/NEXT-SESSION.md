@@ -1,3 +1,13 @@
+# Release 0.17.0 checkpoint
+
+Communication Intelligence v3: bounded model interpretation, conditional thread expansion, background findings and operator feedback. Verified frontend build, 296 Rust tests passed / 2 ignored, 57 browser checks. Live provider/schema and real-mail interpretation acceptance remain pending. Installation receipt belongs under ignored `output/releases/0.17.0/`. Earlier development notes below are historical.
+
+# Current development: Communication Intelligence v3
+
+See [Communication Intelligence v3](COMMUNICATION-INTELLIGENCE-V3.md). Explicit Analyze/Refresh now sends bounded selected excerpts to the existing OpenAI primary route for interpretation, with a genuine three-pass cached-thread expansion loop. Two skills and the five-node graph remain; background findings and operator feedback are visible. No mail/project actions or automatic learning. Installed release remains 0.16.0. Earlier sections below describe historical versions and their verification.
+
+Verified v3 development: frontend build; Rust **296 passed / 2 ignored**; Communications browser **57 checks passed**. Right preview is synthetic at `http://127.0.0.1:31420/communications-harness.html`. Live schema/provider and real-mail interpretation acceptance remain pending. No commit, push or installation in this implementation pass.
+
 # Release 0.16.0 checkpoint
 
 Release scope: native read-only Gmail, Communications with manual local v2 intelligence, Knowledge Audit, shared skill contracts and semantic constellation presentation. Previous development verification: frontend build; Rust 286 passed / 2 ignored; Communications 49 browser checks. Real mailbox analysis quality remains operator acceptance. Release installation receipt is kept outside Git under `output/releases/0.16.0/`. The chronological notes below retain the implementation decisions and earlier verification.

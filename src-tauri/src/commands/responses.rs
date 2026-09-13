@@ -176,11 +176,62 @@ async fn complete_at(
     endpoint: &str,
     test_key: Option<&str>,
 ) -> Result<Output, String> {
+    transport(
+        payload(route, instructions, messages, voice),
+        channel,
+        record,
+        endpoint,
+        test_key,
+        240,
+    )
+    .await
+}
+/// Strict structured work shares the chat transport but never accepts partial/refused output.
+pub async fn structured(
+    route: &Route,
+    instructions: &str,
+    input: Value,
+    schema: Value,
+    record: &mut RequestRecord,
+) -> Result<String, String> {
+    let mut body = payload(
+        route,
+        instructions,
+        vec![json!({"role":"user","content":input.to_string()})],
+        false,
+    );
+    body["text"] = json!({"format":{"type":"json_schema","name":"communication_assessment","strict":true,"schema":schema}});
+    let output = transport(
+        body,
+        &tauri::ipc::Channel::new(|_| Ok(())),
+        record,
+        "https://api.openai.com/v1/responses",
+        None,
+        60,
+    )
+    .await?;
+    structured_text(output, record)
+}
+fn structured_text(output: Output, record: &RequestRecord) -> Result<String, String> {
+    if !output.terminal || !output.refusal.is_empty() || output.failure.is_some() || record.status != "completed" {
+        return Err("assessment_provider_incomplete_or_refused".into());
+    }
+    if output.text.len()>128_000 {return Err("assessment_output_budget".into())}
+    Ok(output.text)
+}
+async fn transport(
+    body: Value,
+    channel: &tauri::ipc::Channel<AssistantStreamEvent>,
+    record: &mut RequestRecord,
+    endpoint: &str,
+    test_key: Option<&str>,
+    timeout_secs: u64,
+) -> Result<Output, String> {
     let start = std::time::Instant::now();
     let result=async{
  let key=test_key.map(str::to_owned).or_else(||std::env::var("OPENAI_API_KEY").ok()).filter(|v|!v.trim().is_empty()).ok_or("OpenAI reasoning needs OPENAI_API_KEY in the Olympus project .env.")?;
- let client=reqwest::Client::builder().timeout(std::time::Duration::from_secs(240)).build().map_err(|_|"OpenAI HTTP client unavailable")?;
- let response=client.post(endpoint).bearer_auth(key.trim()).json(&payload(route,instructions,messages,voice)).send().await.map_err(|_|"OpenAI connection failed or timed out. Retry explicitly; no alternate provider was used.")?;
+ let client=reqwest::Client::builder().timeout(std::time::Duration::from_secs(timeout_secs)).build().map_err(|_|"OpenAI HTTP client unavailable")?;
+ let response=client.post(endpoint).bearer_auth(key.trim()).json(&body).send().await.map_err(|_|"OpenAI connection failed or timed out. Retry explicitly; no alternate provider was used.")?;
  if !response.status().is_success(){let status=response.status().as_u16();record.error_code=Some(format!("http_{status}"));let data=response.json::<Value>().await.unwrap_or(Value::Null);let code=data.pointer("/error/code").and_then(Value::as_str).unwrap_or("request_rejected");return Err(format!("OpenAI request failed (HTTP {status}, {code}). Check API access, quota and configuration; no alternate provider was used."));}
  let mut stream=response.bytes_stream();let mut decoder=Decoder::default();let mut output=Output::default();
  while let Some(chunk)=futures_util::StreamExt::next(&mut stream).await{
@@ -203,6 +254,15 @@ async fn complete_at(
 mod tests {
     use super::super::models::{resolve, Capability};
     use super::*;
+    #[test]
+    fn structured_assessment_rejects_partial_refused_and_nonterminal_text() {
+        let mut r=RequestRecord::new(&resolve(Capability::Primary),"fixture");r.status="completed".into();
+        let valid=||Output{text:"{}".into(),terminal:true,..Default::default()};
+        assert_eq!(structured_text(valid(),&r).unwrap(),"{}");
+        let mut partial=valid();partial.failure=Some("max_output_tokens".into());assert!(structured_text(partial,&r).is_err());
+        let mut refused=valid();refused.refusal="Refused".into();assert!(structured_text(refused,&r).is_err());
+        let mut unfinished=valid();unfinished.terminal=false;assert!(structured_text(unfinished,&r).is_err());
+    }
     #[test]
     fn payload_keeps_local_state_and_voice_contract() {
         let b = payload(&resolve(Capability::Primary), "identity", vec![], true);

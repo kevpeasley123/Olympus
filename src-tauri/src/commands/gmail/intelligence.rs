@@ -1,4 +1,6 @@
-//! Manual fixed graph over bounded local cache. No model or Gmail network capabilities.
+//! Versioned Communications runs. v3 interprets bounded cache snapshots; historical v2 tests remain.
+#[path = "intelligence_v3.rs"]
+mod v3;
 use super::{communication_skills as skill, store};
 use crate::commands::{persistence::Db, vault_write::content_fingerprint, workflow::GraphNode};
 use chrono::Utc;
@@ -158,7 +160,9 @@ fn projects(root: &Path) -> Result<Vec<skill::Project>, String> {
         if let Some((note, keys)) =
             crate::commands::project_notes::parse_project_note(&raw, stem, &source)
         {
-            if keys.len()>12 {return Err("project_alias_budget_exceeded".into())}
+            if keys.len() > 12 {
+                return Err("project_alias_budget_exceeded".into());
+            }
             output.push(skill::Project {
                 name: stem.into(),
                 aliases: keys,
@@ -184,11 +188,20 @@ fn selected(
     account: &str,
     days: u32,
     time: i64,
+    broaden: bool,
 ) -> Result<Vec<skill::ThreadInput>, String> {
     let cutoff = time - i64::from(days) * DAY;
-    let mut q=c.prepare("SELECT m.thread_id FROM gmail_messages m WHERE m.account_id=?1 AND m.available=1 AND m.in_scope=1 AND m.internal_date BETWEEN ?2 AND ?3 AND EXISTS (SELECT 1 FROM gmail_candidates g WHERE g.account_id=m.account_id AND g.message_id=m.id AND g.source_fingerprint=m.fingerprint) GROUP BY m.thread_id ORDER BY max(m.internal_date) DESC,m.thread_id LIMIT 12").map_err(err)?;
+    let query = if broaden {
+        "WITH grouped AS (SELECT m.thread_id,max(m.internal_date) AS latest,max(EXISTS (SELECT 1 FROM gmail_candidates g WHERE g.account_id=m.account_id AND g.message_id=m.id AND g.source_fingerprint=m.fingerprint)) AS flagged FROM gmail_messages m WHERE m.account_id=?1 AND m.available=1 AND m.in_scope=1 AND m.internal_date BETWEEN ?2 AND ?3 GROUP BY m.thread_id), ranked AS (SELECT *,row_number() OVER (PARTITION BY flagged ORDER BY latest DESC,thread_id) AS rank FROM grouped) SELECT thread_id FROM ranked WHERE ?4=1 ORDER BY CASE WHEN flagged=1 AND rank<=4 THEN 0 ELSE 1 END,latest DESC,thread_id LIMIT ?5"
+    } else {
+        "SELECT m.thread_id FROM gmail_messages m WHERE m.account_id=?1 AND m.available=1 AND m.in_scope=1 AND m.internal_date BETWEEN ?2 AND ?3 AND (?4=1 OR EXISTS (SELECT 1 FROM gmail_candidates g WHERE g.account_id=m.account_id AND g.message_id=m.id AND g.source_fingerprint=m.fingerprint)) GROUP BY m.thread_id ORDER BY max(m.internal_date) DESC,m.thread_id LIMIT ?5"
+    };
+    let mut q = c.prepare(query).map_err(err)?;
     let ids = q
-        .query_map(params![account, cutoff, time], |r| r.get::<_, String>(0))
+        .query_map(
+            params![account, cutoff, time, broaden, if broaden { 6 } else { 12 }],
+            |r| r.get::<_, String>(0),
+        )
         .map_err(err)?
         .collect::<Result<Vec<_>, _>>()
         .map_err(err)?;
@@ -295,7 +308,7 @@ pub fn analyze(c: &Connection, root: &Path, request: Request) -> Result<Value, S
         run["snapshot"] = snapshot;
         let mut inputs = Vec::new();
         step(c, &request.id, "select", &mut done, || {
-            inputs = selected(c, &account.id, days, time)?;
+            inputs = selected(c, &account.id, days, time, false)?;
             Ok(
                 json!({"selectedThreads":inputs.len(),"threadLimit":12,"messageLimitPerThread":4,"textLimitPerMessage":2000,"evidenceRefs":inputs.iter().flat_map(|i|i.refs()).collect::<Vec<_>>()}),
             )
@@ -312,7 +325,13 @@ pub fn analyze(c: &Connection, root: &Path, request: Request) -> Result<Value, S
                 return Ok(Vec::new());
             }
             let catalog = projects(root)?;
-            event(c,&request.id,"project","catalog_snapshot",json!({"sources":catalog.iter().map(|p|json!({"source":p.source,"fingerprint":p.fingerprint,"name":p.name,"aliases":p.aliases})).collect::<Vec<_>>(),"method":"bounded_name_alias_match","discoveryIterations":0}))?;
+            event(
+                c,
+                &request.id,
+                "project",
+                "catalog_snapshot",
+                json!({"sources":catalog.iter().map(|p|json!({"source":p.source,"fingerprint":p.fingerprint,"name":p.name,"aliases":p.aliases})).collect::<Vec<_>>(),"method":"bounded_name_alias_match","discoveryIterations":0}),
+            )?;
             project_stamp = Some(project_signature(&catalog));
             inputs
                 .iter()
@@ -376,13 +395,12 @@ pub async fn analyze_communications(
     app: tauri::AppHandle,
     request: Request,
 ) -> Result<Value, String> {
-    tauri::async_runtime::spawn_blocking(move || {
-        let db = app.state::<Db>();
-        let c = db.0.lock().map_err(|_| "database_busy")?;
-        analyze(&c, &crate::commands::get_vault_path(), request)
-    })
+    v3::run(
+        &app.state::<Db>(),
+        &crate::commands::get_vault_path(),
+        request,
+    )
     .await
-    .map_err(err)?
 }
 #[tauri::command]
 pub fn communication_skills() -> Value {
@@ -415,12 +433,20 @@ pub fn communication_runs(db: State<'_, Db>, days: u32) -> Result<Vec<Value>, St
                 .map(|d| Utc::now().timestamp_millis() - d.timestamp_millis())
                 .unwrap_or(i64::MAX);
             run["stale"] = json!(
-                run["graph"] != GRAPH
+                run["graph"] != v3::GRAPH
                     || run["snapshot"]["signature"] != sig
                     || age > 15 * 60 * 1000
                     || (run["projectSignature"].is_string()
                         && run["projectSignature"].as_str() != project_stamp.as_deref())
             );
+            let count: i64 = c
+                .query_row(
+                    "SELECT count(*) FROM communication_evaluations WHERE run_id=?1",
+                    [run["id"].as_str().unwrap_or("")],
+                    |r| r.get(0),
+                )
+                .map_err(err)?;
+            run["feedbackCount"] = json!(count);
             Ok(run)
         })
         .collect()
@@ -468,6 +494,9 @@ pub enum Feedback {
     FalseResponse,
     FalseDeadline,
     ProjectDismissed,
+    Useful,
+    Incorrect,
+    MissedNeedsMe,
 }
 #[tauri::command]
 pub fn communication_feedback(
@@ -477,7 +506,15 @@ pub fn communication_feedback(
     event: Feedback,
 ) -> Result<(), String> {
     let c = db.0.lock().map_err(|_| "database_busy")?;
-    authorized(&c, &id)?;
+    record_feedback(&c, &id, &thread_id, event)
+}
+fn record_feedback(
+    c: &Connection,
+    id: &str,
+    thread_id: &str,
+    event: Feedback,
+) -> Result<(), String> {
+    authorized(c, id)?;
     let raw: String = c
         .query_row(
             "SELECT payload_json FROM communication_runs WHERE id=?1",
@@ -497,13 +534,26 @@ pub fn communication_feedback(
         Feedback::FalseResponse => "false_response",
         Feedback::FalseDeadline => "false_deadline",
         Feedback::ProjectDismissed => "project_dismissed",
+        Feedback::Useful => "useful",
+        Feedback::Incorrect => "incorrect",
+        Feedback::MissedNeedsMe => "missed_needs_me",
     };
     c.execute(
         "INSERT INTO communication_evaluations(run_id,thread_id,event,at) VALUES(?1,?2,?3,?4)",
         params![id, thread_id, name, now()],
     )
     .map_err(err)?;
+    event_feedback(c, id, thread_id, name)?;
     Ok(())
+}
+fn event_feedback(c: &Connection, id: &str, thread: &str, name: &str) -> Result<(), String> {
+    event(
+        c,
+        id,
+        "feedback",
+        "recorded",
+        json!({"threadId":thread,"feedback":name}),
+    )
 }
 #[cfg(test)]
 mod tests {
@@ -626,23 +676,69 @@ mod tests {
     }
     #[test]
     fn synthesis_rejects_reordered_evidence_and_missing_branch() {
-        let input=skill::ThreadInput{messages:vec![skill::Message{evidence:skill::Evidence{message_id:"a".into(),thread_id:"t".into(),fingerprint:"source-hash".into(),timestamp:1},sender:"fixture".into(),subject:"Atlas".into(),text:"Review?".into(),sent:false,body_available:true,candidates:vec!["possible_response_needed".into()]}]};
-        let assessment=skill::assess(&input).unwrap();
-        let matched=crate::commands::project_relevance::match_projects(&skill::artifact(&input).unwrap(),&[]).unwrap();
-        assert_eq!(synthesize(&[input.clone()],&[assessment.clone()],&[matched.clone()]).unwrap().len(),1);
-        assert!(synthesize(&[input.clone()],&[],&[matched.clone()]).is_err());
-        let mut wrong=assessment;wrong.summary.evidence_refs[0].message_id="other".into();
-        assert!(synthesize(&[input.clone()],&[wrong],&[matched.clone()]).is_err());
-        let mut wrong_project=matched;wrong_project.evidence_refs[0].source_type="document".into();
-        assert!(synthesize(&[input.clone()],&[skill::assess(&input).unwrap()],&[wrong_project]).is_err());
+        let input = skill::ThreadInput {
+            messages: vec![skill::Message {
+                evidence: skill::Evidence {
+                    message_id: "a".into(),
+                    thread_id: "t".into(),
+                    fingerprint: "source-hash".into(),
+                    timestamp: 1,
+                },
+                sender: "fixture".into(),
+                subject: "Atlas".into(),
+                text: "Review?".into(),
+                sent: false,
+                body_available: true,
+                candidates: vec!["possible_response_needed".into()],
+            }],
+        };
+        let assessment = skill::assess(&input).unwrap();
+        let matched = crate::commands::project_relevance::match_projects(
+            &skill::artifact(&input).unwrap(),
+            &[],
+        )
+        .unwrap();
+        assert_eq!(
+            synthesize(&[input.clone()], &[assessment.clone()], &[matched.clone()])
+                .unwrap()
+                .len(),
+            1
+        );
+        assert!(synthesize(&[input.clone()], &[], &[matched.clone()]).is_err());
+        let mut wrong = assessment;
+        wrong.summary.evidence_refs[0].message_id = "other".into();
+        assert!(synthesize(&[input.clone()], &[wrong], &[matched.clone()]).is_err());
+        let mut wrong_project = matched;
+        wrong_project.evidence_refs[0].source_type = "document".into();
+        assert!(synthesize(
+            &[input.clone()],
+            &[skill::assess(&input).unwrap()],
+            &[wrong_project]
+        )
+        .is_err());
     }
     #[test]
     fn v2_does_not_rewrite_historical_v1_record() {
-        let c=db();let historical=json!({"id":"history","graph":"communication-intelligence/v1","accountId":"fixture","requestedDays":7,"status":"completed","definition":[{"id":"triage","kind":"communication-triage@1"}],"items":[]});
-        c.execute("INSERT INTO communication_runs VALUES('history','fixture',7,'completed',?1)",[historical.to_string()]).unwrap();
-        let replay=analyze(&c,Path::new("unused"),request("history")).unwrap();assert_eq!(replay,historical);
-        assert_eq!(analyze(&c,Path::new("unused"),request("new-version")).unwrap()["graph"],"communication-intelligence/v2");
-        let saved:String=c.query_row("SELECT payload_json FROM communication_runs WHERE id='history'",[],|r|r.get(0)).unwrap();assert_eq!(saved,historical.to_string());
+        let c = db();
+        let historical = json!({"id":"history","graph":"communication-intelligence/v1","accountId":"fixture","requestedDays":7,"status":"completed","definition":[{"id":"triage","kind":"communication-triage@1"}],"items":[]});
+        c.execute(
+            "INSERT INTO communication_runs VALUES('history','fixture',7,'completed',?1)",
+            [historical.to_string()],
+        )
+        .unwrap();
+        let replay = analyze(&c, Path::new("unused"), request("history")).unwrap();
+        assert_eq!(replay, historical);
+        assert_eq!(
+            analyze(&c, Path::new("unused"), request("new-version")).unwrap()["graph"],
+            "communication-intelligence/v2"
+        );
+        let saved: String = c
+            .query_row(
+                "SELECT payload_json FROM communication_runs WHERE id='history'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(saved, historical.to_string());
     }
-
 }

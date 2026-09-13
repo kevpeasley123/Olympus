@@ -1,3 +1,7 @@
+# Current development: Communication Intelligence v3
+
+See [Communication Intelligence v3](COMMUNICATION-INTELLIGENCE-V3.md). Explicit Analyze/Refresh now sends bounded selected excerpts to the existing OpenAI primary route for interpretation, with a genuine three-pass cached-thread expansion loop. Two skills and the five-node graph remain; background findings and operator feedback are visible. No mail/project actions or automatic learning. Installed release remains 0.16.0. Earlier sections below describe historical versions and their verification.
+
 See the adopted [v2 architecture critique](COMMUNICATION-ARCHITECTURE-CRITIQUE.md) for the current skill boundaries and workflow.
 
 # Communication Intelligence supersedes the inbox-first layout

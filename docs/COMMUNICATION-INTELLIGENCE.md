@@ -1,3 +1,7 @@
+# Current development: Communication Intelligence v3
+
+See [Communication Intelligence v3](COMMUNICATION-INTELLIGENCE-V3.md). Explicit Analyze/Refresh now sends bounded selected excerpts to the existing OpenAI primary route for interpretation, with a genuine three-pass cached-thread expansion loop. Two skills and the five-node graph remain; background findings and operator feedback are visible. No mail/project actions or automatic learning. Installed release remains 0.16.0. Earlier sections below describe historical versions and their verification.
+
 # Communication Intelligence v2 — current design
 
 The adopted [architecture critique](COMMUNICATION-ARCHITECTURE-CRITIQUE.md) supersedes the v1 skill/loop/graph design below. Current skills are `communication-assess@1` and `project-relevance@2`. Current graph: snapshot -> select -> assess/project -> synthesize. Project matching checks all supplied names and aliases deterministically; it does not run a discovery loop. Synthesis owns recommendation and ranking policy and validates source identity. Active guidance uses REVIEW / VERIFY / MONITOR; no-action is an assessment, and no confirmed operator checkpoint is inferred. No additional runtime or database schema was added. v1 stored runs remain immutable and inspectable; refresh is required to publish a v2 brief.

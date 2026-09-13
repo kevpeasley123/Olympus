@@ -1,3 +1,7 @@
+# Current development: Communication Intelligence v3
+
+See [Communication Intelligence v3](COMMUNICATION-INTELLIGENCE-V3.md). Explicit Analyze/Refresh now sends bounded selected excerpts to the existing OpenAI primary route for interpretation, with a genuine three-pass cached-thread expansion loop. Two skills and the five-node graph remain; background findings and operator feedback are visible. No mail/project actions or automatic learning. Installed release remains 0.16.0. Earlier sections below describe historical versions and their verification.
+
 # ARCHITECTURE CRITIQUE — Communications v2
 
 September 12, 2026. This review supersedes the initial four-skill/nine-node design. It is an architectural correction to current development work, not a rewrite of historical run records.

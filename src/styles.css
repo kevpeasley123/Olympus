@@ -4758,3 +4758,10 @@ small {
 .comms-analytics-content .comms-intelligence-strip { grid-column:1/-1; }
 @media(max-width:900px) { .comms-brief {padding:16px;} .comms-brief-item {grid-template-columns:1fr;gap:6px;} .comms-brief-item>.comms-text-action{justify-self:start;} }
 @media(prefers-reduced-motion:reduce) { .comms-brief *, .comms-run-details * {animation:none!important;transition:none!important;scroll-behavior:auto!important;} }
+
+/* Communications v3: restrained hierarchy, quieter background findings. */
+.comms-brief-item.priority-high .comms-recommendation { color: #edb66f; }
+.comms-background { border-top: 1px solid rgba(147,175,194,.16); margin-top: 12px; padding-top: 12px; }
+.comms-background > summary { color: #9aacb9; cursor: pointer; }
+.comms-background .comms-brief-item { opacity: .86; }
+.comms-brief-item p { max-width: 76ch; }

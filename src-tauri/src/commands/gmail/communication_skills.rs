@@ -90,17 +90,50 @@ pub struct Triage {
     pub summary: String,
     pub evidence_refs: Vec<Evidence>,
 }
-fn triage(input:&ThreadInput)->Result<Triage,String>{
- input.validate()?;let latest=input.messages.last().unwrap();
- let mut kinds=input.messages.iter().flat_map(|m|m.candidates.clone()).collect::<std::collections::BTreeSet<_>>();
- let response=kinds.contains("possible_response_needed");let deadline=kinds.contains("possible_deadline");let project=kinds.contains("possible_project_relationship");
- let (attention,summary)=if !latest.body_available {kinds.insert("source_unavailable".into());(Attention::Uncertain,"Latest body is unavailable; attention cannot be assessed.")}
- else if latest.sent&&(response||deadline){kinds.insert("later_sent_message".into());(Attention::Uncertain,"A later sent message may change the earlier attention signal; resolution is unverified.")}
- else if deadline{(Attention::Yes,"Possible deadline language was detected; its date and applicability are unverified.")}
- else if response{(Attention::Yes,"A received message contains a possible response need; the question needs source review.")}
- else if project{(Attention::Uncertain,"A possible project reference was detected; the relationship is unconfirmed.")}
- else{(Attention::No,"No supported attention signal was found in the inspected subset.")};
- Ok(Triage{attention,summary:summary.into(),reason_codes:kinds.into_iter().collect(),evidence_refs:input.refs()})
+fn triage(input: &ThreadInput) -> Result<Triage, String> {
+    input.validate()?;
+    let latest = input.messages.last().unwrap();
+    let mut kinds = input
+        .messages
+        .iter()
+        .flat_map(|m| m.candidates.clone())
+        .collect::<std::collections::BTreeSet<_>>();
+    let response = kinds.contains("possible_response_needed");
+    let deadline = kinds.contains("possible_deadline");
+    let project = kinds.contains("possible_project_relationship");
+    let (attention, summary) = if !latest.body_available {
+        kinds.insert("source_unavailable".into());
+        (
+            Attention::Uncertain,
+            "Latest body is unavailable; attention cannot be assessed.",
+        )
+    } else if latest.sent && (response || deadline) {
+        kinds.insert("later_sent_message".into());
+        (Attention::Uncertain,"A later sent message may change the earlier attention signal; resolution is unverified.")
+    } else if deadline {
+        (
+            Attention::Yes,
+            "Possible deadline language was detected; its date and applicability are unverified.",
+        )
+    } else if response {
+        (Attention::Yes,"A received message contains a possible response need; the question needs source review.")
+    } else if project {
+        (
+            Attention::Uncertain,
+            "A possible project reference was detected; the relationship is unconfirmed.",
+        )
+    } else {
+        (
+            Attention::No,
+            "No supported attention signal was found in the inspected subset.",
+        )
+    };
+    Ok(Triage {
+        attention,
+        summary: summary.into(),
+        reason_codes: kinds.into_iter().collect(),
+        evidence_refs: input.refs(),
+    })
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -190,12 +223,18 @@ pub fn recommend(t: &Triage, p: &Relevance) -> Result<Recommendation, String> {
     {
         return Err("recommendation_requires_evidence".into());
     }
-    let has=|code:&str|t.reason_codes.iter().any(|r|r==code);
-    let disposition=if p.ambiguity||has("source_unavailable"){Disposition::Verify}
-    else if has("later_sent_message"){Disposition::Review}
-    else if has("possible_deadline"){Disposition::Verify}
-    else if t.attention==Attention::No {Disposition::NoAction}
-    else {Disposition::Review};
+    let has = |code: &str| t.reason_codes.iter().any(|r| r == code);
+    let disposition = if p.ambiguity || has("source_unavailable") {
+        Disposition::Verify
+    } else if has("later_sent_message") {
+        Disposition::Review
+    } else if has("possible_deadline") {
+        Disposition::Verify
+    } else if t.attention == Attention::No {
+        Disposition::NoAction
+    } else {
+        Disposition::Review
+    };
     let priority = if t.attention == Attention::Yes {
         "attention_candidate"
     } else if disposition == Disposition::NoAction {
@@ -226,7 +265,28 @@ pub fn registry() -> Value {
         "Assessment",
         0,
     );
-    assessment["allowedCapabilities"] = json!(["read_supplied_thread"]);
+    assessment["version"] = json!(2);
+    assessment["purpose"]=json!("Interpret bounded communication evidence: events, changes, operator impact and proposed next move");
+    assessment["outputSchema"] =
+        super::assessment_v3::schema()["properties"]["assessments"]["items"].clone();
+    assessment["loopBudget"] = json!(3);
+    assessment["implementation"] =
+        json!("structured primary-model assessment; conditional cached-thread expansion");
+    assessment["allowedCapabilities"] = json!([
+        "read_supplied_thread",
+        "bounded_model_interpretation",
+        "request_cached_thread_expansion"
+    ]);
+    assessment["prohibitedEffects"] = json!([
+        "gmail_write",
+        "task_create",
+        "decision_create",
+        "project_write",
+        "memory_promotion",
+        "skill_rewrite",
+        "graph_rewrite",
+        "arbitrary_retrieval"
+    ]);
     json!([assessment, crate::commands::project_relevance::contract()])
 }
 fn object(properties: Value) -> Value {
@@ -317,9 +377,7 @@ mod tests {
             Attention::Yes
         );
         assert_eq!(
-            triage(&input(&["possible_deadline"]))
-                .unwrap()
-                .attention,
+            triage(&input(&["possible_deadline"])).unwrap().attention,
             Attention::Yes
         );
         let mut i = input(&["possible_response_needed"]);
@@ -364,12 +422,20 @@ mod tests {
     }
     #[test]
     fn registry_contains_only_two_live_contracts_and_current_taxonomy() {
-        let r=registry();let list=r.as_array().unwrap();assert_eq!(list.len(),2);
-        assert_eq!(list[0]["id"],"communication-assess");assert_eq!(list[1]["id"],"project-relevance");assert_eq!(list[1]["version"],2);
-        assert!(list.iter().all(|c|c["loopBudget"]==0));
-        assert!(list[0]["outputSchema"]["properties"]["triage"]["properties"].get("recommendedDisposition").is_none());
+        let r = registry();
+        let list = r.as_array().unwrap();
+        assert_eq!(list.len(), 2);
+        assert_eq!(list[0]["id"], "communication-assess");
+        assert_eq!(list[1]["id"], "project-relevance");
+        assert_eq!(list[1]["version"], 2);
+        assert_eq!(list[0]["loopBudget"], 3);
+        assert_eq!(list[1]["loopBudget"], 0);
+        assert!(
+            list[0]["outputSchema"]["properties"]["triage"]["properties"]
+                .get("recommendedDisposition")
+                .is_none()
+        );
         assert!(serde_json::from_value::<Disposition>(json!("verify")).is_ok());
         assert!(serde_json::from_value::<Disposition>(json!("respond")).is_err());
     }
-
 }

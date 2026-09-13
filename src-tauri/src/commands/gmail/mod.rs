@@ -429,3 +429,5 @@ pub fn gmail_workspace(
 
 pub mod intelligence;
 pub mod communication_skills;
+
+pub mod assessment_v3;

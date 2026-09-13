@@ -11,7 +11,7 @@ export function GmailSettings({api=client}:{api?:GmailClient}) {
  return <details className="gmail-settings" data-testid="gmail-settings"><summary>Gmail · read-only source</summary>
  {!api.native()?<p>Connect Gmail in the Olympus desktop app. This browser preview cannot access native credentials or your mailbox.</p>:<>
  <p role="status">{gmailStateLabel(state)}{state?.account?.email&&<> — {state.account.email}</>}</p>
- <p className="section-copy">Connect opens your system browser and requests read-only access to message bodies in Gmail. Relevant cached excerpts are sent to your configured reasoning provider only when you ask a communication-related question. Olympus cannot send or change mail.</p>
+ <p className="section-copy">Connect opens your system browser and requests read-only access to message bodies in Gmail. Relevant cached excerpts are sent to your reasoning provider when you ask a communication-related question or explicitly analyze Communications. Brief analysis uses OpenAI with bounded excerpts and matching project metadata. Olympus cannot send or change mail.</p>
  {state&&!state.configured&&<p>Save a Google <strong>Desktop app</strong> OAuth client JSON as <code className="gmail-config-path">{state.configPath}</code>. Setup: <code>docs/GMAIL.md</code>. Do not paste credentials into chat.</p>}
  <div className="gmail-controls">
  <button type="button" className="ghost-action" disabled={busy||!state?.configured} onClick={()=>void run(()=>api.action("connect"))}>{enabled?"Reconnect Gmail":"Connect Gmail"}</button>

@@ -1,3 +1,7 @@
+# Current development: Communication Intelligence v3
+
+See [Communication Intelligence v3](COMMUNICATION-INTELLIGENCE-V3.md). Explicit Analyze/Refresh now sends bounded selected excerpts to the existing OpenAI primary route for interpretation, with a genuine three-pass cached-thread expansion loop. Two skills and the five-node graph remain; background findings and operator feedback are visible. No mail/project actions or automatic learning. Installed release remains 0.16.0. Earlier sections below describe historical versions and their verification.
+
 See the adopted [v2 architecture critique](COMMUNICATION-ARCHITECTURE-CRITIQUE.md) for the current skill boundaries and workflow.
 
 # Manual local Communication Intelligence
@@ -39,7 +43,7 @@ Gmail owns mailbox facts. `gmail_messages` contains normalized local snapshots. 
 
 “Friday is mentioned in a message” is communication evidence, not Kevin's commitment. Git remains primary for implementation state; operator notes remain primary for intent. Assistant prompts explicitly preserve these boundaries and treat message contents as untrusted data, never instructions.
 
-Sync performs no model calls. Only a user question routed to communication retrieval supplies bounded excerpts to the configured reasoning provider under the existing Olympus model/storage contract. Preferences discloses this. Mailbox search and local candidate review do not contact a reasoning provider. Quoted excerpts may remain in subsequent conversation context just like other saved chat history.
+Sync performs no model calls. A user question routed to communication retrieval, or explicit Communications Analyze/Refresh, supplies bounded excerpts to the reasoning provider under the existing Olympus model/storage contract. V3 brief analysis uses the fixed OpenAI primary route and may request bounded expansion within the same selected cached threads. Preferences discloses this. Mailbox search and local candidate review do not contact a reasoning provider. Quoted excerpts may remain in subsequent conversation context just like other saved chat history.
 
 Refresh tokens live in **Windows Credential Manager**, service `Olympus.Gmail.ReadOnly`, keyed by a fingerprint of normalized account email. Access tokens remain in a short-lived Rust client. The Gmail profile supplies account email, not a Google OpenID subject; no extra identity scopes are requested. User tokens, callback codes and OAuth response payloads are never returned to React or logged.
 
