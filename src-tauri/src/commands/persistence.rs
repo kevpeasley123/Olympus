@@ -18,6 +18,7 @@ pub struct ToolState {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ConversationMessage {
+    #[serde(default)] pub mail: Vec<super::gmail::store::Excerpt>,
     #[serde(default)] pub request: Option<super::models::RequestRecord>,
     #[serde(default)] pub voice: Option<serde_json::Value>,
     pub id: String,
@@ -263,13 +264,14 @@ pub fn load_persisted_state(db: State<Db>) -> Result<PersistedState, String> {
 
     let mut conversation_query = connection
         .prepare(
-            "SELECT id, role, content, timestamp, COALESCE((SELECT sources_json FROM conversation_research WHERE message_id = conversation_messages.id), '[]'), (SELECT metadata_json FROM conversation_voice WHERE message_id = conversation_messages.id), (SELECT record_json FROM model_requests WHERE id=(SELECT request_id FROM conversation_model WHERE message_id=conversation_messages.id)) FROM conversation_messages \
+            "SELECT id, role, content, timestamp, COALESCE((SELECT sources_json FROM conversation_research WHERE message_id = conversation_messages.id), '[]'), (SELECT metadata_json FROM conversation_voice WHERE message_id = conversation_messages.id), (SELECT record_json FROM model_requests WHERE id=(SELECT request_id FROM conversation_model WHERE message_id=conversation_messages.id)), COALESCE((SELECT sources_json FROM conversation_mail WHERE message_id=conversation_messages.id), '[]') FROM conversation_messages \
              ORDER BY created_at ASC, rowid ASC",
         )
         .map_err(|error| error.to_string())?;
     let conversation = conversation_query
         .query_map([], |row| {
             Ok(ConversationMessage {
+                mail: serde_json::from_str(&row.get::<_,String>(7)?).map_err(|_|rusqlite::Error::InvalidQuery)?,
                 request: row.get::<_,Option<String>>(6)?.and_then(|s|serde_json::from_str(&s).ok()),
                 voice: row.get::<_, Option<String>>(5)?.map(|s| serde_json::from_str(&s)).transpose().map_err(|e| rusqlite::Error::FromSqlConversionFailure(5, rusqlite::types::Type::Text, Box::new(e)))?,
                 id: row.get(0)?,
@@ -343,6 +345,7 @@ pub(crate) fn store_messages(connection: &mut Connection, messages: Vec<Conversa
     let transaction = connection.transaction().map_err(|e| e.to_string())?;
 
     for message in messages {
+        transaction.execute("INSERT INTO conversation_mail(message_id,sources_json) VALUES (?1,?2) ON CONFLICT(message_id) DO UPDATE SET sources_json=excluded.sources_json",params![message.id,serde_json::to_string(&message.mail).map_err(|_|"Mail provenance serialization failed")?]).map_err(|_|"Mail provenance persistence failed")?;
         if let Some(request)=&message.request {
             transaction.execute("INSERT INTO conversation_model(message_id,request_id) SELECT ?1,?2 WHERE EXISTS(SELECT 1 FROM model_requests WHERE id=?2) ON CONFLICT(message_id) DO NOTHING",params![message.id,request.id]).map_err(|e|e.to_string())?;
         }
@@ -372,6 +375,7 @@ pub fn clear_conversation(db: State<Db>) -> Result<(), String> {
     let connection = locked(&db)?;
     connection.execute("DELETE FROM conversation_model", []).map_err(|e|e.to_string())?;
     connection.execute("DELETE FROM conversation_voice", []).map_err(|e| e.to_string())?;
+    connection.execute("DELETE FROM conversation_mail", []).map_err(|_|"Mail provenance removal failed")?;
     connection.execute("DELETE FROM conversation_research", []).map_err(|e| e.to_string())?;
     connection
         .execute("DELETE FROM conversation_messages", [])
@@ -389,7 +393,7 @@ mod tests {
       let mut c=Connection::open_in_memory().unwrap();c.execute_batch(include_str!("../../schema.sql")).unwrap();
       let r=super::super::models::RequestRecord::new(&super::super::models::resolve(super::super::models::Capability::DeepReasoning),"command");
       c.execute("INSERT INTO model_requests(id,record_json) VALUES (?1,?2)",params![r.id,serde_json::to_string(&r).unwrap()]).unwrap();
-      let message=|request|ConversationMessage{request,id:"answer".into(),role:"assistant".into(),content:"Same answer".into(),timestamp:"12:00".into(),research:vec![],voice:None};
+      let message=|request|ConversationMessage{mail:vec![],request,id:"answer".into(),role:"assistant".into(),content:"Same answer".into(),timestamp:"12:00".into(),research:vec![],voice:None};
       store_messages(&mut c,vec![message(Some(r.clone()))]).unwrap();store_messages(&mut c,vec![message(None)]).unwrap();
       assert_eq!(c.query_row("SELECT request_id FROM conversation_model WHERE message_id='answer'",[],|r|r.get::<_,String>(0)).unwrap(),r.id);
       assert_eq!(c.query_row("SELECT count(*) FROM conversation_messages",[],|r|r.get::<_,i64>(0)).unwrap(),1);
@@ -401,7 +405,7 @@ mod tests {
         let mut db = Connection::open_in_memory().unwrap();
         db.execute_batch(include_str!("../../schema.sql")).unwrap();
         let message = |id: &str, voice: Option<serde_json::Value>| ConversationMessage {
-            request: None, id: id.into(), role: "assistant".into(), content: "Full visual detail".into(), timestamp: "12:00".into(), research: vec![], voice,
+            mail:vec![], request: None, id: id.into(), role: "assistant".into(), content: "Full visual detail".into(), timestamp: "12:00".into(), research: vec![], voice,
         };
         store_messages(&mut db, vec![message("typed", None), message("spoken", Some(serde_json::json!({"kind":"output","spokenResponse":"Short answer","playback":"pending"}))), message("typed-after",None)]).unwrap();
         store_messages(&mut db, vec![message("spoken",Some(serde_json::json!({"kind":"output","spokenResponse":"Short answer","audioTranscript":"Short","playback":"interrupted"})))]).unwrap();

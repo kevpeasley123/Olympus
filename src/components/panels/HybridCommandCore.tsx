@@ -2,11 +2,12 @@ import { useEffect, useRef } from "react";
 import "@fontsource/jetbrains-mono/500.css";
 import type { CommandLayout } from "../../services/hybridCore";
 import type { OlympusVisualState } from "../../services/ambientMotion";
-export interface HybridFrame { state: OlympusVisualState; voiceLevel: number; running: boolean; hoverProject: string | null; execution?: { projectId: string; operation: number } }
+export interface HybridFrame { state: OlympusVisualState; voiceLevel: number; running: boolean; hoverProject: string | null; execution?: { projectId: string; operation: number }; constellationMotion?: {yaw:number} }
 interface Props extends HybridFrame { layout: CommandLayout; onReady: (ready: boolean) => void; onError: (reason: string) => void }
 export function HybridCommandCore(props: Props) {
   const host = useRef<HTMLDivElement>(null);
-  const latest = useRef(props); latest.current = props;
+  const motion = useRef({yaw:0});
+  const latest = useRef(props); latest.current = {...props,constellationMotion:motion.current};
   const activeScene = useRef<{dispose:()=>void; layer:HTMLDivElement}|null>(null);
   // Polling can create new layout objects without changing a single mesh.
   const sceneKey = JSON.stringify(props.layout);

@@ -6,6 +6,8 @@ src-tauri/target/
 # Local review artifacts, private profile copies, and release backups.
 /output/
 .env
+gmail-oauth-client.json
+client_secret_*.json
 *.log
 tauri-run.err
 tauri-run.out

@@ -56,7 +56,7 @@ pub struct VaultMemory {
 pub fn load_vault_memory() -> VaultMemory {
     let vault = get_vault_path();
     VaultMemory {
-        stable: load_stable_notes(&vault),
+        stable: format!("{}\n### Compiled Olympus skills (availability is not execution permission)\nManual local Communications analysis only. These are executable v1 contracts; vault templates are distinct.\n{}", load_stable_notes(&vault), super::gmail::communication_skills::inventory()),
         decision_history: load_decision_history(&vault),
         pantheon_index: load_pantheon_index(),
         research: Vec::new(),

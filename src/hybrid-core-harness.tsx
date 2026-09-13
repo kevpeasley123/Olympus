@@ -6,6 +6,7 @@ import {mockIPC} from "@tauri-apps/api/mocks";
 import {CommandInstrument} from "./components/panels/CommandInstrument";
 import {commandLayout,nodeDepth,CONSTELLATION_DEPTH,HYBRID_OVERLAY_TRANSFORM} from "./services/hybridCore";
 import {runProjectConstellationHarness} from "./services/projectConstellation.harness";
+import {runConstellationPresentationHarness} from "./services/constellationPresentation.harness";
 import {layoutBackdropStars,BACKDROP_STARS} from "./services/constellationBackdrop";
 import {EMPTY_VAULT_GRAPH,type VaultGraphPayload} from "./services/vaultGraph";
 import type {TrackedProject} from "./types";
@@ -19,7 +20,9 @@ Object.defineProperty(document,'visibilityState',{configurable:true,get:()=>visi
 const names=["Olympus","Pokedex","Agentic AI","AI Learning","Fidelity","Obsidian","Health App","Fruit Organizer"];
 const projects:TrackedProject[]=names.map((name,i)=>({id:`p${i}`,name,path:`C:/fixture/${i}`,status:i===0?"active":"watching",statusSource:"declared",promoted:null,branch:"main",lastCommit:"fixture",lastCommitAt:null,repoState:"git-active",recentCommits:[],sinceSessionCommits:[],linkedWorktrees:[],summary:"",vision:"",visionReviewedAt:null,nextStep:"",notePath:`project-${i}.md`,warnings:[]}));
 const graph:VaultGraphPayload={...EMPTY_VAULT_GRAPH,nodes:projects.map(p=>({id:p.notePath!,title:p.name,folder:"Projects",isProject:true,degree:1,hop:0})),edges:[]};
-for(let i=0;i<64;i++){const id=`note-${String(i).padStart(3,"0")}.md`;graph.nodes.push({id,title:id,folder:`Folder ${i%4}`,isProject:false,degree:2,hop:1});graph.edges.push({from:projects[i%8].notePath!,to:id});}
+const semantic=new URLSearchParams(location.search).has("semantic");
+const fixtureFolders=["01 - Projects","02 - Research","03 - Tasks","04 - Decisions","05 - Skills","06 - Agents","07 - Templates","Unclassified"];
+for(let i=0;i<64;i++){const folder=fixtureFolders[i%8];const id=`${semantic?folder+"/":""}note-${String(i).padStart(3,"0")}.md`;graph.nodes.push({id,title:`Note ${i+1}`,folder:semantic?folder:`Folder ${i%4}`,isProject:false,degree:2,hop:1});graph.edges.push({from:projects[i%8].notePath!,to:id});}
 mockIPC(command=>{if(command==="fetch_vault_graph")return graph;if(command==="fetch_recent_vault_writes")return [];if(command==="fetch_operator_profile")return null;throw Error(`Unexpected fixture command: ${command}`);});
 
 function Fixture(){const [environment,setEnvironment]=useState(new URLSearchParams(location.search).has("environment"));const [operation,setOperation]=useState(0);const [previewVoice,setPreviewVoice]=useState(0);const [state,setState]=useState<OlympusVisualState>("idle");const [action,setAction]=useState("Fixture data · no project writes");
@@ -33,11 +36,12 @@ useEffect(()=>{
   },50);
   return ()=>window.clearInterval(timer);
 },[state]);
-return <>{environment&&<BackgroundLayer/>}<style>{`.study-controls button{display:block;width:100%;margin-top:8px;padding:9px;background:#101d2b;border:1px solid #3a5266;color:#cedce7;text-align:left;font:11px monospace;cursor:pointer}.study-controls button:hover{border-color:#c58343}@media(max-width:800px){.study-controls{position:relative!important;left:auto!important;top:auto!important;width:auto!important;padding:20px}.study-main{padding-left:0!important;height:calc(100vw + 30px)!important}.study-main .command-instrument__dial{width:calc(100vw - 24px)!important;height:calc(100vw - 24px)!important}}`}</style><aside className="study-controls" style={{position:"fixed",left:24,top:24,width:220,zIndex:5}}><h2>OLYMPUS MATERIAL STUDY</h2><label>System state <select value={state} onChange={e=>setState(e.target.value as OlympusVisualState)}>{["idle","listening","thinking","speaking","executing","complete","error"].map(s=><option key={s}>{s}</option>)}</select></label><p>{action}</p><button onClick={()=>setEnvironment(value=>!value)}>{environment?"Hide environment":"Show Olympus environment"}</button>{state==="speaking"&&<small>Simulated speech amplitude · preview only</small>}{state==="executing"&&<div><small>Simulated execution · Olympus</small><button onClick={()=>setOperation(n=>n+1)}>Simulate completed operation</button><button onClick={()=>setState("complete")}>Simulate execution finished</button></div>}{state==="error"&&<div role="alert"><small>Simulated error · Olympus</small><p style={{color:"#dc976f",fontSize:12}}>The operation could not finish. Your project is preserved.</p><button onClick={()=>setState("executing")}>Retry simulated operation</button><button onClick={()=>setState("idle")}>Dismiss and return to idle</button></div>}<pre id="result" style={{whiteSpace:"pre-wrap",fontSize:11}}>Glass modules + living core</pre></aside><main className="study-main" style={{height:"100vh",paddingLeft:200}}><CommandInstrument projects={projects} tasks={[]} tasksLoading={false} tasksError={null} visualState={state} voiceLevel={previewVoice} execution={state==="executing"||state==="error"?{projectId:projects[0].id,operation}:undefined} onSelectProject={id=>setAction(`Selected ${id}`)} onOpenNote={id=>setAction(`Opened ${id}`)}/></main></>}
+return <>{environment&&<BackgroundLayer/>}<style>{`.study-controls button{display:block;width:100%;margin-top:8px;padding:9px;background:#101d2b;border:1px solid #3a5266;color:#cedce7;text-align:left;font:11px monospace;cursor:pointer}.study-controls button:hover{border-color:#c58343}@media(max-width:800px){.study-controls{position:relative!important;left:auto!important;top:auto!important;width:auto!important;padding:20px}.study-main{padding-left:0!important;height:calc(100vw + 30px)!important}.study-main .command-instrument__dial{width:calc(100vw - 24px)!important;height:calc(100vw - 24px)!important}}`}</style><aside className="study-controls" style={{position:"fixed",left:24,top:24,width:220,zIndex:5}}><h2>OLYMPUS MATERIAL STUDY</h2><label>System state <select value={state} onChange={e=>setState(e.target.value as OlympusVisualState)}>{["idle","listening","thinking","speaking","executing","complete","error"].map(s=><option key={s}>{s}</option>)}</select></label><p>{action}</p><button onClick={()=>setEnvironment(value=>!value)}>{environment?"Hide environment":"Show Olympus environment"}</button>{state==="speaking"&&<small>Simulated speech amplitude · preview only</small>}{state==="executing"&&<div><small>Simulated execution · Olympus</small><button onClick={()=>setOperation(n=>n+1)}>Simulate completed operation</button><button onClick={()=>setState("complete")}>Simulate execution finished</button></div>}{state==="error"&&<div role="alert"><small>Simulated error · Olympus</small><p style={{color:"#dc976f",fontSize:12}}>The operation could not finish. Your project is preserved.</p><button onClick={()=>setState("executing")}>Retry simulated operation</button><button onClick={()=>setState("idle")}>Dismiss and return to idle</button></div>}<pre id="result" style={{whiteSpace:"pre-wrap",fontSize:11,maxHeight:180,overflow:"auto"}}>Glass modules + living core</pre></aside><main className="study-main" style={{height:"100vh",paddingLeft:200}}><CommandInstrument projects={projects} tasks={[]} tasksLoading={false} tasksError={null} visualState={state} voiceLevel={previewVoice} execution={state==="executing"||state==="error"?{projectId:projects[0].id,operation}:undefined} onSelectProject={id=>setAction(`Selected ${id}`)} onOpenNote={id=>setAction(`Opened ${id}`)}/></main></>}
 createRoot(document.getElementById("root")!).render(<Fixture/>);
 const wait=(ms:number)=>new Promise(r=>setTimeout(r,ms));
 async function run(){const checks:string[]=[];const assert=(ok:unknown,msg:string)=>{if(!ok)throw Error(msg);checks.push(msg);document.getElementById("result")!.textContent=checks.join("\n")};const ready=async()=>{for(let i=0;i<100;i++){if(document.querySelector('[data-scene-ready="true"]'))return;await wait(100);}throw Error("3D did not initialize");};
 try{await wait(600);
+for(const check of runConstellationPresentationHarness())assert(true,check);
 const idleCycle=createIdleCoreCycle(()=>0);
 assert(idleCycle(0,true).envelope===1,'Idle starts at baseline');
 const primary=idleCycle(OMEGA_IDLE.heartbeatMinInterval+OMEGA_IDLE.primaryDuration*.4,true);
@@ -111,12 +115,23 @@ assert(depths.filter(z=>z>CONSTELLATION_DEPTH.range*.5).length>=8 && depths.filt
 assert(depths.filter(z=>z< -CONSTELLATION_DEPTH.range*.5).length>=10 && depths.filter(z=>z< -CONSTELLATION_DEPTH.range*.5).length<=15,'Ten to fifteen deep anchors in the 64-node fixture');
 assert(layout.constellation.nodes.every((n,i)=>nodeDepth(n.id)===depths[i]),'Depth assignments are stable across repeated evaluation');
 const dial=canvas.closest('.command-instrument__dial')!;
+const yawBefore=Number(canvas.dataset.constellationYaw);
+const target=document.querySelector<SVGGElement>('[data-node-id]')!;
+const targetBefore=target.getAttribute('transform');
+await wait(1100);
+assert(Number(canvas.dataset.constellationYaw)>yawBefore,'Constellation yaw advances continuously in the live scene');
+assert(target.getAttribute('transform')!==targetBefore,'Node interaction targets follow the moving constellation');
+target.querySelector('[role="button"]')!.dispatchEvent(new MouseEvent('click',{bubbles:true}));await wait(100);
+assert(document.body.textContent?.includes(`Opened ${target.dataset.nodeId}`),'Moving node target opens its original real note');
+assert(JSON.stringify(original)===JSON.stringify([...document.querySelectorAll('.project-ring__hit')].map(e=>e.getAttribute('d'))),'Project module targets remain fixed through constellation rotation');
 const overlay=dial.querySelector('svg')!;
 if(!document.querySelector('.background-image')){
   [...document.querySelectorAll('button')].find(button=>button.textContent==='Show Olympus environment')!.click();
   await wait(300);
 }
 const environment=document.querySelector('.background-image')!;
+document.documentElement.dispatchEvent(new PointerEvent('pointerleave'));
+await wait(2000);
 const restingEnvironment=environment.getBoundingClientRect();
 const restingCanvas=canvas.getBoundingClientRect(),restingOverlay=overlay.getBoundingClientRect();
 window.dispatchEvent(new PointerEvent('pointermove',{clientX:window.innerWidth,clientY:window.innerHeight,pointerType:'mouse'}));
@@ -135,7 +150,7 @@ assert(Math.abs(movedOverlay.x-restingOverlay.x-travelX)<.05&&Math.abs(movedOver
 document.documentElement.dispatchEvent(new PointerEvent('pointerleave'));
 await wait(1600);
 assert(Math.abs(canvas.getBoundingClientRect().x-restingCanvas.x)<.1&&Math.abs(canvas.getBoundingClientRect().y-restingCanvas.y)<.1,
-  'Leaving the environment smoothly recenters the instrument');
+  `Leaving the environment smoothly recenters the instrument (${(canvas.getBoundingClientRect().x-restingCanvas.x).toFixed(3)}, ${(canvas.getBoundingClientRect().y-restingCanvas.y).toFixed(3)} px)`);
 assert(Math.abs(environment.getBoundingClientRect().x-restingEnvironment.x)<.15&&Math.abs(environment.getBoundingClientRect().y-restingEnvironment.y)<.15,
   'Leaving the page also recenters the background');
 window.dispatchEvent(new PointerEvent('pointermove',{clientX:window.innerWidth,clientY:window.innerHeight,pointerType:'touch'}));
@@ -157,10 +172,12 @@ assert(document.querySelectorAll('.hybrid-core canvas').length===1,"Retry recrea
 reduced=true;motionListeners.forEach(fn=>fn());await wait(850);
 window.dispatchEvent(new PointerEvent('pointermove',{clientX:window.innerWidth,clientY:window.innerHeight,pointerType:'mouse'}));
 let frozen=document.querySelector<HTMLCanvasElement>('.hybrid-core canvas')!.dataset.frames;
+const frozenYaw=document.querySelector<HTMLCanvasElement>('.hybrid-core canvas')!.dataset.constellationYaw;
 await wait(800);
 assert(getComputedStyle(dial).translate.split(' ').every(value=>Math.abs(parseFloat(value))<.01),'Reduced motion centers the whole instrument and ignores pointer travel');
 assert(getComputedStyle(environment).translate.split(' ').every(value=>Math.abs(parseFloat(value))<.01),'Reduced motion also centers and freezes the background');
 assert(document.querySelector<HTMLCanvasElement>('.hybrid-core canvas')!.dataset.frames===frozen,'Reduced motion stops GPU animation');
+assert(document.querySelector<HTMLCanvasElement>('.hybrid-core canvas')!.dataset.constellationYaw===frozenYaw,'Reduced motion disables constellation yaw');
 reduced=false;motionListeners.forEach(fn=>fn());await wait(700);
 assert(document.querySelector<HTMLCanvasElement>('.hybrid-core canvas')!.dataset.frames!==frozen,'Motion resumes');
 visibility='hidden';document.dispatchEvent(new Event('visibilitychange'));await wait(850);

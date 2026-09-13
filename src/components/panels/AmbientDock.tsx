@@ -1,7 +1,8 @@
+import { GmailSettings } from "./GmailSettings";
 import {ModelDiagnostics} from "./ModelSettings";
 import { VoiceSettings } from "./VoiceSettings";
 import type { VoicePreferences } from "../../services/voicePreferences";
-import { CircleHelp, RefreshCw, Settings2 } from "lucide-react";
+import { CircleHelp, RefreshCw, Settings2, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { MODE_LABELS } from "../../hooks/useDashboardMode";
 import type { DashboardMode } from "../../hooks/useDashboardMode";
@@ -160,10 +161,14 @@ export function AmbientDock({ onRefresh, mode, onCycleMode, voicePreferences, on
           <div className="panel-header compact">
             <div>
               <p className="eyebrow">Preferences</p>
-              <h2>Olympus Voice</h2>
+              <h2>Olympus Preferences</h2>
             </div>
+            <button className="ghost-icon-action" type="button" aria-label="Close preferences" title="Close preferences" onClick={() => setPreferencesOpen(false)}>
+              <X size={18} aria-hidden="true" />
+            </button>
           </div>
           <ModelDiagnostics/>
+          <GmailSettings/>
           <VoiceSettings preferences={voicePreferences} onChange={onVoicePreferences} ready={settingsReady}/>
           <button className="ghost-action" type="button" onClick={()=>setPreferencesOpen(false)}>Close preferences</button>
         </section>

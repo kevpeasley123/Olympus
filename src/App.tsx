@@ -1,3 +1,4 @@
+import { Communications } from "./components/panels/Communications";
 import { realtimeVoice, voicePreview, useVoiceState } from "./services/realtimeVoice";
 import { validateVoiceNavigation } from "./services/voiceContract";
 import { operationalStatuses, type OperationalStatus } from "./services/projectCommandBoard";
@@ -149,7 +150,7 @@ function App() {
                   onOpenNote={(notePath) => void openVaultNote(notePath)}
                 />
               </div>}
-            {command ? null : research ? (
+            {command ? null : mode === "communications" ? <Communications onSettings={()=>setPreferencesOpen(true)} /> : research ? (
               <FadeInPanel index={1} className="panel-slot panel-slot-library-resident">
                 <LibraryPanel onViewDatabase={syncResearchBase} resident />
               </FadeInPanel>
@@ -185,7 +186,7 @@ function App() {
                 onAutoSpeakChange={autoSpeak=>updateVoicePreferences({autoSpeak})}
                 voiceSettingsReady={settingsReady}
                 messages={chat}
-                onSendMessage={text => { voicePreview.stop(); void realtimeVoice.sendText(text,isTauriRuntime()); }}
+                onSendMessage={text => { voicePreview.stop(); void realtimeVoice.sendText(mode === "communications" ? `[Gmail workspace] ${text}` : text,isTauriRuntime()); }}
                 onRecordObservation={recordObservation}
                 pending={chatPending}
                 error={chatError}

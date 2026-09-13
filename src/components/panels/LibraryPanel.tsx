@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import {KnowledgeAudit} from "./KnowledgeAudit";
 import matter from "gray-matter";
 import { AnimatePresence, motion } from "motion/react";
 import {
@@ -602,7 +603,8 @@ export function LibraryPanel({ onViewDatabase, resident = false }: LibraryPanelP
                 <p className="pantheon-error">Couldn't read vault entries: {error}</p>
               ) : null}
 
-              <div className="pantheon-modal-body">
+              <div className="pantheon-modal-body pantheon-modal-body--knowledge">
+                <details className="knowledge-audit-disclosure"><summary>Knowledge audit & evidence history</summary><KnowledgeAudit/></details>
                 <div className="pantheon-workspace">
           <aside className="pantheon-sidebar">
             <div className="pantheon-sidebar-scroll">

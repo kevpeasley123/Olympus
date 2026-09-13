@@ -184,3 +184,61 @@ CREATE TABLE IF NOT EXISTS conversation_voice (message_id TEXT PRIMARY KEY, meta
 -- Request provenance is independent of chat contents and never stores prompts.
 CREATE TABLE IF NOT EXISTS model_requests (id TEXT PRIMARY KEY, record_json TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS conversation_model (message_id TEXT PRIMARY KEY, request_id TEXT NOT NULL);
+
+-- Generated operational reports. No approval, commitment, or memory authority.
+CREATE TABLE IF NOT EXISTS knowledge_audit_runs (
+  id TEXT PRIMARY KEY, status TEXT NOT NULL, payload_json TEXT NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS knowledge_audit_single_active
+  ON knowledge_audit_runs(status) WHERE status='running';
+CREATE TABLE IF NOT EXISTS knowledge_audit_events (
+  sequence INTEGER PRIMARY KEY AUTOINCREMENT, run_id TEXT NOT NULL,
+  node TEXT NOT NULL, state TEXT NOT NULL, detail TEXT NOT NULL, at TEXT NOT NULL,
+  FOREIGN KEY(run_id) REFERENCES knowledge_audit_runs(id)
+);
+CREATE INDEX IF NOT EXISTS knowledge_audit_events_run ON knowledge_audit_events(run_id,sequence);
+
+-- Gmail is an external source cache; user tokens live in Windows Credential Manager.
+CREATE TABLE IF NOT EXISTS gmail_accounts (
+ id TEXT PRIMARY KEY, email TEXT NOT NULL, enabled INTEGER NOT NULL DEFAULT 0,
+ status TEXT NOT NULL, scopes TEXT NOT NULL, connected_at TEXT NOT NULL,
+ horizon_days INTEGER NOT NULL DEFAULT 90, history_id TEXT,
+ last_attempt TEXT, last_success TEXT, last_error TEXT, next_sync TEXT
+);
+CREATE UNIQUE INDEX IF NOT EXISTS gmail_one_enabled ON gmail_accounts(enabled) WHERE enabled=1;
+CREATE TABLE IF NOT EXISTS gmail_messages (
+ account_id TEXT NOT NULL, id TEXT NOT NULL, thread_id TEXT NOT NULL, internal_date INTEGER NOT NULL,
+ available INTEGER NOT NULL, in_scope INTEGER NOT NULL, fingerprint TEXT NOT NULL,
+ snapshot_json TEXT NOT NULL, PRIMARY KEY(account_id,id)
+);
+CREATE INDEX IF NOT EXISTS gmail_thread ON gmail_messages(account_id,thread_id,internal_date);
+CREATE INDEX IF NOT EXISTS gmail_workspace_scope ON gmail_messages(account_id,available,in_scope,internal_date DESC,id);
+CREATE VIRTUAL TABLE IF NOT EXISTS gmail_search USING fts5(account_id UNINDEXED,message_id UNINDEXED,subject,sender,body,tokenize='unicode61');
+CREATE TABLE IF NOT EXISTS gmail_sync_runs (
+ id TEXT PRIMARY KEY,account_id TEXT NOT NULL,started_at TEXT NOT NULL,finished_at TEXT,
+ status TEXT NOT NULL,mode TEXT NOT NULL,changes INTEGER NOT NULL DEFAULT 0,error TEXT
+);
+CREATE TABLE IF NOT EXISTS gmail_candidates (
+ account_id TEXT NOT NULL,message_id TEXT NOT NULL,source_fingerprint TEXT NOT NULL,
+ kind TEXT NOT NULL,text TEXT NOT NULL,created_at TEXT NOT NULL,
+ PRIMARY KEY(account_id,message_id,kind)
+);
+CREATE TABLE IF NOT EXISTS conversation_mail (message_id TEXT PRIMARY KEY,sources_json TEXT NOT NULL);
+
+-- Manual local intelligence. Generated evidence, never an execution authorization.
+CREATE TABLE IF NOT EXISTS communication_runs (
+ id TEXT PRIMARY KEY, account_id TEXT NOT NULL, days INTEGER NOT NULL,
+ status TEXT NOT NULL, payload_json TEXT NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS communication_single_active ON communication_runs(status) WHERE status='running';
+CREATE TABLE IF NOT EXISTS communication_events (
+ sequence INTEGER PRIMARY KEY AUTOINCREMENT, run_id TEXT NOT NULL,
+ node TEXT NOT NULL, state TEXT NOT NULL, at TEXT NOT NULL, result_json TEXT NOT NULL,
+ FOREIGN KEY(run_id) REFERENCES communication_runs(id)
+);
+CREATE INDEX IF NOT EXISTS communication_events_run ON communication_events(run_id,sequence);
+CREATE TABLE IF NOT EXISTS communication_evaluations (
+ sequence INTEGER PRIMARY KEY AUTOINCREMENT, run_id TEXT NOT NULL, thread_id TEXT NOT NULL,
+ event TEXT NOT NULL, at TEXT NOT NULL,
+ FOREIGN KEY(run_id) REFERENCES communication_runs(id)
+);

@@ -1,4 +1,20 @@
+See the adopted [v2 architecture critique](docs/COMMUNICATION-ARCHITECTURE-CRITIQUE.md) for the current skill boundaries and workflow.
+
+## Communication Intelligence (September 12, 2026)
+
+See [Communication Intelligence](docs/COMMUNICATION-INTELLIGENCE.md). Communications now leads with a manual, local evidence-backed brief. Two active typed skills use shared GraphNode / SkillContract definitions. The v2 graph has five nodes; project relevance uses a bounded deterministic matcher, not a discovery loop. Analytics remains collapsed. No model calls, Gmail writes, project changes or memory promotion are added. Earlier implementation entries below are historical.
+
 # Olympus — Architecture
+
+## Knowledge workflow development
+
+The first fixed read-only graph is `knowledge-audit/v1`: parallel research,
+prior-evidence health and delegation-review collection, a deterministic join,
+fingerprint verification and closed attention routing. Generated findings carry
+no memory, approval or execution authority. Two additive SQLite tables retain
+audit runs and node events; source notes are never written by this graph.
+See [Knowledge workflows](docs/KNOWLEDGE-WORKFLOWS.md) for implemented scope,
+loop bounds, recovery, routing and the phased synthesis/interview/cadence plan.
 
 ## Stack
 
@@ -227,3 +243,15 @@ The reasoning reply has validated spoken/visual channels; the audio adapter rece
 only the concise spoken text. All action execution remains behind existing approval
 commands. Additive conversation_voice metadata shares message IDs with the existing
 conversation log. See VOICE.md for lifecycle, configuration and verification limits.
+
+
+## Native Gmail source (development, September 12, 2026)
+
+See [GMAIL.md](docs/GMAIL.md) for setup, ownership, bounds, privacy, verification and live acceptance. `commands/gmail/{auth,mime,sync,store}.rs` adds a native read-only external source: system-browser PKCE/loopback OAuth, Windows Credential Manager refresh tokens, deterministic bounded history sync, SQLite snapshots/FTS and separate generated candidates. `gmail_accounts`, `gmail_messages`, `gmail_search`, `gmail_sync_runs`, `gmail_candidates` and `conversation_mail` are additive. No generalized live-source primitive existed; vault research and curated memory remain unchanged.
+
+The common assistant handler supplies backend-built, question-routed communication evidence to either reasoning provider. Exact excerpts are persisted with replies and labelled in chat. Gmail cannot override Git implementation facts, operator intent, decisions or execution approval. Current candidates appear in Preferences and Project briefing; they never enter the task/approval tables. Native cadence only runs while the app is open and is separate from the specific knowledge-audit graph. The web preview cannot access native mail credentials. Real OAuth and installed-app acceptance remain pending local Google configuration; this pass has not been installed.
+
+
+### Communications workspace
+
+The fourth dashboard mode uses `gmail_workspace` for bounded local metadata aggregation (up to 2,000 eligible messages, 40 preview rows per page). Bodies load only through the existing thread command. Candidate joins require the current source fingerprint; source analytics, generated candidates and operator-confirmed state remain separate. Typed Communications questions can add seven-day cache aggregates; explicit thread markers resolve in native read-only retrieval and preserve excerpt provenance. No analytics job invokes a model. See `docs/COMMUNICATIONS.md`.

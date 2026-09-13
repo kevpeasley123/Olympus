@@ -1,6 +1,6 @@
 [package]
 name = "project-olympus"
-version = "0.15.0"
+version = "0.16.0"
 description = "Local-first AI command station for projects, research, workflows, and Obsidian-backed memory."
 authors = ["Project Olympus"]
 edition = "2021"
@@ -30,3 +30,8 @@ urlencoding = "2"
 walkdir = "2"
 pdf-extract = "0.7"
 rfd = "0.14"
+base64 = "0.22"
+getrandom = "0.2"
+keyring = { version = "3.6", features = ["windows-native"] }
+html2text = "0.12"
+encoding_rs = "0.8"

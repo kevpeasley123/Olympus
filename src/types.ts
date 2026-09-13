@@ -62,6 +62,7 @@ export interface ResearchExcerpt {
 }
 
 export interface ConversationMessage {
+  mail?: import("./services/gmail").MailExcerpt[];
   request?: import("./services/modelRouting").ModelRequest;
   voice?: import("./services/voiceContract").VoiceMessageMetadata;
   research?: ResearchExcerpt[];

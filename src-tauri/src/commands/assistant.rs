@@ -36,6 +36,7 @@ pub struct ProjectSummary {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AssistantContext {
+    #[serde(skip)] pub gmail_context: String,
     #[serde(default)] pub capability: super::models::Capability,
     #[serde(default)] pub voice_depth: Option<String>,
     #[serde(default)] pub command_board: serde_json::Value,
@@ -53,6 +54,7 @@ pub struct ChatTurn {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AssistantReply {
+    pub mail: Vec<super::gmail::store::Excerpt>,
     pub request: Option<super::models::RequestRecord>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub voice: Option<super::voice::VoiceAnswer>,
@@ -308,6 +310,7 @@ fn running_build_facts() -> String {
 /// invalidate the cached prefix.
 fn build_volatile_system(context: &AssistantContext, memory: &VaultMemory) -> String {
     let mut prompt = running_build_facts();
+    prompt.push_str(&context.gmail_context);
     let route = super::models::resolve(context.capability);
     prompt.push_str(if context.voice_depth.is_some() {
         "\nAudio delivery: prepare the spoken/visual answer contract. Playback happens separately after generation and may be muted, disabled, interrupted, or unavailable. You have no playback receipt for this answer. Never claim you enabled voice, activated the microphone, spoke, or successfully played audio. Answer the user's request directly; the app reports actual playback status.\n"
@@ -724,6 +727,7 @@ async fn send_anthropic_message(
     let voice = context.voice_depth.as_deref().map(|depth| super::voice::parse_answer(&content, depth)).transpose()?;
     let content = voice.as_ref().map(|answer| answer.visual_response.clone()).unwrap_or(content);
     Ok(AssistantReply {
+        mail: Vec::new(),
         request: None,
         voice,
         research: memory.research,
@@ -739,10 +743,13 @@ async fn send_anthropic_message(
 #[tauri::command]
 pub async fn send_assistant_message(
     db: tauri::State<'_, super::persistence::Db>,
-    history: Vec<ChatTurn>, context: AssistantContext,
+    history: Vec<ChatTurn>, mut context: AssistantContext,
     on_event: tauri::ipc::Channel<AssistantStreamEvent>,
 )->Result<AssistantReply,String>{
     use super::models;
+    let question=history.iter().rev().find(|m|m.role=="user").map(|m|m.content.as_str()).unwrap_or("");
+    let (gmail_context,mail)={let c=db.0.lock().map_err(|_|"Local source cache unavailable")?;super::gmail::context(&c,question)};
+    context.gmail_context=gmail_context;
     let route=models::resolve(context.capability);
     let mut record=models::RequestRecord::new(&route,if context.voice_depth.is_some(){"voice_reasoning"}else{"command"});
     models::save(db.inner(),&record)?;
@@ -760,7 +767,7 @@ pub async fn send_assistant_message(
             let output=super::responses::complete(&route,&instructions,input,context.voice_depth.is_some(),&on_event,&mut record).await?;
             if context.voice_depth.is_some() && output.notice.as_ref().is_some_and(|n|n.kind=="truncated") {return Err("The structured voice answer was interrupted. Please retry; no incomplete JSON was added to the conversation.".into());}
             let voice=if output.notice.is_none(){context.voice_depth.as_deref().map(|depth|super::voice::parse_answer(&output.text,depth)).transpose().map_err(|error|{record.status="failed".into();record.error_code=Some("invalid_voice_contract".into());error})?}else{None};
-            Ok(AssistantReply{content:voice.as_ref().map(|v|v.visual_response.clone()).unwrap_or(output.text),voice,research:memory.research,model:record.actual_model.clone().unwrap_or_else(||format!("{} (requested; unconfirmed)",route.model)),notice:output.notice,fell_back_from:None,request:None})
+            Ok(AssistantReply{mail:Vec::new(),content:voice.as_ref().map(|v|v.visual_response.clone()).unwrap_or(output.text),voice,research:memory.research,model:record.actual_model.clone().unwrap_or_else(||format!("{} (requested; unconfirmed)",route.model)),notice:output.notice,fell_back_from:None,request:None})
         }.await
     };
     record.latency_ms=Some(start.elapsed().as_millis() as u64);
@@ -769,7 +776,7 @@ pub async fn send_assistant_message(
         Err(_)=>{record.status="failed".into();if record.error_code.is_none(){record.error_code=Some("request_failed".into());}}
     }
     if let Err(error)=models::save(db.inner(),&record){eprintln!("[Olympus::Models] Could not finish request record: {error}");}
-    result.map(|mut reply|{reply.request=Some(record);reply})
+    result.map(|mut reply|{reply.request=Some(record);reply.mail=mail;reply})
 }
 
 #[cfg(test)]
@@ -1072,6 +1079,7 @@ mod tests {
 
     fn context_fixture() -> AssistantContext {
         AssistantContext {
+            gmail_context: String::new(),
             capability: crate::commands::models::Capability::Primary,
             voice_depth: None, command_board: serde_json::Value::Null,
             projects_root_path: "C:/projects".to_string(),

@@ -6,6 +6,7 @@ pub mod delegation;
 pub mod observations;
 pub mod memory_promotion;
 pub mod research_retrieval;
+pub mod knowledge_audit;
 pub mod pantheon;
 pub mod pantheon_migrate;
 pub mod persistence;
@@ -32,3 +33,8 @@ pub mod voice;
 
 pub mod models;
 pub mod responses;
+
+pub mod gmail;
+
+pub mod workflow;
+pub mod project_relevance;

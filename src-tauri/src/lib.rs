@@ -323,16 +323,26 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
             let connection = open_database(app.handle())?;
+            commands::knowledge_audit::recover(&connection)?;
+            commands::gmail::recover(&connection)?;
+            commands::gmail::intelligence::recover(&connection)?;
             let session_id = commands::delegation::run_id();
             connection.execute("INSERT INTO operator_sessions(id) VALUES (?1)", [&session_id])?;
             app.manage(commands::approvals::ApprovalState::new(session_id));
             connection.execute("UPDATE model_requests SET record_json=json_set(record_json,'$.status','interrupted','$.errorCode','application_restarted') WHERE json_extract(record_json,'$.status')='started'", [])?;
             app.manage(Db(Mutex::new(connection)));
             app.manage(DelegationProcesses::default());
+            app.manage(commands::gmail::Runtime::default());
+            commands::gmail::start_cadence(app.handle().clone());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            commands::gmail::intelligence::analyze_communications, commands::gmail::intelligence::communication_runs, commands::gmail::intelligence::communication_run_events, commands::gmail::intelligence::communication_feedback, commands::gmail::intelligence::communication_skills,
+            commands::gmail::gmail_workspace, commands::gmail::gmail_remove_cache, commands::gmail::gmail_status, commands::gmail::gmail_connect, commands::gmail::gmail_cancel, commands::gmail::gmail_disconnect, commands::gmail::gmail_sync, commands::gmail::gmail_set_horizon, commands::gmail::gmail_search, commands::gmail::gmail_thread,
             send_assistant_message,
+            commands::knowledge_audit::start_knowledge_audit,
+            commands::knowledge_audit::list_knowledge_audits,
+            commands::knowledge_audit::inspect_knowledge_audit,
             commands::models::model_routes,
             commands::models::model_diagnostics,
             commands::models::record_voice_request,

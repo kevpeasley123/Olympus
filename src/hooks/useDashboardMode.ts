@@ -6,14 +6,15 @@ import { useCallback, useEffect, useState } from "react";
  * keeping both would have made a 2x3 state matrix out of two booleans nobody
  * could reason about.
  */
-export type DashboardMode = "command" | "project" | "research";
+export type DashboardMode = "command" | "project" | "research" | "communications";
 
-export const DASHBOARD_MODES: DashboardMode[] = ["command", "project", "research"];
+export const DASHBOARD_MODES: DashboardMode[] = ["command", "project", "research", "communications"];
 
 export const MODE_LABELS: Record<DashboardMode, string> = {
   command: "Command",
   project: "Project",
-  research: "Research"
+  research: "Research",
+  communications: "Communications"
 };
 
 const MODE_KEY = "olympus.mode";

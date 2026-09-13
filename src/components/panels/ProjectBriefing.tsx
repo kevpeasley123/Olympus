@@ -1,3 +1,4 @@
+import { GmailAttention } from "./GmailAttention";
 import type { ActionQueueTask } from "../../hooks/useActionQueue";
 import {
   buildSessionBriefing,
@@ -69,6 +70,7 @@ export function ProjectBriefing({
         </p>
       ) : null}
 
+      <GmailAttention/>
       {featured ? (
         <div className="project-briefing__paths">
           <ProjectBriefCard

@@ -10,6 +10,7 @@ export const SCENE_FINISH={
 import { buildCommandMaterialStudy } from "./commandMaterialStudy";
 import { buildConstellationField } from "./constellationField";
 import { layoutBackdropStars } from "./constellationBackdrop";
+import { advanceConstellationYaw, CONSTELLATION_ROTATION, nodeCategory, NODE_PALETTE, projectConstellationPoint } from "./constellationPresentation";
 import { INNER_CORE_SCALE, HYBRID_CAMERA, CONSTELLATION_DEPTH, nodeDepth, type CommandLayout } from "./hybridCore";
 import type { HybridFrame } from "../components/panels/HybridCommandCore";
 
@@ -82,12 +83,16 @@ export function mountHybridScene(host: HTMLDivElement, layout: CommandLayout, cu
         // Ease magnification out at the project anchors so stars cannot spill
         // onto glass labels. The interior retains the full depth projection.
         float anchorFade=1.0-smoothstep(115.0,150.0,length(volumeCenter.xy));
-        mvPosition.xy=centerView.xy*mix(1.0,perspectiveScale,anchorFade)+(mvPosition.xy-centerView.xy)*perspectiveScale;
-        mvPosition.xy+=volumePointer*vec2(${CONSTELLATION_DEPTH.parallaxX},${CONSTELLATION_DEPTH.parallaxY})*(volumeZ+${CONSTELLATION_DEPTH.range.toFixed(1)})*anchorFade;
+        vec2 projectedCenter=centerView.xy*mix(1.0,perspectiveScale,anchorFade);
+        projectedCenter+=volumePointer*vec2(${CONSTELLATION_DEPTH.parallaxX},${CONSTELLATION_DEPTH.parallaxY})*(volumeZ+${CONSTELLATION_DEPTH.range.toFixed(1)})*anchorFade;
+        // Preserve the portal opening as yaw brings formerly lateral notes near.
+        // Fixed project anchors (outside the field) retain their rail positions.
+        if(anchorFade>0.0)projectedCenter*=min(1.0,${CONSTELLATION_ROTATION.portalScreenRadius.toFixed(1)}/max(1.0,length(projectedCenter)));
+        mvPosition.xy=projectedCenter+(mvPosition.xy-centerView.xy)*perspectiveScale;
         gl_Position=projectionMatrix*mvPosition;
       `);
     };
-    material.customProgramCacheKey=()=> 'constellation-volume-v2';
+    material.customProgramCacheKey=()=> 'constellation-volume-v3';
     material.depthTest=true;
     return material;
   }
@@ -107,6 +112,10 @@ export function mountHybridScene(host: HTMLDivElement, layout: CommandLayout, cu
   // Render the network into the SAME color/depth target, after the instrument.
   // Orbital depth proxies below affect only this pass, never the visible finish.
   const networkScene=new T.Scene();
+  const constellationGroup=new T.Group();
+  constellationGroup.name="Real constellation yaw";
+  networkScene.add(constellationGroup);
+  const constellationMotion=current().constellationMotion??{yaw:0};
   networkScene.add(new T.HemisphereLight(0xc5e2ff,0x07121f,.65),light.clone(),warm.clone());
   const networkPass=new RenderPass(networkScene,camera);networkPass.clear=false;
   const bloomPass=new UnrealBloomPass(new T.Vector2(512,512),SCENE_FINISH.bloom.strength,SCENE_FINISH.bloom.radius,SCENE_FINISH.bloom.threshold);
@@ -188,20 +197,21 @@ export function mountHybridScene(host: HTMLDivElement, layout: CommandLayout, cu
   let listening=false,transition=1,listeningTime=0,orbitalTime=0,executing=false,operationAge=100,completionAge=100;
   let previousOperation:number|undefined,previousState="idle",executionTime=0,errorState=false,errorAge=100,ringFlowTime=0;
   const nodeGeometry=new T.SphereGeometry(1,10,8);
-  const nodes: {mesh:T.Mesh; project:string; material:T.MeshStandardMaterial; base:number; z:number; period:number}[]=[];
+  const targetGroups=new Map([...interaction.querySelectorAll<SVGGElement>('[data-node-id]')].map(group=>[group.dataset.nodeId,group]));
+  const nodes: {mesh:T.Mesh; world:T.Vector3; target?:SVGGElement; source:{x:number;y:number}; project:string; material:T.MeshStandardMaterial; base:number; z:number; period:number}[]=[];
   for (const n of layout.constellation.nodes) {
     const radius=Math.hypot(n.x-220,n.y-220),rawDepth=nodeDepth(n.id);
     const protection=T.MathUtils.smoothstep(radius,CONSTELLATION_DEPTH.protectedRadius,CONSTELLATION_DEPTH.foregroundRadius);
-    const z=rawDepth>0?T.MathUtils.lerp(-4,rawDepth,protection):rawDepth, material=cool.clone(); volumeMaterial(material);material.emissive.set(0x96cfff);material.color.set(0xa4cddd);const depth=z/CONSTELLATION_DEPTH.range;
+    const z=rawDepth>0?T.MathUtils.lerp(-4,rawDepth,protection):rawDepth, material=cool.clone(); volumeMaterial(material);material.emissive.set(NODE_PALETTE[nodeCategory(n)].color);material.color.copy(material.emissive);const depth=z/CONSTELLATION_DEPTH.range;
     material.metalness=0;material.roughness=.8;
     material.emissiveIntensity=CONSTELLATION_DEPTH.midIntensity+Math.abs(depth)*(depth<0?CONSTELLATION_DEPTH.rearIntensity-CONSTELLATION_DEPTH.midIntensity:CONSTELLATION_DEPTH.frontIntensity-CONSTELLATION_DEPTH.midIntensity);
-    const m=mesh(nodeGeometry,material,z);networkScene.add(m);m.position.set(n.x-220,220-n.y,z);m.scale.setScalar(n.size*(1+Math.abs(depth)*(depth<0?CONSTELLATION_DEPTH.rearScale-1:CONSTELLATION_DEPTH.frontScale-1)));
-    nodes.push({mesh:m,project:n.projectId,material,base:material.emissiveIntensity,z,period:CONSTELLATION_DEPTH.driftMinPeriod+(depth+1)*.5*CONSTELLATION_DEPTH.driftPeriodSpread});
+    const m=mesh(nodeGeometry,material,z);constellationGroup.add(m);m.position.set(n.x-220,220-n.y,z);m.scale.setScalar(n.size*(1+Math.abs(depth)*(depth<0?CONSTELLATION_DEPTH.rearScale-1:CONSTELLATION_DEPTH.frontScale-1)));
+    nodes.push({mesh:m,world:new T.Vector3(),target:targetGroups.get(n.id),source:n,project:n.projectId,material,base:material.emissiveIntensity,z,period:CONSTELLATION_DEPTH.driftMinPeriod+(depth+1)*.5*CONSTELLATION_DEPTH.driftPeriodSpread});
   }
   const haloCanvas=document.createElement('canvas');haloCanvas.width=haloCanvas.height=64;
   const haloContext=haloCanvas.getContext('2d')!;
   const haloGradient=haloContext.createRadialGradient(32,32,0,32,32,32);
-  haloGradient.addColorStop(0,'rgba(180,218,255,.7)');haloGradient.addColorStop(.25,'rgba(160,206,255,.22)');haloGradient.addColorStop(1,'rgba(140,196,255,0)');
+  haloGradient.addColorStop(0,'rgba(255,255,255,.7)');haloGradient.addColorStop(.25,'rgba(255,255,255,.22)');haloGradient.addColorStop(1,'rgba(255,255,255,0)');
   haloContext.fillStyle=haloGradient;haloContext.fillRect(0,0,64,64);
   const haloTexture=new T.CanvasTexture(haloCanvas);haloTexture.colorSpace=T.SRGBColorSpace;
   const distantStars=layoutBackdropStars(layout.constellation.nodes);
@@ -234,9 +244,9 @@ export function mountHybridScene(host: HTMLDivElement, layout: CommandLayout, cu
   const halos=new T.InstancedMesh(new T.PlaneGeometry(1,1),haloMaterial,nodes.length);
   halos.instanceMatrix.setUsage(T.DynamicDrawUsage);halos.frustumCulled=false;networkScene.add(halos);
   const haloMatrix=new T.Matrix4(),haloScale=new T.Vector3();
-  nodes.forEach((n,i)=>halos.setColorAt(i,new T.Color().setScalar(1+.45*n.z/CONSTELLATION_DEPTH.range)));
-  const nodeMeshes=new Map(layout.constellation.nodes.map((n,i)=>[n.id,nodes[i].mesh]));
-  function pos(p:{x:number;y:number;id?:string}) { return p.id&&nodeMeshes.has(p.id)?nodeMeshes.get(p.id)!.position:new T.Vector3(p.x-220,220-p.y,-6); }
+  nodes.forEach((n,i)=>halos.setColorAt(i,n.material.color.clone().multiplyScalar(1+.45*n.z/CONSTELLATION_DEPTH.range)));
+  const nodePositions=new Map(layout.constellation.nodes.map((n,i)=>[n.id,nodes[i].world]));
+  function pos(p:{x:number;y:number;id?:string}) { return p.id&&nodePositions.has(p.id)?nodePositions.get(p.id)!:new T.Vector3(p.x-220,220-p.y,-6); }
   const depthLines:{attribute:T.BufferAttribute;colors:T.BufferAttribute;a:T.Vector3;b:T.Vector3;from:number;to:number}[]=[];
   function line(a:T.Vector3,b:T.Vector3,opacity:number,from=0,to=1) {
     const material=new T.LineBasicMaterial({color:BLUE,transparent:true,opacity,depthWrite:false,vertexColors:true});volumeMaterial(material);
@@ -274,6 +284,8 @@ export function mountHybridScene(host: HTMLDivElement, layout: CommandLayout, cu
     if(moving)pointer.lerp(pointerTarget,1-Math.exp(-delta*CONSTELLATION_DEPTH.parallaxResponse));
     else {pointer.set(0,0);pointerTarget.set(0,0);}
     time+=delta;previous=now;
+    constellationMotion.yaw=advanceConstellationYaw(constellationMotion.yaw,delta,moving);
+    constellationGroup.rotation.y=constellationMotion.yaw;
     orbitalTime+=value.state==="error"?0:delta*(value.state==="thinking"?14:1);
     if(value.state!=="error")ringFlowTime+=delta;
     const nextError=value.state==="error";
@@ -331,10 +343,16 @@ export function mountHybridScene(host: HTMLDivElement, layout: CommandLayout, cu
     glow.color.set(value.state==="error"?0xe57854:ORANGE);
     frames.forEach(f=>{f.material.emissiveIntensity=value.hoverProject===f.id?1.1:f.active?.45:.2;});
     nodes.forEach((n,i)=>{n.mesh.position.z=n.z+(moving?Math.sin(time*Math.PI*2/n.period+i*2.4)*CONSTELLATION_DEPTH.driftAmount:0);n.material.emissiveIntensity=n.base+(value.hoverProject===n.project?.6:0)+(moving?Math.sin(time*.35+i)*.07:0);});
+    constellationGroup.updateMatrixWorld(true);
     nodes.forEach((n,i)=>{
+      n.mesh.getWorldPosition(n.world);
+      if(n.target){
+        const projected=projectConstellationPoint(n.world,pointer);
+        n.target.setAttribute('transform',`translate(${projected.x-n.source.x} ${projected.y-n.source.y})`);
+      }
       const depth=n.z/CONSTELLATION_DEPTH.range;
       haloScale.setScalar(n.mesh.scale.x*(depth<0?5.8:5.0));
-      haloMatrix.compose(n.mesh.position,camera.quaternion,haloScale);halos.setMatrixAt(i,haloMatrix);
+      haloMatrix.compose(n.world,camera.quaternion,haloScale);halos.setMatrixAt(i,haloMatrix);
     });
     halos.instanceMatrix.needsUpdate=true;
     for(const connection of depthLines){
@@ -366,7 +384,7 @@ export function mountHybridScene(host: HTMLDivElement, layout: CommandLayout, cu
     try { if(document.visibilityState==="visible" && host.getBoundingClientRect().width>0 && (moving || signature !== lastSignature)) { renderer.info.reset();composer.render(); renderCount++; lastSignature=signature; } }
     catch { fail("Rendering stopped unexpectedly."); return; }
     if(!announced && renderCount){announced=true;ready();}
-    if(now-lastStats>500){lastStats=now;canvas.dataset.rings=String(orbital.filter(r=>r.visible).length);canvas.dataset.frames=String(renderCount);canvas.dataset.drawCalls=String(renderer.info.render.calls);canvas.dataset.nodes=String(nodes.length);canvas.dataset.parallax=JSON.stringify([pointer.x,pointer.y]);}
+    if(now-lastStats>500){lastStats=now;canvas.dataset.constellationYaw=String(constellationMotion.yaw);canvas.dataset.rings=String(orbital.filter(r=>r.visible).length);canvas.dataset.frames=String(renderCount);canvas.dataset.drawCalls=String(renderer.info.render.calls);canvas.dataset.nodes=String(nodes.length);canvas.dataset.parallax=JSON.stringify([pointer.x,pointer.y]);}
     // One loop; no React updates per frame. Hidden and reduced-motion views render only on changes.
     if(moving)frame=requestAnimationFrame(render);
     else timer=window.setTimeout(()=>render(performance.now()),250);

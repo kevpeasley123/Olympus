@@ -115,6 +115,7 @@ export function ChatPanel({ messages, onSendMessage, onRecordObservation, pendin
         setDraft(current => current.trim() ? current : detail.prompt || "Review this project with me.");
         setMode("engaged");
       }
+      if (detail && !detail.context && typeof detail.prompt === "string") { setDraft(current=>current.trim()?`${current}\n\n${detail.prompt}`:detail.prompt); setProjectContext(null); setMode("engaged"); }
       inputRef.current?.focus();
     };
     const shortcut = (event: KeyboardEvent) => {
@@ -334,6 +335,11 @@ const ConversationBubble = memo(function ConversationBubble({
           {message.notice.message}
         </p>
       )}
+      {message.mail && message.mail.length>0 && <details className="section-copy">
+        <summary>Gmail evidence supplied ({message.mail.length})</summary>
+        <p>Cached communication evidence; may include only part of a thread. Claims are attributable to the sender, not operator commitments.</p>
+        {message.mail.map(source=><details key={`${source.accountId}-${source.messageId}`}><summary>{source.sender} · {source.subject}</summary><p>{new Date(source.timestamp).toLocaleString()} · Gmail message {source.messageId} · thread {source.threadId}</p><p>Retrieved {source.retrievedAt} · fingerprint {source.fingerprint} · {source.bodyStatus}</p><pre className="gmail-evidence">{source.excerpt}</pre></details>)}
+      </details>}
       {message.research && message.research.length > 0 && <details className="section-copy">
         <summary>Research supplied to this reply ({message.research.length})</summary>
         <p>These are source excerpts supplied to Olympus, not a claim that every source supports its answer.</p>

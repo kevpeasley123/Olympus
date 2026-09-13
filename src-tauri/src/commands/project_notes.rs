@@ -215,7 +215,7 @@ pub fn load_project_notes_from(folder: &Path) -> ProjectNoteIndex {
 
 /// Returns the note and every name it answers to, or `None` when the file is
 /// not a project note at all.
-fn parse_project_note(
+pub(crate) fn parse_project_note(
     raw: &str,
     file_stem: &str,
     note_path: &str,

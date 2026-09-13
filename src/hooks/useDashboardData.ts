@@ -246,6 +246,7 @@ export function useDashboardData() {
           {capability, voiceDepth, commandBoard: boardRef.current}
         );
         const assistant = createAssistantMessage(reply.content, reply.notice, reply.research);
+        assistant.mail = reply.mail;
         assistant.request=reply.request;
         if (reply.voice) assistant.voice = {kind:"output",spokenResponse:reply.voice.spokenResponse,playback:"pending",requiresConfirmation:reply.voice.requiresConfirmation};
         setChatModel(reply.model);
