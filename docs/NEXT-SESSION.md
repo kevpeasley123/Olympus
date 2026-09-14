@@ -1,3 +1,273 @@
+## Release 0.18.0 — September 13, 2026
+
+Packages the accumulated Communication Situations, relationship maps, priority guidance, operational dossiers and account-scoped local document access. Earlier sections describe historical intermediate builds. Private source packs/database remain local. Release verification: frontend build, 316 Rust tests passed / 2 ignored, and 16 browser acceptance cases including 72 dossier checks. Installer workflow uses the clean committed checkout and upgrades 0.17.0.
+
+## Latest: executive prioritization — September 13, 2026
+
+Home's next step now comes from a pure, source-linked review policy. Explicit
+payment-coordination questions can take precedence; general reviews, ties and
+unsupported/empty states remain honest. Status and priority are separate.
+A recommended workstream gets a navigation link and subtle map cue; no auto action.
+Update Olympus is now Add an update because it opens the operator-context form.
+See [EXECUTIVE-PRIORITIZATION.md](EXECUTIVE-PRIORITIZATION.md) for scope, rules and
+exact verification, including the recurring parallel Rust HTTP fixture failure
+and successful full serial rerun (313 passed, 2 ignored). Build passed; policy 23;
+priority browser 17/10/10/20; existing map/dossier/Gmail matrices all passed.
+Projection reads saved SituationContext, not unlinked new Gmail correspondence.
+No new model path, persistence/tracking framework, commit, push or install.
+
+## Latest: final executive overview polish — September 13, 2026
+
+Whole briefing now prioritizes state, discrete saved open-question bullets and
+amber next-step guidance. Changes, coverage/date and qualifications are secondary.
+Facts distinguish documented/known, operator context and open questions. Compact
+refresh/settings icons retain functions; lower disclosures renamed to Latest
+communication update, Activity & updates, Closed & dismissed. Geometry unchanged.
+See [FINAL-OVERVIEW-POLISH.md](FINAL-OVERVIEW-POLISH.md) for exact files and review.
+Fresh build passed; Rust 313 passed/2 ignored; actor 23, dossier 22, graph 19,
+typography 6, saved Home pairings 3; browser dossier 53, navigator 76 + reduced 76,
+Communications 58, Situations 14, Gmail 19 and all five viewport cases passed.
+No commit/push/install.
+
+## Latest: Situation Map polish — September 13, 2026
+
+Wide inspector reduced by 50px; whole-word two-line names, two-provider summaries,
+subtle connected-edge emphasis, Reset view labels, compact error fallback and
+expandable briefing excerpts. All seven workstream/dossier paths reviewed.
+Existing contextual projection now recognizes cited originator contacts and
+preserves distinct representative roles within a company. Actual saved Home
+Barrett/Brandon, Gastelum/Luis and True North/Paul projections verified read-only.
+See [SITUATION-MAP-POLISH.md](SITUATION-MAP-POLISH.md) for files and caveats.
+Build passed; Rust 313 passed/2 ignored; actor 23, dossier 22, graph 19, typography
+6; browser dossier 53, navigator 68 + reduced 68, Communications 58, Situations 14,
+Gmail 19 and five viewport cases passed. No commit/push/install.
+
+## Latest: relationship dossier — September 13, 2026
+
+The contextual actor inspector now uses compact identity/contacts followed by
+Profile, origin, business/work, saved status and a scoped useful next step.
+Three collapsed record sections retain notes, facts, canonical identities and
+references. No new model/API path or Gmail writes. Map/chat geometry is preserved.
+See [RELATIONSHIP-DOSSIER.md](RELATIONSHIP-DOSSIER.md) for exact derivation limits,
+files, review steps and fresh verification. Build passed; Rust serial rerun
+313 passed / 2 ignored (one parallel HTTP fixture failure passed in isolation);
+dossier browser 53, dossier projection 22, actor projection 20, graph 18,
+navigator 36 + reduced 36, Communications 58, Situations 14, Gmail 19, and five
+viewport cases all passed. No commit/push/install in this pass.
+
+## Latest: compact Situation Maps overview — September 13, 2026
+
+### Space audit and final composition
+The previous view stacked the Communications identity, mode tabs, operational
+controls, status/error text, selected title/metadata, workstream selector and map
+toolbar above a 420px minimum canvas. The center-stack scrollbar therefore hid
+lower workstreams. The new wide desktop layout merges identity, mode tabs, Gmail
+state/sync/settings and understanding controls into a 60px header. Healthy watching
+copy and duplicate headings are removed. Selected title/state/evidence/date occupy
+one compact line; workstream buttons sit directly beneath it (about 62px combined).
+Full diagnostics live behind compact, visible failure summaries, not full-width
+paragraphs. Provider/error/fallback text is retained verbatim behind Details where
+available; no new diagnostic facts are invented.
+
+### Viewport and chat geometry
+Communications measures its existing center-stack and chat using ResizeObserver.
+On wide desktops (at least 1500px wide and 800px tall), the center spans both existing
+application grid rows, reclaiming otherwise empty space to the LEFT of chat.
+The map gets the remaining height through bounded flex/grid children with
+min-height:0. The right inspector uses the measured chat width as its column and
+subtracts the measured chat height plus spacing. Graph nodes, controls and inspector
+remain clear of chat; the Communications background may extend behind that inset.
+The navigator scrolls independently. Long briefing and document content scrolls
+inside the inspector. Supporting logs/updates remain available from a compact
+bottom action area with bounded disclosures.
+
+Narrower or short desktops prioritize readable detail: briefing stacks below on
+narrow widths and the overview remains a substantial scrollable canvas. They are
+not claimed to satisfy the no-page-scroll guarantee for normal wide desktops.
+The global Olympus header and Gmail read-only/data authority boundaries are unchanged.
+
+### Fit and controls
+situationGraphBounds derives the initial viewBox from ALL nodes on the current map
+page, including padding. Home's seven top-level workstreams and central anchor fit
+on initial entry. Five discrete levels: 1, 1.2, 1.5, 1.9, 2.4. Floating minus/reset/
+plus controls occupy a protected bottom inset. Minimum/maximum controls disable.
++ or = and - act only while the map has keyboard focus. Reset restores default
+scale and native scroll/pan position without changing situation, workstream, actor
+or briefing. Selecting/reselecting a workstream (including Whole Situation) resets
+that scope's framing; paging also opens at default fit. Zoom changes are immediate,
+with no scale animation. Traveling lights remain, honor reduced motion, and no
+longer require a primary Pause lights control. Enlarge map is removed.
+
+### Fresh verification
+- npm run build: passed (existing dependency/chunk warnings remain).
+- cargo test --lib --manifest-path src-tauri/Cargo.toml: 313 passed, 0 failed, 2 ignored.
+- Contextual actor projection: 20 passed. Graph/fit/zoom model: 18 passed.
+- Controlled viewport matrix: 1755x950 overview 35; same size with long errors,
+  title, briefing, expanded chat and reduced motion 39; 1920x1080 overview 35;
+  1280x900 narrow stress 36; 1280x720 short-window fallback 32. All passed.
+- Browser regressions: Communications 58, Situations 14, Gmail 19, Navigator 32,
+  reduced-motion Navigator 32. All passed.
+- Matrix assertions cover initial scroll zero, node bounds inside visible canvas,
+  inspector bounds, chat exclusion, every zoom step and endpoint, reset/pan,
+  selection preservation, keyboard controls, scope changes and diagnostic disclosure.
+
+The viewport harness creates actual-size same-origin frames for reproducible tests;
+it scales ONLY the outer preview for viewing in the Codex sidebar. Assertions run
+inside the real 1755x950/1920x1080/etc child viewport, not against a mocked geometry.
+Run /communications-viewport-harness.html and click Run acceptance matrix.
+All fixture data remains synthetic. An earlier 441px sidebar run exposed an old
+90px analytics-strip assertion that assumes desktop width; the requested desktop
+regression now runs at a controlled 1920x1080 size. Error regressions check the new
+visible summary plus retained full disclosure and cached rows.
+
+### Files and manual review
+Product: Communications.tsx, SituationsWorkspace.tsx, DocumentSituationMap.tsx,
+SituationRelationshipWeb.tsx, situations.css, services/situationGraph.ts.
+Verification: communications-viewport-harness.html, communications-viewport-harness.ts,
+services/situationViewportChecks.ts, existing Communications/Situations harnesses,
+scripts/test-situation-graph.mjs. This document and NEXT-SESSION.md record the handoff.
+
+Review the live native Home / Whole Situation on a wide desktop: all seven branches
+should appear immediately; try zoom/reset, reselect Whole Situation, open long
+briefing/evidence and expand chat. Browser visual/geometry verification used only
+synthetic data; native visual confirmation remains with the operator. Native dev
+process 444 was responding at verification; existing development server serves the
+updated frontend. No commit, push, install, mailbox mutation or model run was added.
+
+## Reference-render visual pass — September 13, 2026
+
+Whole Situation now presents orbital workstream cards with restrained icons, actor
+previews (up to three, compact-height views show one), total actor counts and curved
+tracks around a larger circular Home/Omega anchor. Clicking a workstream still
+opens the contextual actor web. No reference-image names, contacts, statuses or
+notification situations were inserted into live data.
+
+Connections carry staggered white-blue traveling lights, adapting the existing
+Command constellation signal cadence from hybridScene.ts: 4.5-second cycle with
+about two seconds of travel followed by a pause. SVG animateMotion follows the
+exact rendered curve. This is decorative motion, not evidence of live processing.
+Pause lights removes the motion elements. System reduced-motion preference removes
+them too, including live preference changes; static ports remain. No new rendering
+library, model calls, Gmail access or persistence changes.
+
+Navigator selection, workstream controls, glass materials and inspector typography
+move toward the reference. Inspector shows recorded contact details directly, a
+context breadcrumb and a return control at the top. Empty contact records are not
+filled with examples. Compact windows retain a scrollable workspace and stack the
+brief below the map; Enlarge/Fit remains available for long labels. This is an
+incremental visual pass, not a claim of pixel-identical reference reproduction.
+
+Verification: production frontend build passed; TypeScript passed after harness
+updates; graph 15 and contextual projection 20 deterministic checks passed;
+Navigator/graph 32 browser checks passed, plus 32 in the reduced-motion fixture.
+Fresh Situation regression: 14 passed. Fresh Communications regression: 58 passed.
+Backend unchanged; no native build/install/commit/push performed. Native development
+frontend receives these changes through its existing server. Browser visual review
+is synthetic and does not validate real Home facts.
+
+## Contextual relationship web restored — September 13, 2026
+
+The left, independently scrolling Situation Navigator remains the primary selector.
+The intermediate actor-card lanes were an incorrect interpretation of compact graph
+nodes and have been removed. `SituationRelationshipWeb.tsx` now renders an SVG web
+with native keyboard-operable HTML buttons embedded at graph coordinates.
+
+`contextualActors.ts` conservatively derives actor-in-context nodes from explicit,
+document-cited representation links in the existing local context. Organization,
+representative and situation role appear together. Canonical entity IDs, contacts,
+relationship state and source references remain separate and inspectable. Ambiguous,
+co-occurring, conflicting and operator-only affiliations are not fused. This is a
+frontend projection, not identity resolution or a new persistent entity type.
+
+`services/situationGraph.ts` supplies deterministic, bounded rectangular orbital
+slots around a fixed central Omega anchor. Whole Situation shows the recorded
+workstream hubs and one key actor per workstream (confirmed representatives preferred).
+Hubs disclose total actor counts and open their workstream. Focused views replace
+workstream hubs with role/function groups from actual actor roles; up to eight actors
+are visible per page. Overflow workstreams and correspondence-only actors are also
+paginated explicitly. Sparse scopes invent no actors. No graph dependency or physics
+simulation was introduced.
+
+Edges express recorded workstream membership, contextual role grouping and existing
+relationships whose endpoints are visible. Lines terminate at node bounds; uncertain
+or uncited relationships are dashed. Canonical person-to-company links inside an
+already combined actor do not become duplicate self-edges. Edge titles preserve the
+relationship description; evidence remains available in the inspector.
+
+Wide layout reserves roughly 19% for navigation, 52% for map and 23% for briefing
+(the rest is spacing). At constrained widths the brief moves below the canvas.
+Map Fit shows the complete current page without canvas scrolling; Enlarge enables
+intentional internal navigation for detail. The surrounding Communications page
+remains scrollable, and persistent chat retains its separate safe row. Selecting a
+node temporarily replaces the right briefing with actor role/status/evidence and
+underlying identities; Back to briefing restores the situation/workstream brief.
+Long node labels are clamped visually with full accessible names, tooltips and
+inspector detail. There is no continuous graph animation.
+
+Fresh verification: frontend production build passed; Rust library 313 passed,
+0 failed, 2 ignored (paid acceptance). Contextual projection 20 checks; graph layout
+12 checks; Situation Navigator/graph browser 28 checks; existing Situation Maps
+14 checks; Communications 58 checks; Gmail 19 checks. Browser checks use synthetic
+fixtures only. Whole and dense focused maps visually inspected; keyboard actor
+selection/back verified. Observed 1280px narrow desktop: no horizontal overflow,
+brief below map, fixed canvas and separate chat row. Wide preview measured 1680px.
+Temporary browser viewport overrides reset. Existing dependency/build warnings
+remain; no paid model run was added.
+
+Preview: `/communications-harness.html?navigator` (synthetic), with 52 navigator
+entries, seven populated Home workstreams, dense and long-label actor cases,
+confirmed and uncertain affiliations, empty scope and a single-actor situation.
+`/situations-harness.html?navigator&run` runs navigation/graph acceptance checks.
+Pure checks: `node scripts/test-contextual-actors.mjs` and
+`node scripts/test-situation-graph.mjs`.
+
+Manual native-app review still belongs to the operator: inspect actual Home →
+Inspections & repairs, readability and document evidence. Native visual rendering
+was not automated. The frontend is served by the existing development server;
+no install, commit or push was requested/performed. Gmail writes, model routing,
+background intelligence changes, graph databases, automatic relationship promotion
+and automatic folder ingestion remain outside this correction. Private Home
+source material remains in the existing local archive, outside public fixtures/Git.
+
+## Latest: Home document foundation (September 13, 2026)
+
+The requested Home situation has been imported into the real local database.
+Development executable rebuilt and launched (PID 444 at handoff; verify fresh).
+Installed release is unchanged. No commit/push/install requested or performed.
+
+One active Home map, seven workstreams, 35 typed entities, 16 cited facts and
+58 sources (57 folder files plus operator handoff). Six rejected notification
+maps dismissed, related insurance conversation retained by merge. Originals are
+unchanged. Private extraction and source review are in ignored
+`output/private-home-import/`; durable copies are under app-data
+`situation-imports/home-ownership-529/`. Never commit these or copy them into a
+public harness. Read the private HOME-SOURCE-REVIEW.md for actual findings;
+public implementation details and verification are in COMMUNICATION-SITUATIONS.md.
+
+Document foundations stay local; exact contact matching sends only candidate
+situation IDs alongside already-authorized Gmail evidence. Do not feed raw house
+or financial/identity documents into the model through catalog, draft, Research,
+or operator-update routes without respecting the separate data boundary.
+This import is curated, not automatic folder watching or automatic replacement
+of document facts. Subsequent email interpretation is shown separately.
+
+Builds pass, 313 Rust tests pass (2 ignored), 14 situation browser checks pass.
+Native process and DB verified, browser visual verification uses synthetic data.
+Latest native email understanding run encountered OpenAI response_failed; Home
+foundation persists independently. No paid live-model retest was forced.
+
+# Live map-discovery correction (September 13, 2026)
+
+The operator evaluated the native app and found a cluttered view without maps. Real run metadata showed `detail_quote_mismatch`, then `situation_output_bounds`; neither produced a situation. Added one strict map-only retry for optional-detail/bounds failures, permitted empty summaries only for excluded noise, and separated Situation maps / Browse email. Supporting logs/updates/settings are collapsed by default. Native development app was restarted with the corrected backend, and its enabled cooldown reset for an immediate retry under existing explicit OpenAI/email/Research analysis consent. A subsequent contact-membership failure prompted per-thread constrained schemas. Live retry then **completed successfully: one persisted real situation, six processed threads, no run error**. This verifies live schema acceptance/publication, not the factual quality of the generated interpretation. Current native development PID at verification: 44576. Installed release remains unchanged. See COMMUNICATION-SITUATIONS.md.
+
+# Current development: evolving Communications situations (September 13, 2026)
+
+Read [COMMUNICATION-SITUATIONS.md](COMMUNICATION-SITUATIONS.md). The operator approved automatic Emerging situations, focused relationship maps beside ongoing briefings, relevant email/Research context, explicit updates, incremental background refresh, and on-demand editable local reply drafts. Sending remains for a later evolution with recipient review, explicit Send and confirmation.
+
+Implemented native situation persistence and bounded model workflow, current-source validation, pause/manual refresh, rename/merge/dismiss/restore/close, and primary Communications UI. Older v3 thread analysis remains collapsed and inspectable. Synthetic preview: `http://127.0.0.1:31420/situations-harness.html`; integrated preview: `/communications-harness.html`. Background analysis defaults enabled in a NEW native build; the browser previews use fixtures only. No new native build was launched against real mail during this pass. Installed release remains **0.17.0**, commit **12d54dc**; current changes are uncommitted and not installed/pushed.
+
+Verified: frontend build, **309 Rust tests passed / 2 ignored**, **57 Communications + 14 situation browser checks passed**. Details are recorded in COMMUNICATION-SITUATIONS.md. Real provider/schema acceptance and real mailbox grouping/briefing quality remain unverified. Preserve this work. Earlier sections below are historical.
+
 # Release 0.17.0 checkpoint
 
 Communication Intelligence v3: bounded model interpretation, conditional thread expansion, background findings and operator feedback. Verified frontend build, 296 Rust tests passed / 2 ignored, 57 browser checks. Live provider/schema and real-mail interpretation acceptance remain pending. Installation receipt belongs under ignored `output/releases/0.17.0/`. Earlier development notes below are historical.
@@ -312,3 +582,13 @@ The atlas uses JetBrains Mono 500, curved character placement, existing active/i
 ## Suggested prompt for a fresh chat
 
 Continue Olympus from `docs/NEXT-SESSION.md` in `C:\Users\kevpe\OneDrive\Documents\New project\Olympus Memory Worktree`. Read `AGENTS.md` and the referenced project guidance. Verify the current Git state and inspect the populated material study before editing. Preserve the accepted design and wait for my next focused refinement request.
+
+
+## September 13 — Situation cohesion pass
+
+See `SITUATION-COHESION.md`. Complete-sentence briefing previews replace CSS clamping. Source-linked recommendation carries through Home, workstream and actor dossier; Mortgage roles normalize into semantic groups without new relationships. Recent activity uses existing correspondence/update records, not fabricated priority events. Add an update remains a form-opening action. Added Renovation priority scenario and stronger unknown-servicer/geometry checks. Build and pure tests pass; normal Rust retains known HTTP fixture failure, serial 313 pass / 2 ignored. No install/commit.
+
+
+## September 13 — Operational dossiers
+
+See `OPERATIONAL-DOSSIERS.md`. Focused workstreams and actors use shared right-side Overview/Documents/Related/Timeline tabs; Timeline only for scoped source-linked milestones. Documents project existing refs and native status/open resolves current account + situation/source ID (no frontend paths). Optional ownership/date/milestone metadata is backward-compatible; real Home metadata is not guessed or rewritten. New native lib tests pass, but the running dev executable must be rebuilt/relaunched to expose its new file commands. Installed release unchanged. Build PASS; Rust 316/0/2; 16 browser cases PASS including dossier 72. Synthetic dossier preview retained.

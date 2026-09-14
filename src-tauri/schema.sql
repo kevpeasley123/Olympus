@@ -242,3 +242,38 @@ CREATE TABLE IF NOT EXISTS communication_evaluations (
  event TEXT NOT NULL, at TEXT NOT NULL,
  FOREIGN KEY(run_id) REFERENCES communication_runs(id)
 );
+
+-- Situations are generated operational context, not vault intent or permission to act.
+-- Curated local documents are a separate foundation, never model prompt context.
+CREATE TABLE IF NOT EXISTS communication_situation_contexts (
+    account_id TEXT NOT NULL,
+    situation_id TEXT NOT NULL,
+    payload_json TEXT NOT NULL CHECK(json_valid(payload_json)),
+    updated_at TEXT NOT NULL,
+    PRIMARY KEY(account_id, situation_id)
+);
+CREATE TABLE IF NOT EXISTS communication_situations (
+ account_id TEXT NOT NULL, id TEXT NOT NULL, title TEXT NOT NULL,
+ state TEXT NOT NULL DEFAULT 'emerging', merged_into TEXT,
+ briefing_json TEXT NOT NULL DEFAULT '{}', updated_at TEXT NOT NULL,
+ PRIMARY KEY(account_id,id)
+);
+CREATE TABLE IF NOT EXISTS communication_situation_sources (
+ account_id TEXT NOT NULL, thread_id TEXT NOT NULL, signature TEXT NOT NULL,
+ situation_id TEXT, payload_json TEXT NOT NULL, updated_at TEXT NOT NULL,
+ PRIMARY KEY(account_id,thread_id)
+);
+CREATE TABLE IF NOT EXISTS communication_situation_updates (
+ account_id TEXT NOT NULL, id TEXT NOT NULL, situation_id TEXT,
+ text TEXT NOT NULL, at TEXT NOT NULL, PRIMARY KEY(account_id,id)
+);
+CREATE TABLE IF NOT EXISTS communication_situation_state (
+ account_id TEXT PRIMARY KEY, enabled INTEGER NOT NULL DEFAULT 1,
+ context_revision INTEGER NOT NULL DEFAULT 0, last_attempt INTEGER NOT NULL DEFAULT 0,
+ context_signature TEXT NOT NULL DEFAULT '', last_error TEXT
+);
+CREATE TABLE IF NOT EXISTS communication_situation_drafts (
+ account_id TEXT NOT NULL, id TEXT NOT NULL, situation_id TEXT NOT NULL,
+ thread_id TEXT NOT NULL, payload_json TEXT NOT NULL, revision INTEGER NOT NULL DEFAULT 1,
+ updated_at TEXT NOT NULL, PRIMARY KEY(account_id,id)
+);

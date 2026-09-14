@@ -431,3 +431,6 @@ pub mod intelligence;
 pub mod communication_skills;
 
 pub mod assessment_v3;
+
+pub mod situations;
+pub mod situation_contract;

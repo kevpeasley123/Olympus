@@ -412,7 +412,7 @@ pub fn communication_runs(db: State<'_, Db>, days: u32) -> Result<Vec<Value>, St
     let a = store::account(&c)?
         .filter(|a| a.enabled)
         .ok_or("gmail_not_connected")?;
-    let mut stmt=c.prepare("SELECT payload_json FROM communication_runs WHERE account_id=?1 AND days=?2 ORDER BY rowid DESC LIMIT 10").map_err(err)?;
+    let mut stmt=c.prepare("SELECT payload_json FROM communication_runs WHERE account_id=?1 AND days=?2 AND json_extract(payload_json,'$.graph') != 'communication-situations/v1' ORDER BY rowid DESC LIMIT 10").map_err(err)?;
     let raw = stmt
         .query_map(params![a.id, days.min(a.horizon_days)], |r| {
             r.get::<_, String>(0)

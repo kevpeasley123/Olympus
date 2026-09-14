@@ -1,13 +1,18 @@
+import {SituationsWorkspace} from './SituationsWorkspace';
+import type {SituationsClient} from '../../services/situations';
 import {CommunicationsBrief} from './CommunicationsBrief';
 import type {IntelligenceClient} from '../../services/communicationIntelligence';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
 import { Mail, RefreshCw, Settings2, X, ArrowUpRight } from 'lucide-react';
 import { communicationsClient, type CommunicationsClient, type CommunicationRow, type Workspace, type Group } from '../../services/communications';
 import { gmailError, gmailStateLabel, type GmailStatus, type MailMessage, type MailExcerpt } from '../../services/gmail';
 const names: Record<Group,string> = { inbox:'Inbox', attention:'Attention', actions:'Responses', projects:'Projects', people:'People', search:'Search' };
 const date=(n:number)=>new Date(n).toLocaleString();
 const senderName=(s:string)=>s.split('<')[0].trim()||s;
-export function Communications({api=communicationsClient,onSettings,intelligence}:{api?:CommunicationsClient;onSettings:()=>void;intelligence?:IntelligenceClient}) {
+export function Communications({api=communicationsClient,onSettings,intelligence,situations}:{api?:CommunicationsClient;onSettings:()=>void;intelligence?:IntelligenceClient;situations?:SituationsClient}) {
+ const surface=useRef<HTMLElement>(null),[availableHeight,setAvailableHeight]=useState(window.innerHeight-180),[chatSize,setChatSize]=useState({height:0,width:480});
+ useLayoutEffect(()=>{const parent=surface.current?.closest('.center-stack');if(!parent)return;const chat=parent.closest('.main-grid')?.querySelector('.right-stack');const measure=()=>{const style=getComputedStyle(parent);setAvailableHeight(Math.max(200,parent.clientHeight-parseFloat(style.paddingTop)-parseFloat(style.paddingBottom)));if(chat)setChatSize({height:chat.clientHeight,width:chat.clientWidth})};measure();const observer=new ResizeObserver(measure);observer.observe(parent);if(chat)observer.observe(chat);return()=>observer.disconnect()},[]);
+ const [view,setView]=useState<'situations'|'mail'>('situations');
  const [status,setStatus]=useState<GmailStatus|null>(null);
  const [data,setData]=useState<Workspace|null>(null);
  const [group,setGroup]=useState<Group>('inbox');
@@ -66,17 +71,20 @@ export function Communications({api=communicationsClient,onSettings,intelligence
  const connected=Boolean(status?.account?.enabled),busy=syncing||Boolean(status?.busy);
  const rows:CommunicationRow[]=group==='search'?hits.map(h=>({id:h.messageId,threadId:h.threadId,timestamp:h.timestamp,fingerprint:h.fingerprint,sender:h.sender,subject:h.subject,preview:'Keyword match · open thread for source',labels:[],candidates:[]})):data?.rows??[];
  const max=Math.max(1,...(data?.activity??[]).map(d=>d.received+d.sent));
- return <section className="communications" aria-label="Communications workspace">
+ return <section ref={surface} data-view={view} style={{'--communications-height':`${availableHeight}px`,'--situation-chat-height':`${chatSize.height+20}px`,'--situation-chat-width':`${chatSize.width}px`} as CSSProperties} className="communications" aria-label="Communications workspace">
   <header className="comms-header">
    <div className="comms-title"><Mail size={25}/><div><h2>COMMUNICATIONS</h2><p>Signals into context</p></div></div>
+   {connected&&<nav className="comms-primary-tabs" aria-label="Communications view"><button aria-pressed={view==='situations'} onClick={()=>setView('situations')}>Situation maps</button><button aria-pressed={view==='mail'} onClick={()=>setView('mail')}>Browse email</button></nav>}
    <div className="comms-health"><strong>GMAIL · {api.native()?gmailStateLabel(status):'Desktop connection required'}</strong><small>Last sync: {status?.account?.lastSuccess?new Date(status.account.lastSuccess).toLocaleString():'Not yet'}</small></div>
    <button className="ghost-icon-action" aria-label="Sync Gmail" disabled={!connected||busy} onClick={()=>{setError('');setSyncing(true);void api.action('sync').then(()=>api.status()).then(setStatus).catch(e=>setError(gmailError(e))).finally(()=>setSyncing(false))}}><RefreshCw size={16}/></button>
    <button className="ghost-icon-action" aria-label="Gmail connection settings" onClick={onSettings}><Settings2 size={16}/></button>
+   {(error||status?.account?.lastError)&&<details className="comms-diagnostic"><summary><span role="alert">⚠ Gmail sync issue</span> · Details</summary><div>{error||gmailError(status?.account?.lastError)} <button className="ghost-action" onClick={onSettings}>Connection &amp; history settings</button></div></details>}
   </header>
-  {(error||status?.account?.lastError)&&<p role="alert" className="comms-notice">{error||gmailError(status?.account?.lastError)} <button className="ghost-action" onClick={onSettings}>Connection &amp; history settings</button></p>}
+
   {!connected?<div className="comms-empty"><Mail size={36}/><h3>Bring communication into context</h3><p>Connect Gmail in the desktop app to explore your locally cached, read-only communication evidence.</p><button className="ghost-action" onClick={onSettings}>Open Gmail settings</button></div>:<>
-   <details className="comms-cache-info"><summary>Cached {data?.days??7}-day view · read only</summary><p>Configured sync limit: {status?.account?.horizonDays} days. Inbox and Sent only; this cache is not a complete mailbox. View changes never change your import range. Not enough history for comparison.</p></details>
-   <CommunicationsBrief days={days} api={intelligence} onOpen={row=>void open(row)}/>
+   <div className="comms-situation-host" hidden={view!=='situations'}><SituationsWorkspace api={situations} onOpen={row=>void open(row)}/></div>
+   <div hidden={view!=='mail'}><details className="comms-cache-info"><summary>Cached {data?.days??7}-day view · read only</summary><p>Configured sync limit: {status?.account?.horizonDays} days. Inbox and Sent only; this cache is not a complete mailbox. View changes never change your import range. Not enough history for comparison.</p></details>
+   <details><summary>Thread analysis history</summary><CommunicationsBrief days={days} api={intelligence} onOpen={row=>void open(row)}/></details>
    <div className="comms-workbench">
     <div className="comms-inbox" ref={inbox}>
      <div className="comms-toolbar"><nav aria-label="Communication groups">{(Object.keys(names) as Group[]).map(g=><button key={g} aria-pressed={group===g} onClick={()=>changeGroup(g)}>{names[g]}</button>)}</nav><label>View <select aria-label="Communication view range" value={days} onChange={e=>{setDays(Number(e.target.value));setPage(0);close()}}>{[7,30,90,180,365].map(n=><option key={n} disabled={n>(status?.account?.horizonDays??7)} value={n}>{n}D{n>(status?.account?.horizonDays??7)?' · outside cache limit':''}</option>)}</select></label></div>
@@ -97,7 +105,7 @@ export function Communications({api=communicationsClient,onSettings,intelligence
 
     <article className="comms-card"><h3>Email activity <small>Received / sent · UTC days</small></h3><div className="comms-chart" role="img" aria-label="Daily received and sent message counts" style={{gap:(data?.activity.length??0)>31?0:3}}>{data?.activity.map(d=><div key={d.timestamp} title={`${new Date(d.timestamp).toISOString().slice(0,10)}: ${d.received} received, ${d.sent} sent`}><i style={{height:`${d.received/max*85}px`}}/><b style={{height:`${d.sent/max*85}px`}}/></div>)}</div><small>Blue: received · amber: sent. Boundary days are partial.</small><details><summary>Activity values</summary>{data?.activity.map(d=><p key={d.timestamp}>{new Date(d.timestamp).toISOString().slice(0,10)}: {d.received} received / {d.sent} sent</p>)}</details></article>
     <article className="comms-card"><h3>Source distribution</h3><p>{data?.threads??0} distinct threads</p><p>Inbox {data?.inbox??0} · Sent {data?.sent??0}</p><small>Labels may overlap. Counts describe the selected cached view.</small><h3>Sender distribution</h3>{data?.people.slice(0,10).map(p=><p key={p.sender}>{p.sender} · {p.count}</p>)}</article>
-   </div></details>
+   </div></details></div>
   </>}
   {selected&&<section className="comms-inspector" aria-label="Cached thread inspector"><header><div><small>GMAIL · CACHED THREAD</small><h3>{selected.subject}</h3></div><button className="ghost-icon-action" ref={inspectorClose} aria-label="Close thread inspector" onClick={close}><X size={18}/></button></header><p className="comms-scope">In-scope subset · up to 100 messages · attachments are metadata only</p><button className="ghost-action" onClick={()=>window.dispatchEvent(new CustomEvent('olympus:focus-console',{detail:{prompt:`Summarize the cached Gmail email thread and identify possible response needs. [Gmail thread: ${selected.threadId}]`}}))}>Ask Olympus about this thread <ArrowUpRight size={14}/></button><small>Prepares a question in the console. Sending it retrieves up to four cached messages for your reasoning provider.</small><h3>Olympus findings · selected message</h3>{selected.candidates.length?selected.candidates.map(c=><p key={c.kind}>{c.text}</p>):<p>No candidate findings supplied for this selection.</p>}<h3>Source</h3>{threadLoading?<p role="status">Loading thread…</p>:thread.length===0?<p>No cached messages available.</p>:thread.map(m=><article className="comms-source" key={m.id}><strong>{m.sender}</strong><small>To: {m.recipients} · {date(m.internalDate)}</small><pre>{m.cleanText||'Body unavailable'}</pre>{m.attachments.map((a,i)=><p key={i}>Attachment: {a.filename} · {a.mimeType} · {a.size} bytes</p>)}<details><summary>Source evidence</summary><p>Gmail · message {m.id} · thread {m.threadId}</p><p>Body status: {m.bodyStatus}</p><p>Fingerprint: {'fingerprint' in m?String(m.fingerprint):selected.id===m.id?selected.fingerprint:'Unavailable'}</p></details></article>)}</section>}
  </section>;

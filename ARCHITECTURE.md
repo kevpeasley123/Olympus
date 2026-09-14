@@ -257,3 +257,21 @@ The common assistant handler supplies backend-built, question-routed communicati
 ### Communications workspace
 
 The fourth dashboard mode uses `gmail_workspace` for bounded local metadata aggregation (up to 2,000 eligible messages, 40 preview rows per page). Bodies load only through the existing thread command. Candidate joins require the current source fingerprint; source analytics, generated candidates and operator-confirmed state remain separate. Typed Communications questions can add seven-day cache aggregates; explicit thread markers resolve in native read-only retrieval and preserve excerpt provenance. No analytics job invokes a model. See `docs/COMMUNICATIONS.md`.
+
+
+### Evolving Communications situations (development, September 13, 2026)
+
+See [COMMUNICATION-SITUATIONS.md](docs/COMMUNICATION-SITUATIONS.md). The operator-approved situation worker runs bounded changed-thread discovery and briefing synthesis against the native cache, explicit situation updates and matching Research. Five additive account-scoped tables retain generated situations/sources, updates, background state and local drafts. A fixed versioned workflow validates evidence and rechecks context before atomic publication. It does not create tasks, change intent, send email or expand Gmail scope. The existing single-active-analysis constraint and model transport are reused; purpose-specific typed contracts do not add a general agent executor. The UI polls snapshots without model calls and preserves map/draft state. Background analysis can be paused and is disclosed in Communications and Gmail preferences. Installed 0.17.0 remains unchanged until a later release request.
+
+## Situation-map executive priority projection
+`src/services/situationPriority.ts` is a pure presentation/review policy over saved
+SituationContext. Priority is separate from source status. Reasons, references,
+policy version and recommended workstream ID are explicit. It does not infer
+current deadlines, consume unlinked Gmail updates, mutate the document foundation,
+or introduce persistence, telemetry or model calls. Ties and missing evidence do
+not force a recommendation. See docs/EXECUTIVE-PRIORITIZATION.md.
+
+
+### Operational dossier file boundary
+
+The dossier is a UI projection of saved contextual references. Optional document origin/date and source-linked milestones do not add model input or extraction workflows. Native `situation_document_status` and `situation_document_open` resolve source IDs only from the current enabled account's saved situation context. Frontend paths are not accepted; remote/relative paths and executable/active-web extensions cannot be opened. Missing files have no Open action. Timeline states are retained, never inferred from source file dates. Browser fixture file clients have no native side effects.

@@ -334,9 +334,12 @@ pub fn run() {
             app.manage(DelegationProcesses::default());
             app.manage(commands::gmail::Runtime::default());
             commands::gmail::start_cadence(app.handle().clone());
+            commands::gmail::situations::start_cadence(app.handle().clone());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            commands::gmail::situations::documents::situation_document_status, commands::gmail::situations::documents::situation_document_open,
+            commands::gmail::situations::situation_snapshot, commands::gmail::situations::engine::situation_refresh, commands::gmail::situations::situation_set_background, commands::gmail::situations::situation_update, commands::gmail::situations::situation_edit, commands::gmail::situations::drafts::situation_draft, commands::gmail::situations::drafts::situation_save_draft,
             commands::gmail::intelligence::analyze_communications, commands::gmail::intelligence::communication_runs, commands::gmail::intelligence::communication_run_events, commands::gmail::intelligence::communication_feedback, commands::gmail::intelligence::communication_skills,
             commands::gmail::gmail_workspace, commands::gmail::gmail_remove_cache, commands::gmail::gmail_status, commands::gmail::gmail_connect, commands::gmail::gmail_cancel, commands::gmail::gmail_disconnect, commands::gmail::gmail_sync, commands::gmail::gmail_set_horizon, commands::gmail::gmail_search, commands::gmail::gmail_thread,
             send_assistant_message,

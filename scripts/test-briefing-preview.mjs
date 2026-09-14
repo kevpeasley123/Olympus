@@ -1,0 +1,14 @@
+import {transform} from 'esbuild';
+import {mkdir,readFile,writeFile} from 'node:fs/promises';
+import assert from 'node:assert/strict';
+await mkdir('output/tests',{recursive:true});
+await writeFile('output/tests/briefingPreview.mjs',(await transform(await readFile('src/services/briefingPreview.ts','utf8'),{loader:'ts',format:'esm'})).code);
+const {briefingPreview:p}=await import('../output/tests/briefingPreview.mjs');
+const a='The agreement is recorded. Current completion remains unconfirmed. ';
+assert.equal(p('Short saved context.'),'Short saved context.');
+assert.equal(p(a.repeat(8)),a.trim());
+assert.ok(p(a.repeat(8)).endsWith('.'));
+assert.ok(!p('A long unbroken qualification '.repeat(30)).endsWith('...'));
+assert.match(p('A long unbroken qualification '.repeat(30)),/full context/);
+assert.equal(p(''), '');
+console.log('PASS 6 briefing preview checks');

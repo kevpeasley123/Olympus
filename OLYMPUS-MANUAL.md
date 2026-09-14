@@ -208,3 +208,18 @@ require the existing explicit on-screen scope review. Voice confirmation is not
 supported in Phase 1. Text remains available when voice is unavailable.
 
 See VOICE.md for configuration, verification limits and the next phase.
+
+
+## Communications situations — approved September 13, 2026
+
+Communications should understand ongoing situations rather than force permanent categories. Relevant email, explicit operator updates and matching Research context inform automatically emerging situations, focused relationship maps, conversation logs and refreshed briefings. Lead with where things stand, what changed and informative recommendations that explain why a response would help. Keep obligations practical and source-backed; generated findings never become commitments or proof of legitimacy.
+
+The operator approved background understanding while Olympus is open, with a visible pause control and incremental visual updates. Draft replies only on demand and keep them editable locally. Gmail sending is deferred: the future send flow must review participants and content, require explicit Send and a final confirmation. See docs/COMMUNICATION-SITUATIONS.md for implemented bounds and acceptance status.
+
+## Situation overview attention guidance
+The overview may recommend one workstream based on source-linked open questions
+in its saved context. This is review guidance, not an operator commitment or proof
+of urgency. Equal priorities remain a tie; no recorded questions is not proof of
+completeness. A recommendation link only navigates. Add an update opens the form
+for context/corrections; saving and subsequent analysis retain their existing
+explicit behavior.
