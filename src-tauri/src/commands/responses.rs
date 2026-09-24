@@ -103,6 +103,7 @@ impl Output {
                 let code = e
                     .pointer("/response/incomplete_details/reason")
                     .or_else(|| e.pointer("/response/error/code"))
+                    .or_else(|| e.pointer("/error/code"))
                     .or_else(|| e.get("code"))
                     .and_then(Value::as_str)
                     .unwrap_or("response_failed");
@@ -262,6 +263,20 @@ mod tests {
         let mut partial=valid();partial.failure=Some("max_output_tokens".into());assert!(structured_text(partial,&r).is_err());
         let mut refused=valid();refused.refusal="Refused".into();assert!(structured_text(refused,&r).is_err());
         let mut unfinished=valid();unfinished.terminal=false;assert!(structured_text(unfinished,&r).is_err());
+    }
+    #[test]
+    fn nested_stream_error_preserves_provider_code() {
+        let mut record = RequestRecord::new(&resolve(Capability::Primary), "test");
+        let mut output = Output::default();
+        output.event(
+            &json!({"type":"error","error":{"type":"insufficient_quota","code":"credit_balance_exhausted"}}),
+            &mut record,
+        );
+        let error = output.finish(&mut record).err().unwrap();
+        assert!(error.contains("credit_balance_exhausted"));
+        assert_eq!(record.status, "failed");
+        assert_eq!(record.error_code.as_deref(), Some("credit_balance_exhausted"));
+        assert!(record.fallback_from.is_none());
     }
     #[test]
     fn payload_keeps_local_state_and_voice_contract() {

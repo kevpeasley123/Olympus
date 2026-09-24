@@ -1,0 +1,285 @@
+{
+  "empty": {
+    "agents": [
+      {
+        "authority": "Read-only evidence assessment. No source, project or memory writes; no approval or policy authority.",
+        "availability": "Configured for an attempt; provider access and credit are unverified",
+        "description": "Finds and synthesizes scoped evidence.",
+        "evidence": "Compiled role; quality and live acceptance must be assessed from saved runs.",
+        "history": {
+          "count": 0,
+          "lastAt": null,
+          "recent": [],
+          "unit": "executions"
+        },
+        "id": "research",
+        "kind": "agent",
+        "modelStrategy": "gpt-6-sol · medium",
+        "name": "Research Agent",
+        "peers": [
+          "verification"
+        ],
+        "role": "Produce candidate claims from scoped Research evidence; preserve uncertainty.",
+        "skills": [
+          {
+            "id": "research-retrieval@1",
+            "name": "Research Retrieval"
+          },
+          {
+            "id": "evidence-synthesis@1",
+            "name": "Evidence Synthesis"
+          }
+        ],
+        "sourceScope": "Scoped Pantheon Research excerpts only",
+        "status": "AVAILABLE",
+        "tone": "ready",
+        "version": 1,
+        "workflows": [
+          {
+            "destination": "research",
+            "id": "research-verification/v1",
+            "name": "Research Verification v1"
+          }
+        ]
+      },
+      {
+        "authority": "Read-only evidence assessment. No source, project or memory writes; no approval or policy authority.",
+        "availability": "Configured for an attempt; provider access and credit are unverified",
+        "description": "Checks claims against supplied evidence.",
+        "evidence": "Compiled role; quality and live acceptance must be assessed from saved runs.",
+        "history": {
+          "count": 0,
+          "lastAt": null,
+          "recent": [],
+          "unit": "executions"
+        },
+        "id": "verification",
+        "kind": "agent",
+        "modelStrategy": "gpt-6-sol · medium",
+        "name": "Verification Agent",
+        "peers": [
+          "research"
+        ],
+        "role": "Independently assess each candidate claim against supplied excerpts; request at most one clarification.",
+        "skills": [
+          {
+            "id": "claim-verification@1",
+            "name": "Claim Verification"
+          }
+        ],
+        "sourceScope": "Scoped Pantheon Research excerpts only",
+        "status": "AVAILABLE",
+        "tone": "ready",
+        "version": 1,
+        "workflows": [
+          {
+            "destination": "research",
+            "id": "research-verification/v1",
+            "name": "Research Verification v1"
+          }
+        ]
+      },
+      {
+        "authority": "Only the explicitly approved project, stage and worktree. Completion requires recorded checks and operator review.",
+        "availability": "Driver detected in the September 23 audit (Claude Code 2.1.222); current readiness not probed here.",
+        "description": "Bounded implementation executor.",
+        "evidence": "No completed Olympus delegation runs found. Potentially dormant; not deprecated.",
+        "history": {
+          "count": 0,
+          "lastAt": null,
+          "recent": [],
+          "unit": "recorded runs"
+        },
+        "id": "coding-delegate",
+        "kind": "legacy",
+        "modelStrategy": "sonnet",
+        "name": "Coding Delegate",
+        "peers": [],
+        "role": "Existing Claude Code delegation adapter with separate planning and implementation approval gates.",
+        "skills": [],
+        "sourceScope": "Approved project / isolated worktree",
+        "status": "UNPROVEN",
+        "tone": "muted",
+        "version": null,
+        "workflows": [
+          {
+            "destination": "projects",
+            "id": "coding-delegation",
+            "name": "Project delegation"
+          }
+        ]
+      }
+    ],
+    "observedAt": "2026-09-24T07:22:07.420289800+00:00",
+    "orchestrator": {
+      "authority": "Backend-owned routes and existing approval gates. Chat cannot launch agent runs or grant execution consent; writes and Coding execution use their dedicated approval flows.",
+      "capabilities": [
+        "Planning",
+        "Routing",
+        "Fixed graph execution",
+        "Bounded agent coordination",
+        "Synthesis"
+      ],
+      "description": "Coordinates workflows, agents, skills and execution.",
+      "id": "olympus",
+      "kind": "orchestrator",
+      "name": "Olympus Core",
+      "role": "Coordinates the application's compiled workflows and bounded agents.",
+      "sourceScope": "Evidence supplied through configured application routes",
+      "status": "ACTIVE",
+      "tone": "ready",
+      "usedBy": "System-wide orchestration",
+      "version": null
+    }
+  },
+  "history": {
+    "agents": [
+      {
+        "authority": "Read-only evidence assessment. No source, project or memory writes; no approval or policy authority.",
+        "availability": "Configured for an attempt; provider access and credit are unverified",
+        "description": "Finds and synthesizes scoped evidence.",
+        "evidence": "Compiled role; quality and live acceptance must be assessed from saved runs.",
+        "history": {
+          "count": 2,
+          "lastAt": "2026-09-24T01:02:00Z",
+          "recent": [
+            {
+              "id": "r1",
+              "parentRunId": "parent",
+              "question": "saved question",
+              "startedAt": "2026-09-24T01:02:00Z",
+              "status": "failed",
+              "version": 1
+            },
+            {
+              "id": "r0",
+              "parentRunId": "parent",
+              "question": "saved question",
+              "startedAt": "2026-09-24T01:00:00Z",
+              "status": "completed",
+              "version": 1
+            }
+          ],
+          "unit": "executions"
+        },
+        "id": "research",
+        "kind": "agent",
+        "modelStrategy": "gpt-6-sol · medium",
+        "name": "Research Agent",
+        "peers": [
+          "verification"
+        ],
+        "role": "Produce candidate claims from scoped Research evidence; preserve uncertainty.",
+        "skills": [
+          {
+            "id": "research-retrieval@1",
+            "name": "Research Retrieval"
+          },
+          {
+            "id": "evidence-synthesis@1",
+            "name": "Evidence Synthesis"
+          }
+        ],
+        "sourceScope": "Scoped Pantheon Research excerpts only",
+        "status": "AVAILABLE",
+        "tone": "ready",
+        "version": 1,
+        "workflows": [
+          {
+            "destination": "research",
+            "id": "research-verification/v1",
+            "name": "Research Verification v1"
+          }
+        ]
+      },
+      {
+        "authority": "Read-only evidence assessment. No source, project or memory writes; no approval or policy authority.",
+        "availability": "Configured for an attempt; provider access and credit are unverified",
+        "description": "Checks claims against supplied evidence.",
+        "evidence": "Compiled role; quality and live acceptance must be assessed from saved runs.",
+        "history": {
+          "count": 0,
+          "lastAt": null,
+          "recent": [],
+          "unit": "executions"
+        },
+        "id": "verification",
+        "kind": "agent",
+        "modelStrategy": "gpt-6-sol · medium",
+        "name": "Verification Agent",
+        "peers": [
+          "research"
+        ],
+        "role": "Independently assess each candidate claim against supplied excerpts; request at most one clarification.",
+        "skills": [
+          {
+            "id": "claim-verification@1",
+            "name": "Claim Verification"
+          }
+        ],
+        "sourceScope": "Scoped Pantheon Research excerpts only",
+        "status": "AVAILABLE",
+        "tone": "ready",
+        "version": 1,
+        "workflows": [
+          {
+            "destination": "research",
+            "id": "research-verification/v1",
+            "name": "Research Verification v1"
+          }
+        ]
+      },
+      {
+        "authority": "Only the explicitly approved project, stage and worktree. Completion requires recorded checks and operator review.",
+        "availability": "Driver detected in the September 23 audit (Claude Code 2.1.222); current readiness not probed here.",
+        "description": "Bounded implementation executor.",
+        "evidence": "No completed Olympus delegation runs found. Potentially dormant; not deprecated.",
+        "history": {
+          "count": 0,
+          "lastAt": null,
+          "recent": [],
+          "unit": "recorded runs"
+        },
+        "id": "coding-delegate",
+        "kind": "legacy",
+        "modelStrategy": "sonnet",
+        "name": "Coding Delegate",
+        "peers": [],
+        "role": "Existing Claude Code delegation adapter with separate planning and implementation approval gates.",
+        "skills": [],
+        "sourceScope": "Approved project / isolated worktree",
+        "status": "UNPROVEN",
+        "tone": "muted",
+        "version": null,
+        "workflows": [
+          {
+            "destination": "projects",
+            "id": "coding-delegation",
+            "name": "Project delegation"
+          }
+        ]
+      }
+    ],
+    "observedAt": "2026-09-24T07:22:07.416727400+00:00",
+    "orchestrator": {
+      "authority": "Backend-owned routes and existing approval gates. Chat cannot launch agent runs or grant execution consent; writes and Coding execution use their dedicated approval flows.",
+      "capabilities": [
+        "Planning",
+        "Routing",
+        "Fixed graph execution",
+        "Bounded agent coordination",
+        "Synthesis"
+      ],
+      "description": "Coordinates workflows, agents, skills and execution.",
+      "id": "olympus",
+      "kind": "orchestrator",
+      "name": "Olympus Core",
+      "role": "Coordinates the application's compiled workflows and bounded agents.",
+      "sourceScope": "Evidence supplied through configured application routes",
+      "status": "ACTIVE",
+      "tone": "ready",
+      "usedBy": "System-wide orchestration",
+      "version": null
+    }
+  }
+}

@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use tauri::State;
 
-pub const PRIMARY_MODEL: &str = "gpt-5.6-sol";
+pub const PRIMARY_MODEL: &str = "gpt-6-sol";
 pub const DEEP_MODEL: &str = "gpt-6-astra";
 pub const CLAUDE_MODEL: &str = "claude-opus-5";
 pub const REALTIME_MODEL: &str = "gpt-realtime-2.1";

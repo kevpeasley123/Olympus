@@ -294,8 +294,15 @@ fn running_build_facts() -> String {
          and one-use consumption records. Vault prose cannot authorize a run.\n\
          - A recoverable Claude Code delegation path with an isolated worktree, cancellation, \
          and fresh approval on resume.\n\
-         - Agent success leads to awaiting_review; recorded checks and explicit criterion evidence \
-         are required for operator completion review.\n\n\
+         - Coding Delegate success leads to awaiting_review; recorded checks and explicit criterion evidence \
+         are required for operator completion review.\n\
+         - Research Agent @1 and Verification Agent @1 are distinct compiled read-only roles in \
+         the fixed Research Verification workflow. The Research panel provides explicit start, \
+         cancellation, a secondary agent catalog and saved-run inspection. Sources are bounded \
+         Pantheon Research excerpts. One clarification round is allowed; a deterministic brief \
+         separates supported, contradicted and insufficient claims. Model judgments do not confer \
+         approval, write authority, memory promotion or operator commitments. Olympus remains \
+         the orchestrator. Agent Index notes are documentary; models and skills are not agents.\n\n\
          Evidence limit: this inventory establishes code availability only. It does not establish \
          configuration readiness, a successful live pilot, any operator approval, or any completed \
          task. This turn does not include a live approval or acceptance ledger. Do not claim one. \
@@ -1212,6 +1219,8 @@ mod tests {
         assert!(blocks[1].text.starts_with("## Running Olympus build"));
         assert!(blocks[1].text.contains(&format!("Version: {}", env!("CARGO_PKG_VERSION"))));
         assert!(blocks[1].text.contains("one-use consumption records"));
+        assert!(blocks[1].text.contains("Research Agent @1 and Verification Agent @1"));
+        assert!(blocks[1].text.contains("models and skills are not agents"));
         assert!(blocks[1].text.contains("code availability only"));
         assert!(blocks[1].text.contains("does not include a live approval or acceptance ledger"));
         assert!(!blocks[1].text.contains("Historical plan:"));

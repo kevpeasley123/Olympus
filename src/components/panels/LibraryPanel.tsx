@@ -1,5 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import {KnowledgeAudit} from "./KnowledgeAudit";
+import {ResearchVerification} from "./ResearchVerification";
+import type {ResearchInspectionTarget} from "../../services/commandAgents";
 import matter from "gray-matter";
 import { AnimatePresence, motion } from "motion/react";
 import {
@@ -36,6 +38,8 @@ import type { ObsidianActionResult } from "../../services/obsidian";
 import type { PantheonCategory, ResearchRecord } from "../../types";
 
 interface LibraryPanelProps {
+  inspectionTarget?:ResearchInspectionTarget|null;
+  onReturnToCommand?:()=>void;
   onViewDatabase: () => Promise<ObsidianActionResult>;
   /** Research mode: the library lives in the centre column instead of a modal. */
   resident?: boolean;
@@ -103,7 +107,7 @@ type AllEntriesSort = "date-desc" | "title-asc";
 const SECTION_STORAGE_PREFIX = "pantheon.sectionExpanded.";
 const SEARCH_DEBOUNCE_MS = 150;
 
-export function LibraryPanel({ onViewDatabase, resident = false }: LibraryPanelProps) {
+export function LibraryPanel({ onViewDatabase, resident = false,inspectionTarget,onReturnToCommand }: LibraryPanelProps) {
   const { entries: pantheonEntries, loading, error, refresh: refreshPantheon } = usePantheon();
   const [addEntryModalOpen, setAddEntryModalOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -605,6 +609,7 @@ export function LibraryPanel({ onViewDatabase, resident = false }: LibraryPanelP
 
               <div className="pantheon-modal-body pantheon-modal-body--knowledge">
                 <details className="knowledge-audit-disclosure"><summary>Knowledge audit & evidence history</summary><KnowledgeAudit/></details>
+                <details className="knowledge-audit-disclosure" open={inspectionTarget?true:undefined}><summary>Research with verification & agent catalog</summary><ResearchVerification requestedRunId={inspectionTarget?.runId} inspectionOnly={Boolean(inspectionTarget)} onReturn={inspectionTarget?onReturnToCommand:undefined}/></details>
                 <div className="pantheon-workspace">
           <aside className="pantheon-sidebar">
             <div className="pantheon-sidebar-scroll">

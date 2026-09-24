@@ -1,3 +1,71 @@
+## Release 0.19.0 — September 24, 2026
+
+The operator authorized commit, push and installation of the completed work.
+See [RELEASE-0.19.0.md](RELEASE-0.19.0.md). The pre-release reports below describe
+their validation stage; the external output/olympus-0.19.0-install receipt records
+the subsequent package/install result.
+
+## Latest implementation: operational Agent Catalog on Command — September 24, 2026
+
+See [COMMAND-AGENT-CATALOG.md](COMMAND-AGENT-CATALOG.md). Command now has a left
+read-only operational catalog, the unchanged center instrument, and a layout-reserved
+right chat region. It lists Olympus separately from Research @1, Verification @1
+and legacy/unversioned Coding Delegate; no documentary candidates. Availability is
+observed configuration, not proof of provider access. Counts come from persisted
+child/delegation records; no synthetic activity enters the runtime endpoint.
+Graph/run links open the existing Research inspector read-only and return to Command.
+No execution or authority change, installation, live call, commit or push.
+
+Fresh validation: production build passed; Rust library 339 passed / 2 paid ignored;
+Command/catalog 35 checks at wide and narrow desktop; existing instrument 82;
+Research Verification 22. See the report for timing-harness and manual review notes.
+
+## Previous: first communicating Research / Verification pair — September 23–24, 2026
+
+See [RESEARCH-VERIFICATION-AGENTS.md](RESEARCH-VERIFICATION-AGENTS.md) for the full
+implementation receipt, contracts, authority boundary, limits and verification.
+Source now has Research @1 and Verification @1 in one fixed read-only graph, plus
+the unchanged Coding Delegate. The pair has typed evidence messages, one bounded
+clarification, separate version-bound runs, saved source/request evidence and a
+secondary Research catalog/inspection surface. Existing CI and Knowledge Audit
+remain agent-free. No new top-level navigation or vault-note changes.
+
+The operator explicitly removed the Coding-pilot prerequisite. Coding remains
+implemented / unproven / potentially dormant; do not run its pilot as a dependency.
+The pair's deterministic mechanics pass; paid quality and native installed
+acceptance remain unproven. No install, live provider request, commit or push was
+performed for this slice. Provider credit was exhausted in the earlier diagnostic.
+Next evidence should be a scoped explicit Research UI run after access is available,
+not another agent role or generalized framework. Home semantic navigation remains
+an independent approved slice; do not broaden automatically.
+
+Fresh checks: Rust 337 passed / 2 paid ignored; production frontend build passed;
+Research browser 22 checks at normal and 390×844; existing workflow projection 12.
+
+## Historical: Agent inventory audit — September 23, 2026
+
+See [AGENT-INVENTORY-AUDIT.md](AGENT-INVENTORY-AUDIT.md). Before this implementation,
+source had one delegated executor, Coding Delegate. Its configured binary reported
+2.1.222 and the inspected delegation/approval tables had zero rows. Five index
+candidates and two active-labelled Codex role notes were documentary. The audit's
+Coding-first recommendation was superseded by the operator's Research/Verification
+direction; retain the audit as dated evidence, not a current implementation inventory.
+
+## Latest: workflow inspection Phase 1–2 — September 23, 2026
+
+Communication Intelligence graph/skill/run inspection is implemented in the
+existing Thread analysis history. New runs use CI v4 with corrected sequential
+boundaries, monotonic node timing and linked request receipts; historical runs
+retain their original contracts and unknowns. No new authority or navigation.
+See [WORKFLOW-INSPECTION.md](WORKFLOW-INSPECTION.md) for the evidence contract,
+exact scope, read-only saved-history checks and verification limitations.
+Build passed; Rust 320 passed / 2 paid ignored; frontend projections 12;
+workflow browser 23; Communications regression 58; four real saved CI projections.
+Not packaged/installed. Preserve the separate existing GPT-6 routing edits;
+paid acceptance remains unavailable due to API credits. Report to the operator
+before broadening. Home semantic navigation is approved as the next independent
+slice and has not started. Defer list remains unchanged.
+
 ## Release 0.18.0 — September 13, 2026
 
 Packages the accumulated Communication Situations, relationship maps, priority guidance, operational dossiers and account-scoped local document access. Earlier sections describe historical intermediate builds. Private source packs/database remain local. Release verification: frontend build, 316 Rust tests passed / 2 ignored, and 16 browser acceptance cases including 72 dossier checks. Installer workflow uses the clean committed checkout and upgrades 0.17.0.

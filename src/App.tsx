@@ -9,6 +9,8 @@ import { BackgroundLayer } from "./components/BackgroundLayer";
 import { AmbientDock } from "./components/panels/AmbientDock";
 import { ChatPanel } from "./components/panels/ChatPanel";
 import { CommandInstrument } from "./components/panels/CommandInstrument";
+import { CommandAgentCatalog } from "./components/panels/CommandAgentCatalog";
+import type { ResearchInspectionTarget } from "./services/commandAgents";
 import { HeaderBar } from "./components/panels/HeaderBar";
 import { LibraryPanel } from "./components/panels/LibraryPanel";
 import { ProjectsPanel } from "./components/panels/ProjectsPanel";
@@ -24,6 +26,8 @@ import type { DashboardMode } from "./hooks/useDashboardMode";
 
 function App() {
   const [preferencesOpen,setPreferencesOpen]=useState(false);
+  const [commandAgent,setCommandAgent]=useState("olympus");
+  const [researchInspection,setResearchInspection]=useState<ResearchInspectionTarget|null>(null);
   const {
     settings, settingsReady, updateVoicePreferences,
     tools,
@@ -94,6 +98,7 @@ function App() {
   // Switching modes by any other route clears the filter, so Project mode is
   // never silently showing a subset the operator did not ask for.
   function selectMode(next: DashboardMode) {
+    setResearchInspection(null);
     if (next !== "project") {
       setProjectFilter(null);
     }
@@ -125,6 +130,10 @@ function App() {
             </FadeInPanel>
           </aside>
 
+          {command&&<CommandAgentCatalog selectedId={commandAgent} onSelect={setCommandAgent}
+            onResearch={runId=>{setResearchInspection(previous=>({runId,revision:(previous?.revision??0)+1}));setMode("research")}}
+            onProjects={()=>selectMode("project")}/>}
+
           <section className="center-stack dashboard-column">
             {/* Research mode gives the whole column to the library. The other
                 two keep the queue and the projects; the library rides along as
@@ -152,7 +161,8 @@ function App() {
               </div>}
             {command ? null : mode === "communications" ? <Communications onSettings={()=>setPreferencesOpen(true)} /> : research ? (
               <FadeInPanel index={1} className="panel-slot panel-slot-library-resident">
-                <LibraryPanel onViewDatabase={syncResearchBase} resident />
+                <LibraryPanel onViewDatabase={syncResearchBase} resident inspectionTarget={researchInspection}
+                  onReturnToCommand={()=>{setResearchInspection(null);setMode("command")}}/>
               </FadeInPanel>
             ) : (
               <>

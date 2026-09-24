@@ -1,14 +1,17 @@
 use super::super::assessment_v3 as assessment;
 use super::*;
 use crate::commands::{models, responses};
-pub const GRAPH: &str = "communication-intelligence/v3";
-fn graph() -> Vec<GraphNode> {
+// The implementation retains its v3 assessment policy; v4 corrects trace boundaries.
+pub const GRAPH: &str = "communication-intelligence/v4";
+pub(super) fn graph() -> Vec<GraphNode> {
     let mut nodes = definition();
     for node in &mut nodes {
         if node.id == "assess" {
             node.kind = "communication-assess@2".into();
             node.max_iterations = 3;
         }
+        if node.id == "project" { node.depends_on = vec!["assess".into()]; }
+        if node.id == "synthesize" { node.depends_on = vec!["project".into()]; }
     }
     nodes
 }
@@ -24,8 +27,9 @@ fn guard(c: &Connection, account: &str, days: u32, stamp: &str) -> Result<(), St
     }
     Ok(())
 }
-fn trace(c: &Connection, id: &str, node: &str, state: &str, value: Value) -> Result<(), String> {
-    event(c, id, node, state, value)
+fn trace(c: &Connection, id: &str, started: &std::time::Instant, node: &str, state: &str, value: Value) -> Result<(), String> {
+    // Arrays remain outputs; trace metadata never changes their shape in historical rows.
+    event(c, id, node, state, json!({"traceVersion":1,"attempt":1,"elapsedMs":started.elapsed().as_millis() as u64,"data":value}))
 }
 pub async fn run(db: &Db, root: &Path, request: Request) -> Result<Value, String> {
     run_with(db, root, request, |input, mut record| async move {
@@ -132,6 +136,41 @@ mod tests {
             .unwrap();
         assert_eq!(calls, 3);
         assert_eq!(result["status"], "completed");
+        assert_eq!(result["graph"], GRAPH);
+        inspection::validate_descriptor(&result["workflow"]).unwrap();
+        assert_eq!(result["definition"], result["workflow"]["definition"]);
+        assert_eq!(result["skills"], result["workflow"]["skills"]);
+        assert_eq!(result["definitionFingerprint"], content_fingerprint(&result["workflow"].to_string()));
+        let records = {
+            let c = db.0.lock().unwrap();
+            let mut q = c.prepare("SELECT node,state,result_json FROM communication_events WHERE run_id='loop' ORDER BY sequence").unwrap();
+            q.query_map([], |r| Ok((r.get::<_,String>(0)?,r.get::<_,String>(1)?,serde_json::from_str::<Value>(&r.get::<_,String>(2)?).unwrap())))
+                .unwrap().collect::<Result<Vec<_>,_>>().unwrap()
+        };
+        let lifecycle = records.iter().filter(|(_,s,_)| s=="running" || s=="completed").map(|(n,s,_)| format!("{n}:{s}")).collect::<Vec<_>>();
+        assert_eq!(lifecycle, ["snapshot:running","snapshot:completed","select:running","select:completed","assess:running","assess:completed","project:running","project:completed","synthesize:running","synthesize:completed"]);
+        let mut elapsed = 0;
+        for (_,_,v) in &records {
+            assert_eq!(v["traceVersion"], 1);
+            assert_eq!(v["attempt"], 1);
+            let next = v["elapsedMs"].as_u64().unwrap();
+            assert!(next >= elapsed); elapsed = next;
+        }
+        let passes = records.iter().filter(|(_,s,_)| s=="pass_started").map(|(_,_,v)| &v["data"]).collect::<Vec<_>>();
+        let outputs = records.iter().filter(|(_,s,_)| s=="model_result").map(|(_,_,v)| &v["data"]).collect::<Vec<_>>();
+        let iterations = records.iter().filter(|(_,s,_)| s=="iteration").map(|(_,_,v)| &v["data"]).collect::<Vec<_>>();
+        assert_eq!(passes.len(), 3); assert_eq!(outputs.len(), 3); assert_eq!(iterations.len(), 3);
+        for (i, ((pass, output), iteration)) in passes.iter().zip(outputs).zip(iterations).enumerate() {
+            assert_eq!(pass["pass"], i+1); assert_eq!(output["pass"], i+1); assert_eq!(iteration["pass"], i+1);
+            assert_eq!(pass["requestId"], output["request"]["id"]);
+            assert_eq!(pass["request"]["id"], output["request"]["id"]);
+            assert_eq!(pass["request"]["requestedModel"], models::PRIMARY_MODEL);
+            assert_eq!(pass["request"]["actualModel"], Value::Null);
+            assert_eq!(output["request"]["actualModel"], "fixture-model");
+            assert_eq!(pass["contextSkills"], json!(["project-relevance@2"]));
+            assert_eq!(iteration["threadId"], "thread");
+        }
+        assert!(records.iter().find(|(n,s,_)| n=="project"&&s=="completed").unwrap().2["data"].is_array());
         assert_eq!(
             result["items"][0]["recommendation"]["disposition"],
             "no_action"
@@ -235,6 +274,12 @@ mod tests {
             }))
             .unwrap();
         assert_eq!(again, result);
+        let c = db.0.lock().unwrap();
+        let project_starts: i64 = c.query_row("SELECT count(*) FROM communication_events WHERE run_id='invalid' AND node='project' AND state='running'",[],|r|r.get(0)).unwrap();
+        assert_eq!(project_starts,0, "Project finalization cannot start during failed assessment");
+        let stopped: i64 = c.query_row("SELECT count(*) FROM communication_events WHERE run_id='invalid' AND state='stopped'",[],|r|r.get(0)).unwrap();
+        assert_eq!(stopped,2);
+        drop(c);
         std::fs::remove_dir_all(root).unwrap();
     }
     #[test]
@@ -355,6 +400,8 @@ where
     }
     let time = Utc::now().timestamp_millis();
     let started = std::time::Instant::now();
+    let workflow = inspection::descriptor();
+    inspection::validate_descriptor(&workflow)?;
     let (account, days, mut run) = {
         let c = db.0.lock().map_err(|_| "database_busy")?;
         let account = store::account(&c)?
@@ -376,7 +423,7 @@ where
             return Ok(value);
         }
         let days = request.days.min(account.horizon_days);
-        let value = json!({"id":request.id,"accountId":account.id,"graph":GRAPH,"definition":graph(),"skills":skill::registry(),"requestedDays":request.days,"days":days,"status":"running","startedAt":now(),"finishedAt":null,"durationMs":null,"model":models::PRIMARY_MODEL,"usage":[],"items":[],"error":null,"stale":false,"loop":{"maxPasses":3,"passes":0},"selectionPolicy":"up to four flagged threads first, then most recent remaining threads; six-thread cap"});
+        let value = json!({"id":request.id,"accountId":account.id,"graph":GRAPH,"definition":workflow["definition"],"skills":workflow["skills"],"workflow":workflow,"definitionFingerprint":content_fingerprint(&workflow.to_string()),"traceVersion":1,"buildVersion":env!("CARGO_PKG_VERSION"),"requestedDays":request.days,"days":days,"status":"running","startedAt":now(),"finishedAt":null,"durationMs":null,"model":models::PRIMARY_MODEL,"usage":[],"items":[],"error":null,"stale":false,"loop":{"maxPasses":3,"passes":0},"selectionPolicy":"up to four flagged threads first, then most recent remaining threads; six-thread cap"});
         c.execute("INSERT INTO communication_runs(id,account_id,days,status,payload_json) VALUES(?1,?2,?3,'running',?4)",params![request.id,account.id,days,value.to_string()]).map_err(err)?;
         (account.id, days, value)
     };
@@ -384,29 +431,28 @@ where
     let result:Result<Vec<Value>,String>=async{
         let (stamp,inputs,catalog)={
             let c=db.0.lock().map_err(|_|"database_busy")?;
-            trace(&c,&request.id,"snapshot","running",json!({}))?;
+            trace(&c,&request.id,&started,"snapshot","running",json!({}))?;
             let stamp=signature(&c,&account)?;
             let counts=super::super::communications::workspace(&c,days,"attention","",0,time)?;
             run["snapshot"]=json!({"signature":stamp,"cachedThreads":counts["threads"],"cachedMessages":counts["total"],"candidateMessages":counts["attention"]});
-            trace(&c,&request.id,"snapshot","completed",run["snapshot"].clone())?;
+            trace(&c,&request.id,&started,"snapshot","completed",run["snapshot"].clone())?;
             active="select";
-            trace(&c,&request.id,"select","running",json!({}))?;
+            trace(&c,&request.id,&started,"select","running",json!({}))?;
             let inputs=selected(&c,&account,days,time,true)?;
             run["selectedThreads"]=json!(inputs.len());
-            trace(&c,&request.id,"select","completed",json!({"selectedThreads":inputs.len(),"threadLimit":6,"messageLimitPerThread":4,"textLimitPerMessage":2000,"policy":run["selectionPolicy"],"evidenceRefs":inputs.iter().flat_map(|i|i.refs()).collect::<Vec<_>>()}))?;
-            active="project";
-            trace(&c,&request.id,"project","running",json!({"method":"bounded_name_alias_match"}))?;
             let catalog=if inputs.is_empty(){vec![]}else{projects(root)?};
             run["projectSignature"]=if inputs.is_empty(){Value::Null}else{json!(project_signature(&catalog))};
-            trace(&c,&request.id,"project","catalog_snapshot",json!({"sources":catalog,"method":"bounded_name_alias_match","discoveryIterations":0}))?;
-            (stamp,inputs,catalog)
+            trace(&c,&request.id,&started,"select","catalog_snapshot",json!({"sources":catalog,"method":"bounded_name_alias_match","discoveryIterations":0}))?;
+            let contexts=inputs.iter().cloned().map(assessment::Context::new).collect::<Result<Vec<_>,_>>()?;
+            trace(&c,&request.id,&started,"select","completed",json!({"selectedThreads":inputs.len(),"threadLimit":6,"messageLimitPerThread":4,"textLimitPerMessage":2000,"policy":run["selectionPolicy"],"evidenceRefs":inputs.iter().flat_map(|i|i.refs()).collect::<Vec<_>>()}))?;
+            (stamp,contexts,catalog)
         };
-        let mut contexts=inputs.into_iter().map(assessment::Context::new).collect::<Result<Vec<_>,_>>()?;
+        let mut contexts=inputs;
         let mut pending=(0..contexts.len()).collect::<Vec<_>>();
         let mut results:Vec<Option<assessment::Assessment>>=vec![None;contexts.len()];
         let mut stops=vec![String::new();contexts.len()];
         active="assess";
-        {let c=db.0.lock().map_err(|_|"database_busy")?;trace(&c,&request.id,"assess","running",json!({"skill":"communication-assess@2","maxPasses":3,"model":models::PRIMARY_MODEL}))?;}
+        {let c=db.0.lock().map_err(|_|"database_busy")?;trace(&c,&request.id,&started,"assess","running",json!({"skill":"communication-assess@2","maxPasses":3,"model":models::PRIMARY_MODEL}))?;}
         for pass in 1..=3 {
             if pending.is_empty(){break;}
             {let c=db.0.lock().map_err(|_|"database_busy")?;guard(&c,&account,days,&stamp)?;}
@@ -420,7 +466,7 @@ where
             let route=models::resolve(models::Capability::Primary);
             let mut record=models::RequestRecord::new(&route,"communication_assessment");
             models::save(db,&record)?;
-            {let c=db.0.lock().map_err(|_|"database_busy")?;trace(&c,&request.id,"assess","pass_started",json!({"pass":pass,"requestId":record.id,"evidenceRefs":visible.iter().map(|i|i.refs()).collect::<Vec<_>>(),"excerptFingerprints":visible.iter().map(|i|content_fingerprint(&json!(i).to_string())).collect::<Vec<_>>(),"characters":visible.iter().flat_map(|i|&i.messages).map(|m|m.text.chars().count()).sum::<usize>()}))?;}
+            {let c=db.0.lock().map_err(|_|"database_busy")?;trace(&c,&request.id,&started,"assess","pass_started",json!({"pass":pass,"requestId":record.id,"request":record,"contextSkills":["project-relevance@2"],"assessedThreads":visible.len(),"evidenceRefs":visible.iter().map(|i|i.refs()).collect::<Vec<_>>(),"excerptFingerprints":visible.iter().map(|i|content_fingerprint(&json!(i).to_string())).collect::<Vec<_>>(),"characters":visible.iter().flat_map(|i|&i.messages).map(|m|m.text.chars().count()).sum::<usize>()}))?;}
             // No database lock crosses this network await. Only explicitly selected excerpts leave Rust.
             let (output,returned)=infer(json!({"snapshotTime":time,"threads":batch}),record).await;
             record=returned;
@@ -429,7 +475,7 @@ where
             models::save(db,&record)?;
             run["usage"].as_array_mut().unwrap().push(json!(record));
             run["loop"]["passes"]=json!(pass);
-            {let c=db.0.lock().map_err(|_|"database_busy")?;trace(&c,&request.id,"assess","model_result",json!({"pass":pass,"request":record}))?;guard(&c,&account,days,&stamp)?;}
+            {let c=db.0.lock().map_err(|_|"database_busy")?;trace(&c,&request.id,&started,"assess","model_result",json!({"pass":pass,"request":record}))?;guard(&c,&account,days,&stamp)?;}
             let parsed=parsed?;
             let mut next=Vec::new();
             for (&index,a) in pending.iter().zip(parsed) {
@@ -439,20 +485,21 @@ where
                     else if contexts[index].expand(&a.expansion) {next.push(index);"expanded"}
                     else {"no_new_evidence"};
                 let c=db.0.lock().map_err(|_|"database_busy")?;
-                trace(&c,&request.id,"assess","iteration",json!({"pass":pass,"threadId":a.thread_id,"assessment":a,"stopReason":decision,"nextEvidenceRefs":contexts[index].visible.refs()}))?;
+                trace(&c,&request.id,&started,"assess","iteration",json!({"pass":pass,"threadId":a.thread_id,"assessment":a,"stopReason":decision,"nextEvidenceRefs":contexts[index].visible.refs()}))?;
                 stops[index]=decision.into();results[index]=Some(a);
             }
             pending=next;
         }
         let c=db.0.lock().map_err(|_|"database_busy")?;
         guard(&c,&account,days,&stamp)?;
-        trace(&c,&request.id,"assess","completed",json!({"passes":run["loop"]["passes"],"assessedThreads":results.len(),"stopReasons":stops}))?;
+        trace(&c,&request.id,&started,"assess","completed",json!({"passes":run["loop"]["passes"],"assessedThreads":results.len(),"stopReasons":stops}))?;
         active="project";
+        trace(&c,&request.id,&started,"project","running",json!({"skill":"project-relevance@2","method":"bounded_name_alias_match"}))?;
         if run["projectSignature"].is_string() && run["projectSignature"]!=project_signature(&projects(root)?) {return Err("project_context_changed_during_run".into())}
         let relevance=contexts.iter().map(|i|crate::commands::project_relevance::match_projects(&skill::artifact(&i.visible)?,&catalog)).collect::<Result<Vec<_>,String>>()?;
-        trace(&c,&request.id,"project","completed",json!(relevance))?;
+        trace(&c,&request.id,&started,"project","completed",json!(relevance))?;
         active="synthesize";
-        trace(&c,&request.id,"synthesize","running",json!({"policy":"validated assessment; needs_you then uncertainty then background"}))?;
+        trace(&c,&request.id,&started,"synthesize","running",json!({"policy":"validated assessment; needs_you then uncertainty then background"}))?;
         let mut items=Vec::new();
         for (((context,result),project),stop) in contexts.iter().zip(results).zip(relevance).zip(stops) {
             let a=result.ok_or("join_missing_branch_output")?;
@@ -466,7 +513,7 @@ where
                 "project":project,"recommendation":{"disposition":a.recommendation,"guidance":a.recommended_next_move,"priority":a.priority,"evidenceRefs":refs}}));
         }
         items.sort_by_key(|i|(match i["triage"]["attention"].as_str(){Some("needs_you")=>0,Some("uncertain")=>1,_=>2},match i["recommendation"]["priority"].as_str(){Some("high")=>0,Some("normal")=>1,_=>2}));
-        trace(&c,&request.id,"synthesize","completed",json!({"items":items,"selectedThreads":contexts.len(),"wholeMailboxAssessment":false}))?;
+        trace(&c,&request.id,&started,"synthesize","completed",json!({"items":items,"selectedThreads":contexts.len(),"wholeMailboxAssessment":false}))?;
         Ok(items)
     }.await;
     let c = db.0.lock().map_err(|_| "database_busy")?;
@@ -481,6 +528,7 @@ where
             trace(
                 &c,
                 &request.id,
+                &started,
                 active,
                 "failed",
                 json!({"error":error,"stopReason":"failed_closed"}),
@@ -492,6 +540,7 @@ where
                         trace(
                             &c,
                             &request.id,
+                            &started,
                             &n.id,
                             "stopped",
                             json!({"stopReason":"upstream_failure"}),

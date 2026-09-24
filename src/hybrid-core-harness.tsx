@@ -163,7 +163,12 @@ await wait(900);
 const parallax=JSON.parse(canvas.dataset.parallax ?? '[0,0]');
 assert(parallax[0]>.8&&parallax[1]>.8,'Pointer drives bounded constellation parallax');
 dial.dispatchEvent(new PointerEvent('pointerleave'));
-await wait(900);
+// Renderer telemetry updates every 500 ms. Wait for an observed settled sample,
+// not a fixed delay that can still read the preceding in-motion sample.
+for(let attempt=0;attempt<25;attempt++){
+  if(JSON.parse(canvas.dataset.parallax ?? '[1,1]').every((v:number)=>Math.abs(v)<.12))break;
+  await wait(100);
+}
 assert(JSON.parse(canvas.dataset.parallax ?? '[1,1]').every((v:number)=>Math.abs(v)<.12),'Pointer exit returns constellation to rest');
 canvas.getContext('webgl2')!.getExtension('WEBGL_lose_context')!.loseContext();await wait(400);
 assert(document.querySelector('[data-scene-ready="false"]')&&document.body.textContent?.includes('Graphics context lost'),"Context loss hides the complete scene without 2D fallback");

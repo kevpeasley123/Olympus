@@ -1,20 +1,21 @@
 import {useEffect,useRef,useState} from 'react';
-import {intelligenceClient,type IntelligenceClient,type IntelligenceRun,type BriefItem,type RunEvent} from '../../services/communicationIntelligence';
+import {intelligenceClient,type IntelligenceClient,type IntelligenceRun,type BriefItem} from '../../services/communicationIntelligence';
+import {WorkflowInspection} from './WorkflowInspection';
 import type {CommunicationRow} from '../../services/communications';
 export function CommunicationsBrief({days,onOpen,api=intelligenceClient}:{days:number;onOpen:(row:CommunicationRow)=>void;api?:IntelligenceClient}){
  const [runs,setRuns]=useState<IntelligenceRun[]>([]),[busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState('');
- const [inspect,setInspect]=useState(''),[events,setEvents]=useState<RunEvent[]>([]);
+ const [inspect,setInspect]=useState<{id?:string}|null>(null);
  const generation=useRef(0);
- useEffect(()=>{const version=++generation.current;setRuns([]);setInspect('');setEvents([]);setError('');setBusy(false);
- const refresh=()=>api.list(days).then(r=>{if(generation.current===version)setRuns(r)}).catch(()=>{if(generation.current===version)setError('Analysis history unavailable. Retry when the local connection is ready.')});
+ useEffect(()=>{const version=++generation.current;setRuns([]);setInspect(null);setError('');setBusy(false);
+ const refresh=()=>api.list(days).then(r=>{if(generation.current===version)setRuns(r)}).catch(()=>{if(generation.current===version){setRuns([]);setInspect(null);setError('Analysis history unavailable. Retry when the local connection is ready.')}});
  void refresh();const timer=setInterval(refresh,10000);return()=>{generation.current++;clearInterval(timer)};
  },[api,days]);
- const run=runs[0],inspected=runs.find(r=>r.id===inspect);
+ const run=runs[0];
  const needs=run?.items.filter(i=>['needs_you','yes'].includes(i.triage.attention)).length??0;
  const background=run?.items.filter(i=>i.triage.attention==='background')??[];
  const foreground=run?.items.filter(i=>i.triage.attention!=='background')??[];
  async function analyze(){const version=generation.current;setBusy(true);setError('');try{await api.analyze(days);const next=await api.list(days);if(version===generation.current)setRuns(next)}catch{if(version===generation.current)setError('Analysis failed. No new brief was published; inspect the run or retry.')}finally{if(version===generation.current)setBusy(false)}}
- async function details(id:string){const version=generation.current;setInspect(id);setEvents([]);try{const result=await api.events(id);if(version===generation.current)setEvents(result)}catch{if(version===generation.current)setError('Run evidence could not be loaded.')}}
+ function details(id:string){setInspect({id})}
  async function feedback(item:BriefItem,event:'opened'|'false_response'|'false_deadline'|'project_dismissed'|'useful'|'incorrect'|'missed_needs_me'){
  if(!run)return;try{await api.feedback(run.id,item.threadId,event);setNotice(event==='opened'?'':'Feedback saved for evaluation; it does not automatically retrain Olympus or change your mail.')}catch{setError('Evaluation event could not be saved.')}
  }
@@ -28,6 +29,7 @@ export function CommunicationsBrief({days,onOpen,api=intelligenceClient}:{days:n
  return <section className="comms-brief" aria-label="Olympus Communications Brief">
   <header><div><small>OLYMPUS COMMUNICATIONS BRIEF</small><h3>{busy?'Reading the signals…':run?.status==='completed'&&!run.stale?run.items.length?`${needs} ${needs===1?'thing needs':'things need'} you`:'No threads in the selected scope':'Bring the important threads into focus'}</h3></div><button className="ghost-action" disabled={busy||run?.status==='running'} onClick={()=>void analyze()}>{busy?'Analyzing…':run?'Refresh intelligence':'Analyze communications'}</button></header>
   <p className="comms-scope">Analyze sends selected cached excerpts and matching project metadata to OpenAI · Sol. Up to 6 threads, 4 messages each, 3 context passes. No mail is sent or changed.</p>
+  <button className="comms-text-action" onClick={()=>setInspect({})}>About this workflow</button>
   {error&&<p role="alert">{error}</p>}{notice&&<p role="status">{notice}</p>}
   {run?.stale&&<p className="comms-notice">This analysis is out of date. Refresh intelligence before relying on it.</p>}
   {run&&run.status!=='completed'&&<p role="status">Run {run.status}. {run.error} Retry creates a new run and preserves prior evidence.</p>}
@@ -40,9 +42,6 @@ export function CommunicationsBrief({days,onOpen,api=intelligenceClient}:{days:n
   </div>}
   {run&&<footer><small>{run.graph} · {run.status} · {run.durationMs??'—'} ms · {new Date(run.startedAt).toLocaleString()}</small><button className="comms-text-action" onClick={()=>void details(run.id)}>Inspect analysis</button></footer>}
   {runs.length>1&&<details><summary>Previous analyses</summary>{runs.slice(1).map(r=><button key={r.id} className="comms-text-action" onClick={()=>void details(r.id)}>{new Date(r.startedAt).toLocaleString()} · {r.status}</button>)}</details>}
-  {inspected&&<section className="comms-run-details" aria-label="Communication analysis details"><header><h4>Run details · {inspected.graph}</h4><button className="comms-text-action" onClick={()=>setInspect('')}>Close run details</button></header><p>{inspected.model?`Model: ${inspected.model} · ${inspected.loop?.passes??0} context passes`:'Historical local analysis · model: none'}. Recommendations never execute.</p><p>{inspected.items.length} brief items · {inspected.durationMs??'—'} ms</p>
-   {inspected.definition.map(n=><details key={n.id}><summary>{n.id} · {events.filter(e=>e.node===n.id).slice(-1)[0]?.state??'No recorded event'}</summary><p>{n.kind} · depends on {n.dependsOn.join(', ')||'manual trigger'} · {n.maxIterations>1?`maximum passes: ${n.maxIterations}`:'fixed step'}</p>{events.filter(e=>e.node===n.id).map((e,i)=><div key={i}><small>{e.at} · {e.state}</small><pre>{JSON.stringify(e.result,null,2)}</pre></div>)}</details>)}
-   <details><summary>Operator feedback · {inspected.feedbackCount??0}</summary><pre>{JSON.stringify(events.filter(e=>e.node==='feedback').map(e=>({at:e.at,...e.result as object})),null,2)}</pre></details><details><summary>Model request receipts</summary><pre>{JSON.stringify(inspected.usage??[],null,2)}</pre></details><details><summary>Versioned skill contracts</summary><pre>{JSON.stringify(inspected.skills,null,2)}</pre></details>
-  </section>}
+  {inspect&&<WorkflowInspection key={inspect.id??'compiled-workflow'} api={api} runId={inspect.id} onClose={()=>setInspect(null)}/>}
  </section>;
 }

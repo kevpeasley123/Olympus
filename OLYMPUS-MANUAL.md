@@ -79,6 +79,14 @@ note constellation, and central glyph. The bottom-right Command Console remains
 compact when dormant, opens recent dialogue when engaged, and exposes a larger
 transcript only when requested.
 
+The operational Agent Catalog occupies the left region beside the slim global
+rail. Olympus Core is listed separately as orchestrator; only actual executable
+roles appear here. Selected-role details stay in the same left panel. The right
+region is reserved for the compact console and its upward transcript expansion,
+which must cover neither the catalog nor the central instrument. Catalog inspection
+is read-only and never launches agents. Deeper graph/run inspection links to the
+existing Research surface. See `docs/COMMAND-AGENT-CATALOG.md`.
+
 Command's defining test is “one instrument, readable across the room.”
 A proposal that adds a card, list, or scroll container to its centre column
 belongs in Project mode. The instrument must not shrink to make room for a panel;

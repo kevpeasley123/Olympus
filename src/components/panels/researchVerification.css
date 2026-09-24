@@ -1,0 +1,10 @@
+.research-verification{padding:16px;min-width:0;max-width:100%;overflow-wrap:anywhere;color:var(--text-primary,#d9dce5)}
+.research-verification h3,.research-verification h4{margin:16px 0 8px}.research-verification h5{font-size:12px;letter-spacing:.06em;margin:12px 0}
+.research-verification p,.research-verification li{font-size:13px;line-height:1.6}.research-verification p{margin:8px 0}
+.research-verification section,.research-verification article{min-width:0}.research-verification form,.research-verification article,.research-verification [aria-label="Agent catalog"]{padding:12px;border:1px solid rgba(170,185,210,.2);border-radius:8px;margin:12px 0}
+.research-verification label{display:block;font-size:13px}.research-verification input,.research-verification select{display:block;width:100%;min-width:0;box-sizing:border-box;margin:8px 0;padding:9px;background:var(--bg-panel,#151922);color:inherit;border:1px solid rgba(170,185,210,.35);border-radius:5px}
+.research-verification button{max-width:100%;white-space:normal;text-align:left;border:1px solid rgba(170,185,210,.35);background:transparent;color:inherit;border-radius:5px;padding:7px 10px;cursor:pointer}.research-verification button:disabled{opacity:.5;cursor:default}
+.research-verification a{color:var(--accent,#a8c8f5)}.research-verification button:focus-visible,.research-verification summary:focus-visible{outline:2px solid #a8c8f5;outline-offset:3px}
+.rv-actions{display:flex;gap:8px;flex-wrap:wrap}.research-verification details{padding:8px 0}.research-verification summary{cursor:pointer;font-size:13px}.research-verification pre{font-size:11px;white-space:pre-wrap;overflow-wrap:anywhere;max-height:360px;overflow:auto;background:rgba(0,0,0,.12);padding:10px}
+.research-verification blockquote{margin:8px 0;padding:8px 12px;border-left:2px solid rgba(168,200,245,.45);white-space:pre-wrap}.rv-executions{padding-left:24px}.rv-executions>li{padding:12px 0;border-bottom:1px solid rgba(170,185,210,.15)}
+.research-verification [role="alert"]{color:#f3b6a5}.research-verification details:target{outline:2px solid #a8c8f5;outline-offset:4px}

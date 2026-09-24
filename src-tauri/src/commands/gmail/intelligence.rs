@@ -1,6 +1,8 @@
 //! Versioned Communications runs. v3 interprets bounded cache snapshots; historical v2 tests remain.
 #[path = "intelligence_v3.rs"]
 mod v3;
+#[path = "intelligence_inspection.rs"]
+pub mod inspection;
 use super::{communication_skills as skill, store};
 use crate::commands::{persistence::Db, vault_write::content_fingerprint, workflow::GraphNode};
 use chrono::Utc;

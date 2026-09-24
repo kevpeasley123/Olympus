@@ -324,6 +324,7 @@ pub fn run() {
         .setup(|app| {
             let connection = open_database(app.handle())?;
             commands::knowledge_audit::recover(&connection)?;
+            commands::research_verification::recover(&connection)?;
             commands::gmail::recover(&connection)?;
             commands::gmail::intelligence::recover(&connection)?;
             let session_id = commands::delegation::run_id();
@@ -341,9 +342,16 @@ pub fn run() {
             commands::gmail::situations::documents::situation_document_status, commands::gmail::situations::documents::situation_document_open,
             commands::gmail::situations::situation_snapshot, commands::gmail::situations::engine::situation_refresh, commands::gmail::situations::situation_set_background, commands::gmail::situations::situation_update, commands::gmail::situations::situation_edit, commands::gmail::situations::drafts::situation_draft, commands::gmail::situations::drafts::situation_save_draft,
             commands::gmail::intelligence::analyze_communications, commands::gmail::intelligence::communication_runs, commands::gmail::intelligence::communication_run_events, commands::gmail::intelligence::communication_feedback, commands::gmail::intelligence::communication_skills,
+            commands::gmail::intelligence::inspection::communication_workflow, commands::gmail::intelligence::inspection::inspect_communication_run,
             commands::gmail::gmail_workspace, commands::gmail::gmail_remove_cache, commands::gmail::gmail_status, commands::gmail::gmail_connect, commands::gmail::gmail_cancel, commands::gmail::gmail_disconnect, commands::gmail::gmail_sync, commands::gmail::gmail_set_horizon, commands::gmail::gmail_search, commands::gmail::gmail_thread,
             send_assistant_message,
             commands::knowledge_audit::start_knowledge_audit,
+            commands::research_verification::research_agent_catalog,
+            commands::command_agents::command_agent_catalog,
+            commands::research_verification::start_research_verification,
+            commands::research_verification::inspect_research_verification,
+            commands::research_verification::list_research_verifications,
+            commands::research_verification::cancel_research_verification,
             commands::knowledge_audit::list_knowledge_audits,
             commands::knowledge_audit::inspect_knowledge_audit,
             commands::models::model_routes,
