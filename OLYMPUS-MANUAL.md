@@ -182,7 +182,8 @@ The implementation boundary and pilot acceptance evidence live in
 
 Proactivity arrives in stages:
 
-1. A proactive briefing when Olympus opens.
+1. A proactive briefing when Olympus opens. Implemented 2026-09-28: spoken once
+   per launch, built only from provable project state.
 2. Scheduled briefs, warnings, and neglected-work signals.
 3. Optional system notifications.
 4. Deliberate push-to-talk voice invocation using “Olympus.”
@@ -192,19 +193,20 @@ Presence should come from awareness and readiness, not constant interruption.
 ## Product priorities
 
 1. Trustworthy live project briefings.
-2. Delegating work to coding agents.
+2. Research and verification agents.
 3. Curated project memory.
 4. Proactive warnings and briefs.
 5. The full project constellation.
 6. Voice commands.
+7. Delegating work to coding agents (implemented, unproven; no pilot prerequisite).
 
 Do not let a lower priority delay the evidence and safety foundations required by
 a higher one.
 
 September 23–24, 2026: Kevin redirected agent work to the Research / Verification
 pair ahead of the Coding Delegate pilot, and removed that pilot as a prerequisite
-for other work. Coding delegation remains implemented and unproven. This note
-records the redirection; the list above has not been re-ranked.
+for other work. Coding delegation remains implemented and unproven. Kevin
+re-ranked the list above accordingly on September 28, 2026.
 
 ## Evidence standard
 

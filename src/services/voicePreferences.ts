@@ -10,6 +10,8 @@ export interface VoicePreferences {
   autoSpeak:boolean;
   captionsEnabled:boolean;
   bargeInEnabled:boolean;
+  /** Speak a short project briefing once each time Olympus opens. */
+  briefOnOpen:boolean;
 }
 export const DEFAULT_VOICE_PREFERENCES = config.defaults as VoicePreferences;
 export function normalizeVoicePreferences(value:unknown):VoicePreferences {
@@ -21,6 +23,7 @@ export function normalizeVoicePreferences(value:unknown):VoicePreferences {
     autoSpeak:typeof raw.autoSpeak === "boolean" ? raw.autoSpeak : DEFAULT_VOICE_PREFERENCES.autoSpeak,
     captionsEnabled:typeof raw.captionsEnabled === "boolean" ? raw.captionsEnabled : DEFAULT_VOICE_PREFERENCES.captionsEnabled,
     bargeInEnabled:typeof raw.bargeInEnabled === "boolean" ? raw.bargeInEnabled : DEFAULT_VOICE_PREFERENCES.bargeInEnabled,
+    briefOnOpen:typeof raw.briefOnOpen === "boolean" ? raw.briefOnOpen : DEFAULT_VOICE_PREFERENCES.briefOnOpen,
   };
 }
 export function voiceBehavior(preferences:VoicePreferences) { return `${config.behavior} ${config.styles[preferences.speechStyle]}`; }

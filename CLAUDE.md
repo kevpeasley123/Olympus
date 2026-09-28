@@ -61,9 +61,9 @@ Settled in conversation with the owner — treat as given unless he revisits the
 
 **Voice: dry and economical.** State what happened, offer the thing that wasn't asked for but is needed, stop. No "Great question", no exclamation marks, no enthusiasm it hasn't earned. This is encoded in the system prompt in `assistant.rs` and applies to the app's own copy too.
 
-**It does not speak first.** Reacts to the operator's initiation only. Scheduled rhythms (a morning brief, an end-of-day close-out) are wanted *later*, once the project is in a good state — `08 - Daily Briefs` in the vault is their destination. Not now.
+**It speaks first once, when it opens.** Decided 2026-09-28, following `OLYMPUS-MANUAL.md` Proactivity stage 1: a short project briefing composed deterministically from provable state (commits since the last launch, recorded checkpoints, the operator's own next step), spoken when Auto Speak is on, and switchable off with the Opening Briefing preference. See `src/services/openingBriefing.ts`. Otherwise it reacts to the operator's initiation. Scheduled rhythms (a morning brief, an end-of-day close-out) are wanted *later* — `08 - Daily Briefs` in the vault is their destination. Not now.
 
-Background Communications situation analysis, approved by the operator and recorded in `OLYMPUS-MANUAL.md`, runs while the app is open and only updates the Communications view (it can be paused); proactive speaking and scheduled briefs remain deferred.
+Background Communications situation analysis, approved by the operator and recorded in `OLYMPUS-MANUAL.md`, runs while the app is open and only updates the Communications view (it can be paused).
 
 **It acts, with an approval gate, and advises when needed.** Reads run freely; writes surface a confirmation before touching disk or project state. This is already the README's stated safety model.
 

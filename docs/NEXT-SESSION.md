@@ -1,3 +1,26 @@
+## Opening briefing and priorities — September 28, 2026
+
+Operator decisions: Olympus speaks a short briefing once when it opens (manual
+Proactivity stage 1), and Research / Verification agents replace coding delegation
+as product priority 2; coding delegation moves to 7.
+
+- `src/services/openingBriefing.ts` composes the briefing without a model: commits
+  since the previous launch, NEEDS_YOU / BLOCKED rows from the Command Board (at most
+  two, then a count), running delegation, and the operator's recorded next step.
+  Failed scans and first sessions are stated, not guessed around.
+- `useDashboardData` fires it once per launch after hydration, the first project
+  scan and the first task/run fetch, appends it to the conversation as an assistant
+  output message, and persists it. `App` speaks it through `realtimeVoice.replay`
+  when Auto Speak is on; the transcript keeps Replay either way.
+- New voice preference `briefOnOpen` (Opening Briefing, default on).
+- `tauri.conf.json` adds `--autoplay-policy=no-user-gesture-required` to WebView2's
+  arguments (with wry's defaults restated), since no gesture precedes the briefing.
+- Speaking costs one Realtime output per launch.
+
+Verification: `openingBriefing.harness.ts` 10 checks; `npm run build`. Not verified:
+playback in the installed desktop app. Acceptance: open Olympus with Auto Speak on
+and confirm it speaks once; turn Opening Briefing off and confirm silence.
+
 ## Review fixes — September 28, 2026
 
 A review of 0.19.0 (`docs/reviews/2026-09-28-v0.19.0/`) was fixed on branch

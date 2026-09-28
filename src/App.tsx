@@ -4,7 +4,7 @@ import { validateVoiceNavigation } from "./services/voiceContract";
 import { operationalStatuses, type OperationalStatus } from "./services/projectCommandBoard";
 import { MotionConfig, motion, useReducedMotion } from "motion/react";
 import type { ReactNode } from "react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { BackgroundLayer } from "./components/BackgroundLayer";
 import { AmbientDock } from "./components/panels/AmbientDock";
 import { ChatPanel } from "./components/panels/ChatPanel";
@@ -34,6 +34,7 @@ function App() {
     quickApps,
     projects,
     sessionBoundary,
+    openingBriefing,
     projectNoteWarnings,
     chat,
     chatPending,
@@ -103,6 +104,16 @@ function App() {
     });
   }, [sendChatMessage, updateVoiceMessage, projects, setMode]);
   useEffect(() => { if(settingsReady)void realtimeVoice.applyPreferences(settings); }, [settings,settingsReady]);
+  // Spoken through the same output-only path as a typed reply, so Auto Speak
+  // governs it and the transcript keeps a Replay control either way. At most
+  // once: turning Auto Speak on later must not replay it.
+  const spokenBriefing = useRef<string | null>(null);
+  useEffect(() => {
+    if (!openingBriefing || spokenBriefing.current === openingBriefing.id) return;
+    spokenBriefing.current = openingBriefing.id;
+    // The browser runtime has no voice session to open; the text still lands.
+    if (settings.autoSpeak && isTauriRuntime()) void realtimeVoice.replay(openingBriefing.text, openingBriefing.id);
+  }, [openingBriefing, settings.autoSpeak]);
   useEffect(() => () => {realtimeVoice.stop();voicePreview.stop();}, []);
 
   // Switching modes by any other route clears the filter, so Project mode is

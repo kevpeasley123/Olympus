@@ -20,6 +20,12 @@ off. That connection closes after playback. With Auto Speak off, typed replies a
 text-only. Replay can open its own receive-only connection and uses the API; it does
 not retain a raw audio recording.
 
+Opening briefing: once per launch, after the first project scan, Olympus adds a short
+briefing built from provable project state to the conversation and, with Auto Speak on,
+speaks it through the same receive-only path. Preferences > Voice Lab > Opening Briefing
+turns it off. WebView2 runs with `--autoplay-policy=no-user-gesture-required` because no
+gesture precedes it.
+
 ## Architecture
 
 Rust `commands/voice.rs` mints a 60-second client secret with the permanent key.

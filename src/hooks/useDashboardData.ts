@@ -3,6 +3,7 @@ import { normalizeVoicePreferences, type VoicePreferences } from "../services/vo
 import { useActionQueue } from "./useActionQueue";
 import { useDelegationRuns } from "./useDelegationRuns";
 import { buildProjectCommandBoard } from "../services/projectCommandBoard";
+import { composeOpeningBriefing } from "../services/openingBriefing";
 import type { VoiceDepth, VoiceAnswer, VoiceMessageMetadata } from "../services/voiceContract";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { conversationStream } from "../services/conversationStream";
@@ -64,6 +65,10 @@ export function useDashboardData() {
   const [sessionBoundary, setSessionBoundary] = useState<SessionBoundary | null>(null);
   const [sessionReady, setSessionReady] = useState(false);
   const [projectsError, setProjectsError] = useState<string | null>(null);
+  /** Until the first scan settles, `projects` is seed data and must not be briefed. */
+  const [projectsScanned, setProjectsScanned] = useState(false);
+  const openingBriefed = useRef(false);
+  const [openingBriefing, setOpeningBriefing] = useState<{ id: string; text: string } | null>(null);
   /** Problems with `01 - Projects` itself, which belong to no single project. */
   const [projectNoteWarnings, setProjectNoteWarnings] = useState<string[]>([]);
   const [chatPending, setChatPending] = useState(false);
@@ -175,6 +180,7 @@ export function useDashboardData() {
       if (request !== projectScanSeq.current) return;
       setProjectsError(errorMessage(error));
     }
+    setProjectsScanned(true);
   }, [dashboardState.settings.projectsRootPath, sessionBoundary?.previousSessionStartedAt]);
 
   useEffect(() => {
@@ -195,6 +201,29 @@ export function useDashboardData() {
       window.clearInterval(projectsTimer);
     };
   }, [refreshProjects, sessionReady]);
+
+  // Once per launch, after hydration and the first real scan, so the briefing
+  // describes stored state rather than seed data. Composed without a model; the
+  // caller decides whether to speak it.
+  useEffect(() => {
+    if (openingBriefed.current || !hydrated || !projectsScanned) return;
+    if (taskStore.loading || runStore.loading) return;
+    openingBriefed.current = true;
+    if (!dashboardRef.current.settings.briefOnOpen) return;
+    const text = composeOpeningBriefing({
+      projects: dashboardRef.current.projects,
+      board: boardRef.current,
+      sessionBoundary,
+      projectsError
+    });
+    const message = createAssistantMessage(text);
+    message.id = `conversation-briefing-${Date.now()}`;
+    message.voice = { kind: "output", spokenResponse: text };
+    dashboardRef.current = { ...dashboardRef.current, conversation: [...dashboardRef.current.conversation, message] };
+    setDashboardState(dashboardRef.current);
+    void appendConversationMessages([message]);
+    setOpeningBriefing({ id: message.id, text });
+  }, [hydrated, projectsScanned, taskStore.loading, runStore.loading, sessionBoundary, projectsError]);
 
   const sendChatMessage = useCallback(
     async (text: string, voiceDepth?: VoiceDepth, voiceMessageId?: string): Promise<VoiceAnswer | undefined> => {
@@ -382,6 +411,7 @@ export function useDashboardData() {
       quickApps: dashboardState.quickApps,
       projects: dashboardState.projects,
       sessionBoundary,
+      openingBriefing,
       projectsError,
       projectNoteWarnings,
       chat: dashboardState.conversation,
@@ -402,6 +432,7 @@ export function useDashboardData() {
       dashboardState,
       hydrated,
       sessionBoundary,
+      openingBriefing,
       projectsError,
       projectNoteWarnings,
       chatPending,
