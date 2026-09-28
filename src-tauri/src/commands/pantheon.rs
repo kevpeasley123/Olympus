@@ -43,11 +43,25 @@ pub struct PantheonEntry {
     /// never parses frontmatter itself.
     #[serde(default)]
     pub source_label: String,
+    /// The `source_url` the capture form writes. Passed through as text; the
+    /// webview opens it only through `open_external_link`, which admits
+    /// http(s) and nothing else.
+    #[serde(default)]
+    pub source_url: Option<String>,
     pub tags: Vec<String>,
     pub word_count: u32,
     pub file_modified_at: String,
     pub body_preview: String,
     pub body: String,
+    /// `content_fingerprint` of `body`: the value `research_retrieval` stores
+    /// with a reply's research snapshot. Equal means the body the reply was
+    /// given is the body on disk now.
+    #[serde(default)]
+    pub fingerprint: String,
+    /// `content_fingerprint` of the whole file, frontmatter included: the value
+    /// Research Verification binds its saved sources to.
+    #[serde(default)]
+    pub file_fingerprint: String,
 }
 
 use super::get_vault_path;
@@ -157,13 +171,24 @@ pub(crate) fn extract_tags(value: &serde_yaml::Value) -> Vec<String> {
 /// `origin` is deliberately not a candidate: it now answers who found the
 /// source, and its legacy value is the writer, so either reading would put the
 /// wrong fact in the source slot.
+///
+/// Empty when nothing names a source. A placeholder such as "Local source"
+/// read as a fact about every unnamed entry; the library omits it instead.
 fn source_label(value: &serde_yaml::Value) -> String {
     ["source", "source_name", "channel", "publisher"]
         .iter()
         .filter_map(|key| extract_string(value, key))
         .map(|label| label.trim().to_string())
         .find(|label| !label.is_empty())
-        .unwrap_or_else(|| "Local source".to_string())
+        .unwrap_or_default()
+}
+
+/// The note's `source_url`, when it is one line of text. Anything else is
+/// dropped rather than displayed as a link.
+fn source_url(value: &serde_yaml::Value) -> Option<String> {
+    extract_string(value, "source_url")
+        .map(|url| url.trim().to_string())
+        .filter(|url| !url.is_empty() && !url.chars().any(char::is_control))
 }
 
 fn count_words(body: &str) -> u32 {
@@ -178,6 +203,66 @@ fn make_preview(body: &str) -> String {
     } else {
         collected
     }
+}
+
+/// One research note, or `None` when it is not a library entry (no or malformed
+/// frontmatter, or no `olympus/research` tag). Split from the scan so the
+/// parse can be exercised without the owner's vault.
+fn parse_entry(vault: &Path, path: &Path, content: &str, mtime: SystemTime) -> Option<PantheonEntry> {
+    let Some((frontmatter_str, body)) = split_frontmatter(content) else {
+        eprintln!("[pantheon] no frontmatter in {}, skipping", path.display());
+        return None;
+    };
+
+    let frontmatter: serde_yaml::Value = match serde_yaml::from_str(frontmatter_str) {
+        Ok(v) => v,
+        Err(err) => {
+            eprintln!(
+                "[pantheon] malformed frontmatter in {}: {}",
+                path.display(),
+                err
+            );
+            return None;
+        }
+    };
+
+    let tags = extract_tags(&frontmatter);
+    if !tags.iter().any(|t| t == REQUIRED_TAG) {
+        return None;
+    }
+
+    let source_file = relative_to_vault(vault, path);
+    let title = extract_string(&frontmatter, "title").unwrap_or_else(|| {
+        path.file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("Untitled")
+            .to_string()
+    });
+    let body_full = body.trim().to_string();
+    Some(PantheonEntry {
+        id: source_file.clone(),
+        title,
+        source_file,
+        entry_type: extract_string(&frontmatter, "type").unwrap_or_else(|| "note".to_string()),
+        source_type: extract_string(&frontmatter, "source_type"),
+        created: extract_string(&frontmatter, "created"),
+        source_date: extract_string(&frontmatter, "source_date"),
+        origin: extract_enum(&frontmatter, "origin", ORIGIN_VALUES, path),
+        written_by: extract_string(&frontmatter, "written_by"),
+        stance: extract_enum(&frontmatter, "stance", STANCE_VALUES, path)
+            .unwrap_or_else(|| DEFAULT_STANCE.to_string()),
+        why_kept: extract_string(&frontmatter, "why_kept"),
+        project: extract_string(&frontmatter, "project"),
+        source_label: source_label(&frontmatter),
+        source_url: source_url(&frontmatter),
+        tags,
+        word_count: count_words(&body_full),
+        file_modified_at: iso8601(mtime),
+        body_preview: make_preview(&body_full),
+        fingerprint: super::vault_write::content_fingerprint(&body_full),
+        file_fingerprint: super::vault_write::content_fingerprint(content),
+        body: body_full,
+    })
 }
 
 pub(crate) fn parse_pantheon_from_vault() -> Result<Vec<PantheonEntry>, String> {
@@ -267,76 +352,8 @@ pub(crate) fn parse_pantheon_from_vault() -> Result<Vec<PantheonEntry>, String> 
             }
         };
 
-        let (frontmatter_str, body) = match split_frontmatter(&content) {
-            Some(parts) => parts,
-            None => {
-                eprintln!(
-                    "[pantheon] no frontmatter in {}, skipping",
-                    path.display()
-                );
-                continue;
-            }
-        };
-
-        let frontmatter: serde_yaml::Value = match serde_yaml::from_str(frontmatter_str) {
-            Ok(v) => v,
-            Err(err) => {
-                eprintln!(
-                    "[pantheon] malformed frontmatter in {}: {}",
-                    path.display(),
-                    err
-                );
-                continue;
-            }
-        };
-
-        let tags = extract_tags(&frontmatter);
-        if !tags.iter().any(|t| t == REQUIRED_TAG) {
+        let Some(parsed) = parse_entry(&vault, path, &content, mtime) else {
             continue;
-        }
-
-        let source_file = relative_to_vault(&vault, path);
-        let title = extract_string(&frontmatter, "title").unwrap_or_else(|| {
-            path.file_stem()
-                .and_then(|s| s.to_str())
-                .unwrap_or("Untitled")
-                .to_string()
-        });
-        let entry_type = extract_string(&frontmatter, "type").unwrap_or_else(|| "note".to_string());
-        let source_type = extract_string(&frontmatter, "source_type");
-        let created = extract_string(&frontmatter, "created");
-        let source_date = extract_string(&frontmatter, "source_date");
-        let origin = extract_enum(&frontmatter, "origin", ORIGIN_VALUES, path);
-        let written_by = extract_string(&frontmatter, "written_by");
-        let stance = extract_enum(&frontmatter, "stance", STANCE_VALUES, path)
-            .unwrap_or_else(|| DEFAULT_STANCE.to_string());
-        let why_kept = extract_string(&frontmatter, "why_kept");
-        let project = extract_string(&frontmatter, "project");
-        let source_label = source_label(&frontmatter);
-        let body_full = body.trim().to_string();
-        let word_count = count_words(&body_full);
-        let body_preview = make_preview(&body_full);
-        let file_modified_at = iso8601(mtime);
-
-        let parsed = PantheonEntry {
-            id: source_file.clone(),
-            title,
-            source_file,
-            entry_type,
-            source_type,
-            created,
-            source_date,
-            origin,
-            written_by,
-            stance,
-            why_kept,
-            project,
-            source_label,
-            tags,
-            word_count,
-            file_modified_at,
-            body_preview,
-            body: body_full,
         };
 
         fresh_cache.insert(path.to_path_buf(), (mtime, parsed.clone()));
@@ -710,7 +727,7 @@ mod tests {
         assert_eq!(source_label(&named), "Stratechery");
 
         let unnamed: serde_yaml::Value = serde_yaml::from_str("origin: olympus-found").unwrap();
-        assert_eq!(source_label(&unnamed), "Local source");
+        assert_eq!(source_label(&unnamed), "");
     }
 
     /// The scaffold scripts write UTF-8 with a BOM. Before this was handled,
@@ -821,6 +838,66 @@ mod tests {
                 );
             }
         }
+    }
+
+    fn parse_note(content: &str) -> Option<PantheonEntry> {
+        let vault = Path::new("/vault");
+        parse_entry(vault, &vault.join("02 - Research/Note.md"), content, SystemTime::UNIX_EPOCH)
+    }
+
+    #[test]
+    fn fingerprint_matches_what_a_reply_snapshot_stores_and_tracks_body_edits() {
+        let note = "---\ntitle: \"Agent orchestration\"\nsource_type: \"guide\"\nsource_url: \"https://example.com/a\"\ntags:\n  - \"olympus/research\"\n---\n\nCoding agents need independent verification.\n";
+        let entry = parse_note(note).expect("tagged note parses");
+        assert_eq!(entry.source_type.as_deref(), Some("guide"));
+        assert_eq!(entry.source_url.as_deref(), Some("https://example.com/a"));
+        assert_eq!(entry.source_label, "");
+
+        // The reply snapshot's fingerprint comes from retrieval over the same entry.
+        let snapshot = super::super::research_retrieval::retrieve(
+            std::slice::from_ref(&entry),
+            "coding agents verification",
+        );
+        assert_eq!(snapshot.len(), 1);
+        assert_eq!(entry.fingerprint, snapshot[0].fingerprint, "unchanged body must compare equal");
+
+        // Frontmatter-only edits leave the body fingerprint alone but not the file's.
+        let restanced = parse_note(&note.replace("source_type: \"guide\"", "source_type: \"guide\"\nstance: endorsed")).unwrap();
+        assert_eq!(restanced.fingerprint, entry.fingerprint);
+        assert_ne!(restanced.file_fingerprint, entry.file_fingerprint);
+
+        let edited = parse_note(&note.replace("independent verification", "no verification")).unwrap();
+        assert_ne!(edited.fingerprint, entry.fingerprint, "an edited body must read as changed");
+        assert_eq!(entry.file_fingerprint, super::super::vault_write::content_fingerprint(note));
+    }
+
+    #[test]
+    fn untagged_or_frontmatterless_notes_are_not_entries() {
+        assert!(parse_note("just a body").is_none());
+        assert!(parse_note("---\ntitle: x\ntags:\n  - other\n---\nbody").is_none());
+    }
+
+    #[test]
+    fn every_capture_form_source_type_round_trips_through_the_written_file() {
+        for source_type in ["article", "transcript", "guide", "paper", "talk"] {
+            let mut req = make_request("Round trip", "Body text.");
+            req.source_type = Some(source_type.to_string());
+            req.source_url = Some("https://example.com/x".to_string());
+            req.project = Some("Project Olympus".to_string());
+            let written = build_entry_content("Round trip", "Body text.", &req, "2026-09-28").unwrap();
+            let entry = parse_note(&written).expect("written entry parses");
+            assert_eq!(entry.source_type.as_deref(), Some(source_type));
+            assert_eq!(entry.source_url.as_deref(), Some("https://example.com/x"));
+            assert_eq!(entry.project.as_deref(), Some("Project Olympus"));
+        }
+    }
+
+    #[test]
+    fn a_multi_line_source_url_is_not_passed_through() {
+        let yaml: serde_yaml::Value = serde_yaml::from_str("source_url: \"https://a\\njavascript:x\"").unwrap();
+        assert_eq!(source_url(&yaml), None);
+        let blank: serde_yaml::Value = serde_yaml::from_str("source_url: \"  \"").unwrap();
+        assert_eq!(source_url(&blank), None);
     }
 
     fn make_request(title: &str, body: &str) -> WritePantheonEntryRequest {
