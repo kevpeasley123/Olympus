@@ -182,3 +182,23 @@ export const seedState: OlympusState = {
     }
   ]
 };
+
+/**
+ * What the desktop app starts from before SQLite and the first scan answer.
+ *
+ * The seed's projects and conversation are browser-preview fixtures. On
+ * desktop they used to render on the ring and board as if scanned, and the
+ * two seed messages were shown as Olympus speech and sent as model history
+ * (review U1, F6). Settings, tools and quick apps are genuine defaults and
+ * stay.
+ */
+export const desktopInitialState: OlympusState = {
+  ...seedState,
+  projects: [],
+  conversation: []
+};
+
+/** A message that is the seed fixture itself, not something the operator or Olympus said. */
+export function isSeedMessage(message: { id: string; content: string }): boolean {
+  return seedState.conversation.some((seed) => seed.id === message.id && seed.content === message.content);
+}

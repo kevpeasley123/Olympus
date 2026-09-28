@@ -9,7 +9,6 @@ import {
   FilePlus2,
   Layers3,
   Library,
-  RotateCcw,
   RotateCw,
   Search
 } from "lucide-react";
@@ -25,7 +24,8 @@ import {
   type PantheonOrigin,
   type PantheonStance
 } from "../../hooks/usePantheon";
-import { isTauriRuntime, restartDesktopApp } from "../../services/launcher";
+import { isTauriRuntime } from "../../services/launcher";
+import { isEditableTarget, SHORTCUTS } from "../../services/shortcuts";
 import {
   categoryDescription,
   categoryLabel,
@@ -118,7 +118,7 @@ export function LibraryPanel({ onViewDatabase, resident = false,inspectionTarget
   const setDatabaseOpen = setDatabaseRequested;
   const [formError, setFormError] = useState<string | null>(null);
   const [status, setStatus] = useState<ObsidianActionResult | null>(null);
-  const [busyAction, setBusyAction] = useState<"view" | "restart" | null>(null);
+  const [busyAction, setBusyAction] = useState<"view" | null>(null);
   const [migrating, setMigrating] = useState(false);
   // An entry written before the schema change parses with no origin at all —
   // the parser drops its legacy writer value rather than reading it as one.
@@ -170,7 +170,9 @@ export function LibraryPanel({ onViewDatabase, resident = false,inspectionTarget
     function handleKeydown(event: KeyboardEvent) {
       if (anotherModalIsOpen(databaseDialogRef.current)) return;
 
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+      // Ctrl+K belongs to the console in every mode; search is `/`, and only
+      // when the key would not otherwise be typed into a field.
+      if (SHORTCUTS.librarySearch.matches(event) && !isEditableTarget(event.target)) {
         event.preventDefault();
         searchInputRef.current?.focus();
         searchInputRef.current?.select();
@@ -376,18 +378,6 @@ export function LibraryPanel({ onViewDatabase, resident = false,inspectionTarget
     openAddEntryModal();
   }
 
-  async function handleRestartApp() {
-    setBusyAction("restart");
-    const result = await restartDesktopApp();
-    if (result === "unsupported") {
-      setStatus({
-        tone: "warning",
-        message: "Desktop restart is only available in the native Olympus app."
-      });
-      setBusyAction(null);
-    }
-  }
-
   function handleSectionToggle(category: PantheonCategory) {
     setExpandedSections((current) => {
       const next = { ...current, [category]: !current[category] };
@@ -457,7 +447,7 @@ export function LibraryPanel({ onViewDatabase, resident = false,inspectionTarget
             <button
               className="ghost-action"
               onClick={() => void handleViewDatabase()}
-              disabled={submitting || busyAction === "restart"}
+              disabled={submitting}
             >
               <Layers3 size={15} />
               {busyAction === "view" ? "Refreshing..." : "View Database"}
@@ -465,7 +455,7 @@ export function LibraryPanel({ onViewDatabase, resident = false,inspectionTarget
             <button
               className="ghost-action"
               onClick={openAddEntryModal}
-              disabled={busyAction === "view" || busyAction === "restart"}
+              disabled={busyAction === "view"}
             >
               <FilePlus2 size={15} />
               Add Entry
@@ -478,15 +468,6 @@ export function LibraryPanel({ onViewDatabase, resident = false,inspectionTarget
               aria-label="Refresh Pantheon entries from vault"
             >
               <RotateCw size={15} />
-            </button>
-            <button
-              className="ghost-action icon-only-action"
-              onClick={() => void handleRestartApp()}
-              disabled={busyAction !== null}
-              title="Restart Olympus desktop app"
-              aria-label="Restart Olympus desktop app"
-            >
-              <RotateCcw size={15} />
             </button>
           </div>
         </div>
@@ -568,7 +549,7 @@ export function LibraryPanel({ onViewDatabase, resident = false,inspectionTarget
                   <button
                     className="ghost-action"
                     onClick={handleAddEntryFromModal}
-                    disabled={busyAction === "view" || busyAction === "restart"}
+                    disabled={busyAction === "view"}
                   >
                     <FilePlus2 size={14} />
                     Add Entry

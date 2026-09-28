@@ -54,9 +54,11 @@ const useStore = createPollingStore<PantheonEntry[]>({
 });
 
 export function usePantheon() {
-  const { data, loading, error, refresh } = useStore();
+  const { data, loading, error, lastSuccessAt, refresh } = useStore();
   // Callers refresh after adding an entry; joining a scan that began before
   // the write would hide the new entry for up to five minutes.
   const refreshNow = useCallback(() => refresh({ force: true }), [refresh]);
-  return { entries: data, loading, error, refresh: refreshNow };
+  return { entries: data, loading, error, lastSuccessAt, refresh: refreshNow };
 }
+
+export const refreshPantheon = () => useStore.refresh({ force: true });

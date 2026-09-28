@@ -27,6 +27,9 @@ const useStore = createPollingStore<ActionQueueTask[]>({
  * starting a second one.
  */
 export function useActionQueue() {
-  const { data, loading, error, refresh } = useStore();
-  return { tasks: data, loading, error, refresh };
+  const { data, loading, error, lastSuccessAt, refresh } = useStore();
+  return { tasks: data, loading, error, lastSuccessAt, refresh };
 }
+
+/** For the operator-wide refresh; forced so it cannot join an older scan. */
+export const refreshActionQueue = () => useStore.refresh({ force: true });

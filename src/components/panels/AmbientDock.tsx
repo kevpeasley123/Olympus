@@ -1,8 +1,7 @@
-import { GmailSettings } from "./GmailSettings";
-import {ModelDiagnostics} from "./ModelSettings";
-import { VoiceSettings } from "./VoiceSettings";
+import { PreferencesDialog } from "./PreferencesDialog";
 import type { VoicePreferences } from "../../services/voicePreferences";
-import { CircleHelp, RefreshCw, Settings2, X } from "lucide-react";
+import { isEditableTarget, isModalOpen, SHORTCUT_LIST, SHORTCUTS, type ShortcutScope } from "../../services/shortcuts";
+import { CircleHelp, RefreshCw, Settings2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { MODE_LABELS } from "../../hooks/useDashboardMode";
 import type { DashboardMode } from "../../hooks/useDashboardMode";
@@ -13,12 +12,16 @@ interface AmbientDockProps {
   voicePreferences: VoicePreferences;
   onVoicePreferences:(patch:Partial<VoicePreferences>)=>void;
   settingsReady:boolean;
+  /** A reply is being generated; the Restart confirmation names it. */
+  chatPending?:boolean;
   onRefresh: () => void;
   mode: DashboardMode;
   onCycleMode: () => void;
 }
 
-export function AmbientDock({ onRefresh, mode, onCycleMode, voicePreferences, onVoicePreferences, settingsReady, preferencesOpen, onPreferencesOpen:setPreferencesOpen }: AmbientDockProps) {
+const SCOPE_NOTES: Partial<Record<ShortcutScope, string>> = { research: "Research", console: "Console" };
+
+export function AmbientDock({ onRefresh, mode, onCycleMode, voicePreferences, onVoicePreferences, settingsReady, chatPending = false, preferencesOpen, onPreferencesOpen:setPreferencesOpen }: AmbientDockProps) {
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [refreshSpinning, setRefreshSpinning] = useState(false);
   const [now, setNow] = useState(() => new Date());
@@ -43,30 +46,24 @@ export function AmbientDock({ onRefresh, mode, onCycleMode, voicePreferences, on
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
-      const target = event.target as HTMLElement | null;
-      const isTypingTarget =
-        target instanceof HTMLInputElement ||
-        target instanceof HTMLTextAreaElement ||
-        target?.isContentEditable;
-
-      if (!(event.metaKey || event.ctrlKey) || isTypingTarget) {
-        return;
-      }
       // A modal owns the keyboard: changing mode or refreshing under the write
-      // gate would move the ground beneath the decision it is asking for. The
-      // default is still suppressed, so Ctrl+R cannot reload the webview.
-      const modalOpen = document.querySelector('[aria-modal="true"]') !== null;
+      // gate would move the ground beneath the decision it is asking for.
+      const modalOpen = isModalOpen();
 
-      if (event.key.toLowerCase() === "r") {
+      // Checked before any typing guard: the default is always suppressed, so
+      // Ctrl+R can never reload the webview mid-draft, even from the console.
+      // Refreshing is safe while typing; it touches no draft.
+      if (SHORTCUTS.refresh.matches(event)) {
         event.preventDefault();
         if (!modalOpen) handleRefresh();
+        return;
       }
 
       // An accelerator for the switcher in the header, never the only way to
       // reach a mode.
-      if (event.key === "\\") {
+      if (SHORTCUTS.cycleMode.matches(event)) {
         event.preventDefault();
-        if (!modalOpen) onCycleMode();
+        if (!modalOpen && !isEditableTarget(event.target)) onCycleMode();
       }
     }
 
@@ -102,8 +99,8 @@ export function AmbientDock({ onRefresh, mode, onCycleMode, voicePreferences, on
           <button
             className={`ambient-inline-button ${refreshSpinning ? "is-spinning" : ""}`}
             onClick={handleRefresh}
-            title="Refresh data (Ctrl/Cmd+R)"
-            aria-label="Refresh data"
+            title={`${SHORTCUTS.refresh.label} (${SHORTCUTS.refresh.keys})`}
+            aria-label={SHORTCUTS.refresh.label}
             type="button"
           >
             <RefreshCw size={12} />
@@ -118,31 +115,24 @@ export function AmbientDock({ onRefresh, mode, onCycleMode, voicePreferences, on
             onClick={() => setShortcutsOpen((value) => !value)}
             title="Keyboard shortcuts"
             aria-label="Keyboard shortcuts"
+            aria-expanded={shortcutsOpen}
             type="button"
           >
             <CircleHelp size={16} />
           </button>
+          {/* Rendered from the registry the handlers match against, so the
+              list cannot describe keys that do something else. */}
           {shortcutsOpen ? (
-            <div className="ambient-popover shortcut-popover">
-              <div className="shortcut-row">
-                <span>Ctrl/Cmd+R</span>
-                <small>Refresh data</small>
-              </div>
-              <div className="shortcut-row">
-                <span>Ctrl/Cmd+\</span>
-                <small>Cycle mode — Command, Project, Research</small>
-              </div>
-              {/* Ctrl+K focuses the search box inside the library once it is
-                  open; it has never opened it. Saying otherwise taught the
-                  shortcut wrong. */}
-              <div className="shortcut-row">
-                <span>Ctrl/Cmd+K</span>
-                <small>Focus search in the open library</small>
-              </div>
-              <div className="shortcut-row">
-                <span>Esc</span>
-                <small>Clear search / close detail view</small>
-              </div>
+            <div className="ambient-popover shortcut-popover" role="note" aria-label="Keyboard shortcuts">
+              {SHORTCUT_LIST.map((shortcut) => {
+                const scope = SCOPE_NOTES[shortcut.scope];
+                return (
+                  <div className="shortcut-row" key={shortcut.id} title={shortcut.description}>
+                    <kbd>{shortcut.keys}</kbd>
+                    <small>{shortcut.label}{scope && !shortcut.label.includes(scope) ? ` · ${scope}` : ""}</small>
+                  </div>
+                );
+              })}
             </div>
           ) : null}
         </div>
@@ -151,6 +141,7 @@ export function AmbientDock({ onRefresh, mode, onCycleMode, voicePreferences, on
           <button
             className="ambient-corner-button"
             onClick={() => setPreferencesOpen(!preferencesOpen)}
+            aria-haspopup="dialog"
             title="Open preferences"
             aria-label="Open preferences"
             type="button"
@@ -160,23 +151,8 @@ export function AmbientDock({ onRefresh, mode, onCycleMode, voicePreferences, on
         </div>}
       </div>
 
-      {preferencesOpen ? (
-        <section className="settings-panel preferences-panel floating-preferences-panel">
-          <div className="panel-header compact">
-            <div>
-              <p className="eyebrow">Preferences</p>
-              <h2>Olympus Preferences</h2>
-            </div>
-            <button className="ghost-icon-action" type="button" aria-label="Close preferences" title="Close preferences" onClick={() => setPreferencesOpen(false)}>
-              <X size={18} aria-hidden="true" />
-            </button>
-          </div>
-          <ModelDiagnostics/>
-          <GmailSettings/>
-          <VoiceSettings preferences={voicePreferences} onChange={onVoicePreferences} ready={settingsReady}/>
-          <button className="ghost-action" type="button" onClick={()=>setPreferencesOpen(false)}>Close preferences</button>
-        </section>
-      ) : null}
+      <PreferencesDialog open={preferencesOpen} onClose={() => setPreferencesOpen(false)}
+        preferences={voicePreferences} onPreferences={onVoicePreferences} settingsReady={settingsReady} chatPending={chatPending} />
     </>
   );
 }

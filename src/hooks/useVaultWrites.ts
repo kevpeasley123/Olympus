@@ -41,3 +41,5 @@ export function useVaultWrites() {
 
   return { writes: data, loading, error, refresh };
 }
+
+export const refreshVaultWrites = () => useStore.refresh({ force: true });

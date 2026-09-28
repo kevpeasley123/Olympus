@@ -16,6 +16,8 @@ export interface PollingStore<T> {
   data: T;
   loading: boolean;
   error: string | null;
+  /** When the last fetch succeeded (ISO), for freshness lines; null until one has. */
+  lastSuccessAt: string | null;
   /**
    * `force` guarantees a fetch that starts after the call. Without it a caller
    * can join a fetch already in flight, which may predate the write it wants
@@ -24,16 +26,25 @@ export interface PollingStore<T> {
   refresh: (options?: { force?: boolean }) => Promise<void>;
 }
 
+/**
+ * The hook, plus the store's own `refresh` so an operator-wide refresh
+ * (Ctrl+R) can reach stores whose subscribers live deep in other panels.
+ */
+export type PollingStoreHook<T> = (() => PollingStore<T>) & {
+  refresh: PollingStore<T>["refresh"];
+};
+
 export function createPollingStore<T>(options: {
   intervalMs: number;
   initial: T;
   fetcher: () => Promise<T>;
   /** Called only after a successful fetch, before subscribers are notified. */
   onData?: (next: T, previous: T) => void;
-}): () => PollingStore<T> {
+}): PollingStoreHook<T> {
   let data: T = options.initial;
   let loading = true;
   let error: string | null = null;
+  let lastSuccessAt: string | null = null;
   let subscribers = 0;
   let timer: number | undefined;
   let inFlight: Promise<void> | null = null;
@@ -70,11 +81,15 @@ export function createPollingStore<T>(options: {
         }
         options.onData?.(data, previous);
         error = null;
+        lastSuccessAt = new Date().toISOString();
       } catch (caught) {
         error = String(caught);
       } finally {
         loading = false;
         inFlight = null;
+        // A new `lastSuccessAt` alone does not notify: that would re-render every
+        // subscriber on every unchanged poll. A freshness line re-renders on its
+        // own clock and reads the current value then.
         if (data !== before.data || loading !== before.loading || error !== before.error) notify();
         if (dirty) {
           dirty = false;
@@ -86,7 +101,7 @@ export function createPollingStore<T>(options: {
     return inFlight;
   }
 
-  return function usePollingStore(): PollingStore<T> {
+  function usePollingStore(): PollingStore<T> {
     const [, rerender] = useReducer((count: number) => count + 1, 0);
 
     useEffect(() => {
@@ -108,6 +123,8 @@ export function createPollingStore<T>(options: {
       };
     }, []);
 
-    return { data, loading, error, refresh };
-  };
+    return { data, loading, error, lastSuccessAt, refresh };
+  }
+
+  return Object.assign(usePollingStore, { refresh });
 }

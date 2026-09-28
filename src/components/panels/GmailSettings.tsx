@@ -5,10 +5,12 @@ const client:GmailClient={native:gmailNative,status:gmailStatus,action:gmailActi
 const date=(value:string|null|undefined)=>value?new Date(value).toLocaleString():"Not yet";
 export function GmailSettings({api=client}:{api?:GmailClient}) {
  const [state,setState]=useState<GmailStatus|null>(null),[error,setError]=useState(""),[pending,setPending]=useState(false),[confirmRemove,setConfirmRemove]=useState(false),[query,setQuery]=useState(""),[results,setResults]=useState<MailExcerpt[]>([]),[searched,setSearched]=useState(false),[thread,setThread]=useState<MailMessage[]>([]);
- useEffect(()=>{if(!api.native())return;let active=true;const refresh=()=>api.status().then(s=>{if(active)setState(s)}).catch(e=>{if(active)setError(gmailError(e))});void refresh();const timer=window.setInterval(refresh,2000);return()=>{active=false;window.clearInterval(timer)}},[api]);
+ const [expanded,setExpanded]=useState(false);
+ // Read once for the summary line; the 2 s poll runs only while the section is open.
+ useEffect(()=>{if(!api.native())return;let active=true;const refresh=()=>api.status().then(s=>{if(active)setState(s)}).catch(e=>{if(active)setError(gmailError(e))});void refresh();const timer=expanded?window.setInterval(refresh,2000):undefined;return()=>{active=false;window.clearInterval(timer)}},[api,expanded]);
  async function run(action:()=>Promise<unknown>){setPending(true);setError("");try{await action();setState(await api.status())}catch(e){setError(gmailError(e))}finally{setPending(false)}}
  const enabled=Boolean(state?.account?.enabled),busy=pending||Boolean(state?.busy);
- return <details className="gmail-settings" data-testid="gmail-settings"><summary>Gmail · read-only source</summary>
+ return <details className="gmail-settings" data-testid="gmail-settings" onToggle={event=>setExpanded(event.currentTarget.open)}><summary>Gmail · read-only source</summary>
  {!api.native()?<p>Connect Gmail in the Olympus desktop app. This browser preview cannot access native credentials or your mailbox.</p>:<>
  <p role="status">{gmailStateLabel(state)}{state?.account?.email&&<> — {state.account.email}</>}</p>
  <p className="section-copy">Connect opens your system browser and requests read-only access to message bodies in Gmail. Relevant cached excerpts are sent to your reasoning provider for communication questions and analysis. Background situation understanding also analyzes changed correspondence, your situation updates and matching Research context using OpenAI. Pause it in Communications at any time. Olympus cannot send or change mail.</p>

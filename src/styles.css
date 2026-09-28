@@ -1,26 +1,56 @@
 :root {
   --space-4: 4px;
   --space-8: 8px;
+  --space-10: 10px;
   --space-12: 12px;
+  --space-14: 14px;
   --space-16: 16px;
   --space-20: 20px;
   --space-24: 24px;
   --space-32: 32px;
   --space-48: 48px;
+
+  /* The type scale (review D1). Six steps with an 11px floor for anything
+     read; --text-micro exists only for tracked uppercase numerals and short
+     codes. Surfaces move onto these as they are touched — new rules should
+     not introduce another literal size. */
+  --text-micro: 10px;
   --text-xs: 11px;
   --text-sm: 12px;
   --text-base: 13px;
   --text-lg: 15px;
   --text-xl: 22px;
   --text-2xl: 26px;
+  --leading-tight: 1.35;
+  --leading-body: 1.6;
   --weight-regular: 400;
   --weight-medium: 500;
   --positive: #4ade80;
   --negative: #f87171;
   --accent: #d97706;
-  --label: #6b7a90;
+  /* Small labels over translucent surfaces. Contrast, measured as the surface
+     tier composited over the base navy rgb(7,13,26) / over the photograph's
+     bright p90 rgb(75,72,71):
+       dense .94   6.10 / 5.94
+       panel .82   6.04 / 5.49
+       chrome .55  6.06 / 4.54
+     The old #6b7a90 measured 4.28–4.39 on dense and panel and 3.27 on chrome
+     over the bright photo; #7d8ba1 would still fail chrome (4.13). The blue
+     cast keeps labels distinct from --muted at nearly the same luminance.
+     Text placed straight on the photograph with no surface is not covered. */
+  --label: #7f93ad;
   --muted: #8a96aa;
+  /* Secondary body copy: briefing prose, delegation detail, entry bodies.
+     These rules referenced --secondary before it existed and inherited. */
+  --secondary: #c3ccd8;
+  --text: var(--secondary);
   --primary: #f4f6fa;
+
+  /* One focus indicator (review U9/D2). The amber of the mode switcher, which
+     reads on every surface tier and over the photograph. */
+  --focus-ring: #efbd7a;
+  --focus-ring-width: 2px;
+  --focus-ring-offset: 2px;
   --divider: rgba(255, 255, 255, 0.05);
   --border: rgba(255, 255, 255, 0.06);
 
@@ -140,6 +170,20 @@ textarea {
   min-height: 118px;
   resize: vertical;
   padding: 10px;
+}
+
+/* The single focus indicator. Keyboard focus is always visible, including on
+   inputs whose base rule removes the outline; rules below override it only to
+   adjust the offset for clipped containers, never to remove it. */
+:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline-offset: 0;
 }
 
 input:focus,
@@ -450,7 +494,7 @@ select:focus {
   background:radial-gradient(ellipse at 50% 120%,rgba(220,131,41,.16),transparent 85%),linear-gradient(180deg,rgba(126,79,39,.19),rgba(87,56,32,.13));
   box-shadow:inset 0 1px rgba(251,190,105,.12),0 0 14px rgba(206,119,29,.06);
 }
-.mode-switcher__segment:focus-visible { outline:2px solid #efbd7a; outline-offset:3px; z-index:1; }
+.mode-switcher__segment:focus-visible { outline:var(--focus-ring-width) solid var(--focus-ring); outline-offset:3px; z-index:1; }
 
 /* ---- Status rail -------------------------------------------------------- */
 
@@ -761,7 +805,7 @@ small {
 }
 
 .quick-app-button:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: var(--focus-ring-width) solid var(--focus-ring);
   outline-offset: -2px;
 }
 
@@ -882,6 +926,12 @@ small {
   display: flex;
   flex-direction: column;
   gap: var(--space-8);
+  width: min(400px, calc(100vw - 32px));
+}
+
+.shortcut-popover .shortcut-row {
+  grid-template-columns: 124px 1fr;
+  align-items: baseline;
 }
 
 .shortcut-row {
@@ -893,8 +943,10 @@ small {
   font-size: var(--text-sm);
 }
 
-.shortcut-row span {
+.shortcut-row span,
+.shortcut-row kbd {
   font-family: var(--font-mono);
+  font-size: var(--text-xs);
   color: #cbd5e1;
 }
 
@@ -932,7 +984,7 @@ small {
 }
 
 .tool-row:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: var(--focus-ring-width) solid var(--focus-ring);
   outline-offset: -2px;
 }
 
@@ -4323,7 +4375,7 @@ small {
 .console-viewport::-webkit-scrollbar { width: 5px; }
 .console-viewport::-webkit-scrollbar-thumb { background: #334356; }
 .console-viewport:hover::-webkit-scrollbar-thumb { background: #596a7f; }
-.console-viewport:focus-visible { outline: 1px solid var(--accent); }
+.console-viewport:focus-visible { outline: var(--focus-ring-width) solid var(--focus-ring); outline-offset: -2px; }
 .console-messages { padding: 8px 16px 16px; }
 .command-console .conversation-bubble { max-width: none; padding: 0 0 20px; margin: 0 0 16px; background: transparent; border: 0; border-bottom: 1px solid rgba(137,166,196,.1); overflow-wrap: anywhere; }
 .command-console .conversation-bubble:last-child { margin-bottom: 0; }
@@ -4508,7 +4560,7 @@ small {
 .model-route-control { position:relative; flex:0 0 auto; color:#91a5b8; font:10px var(--font-mono); }
 .model-route-trigger { background:transparent; border:1px solid transparent; color:#c5b18f; font:9px var(--font-mono); padding:4px; white-space:nowrap; cursor:pointer; }
 .model-route-trigger:hover,.model-route-trigger[aria-expanded="true"] { border-color:#685039; color:#efbd7a; background:#15202b; }
-.model-route-trigger:focus-visible,.model-route-menu button:focus-visible { outline:1px solid #dc954d; outline-offset:2px; }
+.model-route-trigger:focus-visible,.model-route-menu button:focus-visible { outline:var(--focus-ring-width) solid var(--focus-ring); outline-offset:2px; }
 .model-route-trigger:disabled { opacity:.45; cursor:default; }
 .model-route-menu { position:absolute; bottom:calc(100% + 10px); right:0; width:206px; z-index:40; padding:5px; background:#0b1520; border:1px solid #354757; box-shadow:0 8px 24px #0008; }
 .model-route-menu button { display:flex; flex-direction:column; gap:4px; width:100%; text-align:left; padding:9px 10px; border:0; border-left:2px solid transparent; background:transparent; color:#b9c5d1; font:10px var(--font-mono); cursor:pointer; }
@@ -4523,7 +4575,7 @@ small {
 .console-reply-mode button { display:inline-flex; align-items:center; justify-content:center; gap:4px; min-height:24px; padding:3px 6px; border:1px solid transparent; border-radius:3px; background:transparent; color:#93a5b8; font:9px var(--font-mono); cursor:pointer; }
 .console-reply-mode button:hover { color:#e5d0af; background:rgba(166,132,91,.08); }
 .console-reply-mode button[aria-pressed="true"] { color:#efbd7a; border-color:rgba(217,151,76,.26); background:linear-gradient(180deg,rgba(191,126,54,.16),rgba(121,78,33,.1)); box-shadow:inset 0 1px rgba(255,214,161,.05); }
-.console-reply-mode button:focus-visible { outline:1px solid #dc954d; outline-offset:2px; }
+.console-reply-mode button:focus-visible { outline:var(--focus-ring-width) solid var(--focus-ring); outline-offset:2px; }
 .console-reply-mode button:disabled { opacity:.45; cursor:default; }
 @container (max-width:380px) { .console-reply-mode button svg { display:none; } }
 @container (max-width:340px) { .model-route-prefix { display:none; } }
@@ -4714,7 +4766,7 @@ small {
 .comms-inspector p { font-size:12px; line-height:1.7; }
 .comms-source { border-top:1px solid #2c3c4b; padding:16px 0; }
 .comms-source pre { white-space:pre-wrap; overflow-wrap:anywhere; font-family:inherit; font-size:12px; line-height:1.7; color:#bac8d7; }
-.communications button:focus-visible,.communications input:focus-visible,.communications select:focus-visible,.communications summary:focus-visible { outline:2px solid #ecb66c; outline-offset:2px; }
+.communications button:focus-visible,.communications input:focus-visible,.communications select:focus-visible,.communications summary:focus-visible { outline:var(--focus-ring-width) solid var(--focus-ring); outline-offset:2px; }
 @media(max-width:1050px){.comms-workbench{grid-template-columns:minmax(0,1fr)}.comms-signals{border-left:0;border-top:1px solid #63758324;padding-left:0;display:grid;grid-template-columns:1fr 1fr;gap:20px}.comms-signals>h3{grid-column:1/-1;margin-bottom:0}.comms-intelligence-strip>div{padding:0 16px}.comms-title h2{font-size:16px}}
 @media(max-width:750px){.communications{padding:16px}.comms-title h2{font-size:14px}.comms-intelligence-strip{flex-wrap:wrap;gap:12px;min-height:80px}.comms-intelligence-strip>div{padding:0 10px}.comms-intelligence-strip strong{font-size:21px}.comms-intelligence-strip span{font-size:10px}.comms-analytics-content,.comms-signals{grid-template-columns:1fr}.comms-health{flex-basis:100%}.comms-row{grid-template-columns:4px minmax(0,1fr) 48px}.comms-subject{grid-column:2/-1;grid-row:2}.comms-row time{grid-column:3;grid-row:1}.comms-tags{grid-column:2/-1}.comms-inspector{right:10px;width:calc(100vw - 30px)}.mode-communications .main-grid{grid-template-columns:minmax(0,1fr)}.mode-communications .center-stack,.mode-communications .right-stack{grid-column:1}.mode-communications .tools-rail{display:none}}
 @media(prefers-reduced-motion:reduce){.communications *{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
@@ -4765,3 +4817,182 @@ small {
 .comms-background > summary { color: #9aacb9; cursor: pointer; }
 .comms-background .comms-brief-item { opacity: .86; }
 .comms-brief-item p { max-width: 76ch; }
+
+/* ---- Dialog primitive (components/Modal.tsx) ------------------------------ */
+
+/* Above the dock and panels, below the write gate (9000): a write request that
+   arrives while Preferences is open must land on top of it. */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 8000;
+  display: grid;
+  place-items: center;
+  background: rgba(4, 7, 14, 0.6);
+}
+
+/* The header stays visible and undimmed so the operator can see which mode
+   they are in; the backdrop still covers it, so a click there closes the
+   dialog rather than switching mode under it. */
+.modal-backdrop--below-header {
+  place-items: start end;
+  padding: 104px 16px 16px;
+  background: linear-gradient(to bottom, transparent 96px, rgba(4, 7, 14, 0.5) 96px);
+}
+
+.modal-dialog {
+  position: relative;
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
+  padding: var(--panel-pad);
+  border: 1px solid rgba(137, 166, 196, 0.2);
+  border-radius: 10px;
+  background: var(--surface-dense);
+  backdrop-filter: var(--surface-dense-blur);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+  color: var(--primary);
+}
+
+.modal-backdrop--below-header .modal-dialog {
+  max-height: calc(100vh - 120px);
+}
+
+/* The container takes focus only as a fallback; its controls show the ring. */
+.modal-dialog:focus {
+  outline: none;
+}
+
+.modal-dialog__title {
+  margin: 0 0 var(--space-12);
+  font-size: var(--text-lg);
+  font-weight: var(--weight-medium);
+}
+
+.modal-dialog__description {
+  margin: 0 0 var(--space-16);
+  color: var(--secondary);
+  font-size: var(--text-base);
+  line-height: var(--leading-body);
+}
+
+.preferences-dialog {
+  width: min(440px, calc(100vw - 32px));
+}
+
+.preferences-dialog__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-12);
+  margin-bottom: var(--space-8);
+}
+
+.preferences-dialog__header h2 {
+  margin: 0;
+  font-size: var(--text-lg);
+}
+
+.preferences-section {
+  padding: var(--space-12) 0;
+  border-bottom: 1px solid #293847;
+}
+
+.preferences-section:last-child {
+  border-bottom: 0;
+}
+
+.preferences-section__title {
+  margin: 0 0 var(--space-4);
+  color: #c99759;
+  font: var(--text-micro) var(--font-mono);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.preferences-section .gmail-settings {
+  margin: 0;
+}
+
+.preferences-section .model-diagnostics {
+  margin: 0;
+  border-bottom: 0;
+}
+
+.preferences-section .voice-lab {
+  margin: var(--space-8) 0;
+}
+
+.preferences-section .voice-lab > summary {
+  cursor: pointer;
+  padding: var(--space-4) 0;
+}
+
+.preferences-restart .ghost-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.preferences-restart__confirm p {
+  margin: var(--space-8) 0;
+  color: var(--secondary);
+  font-size: var(--text-sm);
+  line-height: var(--leading-body);
+}
+
+.preferences-restart__live {
+  color: #e2b77c !important;
+}
+
+.preferences-restart__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-8);
+}
+
+.preferences-restart__go {
+  border-color: rgba(248, 113, 113, 0.45);
+  color: #f3b0b0;
+}
+
+/* ---- Error boundary (components/ErrorBoundary.tsx) ------------------------ */
+
+.error-boundary {
+  display: grid;
+  gap: var(--space-8);
+  justify-items: start;
+  align-content: start;
+  align-self: start;
+  height: auto;
+  max-width: 560px;
+  margin: var(--space-16);
+  padding: var(--space-16);
+  border: 1px solid rgba(248, 113, 113, 0.35);
+  border-radius: 8px;
+  background: var(--surface-dense);
+  color: var(--primary);
+}
+
+.error-boundary__title {
+  margin: 0;
+  font-size: var(--text-base);
+  font-weight: var(--weight-medium);
+}
+
+.error-boundary__copy {
+  margin: 0;
+  color: var(--secondary);
+  font-size: var(--text-sm);
+  line-height: var(--leading-body);
+}
+
+.error-boundary__details {
+  color: var(--muted);
+  font-size: var(--text-xs);
+}
+
+.error-boundary__details pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-family: var(--font-mono);
+}

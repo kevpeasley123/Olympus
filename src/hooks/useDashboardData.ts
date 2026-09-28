@@ -1,13 +1,16 @@
 import {consumeNextModel} from "../services/modelRouting";
 import { normalizeVoicePreferences, type VoicePreferences } from "../services/voicePreferences";
-import { useActionQueue } from "./useActionQueue";
-import { useDelegationRuns } from "./useDelegationRuns";
+import { refreshActionQueue, useActionQueue } from "./useActionQueue";
+import { refreshDelegationRuns, useDelegationRuns } from "./useDelegationRuns";
+import { refreshPantheon } from "./usePantheon";
+import { refreshVaultGraph } from "./useVaultGraph";
+import { refreshVaultWrites } from "./useVaultWrites";
+import { emitRefreshRequested } from "../services/navigation";
 import { buildProjectCommandBoard } from "../services/projectCommandBoard";
 import { composeOpeningBriefing } from "../services/openingBriefing";
 import type { VoiceDepth, VoiceAnswer, VoiceMessageMetadata } from "../services/voiceContract";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { conversationStream } from "../services/conversationStream";
-import { seedState } from "../data/seed";
 import { fetchProjects } from "../services/liveData";
 import { isTauriRuntime } from "../services/launcher";
 import {
@@ -19,7 +22,7 @@ import { createAssistantMessage, requestAssistantReply } from "../services/assis
 import { planTurnRelease } from "../services/glyphState";
 import { emitInstrumentEvent } from "../services/instrumentEvents";
 import { buildPantheonReply, createUserMessage } from "../services/pantheonChat";
-import { appendConversationMessages, loadState, persistPreferences } from "../services/storage";
+import { appendConversationMessages, initialDashboardState, loadState, persistPreferences } from "../services/storage";
 import { beginOperatorSession } from "../services/session";
 import type { OlympusState, SessionBoundary } from "../types";
 
@@ -43,8 +46,37 @@ function errorMessage(error: unknown): string {
   return "Unknown error";
 }
 
+/**
+ * Where the project scan stands (review U1). Surfaces render from this rather
+ * than inferring from `projects.length`:
+ *
+ *  - `loading`: no scan has settled yet. Desktop `projects` is empty.
+ *  - `ready`:   the last scan succeeded. An empty list means no projects.
+ *  - `stale`:   a refresh failed after an earlier success. `projects` keeps the
+ *               last genuine result; show `lastSuccessAt` and `error`.
+ *  - `failed`:  no scan has ever succeeded this launch. `projects` is empty —
+ *               nothing rather than fiction.
+ *
+ * `scanning` is true while a scan is in flight, including a Retry.
+ */
+export type ProjectScanStatus = "loading" | "ready" | "stale" | "failed";
+
+export interface ProjectScanState {
+  status: ProjectScanStatus;
+  /** ISO time of the last successful scan this launch. */
+  lastSuccessAt: string | null;
+  error: string | null;
+  scanning: boolean;
+}
+
+/**
+ * The browser dev server has no scan. It shows the seed as demo data, and
+ * `demoData` tells surfaces to label it as such.
+ */
+const DEMO_DATA = !isTauriRuntime();
+
 export function useDashboardData() {
-  const [dashboardState, setDashboardState] = useState<OlympusState>(seedState);
+  const [dashboardState, setDashboardState] = useState<OlympusState>(initialDashboardState);
   const dashboardRef = useRef(dashboardState);
   dashboardRef.current = dashboardState;
   const updateVoicePreferences = useCallback((patch:Partial<VoicePreferences>) => {
@@ -64,9 +96,10 @@ export function useDashboardData() {
   const hydratedRef = useRef(false);
   const [sessionBoundary, setSessionBoundary] = useState<SessionBoundary | null>(null);
   const [sessionReady, setSessionReady] = useState(false);
-  const [projectsError, setProjectsError] = useState<string | null>(null);
-  /** Until the first scan settles, `projects` is seed data and must not be briefed. */
-  const [projectsScanned, setProjectsScanned] = useState(false);
+  const [projectScan, setProjectScan] = useState<ProjectScanState>(() => DEMO_DATA
+    ? { status: "ready", lastSuccessAt: null, error: null, scanning: false }
+    : { status: "loading", lastSuccessAt: null, error: null, scanning: false });
+  const projectsError = projectScan.error;
   const openingBriefed = useRef(false);
   const [openingBriefing, setOpeningBriefing] = useState<{ id: string; text: string } | null>(null);
   /** Problems with `01 - Projects` itself, which belong to no single project. */
@@ -163,7 +196,9 @@ export function useDashboardData() {
   // newer one. Only the latest request may write.
   const projectScanSeq = useRef(0);
   const refreshProjects = useCallback(async () => {
+    if (DEMO_DATA) return;
     const request = ++projectScanSeq.current;
+    setProjectScan((current) => current.scanning ? current : { ...current, scanning: true });
     try {
       const scan = await fetchProjects(
         dashboardState.settings.projectsRootPath,
@@ -175,12 +210,16 @@ export function useDashboardData() {
         ? current
         : { ...current, projects: scan.projects });
       setProjectNoteWarnings((current) => JSON.stringify(current) === JSON.stringify(scan.warnings) ? current : scan.warnings);
-      setProjectsError(null);
+      setProjectScan({ status: "ready", lastSuccessAt: new Date().toISOString(), error: null, scanning: false });
     } catch (error) {
       if (request !== projectScanSeq.current) return;
-      setProjectsError(errorMessage(error));
+      const message = errorMessage(error);
+      // Projects are left untouched either way: empty if no scan ever
+      // succeeded, the last genuine result if one did.
+      setProjectScan((current) => current.lastSuccessAt
+        ? { status: "stale", lastSuccessAt: current.lastSuccessAt, error: message, scanning: false }
+        : { status: "failed", lastSuccessAt: null, error: message, scanning: false });
     }
-    setProjectsScanned(true);
   }, [dashboardState.settings.projectsRootPath, sessionBoundary?.previousSessionStartedAt]);
 
   useEffect(() => {
@@ -205,6 +244,7 @@ export function useDashboardData() {
   // Once per launch, after hydration and the first real scan, so the briefing
   // describes stored state rather than seed data. Composed without a model; the
   // caller decides whether to speak it.
+  const projectsScanned = projectScan.status !== "loading";
   useEffect(() => {
     if (openingBriefed.current || !hydrated || !projectsScanned) return;
     if (taskStore.loading || runStore.loading) return;
@@ -398,8 +438,21 @@ export function useDashboardData() {
     }
   }, []);
 
+  /**
+   * Everything the Ctrl+R registry label promises, and anything subscribed to
+   * `subscribeToRefresh`. Settled, not awaited in sequence: one failing source
+   * must not hold the others back.
+   */
   const refreshAll = useCallback(async () => {
-    await refreshProjects();
+    emitRefreshRequested();
+    await Promise.allSettled([
+      refreshProjects(),
+      refreshActionQueue(),
+      refreshDelegationRuns(),
+      refreshPantheon(),
+      refreshVaultGraph(),
+      refreshVaultWrites()
+    ]);
     emitInstrumentEvent("poll");
   }, [refreshProjects]);
 
@@ -412,7 +465,12 @@ export function useDashboardData() {
       projects: dashboardState.projects,
       sessionBoundary,
       openingBriefing,
+      projectScan,
+      /** True in the browser preview: projects and conversation are seed fixtures. */
+      demoData: DEMO_DATA,
+      /** Kept for existing callers; the same value as `projectScan.error`. */
       projectsError,
+      rescanProjects: refreshProjects,
       projectNoteWarnings,
       chat: dashboardState.conversation,
       chatPending,
@@ -433,7 +491,9 @@ export function useDashboardData() {
       hydrated,
       sessionBoundary,
       openingBriefing,
+      projectScan,
       projectsError,
+      refreshProjects,
       projectNoteWarnings,
       chatPending,
       chatError,

@@ -2,7 +2,12 @@ import { useEffect, useState, useSyncExternalStore } from "react";
 import { CURATED_VOICES, OLYMPUS_VOICES, VOICE_PREVIEW_PHRASE, type VoicePreferences } from "../../services/voicePreferences";
 import { realtimeVoice, voicePreview } from "../../services/realtimeVoice";
 
-export function VoiceSettings({preferences,onChange,ready=true}:{preferences:VoicePreferences;onChange:(patch:Partial<VoicePreferences>)=>void;ready?:boolean}) {
+/**
+ * `replyControls` off drops Auto Speak and Opening Briefing: Preferences shows
+ * those first, under "Replies & briefing", with the console's Text / Voice
+ * wording, and one setting must not appear twice under two names.
+ */
+export function VoiceSettings({preferences,onChange,ready=true,replyControls=true}:{preferences:VoicePreferences;onChange:(patch:Partial<VoicePreferences>)=>void;ready?:boolean;replyControls?:boolean}) {
   const [previewing,setPreviewing]=useState<string|null>(null);
   const preview=useSyncExternalStore(voicePreview.subscribe,voicePreview.getSnapshot,voicePreview.getSnapshot);
   useEffect(()=>{
@@ -17,7 +22,7 @@ export function VoiceSettings({preferences,onChange,ready=true}:{preferences:Voi
   }
   return <fieldset className="voice-settings" disabled={!ready}>
     <legend>VOICE</legend>
-    <h3 className="voice-lab-title">VOICE LAB</h3>
+    <details className="voice-lab"><summary className="voice-lab-title">Voice lab · preview and choose a voice</summary>
     <div className="voice-catalog">{OLYMPUS_VOICES.map(voice=><div key={voice} data-selected={preferences.selectedVoice===voice}>
       <div className="voice-lab-identity"><strong>{voice.toUpperCase()}</strong>
         {CURATED_VOICES.includes(voice) && <small>OpenAI recommended</small>}
@@ -29,6 +34,7 @@ export function VoiceSettings({preferences,onChange,ready=true}:{preferences:Voi
     {busy && <button type="button" className="ghost-action" onClick={()=>voicePreview.stop()}>Stop preview</button>}
     <p className="voice-settings-hint">Isolated API audio audition. The live microphone pauses during previews and resumes afterward. The sample counts are fictional, not a project status report.</p>
     <details className="voice-preview-sample"><summary>Preview phrase</summary><p>{VOICE_PREVIEW_PHRASE}</p></details>
+    </details>
     <p className="voice-preview-status" role="status">{preview.error || (busy ? `${preview.connecting ? "Connecting" : "Previewing"} ${previewing}…` : "")}</p>
     <label className="voice-setting-row">Speaking Style<select aria-label="Speaking Style" value={preferences.speechStyle} onChange={event=>change({speechStyle:event.target.value as VoicePreferences["speechStyle"]})}>
       <option value="measured">Measured</option><option value="conversational">Conversational</option><option value="concise">Concise</option>
@@ -36,7 +42,10 @@ export function VoiceSettings({preferences,onChange,ready=true}:{preferences:Voi
     <label className="voice-setting-row">Response Depth<select aria-label="Response Depth" value={preferences.responseDepth} onChange={event=>change({responseDepth:event.target.value as VoicePreferences["responseDepth"]})}>
       <option value="brief">Brief</option><option value="standard">Standard</option><option value="detailed">Detailed</option>
     </select></label>
-    {([["autoSpeak","Auto Speak"],["captionsEnabled","Live Captions"],["bargeInEnabled","Allow Interruption"],["briefOnOpen","Opening Briefing"]] as const).map(([key,label])=><label key={key} className="voice-setting-row">{label}<input type="checkbox" checked={preferences[key]} onChange={event=>change({[key]:event.target.checked})}/></label>)}
-    <p className="voice-settings-hint">Auto Speak reads concise replies to typed messages and voice conversations. Typed replies keep your microphone off. Live Captions controls in-progress recognition; saved messages always remain readable. With interruption off, microphone input pauses during Olympus playback. Manual Interrupt remains available. Opening Briefing shows a short project briefing once when Olympus opens, and speaks it when Auto Speak is on.</p>
+    {(replyControls
+      ? [["autoSpeak","Auto Speak"],["captionsEnabled","Live Captions"],["bargeInEnabled","Allow Interruption"],["briefOnOpen","Opening Briefing"]] as const
+      : [["captionsEnabled","Live Captions"],["bargeInEnabled","Allow Interruption"]] as const
+    ).map(([key,label])=><label key={key} className="voice-setting-row">{label}<input type="checkbox" checked={preferences[key]} onChange={event=>change({[key]:event.target.checked})}/></label>)}
+    <p className="voice-settings-hint">{replyControls && "Auto Speak reads concise replies to typed messages and voice conversations. Typed replies keep your microphone off. "}Live Captions controls in-progress recognition; saved messages always remain readable. With interruption off, microphone input pauses during Olympus playback. Manual Interrupt remains available.{replyControls && " Opening Briefing shows a short project briefing once when Olympus opens, and speaks it when Auto Speak is on."}</p>
   </fieldset>;
 }

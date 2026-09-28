@@ -11,6 +11,9 @@ const useDelegationRunStore = createPollingStore<DelegationRun[]>({
   fetcher: () => isTauriRuntime() ? listDelegationRuns() : Promise.resolve([])
 });
 
+/** For the operator-wide refresh; forced so it cannot join an older poll. */
+export const refreshDelegationRuns = () => useDelegationRunStore.refresh({ force: true });
+
 export function useDelegationRuns(): PollingStore<DelegationRun[]> {
   const store = useDelegationRunStore();
   // An event or a finished action means the backend has already moved on; joining a

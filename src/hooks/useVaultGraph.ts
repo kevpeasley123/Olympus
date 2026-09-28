@@ -37,7 +37,7 @@ const useStore = createPollingStore<VaultGraphPayload>({
 });
 
 export function useVaultGraph() {
-  const { data, loading, error, refresh } = useStore();
+  const { data, loading, error, lastSuccessAt, refresh } = useStore();
 
   // An approved write adds a note, and a note with no inbound link lands on the
   // rim. Waiting five minutes to draw it would hide the one moment where the
@@ -48,5 +48,7 @@ export function useVaultGraph() {
     });
   }, [refresh]);
 
-  return { graph: data, loading, error, refresh };
+  return { graph: data, loading, error, lastSuccessAt, refresh };
 }
+
+export const refreshVaultGraph = () => useStore.refresh({ force: true });

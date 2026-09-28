@@ -1,7 +1,8 @@
 import {ModelRouteControl} from "./ModelSettings";
 import { realtimeVoice, voicePreview, useVoiceState } from "../../services/realtimeVoice";
-import { VOICE_CLIENT } from "../../services/voiceContract";
-import { Mic, MicOff, Volume2, VolumeX, Square, Keyboard, MessageSquare } from "lucide-react";
+import { isModalOpen, SHORTCUTS } from "../../services/shortcuts";
+import { ReplyModeToggle } from "./ReplyModeToggle";
+import { Mic, MicOff, Volume2, VolumeX, Square, Keyboard } from "lucide-react";
 import { ChevronRight, NotebookPen, X, History, Settings2 } from "lucide-react";
 import type { CSSProperties } from "react";
 import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
@@ -78,8 +79,8 @@ export function ChatPanel({ messages, onSendMessage, onRecordObservation, pendin
   }, [voice.active, voice.connecting]);
   useEffect(() => {
     const shortcut = (event:KeyboardEvent) => {
-      if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.code === VOICE_CLIENT.shortcutCode && !event.repeat) {
-        if (document.querySelector('[aria-modal="true"]')) return;
+      if (SHORTCUTS.microphone.matches(event)) {
+        if (isModalOpen()) return;
         event.preventDefault();
         const state=realtimeVoice.getSnapshot();
         if (state.microphoneOn&&(state.active||state.connecting)) realtimeVoice.stop(); else { voicePreview.stop(); realtimeVoice.stop(); void realtimeVoice.start(); }
@@ -120,8 +121,8 @@ export function ChatPanel({ messages, onSendMessage, onRecordObservation, pendin
       inputRef.current?.focus();
     };
     const shortcut = (event: KeyboardEvent) => {
-      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k" && !event.altKey) {
-        if (document.querySelector('[aria-modal="true"]')) return;
+      if (SHORTCUTS.console.matches(event)) {
+        if (isModalOpen()) return;
         event.preventDefault(); focusConsole();
       }
     };
@@ -131,7 +132,7 @@ export function ChatPanel({ messages, onSendMessage, onRecordObservation, pendin
   }, []);
   useEffect(() => {
     const outside = (event: PointerEvent) => {
-      if ((event.target as Element)?.closest?.(".floating-preferences-panel, .ambient-bottom-right")) return;
+      if ((event.target as Element)?.closest?.(".modal-backdrop, .ambient-bottom-right")) return;
       if (!editingMemory && mode === "engaged" && !panelRef.current?.contains(event.target as Node)) setMode("dormant");
     };
     document.addEventListener("pointerdown", outside);
@@ -274,12 +275,7 @@ export function ChatPanel({ messages, onSendMessage, onRecordObservation, pendin
       <div className="console-command-bar">
         <div className="console-status-line"><span className="console-omega" aria-hidden="true">Ω</span>
           <span role="status" className="console-status">{status}</span>
-          {onAutoSpeakChange&&<div className="console-reply-mode" role="group" aria-label="Reply mode">
-            <button type="button" aria-label="Text-only replies" aria-pressed={!autoSpeak} disabled={!voiceSettingsReady}
-              title="Reply in text only" onClick={()=>onAutoSpeakChange(false)}><MessageSquare size={12} aria-hidden="true"/>Text</button>
-            <button type="button" aria-label="Voice and text replies" aria-pressed={autoSpeak} disabled={!voiceSettingsReady}
-              title="Speak replies and keep the written answer; microphone stays off unless enabled separately" onClick={()=>onAutoSpeakChange(true)}><Volume2 size={12} aria-hidden="true"/>Voice</button>
-          </div>}
+          {onAutoSpeakChange&&<ReplyModeToggle autoSpeak={autoSpeak} onChange={onAutoSpeakChange} disabled={!voiceSettingsReady}/>}
           <ModelRouteControl disabled={pending}/>
           {onOpenPreferences&&<button type="button" className="ghost-icon-action" aria-label="Open preferences" title="Open preferences" onClick={onOpenPreferences}><Settings2 size={14}/></button>}
           <button type="button" className="ghost-icon-action" aria-label="Open conversation history" title="Conversation history" onClick={showHistory}><History size={14} /></button>

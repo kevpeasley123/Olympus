@@ -17,6 +17,9 @@ import { ProjectsPanel } from "./components/panels/ProjectsPanel";
 import { QuickbarPanel } from "./components/panels/QuickbarPanel";
 import { ToolBelt } from "./components/panels/ToolBelt";
 import { WriteConfirmDialog } from "./components/panels/WriteConfirmDialog";
+import { ErrorBoundary } from "./components/ErrorBoundary";
+import { projectHasOpenWork, readViewSlice, useViewSlice } from "./state/viewState";
+import { subscribeToNavigation } from "./services/navigation";
 import { isTauriRuntime, openVaultNote } from "./services/launcher";
 import { useActionQueue } from "./hooks/useActionQueue";
 import { usePantheon } from "./hooks/usePantheon";
@@ -61,8 +64,24 @@ function App() {
     error: actionTasksError
   } = useActionQueue();
   usePantheon();
-  /** Set when Project mode narrows its detailed briefing to one workspace. */
-  const [projectFilter, setProjectFilter] = useState<string | null>(null);
+  /**
+   * The project whose detail is open in Project mode. Held in the session view
+   * store rather than App state so a Command glance and back can restore it
+   * (review U3); `selectMode` still decides when it is cleared.
+   */
+  const [projectView, setProjectView] = useViewSlice("project");
+  const projectFilter = projectView.detailProjectId;
+  const setProjectFilter = useCallback((detailProjectId: string | null) => {
+    setProjectView(current => current.detailProjectId === detailProjectId ? current : { ...current, detailProjectId });
+  }, [setProjectView]);
+  /**
+   * Leaving Project mode clears the open project so it never silently shows a
+   * subset — unless the operator has typed work there (an unsent run task or
+   * review notes), which would otherwise be stranded behind the board.
+   */
+  const releaseProjectFilter = useCallback(() => {
+    if (!projectHasOpenWork(readViewSlice("project").detailProjectId)) setProjectFilter(null);
+  }, [setProjectFilter]);
 
   // Project mode is what focus mode was, so the density props that used to read
   // a boolean now read the mode. One state, not two.
@@ -79,11 +98,24 @@ function App() {
   const openNote = useCallback((notePath: string) => void openVaultNote(notePath), []);
   const refreshDashboard = useCallback(() => void refreshAll(), [refreshAll]);
   const cycleDashboardMode = useCallback(() => {
-    // Cycling is an explicit mode change, so it clears the project filter
+    // Cycling is an explicit mode change, so it releases the project filter
     // for the same reason any other mode switch does.
-    setProjectFilter(null);
+    releaseProjectFilter();
     cycleMode();
-  }, [cycleMode]);
+  }, [cycleMode, releaseProjectFilter]);
+
+  // Cross-surface navigation (services/navigation.ts). The target itself is
+  // already parked in the view store; App only moves to the right mode.
+  useEffect(() => subscribeToNavigation(request => {
+    setResearchInspection(null);
+    if (request.kind === "project") {
+      setProjectFilter(request.projectId);
+      setMode("project");
+      return;
+    }
+    releaseProjectFilter();
+    setMode(request.kind === "research" ? "research" : "communications");
+  }), [setMode, setProjectFilter, releaseProjectFilter]);
 
   useEffect(() => {
     realtimeVoice.configure({
@@ -102,7 +134,7 @@ function App() {
         }
       }
     });
-  }, [sendChatMessage, updateVoiceMessage, projects, setMode]);
+  }, [sendChatMessage, updateVoiceMessage, projects, setMode, setProjectFilter]);
   useEffect(() => { if(settingsReady)void realtimeVoice.applyPreferences(settings); }, [settings,settingsReady]);
   // Spoken through the same output-only path as a typed reply, so Auto Speak
   // governs it and the transcript keeps a Replay control either way. At most
@@ -121,7 +153,7 @@ function App() {
   function selectMode(next: DashboardMode) {
     setResearchInspection(null);
     if (next !== "project") {
-      setProjectFilter(null);
+      releaseProjectFilter();
     }
     setMode(next);
   }
@@ -133,8 +165,13 @@ function App() {
     <MotionConfig reducedMotion="user">
       <BackgroundLayer />
       <main className={`app-shell mode-${mode} ${dense ? "focus-mode" : ""}`}>
+      {/* Each region has its own error boundary, so one view failing to render
+          never unmounts the header, the console or the write gate. The write
+          gate sits outside every boundary. */}
       <FadeInPanel index={0} className="panel-slot panel-slot-header">
-        <HeaderBar mode={mode} onSelectMode={selectMode} projects={projects} />
+        <ErrorBoundary label="Header">
+          <HeaderBar mode={mode} onSelectMode={selectMode} projects={projects} />
+        </ErrorBoundary>
       </FadeInPanel>
 
       <div className="dashboard-body">
@@ -143,17 +180,19 @@ function App() {
               column width — at 44px the icons are the whole affordance, and
               each row already carries a title attribute. */}
           <aside className="tools-rail dashboard-column panel-shell surface-chrome">
-            <FadeInPanel index={1} className="panel-slot panel-slot-tools">
-              <ToolBelt tools={tools} compact />
-            </FadeInPanel>
-            <FadeInPanel index={6} className="panel-slot panel-slot-quickbar">
-              <QuickbarPanel apps={quickApps} />
-            </FadeInPanel>
+            <ErrorBoundary label="Tool rail">
+              <FadeInPanel index={1} className="panel-slot panel-slot-tools">
+                <ToolBelt tools={tools} compact />
+              </FadeInPanel>
+              <FadeInPanel index={6} className="panel-slot panel-slot-quickbar">
+                <QuickbarPanel apps={quickApps} />
+              </FadeInPanel>
+            </ErrorBoundary>
           </aside>
 
-          {command&&<CommandAgentCatalog selectedId={commandAgent} onSelect={setCommandAgent}
+          {command&&<ErrorBoundary label="Agent catalog"><CommandAgentCatalog selectedId={commandAgent} onSelect={setCommandAgent}
             onResearch={runId=>{setResearchInspection(previous=>({runId,revision:(previous?.revision??0)+1}));setMode("research")}}
-            onProjects={()=>selectMode("project")}/>}
+            onProjects={()=>selectMode("project")}/></ErrorBoundary>}
 
           <section className="center-stack dashboard-column">
             {/* Research mode gives the whole column to the library. The other
@@ -163,7 +202,7 @@ function App() {
                 no panel chrome. If a scrolling list appears here it has become
                 Project mode with a different tab lit. */}
             {<div className="panel-slot panel-slot-instrument" hidden={!command}>
-
+              <ErrorBoundary label="Command view">
                 <CommandInstrument
                   active={command}
                   visualState={voice.active || voice.phase === "ERROR" ? (voice.phase==="IDLE"&&chatPending ? "thinking" : ({IDLE:"idle",LISTENING:"listening",PROCESSING:"thinking",SPEAKING:"speaking",ERROR:"error"} as const)[voice.phase]) : undefined}
@@ -179,30 +218,37 @@ function App() {
                   onSelectProject={enterProject}
                   onOpenNote={openNote}
                 />
+              </ErrorBoundary>
               </div>}
-            {command ? null : mode === "communications" ? <Communications onSettings={()=>setPreferencesOpen(true)} /> : research ? (
+            {command ? null : mode === "communications" ? <ErrorBoundary label="Communications view"><Communications onSettings={()=>setPreferencesOpen(true)} /></ErrorBoundary> : research ? (
               <FadeInPanel index={1} className="panel-slot panel-slot-library-resident">
-                <LibraryPanel onViewDatabase={syncResearchBase} resident inspectionTarget={researchInspection}
-                  onReturnToCommand={()=>{setResearchInspection(null);setMode("command")}}/>
+                <ErrorBoundary label="Research view">
+                  <LibraryPanel onViewDatabase={syncResearchBase} resident inspectionTarget={researchInspection}
+                    onReturnToCommand={()=>{setResearchInspection(null);setMode("command")}}/>
+                </ErrorBoundary>
               </FadeInPanel>
             ) : (
               <>
                 <FadeInPanel index={4} className="panel-slot panel-slot-projects">
-                  <ProjectsPanel
-                    requestedStatus={voiceFilter}
-                    projects={projects}
-                    sessionBoundary={sessionBoundary}
-                    onSyncCanvas={syncProjectsCanvas}
-                    noteWarnings={projectNoteWarnings}
-                    focusMode={dense}
-                    projectFilter={projectFilter}
-                    onClearFilter={() => setProjectFilter(null)}
-                    onFocusProject={enterProject}
-                    onOpenNote={openNote}
-                  />
+                  <ErrorBoundary label="Project view">
+                    <ProjectsPanel
+                      requestedStatus={voiceFilter}
+                      projects={projects}
+                      sessionBoundary={sessionBoundary}
+                      onSyncCanvas={syncProjectsCanvas}
+                      noteWarnings={projectNoteWarnings}
+                      focusMode={dense}
+                      projectFilter={projectFilter}
+                      onClearFilter={() => setProjectFilter(null)}
+                      onFocusProject={enterProject}
+                      onOpenNote={openNote}
+                    />
+                  </ErrorBoundary>
                 </FadeInPanel>
                 <FadeInPanel index={7} className="panel-slot panel-slot-library">
-                  <LibraryPanel onViewDatabase={syncResearchBase} />
+                  <ErrorBoundary label="Pantheon strip">
+                    <LibraryPanel onViewDatabase={syncResearchBase} />
+                  </ErrorBoundary>
                 </FadeInPanel>
               </>
             )}
@@ -211,29 +257,34 @@ function App() {
           {/* The console stays anchored while its transcript aperture opens upward. */}
           <section className="right-stack dashboard-column">
             <FadeInPanel index={8} className="panel-slot panel-slot-chat">
-              <ChatPanel
-                onOpenPreferences={()=>setPreferencesOpen(true)}
-                autoSpeak={settings.autoSpeak}
-                onAutoSpeakChange={autoSpeak=>updateVoicePreferences({autoSpeak})}
-                voiceSettingsReady={settingsReady}
-                messages={chat}
-                onSendMessage={text => { voicePreview.stop(); void realtimeVoice.sendText(mode === "communications" ? `[Gmail workspace] ${text}` : text,isTauriRuntime()); }}
-                onRecordObservation={recordObservation}
-                pending={chatPending}
-                error={chatError}
-              />
+              <ErrorBoundary label="Command console">
+                <ChatPanel
+                  onOpenPreferences={()=>setPreferencesOpen(true)}
+                  autoSpeak={settings.autoSpeak}
+                  onAutoSpeakChange={autoSpeak=>updateVoicePreferences({autoSpeak})}
+                  voiceSettingsReady={settingsReady}
+                  messages={chat}
+                  onSendMessage={text => { voicePreview.stop(); void realtimeVoice.sendText(mode === "communications" ? `[Gmail workspace] ${text}` : text,isTauriRuntime()); }}
+                  onRecordObservation={recordObservation}
+                  pending={chatPending}
+                  error={chatError}
+                />
+              </ErrorBoundary>
             </FadeInPanel>
           </section>
         </section>
       </div>
 
-      <AmbientDock
-        preferencesOpen={preferencesOpen} onPreferencesOpen={setPreferencesOpen}
-        voicePreferences={settings} onVoicePreferences={updateVoicePreferences} settingsReady={settingsReady}
-        onRefresh={refreshDashboard}
-        mode={mode}
-        onCycleMode={cycleDashboardMode}
-      />
+      <ErrorBoundary label="Status dock">
+        <AmbientDock
+          preferencesOpen={preferencesOpen} onPreferencesOpen={setPreferencesOpen}
+          voicePreferences={settings} onVoicePreferences={updateVoicePreferences} settingsReady={settingsReady}
+          chatPending={chatPending}
+          onRefresh={refreshDashboard}
+          mode={mode}
+          onCycleMode={cycleDashboardMode}
+        />
+      </ErrorBoundary>
       <WriteConfirmDialog />
       </main>
     </MotionConfig>

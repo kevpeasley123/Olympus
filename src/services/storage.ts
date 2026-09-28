@@ -1,6 +1,6 @@
 import { normalizeVoicePreferences, readVoicePreferences } from "./voicePreferences";
 import { invoke } from "@tauri-apps/api/core";
-import { seedState } from "../data/seed";
+import { desktopInitialState, isSeedMessage, seedState } from "../data/seed";
 import { isTauriRuntime } from "./launcher";
 import type {
   ConversationMessage,
@@ -33,6 +33,16 @@ interface PersistedState {
 }
 
 /**
+ * The state to render before `loadState` resolves. Desktop starts empty —
+ * no example projects, no example conversation — so nothing fictional is on
+ * screen while SQLite and the scan are pending. The browser preview keeps the
+ * seed as its labelled demo data.
+ */
+export function initialDashboardState(): OlympusState {
+  return isTauriRuntime() ? desktopInitialState : seedState;
+}
+
+/**
  * Desktop builds persist to SQLite in the Tauri app data directory; the browser
  * dev server keeps using localStorage. Each runtime has exactly one source of
  * truth, so the two never have to be reconciled.
@@ -48,7 +58,9 @@ export async function loadState(): Promise<OlympusState> {
   const persisted = await invoke<PersistedState>("load_persisted_state");
 
   if (isEmptyPersistedState(persisted) && hasLocalPayload()) {
-    const local = readLocalState();
+    // A browser-era payload carries the seed fixtures merged in; they must not
+    // be imported into the real history.
+    const local = withoutDemoData(readLocalState());
     await migrateLocalState(local);
     return local;
   }
@@ -105,8 +117,9 @@ export async function resetState(): Promise<OlympusState> {
     }
   }
 
-  await persistPreferences(seedState);
-  return seedState;
+  const initial = initialDashboardState();
+  await persistPreferences(initial);
+  return initial;
 }
 
 export function updateToolEnabled(
@@ -124,7 +137,7 @@ function applyPersistedState(persisted: PersistedState): OlympusState {
   const toolStates = new Map(persisted.toolStates.map((state) => [state.toolId, state.enabled]));
 
   return {
-    ...seedState,
+    ...desktopInitialState,
     settings: {
       ...readVoicePreferences(persisted.settings.voicePreferences),
       projectsRootPath: persisted.settings.projectsRootPath ?? seedState.settings.projectsRootPath
@@ -132,9 +145,19 @@ function applyPersistedState(persisted: PersistedState): OlympusState {
     tools: seedState.tools.map((tool) =>
       toolStates.has(tool.id) ? { ...tool, enabled: toolStates.get(tool.id)! } : tool
     ),
-    conversation:
-      persisted.conversation.length > 0 ? persisted.conversation : seedState.conversation,
+    // Stored history is kept as it is; only the seed fixture, if an earlier
+    // localStorage import carried it in, is dropped. An empty history stays empty.
+    conversation: persisted.conversation.filter((message) => !isSeedMessage(message)),
     version: seedState.version
+  };
+}
+
+/** Desktop projects come only from a scan; a stored copy is never shown as current. */
+function withoutDemoData(state: OlympusState): OlympusState {
+  return {
+    ...state,
+    projects: [],
+    conversation: state.conversation.filter((message) => !isSeedMessage(message))
   };
 }
 
