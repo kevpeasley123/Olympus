@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useCallback, useEffect } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { createPollingStore, type PollingStore } from "./createPollingStore";
 import { listDelegationRuns, type DelegationRun } from "../services/delegation";
@@ -13,7 +13,9 @@ const useDelegationRunStore = createPollingStore<DelegationRun[]>({
 
 export function useDelegationRuns(): PollingStore<DelegationRun[]> {
   const store = useDelegationRunStore();
-  const { refresh } = store;
+  // An event or a finished action means the backend has already moved on; joining a
+  // poll that started earlier would show the run one step behind.
+  const refresh = useCallback(() => store.refresh({ force: true }), [store.refresh]);
 
   useEffect(() => {
     if (!isTauriRuntime()) return;
@@ -30,5 +32,5 @@ export function useDelegationRuns(): PollingStore<DelegationRun[]> {
     };
   }, [refresh]);
 
-  return store;
+  return { ...store, refresh };
 }

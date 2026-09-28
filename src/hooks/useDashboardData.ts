@@ -51,7 +51,12 @@ export function useDashboardData() {
   }, []);
   const taskStore = useActionQueue();
   const runStore = useDelegationRuns();
-  const commandBoard = buildProjectCommandBoard(dashboardState.projects, taskStore.tasks, runStore.data, {tasks:!taskStore.error && !taskStore.loading,runs:!runStore.error && !runStore.loading});
+  const tasksReady = !taskStore.error && !taskStore.loading;
+  const runsReady = !runStore.error && !runStore.loading;
+  const commandBoard = useMemo(
+    () => buildProjectCommandBoard(dashboardState.projects, taskStore.tasks, runStore.data, {tasks:tasksReady,runs:runsReady}),
+    [dashboardState.projects, taskStore.tasks, runStore.data, tasksReady, runsReady]
+  );
   const boardRef = useRef(commandBoard); boardRef.current = commandBoard;
   const [hydrated, setHydrated] = useState(false);
   /** Read inside `sendChatMessage`, which voice can call before a re-render. */
