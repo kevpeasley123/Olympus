@@ -1,5 +1,9 @@
 # Gmail acceptance record — 2026-09-12
 
+## Update — 2026-09-28
+
+The PARTIAL result below is superseded as to configuration. The Desktop OAuth client was saved, the operator connected an account, and a bounded 206-message initial import succeeded on 2026-09-12 (see the two follow-ups at the end of this file). Still not accepted: MIME review against real mail, incremental sync across a restart, a Gmail-grounded assistant answer, and Disconnect. The 2026-09-28 review fixes changed sync (lossy MIME decoding, history-limit fallback, four paced workers), Disconnect (best-effort token revoke) and Remove cache (derived records deleted); the checklist in [NEXT-SESSION.md](NEXT-SESSION.md) covers them. The SQLite database remains unencrypted and BitLocker state unverified.
+
 ## LIVE ACCEPTANCE RESULT
 
 **PARTIAL — native startup verified; Google acceptance blocked by missing Desktop OAuth configuration.** No live-accepted date is assigned. Repository remains `agent/curated-memory`, with prior work preserved. No product code, version, commit, push, merge or installed release was changed in this validation pass.

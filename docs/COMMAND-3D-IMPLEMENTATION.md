@@ -1,5 +1,7 @@
 # Hybrid command core prototype — 0.10.0
 
+Historical. The optional Dimensional core preference and the SVG default described here were removed; Command renders only the 3D core. See [COMMAND-3D-LIFECYCLE.md](COMMAND-3D-LIFECYCLE.md).
+
 The first implementation is optional: Preferences → Dimensional core. It is session-only and defaults to the original SVG view at each launch. Disable it at any time to compare. This is a rendering prototype for operator design review, not the final cinematic polish pass.
 
 ## Rendering boundary

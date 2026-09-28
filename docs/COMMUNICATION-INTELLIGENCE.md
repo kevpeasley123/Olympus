@@ -1,6 +1,4 @@
-# Current development: Communication Intelligence v3
-
-See [Communication Intelligence v3](COMMUNICATION-INTELLIGENCE-V3.md). Explicit Analyze/Refresh now sends bounded selected excerpts to the existing OpenAI primary route for interpretation, with a genuine three-pass cached-thread expansion loop. Two skills and the five-node graph remain; background findings and operator feedback are visible. No mail/project actions or automatic learning. Installed release remains 0.16.0. Earlier sections below describe historical versions and their verification.
+Status, 2026-09-28: historical design record for v1 and v2. Released through 0.19.0. The live analysis graph is `communication-intelligence/v4` ([COMMUNICATION-INTELLIGENCE-V3.md](COMMUNICATION-INTELLIGENCE-V3.md), [WORKFLOW-INSPECTION.md](WORKFLOW-INSPECTION.md)); it calls the primary model on explicit Analyze/Refresh, and background situation understanding ([COMMUNICATION-SITUATIONS.md](COMMUNICATION-SITUATIONS.md)) calls it while the app is open. Statements below that no model calls are made describe earlier versions.
 
 # Communication Intelligence v2 — current design
 

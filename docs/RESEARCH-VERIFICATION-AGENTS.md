@@ -1,6 +1,6 @@
 # Olympus — First communicating agent pair
 
-Implementation receipt · September 23–24, 2026 · source worktree, not an installed release.
+Implementation receipt · September 23–24, 2026 · released in 0.19.0 ([RELEASE-0.19.0.md](RELEASE-0.19.0.md)). Statements below that it is not installed describe the pre-release stage. 2026-09-28: Research Verification now skips and names unreadable or malformed notes, counts only tagged notes toward its budget, treats a `running` row past its deadline as stale, and its tables moved into `schema.sql`.
 
 ## CURRENT AGENT STATE
 

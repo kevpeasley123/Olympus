@@ -42,7 +42,7 @@ Vault fields may reference an approval ID for display, but are not required for 
 
 ## Completion must also become evidence-based
 
-An agent's successful exit means `awaiting_review`, not `complete`. A run records the requested outcome, criteria, actual checks with exit codes, changed files against the base (including new and committed files), and unresolved issues. Completion requires criteria mapped to evidence. Agent assertions are attributed as assertions; deterministic checks and operator review remain distinct evidence types. Push, merge, deploy, and destructive cleanup remain separate actions.
+An agent's successful exit means `awaiting_review`, not `complete`. A run records the requested outcome, criteria, actual checks with exit codes, and changed files against the base (including new and committed files). Unresolved issues are not recorded: the review form has an unresolved-issues field, completion is refused unless it is empty, and its text is not stored. A run with open issues stays at `awaiting_review`. Completion requires criteria mapped to evidence. Agent assertions are attributed as assertions; deterministic checks and operator review remain distinct evidence types. Push, merge, deploy, and destructive cleanup remain separate actions.
 
 A check that does not apply to the worktree (no matching `package.json` script, no `Cargo.toml`, or no installed `node_modules`) records nothing and does not block completion. A check that runs and fails, times out, or is interrupted by an Olympus restart is recorded without an exit code and blocks completion until it is rerun. Checks run code from the agent's worktree; see `AGENT-DELEGATION.md` for what that environment does and does not contain.
 

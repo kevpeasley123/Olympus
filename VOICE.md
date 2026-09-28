@@ -3,7 +3,8 @@
 ## Start and stop
 
 Add `OPENAI_API_KEY` to the project root `.env` and restart the desktop app.
-Keep `ANTHROPIC_API_KEY`: Olympus still uses its existing reasoning backend.
+The same key serves reasoning: voice turns use OpenAI Responses (Sol by default),
+like text. `ANTHROPIC_API_KEY` is needed only for the explicit Claude comparison route.
 Do not paste keys into the conversation or put them in Vite/browser variables.
 Click the console microphone or press Ctrl+Shift+M to toggle voice. Windows may
 request microphone permission on the first activation. Stop voice releases all
@@ -26,6 +27,9 @@ The webview negotiates WebRTC with `/v1/realtime/calls`. Microphone sessions sen
 input audio; typed replies and auditions only receive audio, with VAD disabled.
 Data-channel events carry transcription, VAD, audio
 transcripts, and playback lifecycle. No new server process or package is required.
+Production builds set a CSP whose `connect-src` allows `https://api.openai.com` for
+the SDP exchange; WebRTC media is not governed by `connect-src`. `npm run tauri dev`
+applies no CSP, so voice in a packaged build is its own check (added 2026-09-28).
 
 The current configuration is `gpt-realtime-2.1`, `marin`, output speed 1.0,
 `gpt-4o-mini-transcribe` in English, near-field noise reduction and server VAD
@@ -38,7 +42,9 @@ visualResponse, proposedActions, requiresConfirmation and conversationState.
 Default spoken responses are capped at 55 words; explicit BRIEF allows 110 and
 DEEP_DIVE 90, one conversational part at a time. Oversized speech is replaced with
 a short invitation to inspect the visual detail, never a reading of the full answer.
-Malformed envelopes fail visibly without affecting existing history.
+Malformed envelopes fail visibly without affecting existing history. A refused
+reasoning turn returns a minimal spoken answer carrying the refusal notice, so the
+microphone session continues (2026-09-28).
 
 Realtime receives only the spoken abstraction in an out-of-band response and is
 instructed to render it verbatim. It cannot answer independently or call tools.

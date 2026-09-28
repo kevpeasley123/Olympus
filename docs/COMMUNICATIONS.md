@@ -1,12 +1,4 @@
-# Current development: Communication Intelligence v3
-
-See [Communication Intelligence v3](COMMUNICATION-INTELLIGENCE-V3.md). Explicit Analyze/Refresh now sends bounded selected excerpts to the existing OpenAI primary route for interpretation, with a genuine three-pass cached-thread expansion loop. Two skills and the five-node graph remain; background findings and operator feedback are visible. No mail/project actions or automatic learning. Installed release remains 0.16.0. Earlier sections below describe historical versions and their verification.
-
-See the adopted [v2 architecture critique](COMMUNICATION-ARCHITECTURE-CRITIQUE.md) for the current skill boundaries and workflow.
-
-# Communication Intelligence supersedes the inbox-first layout
-
-See [Communication Intelligence](COMMUNICATION-INTELLIGENCE.md). Communications now leads with a manual, local evidence-backed brief. Two active typed skills use shared GraphNode / SkillContract definitions. The v2 graph has five nodes; project relevance uses a bounded deterministic matcher, not a discovery loop. Analytics remains collapsed. No model calls, Gmail writes, project changes or memory promotion are added. Earlier implementation entries below are historical.
+Status, 2026-09-28: the Communications workspace reference; dated sections below are historical layers. Released through 0.19.0. The live analysis graph is `communication-intelligence/v4` ([COMMUNICATION-INTELLIGENCE-V3.md](COMMUNICATION-INTELLIGENCE-V3.md), [WORKFLOW-INSPECTION.md](WORKFLOW-INSPECTION.md)); it calls the primary model on explicit Analyze/Refresh, and background situation understanding ([COMMUNICATION-SITUATIONS.md](COMMUNICATION-SITUATIONS.md)) calls it while the app is open. Statements below that no model calls are made describe earlier versions.
 
 # Focused refinement — September 12, 2026
 

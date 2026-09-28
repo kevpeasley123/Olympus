@@ -1,12 +1,4 @@
-# Current development: Communication Intelligence v3
-
-See [Communication Intelligence v3](COMMUNICATION-INTELLIGENCE-V3.md). Explicit Analyze/Refresh now sends bounded selected excerpts to the existing OpenAI primary route for interpretation, with a genuine three-pass cached-thread expansion loop. Two skills and the five-node graph remain; background findings and operator feedback are visible. No mail/project actions or automatic learning. Installed release remains 0.16.0. Earlier sections below describe historical versions and their verification.
-
-See the adopted [v2 architecture critique](COMMUNICATION-ARCHITECTURE-CRITIQUE.md) for the current skill boundaries and workflow.
-
-# Manual local Communication Intelligence
-
-See [Communication Intelligence](COMMUNICATION-INTELLIGENCE.md). Communications now leads with a manual, local evidence-backed brief. Two active typed skills use shared GraphNode / SkillContract definitions. The v2 graph has five nodes; project relevance uses a bounded deterministic matcher, not a discovery loop. Analytics remains collapsed. No model calls, Gmail writes, project changes or memory promotion are added. Earlier implementation entries below are historical.
+Status, 2026-09-28: released (0.16.0 onward; current release 0.19.0), with the 2026-09-28 review fixes described inline. Analysis of mail is covered in [COMMUNICATION-INTELLIGENCE-V3.md](COMMUNICATION-INTELLIGENCE-V3.md) (live graph `communication-intelligence/v4`) and [COMMUNICATION-SITUATIONS.md](COMMUNICATION-SITUATIONS.md). Dated sections below record their own verification.
 
 # Native Gmail source — V1
 
@@ -97,7 +89,7 @@ Communication cues such as email/Gmail/inbox, “what did …”, “who said”
 
 Assistant context includes at most two relevant threads and four messages per thread. It retains the matching message even if newer replies exist, chooses bounded text around query terms, and includes sender/date/subject/message/thread/account IDs, fingerprint, retrieval time, body status, connection state and last successful sync. Missing results are not represented as proof of no email. Both configured reasoning routes use the same backend-built packet; the frontend cannot inject that packet. Replies persist supplied provenance and expose it in the chat disclosure. An explicit cached thread view supports up to 100 in-scope messages, so it is labelled as a subset rather than a complete Gmail conversation.
 
-The first analysis pass is intentionally deterministic: exact active-project-name mentions suggest a project relationship; questions and deadline/due-by phrases in project-related or Gmail-important incoming mail suggest response/deadline candidates. Quotes can trigger false positives because they are preserved. These signals are labelled possible/needs-review, tied to source fingerprints and displayed in Preferences and a collapsed **Mail attention** section in Project briefing. They never turn all unread mail into NEEDS_YOU, modify the Command instrument, or create authoritative tasks.
+The first analysis pass is intentionally deterministic: exact active-project-name mentions suggest a project relationship; questions and deadline/due-by phrases in project-related or Gmail-important incoming mail suggest response/deadline candidates. Quotes can trigger false positives because they are preserved. These signals are labelled possible/needs-review, tied to source fingerprints and displayed in Gmail preferences. (The collapsed **Mail attention** section in Project briefing was no longer rendered by 0.19.0, because its host component had no importers; both components were deleted on 2026-09-28.) They never turn all unread mail into NEEDS_YOU, modify the Command instrument, or create authoritative tasks.
 
 Preferences exposes connection health, identity, Connect/Reconnect, Cancel, Sync now, Disconnect, horizon, last/next sync, latest receipt, cached search, thread text and generated candidates. The browser preview explicitly says the desktop application is required.
 

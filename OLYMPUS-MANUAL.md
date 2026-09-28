@@ -119,6 +119,23 @@ The assistant retrieves research when Kevin queries it or when a relevant source
 would materially improve an answer. It does not inject the entire library into
 every conversation and does not need ceremonial citations for ordinary advice.
 
+Research also hosts read-only inspection of the Research and Verification agents'
+runs, reached from the Command catalog.
+
+### Communications
+
+Read-only understanding of Kevin's email. It leads with situations: ongoing
+matters that emerge from correspondence, explicit operator updates and matching
+Research, each with a relationship map, where things stand, what changed and
+recommended next moves. Browse email is a separate view of the local cache.
+
+Gmail owns mailbox facts. Olympus keeps a bounded local copy and never writes to
+the mailbox. Situations, inferred roles and recommendations are interpretation,
+not commitments, tasks, or proof that a sender is legitimate. Background
+understanding runs while Olympus is open and can be paused. Drafts are generated
+only on request and stay local; sending is deferred. See *Communications
+situations* below and `docs/COMMUNICATIONS.md`.
+
 ## Challenge policy
 
 Olympus is a cooperative adversary. It should identify weak logic, flawed or
@@ -183,6 +200,11 @@ Presence should come from awareness and readiness, not constant interruption.
 
 Do not let a lower priority delay the evidence and safety foundations required by
 a higher one.
+
+September 23–24, 2026: Kevin redirected agent work to the Research / Verification
+pair ahead of the Coding Delegate pilot, and removed that pilot as a prerequisite
+for other work. Coding delegation remains implemented and unproven. This note
+records the redirection; the list above has not been re-ranked.
 
 ## Evidence standard
 

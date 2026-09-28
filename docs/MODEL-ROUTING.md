@@ -51,6 +51,8 @@ Source baseline: 0.18.0, commit `cb25daf`, Olympus Memory Worktree. The installe
 - A minimal synthetic diagnostic received HTTP 200 followed by a streaming `error` and `response.failed`, identifying `credit_balance_exhausted`. No successful model completion, quality comparison, latency comparison, or cost comparison is claimed. The adapter now retains nested `error.code` instead of reporting only `response_failed`.
 - No installed-app update, version bump, database migration or production-data API evaluation was performed. Changes remain a release candidate pending live acceptance.
 
+Decision, recorded 2026-09-28: the operator authorized packaging and installing 0.19.0 on September 24, 2026 with GPT-6 Sol as PRIMARY, without the live acceptance described next (`RELEASE-0.19.0.md`: no paid acceptance run). The acceptance below is still open and is now post-release evidence, not a gate. The 2026-09-28 per-route output budgets (Astra 32,000) have not been exercised live either.
+
 After restoring API credits, run `cargo test --lib --manifest-path src-tauri/Cargo.toml live_openai_routes -- --ignored --nocapture` and the same command with `live_olympus_behavior`. Complete synthetic communications assessment/briefing/draft checks and desktop acceptance for provenance after restart and one-request Deep Analysis reset. Compare against the previous model using the baseline revision in isolation. Only then prepare the versioned installer and preserve the previous installer/database backup before updating the installed app. Rollback is the prior installer or reverting the PRIMARY catalog change; historical model provenance must remain intact.
 
 ## Historical verification — 0.9.0

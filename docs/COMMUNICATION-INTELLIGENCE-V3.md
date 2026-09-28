@@ -1,6 +1,8 @@
 # Communication Intelligence v3
 
-Development implementation, September 13, 2026. Installed release remains 0.16.0 until a separate release request.
+Status, 2026-09-28: released in 0.17.0. The live graph is now `communication-intelligence/v4`, which keeps this assessment policy and corrects trace boundaries; see [WORKFLOW-INSPECTION.md](WORKFLOW-INSPECTION.md).
+
+Development implementation, September 13, 2026. At the time, the installed release was 0.16.0.
 
 ## Adopted critique
 

@@ -1,8 +1,4 @@
-See the adopted [v2 architecture critique](COMMUNICATION-ARCHITECTURE-CRITIQUE.md) for the current skill boundaries and workflow.
-
-# Shared fixed-workflow contracts
-
-See [Communication Intelligence](COMMUNICATION-INTELLIGENCE.md). Communications now leads with a manual, local evidence-backed brief. Two active typed skills use shared GraphNode / SkillContract definitions. The v2 graph has five nodes; project relevance uses a bounded deterministic matcher, not a discovery loop. Analytics remains collapsed. No model calls, Gmail writes, project changes or memory promotion are added. Earlier implementation entries below are historical.
+Status, 2026-09-28: `knowledge-audit/v1` is released and makes no model calls. Communication Intelligence (which shares its GraphNode / SkillContract definitions) and situation understanding are documented in [COMMUNICATION-INTELLIGENCE-V3.md](COMMUNICATION-INTELLIGENCE-V3.md) and [COMMUNICATION-SITUATIONS.md](COMMUNICATION-SITUATIONS.md); those do call the primary model.
 
 # Knowledge, graphs, loops, and improvement
 

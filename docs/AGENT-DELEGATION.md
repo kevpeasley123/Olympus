@@ -2,8 +2,10 @@
 
 This document defines the recoverable boundary Olympus uses to launch Claude
 Code, Codex, or another coding agent. The first registered pilot driver is
-Claude Code 2.1.220 on Windows; driver selection remains explicit rather than
-automatic.
+Claude Code on Windows; driver selection remains explicit rather than
+automatic. The version is not pinned: it is read when a proposal is prepared and
+recorded with the run. The pilot was written against 2.1.220; the installed
+executable reported 2.1.222 in the September 23, 2026 audit.
 
 ## Pilot outcome
 
@@ -59,8 +61,9 @@ the approved outcome is actually achieved, not merely that an agent stopped.
 ## Isolation and recovery
 
 - Work starts from a known commit in a dedicated worktree and branch.
-- Existing uncommitted project work is never adopted silently. Olympus pauses
-  and offers to protect it or choose a clean base.
+- Existing uncommitted project work is never adopted silently. Olympus refuses
+  to prepare a run while the primary checkout has uncommitted work; the operator
+  commits or stashes it first. There is no in-app protect action.
 - The run records the base commit, branch, and workspace before editing begins.
 - Agent commits remain attributable to the run.
 - Push, merge, deploy, and deletion stay separate operator-approved actions.
@@ -94,7 +97,8 @@ Each driver adapter must:
 1. confirm its executable and version;
 2. build fixed arguments in Rust;
 3. constrain the working directory to the run workspace;
-4. pass only the minimum required environment;
+4. pass only the minimum required environment (for Claude Code, an allowlist that
+   includes `ANTHROPIC_API_KEY` when set; for checks, an allowlist without keys);
 5. emit structured phase, milestone, checkpoint, and completion events;
 6. distinguish process output from user-facing progress;
 7. terminate cleanly and report whether child processes remain.
@@ -105,7 +109,7 @@ checks, reviewing, waiting, complete, or failed.
 
 ## First driver
 
-Claude Code 2.1.220 is the pilot driver. Its native executable is resolved from
+Claude Code is the pilot driver. Its native executable is resolved from
 one backend-owned location beneath `APPDATA`; the webview cannot choose a
 program or arguments. The adapter uses structured streaming output, a fixed
 UUID session, a $5 budget per launch, a 45-minute wall-clock limit per launch,
@@ -128,7 +132,8 @@ settings (`--setting-sources ""`, so no hooks, MCP servers or allow rules from
 settings files), and loads no MCP servers (`--strict-mcp-config` with an empty
 config). Arguments end with `--` so the variadic tool lists cannot swallow the
 prompt. The empty `--setting-sources` value was verified against Claude Code
-2.1.283; it is not yet confirmed on the 2.1.220 pilot driver.
+2.1.283; it is not yet confirmed on the installed driver (2.1.222 at the last
+audit). It also stops an `apiKeyHelper` in user settings from loading.
 
 The bundled Codex executable is not used because Windows currently refuses
 standalone execution. Auto-routing belongs after this one driver proves its

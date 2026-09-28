@@ -1,18 +1,6 @@
-## Latest: executive prioritization — September 13, 2026
+Status, 2026-09-28: released (0.18.0 onward; current release 0.19.0). Background understanding backs off from five minutes to four hours after consecutive failures, keeps situations over the 24-situation limit as deferred observations, and skips over-bound threads; Remove cached mailbox deletes all situation records for the account (2026-09-28 fixes). The dated sections below are historical layers, newest first. The executive prioritization entry that opened this file now lives only in [EXECUTIVE-PRIORITIZATION.md](EXECUTIVE-PRIORITIZATION.md) and [NEXT-SESSION.md](NEXT-SESSION.md).
 
-Home's next step now comes from a pure, source-linked review policy. Explicit
-payment-coordination questions can take precedence; general reviews, ties and
-unsupported/empty states remain honest. Status and priority are separate.
-A recommended workstream gets a navigation link and subtle map cue; no auto action.
-Update Olympus is now Add an update because it opens the operator-context form.
-See [EXECUTIVE-PRIORITIZATION.md](EXECUTIVE-PRIORITIZATION.md) for scope, rules and
-exact verification, including the recurring parallel Rust HTTP fixture failure
-and successful full serial rerun (313 passed, 2 ignored). Build passed; policy 23;
-priority browser 17/10/10/20; existing map/dossier/Gmail matrices all passed.
-Projection reads saved SituationContext, not unlinked new Gmail correspondence.
-No new model path, persistence/tracking framework, commit, push or install.
-
-## Latest: final executive overview polish — September 13, 2026
+## Historical: final executive overview polish — September 13, 2026
 
 Whole briefing now prioritizes state, discrete saved open-question bullets and
 amber next-step guidance. Changes, coverage/date and qualifications are secondary.
@@ -25,7 +13,7 @@ typography 6, saved Home pairings 3; browser dossier 53, navigator 76 + reduced 
 Communications 58, Situations 14, Gmail 19 and all five viewport cases passed.
 No commit/push/install.
 
-## Latest: Situation Map polish — September 13, 2026
+## Historical: Situation Map polish — September 13, 2026
 
 Wide inspector reduced by 50px; whole-word two-line names, two-provider summaries,
 subtle connected-edge emphasis, Reset view labels, compact error fallback and
@@ -38,7 +26,7 @@ Build passed; Rust 313 passed/2 ignored; actor 23, dossier 22, graph 19, typogra
 6; browser dossier 53, navigator 68 + reduced 68, Communications 58, Situations 14,
 Gmail 19 and five viewport cases passed. No commit/push/install.
 
-## Latest: relationship dossier — September 13, 2026
+## Historical: relationship dossier — September 13, 2026
 
 The contextual actor inspector now uses compact identity/contacts followed by
 Profile, origin, business/work, saved status and a scoped useful next step.
@@ -51,7 +39,7 @@ dossier browser 53, dossier projection 22, actor projection 20, graph 18,
 navigator 36 + reduced 36, Communications 58, Situations 14, Gmail 19, and five
 viewport cases all passed. No commit/push/install in this pass.
 
-## Latest: compact Situation Maps overview — September 13, 2026
+## Historical: compact Situation Maps overview — September 13, 2026
 
 ### Space audit and final composition
 The previous view stacked the Communications identity, mode tabs, operational

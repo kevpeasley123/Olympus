@@ -1,20 +1,24 @@
-Latest release checkpoint: **0.15.0**, September 12, 2026, on `agent/curated-memory`: typed spoken replies, a persisted Text | Voice toggle in the chat header, independent audio Replay, and accurate playback/failure state. See [NEXT-SESSION.md](NEXT-SESSION.md) for current verification and the external installation receipt location. Older release notes below are historical.
+# Historical handoff
 
-0.10.1: operator requested exactly two continuous inner rings. Removed the intermittent third ring from both SVG and hybrid renderers.
+As of September 28, 2026 this file is historical. The current handoff is
+[NEXT-SESSION.md](NEXT-SESSION.md); the current release is
+[RELEASE-0.19.0.md](RELEASE-0.19.0.md). Nothing below is a current task list,
+and several of its instructions (the optional Dimensional core toggle, the SVG
+default, the delegation-pilot prerequisite) no longer apply.
 
-Installed optional hybrid preview 0.10.0 from e1ed675. 36 conversation rows and settings preserved; enable Dimensional core in Preferences for this session. See COMMAND-3D-IMPLEMENTATION.md for acceptance limits.
+## Release banners, 0.9.0–0.15.0 (historical)
 
-Latest rendering work: optional hybrid core prototype 0.10.0. See COMMAND-3D-IMPLEMENTATION.md; original SVG remains default pending operator visual acceptance.
+- 0.15.0, September 12, 2026, on `agent/curated-memory`: typed spoken replies, a persisted Text | Voice toggle in the chat header, independent audio Replay, and accurate playback/failure state.
+- 0.10.1: operator requested exactly two continuous inner rings. Removed the intermittent third ring from both SVG and hybrid renderers.
+- 0.10.0 installed from e1ed675 as an optional hybrid preview behind a session-only Dimensional core preference; 36 conversation rows and settings preserved. That toggle and the SVG renderer were later removed; Command is 3D-only (COMMAND-3D-LIFECYCLE.md).
+- Direction at the time: after a successful conversation test, proceed to the 3D inspection/proposal in COMMAND-3D-DESIGN.md.
+- 0.9.0 installed: see RELEASE-0.9.0.md for the receipt and desktop-test limitations.
 
-Current direction: operator reports successful conversation test; proceed to the 3D inspection/proposal in COMMAND-3D-DESIGN.md.
+### 0.9.0 reasoning migration (2026-09-08)
 
-Installed 0.9.0: see RELEASE-0.9.0.md for the verified receipt and desktop-test limitations.
+Approved Sol primary (medium), explicit one-request Astra Deep Analysis (high), Realtime speech unchanged, and explicit Claude comparison. Implemented backend routing, Responses streaming/structured voice, model selector and durable request diagnostics/message provenance. See MODEL-ROUTING.md for contracts and verification limits. Local release only; 3D work remained postponed at the time.
 
-## Latest: 0.9.0 reasoning migration (2026-09-08)
-
-Approved Sol primary (medium), explicit one-request Astra Deep Analysis (high), Realtime speech unchanged, and explicit Claude comparison. Implemented backend routing, Responses streaming/structured voice, model selector and durable request diagnostics/message provenance. See MODEL-ROUTING.md for contracts and verification limits. Local release only; 3D work remains postponed. Earlier release notes below are historical.
-
-# Olympus — Current handoff
+# Olympus — handoff through 0.8.1 (historical)
 
 Read `OLYMPUS-MANUAL.md`, then this file. Previous chronological notes are preserved in
 [the historical handoff](archive/HANDOFF-through-2026-08-04.md). That archive contains superseded claims and is not a current task list.

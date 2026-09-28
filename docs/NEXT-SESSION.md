@@ -1,3 +1,40 @@
+## Review fixes — September 28, 2026
+
+A review of 0.19.0 (`docs/reviews/2026-09-28-v0.19.0/`) was fixed on branch
+`claude/blissful-lamport-2l4o96`. Version is unchanged; packaging is the operator's call.
+Per-finding status, including partial fixes and the one deferral, is in [REMEDIATION.md](reviews/2026-09-28-v0.19.0/REMEDIATION.md).
+
+- Webview: rehype-raw and gray-matter removed; production CSP; research links open through `open_external_link`; a navigation guard refuses off-origin navigation.
+- Vault writers: attachments use one-use tokens held in Rust; `write_memory_artifact` takes an artifact enum; writers fail closed on read errors and re-check exact bytes after approval; `.git`/`.obsidian` rejected; vault git handles non-ASCII names; `open_vault_note` uses the opener plugin.
+- Write gate dialog: requests queue by ID; an approval that arrives after the timeout reports nothing written; focus is trapped and restored.
+- Delegation: exact `--tools` per stage, `--setting-sources ""`, `--strict-mcp-config` with an empty config, `--` before the prompt; 45-minute limit per launch; Windows Job Object; PID plus creation time; checks run with an allowlisted environment and no API keys. Approvals prepared under 0.19.0 must be prepared again, and an `apiKeyHelper` in Claude Code user settings is no longer loaded.
+- Gmail and situations: lossy MIME decoding degrades instead of failing the batch; history-limit fallback; four paced workers; content-only fingerprints; Remove cache purges derived records; background failures back off to 4 h; best-effort token revoke.
+- Models and persistence: per-route output budgets; untrusted context moved into an `<olympus_evidence>` user item; Anthropic stream errors and truncation recorded; idle timeouts instead of whole-request ones; load errors no longer save seed state; send waits for hydration.
+- Schema and tests: `PRAGMA foreign_keys = ON`; research-verification tables in `schema.sql`; machine-bound real-vault tests are `#[ignore]` (run with `cargo test --lib -- --ignored` on the owner's machine).
+- UI cost and cleanup: polling skips unchanged results; the scene rebuilds only on geometry; hidden Command stops its timers; `AmbientOrbits.tsx`, `ProjectBriefing.tsx`, `GmailAttention.tsx` and `src/services/tauri.ts` deleted; release builds use the GUI subsystem and spawn children with `CREATE_NO_WINDOW`.
+
+Verification reached: `npm run build` passes. `cargo test --lib` on Linux: 383 passed, 0 failed,
+11 ignored (9 real-vault, 2 paid). The Windows target type-checks with no warnings
+(`cargo check --lib --tests --target x86_64-pc-windows-gnu`; C compilation stubbed, no Windows code run). The desktop app was not launched, nothing was
+installed, and no live OpenAI, Anthropic or Gmail call was made. Windows-only paths — Job Object,
+process identity, `CREATE_NO_WINDOW`, keyring, opener, and the CSP inside WebView2 — are
+type-checked only.
+
+Desktop acceptance for the operator, in the desktop app:
+
+1. Research entry containing raw HTML renders as text; a source link opens in the browser and Olympus stays put.
+2. One spoken voice turn (confirms the CSP allows the Realtime SDP request).
+3. Two gated writes at once, both approved from the queue; one left to expire, then approved, shows that nothing was written.
+4. An observation appended to a note with accented characters; a research entry with an accented title commits without a "(2)" copy.
+5. Gmail: incremental sync, Disconnect, then Remove cache leaves Situations empty.
+6. Delegation: prepare, plan, cancel; no `claude.exe` remains after Olympus quits.
+7. The 60-second project scan shows no console window flashes.
+8. `cargo test --lib -- --ignored` on the owner's machine for the real-vault checks.
+
+Next after acceptance is unchanged: one scoped, explicit paid Research UI run once API
+credit is available; Home semantic navigation is approved as an independent slice and
+has not started.
+
 ## Release 0.19.0 — September 24, 2026
 
 The operator authorized commit, push and installation of the completed work.
@@ -5,7 +42,7 @@ See [RELEASE-0.19.0.md](RELEASE-0.19.0.md). The pre-release reports below descri
 their validation stage; the external output/olympus-0.19.0-install receipt records
 the subsequent package/install result.
 
-## Latest implementation: operational Agent Catalog on Command — September 24, 2026
+## Historical: operational Agent Catalog on Command (pre-release receipt) — September 24, 2026
 
 See [COMMAND-AGENT-CATALOG.md](COMMAND-AGENT-CATALOG.md). Command now has a left
 read-only operational catalog, the unchanged center instrument, and a layout-reserved
@@ -20,7 +57,7 @@ Fresh validation: production build passed; Rust library 339 passed / 2 paid igno
 Command/catalog 35 checks at wide and narrow desktop; existing instrument 82;
 Research Verification 22. See the report for timing-harness and manual review notes.
 
-## Previous: first communicating Research / Verification pair — September 23–24, 2026
+## Historical: first communicating Research / Verification pair — September 23–24, 2026
 
 See [RESEARCH-VERIFICATION-AGENTS.md](RESEARCH-VERIFICATION-AGENTS.md) for the full
 implementation receipt, contracts, authority boundary, limits and verification.
@@ -51,7 +88,9 @@ candidates and two active-labelled Codex role notes were documentary. The audit'
 Coding-first recommendation was superseded by the operator's Research/Verification
 direction; retain the audit as dated evidence, not a current implementation inventory.
 
-## Latest: workflow inspection Phase 1–2 — September 23, 2026
+## Historical: workflow inspection Phase 1–2 — September 23, 2026
+
+Released in 0.19.0. The "not packaged/installed" line below describes the pre-release stage.
 
 Communication Intelligence graph/skill/run inspection is implemented in the
 existing Thread analysis history. New runs use CI v4 with corrected sequential
@@ -70,7 +109,7 @@ slice and has not started. Defer list remains unchanged.
 
 Packages the accumulated Communication Situations, relationship maps, priority guidance, operational dossiers and account-scoped local document access. Earlier sections describe historical intermediate builds. Private source packs/database remain local. Release verification: frontend build, 316 Rust tests passed / 2 ignored, and 16 browser acceptance cases including 72 dossier checks. Installer workflow uses the clean committed checkout and upgrades 0.17.0.
 
-## Latest: executive prioritization — September 13, 2026
+## Historical: executive prioritization — September 13, 2026
 
 Home's next step now comes from a pure, source-linked review policy. Explicit
 payment-coordination questions can take precedence; general reviews, ties and
@@ -84,7 +123,7 @@ priority browser 17/10/10/20; existing map/dossier/Gmail matrices all passed.
 Projection reads saved SituationContext, not unlinked new Gmail correspondence.
 No new model path, persistence/tracking framework, commit, push or install.
 
-## Latest: final executive overview polish — September 13, 2026
+## Historical: final executive overview polish — September 13, 2026
 
 Whole briefing now prioritizes state, discrete saved open-question bullets and
 amber next-step guidance. Changes, coverage/date and qualifications are secondary.
@@ -97,7 +136,7 @@ typography 6, saved Home pairings 3; browser dossier 53, navigator 76 + reduced 
 Communications 58, Situations 14, Gmail 19 and all five viewport cases passed.
 No commit/push/install.
 
-## Latest: Situation Map polish — September 13, 2026
+## Historical: Situation Map polish — September 13, 2026
 
 Wide inspector reduced by 50px; whole-word two-line names, two-provider summaries,
 subtle connected-edge emphasis, Reset view labels, compact error fallback and
@@ -110,7 +149,7 @@ Build passed; Rust 313 passed/2 ignored; actor 23, dossier 22, graph 19, typogra
 6; browser dossier 53, navigator 68 + reduced 68, Communications 58, Situations 14,
 Gmail 19 and five viewport cases passed. No commit/push/install.
 
-## Latest: relationship dossier — September 13, 2026
+## Historical: relationship dossier — September 13, 2026
 
 The contextual actor inspector now uses compact identity/contacts followed by
 Profile, origin, business/work, saved status and a scoped useful next step.
@@ -123,7 +162,7 @@ dossier browser 53, dossier projection 22, actor projection 20, graph 18,
 navigator 36 + reduced 36, Communications 58, Situations 14, Gmail 19, and five
 viewport cases all passed. No commit/push/install in this pass.
 
-## Latest: compact Situation Maps overview — September 13, 2026
+## Historical: compact Situation Maps overview — September 13, 2026
 
 ### Space audit and final composition
 The previous view stacked the Communications identity, mode tabs, operational
@@ -297,7 +336,7 @@ background intelligence changes, graph databases, automatic relationship promoti
 and automatic folder ingestion remain outside this correction. Private Home
 source material remains in the existing local archive, outside public fixtures/Git.
 
-## Latest: Home document foundation (September 13, 2026)
+## Historical: Home document foundation (September 13, 2026)
 
 The requested Home situation has been imported into the real local database.
 Development executable rebuilt and launched (PID 444 at handoff; verify fresh).
@@ -328,7 +367,7 @@ foundation persists independently. No paid live-model retest was forced.
 
 The operator evaluated the native app and found a cluttered view without maps. Real run metadata showed `detail_quote_mismatch`, then `situation_output_bounds`; neither produced a situation. Added one strict map-only retry for optional-detail/bounds failures, permitted empty summaries only for excluded noise, and separated Situation maps / Browse email. Supporting logs/updates/settings are collapsed by default. Native development app was restarted with the corrected backend, and its enabled cooldown reset for an immediate retry under existing explicit OpenAI/email/Research analysis consent. A subsequent contact-membership failure prompted per-thread constrained schemas. Live retry then **completed successfully: one persisted real situation, six processed threads, no run error**. This verifies live schema acceptance/publication, not the factual quality of the generated interpretation. Current native development PID at verification: 44576. Installed release remains unchanged. See COMMUNICATION-SITUATIONS.md.
 
-# Current development: evolving Communications situations (September 13, 2026)
+# Historical: evolving Communications situations (September 13, 2026)
 
 Read [COMMUNICATION-SITUATIONS.md](COMMUNICATION-SITUATIONS.md). The operator approved automatic Emerging situations, focused relationship maps beside ongoing briefings, relevant email/Research context, explicit updates, incremental background refresh, and on-demand editable local reply drafts. Sending remains for a later evolution with recipient review, explicit Send and confirmation.
 
@@ -340,7 +379,7 @@ Verified: frontend build, **309 Rust tests passed / 2 ignored**, **57 Communicat
 
 Communication Intelligence v3: bounded model interpretation, conditional thread expansion, background findings and operator feedback. Verified frontend build, 296 Rust tests passed / 2 ignored, 57 browser checks. Live provider/schema and real-mail interpretation acceptance remain pending. Installation receipt belongs under ignored `output/releases/0.17.0/`. Earlier development notes below are historical.
 
-# Current development: Communication Intelligence v3
+# Historical: Communication Intelligence v3 development
 
 See [Communication Intelligence v3](COMMUNICATION-INTELLIGENCE-V3.md). Explicit Analyze/Refresh now sends bounded selected excerpts to the existing OpenAI primary route for interpretation, with a genuine three-pass cached-thread expansion loop. Two skills and the five-node graph remain; background findings and operator feedback are visible. No mail/project actions or automatic learning. Installed release remains 0.16.0. Earlier sections below describe historical versions and their verification.
 
@@ -529,7 +568,7 @@ These changes are implemented in the working tree after the installed 0.12.0 che
 - Latest constellation adjustment: pointer parallax increased a further 30%, from 2.5 / 1.875 to 3.25 / 2.4375 degrees equivalent. Depth, fixed camera and response damping unchanged.
 - Full development preview: http://127.0.0.1:31429/ . Material study remains available at /material-study.html.
 
-# Current checkpoint: 0.12.0 (September 10, 2026)
+# Historical: checkpoint 0.12.0 (September 10, 2026)
 
 This section supersedes the historical checkpoint below. The operator requested saving, committing, pushing the current branch, and installing all accepted changes.
 
@@ -545,9 +584,9 @@ This section supersedes the historical checkpoint below. The operator requested 
 
 ---
 
-# Olympus — next-session handoff
+# Historical: next-session handoff, September 9, 2026 (0.11.2)
 
-Updated September 9, 2026. This is a checkpoint, not authorization to invent another visual pass.
+Superseded; kept as dated evidence. Its install state, branch, preview ports and "ask the operator" instructions are not current. Updated September 9, 2026. This is a checkpoint, not authorization to invent another visual pass.
 
 ## Start here
 
@@ -590,7 +629,7 @@ The operator prefers concrete implementation and visual verification, with no re
 - The operator repeatedly remained on the wrong tab after a new tab was opened. Use browser inventory, navigate the existing visible tab when appropriate, then verify its URL and screenshot. Keep the populated study available for artistic review.
 - Installed desktop uses real project/vault data. Do not substitute fixture claims for desktop validation.
 
-## Current visual direction
+## Visual direction as of September 9, 2026
 
 - Original approved Omega silhouette, 3D finish; two continuous inner orbitals.
 - Camera: approximately -20 degrees sideways and -9 vertically; do not reset.

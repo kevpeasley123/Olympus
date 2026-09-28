@@ -44,7 +44,7 @@ The default route is OpenAI Responses (Sol, medium), with explicit one-request A
 
 ## Anthropic API constraints
 
-The explicit Claude comparison route calls `claude-opus-5` from `src-tauri/src/commands/assistant.rs`. These are current and counterintuitive — **verify against the `claude-api` skill rather than writing from memory**, which is likely stale:
+The explicit Claude comparison route calls `claude-opus-5`, defined as `CLAUDE_MODEL` in `src-tauri/src/commands/models.rs`; `src-tauri/src/commands/assistant.rs` builds and sends the request. These are current and counterintuitive — **verify against the `claude-api` skill rather than writing from memory**, which is likely stale:
 
 - `temperature`, `top_p`, `top_k`, and `budget_tokens` all return **400** on this model. Don't add them.
 - `effort` goes inside `output_config`, not top-level.
@@ -63,6 +63,8 @@ Settled in conversation with the owner — treat as given unless he revisits the
 
 **It does not speak first.** Reacts to the operator's initiation only. Scheduled rhythms (a morning brief, an end-of-day close-out) are wanted *later*, once the project is in a good state — `08 - Daily Briefs` in the vault is their destination. Not now.
 
+Background Communications situation analysis, approved by the operator and recorded in `OLYMPUS-MANUAL.md`, runs while the app is open and only updates the Communications view (it can be paused); proactive speaking and scheduled briefs remain deferred.
+
 **It acts, with an approval gate, and advises when needed.** Reads run freely; writes surface a confirmation before touching disk or project state. This is already the README's stated safety model.
 
 **It remembers, selectively.** Two tiers: SQLite holds the raw conversation log (complete, searchable, invisible); the vault holds promoted notes (curated, human-readable, permanent). Not every exchange earns a vault note — that would bury the vault in "what's the weather" within a month.
@@ -79,29 +81,31 @@ Ten folders at `C:\Users\kevpe\OneDrive\Desktop\Projects\Obsidian vaults\Olympus
 04 - Decisions   09 - System
 ```
 
-`write_memory_artifact` (in `lib.rs`) writes approved artifacts into it, with path-traversal guarding. PowerShell scripts in `scripts/` scaffold and repair the structure.
+`write_memory_artifact` (in `lib.rs`) regenerates the two derived dashboard artifacts, named by an enum so Rust chooses the path, through the write gate. PowerShell scripts in `scripts/` scaffold and repair the structure.
 
 ## State of play
 
-Done:
+Done, in order (early items are historical; details in `docs/NEXT-SESSION.md` and the release notes):
 
-1. **Frontend wired to SQLite** — connection opened once at startup and held in managed state; `settings`, `tool_states`, and `conversation_messages` tables; automatic import of existing `localStorage` data on first desktop launch.
-2. **Real model behind the chat panel** — replaced a keyword scorer and hardcoded reply templates with an actual Anthropic call, with pending and error states in the UI.
+1. **SQLite persistence** — first wired as `settings`, `tool_states` and `conversation_messages`, with automatic import of `localStorage` on first desktop launch. `src-tauri/schema.sql` now holds every table.
+2. **A real model behind chat** — originally an Anthropic call replacing a keyword scorer. Since 0.9.0 the default is OpenAI Responses; Claude is the explicit comparison route (see Primary reasoning).
 3. **The write gate** — every vault write declares a `WriteIntent`, is proven contained, and asks the operator before touching anything it did not author. See `ARCHITECTURE.md`.
 4. **Observations** — `append_profile_observation` adds one dated line to `09 - System/Profile Observations.md`, atomically and always with confirmation. Written from the Chat panel; deliberately kept out of the assistant's own context.
-5. **Decision history in assistant context** — the in-app assistant receives at
-   most the newest 16,000 characters of `04 - Decisions/Decision Log.md`, in a
-   separate cached section labelled as historical evidence rather than standing
-   instruction. Current direction outranks it, and Profile Observations remain
-   excluded.
+5. **Decision history in assistant context** — at most the newest 16,000 characters of `04 - Decisions/Decision Log.md`, in a separate cached section labelled as historical evidence rather than standing instruction. Current direction outranks it, and Profile Observations remain excluded.
+6. **Selective research and chat promotion** — bounded question-relevant excerpts with persisted provenance, and a reviewed chat-to-Decision-Log path. See `docs/CURATED-MEMORY.md`.
+7. **Verified operator approval** (0.3.0) — delegation starts only from a backend approval record for the exact task and scope. See `docs/OPERATOR-APPROVAL-DESIGN.md`. The Coding Delegate is implemented and unproven: no completed run.
+8. **Communications and 0.19.0** — the Communications mode arrived across 0.16.0–0.18.0 (native read-only Gmail, then situation maps and briefings). 0.19.0 (September 24, 2026) added GPT-6 Sol/Astra routing, saved workflow inspection, the Research @1 / Verification @1 agent pair, and Command's operational Agent Catalog. See `docs/RELEASE-0.19.0.md`.
+9. **2026-09-28 review fixes** — most findings in `docs/reviews/2026-09-28-v0.19.0/` were fixed on this branch, some partially and one deferred: webview script and navigation hardening, vault writer and attachment hardening, delegation containment, Gmail sync degradation, and model stream handling. Status per finding is in `REMEDIATION.md` there. Compiled and unit-tested; not yet accepted in the desktop app.
 
-6. **Selective research and chat promotion** — the isolated memory branch supplies bounded question-relevant excerpts, persists their provenance with replies, and adds a reviewed chat-to-Decision-Log path. Desktop acceptance remains separate from compilation and tests. See `docs/CURATED-MEMORY.md`.
+Next (from `docs/NEXT-SESSION.md`):
 
-Next: review `docs/OPERATOR-APPROVAL-DESIGN.md`, then implement verified approval and evidence-based completion before any Olympus delegation pilot. Do not turn the research library into standing prompt instructions.
+- Desktop acceptance of the review fixes, using the checklist in `docs/NEXT-SESSION.md`.
+- One scoped, explicit paid Research UI run once API credit is available. Not another agent role or a general framework.
+- Home semantic navigation: approved as an independent slice, not started.
 
-`docs/HANDOFF.md` is the current session handoff and is more specific than this
-section. (`OLYMPUS-BRIEF.md` and `STATE-REVIEW.md` were earlier state documents,
-both superseded by it and deleted on 2026-07-31 — git history has them.)
+Do not turn the research library into standing prompt instructions. Do not treat the Coding pilot as a prerequisite; the operator removed it.
+
+`docs/NEXT-SESSION.md` is the current session handoff and is more specific than this section. `docs/HANDOFF.md` is historical. (`OLYMPUS-BRIEF.md` and `STATE-REVIEW.md` were earlier state documents, deleted on 2026-07-31 — git history has them.)
 
 ## Conventions
 
