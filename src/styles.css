@@ -4927,6 +4927,14 @@ small {
   padding: var(--space-4) 0;
 }
 
+/* Preferences gathers panels built for other columns (the console's 9–10px
+   voice lab, bare 16px buttons); inside the dialog they meet the token scale
+   and its 11px floor (review D1). */
+.preferences-dialog .ghost-action { font-size: var(--text-sm); }
+.preferences-dialog .voice-catalog .ghost-action { font-size: var(--text-xs); }
+.preferences-dialog .voice-settings-hint,
+.preferences-dialog .voice-preview-sample p { font-size: var(--text-xs); }
+
 .preferences-restart .ghost-action {
   display: inline-flex;
   align-items: center;
