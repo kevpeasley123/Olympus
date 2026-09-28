@@ -14,9 +14,14 @@
 //! that is a property of those call sites, not of creation. Declared intent is
 //! greppable and reviewable; inferred intent is neither.
 
+use std::fs;
+use std::io::Write;
 use std::path::{Component, Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use super::get_vault_path;
+
+static TEMP_ID: AtomicU64 = AtomicU64::new(1);
 
 /// What a call site means to do. The gate maps this to a tier; it never
 /// guesses from the filesystem operation.
@@ -211,6 +216,7 @@ pub enum VaultWriteError {
     Traversal,
     ReservedName(String),
     IllegalCharacter(String),
+    ProtectedFolder(String),
     EscapesVault(String),
     RootUnavailable(String),
 }
@@ -230,6 +236,9 @@ impl std::fmt::Display for VaultWriteError {
             Self::IllegalCharacter(part) => {
                 write!(f, "`{part}` contains a character that is not allowed in a vault path.")
             }
+            Self::ProtectedFolder(part) => {
+                write!(f, "`{part}` belongs to Git or Obsidian; Olympus does not write there.")
+            }
             Self::EscapesVault(path) => {
                 write!(f, "Refusing to write outside the vault: {path}")
             }
@@ -242,8 +251,32 @@ impl std::fmt::Display for VaultWriteError {
 /// `CON`. `fs::write` to one succeeds and the bytes go nowhere.
 const RESERVED_STEMS: &[&str] = &[
     "CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8",
-    "COM9", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
+    "COM9", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9", "CONIN$",
+    "CONOUT$",
 ];
+
+/// Repository and application state, not notes. A file under `.git/hooks`
+/// runs on the next vault commit.
+const PROTECTED_FOLDERS: &[&str] = &[".git", ".obsidian"];
+
+fn protected(part: &str) -> bool {
+    PROTECTED_FOLDERS
+        .iter()
+        .any(|name| part.eq_ignore_ascii_case(name))
+}
+
+/// A path as the operator should read it. `canonicalize` on Windows returns
+/// verbatim `\\?\` paths, which are correct but not what Explorer shows.
+pub fn display_path(path: &Path) -> String {
+    let text = path.to_string_lossy();
+    if let Some(share) = text.strip_prefix(r"\\?\UNC\") {
+        format!(r"\\{share}")
+    } else if let Some(local) = text.strip_prefix(r"\\?\") {
+        local.to_string()
+    } else {
+        text.into_owned()
+    }
+}
 
 /// Resolves a vault-relative path against the configured vault root.
 pub fn resolve_vault_path(relative: &Path) -> Result<PathBuf, VaultWriteError> {
@@ -270,16 +303,26 @@ pub fn resolve_within(root: &Path, relative: &Path) -> Result<PathBuf, VaultWrit
     // ancestor is where a junction or symlink would redirect us out of the
     // vault, and canonicalizing it resolves the link before we compare.
     let anchor = nearest_existing_ancestor(&candidate)
-        .ok_or_else(|| VaultWriteError::EscapesVault(candidate.display().to_string()))?;
+        .ok_or_else(|| VaultWriteError::EscapesVault(display_path(&candidate)))?;
 
+    // A dangling link is an existing ancestor that cannot be canonicalized;
+    // writing through it would create its target, wherever that is.
     let canonical_anchor = anchor
         .canonicalize()
-        .map_err(|error| VaultWriteError::RootUnavailable(error.to_string()))?;
+        .map_err(|_| VaultWriteError::EscapesVault(display_path(&candidate)))?;
 
-    if !canonical_anchor.starts_with(&canonical_root) {
-        return Err(VaultWriteError::EscapesVault(
-            candidate.display().to_string(),
-        ));
+    let Ok(inside) = canonical_anchor.strip_prefix(&canonical_root) else {
+        return Err(VaultWriteError::EscapesVault(display_path(&candidate)));
+    };
+
+    // The literal components were checked above; this catches the same
+    // folders reached under another name, such as a Windows 8.3 short name.
+    if let Some(part) = inside
+        .components()
+        .map(|component| component.as_os_str().to_string_lossy())
+        .find(|part| protected(part))
+    {
+        return Err(VaultWriteError::ProtectedFolder(part.to_string()));
     }
 
     Ok(candidate)
@@ -304,6 +347,17 @@ fn validate_components(relative: &Path) -> Result<(), VaultWriteError> {
                     return Err(VaultWriteError::IllegalCharacter(text.to_string()));
                 }
 
+                // Windows strips a trailing dot or space, so `.git.` opens
+                // `.git` and `note.md ` opens a different file than the one
+                // the gate was shown.
+                if text.ends_with('.') || text.ends_with(' ') {
+                    return Err(VaultWriteError::IllegalCharacter(text.to_string()));
+                }
+
+                if protected(&text) {
+                    return Err(VaultWriteError::ProtectedFolder(text.to_string()));
+                }
+
                 let stem = text
                     .split('.')
                     .next()
@@ -325,11 +379,89 @@ fn nearest_existing_ancestor(path: &Path) -> Option<PathBuf> {
     let mut current = path;
 
     loop {
-        if current.exists() {
+        // Not `exists()`: it follows links, so a dangling one would read as
+        // absent and the anchor would move past it.
+        if fs::symlink_metadata(current).is_ok() {
             return Some(current.to_path_buf());
         }
         current = current.parent()?;
     }
+}
+
+/// What a replace is about to destroy. Only `NotFound` is absence: a locked,
+/// cloud-only or non-UTF-8 file is a file whose contents are unknown, and
+/// reading that as "nothing there" would skip the gate's question entirely.
+pub fn read_existing(path: &Path) -> Result<Option<String>, String> {
+    match fs::read_to_string(path) {
+        Ok(text) => Ok(Some(text)),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(None),
+        Err(error) => Err(format!(
+            "Cannot read {}; nothing will be replaced: {error}",
+            display_path(path)
+        )),
+    }
+}
+
+/// Replaces `target` with `content` only while its bytes still equal
+/// `expected`, via a unique sibling temp file and a rename.
+///
+/// The gate can hold for two minutes, and the operator approved a diff of
+/// `expected`. Exact bytes, not the normalised fingerprint: an edit that only
+/// touched whitespace is still an edit this write would discard.
+pub fn replace_if_unchanged(
+    target: &Path,
+    expected: Option<&str>,
+    content: &str,
+) -> Result<(), String> {
+    let changed = || {
+        format!(
+            "{} changed while the write was pending. Nothing was replaced; try again.",
+            display_path(target)
+        )
+    };
+    if read_existing(target)?.as_deref() != expected {
+        return Err(changed());
+    }
+
+    let parent = target.parent().ok_or("The target has no parent directory.")?;
+    fs::create_dir_all(parent).map_err(|error| error.to_string())?;
+    let name = target
+        .file_name()
+        .map(|name| name.to_string_lossy().into_owned())
+        .unwrap_or_default();
+    // Dot-prefixed so Obsidian ignores a leftover; unique and `create_new` so
+    // two writers never share, or follow a planted link through, a temp file.
+    let temp = parent.join(format!(
+        ".{name}.{}-{}.olympus-tmp",
+        std::process::id(),
+        TEMP_ID.fetch_add(1, Ordering::Relaxed)
+    ));
+
+    // A failed `create_new` means the name was taken, so the file is not
+    // ours to remove.
+    let mut file = fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&temp)
+        .map_err(|error| error.to_string())?;
+    let staged = file
+        .write_all(content.as_bytes())
+        .and_then(|()| file.sync_all())
+        .map_err(|error| error.to_string());
+    drop(file);
+
+    let result = staged.and_then(|()| {
+        if read_existing(target)?.as_deref() != expected {
+            return Err(changed());
+        }
+        fs::rename(&temp, target)
+            .map_err(|error| format!("Could not replace {}: {error}", display_path(target)))
+    });
+
+    if result.is_err() {
+        let _ = fs::remove_file(&temp);
+    }
+    result
 }
 
 #[cfg(test)]
@@ -437,6 +569,110 @@ mod tests {
                 "`{name}` must be rejected as a reserved device name"
             );
         }
+    }
+
+    #[test]
+    fn rejects_git_and_obsidian_folders_in_any_case() {
+        let root = temp_root("protected");
+
+        for name in [
+            ".git/hooks/pre-commit",
+            ".GIT/config",
+            "00 - Dashboard/.Git/hooks/post-commit",
+            ".obsidian/plugins/x/main.js",
+            ".Obsidian/app.json",
+        ] {
+            assert!(
+                matches!(
+                    resolve_within(&root, Path::new(name)),
+                    Err(VaultWriteError::ProtectedFolder(_))
+                ),
+                "`{name}` must be rejected"
+            );
+        }
+        // Only the exact component is protected, not names that contain it.
+        resolve_within(&root, Path::new("02 - Research/.github notes.md"))
+            .expect("a lookalike name is an ordinary note");
+    }
+
+    #[test]
+    fn rejects_trailing_dots_and_spaces_and_console_devices() {
+        let root = temp_root("trailing");
+
+        for name in [".git.", "note.md.", "note.md ", "02 - Research /entry.md", "..."] {
+            assert!(
+                matches!(
+                    resolve_within(&root, Path::new(name)),
+                    Err(VaultWriteError::IllegalCharacter(_))
+                ),
+                "`{name}` must be rejected"
+            );
+        }
+        for name in ["CONIN$", "conout$.md"] {
+            assert!(
+                matches!(
+                    resolve_within(&root, Path::new(name)),
+                    Err(VaultWriteError::ReservedName(_))
+                ),
+                "`{name}` must be rejected as a device"
+            );
+        }
+    }
+
+    /// `exists()` follows the link and reports a dangling one as absent, so
+    /// the anchor used to move past it to the (contained) parent.
+    #[cfg(unix)]
+    #[test]
+    fn rejects_a_dangling_link_to_outside_the_vault() {
+        let root = temp_root("dangling");
+        let outside = temp_root("dangling-target");
+        std::os::unix::fs::symlink(outside.join("created-by-write.md"), root.join("note.md"))
+            .expect("create a dangling link");
+
+        assert!(matches!(
+            resolve_within(&root, Path::new("note.md")),
+            Err(VaultWriteError::EscapesVault(_))
+        ));
+    }
+
+    #[test]
+    fn displayed_paths_drop_the_verbatim_prefix() {
+        assert_eq!(display_path(Path::new(r"\\?\C:\Vault\note.md")), r"C:\Vault\note.md");
+        assert_eq!(display_path(Path::new(r"\\?\UNC\server\share\n.md")), r"\\server\share\n.md");
+        assert_eq!(display_path(Path::new("/vault/note.md")), "/vault/note.md");
+    }
+
+    #[test]
+    fn replace_requires_the_exact_bytes_that_were_approved() {
+        let root = temp_root("replace");
+        let target = root.join("Olympus Projects.canvas");
+
+        replace_if_unchanged(&target, None, "first\n").expect("create when absent");
+        assert_eq!(fs::read_to_string(&target).unwrap(), "first\n");
+
+        // A whitespace-only edit is invisible to the fingerprint but is still
+        // an edit the operator did not approve discarding.
+        fs::write(&target, "first  \n").unwrap();
+        assert!(replace_if_unchanged(&target, Some("first\n"), "second\n").is_err());
+        assert_eq!(fs::read_to_string(&target).unwrap(), "first  \n");
+        assert!(replace_if_unchanged(&target, None, "second\n").is_err());
+
+        replace_if_unchanged(&target, Some("first  \n"), "second\n").expect("unchanged");
+        assert_eq!(fs::read_to_string(&target).unwrap(), "second\n");
+        assert_eq!(fs::read_dir(&root).unwrap().count(), 1, "no temp file survives");
+    }
+
+    #[test]
+    fn a_read_error_is_not_absence() {
+        let root = temp_root("unreadable");
+        let target = root.join("Olympus Research.base");
+        fs::write(&target, [b'o', b'k', 0xff, b'\n']).unwrap();
+
+        assert!(read_existing(&target).is_err());
+        assert!(replace_if_unchanged(&target, None, "replacement").is_err());
+        assert_eq!(fs::read(&target).unwrap(), [b'o', b'k', 0xff, b'\n']);
+        // A directory in the file's place is also unreadable, not absent.
+        assert!(read_existing(&root).is_err());
     }
 
     #[test]
