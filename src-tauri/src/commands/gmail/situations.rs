@@ -150,13 +150,66 @@ fn snapshot(c: &Connection) -> Result<Value, String> {
             |r| r.get(0),
         )
         .map_err(err)?;
+    let understanding = understanding(
+        c,
+        &a.id,
+        FAILURES.load(Ordering::SeqCst),
+        RESUME_AT.load(Ordering::SeqCst),
+        chrono::Utc::now().timestamp_millis(),
+    )?;
     Ok(
-        json!({"backgroundError":background_error,"accountId":a.id,"enabled":enabled,"situations":situations,"observations":sources.into_iter().filter(|s|s["relevant"]==true).collect::<Vec<_>>(),"updates":updates(c,&a.id)?,"drafts":drafts,"run":latest,"horizonDays":a.horizon_days}),
+        json!({"backgroundError":background_error,"accountId":a.id,"enabled":enabled,"situations":situations,"observations":sources.into_iter().filter(|s|s["relevant"]==true).collect::<Vec<_>>(),"updates":updates(c,&a.id)?,"drafts":drafts,"run":latest,"horizonDays":a.horizon_days,"understanding":understanding}),
     )
 }
+/// When understanding last published, and whether background attempts are
+/// backing off. `nextAttemptAt` is the worker's real resume time, reported only
+/// while a backoff is in force; nothing here is estimated.
+fn understanding(
+    c: &Connection,
+    id: &str,
+    failures: u32,
+    resume_at: i64,
+    now_ms: i64,
+) -> Result<Value, String> {
+    let last_success: Option<String> = c
+        .query_row("SELECT json_extract(payload_json,'$.finishedAt') FROM communication_runs WHERE account_id=?1 AND json_extract(payload_json,'$.graph')=?2 AND status='completed' ORDER BY rowid DESC LIMIT 1",params![id,GRAPH],|r|r.get(0))
+        .optional()
+        .map_err(err)?
+        .flatten();
+    let last_attempt: i64 = c
+        .query_row(
+            "SELECT last_attempt FROM communication_situation_state WHERE account_id=?1",
+            [id],
+            |r| r.get(0),
+        )
+        .optional()
+        .map_err(err)?
+        .unwrap_or(0);
+    let iso = |ms: i64| {
+        chrono::DateTime::<chrono::Utc>::from_timestamp_millis(ms).map(|t| t.to_rfc3339())
+    };
+    let backing_off = failures > 0 && resume_at > now_ms;
+    Ok(json!({
+        "lastSuccessAt": last_success,
+        "lastAttemptAt": if last_attempt > 0 { iso(last_attempt) } else { None },
+        "failures": failures,
+        "nextAttemptAt": if backing_off { iso(resume_at) } else { None },
+    }))
+}
+/// Polls pass the revision they already hold; an unchanged snapshot comes back
+/// as `{unchanged, revision}` so the view neither re-parses nor re-derives it.
 #[tauri::command]
-pub fn situation_snapshot(db: State<'_, Db>) -> Result<Value, String> {
-    snapshot(&*db.0.lock().map_err(|_| "database_busy")?)
+pub fn situation_snapshot(db: State<'_, Db>, since: Option<String>) -> Result<Value, String> {
+    let value = snapshot(&*db.0.lock().map_err(|_| "database_busy")?)?;
+    Ok(with_revision(value, since.as_deref()))
+}
+fn with_revision(mut value: Value, since: Option<&str>) -> Value {
+    let revision = content_fingerprint(&value.to_string());
+    if since == Some(revision.as_str()) {
+        return json!({"unchanged":true,"revision":revision});
+    }
+    value["revision"] = json!(revision);
+    value
 }
 #[tauri::command]
 pub fn situation_set_background(db: State<'_, Db>, enabled: bool) -> Result<(), String> {

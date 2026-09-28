@@ -1,10 +1,11 @@
 import {useEffect,useRef,useState} from 'react';
+import {formatWhen} from '../../services/time';
 import type {IntelligenceClient,InspectionPage,RunEvent,WorkflowDescriptor,WorkflowNode} from '../../services/communicationIntelligence';
 import {diagram,eventData,eventOutput,eventSummary,nodeBindings,nodeEvidence,number,record,requestReceipts,savedSkill,strings,text} from '../../services/workflowInspection';
 import './workflowInspection.css';
 
 const names:Record<string,string>={snapshot:'Snapshot',select:'Selection',assess:'Assessment',project:'Project relevance',synthesize:'Synthesis'};
-const showTime=(value?:string|null)=>value?new Date(value).toLocaleString():'Not recorded';
+const showTime=(value?:string|null)=>value?formatWhen(value,{withDate:true}):'Not recorded';
 function JsonDetail({title,value}:{title:string;value:unknown}){return <details className="workflow-receipt"><summary>{title}</summary><pre>{JSON.stringify(value??null,null,2)}</pre></details>}
 function StringList({value}:{value:unknown}){const entries=strings(value);return entries.length?<ul>{entries.map(s=><li key={s}>{s.replace(/_/g,' ')}</li>)}</ul>:<p>Not recorded in this contract.</p>}
 function EventEvidence({event}:{event:RunEvent}){
@@ -54,7 +55,7 @@ export function WorkflowInspection({api,runId,onClose}:{api:IntelligenceClient;r
  const links=[...new Set(valid?nodes.flatMap(n=>nodeBindings(n,workflow?.nodeSkills)):[])];
  const chosenEvent=events.find(e=>e.sequence===selectedEvent);
  return <section className="comms-run-details workflow-inspection" aria-label="Communication analysis details">
-  <header className="workflow-heading"><div><small>OLYMPUS · WORKFLOW INSPECTION</small><h3 ref={title} tabIndex={-1}>{view==='skill'?skill:view==='graph'?'Communication Intelligence':`Run · ${run?.graph??'loading'}`}</h3></div><button className="comms-text-action" onClick={onClose}>{runId?'Close run details':'Close workflow details'}</button></header>
+  <header className="workflow-heading"><div><small>OLYMPUS · WORKFLOW INSPECTION</small><h3 ref={title} tabIndex={-1}>{view==='skill'?skill:view==='graph'?'Communication Intelligence':run?`Thread triage run · ${formatWhen(run.startedAt)}`:'Loading run…'}</h3></div><button className="comms-text-action" onClick={onClose}>{runId?'Close run details':'Close workflow details'}</button></header>
   <nav aria-label="Inspection navigation">{view==='skill'?<button onClick={()=>setView(returnView)}>← Back to {returnView==='run'?'this run':'workflow'}</button>:view==='graph'&&runId?<button onClick={()=>setView('run')}>← Back to this run</button>:view==='run'?<button onClick={()=>setView('graph')}>Workflow detail →</button>:null}</nav>
   {busy&&<p role="status">Reading saved evidence…</p>}{error&&<p role="alert">{error}</p>}
   {!valid&&<p role="alert">The saved definition cannot be displayed. It has not been replaced with a current definition.</p>}

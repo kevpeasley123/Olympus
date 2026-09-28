@@ -51,9 +51,9 @@ export const SHORTCUTS: Record<ShortcutId, ShortcutDefinition> = {
   },
   refresh: {
     id: "refresh", keys: "Ctrl/Cmd+R", scope: "global",
-    // Honest about coverage: Communications refreshes on its own schedule until
-    // it subscribes to `subscribeToRefresh` in services/navigation.ts.
-    label: "Refresh projects, tasks, runs, library and vault",
+    // Communications subscribes via `subscribeToRefresh`: it re-reads the mail
+    // cache and situations. It does not sync Gmail or run understanding.
+    label: "Refresh projects, tasks, runs, library, vault and mail view",
     description: "Never reloads the window, even while typing.",
     matches: (event) => primary(event) && !event.altKey && event.key.toLowerCase() === "r"
   },

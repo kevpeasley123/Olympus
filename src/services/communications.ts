@@ -42,5 +42,18 @@ export interface Workspace {
     comparison: null;
 }
 export const workspace = (days: number, group: Group, sender: string, page: number) => invoke<Workspace>('gmail_workspace', { days, group: group === 'search' ? 'inbox' : group, sender, page });
-export const communicationsClient = { native: gmailNative, status: gmailStatus, action: gmailAction, thread: gmailThread, search: gmailSearch, workspace };
+/**
+ * Prepares a question about one cached thread in the console without sending
+ * it. The thread reference travels as attached context, not as prompt text;
+ * the native side resolves it against the enabled account and scope.
+ */
+export function askAboutThread(threadId: string, subject: string): void {
+    window.dispatchEvent(new CustomEvent('olympus:focus-console', { detail: {
+        prompt: 'Summarize this cached Gmail thread and identify possible response needs.',
+        label: `Gmail thread · ${subject || '(No subject)'}`,
+        heading: 'Gmail thread reference',
+        context: `[Gmail thread: ${threadId}]`
+    } }));
+}
+export const communicationsClient ={ native: gmailNative, status: gmailStatus, action: gmailAction, thread: gmailThread, search: gmailSearch, workspace };
 export type CommunicationsClient = typeof communicationsClient;

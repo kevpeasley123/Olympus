@@ -1,0 +1,46 @@
+/* Communications header, recovery messages and Gmail confirmations (design review 2026-09-28: F1, U12, D1). */
+
+/* One status cluster: connection, then mail, understanding and background freshness. */
+.communications .comms-header .comms-health{flex:1 1 auto;min-width:0;margin-left:auto;text-align:right;font-size:12px;line-height:1.45}
+.communications .comms-health strong{display:block;font-size:12px;font-weight:600;color:#d9e3ea;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.communications .comms-health strong[data-state=auth],.communications .comms-health strong[data-state=sync-failed]{color:#efc187}
+.communications .comms-freshness{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:0 16px;color:#9fb1bf;font-size:12px}
+.comms-freshness>span{white-space:nowrap}
+/* No separator glyphs: a wrapped line would start with one. */
+.communications .comms-labelled-action{display:inline-flex;align-items:center;gap:6px;flex-shrink:0;padding:6px 10px;font-size:12px;white-space:nowrap}
+.communications .comms-header .situation-settings{flex-shrink:0;position:relative;margin:0}
+.situation-settings>summary{display:flex;align-items:center;justify-content:center;box-sizing:border-box;width:30px;height:30px;padding:5px;border:1px solid #6b859134;border-radius:4px;color:#9fb3c0;cursor:pointer;list-style:none}
+.situation-settings>summary::-webkit-details-marker{display:none}
+.situations .situation-settings[open],.comms-header .situation-settings[open],.compact-situation-tools .situation-settings[open]{position:relative;top:auto;right:auto;max-width:none;padding:0;margin:0;background:none;border:0}
+.situations .situation-settings,.comms-header .situation-settings{position:relative;margin:0;font-size:12px}
+/* A small panel below its button: one toggle and its disclosure, dismissed by the same button. */
+.situation-settings-panel{position:absolute;right:0;top:calc(100% + 6px);z-index:45;width:280px;box-sizing:border-box;padding:12px;background:#101d29;border:1px solid #344451;border-radius:8px;box-shadow:0 12px 30px #0008}
+.situation-settings-panel label{display:flex;align-items:center;gap:6px;font-size:12px;color:#d0dae2}
+.situation-settings-panel p{margin:8px 0 0;font-size:12px;line-height:1.5;color:#a9bac8}
+.situation-settings-panel input[type=checkbox]{appearance:auto;width:15px;height:15px;padding:0;margin:0;accent-color:#bc8a53}
+.communications .comms-header .ghost-icon-action{flex-shrink:0}
+.communications .comms-title h2{font-size:15px}
+@media(max-width:1380px){.communications .comms-header{flex-wrap:wrap;row-gap:6px}.communications .comms-header .comms-health{flex-basis:260px}}
+
+/* Problems: a visible summary line, the cause behind Details, and the recovery action beside it. Inline, never over content. */
+.comms-issues{display:flex;flex-direction:column;gap:4px;padding:6px 0;border-bottom:1px solid #334a5d44;flex-shrink:0}
+.comms-issue{display:flex;align-items:flex-start;gap:10px;flex-wrap:wrap;font-size:12px;color:#e2c091}
+.comms-issue>details{flex:1 1 320px;min-width:0}
+.comms-issue>details>summary{cursor:pointer;color:#e2c091;line-height:1.6}
+.comms-issue>details>summary [role=alert]{font-weight:600}
+.communications .comms-issue>details>div{position:static;width:auto;max-height:none;overflow:visible;margin:4px 0 2px;padding:8px 10px;background:#101d29;border:1px solid #8c6a4266;border-radius:6px;box-shadow:none;color:#c9d6df;font-size:12px}
+.comms-issue>details>div p{margin:0 0 6px;line-height:1.5}
+.communications .comms-issue .ghost-action{padding:4px 10px;font-size:12px;flex-shrink:0}
+.communications .comms-issue .comms-text-action{font-size:12px;padding:4px 0;flex-shrink:0}
+
+/* Confirmations that reduce data: stated counts, irreversibility, the recovery path, destructive styling. */
+.gmail-confirm{margin:10px 0;padding:12px 14px;border:1px solid #a6573f88;border-left:3px solid #d2734f;border-radius:6px;background:#3a1d1633}
+.gmail-confirm p{margin:0 0 8px;font-size:13px;line-height:1.55}
+.gmail-irreversible strong{color:#f1a488}
+.gmail-confirm-actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end}
+.ghost-action.destructive-action{border-color:#c0674b;color:#f4b19a;background:#6b2a1a33}
+.ghost-action.destructive-action:hover:not(:disabled),.ghost-action.destructive-action:focus-visible{border-color:#e27b59;color:#ffd0bf;background:#8b35214d}
+
+/* Mail inspector: text at the 12–13px floor. */
+.communications .comms-inspector small,.communications .comms-inspector p{font-size:12px}
+.communications .comms-inspector .source-kind{font:600 10px var(--font-mono);letter-spacing:.12em;padding:2px 6px;border:1px solid #b58a4f66;border-radius:3px;color:#d6b17b;margin-left:6px;vertical-align:middle}

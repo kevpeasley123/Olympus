@@ -43,6 +43,24 @@ pub fn gmail_remove_cache(
     }
     store::remove_cache(&mut c, &a.id)
 }
+/// Read-only counts behind the cache-removal and history-range confirmations.
+#[tauri::command]
+pub fn gmail_cache_counts(
+    db: tauri::State<'_, Db>,
+    older_than_days: Option<u32>,
+) -> Result<Value, String> {
+    if older_than_days.is_some_and(|d| ![7, 30, 90, 180, 365].contains(&d)) {
+        return Err("gmail_invalid_horizon".into());
+    }
+    let c = db.0.lock().map_err(|_| "gmail_database_unavailable")?;
+    let a = store::account(&c)?.ok_or("gmail_not_connected")?;
+    store::cache_counts(
+        &c,
+        &a.id,
+        older_than_days,
+        chrono::Utc::now().timestamp_millis(),
+    )
+}
 #[derive(Debug)]
 pub enum ApiError {
     Auth(String),

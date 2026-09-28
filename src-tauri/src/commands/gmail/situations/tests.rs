@@ -79,3 +79,45 @@ fn background_failures_back_off_to_a_bounded_ceiling() {
     assert_eq!(backoff_ms(7), 14_400_000);
     assert_eq!(backoff_ms(u32::MAX), 14_400_000);
 }
+#[test]
+fn understanding_reports_last_published_run_and_real_backoff_only() {
+    let db = database();
+    let c = db.0.lock().unwrap();
+    let fresh = understanding(&c, "fixture", 0, 0, 1_000).unwrap();
+    assert!(fresh["lastSuccessAt"].is_null());
+    assert!(fresh["lastAttemptAt"].is_null());
+    assert!(fresh["nextAttemptAt"].is_null());
+    let run = |id: &str, account: &str, graph: &str, status: &str, finished: &str| {
+        c.execute(
+            "INSERT INTO communication_runs VALUES(?1,?2,30,?4,?3)",
+            params![id, account, json!({"graph":graph,"status":status,"finishedAt":finished}).to_string(), status],
+        )
+        .unwrap();
+    };
+    run("ok", "fixture", GRAPH, "completed", "2026-09-12T18:00:00Z");
+    run("failed-later", "fixture", GRAPH, "failed", "2026-09-12T19:00:00Z");
+    run("thread-triage", "fixture", "communication-intelligence/v4", "completed", "2026-09-12T20:00:00Z");
+    run("other-account", "other", GRAPH, "completed", "2026-09-12T21:00:00Z");
+    c.execute("UPDATE communication_situation_state SET last_attempt=1757700000000 WHERE account_id='fixture'", []).unwrap();
+    // A failed attempt and thread triage do not count as understanding published.
+    let status = understanding(&c, "fixture", 2, 5_000, 1_000).unwrap();
+    assert_eq!(status["lastSuccessAt"], "2026-09-12T18:00:00Z");
+    assert_eq!(status["lastAttemptAt"], "2025-09-12T18:00:00+00:00");
+    assert_eq!(status["failures"], 2);
+    assert_eq!(status["nextAttemptAt"], "1970-01-01T00:00:05+00:00");
+    // A resume time already passed is not presented as a pending backoff.
+    assert!(understanding(&c, "fixture", 2, 5_000, 6_000).unwrap()["nextAttemptAt"].is_null());
+    assert!(understanding(&c, "fixture", 0, 5_000, 1_000).unwrap()["nextAttemptAt"].is_null());
+}
+#[test]
+fn snapshot_revision_is_stable_and_short_circuits_unchanged_polls() {
+    let value = json!({"situations":[{"id":"a","title":"Home"}],"enabled":true});
+    let first = with_revision(value.clone(), None);
+    let revision = first["revision"].as_str().unwrap().to_string();
+    assert_eq!(first["situations"][0]["title"], "Home");
+    assert_eq!(with_revision(value.clone(), Some(&revision)), json!({"unchanged":true,"revision":revision}));
+    let changed = with_revision(json!({"situations":[{"id":"a","title":"Home purchase"}],"enabled":true}), Some(&revision));
+    assert_ne!(changed["revision"], json!(revision));
+    assert_eq!(changed["situations"][0]["title"], "Home purchase");
+    assert!(changed.get("unchanged").is_none());
+}

@@ -910,3 +910,51 @@ fn cache_removal_purges_account_communication_records() {
     let enabled: bool = c.query_row("SELECT enabled FROM communication_situation_state", [], |r| r.get(0)).unwrap();
     assert!(!enabled);
 }
+#[test]
+fn cache_counts_match_what_removal_and_narrowing_would_delete() {
+    let mut c = db();
+    let a = store::account(&c).unwrap().unwrap();
+    let now = chrono::Utc::now().timestamp_millis();
+    let mut old = mail("ab");
+    old.internal_date = now - 40 * 86_400_000;
+    store::commit(&mut c, &a, &[old, mail("ac"), mail("ad")], &[], "100", true, &[]).unwrap();
+    let empty = store::cache_counts(&c, &a.id, None, now).unwrap();
+    assert_eq!(empty["messages"], 3);
+    assert_eq!(empty["situations"], 0);
+    assert_eq!(empty["documentSources"], 0);
+    assert!(empty["olderThan"].is_null());
+    c.execute_batch("
+        INSERT INTO communication_runs VALUES('run','fixture-account',7,'completed','{}');
+        INSERT INTO communication_runs VALUES('other','other-account',7,'completed','{}');
+        INSERT INTO communication_situations(account_id,id,title,briefing_json,updated_at) VALUES('fixture-account','s','Purchase','{}','now');
+        INSERT INTO communication_situations(account_id,id,title,briefing_json,updated_at) VALUES('fixture-account','t','Renovation','{}','now');
+        INSERT INTO communication_situations(account_id,id,title,briefing_json,updated_at) VALUES('other-account','x','Other','{}','now');
+        INSERT INTO communication_situation_updates VALUES('fixture-account','u','s','note','now');
+        INSERT INTO communication_situation_drafts VALUES('fixture-account','d','s','aa','{}',1,'now');
+        INSERT INTO communication_situation_drafts VALUES('fixture-account','e','t','ab','{}',1,'now');
+        INSERT INTO communication_situation_contexts VALUES('fixture-account','s','{\"sources\":[{\"id\":\"a\"},{\"id\":\"b\"},{\"id\":\"c\"}]}','now');
+        INSERT INTO communication_situation_contexts VALUES('fixture-account','t','{\"sources\":\"not a list\"}','now');
+        INSERT INTO communication_situation_contexts VALUES('other-account','x','{\"sources\":[{\"id\":\"z\"}]}','now');
+    ").unwrap();
+    let counts = store::cache_counts(&c, &a.id, Some(30), now).unwrap();
+    assert_eq!(counts["accountId"], "fixture-account");
+    assert_eq!(counts["situations"], 2);
+    assert_eq!(counts["updates"], 1);
+    assert_eq!(counts["drafts"], 2);
+    assert_eq!(counts["analysisRuns"], 1);
+    assert_eq!(counts["documentContexts"], 2);
+    // A context whose sources are not a list counts as zero rather than failing the dialog.
+    assert_eq!(counts["documentSources"], 3);
+    // Only the 40-day-old message falls outside a 30-day range.
+    assert_eq!(counts["olderThan"], json!({"days":30,"messages":1}));
+    assert_eq!(store::cache_counts(&c, &a.id, Some(7), now).unwrap()["olderThan"]["messages"], 1);
+    // Reading counts deletes nothing.
+    let messages: i64 = c.query_row("SELECT count(*) FROM gmail_messages", [], |r| r.get(0)).unwrap();
+    assert_eq!(messages, 3);
+    store::disconnect(&c, &a.id).unwrap();
+    store::remove_cache(&mut c, &a.id).unwrap();
+    let after = store::cache_counts(&c, &a.id, None, now).unwrap();
+    for key in ["messages", "situations", "updates", "drafts", "analysisRuns", "documentContexts", "documentSources"] {
+        assert_eq!(after[key], 0, "{key}");
+    }
+}
