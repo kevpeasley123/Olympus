@@ -2,7 +2,6 @@ import { invoke } from "@tauri-apps/api/core";
 import {KnowledgeAudit} from "./KnowledgeAudit";
 import {ResearchVerification} from "./ResearchVerification";
 import type {ResearchInspectionTarget} from "../../services/commandAgents";
-import matter from "gray-matter";
 import { AnimatePresence, motion } from "motion/react";
 import {
   ArrowLeft,
@@ -15,10 +14,9 @@ import {
   Search
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { ReactElement, ReactNode } from "react";
+import type { MouseEvent, ReactElement, ReactNode } from "react";
 import { createPortal } from "react-dom";
-import ReactMarkdown from "react-markdown";
-import rehypeRaw from "rehype-raw";
+import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import {
   PANTHEON_ORIGINS,
@@ -27,7 +25,7 @@ import {
   type PantheonOrigin,
   type PantheonStance
 } from "../../hooks/usePantheon";
-import { restartDesktopApp } from "../../services/launcher";
+import { isTauriRuntime, restartDesktopApp } from "../../services/launcher";
 import {
   categoryDescription,
   categoryLabel,
@@ -134,6 +132,7 @@ export function LibraryPanel({ onViewDatabase, resident = false,inspectionTarget
     loadExpandedSections
   );
   const searchInputRef = useRef<HTMLInputElement | null>(null);
+  const databaseDialogRef = useRef<HTMLDivElement | null>(null);
   const mainScrollRef = useRef<HTMLDivElement | null>(null);
   const observerRef = useRef<IntersectionObserver | null>(null);
   const suppressSpyUntilRef = useRef(0);
@@ -143,7 +142,10 @@ export function LibraryPanel({ onViewDatabase, resident = false,inspectionTarget
   );
 
   const preparedEntries = useMemo(
-    () => pantheonEntries.map(pantheonEntryToResearchRecord).map(prepareEntry),
+    () =>
+      pantheonEntries.map((entry) =>
+        prepareEntry(pantheonEntryToResearchRecord(entry), entry.sourceLabel)
+      ),
     [pantheonEntries]
   );
   const pantheonSections = useMemo(() => buildSections(preparedEntries), [preparedEntries]);
@@ -162,22 +164,11 @@ export function LibraryPanel({ onViewDatabase, resident = false,inspectionTarget
   }, [searchDraft]);
 
   useEffect(() => {
-    if (!addEntryModalOpen) return;
-    function handleEsc(event: KeyboardEvent) {
-      if (event.key === "Escape" && !submitting) {
-        event.preventDefault();
-        setAddEntryModalOpen(false);
-        setFormError(null);
-      }
-    }
-    window.addEventListener("keydown", handleEsc);
-    return () => window.removeEventListener("keydown", handleEsc);
-  }, [addEntryModalOpen, submitting]);
-
-  useEffect(() => {
     if (!databaseOpen) return;
 
     function handleKeydown(event: KeyboardEvent) {
+      if (anotherModalIsOpen(databaseDialogRef.current)) return;
+
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
         searchInputRef.current?.focus();
@@ -526,8 +517,10 @@ export function LibraryPanel({ onViewDatabase, resident = false,inspectionTarget
             onClick={resident ? undefined : handleCloseDatabase}
           >
             <div
+              ref={databaseDialogRef}
               className={resident ? "dashboard-panel pantheon-resident" : "pantheon-modal"}
               role={resident ? undefined : "dialog"}
+              aria-modal={resident ? undefined : true}
               aria-label={resident ? undefined : "Pantheon Database"}
               onClick={(event) => event.stopPropagation()}
             >
@@ -709,10 +702,10 @@ export function LibraryPanel({ onViewDatabase, resident = false,inspectionTarget
 
                     <div className="pantheon-entry-body">
                       <ReactMarkdown
-                        remarkPlugins={[remarkGfm]}
-                        rehypePlugins={[rehypeRaw]}
+                        remarkPlugins={[remarkGfm, remarkWikilinks]}
+                        components={entryMarkdownComponents}
                       >
-                        {preprocessForRendering(selectedEntry.markdownBody)}
+                        {preprocessObsidianCallouts(selectedEntry.markdownBody)}
                       </ReactMarkdown>
                     </div>
                   </motion.div>
@@ -844,6 +837,15 @@ export function LibraryPanel({ onViewDatabase, resident = false,inspectionTarget
 }
 
 /**
+ * The library's shortcuts are window-wide, so they yield to any modal that is
+ * not their own — otherwise Escape meant for the write gate also clears the
+ * search or closes the library underneath it.
+ */
+function anotherModalIsOpen(own: Element | null): boolean {
+  return Array.from(document.querySelectorAll('[aria-modal="true"]')).some((node) => node !== own);
+}
+
+/**
  * Resident renders in place; otherwise the library goes to a portal exactly as
  * it always has. One wrapper decision, so the surface inside it has no idea
  * which mode it is in and cannot drift between the two.
@@ -961,12 +963,14 @@ function PantheonEntryRow({
   );
 }
 
-function prepareEntry(entry: ResearchRecord): PreparedPantheonEntry {
-  const parsed = parseEntryContent(entry.content);
+// Rust has already split the frontmatter off and resolved the source label.
+// Nothing here parses note text as anything but markdown: a frontmatter parser
+// in the webview is one that untrusted notes get to feed.
+function prepareEntry(entry: ResearchRecord, sourceLabel: string): PreparedPantheonEntry {
   return {
     ...entry,
-    sourceLabel: parsed.sourceLabel,
-    markdownBody: parsed.markdownBody,
+    sourceLabel: sourceLabel || "Local source",
+    markdownBody: entry.content.trim(),
     sourceDateLabel: formatShortDate(entry.sourceDate || entry.createdAt),
     wordCountLabel: `${formatWordCount(entry.wordCount)} words`
   };
@@ -1018,7 +1022,7 @@ function loadExpandedSections(): Record<PantheonCategory, boolean> {
     {} as Record<PantheonCategory, boolean>
   );
   orderedCategories().forEach((category, index) => {
-    const stored = window.localStorage.getItem(`${SECTION_STORAGE_PREFIX}${category}`);
+    const stored = readStoredFlag(`${SECTION_STORAGE_PREFIX}${category}`);
     if (stored === "true" || stored === "false") {
       defaults[category] = stored === "true";
     } else {
@@ -1028,8 +1032,22 @@ function loadExpandedSections(): Record<PantheonCategory, boolean> {
   return defaults;
 }
 
+// Section state is a convenience. Storage that is full, disabled, or denied
+// must not take the library down with it.
+function readStoredFlag(key: string): string | null {
+  try {
+    return window.localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
 function persistExpandedState(category: PantheonCategory, expanded: boolean) {
-  window.localStorage.setItem(`${SECTION_STORAGE_PREFIX}${category}`, String(expanded));
+  try {
+    window.localStorage.setItem(`${SECTION_STORAGE_PREFIX}${category}`, String(expanded));
+  } catch {
+    // The toggle still applies for this session.
+  }
 }
 
 function buildCategoryRefRecord<T>(fallback: T | null = null): Record<PantheonCategory, T | null> {
@@ -1063,34 +1081,6 @@ function matchesSearch(entry: PreparedPantheonEntry, query: string): boolean {
     entry.sourceLabel,
     ...(entry.tags ?? [])
   ].some((value) => value.toLowerCase().includes(needle));
-}
-
-function parseEntryContent(content: string): { markdownBody: string; sourceLabel: string } {
-  try {
-    const parsed = matter(content);
-    const data = parsed.data as Record<string, unknown>;
-    const sourceLabel =
-      findFirstString(data.source, data.source_name, data.origin, data.channel, data.publisher) ??
-      "Local source";
-    return {
-      markdownBody: parsed.content.trim() || content.trim(),
-      sourceLabel
-    };
-  } catch {
-    return {
-      markdownBody: content.trim(),
-      sourceLabel: "Local source"
-    };
-  }
-}
-
-function findFirstString(...values: unknown[]): string | null {
-  for (const value of values) {
-    if (typeof value === "string" && value.trim()) {
-      return value.trim();
-    }
-  }
-  return null;
 }
 
 function formatShortDate(value: string): string {
@@ -1149,6 +1139,35 @@ function AddEntryModal({
   const [extracting, setExtracting] = useState(false);
   const [extractedText, setExtractedText] = useState<string | null>(null);
   const [extractError, setExtractError] = useState<string | null>(null);
+  const [confirmingDiscard, setConfirmingDiscard] = useState(false);
+  const dialogRef = useRef<HTMLDivElement | null>(null);
+
+  // Escape and a stray backdrop click are the easy ways out, so they are the
+  // ones that ask before throwing away a written body. Cancel and the close
+  // button are deliberate and close at once.
+  function requestClose() {
+    if (submitting) return;
+    if (body.trim()) {
+      setConfirmingDiscard(true);
+      return;
+    }
+    onClose();
+  }
+
+  useEffect(() => {
+    function handleEsc(event: KeyboardEvent) {
+      if (event.key !== "Escape" || submitting) return;
+      if (anotherModalIsOpen(dialogRef.current)) return;
+      event.preventDefault();
+      if (confirmingDiscard) {
+        setConfirmingDiscard(false);
+      } else {
+        requestClose();
+      }
+    }
+    window.addEventListener("keydown", handleEsc);
+    return () => window.removeEventListener("keydown", handleEsc);
+  });
 
   async function handlePickAttachment() {
     setAttachmentError(null);
@@ -1236,10 +1255,12 @@ function AddEntryModal({
   }
 
   return (
-    <div className="pantheon-modal-backdrop" onClick={onClose}>
+    <div className="pantheon-modal-backdrop" onClick={requestClose}>
       <div
+        ref={dialogRef}
         className="pantheon-modal pantheon-modal--add-entry"
         role="dialog"
+        aria-modal="true"
         aria-label="Add Pantheon entry"
         onClick={(event) => event.stopPropagation()}
       >
@@ -1508,6 +1529,24 @@ function AddEntryModal({
           </div>
         </div>
 
+        {confirmingDiscard ? (
+          <footer className="pantheon-modal-footer">
+            <span className="pantheon-modal-footer-hint" role="alert">
+              Discard this entry? The body will be lost.
+            </span>
+            <button
+              type="button"
+              className="form-button form-button--ghost"
+              onClick={() => setConfirmingDiscard(false)}
+              autoFocus
+            >
+              Keep editing
+            </button>
+            <button type="button" className="form-button form-button--primary" onClick={onClose}>
+              Discard
+            </button>
+          </footer>
+        ) : (
         <footer className="pantheon-modal-footer">
           {/* A disabled button that will not say what it is waiting for is the
               worst affordance in the form. The footer is pinned, so this was
@@ -1537,6 +1576,7 @@ function AddEntryModal({
             {submitting ? "Saving..." : "Save Entry"}
           </button>
         </footer>
+        )}
       </div>
     </div>
   );
@@ -1549,13 +1589,80 @@ function preprocessObsidianCallouts(body: string): string {
   );
 }
 
-function preprocessWikilinks(body: string): string {
-  return body.replace(/\[\[([^\]]+)\]\]/g, (_, target) => {
-    const display = String(target).split("|").pop() ?? String(target);
-    return `<span class="pantheon-wikilink">${display}</span>`;
+interface MarkdownNode {
+  type: string;
+  value?: string;
+  children?: MarkdownNode[];
+  data?: object;
+}
+
+const WIKILINK = /\[\[([^\]]+)\]\]/g;
+
+/**
+ * Renders `[[target|display]]` as a styled span by building syntax-tree nodes,
+ * never an HTML string. Research notes are untrusted: markdown here must not be
+ * able to produce an element the renderer did not choose.
+ */
+function remarkWikilinks() {
+  return (tree: MarkdownNode) => {
+    splitWikilinks(tree);
+  };
+}
+
+function splitWikilinks(node: MarkdownNode) {
+  if (!node.children) return;
+  node.children = node.children.flatMap((child): MarkdownNode[] => {
+    if (child.type !== "text" || !child.value?.includes("[[")) {
+      splitWikilinks(child);
+      return [child];
+    }
+
+    const pieces: MarkdownNode[] = [];
+    let last = 0;
+    for (const match of child.value.matchAll(WIKILINK)) {
+      const index = match.index ?? 0;
+      if (index > last) pieces.push({ type: "text", value: child.value.slice(last, index) });
+      pieces.push({
+        type: "wikilink",
+        children: [{ type: "text", value: match[1].split("|").pop() ?? match[1] }],
+        data: { hName: "span", hProperties: { className: ["pantheon-wikilink"] } }
+      });
+      last = index + match[0].length;
+    }
+    if (last < child.value.length) pieces.push({ type: "text", value: child.value.slice(last) });
+    return pieces;
   });
 }
 
-function preprocessForRendering(body: string): string {
-  return preprocessWikilinks(preprocessObsidianCallouts(body));
+function openExternalLink(event: MouseEvent<HTMLAnchorElement>, href: string | undefined) {
+  // Every link is intercepted: letting one navigate would replace the whole app
+  // window, with no way back and any open write-gate dialog lost.
+  event.preventDefault();
+  if (!href || !/^https?:\/\//i.test(href)) return;
+  if (isTauriRuntime()) {
+    void invoke("open_external_link", { url: href }).catch((error) =>
+      console.warn("[Olympus] Could not open the link.", error)
+    );
+  } else {
+    window.open(href, "_blank", "noopener,noreferrer");
+  }
 }
+
+const entryMarkdownComponents: Components = {
+  a: ({ children, href }) => (
+    <a href={href} rel="noopener noreferrer" onClick={(event) => openExternalLink(event, href)}>
+      {children}
+    </a>
+  ),
+  // A remote image is a request the note's author chose, made on open. The
+  // CSP refuses it anyway; a link keeps the reference without the fetch.
+  img: ({ alt, src }) => (
+    <a
+      href={typeof src === "string" ? src : undefined}
+      rel="noopener noreferrer"
+      onClick={(event) => openExternalLink(event, typeof src === "string" ? src : undefined)}
+    >
+      {alt || "View image"}
+    </a>
+  )
+};

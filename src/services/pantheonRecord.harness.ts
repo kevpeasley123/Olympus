@@ -15,6 +15,7 @@ function entry(overrides: Partial<PantheonEntry> = {}): PantheonEntry {
     created: "2026-07-29",
     origin: "collected",
     stance: "unevaluated",
+    sourceLabel: "Local source",
     tags: ["olympus/research", "research/article"],
     wordCount: 1_850,
     fileModifiedAt: "2026-07-29T17:00:00-07:00",
