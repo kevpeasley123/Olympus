@@ -14,7 +14,7 @@ export function layoutSituationGraph(title:string,groups:GraphGroup[],relationsh
   const count=Math.max(1,members.length);
   if(slot+count>8)throw new Error('Graph page exceeds eight orbital slots');
   const [sx,sy]=slots[first];
-  const hub:GraphNode={id:'group:'+group.id,kind:'group',x:500+(sx-500)*.49,y:325+(sy-325)*.49,width:140,height:54,label:group.title,groupId:group.id,total:group.total??members.length};
+  const hub:GraphNode={id:'group:'+group.id,kind:'group',x:500+(sx-500)*.49,y:325+(sy-325)*.49,width:150,height:60,label:group.title,groupId:group.id,total:group.total??members.length};
   nodes.push(hub);edges.push({from:'anchor',to:hub.id,kind:'structure',description:'Situation workstream or role grouping'});
   for(const actor of members){const [x,y]=slots[slot++];nodes.push({id:actor.id,kind:'actor',x,y,width:222,height:132,label:actor.primary,actor});edges.push({from:hub.id,to:actor.id,kind:'structure',description:actor.role,uncertain:actor.state!=='documented',refs:actor.refs});}
   if(!members.length)slot++;
@@ -39,6 +39,29 @@ export function layoutSituationOverview(title:string,groups:GraphGroup[]){
 }
 
 export const MAP_ZOOM_LEVELS=[1,1.2,1.5,1.9,2.4] as const;
+/** Cards never render larger than this; wide screens give the space to the briefing instead. */
+export const MAP_MAX_SCALE=1.1;
+/**
+ * Below this, even tight cards cannot hold their names at the 12px floor, so
+ * the map keeps this scale and the canvas scrolls instead: every node stays
+ * reachable and readable rather than fitting unreadably.
+ */
+export const MAP_MIN_SCALE=.45;
+/** Graph units to pixels for the whole-graph fit, between MAP_MIN_SCALE and MAP_MAX_SCALE. */
+export function mapFitScale(frame:{width:number;height:number},bounds:{width:number;height:number}){
+ return Math.max(MAP_MIN_SCALE,Math.min(MAP_MAX_SCALE,frame.width/bounds.width,frame.height/bounds.height));
+}
+export type MapDensity='full'|'compact'|'tight';
+/**
+ * How much text a node carries at a rendered scale. Map text has a 12px floor,
+ * so below full scale it grows in graph units and secondary lines give way:
+ * compact keeps one preview line, tight keeps only names, roles and counts.
+ */
+export function mapDensity(scale:number|null):MapDensity{
+ return scale===null||scale>=.85?'full':scale>=.62?'compact':'tight';
+}
+/** Whole-word line budget for names at each density (see mapName). */
+export const MAP_NAME_COLUMNS:Record<MapDensity,number>={full:22,compact:18,tight:14};
 export function situationGraphBounds(nodes:GraphNode[],padding=24){
  const left=Math.min(...nodes.map(n=>n.x-n.width/2))-padding,top=Math.min(...nodes.map(n=>n.y-n.height/2))-padding;
  const right=Math.max(...nodes.map(n=>n.x+n.width/2))+padding,bottom=Math.max(...nodes.map(n=>n.y+n.height/2))+padding;

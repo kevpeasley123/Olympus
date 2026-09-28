@@ -39,7 +39,7 @@ async function checks(){const results:string[]=[];const check=(v:unknown,s:strin
   check(body().includes('thread t1')&&body().includes('Pass 2'),'Thread loops and passes are inspectable');
   document.querySelector<HTMLButtonElement>('.workflow-timeline li:nth-child(7) button')!.click();await wait();
   check(body().includes('Recorded source references'),'Timeline selection exposes source evidence');
-  await fixture('delayed');await fixture('legacy');await wait(500);check(body().includes('Run · communication-intelligence/v2')&&!body().includes('delayed'),'Late reply cannot replace a different selected run');check(catalogReads===0,'History never fetches compiled catalog');check(body().includes('Legacy trace'),'Legacy uncertainty visible');
+  await fixture('delayed');await fixture('legacy');await wait(500);check(body().includes('Thread triage run ·')&&body().includes('communication-intelligence/v2')&&!body().includes('delayed'),'Late reply cannot replace a different selected run');check(catalogReads===0,'History never fetches compiled catalog');check(body().includes('Legacy trace'),'Legacy uncertainty visible');
   click('Workflow detail →');await wait();click('communication-assess@1');await wait();check(body().includes('Historical deterministic assessment'),'Exact historical contract retained');
   await fixture('missing-contract');click('Workflow detail →');await wait();click('communication-assess@1');await wait();check(body().includes('No current contract was substituted'),'Missing contract remains unavailable');
   await fixture('failed');check(body().includes('assessment_contract_rejected')&&[...document.querySelectorAll('.workflow-node')].some(n=>n.textContent?.includes('stopped')),'Failed run preserves downstream stop');

@@ -76,65 +76,32 @@
 @media(prefers-reduced-motion:reduce){.graph-travel-light{display:none}.graph-track-port{filter:none}}
 
 .actor-breadcrumb{font-size:11px;color:#8fa6b7;margin:15px 0 8px}.situations .actor-back{margin:0 0 6px;background:#101e29;border-color:#3d586d;font-size:11px}.actor-role-heading{font-size:12px;color:#abbfce;margin:6px 0 18px}.actor-contact-section{border-block:1px solid #4c657633;padding:4px 0 12px}.actor-contact-section p{color:#a8cce4;font-size:12px}
-.communications:has(.document-situation) .comms-header{padding-bottom:4px}.communications:has(.document-situation) .comms-primary-tabs{padding-top:2px;margin-bottom:0}.communications:has(.document-situation) .situations-heading h3{display:none}.communications:has(.document-situation) .situations-heading{justify-content:flex-end}.communications:has(.document-situation) .situations-status{margin:0;min-height:20px}.communications:has(.document-situation) .situations{padding-top:6px}.communications:has(.document-situation) .selected-situation-heading{padding-top:4px;padding-bottom:12px}
+.communications:has(.situation-canvas) .comms-header{padding-bottom:4px}.communications:has(.situation-canvas) .comms-primary-tabs{padding-top:2px;margin-bottom:0}.communications:has(.situation-canvas) .situations-heading h3{display:none}.communications:has(.situation-canvas) .situations-heading{justify-content:flex-end}.communications:has(.situation-canvas) .situations-status{margin:0;min-height:20px}.communications:has(.situation-canvas) .situations{padding-top:6px}.communications:has(.situation-canvas) .selected-situation-heading{padding-top:4px;padding-bottom:12px}
 .relationship-viewport{height:clamp(420px,calc(100dvh - 390px),650px)}
-@media(max-height:850px){.graph-workstream-card>span{font-size:22px}.graph-workstream-preview{font-size:18px;padding-top:4px}.graph-workstream-preview>div:nth-child(n+2),.graph-workstream-preview>small{display:none}.graph-workstream-card>small{font-size:15px}.situations .graph-workstream-card{padding:10px 12px;column-gap:7px}.graph-anchor-content strong{font-size:24px}.graph-actor .contextual-actor strong{font-size:19px}.graph-actor .contextual-actor span{font-size:17px}.graph-actor .contextual-actor em{font-size:16px}}
 /* Compact executive overview. The parent grid has already reserved the chat row. */
 .communications .comms-header{min-height:60px;padding:6px 0;gap:10px;border-bottom:1px solid #334a5d66;flex-wrap:nowrap;position:relative;flex-shrink:0}
 .communications .comms-title{margin-right:6px;gap:9px}.communications .comms-title h2{font-size:15px;letter-spacing:.1em}.communications .comms-title p{display:none}.communications .comms-title>svg{width:20px}
 .communications .comms-header .comms-primary-tabs{margin:0;padding:0;border:0;gap:10px;flex-shrink:0}.communications .comms-header .comms-primary-tabs button{font-size:12px;padding:8px 4px}.communications .comms-health{margin-left:auto;line-height:1.4;min-width:0}.communications .comms-health small{white-space:nowrap}
 .comms-diagnostic{position:relative;font-size:11px;color:#d4b07b;flex-shrink:0}.comms-diagnostic>div,.situation-diagnostic>div{position:absolute;right:0;top:100%;z-index:40;width:min(440px,75vw);max-height:280px;overflow:auto;padding:14px;background:#101d29;border:1px solid #8c6a42;border-radius:6px;box-shadow:0 12px 30px #0008;white-space:normal}
-.communications[data-view=situations]:has(.document-situation){height:var(--communications-height);min-height:0;padding:0 14px 8px;display:flex;flex-direction:column;overflow:visible}
-.communications[data-view=situations]:has(.document-situation)>.comms-situation-host{flex:1;min-height:0;display:flex;flex-direction:column}
-.communications[data-view=situations]:has(.document-situation) .situations{display:grid;grid-template-rows:28px minmax(0,1fr);flex:1;min-height:0;padding:0;border:0}
+.communications[data-view=situations]:has(.situation-canvas){height:var(--communications-height);min-height:0;padding:0 14px 8px;display:flex;flex-direction:column;overflow:visible}
+.communications[data-view=situations]:has(.situation-canvas)>.comms-situation-host{flex:1;min-height:0;display:flex;flex-direction:column}
 .situations .compact-situation-tools{display:flex;flex-wrap:nowrap;justify-content:flex-end;gap:10px;min-height:0;position:relative;padding:0;margin:0;font-size:11px;z-index:25}.compact-situation-tools .situations-status{margin:0!important;min-height:0!important;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font-size:10px;margin-right:auto!important}.compact-situation-tools>button{font-size:11px;padding:3px 7px}.compact-situation-tools .situation-settings{font-size:10px}.compact-situation-tools .situation-settings[open]{position:absolute;right:0;top:0;z-index:45;max-width:300px;background:#101d29}.situation-diagnostic{position:relative;margin:0!important;font-size:10px!important;min-width:0}.situation-diagnostic>summary{padding:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:430px;color:#d6b17b}
-.communications[data-view=situations]:has(.document-situation) .situation-layout{min-height:0;height:100%;grid-template-columns:clamp(180px,16%,250px) minmax(0,1fr);gap:14px;align-items:stretch}
-.communications[data-view=situations]:has(.document-situation) .situation-navigator{position:relative;top:auto;display:flex;flex-direction:column;min-height:0;max-height:100%;padding:8px;align-self:start;overflow:hidden}.communications[data-view=situations]:has(.document-situation) .situation-nav-scroll{min-height:0;max-height:none;flex:1;overflow:auto}.communications[data-view=situations]:has(.document-situation) .situation-navigator h4{flex-shrink:0;margin-bottom:8px}
-.communications[data-view=situations]:has(.document-situation) .situation-selected{min-height:0;display:flex;flex-direction:column;position:relative}
-.communications[data-view=situations]:has(.document-situation) .selected-situation-heading{display:flex;align-items:center;gap:12px;padding:0 0 4px;min-height:30px;flex-shrink:0}.selected-situation-heading h3{max-width:45%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.communications[data-view=situations]:has(.document-situation) .selected-situation-heading h3{font-size:18px;margin:0}.communications[data-view=situations]:has(.document-situation) .selected-situation-heading small{font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.communications[data-view=situations]:has(.document-situation) .document-situation{display:flex;flex-direction:column;flex:1;min-height:0}
-.communications[data-view=situations]:has(.document-situation) .workstream-tabs{flex:0 0 auto;padding:0 0 6px;margin:0;gap:4px}.communications[data-view=situations]:has(.document-situation) .workstream-tabs button{font-size:10px;padding:5px 7px}
-.communications[data-view=situations]:has(.document-situation) .contextual-focus{flex:1;min-height:0;grid-template-columns:minmax(0,2.5fr) minmax(250px,1fr);grid-template-rows:minmax(0,1fr);gap:12px;align-items:stretch}
-.communications[data-view=situations]:has(.document-situation) .actor-map{display:flex;flex-direction:column;min-height:0;padding:0;overflow:hidden}
-.communications[data-view=situations]:has(.document-situation) .contextual-inspector{min-height:0;max-height:none;overflow:auto;padding:12px 14px}.contextual-inspector>small:first-child{margin-bottom:10px}.contextual-inspector h5{margin-top:14px}
+.communications[data-view=situations]:has(.situation-canvas) .situation-layout{min-height:0;height:100%;grid-template-columns:clamp(180px,16%,250px) minmax(0,1fr);gap:14px;align-items:stretch}
+.communications[data-view=situations]:has(.situation-canvas) .situation-navigator{position:relative;top:auto;display:flex;flex-direction:column;min-height:0;max-height:100%;padding:8px;align-self:start;overflow:hidden}.communications[data-view=situations]:has(.situation-canvas) .situation-nav-scroll{min-height:0;max-height:none;flex:1;overflow:auto}.communications[data-view=situations]:has(.situation-canvas) .situation-navigator h4{flex-shrink:0;margin-bottom:8px}
+.communications[data-view=situations]:has(.situation-canvas) .situation-selected{min-height:0;display:flex;flex-direction:column;position:relative}
+.communications[data-view=situations]:has(.situation-canvas) .selected-situation-heading{display:flex;align-items:center;gap:12px;padding:0 0 4px;min-height:30px;flex-shrink:0}.selected-situation-heading h3{max-width:45%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.communications[data-view=situations]:has(.situation-canvas) .selected-situation-heading h3{font-size:18px;margin:0}.communications[data-view=situations]:has(.situation-canvas) .selected-situation-heading small{font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.communications[data-view=situations]:has(.situation-canvas) :is(.document-situation,.email-situation){display:flex;flex-direction:column;flex:1;min-height:0}
+.communications[data-view=situations]:has(.situation-canvas) .workstream-tabs{flex:0 0 auto;padding:0 0 6px;margin:0;gap:4px}.communications[data-view=situations]:has(.situation-canvas) .workstream-tabs button{font-size:10px;padding:5px 7px}
+.communications[data-view=situations]:has(.situation-canvas) .contextual-focus{flex:1;min-height:0;grid-template-columns:minmax(0,2.5fr) minmax(250px,1fr);grid-template-rows:minmax(0,1fr);gap:12px;align-items:stretch}
+.communications[data-view=situations]:has(.situation-canvas) .actor-map{display:flex;flex-direction:column;min-height:0;padding:0;overflow:hidden}
+.communications[data-view=situations]:has(.situation-canvas) .contextual-inspector{min-height:0;max-height:none;overflow:auto;padding:12px 14px}.contextual-inspector>small:first-child{margin-bottom:10px}.contextual-inspector h5{margin-top:14px}
 .relationship-stage{position:relative;min-height:0;height:clamp(360px,65vh,650px);padding-bottom:40px;box-sizing:border-box;flex:1;overflow:hidden}
 .relationship-stage .relationship-viewport{height:100%;min-height:0;max-height:none;width:100%;overflow:auto;scrollbar-width:thin}.relationship-stage .relationship-web{height:100%;min-height:0;display:block;max-height:none!important;max-width:none}
 .relationship-stage .relationship-graph-controls{position:absolute;bottom:3px;left:8px;display:flex;gap:2px;min-height:0;padding:2px;border:1px solid #3b5366;border-radius:6px;background:#08131de8;z-index:3}.relationship-stage .relationship-graph-controls button{width:28px;height:27px;padding:5px;display:grid;place-items:center;background:transparent;border:0;margin:0}.relationship-stage .relationship-graph-controls button:disabled{opacity:.3}.graph-empty-note{position:absolute;bottom:9px;left:116px;font-size:10px}
-.communications[data-view=situations]:has(.document-situation) .relationship-stage{height:100%;min-height:0}.communications[data-view=situations]:has(.document-situation) .actor-pagination{margin:0;padding:3px 0;flex-shrink:0}.actor-pagination button{font-size:10px;padding:4px}
-.situation-bottom-actions{display:flex;gap:14px;align-items:center;position:relative;flex-shrink:0;min-height:29px;font-size:11px}.situation-bottom-actions>.situation-extra{margin:0;border:0;padding:0;font-size:10px}.situation-bottom-actions>.situation-update-action{font-size:10px;padding:4px 7px;margin:0}.situation-bottom-actions>.situation-extra[open]{position:absolute;bottom:0;left:0;right:0;z-index:30;max-height:65vh;overflow:auto;padding:14px;background:#101d29;border:1px solid #486071;border-radius:8px}.situation-bottom-actions>.situation-extra[open]>summary{color:#e4bc86;position:sticky;top:0;background:#101d29}
+.communications[data-view=situations]:has(.situation-canvas) .relationship-stage{height:100%;min-height:0}.communications[data-view=situations]:has(.situation-canvas) .actor-pagination{margin:0;padding:3px 0;flex-shrink:0}.actor-pagination button{font-size:10px;padding:4px}
 /* Smaller desktops retain the full overview; detail and evidence remain scrollable. */
-@media(max-width:1200px){.communications .comms-header{flex-wrap:wrap;gap:4px 10px;min-height:60px}.communications .comms-health{font-size:9px}.communications[data-view=situations]:has(.document-situation) .situation-layout{grid-template-columns:170px minmax(0,1fr);gap:8px}.communications[data-view=situations]:has(.document-situation) .contextual-focus{grid-template-columns:minmax(0,1fr) 220px;gap:8px}.situation-bottom-actions{gap:6px}.situation-bottom-actions>.situation-extra{font-size:9px}}
-@media(max-width:950px){.communications[data-view=situations]:has(.document-situation){height:auto;min-height:var(--communications-height)}.communications[data-view=situations]:has(.document-situation) .situations{display:block}.communications[data-view=situations]:has(.document-situation) .situation-layout{height:auto;grid-template-columns:145px minmax(0,1fr)}.communications[data-view=situations]:has(.document-situation) .contextual-focus{grid-template-columns:1fr;grid-template-rows:auto auto}.communications[data-view=situations]:has(.document-situation) .relationship-stage{height:440px;flex:none}.communications[data-view=situations]:has(.document-situation) .contextual-inspector{max-height:350px}.communications[data-view=situations]:has(.document-situation) .situation-nav-scroll{max-height:55vh}.compact-situation-tools{min-height:30px!important}.situation-diagnostic>summary{max-width:200px}.comms-health{flex-basis:auto!important}}
-/* Short laptop windows prioritize legible detail over squeezing the overview. */
-@media(max-height:799px){.communications[data-view=situations]:has(.document-situation){height:auto;min-height:var(--communications-height)}.communications[data-view=situations]:has(.document-situation) .situations{display:block}.communications[data-view=situations]:has(.document-situation) .situation-layout{height:auto;align-items:start}.communications[data-view=situations]:has(.document-situation) .relationship-stage{height:380px;flex:none}.communications[data-view=situations]:has(.document-situation) .contextual-inspector{max-height:380px}.communications[data-view=situations]:has(.document-situation) .situation-nav-scroll{max-height:55vh}.communications[data-view=situations]:has(.document-situation) .contextual-focus{grid-template-rows:auto}}
 .comms-fit-fixture .comms-fixture-controls{display:none}.comms-fit-fixture #result{display:none}
 /* Keep overview labels readable at default desktop fit; detail remains progressive. */
-.situations .graph-workstream-card{padding:10px 12px;line-height:1.2}.graph-workstream-card>span{font-size:18px;line-height:1.2}.graph-workstream-preview{font-size:15px;line-height:1.2;padding-top:4px}.graph-workstream-card>small{font-size:13px;margin-top:3px}
-@media(max-height:799px){.graph-workstream-card>span{font-size:22px}.graph-workstream-preview{font-size:18px}.graph-workstream-card>small{font-size:15px}}
-/* Wide overview uses the unused space LEFT of chat, with a measured right inset. */
-@media(min-width:1500px) and (min-height:800px){
- .mode-communications .center-stack:has(.communications[data-view=situations] .document-situation){grid-row:1 / 3}
- .communications[data-view=situations]:has(.document-situation) .contextual-focus{grid-template-columns:minmax(0,1fr) var(--situation-chat-width,480px)}
- .communications[data-view=situations]:has(.document-situation) .contextual-inspector{height:max(140px,calc(100% - var(--situation-chat-height,117px)));align-self:start}
- .communications[data-view=situations]:has(.document-situation) .situation-bottom-actions{width:calc(100% - var(--situation-chat-width,480px) - 12px)}
-}
-@media(max-width:1499px){
- .communications[data-view=situations]:has(.document-situation){height:auto;min-height:var(--communications-height)}
- .communications[data-view=situations]:has(.document-situation) .situations{display:block}
- .communications[data-view=situations]:has(.document-situation) .situation-layout{height:auto;align-items:start}
- .communications[data-view=situations]:has(.document-situation) .contextual-focus{grid-template-columns:1fr;grid-template-rows:auto auto}
- .communications[data-view=situations]:has(.document-situation) .relationship-stage{height:460px;flex:none}
- .communications[data-view=situations]:has(.document-situation) .contextual-inspector{max-height:350px}
- .communications[data-view=situations]:has(.document-situation) .situation-nav-scroll{max-height:55vh}
-}
-/* On wide desktops, understanding controls share the existing 60px header. */
-@media(min-width:1500px) and (min-height:800px){
- .communications[data-view=situations]:has(.document-situation)>.comms-header{padding-right:510px}
- .communications[data-view=situations]:has(.document-situation) .situations{position:relative;grid-template-rows:minmax(0,1fr)}
- .communications[data-view=situations]:has(.document-situation) .compact-situation-tools{position:absolute;right:0;top:-49px;width:500px;height:38px;z-index:25;gap:8px}
- .communications[data-view=situations]:has(.document-situation) .compact-situation-tools .situation-diagnostic>summary{max-width:270px}
- .communications[data-view=situations]:has(.document-situation) .compact-situation-tools .situations-status{max-width:200px}
-}
 
 /* Relationship dossier: density within the existing inspector/chat bounds. */
 .relationship-dossier{min-width:0;overflow-wrap:anywhere;font-size:12px;line-height:1.45}
@@ -158,7 +125,6 @@
 .dossier-study>nav button{background:#0d1b27;border:1px solid #3a5162;color:#bdcedb;border-radius:5px;padding:7px 10px;cursor:pointer}.dossier-study>nav button:hover{border-color:#c39862;color:#efd2a8}.dossier-study .contextual-inspector{scrollbar-color:#455665 #101923;scrollbar-width:thin}
 
 /* Map polish: names use whole-word line budgets, not browser ellipses. */
-@media(min-width:1500px) and (min-height:800px){.communications[data-view=situations]:has(.document-situation) .contextual-focus{grid-template-columns:minmax(0,1fr) max(370px,calc(var(--situation-chat-width,480px) - 50px))}}
 .situations .graph-workstream-card{padding:8px 10px;column-gap:8px;grid-template-rows:auto 1fr auto;line-height:1.1}
 .situations .graph-workstream-card>span{font-size:17px;line-height:1.1}
 .situations .graph-workstream-preview{font-size:13.5px;line-height:1.12;padding-top:4px}
@@ -202,3 +168,190 @@
 .dossier-tabs button[aria-selected=true]{color:#e6bb7f;background:#b78b4810;border-bottom-color:#ba8c50}.dossier-tabs button:focus-visible{outline:1px solid #d8b782;outline-offset:-2px}
 .dossier-detail-body section{margin:0 0 14px}.dossier-detail-body h5{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#abc0ce;margin:0 0 6px}.dossier-detail-body p{font-size:12px;line-height:1.45;margin:4px 0 8px}
 .dossier-document{display:grid;grid-template-columns:18px minmax(0,1fr) auto;gap:8px;padding:9px 0;border-bottom:1px solid #a6becb17;align-items:start}.dossier-document>svg{color:#c6a16b;margin-top:2px}.dossier-document strong{font-size:12px;font-weight:500}.dossier-document small,.dossier-related small{display:block;color:#8fa6b6;font-size:10px;line-height:1.5}.dossier-document button{display:flex;align-items:center;gap:3px;font-size:10px;padding:4px 6px;background:transparent;border:1px solid #63809366;color:#c4d8e5}.dossier-document>details{grid-column:2/-1;font-size:10px}.dossier-document code{display:block;overflow-wrap:anywhere}.dossier-scope-note{color:#90a6b5}.dossier-detail-body .dossier-text-link{background:none;border:0;color:#c8b18e;padding:5px 0;font-size:11px}.dossier-provenance{margin-top:12px;border-top:1px solid #9bb7c523;padding-top:9px}.dossier-related{padding:10px 0;border-bottom:1px solid #a6becb20}.dossier-related>div{margin-bottom:7px}.dossier-related strong{font-size:12px}.dossier-timeline{list-style:none;padding:0;margin:0}.dossier-timeline li{border-left:1px solid #9bb7c54d;padding:0 0 18px 12px}.dossier-timeline time{font-size:11px;color:#a0b7c6}.dossier-timeline strong{display:block;margin:5px 0;font-size:12px}.dossier-timeline span{margin-left:10px;font-size:10px;text-transform:uppercase;color:#c1af91}.dossier-timeline details{font-size:10px}.dossier-empty-timeline{display:block;margin-top:10px;color:#8fa6b5}.workstream-dossier .dossier-identity h4{font-size:20px;margin:4px 0}.workstream-dossier .dossier-identity{margin-bottom:12px}.dossier-actor-link{display:block;text-align:left;width:100%;padding:7px 8px;margin:5px 0;background:#9bb7c508;border:1px solid #9bb7c523;border-radius:4px;color:#d1dde5}.dossier-actor-link small{display:block;margin-top:3px;color:#91a8b9}.workstream-dossier li{font-size:12px;margin-bottom:5px}
+
+/* ── Design review 2026-09-28 (U8, U5, U3, F4, D1) ─────────────────────────
+   One layout for email and document situations: navigator | map | inspector.
+   Side by side from 1200px with a narrow inspector; at 1500px and wider the
+   inspector sits above the chat; at 2200px and wider it grows instead of the
+   map. Map text is floored at 12px through --map-scale (see
+   SituationRelationshipWeb); density drops lines rather than shrinking them. */
+.situations .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+.communications[data-view=situations]:has(.situation-canvas) .situations{display:flex;flex-direction:column;flex:1;min-height:0;padding:0;border:0}
+.communications[data-view=situations]:has(.situation-canvas) .situation-layout{flex:1;height:auto;grid-template-columns:clamp(200px,16%,250px) minmax(0,1fr);gap:14px}
+.situations .compact-situation-tools{position:static;min-height:24px;margin:0 0 6px;justify-content:flex-start}
+.situations .compact-situation-tools .situations-status{font-size:12px;color:#c9ad86;flex:1}
+.situations-loading{font-size:13px;color:#a9bac8}
+
+/* Selected situation heading: no empty joins, readable meta. */
+.communications[data-view=situations]:has(.situation-canvas) .selected-situation-heading{gap:14px;min-height:28px;padding:0 0 6px}
+.communications[data-view=situations]:has(.situation-canvas) .selected-situation-heading small{font-size:12px;color:#9fb1bf}
+.selected-situation-heading h3{max-width:55%}
+
+/* Workstream tabs: 12px, and the parent tab keeps one width whether or not a workstream is open. */
+.communications[data-view=situations]:has(.situation-canvas) .workstream-tabs button,.situations .workstream-tabs button{font-size:12px;padding:5px 9px}
+.tab-label-stack{display:inline-grid}.tab-label-stack>span{grid-area:1/1;visibility:hidden}.tab-label-stack>span[data-shown]{visibility:visible}
+
+/* The useful next step, one line above the map where the inspector is narrow or short. */
+.situations .situation-next-strip{display:none;align-items:center;gap:0;width:100%;min-width:0;margin:0 0 8px;padding:6px 10px;border:1px solid #b58a4f55;border-left:2px solid #d0a05f;border-radius:4px;background:#b58a4f10;color:#dfe6ea;font-size:13px;line-height:1.3;text-align:left;white-space:nowrap;flex-shrink:0}
+.situation-next-strip strong{color:#e6bd82;font-size:12px;letter-spacing:.1em;font-weight:600;flex-shrink:0}.situation-next-strip .next-strip-scope{color:#e1bd84;flex-shrink:0}.situation-next-strip .next-strip-text{min-width:0;overflow:hidden;text-overflow:ellipsis;color:#cfd9e0}.situation-next-strip .next-strip-scope,.situation-next-strip .next-strip-text{margin-left:6px}.situation-next-strip svg{flex-shrink:0;margin-left:auto;padding-left:8px;box-sizing:content-box;width:14px;height:14px;color:#d9b47f}
+.situations .situation-next-strip:hover{border-color:#c69756;background:#b58a4f1c}
+@media(max-width:1499px),(max-height:899px){.situations .situation-next-strip{display:flex}}
+
+/* Canvas: map | inspector. */
+.communications[data-view=situations]:has(.situation-canvas){--inspector-width:clamp(290px,24vw,340px)}
+.communications[data-view=situations]:has(.situation-canvas) .contextual-focus{grid-template-columns:minmax(0,1fr) var(--inspector-width);grid-template-rows:minmax(0,1fr);gap:12px}
+.communications[data-view=situations]:has(.situation-canvas) .actor-map{display:flex;flex-direction:column;min-height:0;padding:0;overflow:hidden;background:radial-gradient(ellipse at center,#18263365,transparent 72%);border:0;border-radius:0}
+.email-situation .actor-map>header{display:none}
+.communications[data-view=situations]:has(.situation-canvas) .relationship-stage{flex:1;height:auto;min-height:0}
+.situations .map-caption{display:block;font-size:12px;color:#9fb1bf;padding:2px 0 0;flex-shrink:0}
+.actor-pagination{flex-shrink:0}.situations .actor-pagination button{font-size:12px;padding:4px 8px}.actor-pagination small{font-size:12px}
+
+/* Inspector column: its own scroll, readable body text, panel switcher on top. */
+.communications[data-view=situations]:has(.situation-canvas) .contextual-inspector{min-height:0;max-height:none;overflow:auto;padding:12px 14px;font-size:13px;line-height:1.5}
+.contextual-inspector:focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:-2px}
+.situations .contextual-inspector p,.situations .contextual-inspector li,.situation-briefing p{font-size:13px;line-height:1.55}
+.situations .contextual-inspector small{font-size:12px}
+.situations .contextual-inspector h5{font-size:12px;letter-spacing:.06em;margin:14px 0 6px;color:#d5e0e7}
+.situations .contextual-inspector h4{font-size:15px}
+.situations .contextual-inspector details{font-size:13px}
+.contextual-inspector .inspector-eyebrow{display:block;color:#cc9d64;letter-spacing:.14em;font-size:12px;margin:4px 0 8px}
+.inspector-tabs{display:flex;flex-wrap:wrap;gap:4px;margin:0 0 10px;padding:0 0 8px;border-bottom:1px solid #9bb7c52b;position:sticky;top:-12px;background:#0d1a25;z-index:3}
+.situations .inspector-tabs button{font-size:12px;padding:4px 7px;background:transparent;border-color:#314a5b}
+.situations .inspector-tabs .situation-update-action{margin-left:auto;border-color:#ae89584d;color:#d9b98d;background:#b58a4f0e}
+.briefing-next-step:focus-visible,.situation-move:focus-visible,.situation-moves:focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:2px}
+.situation-move{border-left:2px solid #8e643d;padding:0 0 0 12px;margin-bottom:16px}.situation-move strong{font-size:13px}
+.situations .situation-move button{font-size:12px;margin:10px 8px 0 0}
+.draft-disabled-reason{display:block;margin-top:6px;color:#b9a58a}
+.briefing-footnote{display:block;margin-top:12px;color:#8fa6b5}
+.briefing-text button{font-size:12px!important}
+
+/* Activity & updates, source review and drafts live in the inspector column, never over it. */
+.situation-activity-panel section{margin:0 0 16px}.situation-activity-panel h4{font-size:14px;margin:0 0 8px}
+.situation-activity-panel textarea{min-height:88px}
+.situation-activity-panel .situation-log-heading{scroll-margin-top:48px}
+.situation-activity-panel details{border-top:1px solid #46607555;padding-top:6px}
+.situation-activity-panel details button{display:block;margin:6px 0;text-align:left}
+.situation-activity-panel .situation-support{display:block;margin:0 0 16px}
+.situation-latest{border-left:2px solid #6f8ea3;padding-left:10px}
+.situation-activity li{grid-template-columns:54px 1fr}
+.inspector-panel-header{margin:0 0 12px}.inspector-panel-header h4{margin:6px 0 2px;font-size:16px}.inspector-panel-header h4:focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:2px}
+.situations .inspector-back{display:inline-flex;align-items:center;gap:4px;padding:3px 0;border:0;background:none;color:#9db4c4;font-size:12px}
+.source-block{margin:0 0 16px;padding:10px 12px;border:1px solid #3b526555;border-radius:6px}
+.source-block h5{display:flex;align-items:center;gap:8px;margin:0 0 8px!important}
+.source-kind{font:600 10px var(--font-mono);letter-spacing:.12em;text-transform:uppercase;padding:2px 6px;border-radius:3px;color:#d6b17b;border:1px solid #b58a4f66}
+.source-kind.verbatim{color:#9fd0ee;border-color:#6f9dbb77}
+.source-generated{background:#b58a4f0c;border-color:#b58a4f40}.source-generated .source-action{color:#e1c49a}
+.source-quoted ul{list-style:none;margin:0;padding:0}.source-quoted li{padding:6px 0 10px;border-bottom:1px solid #a6becb17}
+.source-quoted blockquote{margin:6px 0;padding:4px 0 4px 10px;border-left:2px solid #6f9dbb;color:#dbe7ef;font-size:13px;white-space:pre-wrap}
+.situations .source-jump{font-size:12px;padding:3px 8px}
+.source-thread .comms-source pre{font-size:13px}
+.source-thread mark{background:#e2b36633;color:#fff3dd;outline:1px solid #e2b366;border-radius:2px}
+.source-thread [data-highlighted]{border-left:2px solid #e2b366;padding-left:10px}
+.source-ask{margin:4px 0}
+.situations .situation-draft{margin:0;padding:0;border:0;background:none}
+.situation-draft header{align-items:flex-start}.situation-draft h4{margin:0 0 4px}
+.draft-context{margin:0!important;font-size:13px;color:#b8c9d6}
+.situation-draft label{font-size:12px}
+.draft-recipients{display:block;margin:-6px 0 8px;color:#9fb1bf}.draft-recipients [role=alert],.draft-problem{color:#e7b77a}
+.draft-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.draft-stale{color:#e7b77a}
+.draft-close-actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end;margin-top:14px}
+
+/* Navigator: search, filter, priority chips, roving focus, skip link. */
+.situations .skip-link{position:absolute;left:8px;top:-40px;z-index:5;padding:6px 10px;background:#101d29;border:1px solid #c69756;border-radius:4px;color:#f1c58c;font-size:12px}
+.situations .skip-link:focus{top:6px}
+.situation-navigator{position:relative}
+.situations .situation-navigator h4{font-size:12px}
+.situation-nav-tools{display:flex;flex-direction:column;gap:6px;margin:0 0 8px;flex-shrink:0}
+.situation-nav-search{display:flex;align-items:center;gap:6px;border:1px solid #344451;border-radius:6px;padding:0 8px;background:#101b25;color:#8fa6b5}
+.situations .situation-nav-search input{border:0;background:none;padding:6px 0;font-size:12px;width:100%;min-width:0}
+.situation-nav-filters{display:flex;flex-wrap:wrap;gap:4px}
+.situations .situation-nav-filters button{font-size:12px;padding:3px 7px;border-radius:12px}
+.situation-nav-scroll>[role=listitem]{display:contents}
+.situations .situation-nav-card small,.situations .situation-nav-overview{font-size:12px}
+.situations .situation-priority-chip{display:inline-block;margin:6px 0 4px;padding:1px 7px;border-radius:10px;font:600 12px/1.5 var(--font-sans);letter-spacing:.02em;text-transform:none;color:#a9bccb;border:1px solid #5d768a66;background:#0c1823}
+.situations .situation-priority-chip[data-level=needs-attention]{color:#f0c98f;border-color:#c6a06a;background:#6d4c2440}
+.situations .situation-priority-chip[data-level=review-soon]{color:#dcc6a2;border-color:#b49b7880}
+.situations .situation-priority-chip[data-level=stable]{color:#a9d0bb;border-color:#6e9a8266}
+.situation-nav-empty{font-size:12px;color:#8fa6b5;padding:8px 4px}
+.situations .situation-overview-card{display:block;text-align:left;padding:16px;background:#101b2680;border:1px solid #283a49;border-radius:8px;min-width:0;overflow-wrap:anywhere;white-space:normal}
+.situations .situation-overview-card h4{margin:8px 0}.situation-overview-card p{font-size:13px}.situation-overview-card>span{color:#ceaa7f;font-size:12px}
+.situation-overview-card small{display:flex;gap:8px;align-items:center}.situations .situation-overview-card .situation-priority-chip{margin:0}
+
+/* Map: a real focus ring inside the canvas, a zoom hint on focus, one legend line. */
+.relationship-stage .relationship-viewport{display:flex;outline-offset:-3px}
+.relationship-stage .relationship-web{flex:none;margin:auto}
+.relationship-viewport:focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring)}
+.situations .map-zoom-hint{position:absolute;right:8px;bottom:10px;padding:3px 8px;border-radius:4px;background:#08131de8;border:1px solid #3b5366;color:#c9d6df;font-size:12px;opacity:0;pointer-events:none;transition:opacity .15s}
+.relationship-viewport:focus-visible~.map-zoom-hint{opacity:1}
+.situations .relationship-stage .graph-legend{position:absolute;left:112px;bottom:8px;font-size:12px;color:#9fb1bf}
+.graph-legend-mark,.situations .org-unconfirmed em::before{color:#b9a58a}
+.situations .org-unconfirmed em::before{content:'○ '}
+.relationship-empty{display:grid;place-items:center;padding-bottom:0}
+.graph-empty-state{max-width:360px;text-align:center;padding:24px;border:1px dashed #475461;border-radius:10px;color:#a9bac8}
+.graph-empty-state strong{display:block;font-size:15px;color:#dbe7ef;margin-bottom:6px}.situations .graph-empty-state p{font-size:13px;margin:0 0 6px}.situations .graph-empty-state small{font-size:12px}
+
+/* Map text floor: graph units grow as the rendered scale falls, never below 12px on screen. */
+.relationship-stage{--map-floor:calc(12px / var(--map-scale,1))}
+.situations .graph-workstream-card>span{font-size:max(17px,calc(13px / var(--map-scale,1)))}
+.situations .graph-workstream-preview{font-size:max(13.5px,var(--map-floor))}
+.situations .graph-workstream-preview>small,.situations .graph-workstream-card>small{font-size:max(11px,var(--map-floor))}
+.situations .graph-actor .contextual-actor strong{font-size:max(15px,calc(13px / var(--map-scale,1)))}
+.situations .graph-actor .contextual-actor span{font-size:max(14px,var(--map-floor))}
+.situations .graph-actor .contextual-actor em{font-size:max(13px,var(--map-floor))}
+.situations .graph-actor .contextual-actor small{font-size:max(12px,var(--map-floor))}
+.situations .graph-hub{font-size:max(13px,var(--map-floor))}.situations .graph-hub small{font-size:max(11px,var(--map-floor))}
+.situations .graph-anchor-content strong{font-size:max(19px,calc(13.5px / var(--map-scale,1)));white-space:pre-line;display:block;-webkit-line-clamp:unset;overflow:hidden}
+.situations .graph-anchor-content span{font-size:max(16px,var(--map-floor))}
+.situations [data-density=compact] .graph-workstream-preview>div:nth-child(n+2),.situations [data-density=compact] .graph-workstream-preview>small,.situations [data-density=tight] .graph-workstream-preview>div:nth-child(n+2),.situations [data-density=tight] .graph-workstream-preview>small{display:none}
+.situations [data-density=compact] .graph-workstream-preview>div,.situations [data-density=tight] .graph-workstream-preview>div{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.situations [data-density=compact] .graph-hub:not(.graph-workstream-card) small,.situations [data-density=tight] .graph-hub:not(.graph-workstream-card) small,.situations [data-density=tight] .graph-anchor-content>span{display:none}
+.situations [data-density=compact] .graph-actor .contextual-actor strong,.situations [data-density=tight] .graph-actor .contextual-actor strong{text-transform:none;letter-spacing:0}
+.situations [data-density=tight] .graph-actor .contextual-actor em{-webkit-line-clamp:1}
+.situations [data-density=tight] .graph-actor .contextual-actor small:not(.sr-only){display:none}
+.situations [data-density=tight] .graph-anchor-content svg{width:22px;height:22px}
+
+/* ≥1500 wide and ≥800 tall: the map uses the space left of the chat; the inspector sits above it. */
+@media(min-width:1500px) and (min-height:800px){
+ .mode-communications .center-stack:has(.communications[data-view=situations]:not([data-short-height]) .situation-canvas){grid-row:1 / 3}
+ .communications[data-view=situations]:has(.situation-canvas){--inspector-width:max(370px,calc(var(--situation-chat-width,480px) - 50px))}
+ .communications[data-view=situations]:has(.situation-canvas) .contextual-inspector{height:max(140px,calc(100% - var(--situation-chat-height,117px)));align-self:start}
+ /* Footer lines under the map stay clear of the chat where the chat is wider than the inspector. */
+ .communications[data-view=situations]:has(.situation-canvas) :is(.actor-pagination,.map-caption){margin-right:max(0px,calc(var(--situation-chat-width,480px) - var(--inspector-width) - 12px))}
+}
+/* ≥2200: the briefing grows, the map does not. */
+@media(min-width:2200px) and (min-height:800px){
+ .communications[data-view=situations]:has(.situation-canvas){--inspector-width:clamp(520px,26vw,680px)}
+ .situations .contextual-inspector p,.situations .contextual-inspector li,.situations .contextual-inspector blockquote,.situations .situation-briefing p{font-size:15px;line-height:1.6}
+ .situations .contextual-inspector small,.situations .contextual-inspector h5{font-size:13px}
+ .situations .contextual-inspector h4{font-size:17px}
+ .situations .situation-nav-card strong{font-size:15px}
+}
+/* Short windows or little free height: keep side by side, scroll the page, and give the canvas a readable height. */
+@media(max-height:760px){
+ .communications[data-view=situations]:has(.situation-canvas){height:auto;min-height:var(--communications-height)}
+ .communications[data-view=situations]:has(.situation-canvas) .situation-layout{height:auto;align-items:start}
+ .communications[data-view=situations]:has(.situation-canvas) .situation-canvas{flex:none;height:420px}
+ .communications[data-view=situations]:has(.situation-canvas) .situation-nav-scroll{max-height:55vh}
+}
+.communications[data-view=situations][data-short-height]:has(.situation-canvas){height:auto;min-height:var(--communications-height)}
+.communications[data-view=situations][data-short-height]:has(.situation-canvas) .situation-layout{height:auto;align-items:start}
+.communications[data-view=situations][data-short-height]:has(.situation-canvas) .situation-canvas{flex:none;height:420px}
+.communications[data-view=situations][data-short-height]:has(.situation-canvas) .contextual-inspector{height:auto;align-self:stretch}
+.communications[data-view=situations][data-short-height]:has(.situation-canvas) .situation-nav-scroll{max-height:55vh}
+/* Below 1200: stack the inspector under the map and let the page scroll. */
+@media(max-width:1199px){
+ .communications[data-view=situations]:has(.situation-canvas){height:auto;min-height:var(--communications-height)}
+ .communications[data-view=situations]:has(.situation-canvas) .situation-layout{height:auto;align-items:start;grid-template-columns:170px minmax(0,1fr);gap:8px}
+ .communications[data-view=situations]:has(.situation-canvas) .contextual-focus{grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto;flex:none;height:auto}
+ .communications[data-view=situations]:has(.situation-canvas) .relationship-stage{height:440px;flex:none}
+ .communications[data-view=situations]:has(.situation-canvas) .contextual-inspector{max-height:none;overflow:visible}
+ .communications[data-view=situations]:has(.situation-canvas) .situation-nav-scroll{max-height:55vh}
+ .inspector-tabs{position:static}
+}
+
+.situations .graph-hub span{hyphens:auto;overflow-wrap:normal}
+.situations .situation-navigator h4 small{font-size:12px}
+.situations [data-density=tight] .graph-workstream-card{padding:6px 8px}.situations :is([data-density=tight],[data-density=compact]) .graph-workstream-card>small{line-height:1.1;margin-top:0}.situations :is([data-density=tight],[data-density=compact]) .graph-workstream-preview{padding-top:1px;line-height:1.1}
+.situations small{font-size:12px}.contextual-inspector .briefing-action-label{font-size:12px}
+.situations .situation-nav-card strong{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}

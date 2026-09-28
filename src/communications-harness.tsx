@@ -58,7 +58,7 @@ async function run() { const checks: string[] = []; const check = (v: unknown, s
     click('Useful');await wait();check(evaluations===1,'Useful feedback is wired');evaluations=0;
     click('Interpretation incorrect');await wait();check(evaluations===1,'Incorrect interpretation feedback is wired');evaluations=0;
     click('This needs me');await wait();check(evaluations===1,'Missed attention feedback is wired');evaluations=0;
-    click('Refresh intelligence');await wait();check(analysisCount===1,'Manual analysis trigger');
+    check(![...document.querySelectorAll('button')].some(b=>b.textContent==='Refresh intelligence'),'Thread triage no longer shares a name with Refresh situations');click('Run thread triage');await wait();check(analysisCount===1,'Manual analysis trigger');check(!document.querySelector('.comms-brief footer')?.textContent?.includes('communication-intelligence/'),'Brief footer uses a human label, not the contract id');
     click('Inspect analysis');await wait();check(document.querySelector('.comms-run-details')?.textContent?.includes('project-relevance@2'),'Run inspector shows actual node bindings');
     check(document.querySelector('.comms-run-details')?.textContent?.includes('communication-assess@2'),'Registry and graph use the consolidated assessment skill');
     click('Close run details');await wait();
@@ -84,11 +84,11 @@ async function run() { const checks: string[] = []; const check = (v: unknown, s
     check(!document.querySelector('.comms-source script'), 'HTML remains inert source text');
     check(document.body.textContent?.includes('brief.pdf'), 'Attachment metadata visible');
         check(document.activeElement?.getAttribute('aria-label')==='Close thread inspector','Inspector receives keyboard focus');
-        let prepared=''; const capture=(event:Event)=>{prepared=(event as CustomEvent).detail.prompt};
+        let prepared:{prompt:string;context?:string;label?:string}={prompt:''}; const capture=(event:Event)=>{prepared=(event as CustomEvent).detail};
         window.addEventListener('olympus:focus-console',capture);
         document.querySelector<HTMLButtonElement>('.comms-inspector .ghost-action')!.click();
         window.removeEventListener('olympus:focus-console',capture);
-        check(prepared.includes('[Gmail thread: a1]')&&syncs===0,'Thread question is prepared without sending or syncing');
+        check(prepared.context==='[Gmail thread: a1]'&&!prepared.prompt.includes('[Gmail thread')&&syncs===0,'Thread question is prepared with the thread attached as context, not prompt text, without sending or syncing');
 
     click('Close thread inspector');
     await wait();
@@ -121,7 +121,7 @@ async function run() { const checks: string[] = []; const check = (v: unknown, s
     await fixture('empty');check(document.querySelector('.comms-brief')?.textContent?.includes('not a whole-mailbox assessment'),'Empty brief preserves scope uncertainty');
     check(document.body.textContent?.includes('No cached messages match'), 'Empty view');
     await fixture('syncing');
-    check(document.querySelector<HTMLButtonElement>('[aria-label="Sync Gmail"]')?.disabled, 'Sync busy disables manual trigger');
+    check([...document.querySelectorAll<HTMLButtonElement>('button')].find(b=>b.textContent?.trim()==='Sync mail')?.disabled, 'Sync busy disables manual trigger');
     await fixture('disconnected');
     check(!document.querySelector('.comms-row') && document.body.textContent?.includes('Open Gmail settings'), 'Disconnected clears mail');
     await fixture('error');

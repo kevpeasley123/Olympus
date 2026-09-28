@@ -4,6 +4,8 @@ export async function runSituationPriorityChecks(){
  const check=(ok:unknown,label:string)=>{if(!ok)throw Error(label);count++};
  const button=(label:string)=>[...document.querySelectorAll<HTMLButtonElement>('button')].find(b=>b.textContent===label||b.getAttribute('aria-label')===label)!;
  try{await new Promise(r=>setTimeout(r,650));const scenario=new URLSearchParams(location.search).get('priority');
+ // The navigator now leads with the highest review band; these scenarios are about Home.
+ [...document.querySelectorAll<HTMLButtonElement>('.situation-nav-card')].find(b=>b.querySelector('strong')?.textContent==='Home')?.click();await wait();
  check(document.querySelectorAll('.graph-workstream-card').length===7,'Overview keeps seven workstreams');
  const viewport=document.querySelector('.relationship-viewport')!.getBoundingClientRect();
  check([...document.querySelectorAll('.graph-node')].every(n=>{const r=n.getBoundingClientRect();return r.left>=viewport.left-1&&r.right<=viewport.right+1&&r.top>=viewport.top-1&&r.bottom<=viewport.bottom+1}),'Priority state retains complete initial map fit');

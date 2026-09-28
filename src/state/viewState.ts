@@ -65,6 +65,12 @@ export interface CommsReplyDraft {
   /** What the draft answers, so it can be reattached after a remount. */
   situationId?: string;
   messageId?: string;
+  /** Communications: the recipients field verbatim, the thread, the saved revision and the last saved text. */
+  to?: string;
+  threadId?: string;
+  revision?: number;
+  stale?: boolean;
+  saved?: { to: string; subject: string; body: string };
 }
 
 export interface CommsAccountViewState {
@@ -74,6 +80,12 @@ export interface CommsAccountViewState {
   tab: string | null;
   /** Unsent local reply drafts by draft id. */
   drafts: Record<string, CommsReplyDraft>;
+  /** Communications: the draft open in the editor, the primary view, the overview and navigator filter. */
+  openDraftId?: string | null;
+  view?: "situations" | "mail";
+  overview?: boolean;
+  navigatorFilter?: string;
+  navigatorQuery?: string;
 }
 
 /** A request from another surface, consumed once by the destination panel. */
