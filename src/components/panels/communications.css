@@ -4,9 +4,9 @@
 .communications .comms-header .comms-health{flex:1 1 auto;min-width:0;margin-left:auto;text-align:right;font-size:12px;line-height:1.45}
 .communications .comms-health strong{display:block;font-size:12px;font-weight:600;color:#d9e3ea;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .communications .comms-health strong[data-state=auth],.communications .comms-health strong[data-state=sync-failed]{color:#efc187}
-.communications .comms-freshness{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:0 10px;color:#9fb1bf;font-size:12px}
+.communications .comms-freshness{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:0 16px;color:#9fb1bf;font-size:12px}
 .comms-freshness>span{white-space:nowrap}
-.comms-freshness>span+span::before{content:'·';margin-right:10px;color:#5f7282}
+/* No separator glyphs: a wrapped line would start with one. */
 .communications .comms-labelled-action{display:inline-flex;align-items:center;gap:6px;flex-shrink:0;padding:6px 10px;font-size:12px;white-space:nowrap}
 .communications .comms-header .situation-settings{flex-shrink:0;position:relative;margin:0}
 .situation-settings>summary{display:flex;align-items:center;justify-content:center;box-sizing:border-box;width:30px;height:30px;padding:5px;border:1px solid #6b859134;border-radius:4px;color:#9fb3c0;cursor:pointer;list-style:none}

@@ -71,8 +71,6 @@ export function gmailHealth(state: GmailStatus | null): GmailHealth {
  */
 let gmailSettingsRequested = false;
 export function requestGmailSettings(): void { gmailSettingsRequested = true; }
-export function takeGmailSettingsRequest(): boolean {
-  const requested = gmailSettingsRequested;
-  gmailSettingsRequested = false;
-  return requested;
-}
+/** Read during render (idempotent, so StrictMode's double render sees the same answer); cleared after mount. */
+export function gmailSettingsRequestPending(): boolean { return gmailSettingsRequested; }
+export function clearGmailSettingsRequest(): void { gmailSettingsRequested = false; }

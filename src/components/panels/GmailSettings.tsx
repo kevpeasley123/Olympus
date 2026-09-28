@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { gmailRemoveCache, gmailAction, gmailCacheCounts, gmailError, gmailHorizon, gmailNative, gmailSearch, gmailStateLabel, gmailStatus, gmailThread, takeGmailSettingsRequest, countOf, type GmailCacheCounts, type GmailStatus, type MailExcerpt, type MailMessage } from "../../services/gmail";
+import { gmailRemoveCache, gmailAction, gmailCacheCounts, gmailError, gmailHorizon, gmailNative, gmailSearch, gmailStateLabel, gmailStatus, gmailThread, gmailSettingsRequestPending, clearGmailSettingsRequest, countOf, type GmailCacheCounts, type GmailStatus, type MailExcerpt, type MailMessage } from "../../services/gmail";
 import { formatWhen } from "../../services/time";
 import "./communications.css";
 export interface GmailClient { native:()=>boolean; status:typeof gmailStatus; action:typeof gmailAction; horizon:typeof gmailHorizon; search:typeof gmailSearch; thread:typeof gmailThread; removeCache:typeof gmailRemoveCache; counts?:typeof gmailCacheCounts }
@@ -17,12 +17,12 @@ export function removalSentence(c:GmailCacheCounts):string{
 export function GmailSettings({api=client}:{api?:GmailClient}) {
  const [state,setState]=useState<GmailStatus|null>(null),[error,setError]=useState(""),[pending,setPending]=useState(false),[query,setQuery]=useState(""),[results,setResults]=useState<MailExcerpt[]>([]),[searched,setSearched]=useState(false),[thread,setThread]=useState<MailMessage[]>([]);
  // Communications' settings link asks for this section already open.
- const [requested]=useState(()=>takeGmailSettingsRequest());
+ const [requested]=useState(gmailSettingsRequestPending);
  const [expanded,setExpanded]=useState(requested);
  const [removal,setRemoval]=useState<null|{counts:GmailCacheCounts|null;error?:string}>(null);
  const [narrow,setNarrow]=useState<null|{days:number;messages:number|null;error?:string}>(null);
  const root=useRef<HTMLDetailsElement>(null);
- useEffect(()=>{if(requested){root.current?.scrollIntoView({block:"start"});root.current?.querySelector<HTMLElement>("summary")?.focus()}},[requested]);
+ useEffect(()=>{clearGmailSettingsRequest();if(requested){root.current?.scrollIntoView({block:"start"});root.current?.querySelector<HTMLElement>("summary")?.focus()}},[requested]);
  // Read once for the summary line; the 2 s poll runs only while the section is open.
  useEffect(()=>{if(!api.native())return;let active=true;const refresh=()=>api.status().then(s=>{if(active)setState(s)}).catch(e=>{if(active)setError(gmailError(e))});void refresh();const timer=expanded?window.setInterval(refresh,2000):undefined;return()=>{active=false;window.clearInterval(timer)}},[api,expanded]);
  async function run(action:()=>Promise<unknown>){setPending(true);setError("");try{await action();setState(await api.status())}catch(e){setError(gmailError(e))}finally{setPending(false)}}

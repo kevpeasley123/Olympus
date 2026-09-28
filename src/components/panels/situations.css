@@ -355,3 +355,5 @@
 .situations [data-density=tight] .graph-workstream-card{padding:6px 8px}.situations :is([data-density=tight],[data-density=compact]) .graph-workstream-card>small{line-height:1.1;margin-top:0}.situations :is([data-density=tight],[data-density=compact]) .graph-workstream-preview{padding-top:1px;line-height:1.1}
 .situations small{font-size:12px}.contextual-inspector .briefing-action-label{font-size:12px}
 .situations .situation-nav-card strong{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.situation-draft header>button{flex-shrink:0;white-space:nowrap;font-size:12px;padding:4px 8px}
+.situations .document-evidence code,.situations .document-library-row code,.relationship-dossier code{font-size:12px}

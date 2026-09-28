@@ -86,6 +86,9 @@ function SituationsView({api=situationsClient,loadThread,feed,standalone=false}:
  // eslint-disable-next-line react-hooks/exhaustive-deps
  },[navTarget,data]);
 
+ // The account is known only after the first snapshot; reopen an unsent draft left open before a mode switch.
+ const restored=useRef(false);
+ useEffect(()=>{if(!accountId||restored.current)return;restored.current=true;const open=view.openDraftId&&view.drafts[view.openDraftId];if(open&&open.situationId===selected)setPanel({kind:'draft'})},[accountId,view,selected]);
  const draftId=view.openDraftId&&view.drafts[view.openDraftId]?view.openDraftId:null;
  const draft=draftId?view.drafts[draftId]:undefined;
  const draftHere=!!draft&&draft.situationId===selected;
