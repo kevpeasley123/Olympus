@@ -184,6 +184,7 @@ async fn complete_at(
         endpoint,
         test_key,
         240,
+        voice,
     )
     .await
 }
@@ -209,6 +210,7 @@ pub async fn structured(
         "https://api.openai.com/v1/responses",
         None,
         60,
+        false,
     )
     .await?;
     structured_text(output, record)
@@ -227,6 +229,9 @@ async fn transport(
     endpoint: &str,
     test_key: Option<&str>,
     idle_secs: u64,
+    // A voice answer streams as JSON. Only its decoded `visualResponse` may
+    // reach the console; the envelope never does.
+    voice: bool,
 ) -> Result<Output, String> {
     // A whole-request timeout would cut off a long, healthy stream. Bound the
     // connection and each silence instead.
@@ -237,11 +242,11 @@ async fn transport(
  let client=reqwest::Client::builder().connect_timeout(std::time::Duration::from_secs(15)).build().map_err(|_|"OpenAI HTTP client unavailable")?;
  let response=tokio::time::timeout(idle,client.post(endpoint).bearer_auth(key.trim()).json(&body).send()).await.ok().and_then(Result::ok).ok_or("OpenAI connection failed or timed out. Retry explicitly; no alternate provider was used.")?;
  if !response.status().is_success(){let status=response.status().as_u16();record.error_code=Some(format!("http_{status}"));let data=tokio::time::timeout(idle,response.json::<Value>()).await.ok().and_then(Result::ok).unwrap_or(Value::Null);let code=data.pointer("/error/code").and_then(Value::as_str).unwrap_or("request_rejected");return Err(format!("OpenAI request failed (HTTP {status}, {code}). Check API access, quota and configuration; no alternate provider was used."));}
- let mut stream=response.bytes_stream();let mut decoder=Decoder::default();let mut output=Output::default();
+ let mut stream=response.bytes_stream();let mut decoder=Decoder::default();let mut output=Output::default();let mut visual=voice.then(super::voice::VisualStream::default);
  loop{
  let events=match tokio::time::timeout(idle,futures_util::StreamExt::next(&mut stream)).await{Ok(None)=>break,Ok(Some(Ok(bytes)))=>decoder.feed(&bytes),Ok(Some(Err(_)))=>Err("stream_interrupted".into()),Err(_)=>Err("stream_idle_timeout".into())};
  let events=match events{Ok(events)=>events,Err(code)=>{record.error_code=Some(code.clone());output.failure=Some(code);break;}};
- for e in events{if let Some(ui)=output.event(&e,record){if matches!(ui,AssistantStreamEvent::Delta{..})&&record.first_token_ms.is_none(){record.first_token_ms=Some(start.elapsed().as_millis() as u64);}channel.send(ui).ok();}}
+ for e in events{if let Some(ui)=output.event(&e,record){if matches!(ui,AssistantStreamEvent::Delta{..})&&record.first_token_ms.is_none(){record.first_token_ms=Some(start.elapsed().as_millis() as u64);}send_visible(channel,ui,visual.as_mut());}}
  if output.terminal{break;}
  }output.finish(record)
  }.await;
@@ -253,6 +258,24 @@ async fn transport(
         }
     }
     result
+}
+/// Forwards a stream event, filtering voice deltas down to visible text.
+fn send_visible(
+    channel: &tauri::ipc::Channel<AssistantStreamEvent>,
+    event: AssistantStreamEvent,
+    visual: Option<&mut super::voice::VisualStream>,
+) {
+    let event = match (event, visual) {
+        (AssistantStreamEvent::Delta { text }, Some(visual)) => {
+            let text = visual.push(&text);
+            if text.is_empty() {
+                return;
+            }
+            AssistantStreamEvent::Delta { text }
+        }
+        (event, _) => event,
+    };
+    channel.send(event).ok();
 }
 #[cfg(test)]
 mod tests {
@@ -387,6 +410,26 @@ mod tests {
        assert_eq!(record.status,"completed");assert!(record.usage.is_some());assert!(!output.text.is_empty());
      }
    });
+    }
+    #[test]
+    fn voice_deltas_reach_the_console_as_visual_text_only() {
+        let sent = std::sync::Arc::new(std::sync::Mutex::new(Vec::<String>::new()));
+        let sink = sent.clone();
+        let channel = tauri::ipc::Channel::new(move |body| {
+            if let tauri::ipc::InvokeResponseBody::Json(json) = body { sink.lock().unwrap().push(json); }
+            Ok(())
+        });
+        let mut visual = super::super::voice::VisualStream::default();
+        for delta in [r#"{"spokenResponse":"Short.","#, r#""visualResponse":"Full \"#, r#""answer\"\nhere","#, r#""proposedActions":[]}"#] {
+            send_visible(&channel, AssistantStreamEvent::Delta { text: delta.into() }, Some(&mut visual));
+        }
+        send_visible(&channel, AssistantStreamEvent::Started { model: "m".into() }, Some(&mut visual));
+        let sent = sent.lock().unwrap();
+        let text: String = sent.iter().filter_map(|json| serde_json::from_str::<Value>(json).ok())
+            .filter(|v| v["kind"] == "delta").map(|v| v["text"].as_str().unwrap().to_string()).collect();
+        assert_eq!(text, "Full \"answer\"\nhere");
+        assert!(sent.iter().all(|json| !json.contains("spokenResponse") && !json.contains("proposedActions")), "no envelope reaches the webview");
+        assert!(sent.iter().any(|json| json.contains("\"started\"")), "non-text events pass through");
     }
     #[test]
     fn http_failure_does_not_switch_provider() {

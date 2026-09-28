@@ -34,7 +34,12 @@ export function CommandAgentCatalog({client=commandCatalog,available=isTauriRunt
   function select(id:string){setSelection(id);onSelect?.(id)}
   return <aside className="command-agent-catalog" aria-label="Agent Catalog" aria-busy={loading}>
     <header className="agent-catalog-header"><Network aria-hidden="true"/><div><h2>Agent Catalog</h2><p>{catalog?`1 orchestrator · ${catalog.agents.length} agents`:"Runtime inspection"}</p></div><button className="agent-refresh" title="Refresh runtime observations" aria-label="Refresh agent catalog" disabled={loading||!available} onClick={()=>setRevision(r=>r+1)}><RefreshCw size={14}/></button></header>
-    {!available?<p className="agent-catalog-notice">Runtime catalog is available in the desktop app. Browser preview has no live agent observations.</p>:!catalog?<p className="agent-catalog-notice" role={error?"alert":"status"}>{error?`Catalog unavailable. ${error}`:"Reading runtime catalog…"}</p>:<>
+    {!available?<p className="agent-catalog-notice">Runtime catalog is available in the desktop app. Browser preview has no live agent observations.</p>:!catalog?(error
+      // Plain words first, the database's own message behind a disclosure (review D3).
+      ?<div className="agent-catalog-notice agent-catalog-error" role="alert"><p>Agent catalog could not be read from the local database. Showing no availability claims.</p>
+        <button type="button" className="ghost-action" disabled={loading} onClick={()=>setRevision(r=>r+1)}>Retry</button>
+        <details><summary>Technical detail</summary><p>{error}</p></details></div>
+      :<p className="agent-catalog-notice" role="status">Reading runtime catalog…</p>):<>
       <div className="agent-catalog-list" aria-label="Operational runtime roles">
         <h3>Main orchestrator</h3><Row role={catalog.orchestrator} selected={role?.id===catalog.orchestrator.id} onSelect={()=>select(catalog.orchestrator.id)}/>
         <h3>Executable agents</h3>{catalog.agents.map(a=><Row key={a.id} role={a} selected={role?.id===a.id} onSelect={()=>select(a.id)}/>)}

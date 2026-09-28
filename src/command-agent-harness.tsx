@@ -82,7 +82,7 @@ async function checks(){const results:string[]=[];const check=(condition:unknown
   check(!document.querySelector('.command-fixture-inspector form')&&!query('.command-fixture-inspector').textContent?.includes("Cancel this run"),"Deep-linked inspection exposes no execution controls");click("Return to Command catalog");await wait();
   click("Research Verification v1");await wait();check(query('.command-fixture-inspector').textContent?.includes("Research Verification · inspection"),"Declared graph opens the existing read-only workflow surface");click("Return to Command catalog");await wait();
   await fixture("six");check(document.querySelectorAll('.agent-role-row').length===8&&query('.agent-catalog-list').scrollHeight>query('.agent-catalog-list').clientHeight,"Future executable fixtures scroll vertically without fixed slots");
-  await fixture("error");check(!document.querySelector('.agent-status')&&query('.command-agent-catalog').textContent?.includes("Catalog unavailable"),"Read failure removes stale ready claims");
+  await fixture("error");check(!document.querySelector('.agent-status')&&query('.command-agent-catalog').textContent?.includes("Agent catalog could not be read from the local database")&&Boolean(query(".agent-catalog-error button")),"Read failure removes stale ready claims");
   await fixture("empty");click("Olympus Core");await wait();
   query<HTMLTextAreaElement>('[aria-label="Command to Olympus"]').focus();await wait(500);check(query('.command-console').dataset.mode==="engaged","Compact console opens upward");layout();
   query<HTMLButtonElement>('[aria-label="Open conversation history"]').click();await wait(500);check(query('.command-console').dataset.mode==="transcript","Full history expansion uses the right reserve");layout();

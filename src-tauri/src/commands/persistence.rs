@@ -29,12 +29,39 @@ pub struct ConversationMessage {
     pub research: Vec<super::research_retrieval::ResearchExcerpt>,
 }
 
+/// A stored message as the webview receives it. `at` is when the row was
+/// appended, as ISO 8601 UTC: older rows carry only an `HH:MM` `timestamp`, and
+/// `created_at` is the one date every row already has. Messages are appended at
+/// send time, so it is the message's own time; rows imported from the browser
+/// era carry the import time instead.
+#[derive(Debug, Serialize)]
+pub struct LoadedMessage {
+    #[serde(flatten)]
+    pub message: ConversationMessage,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub at: Option<String>,
+}
+
+impl std::ops::Deref for LoadedMessage {
+    type Target = ConversationMessage;
+    fn deref(&self) -> &ConversationMessage {
+        &self.message
+    }
+}
+
+/// SQLite `CURRENT_TIMESTAMP` (`YYYY-MM-DD HH:MM:SS`, UTC) as ISO 8601.
+fn created_at_iso(raw: &str) -> Option<String> {
+    chrono::NaiveDateTime::parse_from_str(raw.trim(), "%Y-%m-%d %H:%M:%S")
+        .ok()
+        .map(|time| time.and_utc().to_rfc3339_opts(chrono::SecondsFormat::Secs, true))
+}
+
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PersistedState {
     pub settings: HashMap<String, String>,
     pub tool_states: Vec<ToolState>,
-    pub conversation: Vec<ConversationMessage>,
+    pub conversation: Vec<LoadedMessage>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -276,14 +303,15 @@ fn load_state_from(connection: &Connection) -> Result<PersistedState, String> {
 
     let mut conversation_query = connection
         .prepare(
-            "SELECT id, role, content, timestamp, COALESCE((SELECT sources_json FROM conversation_research WHERE message_id = conversation_messages.id), '[]'), (SELECT metadata_json FROM conversation_voice WHERE message_id = conversation_messages.id), (SELECT record_json FROM model_requests WHERE id=(SELECT request_id FROM conversation_model WHERE message_id=conversation_messages.id)), COALESCE((SELECT sources_json FROM conversation_mail WHERE message_id=conversation_messages.id), '[]') FROM conversation_messages \
+            "SELECT id, role, content, timestamp, COALESCE((SELECT sources_json FROM conversation_research WHERE message_id = conversation_messages.id), '[]'), (SELECT metadata_json FROM conversation_voice WHERE message_id = conversation_messages.id), (SELECT record_json FROM model_requests WHERE id=(SELECT request_id FROM conversation_model WHERE message_id=conversation_messages.id)), COALESCE((SELECT sources_json FROM conversation_mail WHERE message_id=conversation_messages.id), '[]'), created_at FROM conversation_messages \
              ORDER BY created_at ASC, rowid ASC",
         )
         .map_err(|error| error.to_string())?;
     let conversation = conversation_query
         .query_map([], |row| {
             let id: String = row.get(0)?;
-            Ok(ConversationMessage {
+            let at = row.get::<_, Option<String>>(8)?.as_deref().and_then(created_at_iso);
+            Ok(LoadedMessage { at, message: ConversationMessage {
                 mail: side_row(row.get(7)?, "conversation_mail", &id).unwrap_or_default(),
                 request: row.get::<_,Option<String>>(6)?.and_then(|s|serde_json::from_str(&s).ok()),
                 voice: side_row(row.get(5)?, "conversation_voice", &id),
@@ -292,10 +320,10 @@ fn load_state_from(connection: &Connection) -> Result<PersistedState, String> {
                 content: row.get(2)?,
                 timestamp: row.get(3)?,
                 id,
-            })
+            }})
         })
         .map_err(|error| error.to_string())?
-        .collect::<Result<Vec<ConversationMessage>, _>>()
+        .collect::<Result<Vec<LoadedMessage>, _>>()
         .map_err(|error| error.to_string())?;
 
     Ok(PersistedState {
@@ -453,6 +481,22 @@ mod tests {
         assert_eq!(stored.content, "Original answer");
         assert_eq!(stored.research[0].title, "Original source");
         assert_eq!(stored.voice.as_ref().unwrap()["playback"], "completed", "voice metadata still updates");
+    }
+
+    #[test]
+    fn loaded_messages_carry_an_iso_date_and_keep_their_legacy_clock_time() {
+        let mut db = Connection::open_in_memory().unwrap();
+        db.execute_batch(include_str!("../../schema.sql")).unwrap();
+        db.execute("INSERT INTO conversation_messages (id, role, content, timestamp, created_at) VALUES ('old', 'user', 'hi', '09:15', '2026-09-25 09:15:02')", []).unwrap();
+        store_messages(&mut db, vec![ConversationMessage { mail: vec![], request: None, id: "new".into(), role: "assistant".into(), content: "Now".into(), timestamp: "10:00".into(), research: vec![], voice: None }]).unwrap();
+        let state = load_state_from(&db).unwrap();
+        assert_eq!(state.conversation[0].at.as_deref(), Some("2026-09-25T09:15:02Z"));
+        assert_eq!(state.conversation[0].timestamp, "09:15", "the stored clock time is untouched");
+        assert!(state.conversation[1].at.as_deref().is_some_and(|at| at.ends_with('Z') && at.contains('T')));
+        let json = serde_json::to_value(&state).unwrap();
+        assert_eq!(json["conversation"][0]["at"], "2026-09-25T09:15:02Z");
+        assert_eq!(json["conversation"][0]["content"], "hi", "message fields stay at the top level");
+        assert_eq!(created_at_iso("not a date"), None);
     }
 
     #[test]

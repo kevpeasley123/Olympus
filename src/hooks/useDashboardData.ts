@@ -8,6 +8,8 @@ import { refreshVaultWrites } from "./useVaultWrites";
 import { emitRefreshRequested } from "../services/navigation";
 import { buildProjectCommandBoard } from "../services/projectCommandBoard";
 import { composeOpeningBriefing } from "../services/openingBriefing";
+import { BRIEFING_ID_PREFIX } from "../services/conversationHistory";
+import type { ModelCapability } from "../services/modelRouting";
 import type { VoiceDepth, VoiceAnswer, VoiceMessageMetadata } from "../services/voiceContract";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { conversationStream } from "../services/conversationStream";
@@ -147,6 +149,8 @@ export function useDashboardData() {
    * Cleared at the start of each turn, so it describes the last turn only.
    */
   const [chatFellBackFrom, setChatFellBackFrom] = useState<string | null>(null);
+  /** The route of the current or last turn, for human labels (review D3). */
+  const [chatCapability, setChatCapability] = useState<ModelCapability | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -260,8 +264,11 @@ export function useDashboardData() {
       projectsError
     });
     const message = createAssistantMessage(text);
-    message.id = `conversation-briefing-${Date.now()}`;
-    message.voice = { kind: "output", spokenResponse: text };
+    message.id = `${BRIEFING_ID_PREFIX}${Date.now()}`;
+    message.kind = "briefing";
+    // `skipped` records that nothing was attempted, so the receipt can say so
+    // rather than "unconfirmed". Voice mode leaves it to the playback path.
+    message.voice = { kind: "output", spokenResponse: text, ...(dashboardRef.current.settings.autoSpeak ? {} : { playback: "skipped" as const }) };
     dashboardRef.current = { ...dashboardRef.current, conversation: [...dashboardRef.current.conversation, message] };
     setDashboardState(dashboardRef.current);
     void appendConversationMessages([message]);
@@ -302,6 +309,7 @@ export function useDashboardData() {
       }
 
       const capability=consumeNextModel();
+      setChatCapability(capability);
       requestInFlight.current = true;
       setChatModel(null);
       setChatPending(true);
@@ -325,7 +333,8 @@ export function useDashboardData() {
                 setChatModel(event.model);
                 break;
               case "delta":
-                if (voiceDepth) break; // Never stream the JSON response envelope into the console.
+                // Voice turns arrive here too: Rust forwards only the decoded
+                // visual answer, never the JSON envelope (voice::VisualStream).
                 // The speaking signal. Idempotent by construction — React bails
                 // on an unchanged value, so every later delta is free.
                 if (speakingStartedAt.current === null) {
@@ -481,6 +490,7 @@ export function useDashboardData() {
       chatModel,
       chatProducing,
       chatFellBackFrom,
+      chatCapability,
       sendChatMessage,
       updateVoiceMessage,
       updateVoicePreferences,
@@ -503,6 +513,7 @@ export function useDashboardData() {
       chatModel,
       chatProducing,
       chatFellBackFrom,
+      chatCapability,
       sendChatMessage,
       updateVoiceMessage,
       updateVoicePreferences,

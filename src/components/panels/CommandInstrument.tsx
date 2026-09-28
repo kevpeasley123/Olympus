@@ -18,8 +18,13 @@ import { subscribeToInstrumentEvents } from "../../services/instrumentEvents";
 import type { InstrumentEvent } from "../../services/instrumentEvents";
 import { PROJECT_RING_RADIUS } from "../../services/projectRing";
 import type { TrackedProject } from "../../types";
+import type { ProjectScanState } from "../../hooks/useDashboardData";
+import type { ModelCapability } from "../../services/modelRouting";
+import { routeName } from "../../services/routeLabel";
+import { clockTime, toDate } from "../../services/time";
 import { DayArc } from "./DayArc";
 import { ProjectRing } from "./ProjectRing";
+import "./command.css";
 
 interface CommandInstrumentProps {
   active?: boolean;
@@ -44,8 +49,30 @@ interface CommandInstrumentProps {
    * Renders as a transition beside the current model rather than replacing it.
    */
   assistantFellBackFrom?: string | null;
+  /** The route of the current or last turn, for a human label (review D3). */
+  assistantCapability?: ModelCapability | null;
+  /**
+   * Where the project scan stands (review U1). Absent means ready — harnesses
+   * and fixtures that pass projects directly.
+   */
+  projectScan?: ProjectScanState;
+  onRetryScan?: () => void;
   onSelectProject: (projectId: string) => void;
   onOpenNote: (notePath: string) => void;
+}
+
+/**
+ * The scan state as the ring's centre readout and the line under the dial.
+ * Loading and failure show no project names at all; stale keeps the genuine
+ * last result and says how old it is.
+ */
+function scanReadout(scan: ProjectScanState | undefined): { centre: string[]; line: string | null; retry: boolean } {
+  if (!scan || scan.status === "ready") return { centre: [], line: null, retry: false };
+  if (scan.status === "loading") return { centre: ["SCANNING…"], line: "Scanning projects…", retry: false };
+  if (scan.status === "failed") return { centre: ["SCAN FAILED"], line: "Project scan failed", retry: true };
+  const last = toDate(scan.lastSuccessAt);
+  const when = last ? clockTime(last) : "unknown";
+  return { centre: [`STALE · ${when}`], line: `Stale · last scan ${when}`, retry: true };
 }
 
 /**
@@ -94,6 +121,9 @@ export function CommandInstrument({
   assistantProducing = false,
   assistantModel = null,
   assistantFellBackFrom = null,
+  assistantCapability = null,
+  projectScan,
+  onRetryScan,
   onSelectProject,
   onOpenNote
 }: CommandInstrumentProps) {
@@ -107,6 +137,13 @@ export function CommandInstrument({
   const [renderAttempt, setRenderAttempt] = useState(0);
   const [hybridReady, setHybridReady] = useState(false);
   const [hybridError, setHybridError] = useState<string | null>(null);
+  // The WebGL scene starts the first time Command is shown, not at launch:
+  // opening Olympus in Research must not pay for it (review F5). Until it is
+  // ready, and whenever it fails, the SVG instrument is the whole instrument.
+  const [sceneWanted, setSceneWanted] = useState(active);
+  useEffect(() => { if (active) setSceneWanted(true); }, [active]);
+  const sceneShown = hybridReady && !hybridError;
+  const scan = scanReadout(projectScan);
   const [hoverProject, setHoverProject] = useState<string | null>(null);
   const layout = useMemo(() => commandLayout(projects, graph, renderScale), [projects, graph, renderScale]);
 
@@ -122,6 +159,12 @@ export function CommandInstrument({
     pending: assistantPending,
     producing: assistantProducing
   });
+  // Precise names (review D6): audio is "speaking", arriving text is
+  // "responding", a live microphone is "listening".
+  const activity = visualState === "speaking" ? "speaking"
+    : visualState === "listening" ? "listening"
+    : glyphState === "speaking" ? "responding"
+    : glyphState === "thinking" ? "thinking" : null;
 
   const [completionSettled, setCompletionSettled] = useState(false);
   useEffect(() => {
@@ -141,15 +184,13 @@ export function CommandInstrument({
   // Both models genuinely answered part of the turn, and a readout that quietly
   // changed would be the invisible-wrongness this line exists to prevent — the
   // arrow is the visible transition. It clears on the next turn.
-  const identity = assistantFellBackFrom
-    ? `${assistantFellBackFrom} → ${assistantModel ?? "?"}`
-    : assistantModel;
+  const identity = assistantModel
+    ? `${routeName(assistantCapability) === "Model" ? assistantModel : routeName(assistantCapability)}${assistantFellBackFrom ? " · fallback" : ""}`
+    : null;
+  // The exact model stays one hover away; the readout carries the route.
+  const identityTitle = assistantFellBackFrom ? `${assistantFellBackFrom} → ${assistantModel ?? "?"}` : assistantModel ?? undefined;
 
-  const statusParts = [
-    identity,
-    glyphState === "thinking" ? "thinking" : null,
-    glyphState === "speaking" ? "speaking" : null
-  ].filter((part): part is string => Boolean(part));
+  const statusParts = [identity, activity].filter((part): part is string => Boolean(part));
 
   useLayoutEffect(() => {
     const dial = dialRef.current;
@@ -200,20 +241,25 @@ export function CommandInstrument({
 
   return (
     <div className="command-instrument" data-visual-state={ambientState} data-voice-energy={voiceLevel > 0.15 ? "active" : "quiet"}
-      data-motion={ambient.running ? "running" : "paused"} data-renderer="hybrid" data-scene-ready={hybridReady && !hybridError}
+      data-motion={ambient.running ? "running" : "paused"} data-renderer={sceneShown ? "hybrid" : "svg"} data-scene-ready={sceneShown}
+      data-scan={projectScan?.status ?? "ready"}
       style={{ ...ambientVariables, "--ambient-drift": `${2 / renderScale}px` } as CSSProperties}>
       <motion.div className="command-instrument__dial" ref={dialRef} style={instrumentParallax}>
-        {<HybridCommandCore key={renderAttempt} layout={layout} state={ambientState} voiceLevel={voiceLevel} execution={execution}
+        {/* Unmounted on failure so its GPU resources, listeners and timers go
+            with it; Retry mounts a fresh one. */}
+        {sceneWanted && !hybridError && <HybridCommandCore key={renderAttempt} layout={layout} state={ambientState} voiceLevel={voiceLevel} execution={execution}
           running={active && ambient.running} hoverProject={hoverProject}
           onReady={setHybridReady} onError={setHybridError} />}
         <svg
-          style={{ transform: HYBRID_OVERLAY_TRANSFORM, transformOrigin: "50% 50%", visibility: hybridReady && !hybridError ? "visible" : "hidden" }}
+          style={{ transform: HYBRID_OVERLAY_TRANSFORM, transformOrigin: "50% 50%" }}
           viewBox={`0 0 ${SIZE} ${SIZE}`}
           className={`command-instrument__svg ${pulse ? `is-pulsing pulse-${pulse}` : ""}`}
           role="group"
           aria-label="Portfolio instrument"
           data-render-scale={renderScale.toFixed(3)}
         >
+          {/* The flat instrument's glyph; the 3D core replaces it once drawn. */}
+          <text x={CENTRE} y={CENTRE + 30} className="command-instrument__fallback-omega" textAnchor="middle" aria-hidden="true">Ω</text>
           <DayArc
             centre={CENTRE}
             radius={DAY_RADIUS}
@@ -238,6 +284,7 @@ export function CommandInstrument({
             renderScale={renderScale}
             onSelectProject={onSelectProject}
             onOpenNote={onOpenNote}
+            idleReadout={scan.centre}
           />
 
           {(pulse === "vault-write" || pulse === "graph-node" || pulse === "response-start") && ambient.running ? (
@@ -275,9 +322,19 @@ export function CommandInstrument({
           Nothing renders before the first reply of a session. Naming a model
           that has not spoken would be the same invisible wrongness as reading
           the request constant. */}
-      {hybridError && <p className="hybrid-status" role="status">3D view unavailable. {hybridError} <button onClick={() => { setHybridError(null); setHybridReady(false); setRenderAttempt(n => n + 1); }}>Retry 3D view</button></p>}
+      {scan.line && <p className="command-instrument__scan" role="status" data-scan={projectScan?.status}>
+        <span>{scan.line}</span>
+        {scan.retry && onRetryScan && <button type="button" className="ghost-action" disabled={projectScan?.scanning} onClick={onRetryScan}>
+          {projectScan?.scanning ? "Retrying…" : "Retry"}</button>}
+        {projectScan?.error && scan.retry && <span className="command-instrument__scan-detail" title={projectScan.error}>{projectScan.error}</span>}
+      </p>}
+      {hybridError && <div className="hybrid-status" role="status">
+        <span>3D view unavailable · showing the flat instrument.</span>
+        <button type="button" className="ghost-action" onClick={() => { setHybridError(null); setHybridReady(false); setRenderAttempt(n => n + 1); }}>Retry 3D view</button>
+        <details><summary>Technical detail</summary><span>{hybridError}</span></details>
+      </div>}
       {statusParts.length > 0 ? (
-        <p className="command-instrument__status">
+        <p className="command-instrument__status" title={identityTitle}>
           {statusParts.map((part, index) => (
             <span key={part}>
               {index > 0 ? <span className="command-instrument__status-sep"> · </span> : null}

@@ -2,8 +2,8 @@ import type { CommandLayout } from "../../services/hybridCore";
 import { layoutProjectConstellation } from "../../services/projectConstellation";
 import { AMBIENT } from "../../services/ambientMotion";
 import { nodeCategory, NODE_PALETTE } from "../../services/constellationPresentation";
-import type { CSSProperties } from "react";
-import { useEffect, useMemo, useState } from "react";
+import type { CSSProperties, KeyboardEvent } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ActionQueueTask } from "../../hooks/useActionQueue";
 import {
   arcPathForSegment,
@@ -30,7 +30,15 @@ interface ProjectRingProps {
   renderScale: number;
   onSelectProject: (projectId: string) => void;
   onOpenNote: (notePath: string) => void;
+  /**
+   * The centre readout when nothing is hovered — the scan state (review U1).
+   * Empty or absent draws nothing, as before.
+   */
+  idleReadout?: string[];
 }
+
+/** One focusable item of the ring's single tab stop: a project or one of its notes. */
+type RingKey = `segment:${string}` | `node:${string}`;
 
 const STATUS_LABEL: Record<TrackedProject["status"], string> = {
   active: "active",
@@ -160,9 +168,12 @@ export function ProjectRing({
   renderScale,
   ambientNodeEvent = 0,
   onSelectProject,
-  onOpenNote
+  onOpenNote,
+  idleReadout
 }: ProjectRingProps) {
   const [hoveredProject, setHoveredProject] = useState<string | null>(null);
+  const [focusKey, setFocusKey] = useState<RingKey | null>(null);
+  const groupRef = useRef<SVGGElement>(null);
   const [hoveredNode, setHoveredNode] = useState<ProjectGraphNode | null>(null);
   const ring = useMemo(
     () => layout?.ring ?? layoutProjectRing(projects, centre, radius, renderScale),
@@ -189,8 +200,55 @@ export function ProjectRing({
   useEffect(() => { onHoverProject?.(hoveredProject ?? hoveredNode?.projectId ?? null); }, [hoveredProject, hoveredNode, onHoverProject]);
   const focused = Boolean(hoveredProject || hoveredNode);
 
+  /*
+   * Roving tabindex (review U9). The ring is one tab stop: Left/Right move
+   * between projects (or between a project's notes), Down enters a project's
+   * notes, Up returns to the project, Home/End jump to the ends. Every item
+   * keeps its accessible name; only the Tab sequence gets shorter.
+   */
+  const segmentIds = ring.segments.map(candidate => candidate.project.id);
+  const notesOf = (projectId: string) => constellation.nodes.filter(node => node.projectId === projectId);
+  const validKey = focusKey && (focusKey.startsWith("segment:")
+    ? segmentIds.includes(focusKey.slice(8))
+    : constellation.nodes.some(node => node.id === focusKey.slice(5)));
+  const tabKey: RingKey | null = validKey ? focusKey : segmentIds.length ? `segment:${segmentIds[0]}`
+    : constellation.nodes.length ? `node:${constellation.nodes[0].id}` : null;
+  function moveFocus(next: RingKey | null) {
+    if (!next) return;
+    setFocusKey(next);
+    const target = [...(groupRef.current?.querySelectorAll<SVGElement>("[data-ring-key]") ?? [])].find(element => element.dataset.ringKey === next);
+    target?.focus();
+  }
+  function ringKeyDown(event: KeyboardEvent<SVGElement>, key: RingKey) {
+    const step = (list: string[], id: string, delta: number) => list.length ? list[(list.indexOf(id) + delta + list.length) % list.length] : null;
+    let next: RingKey | null = null;
+    if (key.startsWith("segment:")) {
+      const id = key.slice(8);
+      if (event.key === "ArrowRight") next = `segment:${step(segmentIds, id, 1)}`;
+      else if (event.key === "ArrowLeft") next = `segment:${step(segmentIds, id, -1)}`;
+      else if (event.key === "Home") next = `segment:${segmentIds[0]}`;
+      else if (event.key === "End") next = `segment:${segmentIds[segmentIds.length - 1]}`;
+      else if (event.key === "ArrowDown") { const first = notesOf(id)[0]; next = first ? `node:${first.id}` : null; }
+      else return;
+    } else {
+      const node = constellation.nodes.find(candidate => candidate.id === key.slice(5));
+      if (!node) return;
+      const siblings = notesOf(node.projectId).map(candidate => candidate.id);
+      if (event.key === "ArrowRight" || event.key === "ArrowDown") next = `node:${step(siblings, node.id, 1)}`;
+      else if (event.key === "ArrowLeft") next = `node:${step(siblings, node.id, -1)}`;
+      else if (event.key === "ArrowUp" || event.key === "Escape") next = segmentIds.includes(node.projectId) ? `segment:${node.projectId}` : null;
+      else if (event.key === "Home") next = siblings.length ? `node:${siblings[0]}` : null;
+      else if (event.key === "End") next = siblings.length ? `node:${siblings[siblings.length - 1]}` : null;
+      else return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    moveFocus(next);
+  }
+
   return (
-    <g className={`project-ring project-ring--constellation ${focused ? "is-focused" : ""}`}>
+    <g ref={groupRef} className={`project-ring project-ring--constellation ${focused ? "is-focused" : ""}`}
+      role="group" aria-label="Projects and linked notes. Arrow keys move between projects; Down enters a project's notes, Up returns.">
       <defs>
         <radialGradient id="constellation-star-halo">
           <stop offset="0%" stopColor="#bddfff" stopOpacity=".45" />
@@ -330,19 +388,22 @@ export function ProjectRing({
               stroke="transparent"
               strokeWidth={40}
               className="project-ring__hit"
-              tabIndex={0}
+              data-ring-key={`segment:${candidate.project.id}`}
+              tabIndex={tabKey === `segment:${candidate.project.id}` ? 0 : -1}
               role="button"
               aria-label={`${details} — open in Project mode`}
               onMouseEnter={() => showProject(candidate.project.id)}
               onMouseLeave={() => hideProject(candidate.project.id)}
-              onFocus={() => showProject(candidate.project.id)}
+              onFocus={() => { setFocusKey(`segment:${candidate.project.id}`); showProject(candidate.project.id); }}
               onBlur={() => hideProject(candidate.project.id)}
               onClick={() => onSelectProject(candidate.project.id)}
               onKeyDown={(event) => {
                 if (event.key === "Enter" || event.key === " ") {
                   event.preventDefault();
                   onSelectProject(candidate.project.id);
+                  return;
                 }
+                ringKeyDown(event, `segment:${candidate.project.id}`);
               }}
             />
           </g>
@@ -403,13 +464,14 @@ export function ProjectRing({
             <title>{`${NODE_PALETTE[nodeCategory(node)].label} · ${describeNode(node)}`}</title>
           </circle>
           <circle cx={node.x} cy={node.y} r={Math.max(node.size, 4 / Math.max(renderScale, .01))}
-            fill="transparent" className="project-ring__star-hit" tabIndex={0} role="button"
+            fill="transparent" className="project-ring__star-hit" data-ring-key={`node:${node.id}`}
+            tabIndex={tabKey === `node:${node.id}` ? 0 : -1} role="button"
             aria-label={`${NODE_PALETTE[nodeCategory(node)].label} · ${describeNode(node)} — open note`}
             onMouseEnter={() => { setHoveredProject(null); setHoveredNode(node); }}
             onMouseLeave={() => setHoveredNode(null)}
-            onFocus={() => { setHoveredProject(null); setHoveredNode(node); }}
+            onFocus={() => { setFocusKey(`node:${node.id}`); setHoveredProject(null); setHoveredNode(node); }}
             onBlur={() => setHoveredNode(null)} onClick={() => onOpenNote(node.id)}
-            onKeyDown={event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onOpenNote(node.id); } }} />
+            onKeyDown={event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onOpenNote(node.id); return; } ringKeyDown(event, `node:${node.id}`); }} />
         </g>
       ))}
 
@@ -431,6 +493,8 @@ export function ProjectRing({
           centre={centre}
           renderScale={renderScale}
         />
+      ) : idleReadout && idleReadout.length > 0 ? (
+        <CentreReadout lines={idleReadout} centre={centre} renderScale={renderScale} />
       ) : constellation.droppedLinked > 0 ? (
         <CentreReadout
           lines={[

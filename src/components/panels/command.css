@@ -1,0 +1,267 @@
+/* Command and voice surface (September 28 review: U1, U2, U6, U9, U10, D1,
+   D3, D4, D6, F5, F6).
+
+   Imported by the Command components, which load before styles.css, so rules
+   that override an existing one carry a leading `html` to win on specificity
+   rather than on source order. */
+
+/* ---- Console status line (D1: 11px floor, larger across the room) -------- */
+/* The status never truncates: when the console is narrow the controls wrap
+   to a second row instead. */
+html .console-status-line { flex-wrap: wrap; row-gap: 6px; }
+html .console-status-line .console-status { flex: 1 0 auto; overflow: visible; }
+html .console-status {
+  font-size: var(--text-xs);
+  letter-spacing: .08em;
+  color: #b7c4d4;
+}
+html .console-status[data-status="briefing-ready"] { color: #efbd7a; }
+html .console-status[data-status="audio-unavailable"] { color: #d9bf9c; }
+.console-briefing-preview {
+  display: block;
+  width: 100%;
+  margin: -2px 0 8px;
+  padding: 0 0 0 30px;
+  overflow: hidden;
+  border: 0;
+  background: transparent;
+  color: var(--secondary);
+  font: var(--text-sm)/1.45 var(--font-sans);
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.console-briefing-preview:hover { color: var(--primary); }
+/* The status keeps its words at console widths: the model prefix and the
+   reply-mode icons give way first. */
+@container (max-width: 480px) {
+  html .model-route-prefix { display: none; }
+  html .console-reply-mode button svg { display: none; }
+}
+html .console-reply-mode button,
+html .model-route-trigger { font-size: var(--text-xs); }
+html .console-header > span,
+html .command-console .conversation-bubble .console-message-label { font-size: var(--text-xs); }
+html .console-history-controls button,
+html .console-load-history,
+html .console-latest,
+html .console-expand-response,
+html .console-response-details > summary { font-size: var(--text-xs); }
+html .console-turn-state { font-size: var(--text-xs); letter-spacing: .02em; }
+@media (min-width: 1800px) {
+  html .console-status { font-size: clamp(11px, .62vw, 14px); }
+  html .console-briefing-preview { font-size: clamp(12px, .7vw, 15px); }
+  html .console-reply-mode button,
+  html .model-route-trigger { font-size: clamp(11px, .58vw, 13px); }
+}
+
+/* ---- Microphone (D6): a live microphone is unmistakable ------------------ */
+.console-mic-live {
+  flex: 0 0 auto;
+  align-self: center;
+  padding: 2px 7px;
+  border-radius: 3px;
+  background: #86c5d0;
+  color: #07131c;
+  font: 600 var(--text-xs) var(--font-mono);
+  letter-spacing: .1em;
+}
+html .voice-mic-button { border-radius: 50%; }
+html .voice-mic-button[aria-pressed="true"] { background: #86c5d0; color: #07131c; }
+html .voice-mic-button[aria-pressed="true"]:not([data-live]) { background: rgba(134, 197, 208, .35); color: #dff3f6; }
+
+/* ---- Voice row (U2): audio problems are information, not an alarm -------- */
+html .console-voice-status { font-size: var(--text-xs); line-height: 1.5; }
+.console-voice-failure > span { display: block; color: #e3cfb2; font-size: var(--text-sm); }
+.console-voice-failure .console-voice-controls { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+html .console-voice-status .ghost-action { font-size: var(--text-xs); padding: 4px 9px; }
+.console-voice-detail { margin-top: 6px; color: #8fa2b5; }
+.console-voice-detail > summary { cursor: pointer; }
+.console-voice-detail p { margin: 4px 0 0; overflow-wrap: anywhere; }
+
+/* ---- Transcript ---------------------------------------------------------- */
+.console-day-separator {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 2px 0 14px;
+  color: var(--label);
+  font: var(--text-xs) var(--font-mono);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.console-day-separator::before,
+.console-day-separator::after { content: ""; flex: 1; height: 1px; background: rgba(137, 166, 196, .14); }
+
+.console-briefing-label {
+  color: #d3ad7c;
+  font: var(--text-xs) var(--font-mono);
+  letter-spacing: .02em;
+  text-transform: none;
+}
+.command-console .conversation-bubble[data-kind="briefing"] { border-left: 2px solid rgba(217, 151, 76, .35); padding-left: 10px; }
+html .command-console .conversation-bubble[data-kind="briefing"] .console-message-label { flex-wrap: wrap; row-gap: 3px; }
+.conversation-bubble[data-kind="briefing"] .console-briefing-label { flex-basis: 100%; }
+
+html .command-console .conversation-bubble small { color: #8d9db2; font-size: var(--text-xs); }
+html .message-model { color: #9fb0c3; font-size: var(--text-xs); }
+html .console-audio-footer { gap: 10px; }
+.console-replay {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border: 1px solid rgba(217, 151, 76, .4);
+  border-radius: 4px;
+  background: transparent;
+  color: #e7bd84;
+  font-size: var(--text-xs);
+  cursor: pointer;
+}
+.console-replay:hover:not(:disabled) { border-color: #efbd7a; color: #f6d09c; }
+.console-replay:disabled { opacity: .5; cursor: default; }
+.console-spoken-summary > summary { color: #b4cbd4; font-size: var(--text-xs); cursor: pointer; }
+.console-spoken-summary p { margin: 6px 0 0; color: #c3ccd8; font-size: var(--text-sm); }
+
+/* Save memory and Note observation appear on hover or keyboard focus. Hidden
+   by clipping rather than transparent text, so the hidden state takes no
+   space and cannot be clicked, yet Tab still reaches both (F6). */
+html .command-console .conversation-bubble { position: relative; }
+html .command-console .conversation-bubble-footer { justify-content: flex-start; align-items: center; }
+.console-quiet-actions { display: inline-flex; gap: 12px; margin-left: auto; }
+html .command-console .conversation-bubble .observation-seed { opacity: 1; color: var(--muted); font-size: var(--text-xs); }
+html .command-console .conversation-bubble .observation-seed:hover { color: var(--accent); }
+html .command-console .conversation-bubble:not(:hover):not(:focus-within) .console-quiet-actions {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.console-research-source { display: flex; align-items: flex-start; gap: 8px; }
+.console-research-source > details { flex: 1; min-width: 0; }
+.console-research-open { flex: 0 0 auto; font-size: var(--text-xs); }
+.console-research-path { color: #8d9db2; font-size: var(--text-xs); overflow-wrap: anywhere; }
+.console-technical > summary { cursor: pointer; font-size: var(--text-xs); color: #8d9db2; }
+
+/* ---- Skip link (U9) ------------------------------------------------------ */
+.skip-to-console {
+  position: fixed;
+  top: 8px;
+  left: 12px;
+  z-index: 8500;
+  padding: 6px 12px;
+  border: 1px solid var(--focus-ring);
+  border-radius: 4px;
+  background: #0b1522;
+  color: var(--primary);
+  font-size: var(--text-sm);
+  text-decoration: none;
+  transform: translateY(-160%);
+}
+.skip-to-console:focus,
+.skip-to-console:focus-visible { transform: none; }
+
+/* ---- Instrument ---------------------------------------------------------- */
+html .command-instrument__status { font-size: var(--text-sm); color: #a8b6c8; opacity: .9; }
+.command-instrument__scan {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  max-width: min(640px, 90%);
+  margin: 0;
+  color: #b8c4d3;
+  font: var(--text-sm) var(--font-mono);
+}
+.command-instrument__scan > span:first-child { flex: 0 0 auto; white-space: nowrap; }
+.command-instrument__scan[data-scan="failed"] > span:first-child { color: #e6b48c; }
+.command-instrument__scan-detail {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--muted);
+  font-size: var(--text-xs);
+}
+html .hybrid-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+  max-width: min(640px, 90%);
+  margin: 0;
+  color: #c9b597;
+  font-size: var(--text-xs);
+}
+html .hybrid-status details { color: var(--muted); }
+html .hybrid-status summary { cursor: pointer; }
+
+/* The flat instrument (F5): the SVG ring, notes and day arc draw on their own
+   until the 3D scene has painted, and for good if WebGL is unavailable. */
+.command-instrument__fallback-omega {
+  font-family: var(--font-display);
+  font-size: 92px;
+  fill: #dd8c38;
+  opacity: .88;
+  pointer-events: none;
+}
+.command-instrument[data-renderer="hybrid"] .command-instrument__fallback-omega { display: none; }
+html .command-instrument[data-scan="loading"] .project-ring__track { stroke-dasharray: 2 6; }
+.project-ring__hit:focus-visible { stroke: rgba(239, 189, 122, .16); }
+
+/* ---- Header omega (F5): decoration rests outside Command ----------------- */
+html .omega-instrument .ring-outer,
+html .omega-instrument .ring-middle,
+html .omega-instrument .ring-inner { animation-play-state: paused; }
+
+/* ---- Agent catalog error (D3) ------------------------------------------- */
+.agent-catalog-error p { margin: 0 0 8px; }
+.agent-catalog-error details { margin-top: 8px; color: #8fa2b5; font-size: var(--text-xs); }
+.agent-catalog-error summary { cursor: pointer; }
+
+/* ---- Model diagnostics (D4) --------------------------------------------- */
+html .model-diagnostics { font-size: var(--text-xs); }
+.model-diagnostics-routes { display: grid; grid-template-columns: max-content 1fr; gap: 2px 12px; margin: 8px 0; }
+.model-diagnostics-routes dt { color: var(--label); }
+.model-diagnostics-routes dd { margin: 0; color: var(--secondary); overflow-wrap: anywhere; }
+.model-diagnostics-table-wrap { max-height: 320px; overflow: auto; margin-top: 10px; }
+/* Fixed layout so the Preferences column never scrolls sideways: cells wrap. */
+.model-diagnostics-table { width: 100%; table-layout: fixed; border-collapse: collapse; font: var(--text-xs) var(--font-mono); }
+.model-diagnostics-table th:nth-child(1) { width: 16%; }
+.model-diagnostics-table th:nth-child(2) { width: 19%; }
+.model-diagnostics-table th:nth-child(3) { width: 19%; }
+.model-diagnostics-table th:nth-child(4) { width: 20%; }
+.model-diagnostics-table th:nth-child(5) { width: 12%; }
+.model-diagnostics-table th:nth-child(6) { width: 14%; }
+.model-diagnostics-table td { overflow-wrap: break-word; }
+.model-diagnostics-table th {
+  position: sticky;
+  top: 0;
+  background: #0d1622;
+  color: var(--label);
+  font-weight: 500;
+  text-align: left;
+}
+.model-diagnostics-table th,
+.model-diagnostics-table td { padding: 5px 8px 5px 0; border-bottom: 1px solid #22313f; vertical-align: top; }
+.model-diagnostics-table td { color: var(--secondary); }
+.model-diagnostics-table td small { display: block; color: var(--muted); font-size: var(--text-xs); }
+.model-diagnostics-table tr[data-status="failed"] td:nth-child(4) { color: #e6b48c; }
+.model-diagnostics-model { overflow-wrap: anywhere; }
+.model-diagnostics-json {
+  display: block;
+  margin-top: 4px;
+  padding: 1px 6px;
+  border: 1px solid #35495b;
+  border-radius: 3px;
+  background: transparent;
+  color: #b4cbd4;
+  font-size: var(--text-xs);
+  cursor: pointer;
+}
+.model-diagnostics-detail pre { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: var(--text-xs); }
+.model-diagnostics-empty { color: var(--muted); }

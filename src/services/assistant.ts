@@ -1,5 +1,6 @@
 import { Channel, invoke } from "@tauri-apps/api/core";
 import { isTauriRuntime } from "./launcher";
+import { briefingTurnContent, isBriefing, modelHistory } from "./conversationHistory";
 import type { ConversationMessage, OlympusSettings, TrackedProject } from "../types";
 
 /**
@@ -60,7 +61,7 @@ export async function requestAssistantReply(
     );
   }
 
-  const turns: ChatTurn[] = history.map((message) => ({
+  const turns: ChatTurn[] = modelHistory(history).map((message) => ({
     role: message.role,
     content: conversationTurnContent(message)
   }));
@@ -102,6 +103,7 @@ export function createAssistantMessage(
     content,
     notice,
     research,
+    at: new Date().toISOString(),
     timestamp: new Date().toLocaleTimeString([], {
       hour: "2-digit",
       minute: "2-digit",
@@ -112,6 +114,7 @@ export function createAssistantMessage(
 
 /** Keep conversational references to the spoken abstraction available on later typed turns. */
 export function conversationTurnContent(message: ConversationMessage): string {
+  if (isBriefing(message)) return briefingTurnContent(message);
   if (message.voice?.kind !== "output") return message.content;
   return `${message.content}\n\nSpoken summary: ${message.voice.spokenResponse ?? "Unavailable"}\nPlayback: ${message.voice.playback ?? "unconfirmed"}. An interrupted transcript may contain words not heard.\nAudio transcript: ${message.voice.audioTranscript ?? "Unavailable"}`;
 }

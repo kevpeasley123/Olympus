@@ -830,6 +830,9 @@ async fn send_anthropic_message(
     let mut stream = response.bytes_stream();
     let started = std::time::Instant::now();
     let mut first_text_at: Option<std::time::Duration> = None;
+    // A voice turn streams its JSON contract; only the decoded visual answer is
+    // shown while it arrives. `stream_result` still parses the whole object.
+    let mut visual = context.voice_depth.is_some().then(super::voice::VisualStream::default);
 
     loop {
         // A transport failure ends the turn the same way an `error` event does:
@@ -897,7 +900,13 @@ async fn send_anthropic_message(
                     .filter(|d| d.delta_type.as_deref() == Some("text_delta"))
                     .and_then(|d| d.text.clone())
                 {
-                    on_event.send(AssistantStreamEvent::Delta { text }).ok();
+                    let text = match visual.as_mut() {
+                        Some(visual) => visual.push(&text),
+                        None => text,
+                    };
+                    if !text.is_empty() {
+                        on_event.send(AssistantStreamEvent::Delta { text }).ok();
+                    }
                 }
             }
         }
