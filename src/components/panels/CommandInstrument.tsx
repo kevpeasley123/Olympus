@@ -68,11 +68,11 @@ interface CommandInstrumentProps {
  */
 function scanReadout(scan: ProjectScanState | undefined): { centre: string[]; line: string | null; retry: boolean } {
   if (!scan || scan.status === "ready") return { centre: [], line: null, retry: false };
-  if (scan.status === "loading") return { centre: ["SCANNING PROJECTS…"], line: "Scanning projects…", retry: false };
-  if (scan.status === "failed") return { centre: ["PROJECT SCAN FAILED"], line: "Project scan failed", retry: true };
+  if (scan.status === "loading") return { centre: ["SCANNING…"], line: "Scanning projects…", retry: false };
+  if (scan.status === "failed") return { centre: ["SCAN FAILED"], line: "Project scan failed", retry: true };
   const last = toDate(scan.lastSuccessAt);
   const when = last ? clockTime(last) : "unknown";
-  return { centre: [`STALE · LAST SCAN ${when}`], line: `Stale · last scan ${when}`, retry: true };
+  return { centre: [`STALE · ${when}`], line: `Stale · last scan ${when}`, retry: true };
 }
 
 /**
@@ -328,11 +328,11 @@ export function CommandInstrument({
           {projectScan?.scanning ? "Retrying…" : "Retry"}</button>}
         {projectScan?.error && scan.retry && <span className="command-instrument__scan-detail" title={projectScan.error}>{projectScan.error}</span>}
       </p>}
-      {hybridError && <p className="hybrid-status" role="status">
+      {hybridError && <div className="hybrid-status" role="status">
         <span>3D view unavailable · showing the flat instrument.</span>
         <button type="button" className="ghost-action" onClick={() => { setHybridError(null); setHybridReady(false); setRenderAttempt(n => n + 1); }}>Retry 3D view</button>
         <details><summary>Technical detail</summary><span>{hybridError}</span></details>
-      </p>}
+      </div>}
       {statusParts.length > 0 ? (
         <p className="command-instrument__status" title={identityTitle}>
           {statusParts.map((part, index) => (

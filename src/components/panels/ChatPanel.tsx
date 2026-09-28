@@ -326,8 +326,9 @@ export function ChatPanel({ messages, onSendMessage, onRecordObservation, pendin
           {onOpenPreferences&&<button type="button" className="ghost-icon-action" aria-label="Open preferences" title="Open preferences" onClick={onOpenPreferences}><Settings2 size={14}/></button>}
           <button type="button" className="ghost-icon-action" aria-label="Open conversation history" title="Conversation history" onClick={showHistory}><History size={14} /></button>
         </div>
-        {/* Non-modal: one line under the status, and reading it is the operator's call. */}
-        {briefingReady && briefing && <button type="button" className="console-briefing-preview" onClick={() => showLive()}
+        {/* Non-modal: one line under the status, and reading it is the operator's
+            call. Not a tab stop: focusing the input opens the console on it. */}
+        {briefingReady && briefing && <button type="button" tabIndex={-1} className="console-briefing-preview" onClick={() => showLive()}
           aria-label={`Opening briefing ready: ${firstSentence(briefing.text)} Open the console to read it.`}>{firstSentence(briefing.text)}</button>}
         {voiceFailure && <div className="console-voice-status console-voice-failure" role="status" aria-live="polite">
           <span>{voiceFailure.headline}</span>

@@ -6,6 +6,10 @@
    rather than on source order. */
 
 /* ---- Console status line (D1: 11px floor, larger across the room) -------- */
+/* The status never truncates: when the console is narrow the controls wrap
+   to a second row instead. */
+html .console-status-line { flex-wrap: wrap; row-gap: 6px; }
+html .console-status-line .console-status { flex: 1 0 auto; overflow: visible; }
 html .console-status {
   font-size: var(--text-xs);
   letter-spacing: .08em;
