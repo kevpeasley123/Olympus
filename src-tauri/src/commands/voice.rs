@@ -297,6 +297,17 @@ pub fn session_config(settings:&VoiceSettings, preview:bool) -> Value {
             "output":{"voice":settings.selected_voice,"speed":1.0}}
     }})
 }
+/// Names the provider's error code so the console can say *why* audio is off
+/// (quota, rate limit, key). Only a plain identifier is echoed, never the body.
+fn session_failure(status: u16, body: &Value) -> String {
+    let code = body.pointer("/error/code").and_then(Value::as_str)
+        .or_else(|| body.pointer("/error/type").and_then(Value::as_str))
+        .filter(|code| !code.is_empty() && code.len() <= 64 && code.chars().all(|c| c.is_ascii_alphanumeric() || c == '_'));
+    match code {
+        Some(code) => format!("OpenAI voice session failed (HTTP {status}, {code}). Check the OpenAI API key, project access and billing. Text remains available."),
+        None => format!("OpenAI voice session failed (HTTP {status}). Check the OpenAI API key, project access and billing. Text remains available."),
+    }
+}
 #[derive(Serialize)]
 pub struct ClientSecret { value: String, expires_at: u64 }
 async fn create_voice_session_inner(settings:Option<VoiceSettings>, preview:Option<bool>) -> Result<ClientSecret, String> {
@@ -307,7 +318,9 @@ async fn create_voice_session_inner(settings:Option<VoiceSettings>, preview:Opti
     let response = client.post("https://api.openai.com/v1/realtime/client_secrets")
         .bearer_auth(key.trim()).json(&session_config(&settings,preview.unwrap_or(false))).send().await.map_err(|_| "Could not connect to OpenAI voice. Check your connection and try again.")?;
     if !response.status().is_success() {
-        return Err(format!("OpenAI voice session failed (HTTP {}). Check the OpenAI API key, project access and billing. Text remains available.", response.status().as_u16()));
+        let status = response.status().as_u16();
+        let body: Value = response.json().await.unwrap_or(Value::Null);
+        return Err(session_failure(status, &body));
     }
     let value: Value = response.json().await.map_err(|_| "Voice session response could not be read.")?;
     Ok(ClientSecret { value: value["value"].as_str().filter(|s| !s.is_empty()).ok_or("Voice session did not provide a client secret.")?.into(), expires_at:value["expires_at"].as_u64().ok_or("Voice session expiry missing.")? })
@@ -341,6 +354,13 @@ mod tests {
     #[test] fn separates_long_visual_from_spoken() { let raw=json!({"spokenResponse":"The pilot needs scope review.","visualResponse":"Evidence. ".repeat(900),"proposedActions":[],"requiresConfirmation":false,"conversationState":"awaiting_input"}); let a=parse_answer(&raw.to_string(),"ANSWER").unwrap(); assert!(a.spoken_response.len()<100); assert!(a.visual_response.len()>8000); }
     #[test] fn rejects_execution_action() { let raw=json!({"spokenResponse":"Done","visualResponse":"Done","proposedActions":[{"type":"execute"}],"conversationState":"awaiting_input"}); assert!(parse_answer(&raw.to_string(),"ANSWER").is_err()); }
     #[test] fn refusal_answer_speaks_the_notice_and_proposes_nothing() { let a=notice_answer(""); assert!(a.spoken_response.contains("declined")); assert_eq!(a.visual_response,a.spoken_response); assert!(a.proposed_actions.is_empty()&&!a.requires_confirmation); assert_eq!(notice_answer("Cannot help.").visual_response,"Cannot help."); }
+    #[test] fn session_failure_names_only_a_plain_provider_code() {
+        assert!(session_failure(429, &json!({"error":{"code":"insufficient_quota","message":"secret detail"}})).contains("HTTP 429, insufficient_quota"));
+        assert!(!session_failure(429, &json!({"error":{"code":"insufficient_quota","message":"secret detail"}})).contains("secret detail"));
+        assert!(session_failure(401, &json!({"error":{"type":"invalid_request_error","code":null}})).contains("invalid_request_error"));
+        assert!(session_failure(500, &json!({"error":{"code":"<script>"}})).contains("(HTTP 500)."));
+        assert!(session_failure(502, &Value::Null).contains("(HTTP 502)."));
+    }
     fn streamed(chunks: &[&str]) -> String {
         let mut stream = VisualStream::default();
         chunks.iter().map(|chunk| stream.push(chunk)).collect()
