@@ -418,6 +418,7 @@ mod tests {
             file_modified_at: String::new(),
             body_preview: String::new(),
             body: String::new(),
+            source_label: "Local source".into(),
         }
     }
 
