@@ -66,7 +66,10 @@ interface CommandInstrumentProps {
  * Loading and failure show no project names at all; stale keeps the genuine
  * last result and says how old it is.
  */
-function scanReadout(scan: ProjectScanState | undefined): { centre: string[]; line: string | null; retry: boolean } {
+function scanReadout(scan: ProjectScanState | undefined, projectCount: number): { centre: string[]; line: string | null; retry: boolean } {
+  // A genuine empty result says so, as the board and the briefing do; a bare
+  // rim would read as still loading.
+  if (scan?.status === "ready" && projectCount === 0) return { centre: ["NO PROJECTS"], line: "No projects found under the projects root", retry: false };
   if (!scan || scan.status === "ready") return { centre: [], line: null, retry: false };
   if (scan.status === "loading") return { centre: ["SCANNING…"], line: "Scanning projects…", retry: false };
   if (scan.status === "failed") return { centre: ["SCAN FAILED"], line: "Project scan failed", retry: true };
@@ -143,7 +146,7 @@ export function CommandInstrument({
   const [sceneWanted, setSceneWanted] = useState(active);
   useEffect(() => { if (active) setSceneWanted(true); }, [active]);
   const sceneShown = hybridReady && !hybridError;
-  const scan = scanReadout(projectScan);
+  const scan = scanReadout(projectScan, projects.length);
   const [hoverProject, setHoverProject] = useState<string | null>(null);
   const layout = useMemo(() => commandLayout(projects, graph, renderScale), [projects, graph, renderScale]);
 
