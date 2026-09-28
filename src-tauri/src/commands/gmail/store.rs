@@ -1,11 +1,22 @@
 use super::{mime::Mail, now, SCOPE};
 pub fn remove_cache(c: &mut Connection, id: &str) -> Result<(), String> {
     let tx = c.transaction().map_err(|_| "gmail_database_write_failed")?;
+    // Situations, drafts, briefings and run history quote or derive from mail.
+    for table in ["communication_events", "communication_evaluations"] {
+        tx.execute(&format!("DELETE FROM {table} WHERE run_id IN (SELECT id FROM communication_runs WHERE account_id=?1)"), [id])
+            .map_err(|_| "gmail_database_write_failed")?;
+    }
     for table in [
         "gmail_messages",
         "gmail_search",
         "gmail_candidates",
         "gmail_sync_runs",
+        "communication_runs",
+        "communication_situation_contexts",
+        "communication_situations",
+        "communication_situation_sources",
+        "communication_situation_updates",
+        "communication_situation_drafts",
     ] {
         tx.execute(&format!("DELETE FROM {table} WHERE account_id=?1"), [id])
             .map_err(|_| "gmail_database_write_failed")?;
@@ -96,7 +107,13 @@ pub fn commit(
     }
     for mail in messages {
         let scope = super::mime::in_scope(mail, account.horizon_days);
-        tx.execute("INSERT INTO gmail_messages(account_id,id,thread_id,internal_date,available,in_scope,fingerprint,snapshot_json) VALUES (?1,?2,?3,?4,1,?5,?6,?7) ON CONFLICT(account_id,id) DO UPDATE SET thread_id=excluded.thread_id,internal_date=excluded.internal_date,available=1,in_scope=excluded.in_scope,fingerprint=excluded.fingerprint,snapshot_json=excluded.snapshot_json",params![account.id,mail.id,mail.thread_id,mail.internal_date,scope,mail.fingerprint,serde_json::to_string(mail).map_err(|_|"gmail_normalization_failed")?]).map_err(|_|"gmail_database_write_failed")?;
+        let snapshot = if scope {
+            serde_json::to_string(mail)
+        } else {
+            serde_json::to_string(&without_body(mail))
+        }
+        .map_err(|_| "gmail_normalization_failed")?;
+        tx.execute("INSERT INTO gmail_messages(account_id,id,thread_id,internal_date,available,in_scope,fingerprint,snapshot_json) VALUES (?1,?2,?3,?4,1,?5,?6,?7) ON CONFLICT(account_id,id) DO UPDATE SET thread_id=excluded.thread_id,internal_date=excluded.internal_date,available=1,in_scope=excluded.in_scope,fingerprint=excluded.fingerprint,snapshot_json=excluded.snapshot_json",params![account.id,mail.id,mail.thread_id,mail.internal_date,scope,mail.fingerprint,snapshot]).map_err(|_|"gmail_database_write_failed")?;
         tx.execute(
             "DELETE FROM gmail_search WHERE account_id=?1 AND message_id=?2",
             params![account.id, mail.id],
@@ -170,9 +187,26 @@ pub fn commit(
     .map_err(|_| "gmail_database_write_failed")?;
     tx.execute("DELETE FROM gmail_search WHERE account_id=?1 AND message_id IN (SELECT id FROM gmail_messages WHERE account_id=?1 AND in_scope=0)",[&account.id]).map_err(|_|"gmail_database_write_failed")?;
     tx.execute("DELETE FROM gmail_candidates WHERE account_id=?1 AND message_id IN (SELECT id FROM gmail_messages WHERE account_id=?1 AND in_scope=0)",[&account.id]).map_err(|_|"gmail_database_write_failed")?;
+    // Out-of-scope rows keep identity only; past the horizon they are pruned, so
+    // the cache stays bounded by the horizon rather than growing without limit.
+    tx.execute(
+        "DELETE FROM gmail_messages WHERE account_id=?1 AND in_scope=0 AND internal_date<?2",
+        params![account.id, cutoff],
+    )
+    .map_err(|_| "gmail_database_write_failed")?;
+    tx.execute("UPDATE gmail_messages SET snapshot_json=json_set(snapshot_json,'$.canonicalText','','$.cleanText','','$.snippet','','$.bodyStatus',?2) WHERE account_id=?1 AND in_scope=0 AND json_valid(snapshot_json) AND json_extract(snapshot_json,'$.bodyStatus') IS NOT ?2",params![account.id,super::mime::BODY_NOT_RETAINED]).map_err(|_|"gmail_database_write_failed")?;
     tx.execute("UPDATE gmail_accounts SET history_id=?2,status='connected',last_success=?3,last_error=NULL,next_sync=?4 WHERE id=?1 AND enabled=1",params![account.id,cursor,now(),(chrono::Utc::now()+chrono::Duration::minutes(5)).to_rfc3339()]).map_err(|_|"gmail_database_write_failed")?;
     tx.commit()
         .map_err(|_| "gmail_database_commit_failed".into())
+}
+fn without_body(mail: &Mail) -> Mail {
+    Mail {
+        canonical_text: String::new(),
+        clean_text: String::new(),
+        snippet: String::new(),
+        body_status: super::mime::BODY_NOT_RETAINED.into(),
+        ..mail.clone()
+    }
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

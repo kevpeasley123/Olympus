@@ -71,3 +71,11 @@ fn account_disconnect_hides_situations() {
     store::disconnect(&c, "fixture").unwrap();
     assert!(snapshot(&c).is_err());
 }
+#[test]
+fn background_failures_back_off_to_a_bounded_ceiling() {
+    assert_eq!(backoff_ms(1), 300_000);
+    assert_eq!(backoff_ms(2), 600_000);
+    assert_eq!(backoff_ms(5), 4_800_000);
+    assert_eq!(backoff_ms(7), 14_400_000);
+    assert_eq!(backoff_ms(u32::MAX), 14_400_000);
+}

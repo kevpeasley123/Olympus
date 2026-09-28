@@ -425,7 +425,7 @@ where
         }
         let days = request.days.min(account.horizon_days);
         let value = json!({"id":request.id,"accountId":account.id,"graph":GRAPH,"definition":workflow["definition"],"skills":workflow["skills"],"workflow":workflow,"definitionFingerprint":content_fingerprint(&workflow.to_string()),"traceVersion":1,"buildVersion":env!("CARGO_PKG_VERSION"),"requestedDays":request.days,"days":days,"status":"running","startedAt":now(),"finishedAt":null,"durationMs":null,"model":models::PRIMARY_MODEL,"usage":[],"items":[],"error":null,"stale":false,"loop":{"maxPasses":3,"passes":0},"selectionPolicy":"up to four flagged threads first, then most recent remaining threads; six-thread cap"});
-        c.execute("INSERT INTO communication_runs(id,account_id,days,status,payload_json) VALUES(?1,?2,?3,'running',?4)",params![request.id,account.id,days,value.to_string()]).map_err(err)?;
+        c.execute("INSERT INTO communication_runs(id,account_id,days,status,payload_json) VALUES(?1,?2,?3,'running',?4)",params![request.id,account.id,days,value.to_string()]).map_err(start_error)?;
         (account.id, days, value)
     };
     let mut active = "snapshot";

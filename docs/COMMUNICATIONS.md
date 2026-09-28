@@ -66,7 +66,7 @@ Selecting a message lazily loads its in-scope cached thread (maximum 100 message
 
 ## Data boundaries
 
-Source metadata/counts remain facts about the local cache. Candidate interpretations remain generated suggestions, never reviewed relationships, tasks, decisions or commitments. No new tables, token handling changes, mailbox writes, background model jobs or automatic excerpt submission were added. Models receive evidence only after a question is sent, under the existing Gmail disclosure.
+Source metadata/counts remain facts about the local cache. Candidate interpretations remain generated suggestions, never reviewed relationships, tasks, decisions or commitments. This pass added no tables, token handling changes, mailbox writes or automatic excerpt submission. Models receive evidence after a question is sent, or when background situation understanding (added later, pausable) analyzes changed threads; see [COMMUNICATION-SITUATIONS.md](COMMUNICATION-SITUATIONS.md). Its failures back off rather than repeating every cycle. Remove cached mailbox also deletes the derived situation, draft, briefing and analysis records.
 
 ## Files changed in this pass
 
@@ -89,7 +89,7 @@ The previous session verified a successful 206-message native import. This pass 
 
 ## Deferred
 
-Historical comparison coverage, semantic topics, accepted/dismissed project linking, generic action extraction, person/service identity, semantic search, attachments ingestion, multi-account, mail composition/mutation, autonomous handling, task/decision creation and background LLM analysis.
+Historical comparison coverage, semantic topics, accepted/dismissed project linking, generic action extraction, person/service identity, semantic search, attachments ingestion, multi-account, mail composition/mutation, autonomous handling and task/decision creation. Background LLM analysis now exists as situation understanding.
 
 ## Next visual iterations
 

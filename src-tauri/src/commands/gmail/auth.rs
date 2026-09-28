@@ -8,7 +8,10 @@ use std::{
     io::{Read, Write},
     net::TcpListener,
     path::Path,
-    sync::atomic::Ordering,
+    sync::{
+        atomic::{AtomicBool, AtomicUsize, Ordering},
+        Mutex,
+    },
     time::{Duration, Instant},
 };
 use tauri_plugin_opener::OpenerExt;
@@ -131,6 +134,18 @@ fn token(form: &[(&str, &str)]) -> Result<Value, String> {
         .into());
     }
     Ok(value)
+}
+// Best effort. A failed revoke leaves Google's grant for the operator to remove
+// in their Google Account; disconnect itself never waits on or fails with it.
+pub fn revoke(refresh: String) {
+    std::thread::spawn(move || {
+        if let Ok(client) = http() {
+            let _ = client
+                .post("https://oauth2.googleapis.com/revoke")
+                .form(&[("token", refresh.as_str())])
+                .send();
+        }
+    });
 }
 pub fn authorize(
     app: &tauri::AppHandle,
@@ -263,14 +278,21 @@ pub fn authorize(
         .to_string();
     Ok((access, refresh))
 }
+// messages.get costs 5 quota units: four workers sharing a 100 ms slot stay
+// at a fifth of Gmail's per-user rate while fitting 2,000 reads in the budget.
+const FETCH_WORKERS: usize = 4;
+const REQUEST_SPACING: Duration = Duration::from_millis(100);
+struct Session {
+    token: String,
+    expires: Instant,
+    next_request: Instant,
+}
 pub struct GmailHttp<'a> {
     pub account: String,
     pub cfg: ClientConfig,
     pub runtime: &'a Runtime,
-    pub token: String,
     pub client: reqwest::blocking::Client,
-    pub expires: Instant,
-    next_request: Instant,
+    session: Mutex<Session>,
 }
 impl<'a> GmailHttp<'a> {
     pub fn new(account: String, cfg: ClientConfig, runtime: &'a Runtime) -> Result<Self, String> {
@@ -278,13 +300,32 @@ impl<'a> GmailHttp<'a> {
             account,
             cfg,
             runtime,
-            token: String::new(),
             client: http()?,
-            expires: Instant::now(),
-            next_request: Instant::now(),
+            session: Mutex::new(Session {
+                token: String::new(),
+                expires: Instant::now(),
+                next_request: Instant::now(),
+            }),
         })
     }
-    fn refresh(&mut self) -> Result<(), ApiError> {
+    pub fn set_token(&mut self, token: String, lifetime: Duration) {
+        if let Ok(session) = self.session.get_mut() {
+            session.token = token;
+            session.expires = Instant::now() + lifetime;
+        }
+    }
+    fn session(&self) -> Result<std::sync::MutexGuard<'_, Session>, ApiError> {
+        self.session
+            .lock()
+            .map_err(|_| ApiError::Other("gmail_runtime_unavailable".into()))
+    }
+    // Every worker waits for its own slot, so Retry-After pauses them all.
+    fn hold(&self, delay: Duration) -> Result<(), ApiError> {
+        let mut session = self.session()?;
+        session.next_request = session.next_request.max(Instant::now() + delay);
+        Ok(())
+    }
+    fn refresh(&self, session: &mut Session) -> Result<(), ApiError> {
         let refresh = WindowsSecrets.get(&self.account).map_err(ApiError::Auth)?;
         let value = token(&[
             ("client_id", &self.cfg.client_id),
@@ -299,11 +340,11 @@ impl<'a> GmailHttp<'a> {
                 ApiError::Other(e)
             }
         })?;
-        self.token = value["access_token"]
+        session.token = value["access_token"]
             .as_str()
             .ok_or_else(|| ApiError::Auth("oauth_token_missing".into()))?
             .into();
-        self.expires = Instant::now()
+        session.expires = Instant::now()
             + Duration::from_secs(
                 value["expires_in"]
                     .as_u64()
@@ -315,6 +356,43 @@ impl<'a> GmailHttp<'a> {
 }
 impl Api for GmailHttp<'_> {
     fn get(&mut self, path: &str, query: &[(&str, String)]) -> Result<Value, ApiError> {
+        self.send(path, query)
+    }
+    fn get_many(
+        &mut self,
+        paths: &[String],
+        query: &[(&str, String)],
+    ) -> Vec<Result<Value, ApiError>> {
+        let this = &*self;
+        let next = AtomicUsize::new(0);
+        let stop = AtomicBool::new(false);
+        let slots = paths.iter().map(|_| Mutex::new(None)).collect::<Vec<_>>();
+        std::thread::scope(|scope| {
+            for _ in 0..FETCH_WORKERS.min(paths.len()) {
+                scope.spawn(|| {
+                    while !stop.load(Ordering::SeqCst) {
+                        let index = next.fetch_add(1, Ordering::SeqCst);
+                        let Some(path) = paths.get(index) else { break };
+                        let result = this.send(path, query);
+                        if matches!(&result, Err(e) if !matches!(e, ApiError::NotFound)) {
+                            stop.store(true, Ordering::SeqCst);
+                        }
+                        if let Ok(mut slot) = slots[index].lock() {
+                            *slot = Some(result);
+                        }
+                    }
+                });
+            }
+        });
+        // Claimed indices are always completed, so the results form a prefix.
+        slots
+            .into_iter()
+            .map_while(|slot| slot.into_inner().ok().flatten())
+            .collect()
+    }
+}
+impl GmailHttp<'_> {
+    fn send(&self, path: &str, query: &[(&str, String)]) -> Result<Value, ApiError> {
         if !["profile", "messages", "history"].contains(&path)
             && !path
                 .strip_prefix("messages/")
@@ -326,20 +404,23 @@ impl Api for GmailHttp<'_> {
             if self.runtime.cancel.load(Ordering::SeqCst) {
                 return Err(ApiError::Other("gmail_cancelled".into()));
             }
-            if self.token.is_empty() || Instant::now() >= self.expires {
-                self.refresh()?
-            }
-            pause(
-                self.runtime,
-                self.next_request.saturating_duration_since(Instant::now()),
-            )?;
-            self.next_request = Instant::now() + Duration::from_millis(250);
+            let (token, wait) = {
+                let mut session = self.session()?;
+                if session.token.is_empty() || Instant::now() >= session.expires {
+                    self.refresh(&mut session)?
+                }
+                let now = Instant::now();
+                let slot = session.next_request.max(now);
+                session.next_request = slot + REQUEST_SPACING;
+                (session.token.clone(), slot - now)
+            };
+            pause(self.runtime, wait)?;
             let response = self
                 .client
                 .get(format!(
                     "https://gmail.googleapis.com/gmail/v1/users/me/{path}"
                 ))
-                .bearer_auth(&self.token)
+                .bearer_auth(&token)
                 .query(query)
                 .send()
                 .map_err(|_| ApiError::Other("gmail_network_unavailable".into()))?;
@@ -350,7 +431,11 @@ impl Api for GmailHttp<'_> {
                 .and_then(|v| v.to_str().ok())
                 .and_then(|v| v.parse::<u64>().ok());
             if status == 401 {
-                self.token.clear();
+                let mut session = self.session()?;
+                if session.token == token {
+                    session.token.clear();
+                }
+                drop(session);
                 if attempt < 2 {
                     continue;
                 }
@@ -361,7 +446,7 @@ impl Api for GmailHttp<'_> {
             }
             if status == 429 || status >= 500 {
                 if attempt < 2 {
-                    pause(self.runtime, retry_delay(attempt, retry_after)?)?;
+                    self.hold(retry_delay(attempt, retry_after)?)?;
                     continue;
                 }
                 return Err(ApiError::Other(
@@ -388,7 +473,7 @@ impl Api for GmailHttp<'_> {
                     "gmail_access_or_quota_denied"
                 };
                 if code == "gmail_rate_limited" && attempt < 2 {
-                    pause(self.runtime, retry_delay(attempt, retry_after)?)?;
+                    self.hold(retry_delay(attempt, retry_after)?)?;
                     continue;
                 }
                 return Err(ApiError::Other(code.into()));

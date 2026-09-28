@@ -14,7 +14,7 @@ export function CommunicationsBrief({days,onOpen,api=intelligenceClient}:{days:n
  const needs=run?.items.filter(i=>['needs_you','yes'].includes(i.triage.attention)).length??0;
  const background=run?.items.filter(i=>i.triage.attention==='background')??[];
  const foreground=run?.items.filter(i=>i.triage.attention!=='background')??[];
- async function analyze(){const version=generation.current;setBusy(true);setError('');try{await api.analyze(days);const next=await api.list(days);if(version===generation.current)setRuns(next)}catch{if(version===generation.current)setError('Analysis failed. No new brief was published; inspect the run or retry.')}finally{if(version===generation.current)setBusy(false)}}
+ async function analyze(){const version=generation.current;setBusy(true);setError('');try{await api.analyze(days);const next=await api.list(days);if(version===generation.current)setRuns(next)}catch(e){if(version===generation.current)setError(String(e)==='communication_analysis_already_running'?'Another analysis is running, usually background situation understanding. Retry when it finishes.':'Analysis failed. No new brief was published; inspect the run or retry.')}finally{if(version===generation.current)setBusy(false)}}
  function details(id:string){setInspect({id})}
  async function feedback(item:BriefItem,event:'opened'|'false_response'|'false_deadline'|'project_dismissed'|'useful'|'incorrect'|'missed_needs_me'){
  if(!run)return;try{await api.feedback(run.id,item.threadId,event);setNotice(event==='opened'?'':'Feedback saved for evaluation; it does not automatically retrain Olympus or change your mail.')}catch{setError('Evaluation event could not be saved.')}

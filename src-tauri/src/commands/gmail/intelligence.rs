@@ -110,18 +110,41 @@ fn step<T: Serialize>(
         }
     }
 }
+// Only the current scope counts, as in thread_signatures: out-of-scope rows
+// accumulate between prunes and must not push Analyze past the sync cap.
 fn signature(c: &Connection, account: &str) -> Result<String, String> {
-    let mut stmt=c.prepare("SELECT id||':'||fingerprint||':'||available||':'||in_scope FROM gmail_messages WHERE account_id=?1 ORDER BY id LIMIT 2001").map_err(err)?;
+    let horizon: u32 = c
+        .query_row(
+            "SELECT horizon_days FROM gmail_accounts WHERE id=?1",
+            [account],
+            |r| r.get(0),
+        )
+        .optional()
+        .map_err(err)?
+        .unwrap_or(0);
+    let cutoff = Utc::now().timestamp_millis() - i64::from(horizon) * DAY;
+    let mut stmt=c.prepare("SELECT id||':'||fingerprint FROM gmail_messages WHERE account_id=?1 AND available=1 AND in_scope=1 AND internal_date>=?2 ORDER BY id LIMIT 2001").map_err(err)?;
     let values = stmt
-        .query_map([account], |r| r.get::<_, String>(0))
+        .query_map(params![account, cutoff], |r| r.get::<_, String>(0))
         .map_err(err)?
         .collect::<Result<Vec<_>, _>>()
         .map_err(err)?;
-    // Includes cache removals and scope changes. More than the sync cap fails closed.
+    // Removals and scope changes drop rows from the set. More than the sync cap fails closed.
     if values.len() > 2000 {
         return Err("intelligence_cache_budget_exceeded".into());
     }
     Ok(content_fingerprint(&values.join("\n")))
+}
+// The only UNIQUE conflict left after the request-id check is the single-running-run index.
+fn start_error(e: rusqlite::Error) -> String {
+    match e {
+        rusqlite::Error::SqliteFailure(f, _)
+            if f.code == rusqlite::ErrorCode::ConstraintViolation =>
+        {
+            "communication_analysis_already_running".into()
+        }
+        e => err(e),
+    }
 }
 fn projects(root: &Path) -> Result<Vec<skill::Project>, String> {
     let folder = root.join("01 - Projects");
@@ -297,7 +320,7 @@ pub fn analyze(c: &Connection, root: &Path, request: Request) -> Result<Value, S
     let time = Utc::now().timestamp_millis();
     let days = request.days.min(account.horizon_days);
     let mut run = json!({"id":request.id,"accountId":account.id,"graph":GRAPH,"definition":definition(),"skills":skill::registry(),"requestedDays":request.days,"days":days,"status":"running","startedAt":now(),"finishedAt":null,"durationMs":null,"model":null,"usage":null,"items":[],"error":null,"stale":false});
-    c.execute("INSERT INTO communication_runs(id,account_id,days,status,payload_json) VALUES(?1,?2,?3,'running',?4)",params![request.id,account.id,days,run.to_string()]).map_err(err)?;
+    c.execute("INSERT INTO communication_runs(id,account_id,days,status,payload_json) VALUES(?1,?2,?3,'running',?4)",params![request.id,account.id,days,run.to_string()]).map_err(start_error)?;
     let mut done = BTreeSet::new();
     let outcome = (|| -> Result<Vec<Item>, String> {
         let snapshot = step(c, &request.id, "snapshot", &mut done, || {
@@ -670,11 +693,47 @@ mod tests {
         let c = db();
         let first = signature(&c, "fixture").unwrap();
         c.execute(
-            "INSERT INTO gmail_messages VALUES('fixture','a','t',0,1,1,'hash','{}')",
-            [],
+            "INSERT INTO gmail_messages VALUES('fixture','a','t',?1,1,1,'hash','{}')",
+            [Utc::now().timestamp_millis()],
         )
         .unwrap();
         assert_ne!(first, signature(&c, "fixture").unwrap());
+    }
+    #[test]
+    fn out_of_scope_rows_do_not_count_toward_the_signature_budget() {
+        let mut c = db();
+        let now = Utc::now().timestamp_millis();
+        let tx = c.transaction().unwrap();
+        for i in 0..2500 {
+            // Mostly aged-out or out-of-scope rows, as an unpruned cache accumulates.
+            let (date, scope) = if i < 50 { (now, 1) } else if i % 2 == 0 { (0, 0) } else { (now, 0) };
+            tx.execute(
+                "INSERT INTO gmail_messages VALUES('fixture',?1,'t',?2,1,?3,'hash','{}')",
+                params![format!("{i:04x}"), date, scope],
+            )
+            .unwrap();
+        }
+        tx.commit().unwrap();
+        let first = signature(&c, "fixture").unwrap();
+        c.execute(
+            "UPDATE gmail_messages SET fingerprint='other' WHERE in_scope=0",
+            [],
+        )
+        .unwrap();
+        assert_eq!(first, signature(&c, "fixture").unwrap());
+    }
+    #[test]
+    fn concurrent_run_maps_to_a_clear_code() {
+        let c = db();
+        c.execute(
+            "INSERT INTO communication_runs VALUES('background','fixture',7,'running','{}')",
+            [],
+        )
+        .unwrap();
+        assert_eq!(
+            analyze(&c, Path::new("unused"), request("manual")).unwrap_err(),
+            "communication_analysis_already_running"
+        );
     }
     #[test]
     fn synthesis_rejects_reordered_evidence_and_missing_branch() {

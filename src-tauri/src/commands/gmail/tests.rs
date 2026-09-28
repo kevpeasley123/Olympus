@@ -108,10 +108,11 @@ fn html_becomes_inert_text() {
     );
 }
 #[test]
-fn malformed_mime_aborts_without_fabrication() {
+fn malformed_mime_degrades_without_fabrication() {
     let mut v = message("ab", "aa", "");
     v["payload"]["body"]["data"] = json!("***");
-    assert!(mime::normalize("a", &v).is_err());
+    let m = mime::normalize("a", &v).unwrap();
+    assert!(m.canonical_text.is_empty() && m.body_status == "body_undecodable");
     v["payload"]["body"] = json!({"attachmentId":"opaque","size":5000});
     let m = mime::normalize("a", &v).unwrap();
     assert!(
@@ -125,7 +126,11 @@ fn fingerprint_stable_across_retrieval_time_changes_on_source_change() {
     let b = mime::normalize("a", &v).unwrap();
     assert!(a.fingerprint == b.fingerprint);
     let mut v = v;
-    v["labelIds"] = json!(["SENT"]);
+    // Reading the message in Gmail changes labels and historyId, not content.
+    v["labelIds"] = json!(["INBOX", "CATEGORY_UPDATES"]);
+    v["historyId"] = json!("999");
+    assert_eq!(mime::normalize("a", &v).unwrap().fingerprint, a.fingerprint);
+    v["payload"]["body"]["data"] = json!(URL_SAFE_NO_PAD.encode("two"));
     assert!(mime::normalize("a", &v).unwrap().fingerprint != a.fingerprint)
 }
 #[test]
@@ -759,4 +764,149 @@ fn intelligence_real_cache_graph_retains_evidence_and_fails_closed_on_missing_pr
  let brief_success:i64=c.query_row("SELECT count(*) FROM communication_events WHERE run_id='failure' AND node='synthesize' AND state='completed'",[],|r|r.get(0)).unwrap();assert_eq!(brief_success,0);
  // Fixture directory is uniquely created by this test and contains synthetic data only.
  std::fs::remove_dir_all(root).unwrap();
+}
+
+fn history_page(cursor: &str, ids: &[&str], next: Option<&str>) -> Value {
+    let mut v = json!({"historyId":cursor,"history":[{"messagesAdded":ids.iter().map(|id|json!({"message":{"id":id}})).collect::<Vec<_>>()}]});
+    if let Some(next) = next {
+        v["nextPageToken"] = json!(next);
+    }
+    v
+}
+#[test]
+fn undecodable_message_degrades_instead_of_failing_the_incremental_batch() {
+    let mut c = db();
+    let mut a = store::account(&c).unwrap().unwrap();
+    a.history_id = Some("100".into());
+    let mut bad = message("ac", "aa", "");
+    bad["payload"]["headers"]
+        .as_array_mut()
+        .unwrap()
+        .push(json!({"name":"Content-Type","value":"text/plain; charset=unknown-8bit"}));
+    bad["payload"]["body"]["data"] = json!(URL_SAFE_NO_PAD.encode(b"caf\xe9 \xff\xfe"));
+    let mut html = message("ad", "aa", "");
+    html["payload"]["mimeType"] = json!("text/html");
+    html["payload"]["body"]["data"] = json!(URL_SAFE_NO_PAD.encode(
+        "<table><tr><td>".repeat(30) + "Deep" + &"</td></tr></table>".repeat(30)
+    ));
+    let mut undated = message("ae", "aa", "no timestamp");
+    undated["internalDate"] = Value::Null;
+    let mut api = FakeApi::new(vec![
+        ("history", Ok(history_page("120", &["ab", "ac", "ad", "ae"], None))),
+        ("messages/ab", Ok(message("ab", "aa", "fine"))),
+        ("messages/ac", Ok(bad)),
+        ("messages/ad", Ok(html)),
+        ("messages/ae", Ok(undated)),
+    ]);
+    let b = sync::collect(&mut api, &a, &[]).unwrap();
+    assert_eq!((b.messages.len(), b.skipped, b.cursor.as_str()), (3, 1, "120"));
+    let degraded = b.messages.iter().find(|m| m.id == "ac").unwrap();
+    assert_eq!(degraded.body_status, "body_partially_decoded");
+    assert!(degraded.canonical_text.starts_with("caf"));
+    store::commit(&mut c, &a, &b.messages, &b.deleted, &b.cursor, b.full, &[]).unwrap();
+    assert_eq!(store::account(&c).unwrap().unwrap().history_id.as_deref(), Some("120"));
+}
+#[test]
+fn out_of_scope_labels_skip_body_decoding() {
+    let mut v = message("ab", "aa", "");
+    v["labelIds"] = json!(["SPAM"]);
+    v["payload"]["body"]["data"] = json!("***");
+    let m = mime::normalize("a", &v).unwrap();
+    assert!(m.canonical_text.is_empty() && m.body_status == mime::BODY_NOT_RETAINED);
+}
+#[test]
+fn history_page_limit_falls_back_to_bounded_reconciliation() {
+    let c = db();
+    let mut a = store::account(&c).unwrap().unwrap();
+    a.history_id = Some("100".into());
+    let mut responses = (0..20)
+        .map(|i| ("history", Ok(history_page(&format!("{}", 101 + i), &["ab"], Some("more")))))
+        .collect::<Vec<_>>();
+    responses.extend([
+        ("profile", Ok(json!({"historyId":"300"}))),
+        ("messages", Ok(json!({"messages":[{"id":"ac"}]}))),
+        ("messages/ab", Ok(message("ab", "aa", "cached"))),
+        ("messages/ac", Ok(message("ac", "aa", "listed"))),
+    ]);
+    let mut api = FakeApi::new(responses);
+    let b = sync::collect(&mut api, &a, &["ab".into()]).unwrap();
+    assert!(b.full && b.fallback && b.cursor == "300" && b.messages.len() == 2);
+}
+#[test]
+fn oversized_history_falls_back_to_bounded_reconciliation() {
+    let c = db();
+    let mut a = store::account(&c).unwrap().unwrap();
+    a.history_id = Some("100".into());
+    let ids = (0..2001).map(|i| format!("{i:04x}")).collect::<Vec<_>>();
+    let ids = ids.iter().map(String::as_str).collect::<Vec<_>>();
+    let mut api = FakeApi::new(vec![
+        ("history", Ok(history_page("120", &ids, None))),
+        ("profile", Ok(json!({"historyId":"300"}))),
+        ("messages", Ok(json!({"messages":[]}))),
+    ]);
+    let b = sync::collect(&mut api, &a, &[]).unwrap();
+    assert!(b.full && b.fallback && b.cursor == "300" && b.messages.is_empty());
+}
+#[test]
+fn commit_prunes_aged_out_rows_and_keeps_no_out_of_scope_bodies() {
+    let mut c = db();
+    let a = store::account(&c).unwrap().unwrap();
+    let mut old = mail("ab");
+    old.internal_date = 1;
+    let mut spam = mail("ac");
+    spam.labels = vec!["SPAM".into()];
+    store::commit(&mut c, &a, &[old, spam, mail("ad")], &[], "100", false, &[]).unwrap();
+    let rows = c
+        .prepare("SELECT id,json_extract(snapshot_json,'$.cleanText'),json_extract(snapshot_json,'$.bodyStatus') FROM gmail_messages ORDER BY id")
+        .unwrap()
+        .query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?, r.get::<_, String>(2)?)))
+        .unwrap()
+        .collect::<Result<Vec<_>, _>>()
+        .unwrap();
+    assert_eq!(rows.len(), 2);
+    assert_eq!(rows[0], ("ac".into(), String::new(), mime::BODY_NOT_RETAINED.into()));
+    assert_eq!(rows[1].0, "ad");
+    assert!(!rows[1].1.is_empty());
+    store::commit(&mut c, &a, &[], &["ad".into()], "110", false, &[]).unwrap();
+    let status: String = c
+        .query_row("SELECT json_extract(snapshot_json,'$.cleanText') FROM gmail_messages WHERE id='ad'", [], |r| r.get(0))
+        .unwrap();
+    assert!(status.is_empty());
+}
+#[test]
+fn cache_removal_purges_account_communication_records() {
+    let mut c = db();
+    let a = store::account(&c).unwrap().unwrap();
+    store::commit(&mut c, &a, &[mail("ab")], &[], "100", true, &[]).unwrap();
+    c.execute_batch("
+        INSERT INTO communication_runs VALUES('run','fixture-account',7,'completed','{}');
+        INSERT INTO communication_runs VALUES('other','other-account',7,'completed','{}');
+        INSERT INTO communication_events(run_id,node,state,at,result_json) VALUES('run','snapshot','completed','now','{}');
+        INSERT INTO communication_evaluations(run_id,thread_id,event,at) VALUES('run','aa','opened','now');
+        INSERT INTO communication_situations(account_id,id,title,briefing_json,updated_at) VALUES('fixture-account','s','Purchase','{\"whereThingsStand\":\"quoted\"}','now');
+        INSERT INTO communication_situation_sources VALUES('fixture-account','aa','sig','s','{}','now');
+        INSERT INTO communication_situation_updates VALUES('fixture-account','u','s','note','now');
+        INSERT INTO communication_situation_drafts VALUES('fixture-account','d','s','aa','{}',1,'now');
+        INSERT INTO communication_situation_contexts VALUES('fixture-account','s','{}','now');
+        INSERT INTO communication_situation_state(account_id,enabled) VALUES('fixture-account',0);
+    ").unwrap();
+    store::disconnect(&c, &a.id).unwrap();
+    store::remove_cache(&mut c, &a.id).unwrap();
+    for table in [
+        "communication_events",
+        "communication_evaluations",
+        "communication_situations",
+        "communication_situation_sources",
+        "communication_situation_updates",
+        "communication_situation_drafts",
+        "communication_situation_contexts",
+    ] {
+        let count: u32 = c.query_row(&format!("SELECT count(*) FROM {table}"), [], |r| r.get(0)).unwrap();
+        assert_eq!(count, 0, "{table}");
+    }
+    let runs: String = c.query_row("SELECT group_concat(id) FROM communication_runs", [], |r| r.get(0)).unwrap();
+    assert_eq!(runs, "other");
+    // The pause preference is not mail-derived and survives removal.
+    let enabled: bool = c.query_row("SELECT enabled FROM communication_situation_state", [], |r| r.get(0)).unwrap();
+    assert!(!enabled);
 }
