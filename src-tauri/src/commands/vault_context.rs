@@ -318,6 +318,7 @@ mod tests {
     /// string on failure, so printing alone would pass whether the notes loaded
     /// or vanished.
     #[test]
+    #[ignore = "requires the owner's real vault; run with --ignored"]
     fn debug_load_real_vault_memory() {
         let memory = load_vault_memory();
         eprintln!(

@@ -120,6 +120,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "requires the owner's real vault; run with --ignored"]
     fn debug_retrieval_uses_real_pantheon_arguments() {
         let entries = super::super::pantheon::parse_pantheon_from_vault().expect("real vault scan");
         assert!(!entries.is_empty(), "the real vault must exist for this integration check");

@@ -264,6 +264,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "requires the owner's real vault; run with --ignored"]
     fn debug_parse_real_vault() {
         match parse_tasks_from_vault() {
             Ok(tasks) => {

@@ -106,5 +106,5 @@ both superseded by it and deleted on 2026-07-31 — git history has them.)
 ## Conventions
 
 - Match the surrounding code's comment density and idiom. Comments explain constraints the code can't show, not what the next line does.
-- Verify before claiming. `cargo test --lib` and `npm run build` both pass on this branch; say so only when you've run them.
+- Verify before claiming. `cargo test --lib` runs the portable suite; machine-bound real-vault checks are `#[ignore]` and run with `cargo test --lib -- --ignored` on the owner's machine. `cargo test --lib` and `npm run build` both pass on this branch; say so only when you've run them.
 - The desktop app can't be launched from a headless environment. Compilation and unit tests are not the same as the app working — say which one you actually did.

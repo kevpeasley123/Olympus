@@ -150,8 +150,6 @@ struct AnthropicRequest {
 struct ContentBlock {
     #[serde(rename = "type")]
     block_type: String,
-    #[serde(default)]
-    text: Option<String>,
 }
 
 /// One decoded SSE event. Permissive by construction: the wire carries event

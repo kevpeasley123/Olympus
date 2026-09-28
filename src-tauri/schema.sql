@@ -1,3 +1,8 @@
+-- Per-connection, and off by default in SQLite. Kept here rather than beside
+-- `Connection::open` so every test fixture built from this file enforces the
+-- same `REFERENCES` the desktop does. Existing rows are not re-validated.
+PRAGMA foreign_keys = ON;
+
 CREATE TABLE IF NOT EXISTS settings (
   key TEXT PRIMARY KEY,
   value TEXT NOT NULL,
