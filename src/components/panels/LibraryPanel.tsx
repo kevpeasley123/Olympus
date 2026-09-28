@@ -1,60 +1,31 @@
 import { invoke } from "@tauri-apps/api/core";
-import {KnowledgeAudit} from "./KnowledgeAudit";
-import {ResearchVerification} from "./ResearchVerification";
-import type {ResearchInspectionTarget} from "../../services/commandAgents";
-import { AnimatePresence, motion } from "motion/react";
-import {
-  ArrowLeft,
-  ChevronDown,
-  FilePlus2,
-  Layers3,
-  Library,
-  RotateCw,
-  Search
-} from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
-import type { MouseEvent, ReactElement, ReactNode } from "react";
+import { FilePlus2, Layers3, Library, RotateCw, Search } from "lucide-react";
+import { useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import type { KeyboardEvent as ReactKeyboardEvent, ReactElement, ReactNode } from "react";
 import { createPortal } from "react-dom";
-import ReactMarkdown, { type Components } from "react-markdown";
-import remarkGfm from "remark-gfm";
-import {
-  PANTHEON_ORIGINS,
-  PANTHEON_STANCES,
-  usePantheon,
-  type PantheonOrigin,
-  type PantheonStance
-} from "../../hooks/usePantheon";
-import { isTauriRuntime } from "../../services/launcher";
-import { isEditableTarget, SHORTCUTS } from "../../services/shortcuts";
-import {
-  categoryDescription,
-  categoryLabel,
-  orderedCategories
-} from "../../services/pantheonAnalysis";
-import { pantheonEntryToResearchRecord } from "../../services/pantheonRecord";
+import { usePantheon } from "../../hooks/usePantheon";
+import type { ResearchInspectionTarget } from "../../services/commandAgents";
+import { useNavigationTarget } from "../../services/navigation";
 import type { ObsidianActionResult } from "../../services/obsidian";
-import type { PantheonCategory, ResearchRecord } from "../../types";
+import { anotherModalIsOpen, isEditableTarget, SHORTCUTS } from "../../services/shortcuts";
+import { useViewSlice, type ResearchArrival } from "../../state/viewState";
+import type { TrackedProject } from "../../types";
+import { KnowledgeAudit } from "./KnowledgeAudit";
+import { ResearchVerification } from "./ResearchVerification";
+import { AddEntryDialog } from "./library/AddEntryDialog";
+import type { LibraryProject } from "./library/EntryDetail";
+import { LibraryBrowser } from "./library/LibraryBrowser";
+import { findEntryBySourceFile, latestAddedLabel, prepareEntries } from "./library/libraryModel";
+import "./library/library.css";
 
 interface LibraryPanelProps {
-  inspectionTarget?:ResearchInspectionTarget|null;
-  onReturnToCommand?:()=>void;
+  inspectionTarget?: ResearchInspectionTarget | null;
+  onReturnToCommand?: () => void;
   onViewDatabase: () => Promise<ObsidianActionResult>;
   /** Research mode: the library lives in the centre column instead of a modal. */
   resident?: boolean;
-}
-
-interface WritePantheonEntryRequest {
-  title: string;
-  body: string;
-  sourceType?: string;
-  sourceUrl?: string;
-  sourceDate?: string;
-  additionalTags: string[];
-  attachments: string[];
-  stance?: PantheonStance;
-  whyKept?: string;
-  origin?: PantheonOrigin;
-  project?: string;
+  /** Tracked projects, for the Add Entry project select and the detail's project link. */
+  projects?: Pick<TrackedProject, "id" | "name" | "notePath">[];
 }
 
 /** Mirrors `MigrationOutcome` in `commands/pantheon_migrate.rs`. */
@@ -65,276 +36,201 @@ interface MigrationOutcome {
   failed: string[];
 }
 
-interface StagedAttachment {
-  /** Names the picked file inside Rust; the webview never holds its path. */
-  token: string;
-  originalFilename: string;
-  sizeBytes: number;
-  extension: string;
-}
+type Segment = "library" | "questions" | "audits";
 
-interface AddEntryFormData {
-  title: string;
-  body: string;
-  sourceType: string;
-  sourceUrl: string;
-  sourceDate: string;
-  tagsRaw: string;
-  attachment: StagedAttachment | null;
-  stance: PantheonStance;
-  whyKept: string;
-  origin: PantheonOrigin;
-}
+const SEGMENTS: { id: Segment; label: string; suffix?: string; accessible: string }[] = [
+  { id: "library", label: "Library", accessible: "Library" },
+  { id: "questions", label: "Questions", suffix: "verified", accessible: "Questions (verified)" },
+  { id: "audits", label: "Audits", accessible: "Audits" }
+];
 
-interface PreparedPantheonEntry extends ResearchRecord {
-  sourceLabel: string;
-  markdownBody: string;
-  sourceDateLabel: string;
-  wordCountLabel: string;
-}
+const NO_PROJECTS: LibraryPanelProps["projects"] = [];
 
-interface PantheonSection {
-  title: string;
-  description: string;
-  category: PantheonCategory;
-  entries: PreparedPantheonEntry[];
-}
-
-type PantheonViewMode = "grouped" | "recent" | "all";
-type AllEntriesSort = "date-desc" | "title-asc";
-
-const SECTION_STORAGE_PREFIX = "pantheon.sectionExpanded.";
-const SEARCH_DEBOUNCE_MS = 150;
-
-export function LibraryPanel({ onViewDatabase, resident = false,inspectionTarget,onReturnToCommand }: LibraryPanelProps) {
-  const { entries: pantheonEntries, loading, error, refresh: refreshPantheon } = usePantheon();
-  const [addEntryModalOpen, setAddEntryModalOpen] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
+export function LibraryPanel({ onViewDatabase, resident = false, inspectionTarget, onReturnToCommand, projects = NO_PROJECTS }: LibraryPanelProps) {
+  const { entries: raw, loading, error, refresh: refreshPantheon } = usePantheon();
+  const [research, setResearch] = useViewSlice("research");
+  const segment: Segment = research.inspector ?? "library";
+  const entries = useMemo(() => prepareEntries(raw), [raw]);
+  // The input answers every keystroke; the list follows when it can.
+  const deferredQuery = useDeferredValue(research.query);
   const [databaseRequested, setDatabaseRequested] = useState(false);
   // Research mode holds the library open in the centre column; every other mode
   // opens it on request. Derived rather than an effect, so leaving the mode
   // closes it without a second piece of state to keep in step.
   const databaseOpen = resident || databaseRequested;
-  const setDatabaseOpen = setDatabaseRequested;
-  const [formError, setFormError] = useState<string | null>(null);
+  const [addEntryOpen, setAddEntryOpen] = useState(false);
   const [status, setStatus] = useState<ObsidianActionResult | null>(null);
   const [busyAction, setBusyAction] = useState<"view" | null>(null);
   const [migrating, setMigrating] = useState(false);
-  // An entry written before the schema change parses with no origin at all —
-  // the parser drops its legacy writer value rather than reading it as one.
-  const unmigratedCount = pantheonEntries.filter((entry) => !entry.origin).length;
-  const [searchDraft, setSearchDraft] = useState("");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [viewMode, setViewMode] = useState<PantheonViewMode>("grouped");
-  const [allEntriesSort, setAllEntriesSort] = useState<AllEntriesSort>("date-desc");
-  const [detailEntryId, setDetailEntryId] = useState<string | null>(null);
-  const [activeCategory, setActiveCategory] = useState<PantheonCategory>(orderedCategories()[0]);
-  const [expandedSections, setExpandedSections] = useState<Record<PantheonCategory, boolean>>(
-    loadExpandedSections
-  );
+  const [openToken, setOpenToken] = useState(0);
+  const [visited, setVisited] = useState<Set<Segment>>(() => new Set([segment]));
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const databaseDialogRef = useRef<HTMLDivElement | null>(null);
-  const mainScrollRef = useRef<HTMLDivElement | null>(null);
-  const observerRef = useRef<IntersectionObserver | null>(null);
-  const suppressSpyUntilRef = useRef(0);
-  const spyTimerRef = useRef<number | null>(null);
-  const sectionRefs = useRef<Record<PantheonCategory, HTMLDivElement | null>>(
-    buildCategoryRefRecord()
+  const surfaceRef = useRef<HTMLDivElement | null>(null);
+  const inspectorRefs = useRef<Partial<Record<Segment, HTMLDivElement | null>>>({});
+  const inspectorScroll = useRef<Partial<Record<Segment, number>>>({});
+  const returnFocus = useRef<HTMLElement | null>(null);
+  const pendingFocus = useRef<"search" | "return" | null>(null);
+  const libraryProjects = useMemo<LibraryProject[]>(
+    () => (projects ?? []).map((project) => ({ id: project.id, name: project.name, notePath: project.notePath ?? null })),
+    [projects]
   );
-
-  const preparedEntries = useMemo(
-    () =>
-      pantheonEntries.map((entry) =>
-        prepareEntry(pantheonEntryToResearchRecord(entry), entry.sourceLabel)
-      ),
-    [pantheonEntries]
-  );
-  const pantheonSections = useMemo(() => buildSections(preparedEntries), [preparedEntries]);
+  // An entry written before the schema change parses with no origin at all —
+  // the parser drops its legacy writer value rather than reading it as one.
+  const unmigratedCount = useMemo(() => raw.filter((entry) => !entry.origin).length, [raw]);
   const entryLabel = useMemo(() => {
-    if (loading && pantheonEntries.length === 0) return "Loading entries...";
-    return buildEntryLabel(preparedEntries);
-  }, [loading, pantheonEntries.length, preparedEntries]);
-  const selectedEntry = useMemo(
-    () => preparedEntries.find((entry) => entry.id === detailEntryId) ?? null,
-    [detailEntryId, preparedEntries]
-  );
+    if (loading && raw.length === 0) return "Loading entries…";
+    const count = `${entries.length} ${entries.length === 1 ? "entry" : "entries"}`;
+    const latest = latestAddedLabel(entries);
+    return latest ? `${count} · last added ${latest}` : count;
+  }, [entries, loading, raw.length]);
 
+  const librarySnapshot = useRef<(() => void) | null>(null);
+  const selectSegment = useCallback((next: Segment) => {
+    const current = readSegment();
+    if (current === "library" && next !== "library") librarySnapshot.current?.();
+    const node = inspectorRefs.current[current];
+    if (current !== "library" && node) inspectorScroll.current[current] = node.scrollTop;
+    setVisited((previous) => (previous.has(next) ? previous : new Set(previous).add(next)));
+    setResearch((state) => ((state.inspector ?? "library") === next ? state : { ...state, inspector: next }));
+  }, [setResearch]);
+  const segmentRef = useRef(segment);
+  segmentRef.current = segment;
+  const readSegment = () => segmentRef.current;
+
+  // A hidden segment loses its scroll position; put it back when shown again,
+  // and move focus where the last action asked for it.
+  useLayoutEffect(() => {
+    if (segment !== "library") {
+      const node = inspectorRefs.current[segment];
+      if (node) node.scrollTop = inspectorScroll.current[segment] ?? 0;
+    }
+    if (pendingFocus.current === "search" && segment === "library") {
+      searchInputRef.current?.focus();
+      searchInputRef.current?.select();
+    } else if (pendingFocus.current === "return" && returnFocus.current?.isConnected) {
+      returnFocus.current.focus({ preventScroll: true });
+      returnFocus.current.scrollIntoView({ block: "nearest" });
+    }
+    pendingFocus.current = null;
+  }, [segment]);
+
+  // Command-catalog deep links open the verified questions (review U7).
+  const handledInspection = useRef<number | null>(null);
   useEffect(() => {
-    const timer = window.setTimeout(() => setSearchQuery(searchDraft.trim()), SEARCH_DEBOUNCE_MS);
-    return () => window.clearTimeout(timer);
-  }, [searchDraft]);
+    if (!inspectionTarget) {
+      handledInspection.current = null;
+      return;
+    }
+    if (handledInspection.current === inspectionTarget.revision) return;
+    handledInspection.current = inspectionTarget.revision;
+    selectSegment("questions");
+  }, [inspectionTarget, selectSegment]);
+
+  const openArrival = useCallback((arrival: ResearchArrival) => {
+    const entry = findEntryBySourceFile(entries, arrival.sourceFile);
+    setVisited((previous) => (previous.has("library") ? previous : new Set(previous).add("library")));
+    setResearch((state) => ({
+      ...state,
+      inspector: "library",
+      detailEntryId: entry?.id ?? null,
+      arrival: { ...arrival, title: arrival.title ?? entry?.title ?? arrival.sourceFile.split("/").pop()?.replace(/\.md$/i, "") }
+    }));
+    setOpenToken((token) => token + 1);
+  }, [entries, setResearch]);
+
+  // The destination for "Open in library" from a chat reply (review U5).
+  const [navigationTarget, consumeNavigation] = useNavigationTarget("research");
+  useEffect(() => {
+    if (!resident || !navigationTarget) return;
+    // Wait for the first scan, so a source is not reported missing before the
+    // library has been read.
+    if (loading && raw.length === 0) return;
+    returnFocus.current = null;
+    openArrival({
+      sourceFile: navigationTarget.sourceFile,
+      excerpt: navigationTarget.excerpt,
+      fingerprint: navigationTarget.fingerprint,
+      context: "reply"
+    });
+    consumeNavigation(navigationTarget.revision);
+  }, [consumeNavigation, loading, navigationTarget, openArrival, raw.length, resident]);
+
+  const openEntry = useCallback((id: string) => {
+    setResearch((state) => ({ ...state, detailEntryId: id, arrival: null }));
+    setOpenToken((token) => token + 1);
+  }, [setResearch]);
+
+  const back = useCallback(() => {
+    const returnTo = research.arrival?.returnTo;
+    setResearch((state) => ({ ...state, detailEntryId: null, arrival: null }));
+    if (returnTo) {
+      pendingFocus.current = "return";
+      selectSegment(returnTo);
+    }
+  }, [research.arrival?.returnTo, selectSegment, setResearch]);
+
+  const openFromInspector = useCallback((context: "verification" | "audit", from: Segment) => (target: { sourceFile: string; excerpt?: string; fingerprint?: string; title?: string }) => {
+    const active = document.activeElement;
+    returnFocus.current = active instanceof HTMLElement ? active : null;
+    const node = inspectorRefs.current[from];
+    if (node) inspectorScroll.current[from] = node.scrollTop;
+    openArrival({ ...target, context, returnTo: from === "questions" ? "questions" : "audits" });
+  }, [openArrival]);
+  const openFromQuestions = useMemo(() => openFromInspector("verification", "questions"), [openFromInspector]);
+  const openFromAudits = useMemo(() => openFromInspector("audit", "audits"), [openFromInspector]);
+  const hasEntry = useCallback((sourceFile: string) => findEntryBySourceFile(entries, sourceFile) !== null, [entries]);
+
+  function setQuery(value: string) {
+    setResearch((state) => ({ ...state, query: value, detailEntryId: value.trim() ? null : state.detailEntryId, arrival: value.trim() ? null : state.arrival }));
+  }
 
   useEffect(() => {
     if (!databaseOpen) return;
 
     function handleKeydown(event: KeyboardEvent) {
-      if (anotherModalIsOpen(databaseDialogRef.current)) return;
+      if (anotherModalIsOpen(resident ? null : databaseDialogRef.current)) return;
 
       // Ctrl+K belongs to the console in every mode; search is `/`, and only
       // when the key would not otherwise be typed into a field.
       if (SHORTCUTS.librarySearch.matches(event) && !isEditableTarget(event.target)) {
         event.preventDefault();
-        searchInputRef.current?.focus();
-        searchInputRef.current?.select();
+        if (readSegment() !== "library") {
+          pendingFocus.current = "search";
+          selectSegment("library");
+        } else {
+          searchInputRef.current?.focus();
+          searchInputRef.current?.select();
+        }
+        return;
       }
 
-      if (event.key === "Escape") {
+      if (event.key !== "Escape" || event.defaultPrevented || event.isComposing) return;
+      // Only for keys pressed in the library or on nothing in particular; the
+      // console and other panels own their own Escape.
+      // The Project-mode database is a modal: every Escape is its own.
+      const target = event.target as Node | null;
+      const inside = !resident || target === document.body || (target !== null && surfaceRef.current?.contains(target));
+      if (!inside) return;
+      const state = research;
+      if (target === searchInputRef.current && state.query) {
         event.preventDefault();
-        if (searchDraft) {
-          setSearchDraft("");
-          setSearchQuery("");
-        } else {
-          setDatabaseOpen(false);
-          setDetailEntryId(null);
-        }
+        setQuery("");
+      } else if (readSegment() === "library" && (state.detailEntryId || state.arrival)) {
+        event.preventDefault();
+        back();
+      } else if (state.query && readSegment() === "library") {
+        event.preventDefault();
+        setQuery("");
+      } else if (!resident) {
+        event.preventDefault();
+        closeDatabase();
       }
     }
 
     window.addEventListener("keydown", handleKeydown);
     return () => window.removeEventListener("keydown", handleKeydown);
-  }, [databaseOpen, searchDraft]);
-
-  useEffect(() => {
-    if (!databaseOpen || detailEntryId || viewMode !== "grouped" || searchQuery) {
-      observerRef.current?.disconnect();
-      observerRef.current = null;
-      return;
-    }
-
-    const root = mainScrollRef.current;
-    if (!root) return;
-
-    const observer = new IntersectionObserver(
-      (entriesObserved) => {
-        const visible = entriesObserved
-          .filter((entry) => entry.isIntersecting)
-          .sort((left, right) => left.boundingClientRect.top - right.boundingClientRect.top);
-
-        if (visible.length === 0) return;
-        if (Date.now() < suppressSpyUntilRef.current) return;
-
-        const nextCategory = visible[0].target.getAttribute("data-category") as PantheonCategory | null;
-        if (!nextCategory) return;
-
-        if (spyTimerRef.current) {
-          window.clearTimeout(spyTimerRef.current);
-        }
-
-        spyTimerRef.current = window.setTimeout(() => {
-          setActiveCategory(nextCategory);
-        }, 50);
-      },
-      {
-        root,
-        rootMargin: "-20% 0px -60% 0px",
-        threshold: 0.05
-      }
-    );
-
-    pantheonSections.forEach((section) => {
-      const node = sectionRefs.current[section.category];
-      if (node) observer.observe(node);
-    });
-
-    observerRef.current = observer;
-
-    return () => {
-      observer.disconnect();
-      observerRef.current = null;
-      if (spyTimerRef.current) {
-        window.clearTimeout(spyTimerRef.current);
-        spyTimerRef.current = null;
-      }
-    };
-  }, [databaseOpen, detailEntryId, pantheonSections, searchQuery, viewMode]);
-
-  const filteredSections = useMemo(() => {
-    if (!searchQuery) return pantheonSections;
-    return pantheonSections.map((section) => ({
-      ...section,
-      entries: section.entries.filter((entry) => matchesSearch(entry, searchQuery))
-    }));
-  }, [pantheonSections, searchQuery]);
-
-  const searchHasMatches = filteredSections.some((section) => section.entries.length > 0);
-  const recentEntries = useMemo(
-    () => [...preparedEntries].sort(compareEntriesByDateDesc).slice(0, 10),
-    [preparedEntries]
-  );
-  const allEntries = useMemo(() => {
-    const next = [...preparedEntries];
-    if (allEntriesSort === "title-asc") {
-      return next.sort((left, right) => left.title.localeCompare(right.title));
-    }
-    return next.sort(compareEntriesByDateDesc);
-  }, [allEntriesSort, preparedEntries]);
-
-  async function handleAddEntrySave(formData: AddEntryFormData) {
-    setFormError(null);
-    if (!formData.title.trim()) {
-      setFormError("Title is required.");
-      return;
-    }
-    if (!formData.body.trim()) {
-      setFormError("Body content is required.");
-      return;
-    }
-
-    setSubmitting(true);
-    try {
-      let attachments: string[] = [];
-      if (formData.attachment) {
-        try {
-          const writtenAttachmentPath = await invoke<string>("save_attachment_to_vault", {
-            token: formData.attachment.token
-          });
-          attachments = [writtenAttachmentPath];
-        } catch (err) {
-          setFormError(`Failed to save attachment: ${err}`);
-          setSubmitting(false);
-          return;
-        }
-      }
-
-      const request: WritePantheonEntryRequest = {
-        title: formData.title.trim(),
-        body: formData.body.trim(),
-        sourceType: formData.sourceType.trim() || undefined,
-        sourceUrl: formData.sourceUrl.trim() || undefined,
-        sourceDate: formData.sourceDate.trim() || undefined,
-        additionalTags: parseTagsInput(formData.tagsRaw),
-        attachments,
-        stance: formData.stance,
-        // Omitted rather than sent empty: the backend distinguishes "no purpose
-        // stated" from "purpose stated as nothing", and so does the operator.
-        whyKept: formData.whyKept.trim() || undefined,
-        origin: formData.origin
-      };
-      const writtenPath = await invoke<string>("write_pantheon_entry", { req: request });
-      setStatus({
-        tone: "success",
-        message: `Saved to ${writtenPath}`,
-        path: writtenPath
-      });
-      setAddEntryModalOpen(false);
-      void refreshPantheon();
-    } catch (err) {
-      setFormError(`Failed to save entry: ${err}`);
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  function openAddEntryModal() {
-    setFormError(null);
-    setAddEntryModalOpen(true);
-  }
-
-  function closeAddEntryModal() {
-    if (submitting) return;
-    setAddEntryModalOpen(false);
-    setFormError(null);
-  }
+  });
 
   async function handleMigrateSchema() {
     setMigrating(true);
@@ -343,13 +239,10 @@ export function LibraryPanel({ onViewDatabase, resident = false,inspectionTarget
       const parts = [`${outcome.migrated.length} migrated`];
       if (outcome.declined.length) parts.push(`${outcome.declined.length} declined`);
       if (outcome.failed.length) parts.push(`${outcome.failed.length} failed`);
-
       setStatus({
         // A declined write is a correct outcome, so only a real failure is an error.
         tone: outcome.failed.length ? "error" : "success",
-        message: outcome.failed.length
-          ? `${parts.join(", ")} — ${outcome.failed.join("; ")}`
-          : parts.join(", "),
+        message: outcome.failed.length ? `${parts.join(", ")} — ${outcome.failed.join("; ")}` : parts.join(", "),
         path: ""
       });
       void refreshPantheon();
@@ -365,52 +258,58 @@ export function LibraryPanel({ onViewDatabase, resident = false,inspectionTarget
     const result = await onViewDatabase();
     setStatus(result);
     setBusyAction(null);
-    setDatabaseOpen(true);
+    returnFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    setDatabaseRequested(true);
   }
 
-  function handleCloseDatabase() {
-    setDatabaseOpen(false);
-    setDetailEntryId(null);
+  function closeDatabase() {
+    setDatabaseRequested(false);
+    const origin = returnFocus.current;
+    returnFocus.current = null;
+    if (origin?.isConnected) window.setTimeout(() => origin.focus(), 0);
   }
 
-  function handleAddEntryFromModal() {
-    handleCloseDatabase();
-    openAddEntryModal();
+  // Focus moves into the modal database, as it does into every dialog.
+  useEffect(() => {
+    if (!resident && databaseRequested) searchInputRef.current?.focus();
+  }, [databaseRequested, resident]);
+
+  function handleSaved(path: string) {
+    setAddEntryOpen(false);
+    setStatus({ tone: "success", message: `Saved to ${path}`, path });
+    void refreshPantheon();
   }
 
-  function handleSectionToggle(category: PantheonCategory) {
-    setExpandedSections((current) => {
-      const next = { ...current, [category]: !current[category] };
-      persistExpandedState(category, next[category]);
-      return next;
-    });
+  function onSegmentKey(event: ReactKeyboardEvent<HTMLButtonElement>, index: number) {
+    const delta = event.key === "ArrowRight" ? 1 : event.key === "ArrowLeft" ? -1 : 0;
+    const edge = event.key === "Home" ? 0 : event.key === "End" ? SEGMENTS.length - 1 : null;
+    if (!delta && edge === null) return;
+    event.preventDefault();
+    const nextIndex = edge ?? (index + delta + SEGMENTS.length) % SEGMENTS.length;
+    selectSegment(SEGMENTS[nextIndex].id);
+    document.getElementById(`library-tab-${SEGMENTS[nextIndex].id}`)?.focus();
   }
 
-  function handleCategoryJump(category: PantheonCategory) {
-    setViewMode("grouped");
-    setDetailEntryId(null);
-    setActiveCategory(category);
-    setExpandedSections((current) => {
-      if (current[category]) return current;
-      const next = { ...current, [category]: true };
-      persistExpandedState(category, true);
-      return next;
-    });
-    suppressSpyUntilRef.current = Date.now() + 500;
-    sectionRefs.current[category]?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }
+  const migrateNotice = unmigratedCount > 0 ? (
+    <div className="library-notice" role="status">
+      <span>
+        {unmigratedCount} {unmigratedCount === 1 ? "entry was" : "entries were"} written before stance and origin were recorded.
+      </span>
+      <button
+        type="button"
+        className="ghost-action library-action"
+        onClick={() => void handleMigrateSchema()}
+        disabled={migrating || addEntryOpen}
+        title="Move legacy origin values to written_by and state the fields these entries were written without"
+      >
+        <RotateCw size={13} aria-hidden="true" />
+        {migrating ? "Awaiting approval…" : `Migrate ${unmigratedCount} ${unmigratedCount === 1 ? "entry" : "entries"}`}
+      </button>
+    </div>
+  ) : null;
 
-  function handleViewModeChange(nextMode: PantheonViewMode) {
-    setViewMode(nextMode);
-    setDetailEntryId(null);
-  }
-
-  const detailBackLabel =
-    viewMode === "recent"
-      ? "Recent"
-      : viewMode === "all"
-        ? "All entries"
-        : categoryLabel(selectedEntry?.category ?? activeCategory);
+  const statusLine = status ? <p className={`section-copy action-feedback library-status ${status.tone}`} role="status">{status.message}</p> : null;
+  const errorLine = error ? <p className="pantheon-error" role="alert">Couldn't read vault entries: {error}</p> : null;
 
   return (
     <>
@@ -419,411 +318,183 @@ export function LibraryPanel({ onViewDatabase, resident = false,inspectionTarget
           reporting a count. Research mode drops the strip — the full library is
           already in the column below and would repeat every one of these. */}
       {resident ? null : (
-      <section className="dashboard-panel research-panel pantheon-panel is-collapsed surface-chrome">
-        <div className="panel-head">
-          <span className="panel-head__icon">
-            <Library size={15} />
-          </span>
-          <p className="panel-head__title">Pantheon</p>
-          <span className="panel-head__meta">{entryLabel}</span>
-
-          <div className="panel-head__actions">
-            {/* Only while there is something to migrate. An entry written before
-                the schema change parses with no origin at all, because the
-                parser refuses to read its writer as one. */}
-            {unmigratedCount > 0 ? (
-              <button
-                className="ghost-action"
-                onClick={() => void handleMigrateSchema()}
-                disabled={migrating || submitting}
-                title="Move legacy origin values to written_by and state the fields these entries were written without"
-              >
-                <RotateCw size={15} />
-                {migrating
-                  ? "Awaiting approval..."
-                  : `Migrate ${unmigratedCount} ${unmigratedCount === 1 ? "entry" : "entries"}`}
+        <section className="dashboard-panel research-panel pantheon-panel is-collapsed surface-chrome library-strip">
+          <div className="panel-head">
+            <span className="panel-head__icon"><Library size={15} /></span>
+            <p className="panel-head__title">Pantheon</p>
+            <span className="panel-head__meta">{entryLabel}</span>
+            <div className="panel-head__actions">
+              <button type="button" className="ghost-action library-action" onClick={() => void handleViewDatabase()}>
+                <Layers3 size={13} aria-hidden="true" />
+                {busyAction === "view" ? "Refreshing…" : "View Database"}
               </button>
-            ) : null}
-            <button
-              className="ghost-action"
-              onClick={() => void handleViewDatabase()}
-              disabled={submitting}
-            >
-              <Layers3 size={15} />
-              {busyAction === "view" ? "Refreshing..." : "View Database"}
-            </button>
-            <button
-              className="ghost-action"
-              onClick={openAddEntryModal}
-              disabled={busyAction === "view"}
-            >
-              <FilePlus2 size={15} />
-              Add Entry
-            </button>
-            <button
-              className="ghost-action icon-only-action"
-              onClick={() => void refreshPantheon()}
-              disabled={loading}
-              title="Refresh Pantheon entries from vault"
-              aria-label="Refresh Pantheon entries from vault"
-            >
-              <RotateCw size={15} />
-            </button>
+              <button type="button" className="ghost-action library-action" onClick={() => setAddEntryOpen(true)} disabled={busyAction === "view"}>
+                <FilePlus2 size={13} aria-hidden="true" />
+                Add Entry
+              </button>
+              <button
+                type="button"
+                className="ghost-action library-action icon-only-action"
+                onClick={() => void refreshPantheon()}
+                disabled={loading}
+                title="Refresh Pantheon entries from vault"
+                aria-label="Refresh Pantheon entries from vault"
+              >
+                <RotateCw size={13} aria-hidden="true" />
+              </button>
+            </div>
           </div>
-        </div>
-
-        {status && <p className={`section-copy action-feedback ${status.tone}`}>{status.message}</p>}
-
-        {error && <p className="pantheon-error">Couldn't read vault entries: {error}</p>}
-
-      </section>
+          {migrateNotice}
+          {statusLine}
+          {errorLine}
+        </section>
       )}
 
-      {addEntryModalOpen &&
-        createPortal(
-          <AddEntryModal
-            onClose={closeAddEntryModal}
-            onSubmit={handleAddEntrySave}
-            submitting={submitting}
-            formError={formError}
-          />,
-          document.body
-        )}
+      {addEntryOpen ? (
+        <AddEntryDialog projects={libraryProjects} onClose={() => setAddEntryOpen(false)} onSaved={handleSaved} />
+      ) : null}
 
       {databaseOpen &&
         inSurface(
           resident,
           <div
             className={resident ? "pantheon-resident-shell" : "pantheon-modal-backdrop"}
-            onClick={resident ? undefined : handleCloseDatabase}
+            onClick={resident ? undefined : closeDatabase}
           >
             <div
-              ref={databaseDialogRef}
-              className={resident ? "dashboard-panel pantheon-resident" : "pantheon-modal"}
+              ref={(node) => { databaseDialogRef.current = node; surfaceRef.current = node; }}
+              className={resident ? "dashboard-panel pantheon-resident library-surface" : "pantheon-modal library-surface"}
               role={resident ? undefined : "dialog"}
               aria-modal={resident ? undefined : true}
               aria-label={resident ? undefined : "Pantheon Database"}
               onClick={(event) => event.stopPropagation()}
             >
-              <header className="pantheon-modal-header">
-                <div className="pantheon-modal-title-group">
-                  <h2 className="pantheon-modal-title">Pantheon Database</h2>
+              <header className="pantheon-modal-header library-header">
+                <div className="pantheon-modal-title-group library-header__title">
+                  <h2 className="pantheon-modal-title">Pantheon</h2>
                   <span className="pantheon-modal-meta">{entryLabel}</span>
                 </div>
-                <div className="pantheon-modal-actions">
-                  {/* Resident mode has no strip above it to carry this, and an
-                      entry that still needs migrating should not go quiet just
-                      because the library changed where it lives. */}
-                  {resident && unmigratedCount > 0 ? (
+                <div className="library-segments" role="tablist" aria-label="Research views">
+                  {SEGMENTS.map((item, index) => (
                     <button
-                      className="ghost-action"
-                      onClick={() => void handleMigrateSchema()}
-                      disabled={migrating || submitting}
-                      title="Move legacy origin values to written_by and state the fields these entries were written without"
+                      key={item.id}
+                      id={`library-tab-${item.id}`}
+                      type="button"
+                      role="tab"
+                      aria-selected={segment === item.id}
+                      aria-controls={`library-view-${item.id}`}
+                      aria-label={item.accessible}
+                      tabIndex={segment === item.id ? 0 : -1}
+                      className={`library-segment ${segment === item.id ? "is-active" : ""}`}
+                      onClick={() => selectSegment(item.id)}
+                      onKeyDown={(event) => onSegmentKey(event, index)}
                     >
-                      <RotateCw size={15} />
-                      {migrating
-                        ? "Awaiting approval..."
-                        : `Migrate ${unmigratedCount} ${unmigratedCount === 1 ? "entry" : "entries"}`}
+                      {item.label}
+                      {item.suffix ? <span className="library-segment__suffix">{item.suffix}</span> : null}
                     </button>
+                  ))}
+                </div>
+                <div className="pantheon-modal-actions library-header__actions">
+                  {segment === "library" ? (
+                    <label className="pantheon-search-shell library-search">
+                      <Search size={14} className="pantheon-search-icon" aria-hidden="true" />
+                      <input
+                        ref={searchInputRef}
+                        value={research.query}
+                        onChange={(event) => setQuery(event.target.value)}
+                        placeholder="Search entries…"
+                        aria-label="Search the library"
+                        className="pantheon-search-input"
+                      />
+                    </label>
                   ) : null}
-                  <label className="pantheon-search-shell">
-                    <Search size={14} className="pantheon-search-icon" />
-                    <input
-                      ref={searchInputRef}
-                      value={searchDraft}
-                      onChange={(event) => setSearchDraft(event.target.value)}
-                      placeholder="Search entries..."
-                      className="pantheon-search-input"
-                    />
-                  </label>
                   <button
-                    className="ghost-action icon-only-action"
+                    type="button"
+                    className="ghost-action library-action icon-only-action"
                     onClick={() => void refreshPantheon()}
                     disabled={loading}
                     title="Refresh Pantheon entries from vault"
                     aria-label="Refresh Pantheon entries from vault"
                   >
-                    <RotateCw size={15} />
+                    <RotateCw size={13} aria-hidden="true" />
                   </button>
-                  <button
-                    className="ghost-action"
-                    onClick={handleAddEntryFromModal}
-                    disabled={busyAction === "view"}
-                  >
-                    <FilePlus2 size={14} />
+                  <button type="button" className="ghost-action library-action" onClick={() => setAddEntryOpen(true)} disabled={busyAction === "view"}>
+                    <FilePlus2 size={13} aria-hidden="true" />
                     Add Entry
                   </button>
                   {/* Nothing to close in residence — the mode switcher is what
                       leaves. A close button that emptied the centre column
                       would strand Research mode on a blank panel. */}
                   {resident ? null : (
-                    <button
-                      type="button"
-                      className="pantheon-modal-close"
-                      onClick={handleCloseDatabase}
-                      aria-label="Close Pantheon Database"
-                      title="Close (Esc)"
-                    >
+                    <button type="button" className="pantheon-modal-close" onClick={closeDatabase} aria-label="Close Pantheon Database" title="Close (Esc)">
                       ×
                     </button>
                   )}
                 </div>
               </header>
 
-              {/* In residence there is no strip above to report these, and a
-                  migration that says nothing about how it went is worse than
-                  one that never ran. */}
-              {resident && status ? (
-                <p className={`section-copy action-feedback ${status.tone}`}>{status.message}</p>
-              ) : null}
-              {resident && error ? (
-                <p className="pantheon-error">Couldn't read vault entries: {error}</p>
-              ) : null}
+              {/* The strip carries these outside residence. */}
+              {resident ? migrateNotice : null}
+              {resident ? statusLine : null}
+              {resident ? errorLine : null}
 
-              <div className="pantheon-modal-body pantheon-modal-body--knowledge">
-                <details className="knowledge-audit-disclosure"><summary>Knowledge audit & evidence history</summary><KnowledgeAudit/></details>
-                <details className="knowledge-audit-disclosure" open={inspectionTarget?true:undefined}><summary>Research with verification & agent catalog</summary><ResearchVerification requestedRunId={inspectionTarget?.runId} inspectionOnly={Boolean(inspectionTarget)} onReturn={inspectionTarget?onReturnToCommand:undefined}/></details>
-                <div className="pantheon-workspace">
-          <aside className="pantheon-sidebar">
-            <div className="pantheon-sidebar-scroll">
-              <div className="pantheon-sidebar-group">
-                <p className="pantheon-sidebar-label">Categories</p>
-                <div className="pantheon-sidebar-list">
-                  {pantheonSections.map((section) => {
-                    const visibleCount = filteredSections.find(
-                      (candidate) => candidate.category === section.category
-                    )?.entries.length ?? 0;
-                    const isDimmed = !!searchQuery && visibleCount === 0;
-                    return (
-                      <button
-                        key={section.category}
-                        className={`pantheon-sidebar-row ${
-                          viewMode === "grouped" && activeCategory === section.category ? "is-active" : ""
-                        } ${isDimmed ? "is-dimmed" : ""}`}
-                        onClick={() => handleCategoryJump(section.category)}
-                        type="button"
-                      >
-                        <span>{section.title}</span>
-                        <span className="pantheon-sidebar-count tabular-data">{section.entries.length}</span>
-                      </button>
-                    );
-                  })}
+              <div className="library-views">
+                <div
+                  className="library-view library-view--library"
+                  role="tabpanel"
+                  id="library-view-library"
+                  aria-labelledby="library-tab-library"
+                  hidden={segment !== "library"}
+                >
+                  <LibraryBrowser
+                    entries={entries}
+                    loading={loading}
+                    query={deferredQuery}
+                    projects={libraryProjects}
+                    active={segment === "library"}
+                    openToken={openToken}
+                    onOpenEntry={openEntry}
+                    onBack={back}
+                    backToInspector={research.arrival?.returnTo === "questions" ? "Questions" : research.arrival?.returnTo === "audits" ? "Audits" : null}
+                    snapshotRef={librarySnapshot}
+                  />
                 </div>
-              </div>
-
-              <div className="pantheon-sidebar-divider"></div>
-
-              <div className="pantheon-sidebar-group">
-                <p className="pantheon-sidebar-label">View</p>
-                <div className="pantheon-sidebar-list">
-                  <button
-                    className={`pantheon-sidebar-row ${viewMode === "recent" ? "is-active" : ""}`}
-                    onClick={() => handleViewModeChange("recent")}
-                    type="button"
+                {visited.has("questions") || segment === "questions" ? (
+                  <div
+                    className="library-view library-view--inspector"
+                    role="tabpanel"
+                    id="library-view-questions"
+                    aria-labelledby="library-tab-questions"
+                    hidden={segment !== "questions"}
+                    ref={(node) => { inspectorRefs.current.questions = node; }}
                   >
-                    <span>Recent</span>
-                  </button>
-                  <button
-                    className={`pantheon-sidebar-row ${viewMode === "all" ? "is-active" : ""}`}
-                    onClick={() => handleViewModeChange("all")}
-                    type="button"
+                    <ResearchVerification
+                      requestedRunId={inspectionTarget?.runId}
+                      inspectionOnly={Boolean(inspectionTarget?.runId)}
+                      onReturn={inspectionTarget ? onReturnToCommand : undefined}
+                      onOpenEntry={openFromQuestions}
+                      hasEntry={hasEntry}
+                    />
+                  </div>
+                ) : null}
+                {visited.has("audits") || segment === "audits" ? (
+                  <div
+                    className="library-view library-view--inspector"
+                    role="tabpanel"
+                    id="library-view-audits"
+                    aria-labelledby="library-tab-audits"
+                    hidden={segment !== "audits"}
+                    ref={(node) => { inspectorRefs.current.audits = node; }}
                   >
-                    <span>All entries</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-          </aside>
-
-          <div className="pantheon-main">
-            <div className="pantheon-main-scroll" ref={mainScrollRef}>
-              <AnimatePresence mode="wait">
-                {selectedEntry ? (
-                  <motion.div
-                    key={`detail-${selectedEntry.id}`}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.15, ease: "easeOut" }}
-                    className="pantheon-detail-view"
-                  >
-                    <button
-                      type="button"
-                      className="pantheon-back-link"
-                      onClick={() => setDetailEntryId(null)}
-                    >
-                      <ArrowLeft size={14} />
-                      Back to {detailBackLabel}
-                    </button>
-
-                    <div className="pantheon-detail-header">
-                      <h3>{selectedEntry.title}</h3>
-                      <p className="pantheon-detail-meta tabular-data">
-                        {entryTypeLabel(selectedEntry.sourceType)} {"\u00b7"} {selectedEntry.sourceLabel} {"\u00b7"}{" "}
-                        {selectedEntry.sourceDateLabel} {"\u00b7"} {selectedEntry.wordCountLabel}
-                      </p>
-                      {/* Stated, not implied. An entry with no declared purpose
-                          should look different from one the operator justified \u2014
-                          otherwise the library reads as uniformly endorsed. */}
-                      <p className="pantheon-detail-judgement">
-                        <span className={`pantheon-stance is-${selectedEntry.stance ?? "unevaluated"}`}>
-                          {selectedEntry.stance ?? "unevaluated"}
-                        </span>
-                        {selectedEntry.origin ? (
-                          <span className="pantheon-origin">{selectedEntry.origin}</span>
-                        ) : null}
-                        <span
-                          className={`pantheon-why-kept ${selectedEntry.whyKept ? "" : "is-absent"}`}
-                        >
-                          {selectedEntry.whyKept ?? "No stated purpose"}
-                        </span>
-                      </p>
-                    </div>
-
-                    <div className="pantheon-entry-body">
-                      <ReactMarkdown
-                        remarkPlugins={[remarkGfm, remarkWikilinks]}
-                        components={entryMarkdownComponents}
-                      >
-                        {preprocessObsidianCallouts(selectedEntry.markdownBody)}
-                      </ReactMarkdown>
-                    </div>
-                  </motion.div>
-                ) : searchQuery ? (
-                  <motion.div
-                    key="search-results"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.15, ease: "easeOut" }}
-                  >
-                    {searchHasMatches ? (
-                      <div className="pantheon-sections">
-                        {filteredSections
-                          .filter((section) => section.entries.length > 0)
-                          .map((section) => (
-                            <PantheonSectionBlock
-                              key={section.category}
-                              section={section}
-                              expanded
-                              canCollapse={false}
-                              onToggle={() => undefined}
-                              onSelectEntry={setDetailEntryId}
-                              sectionRef={(node) => {
-                                sectionRefs.current[section.category] = node;
-                              }}
-                            />
-                          ))}
-                      </div>
-                    ) : (
-                      <div className="pantheon-empty-search">
-                        <strong>No entries match "{searchQuery}"</strong>
-                        <p className="section-copy">Try searching by category, type, or source.</p>
-                      </div>
-                    )}
-                  </motion.div>
-                ) : viewMode === "recent" ? (
-                  <motion.div
-                    key="recent-view"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.15, ease: "easeOut" }}
-                    className="pantheon-flat-view"
-                  >
-                    <div className="pantheon-mode-header">
-                      <p className="projects-title">Recent</p>
-                      <span className="section-copy">{recentEntries.length} most recent entries</span>
-                    </div>
-                    <div className="pantheon-flat-list">
-                      {recentEntries.map((entry) => (
-                        <PantheonEntryRow
-                          key={entry.id}
-                          entry={entry}
-                          onSelect={setDetailEntryId}
-                          showCategory
-                        />
-                      ))}
-                    </div>
-                  </motion.div>
-                ) : viewMode === "all" ? (
-                  <motion.div
-                    key="all-view"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.15, ease: "easeOut" }}
-                    className="pantheon-flat-view"
-                  >
-                    <div className="pantheon-mode-header">
-                      <div>
-                        <p className="projects-title">All entries</p>
-                        <span className="section-copy">{allEntries.length} entries</span>
-                      </div>
-                      <select
-                        className="pantheon-sort-select"
-                        value={allEntriesSort}
-                        onChange={(event) => setAllEntriesSort(event.target.value as AllEntriesSort)}
-                      >
-                        <option value="date-desc">Newest first</option>
-                        <option value="title-asc">Title A-Z</option>
-                      </select>
-                    </div>
-                    <div className="pantheon-flat-list">
-                      {allEntries.map((entry) => (
-                        <PantheonEntryRow
-                          key={entry.id}
-                          entry={entry}
-                          onSelect={setDetailEntryId}
-                          showCategory
-                        />
-                      ))}
-                    </div>
-                  </motion.div>
-                ) : (
-                  <motion.div
-                    key="grouped-view"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.15, ease: "easeOut" }}
-                    className="pantheon-sections"
-                  >
-                    {pantheonSections.map((section) => (
-                      <PantheonSectionBlock
-                        key={section.category}
-                        section={section}
-                        expanded={expandedSections[section.category]}
-                        canCollapse
-                        onToggle={() => handleSectionToggle(section.category)}
-                        onSelectEntry={setDetailEntryId}
-                        sectionRef={(node) => {
-                          sectionRefs.current[section.category] = node;
-                        }}
-                      />
-                    ))}
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-          </div>
-                </div>
+                    <KnowledgeAudit onOpenEntry={openFromAudits} hasEntry={hasEntry} />
+                  </div>
+                ) : null}
               </div>
             </div>
           </div>
         )}
     </>
   );
-}
-
-/**
- * The library's shortcuts are window-wide, so they yield to any modal that is
- * not their own — otherwise Escape meant for the write gate also clears the
- * search or closes the library underneath it.
- */
-function anotherModalIsOpen(own: Element | null): boolean {
-  return Array.from(document.querySelectorAll('[aria-modal="true"]')).some((node) => node !== own);
 }
 
 /**
@@ -834,818 +505,3 @@ function anotherModalIsOpen(own: Element | null): boolean {
 function inSurface(resident: boolean, node: ReactElement): ReactNode {
   return resident ? node : createPortal(node, document.body);
 }
-
-function PantheonSectionBlock({
-  section,
-  expanded,
-  canCollapse,
-  onToggle,
-  onSelectEntry,
-  sectionRef
-}: {
-  section: PantheonSection;
-  expanded: boolean;
-  canCollapse: boolean;
-  onToggle: () => void;
-  onSelectEntry: (entryId: string) => void;
-  sectionRef: (node: HTMLDivElement | null) => void;
-}) {
-  const headerCountLabel = `${section.entries.length} ${section.entries.length === 1 ? "entry" : "entries"}`;
-
-  return (
-    <section className="pantheon-section" aria-label={section.title}>
-      <div
-        ref={sectionRef}
-        data-category={section.category}
-        className="pantheon-section-header"
-      >
-        <button
-          type="button"
-          className="pantheon-section-toggle"
-          onClick={canCollapse ? onToggle : undefined}
-          disabled={!canCollapse}
-        >
-          <span className={`pantheon-section-chevron ${expanded ? "is-expanded" : ""}`}>
-            <ChevronDown size={12} />
-          </span>
-          <span className="pantheon-section-heading">
-            <span className="projects-title">{section.title}</span>
-            <span className="pantheon-section-count-inline">{headerCountLabel}</span>
-          </span>
-          <span className="pantheon-section-description">{section.description}</span>
-        </button>
-      </div>
-
-      <AnimatePresence initial={false}>
-        {expanded ? (
-          <motion.div
-            key={`${section.category}-entries`}
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.2, ease: "easeOut" }}
-            className="pantheon-entry-list"
-          >
-            {section.entries.length > 0 ? (
-              section.entries.map((entry) => (
-                <PantheonEntryRow key={entry.id} entry={entry} onSelect={onSelectEntry} />
-              ))
-            ) : (
-              <div className="pantheon-empty-section">
-                <span>No entries yet.</span>
-              </div>
-            )}
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
-    </section>
-  );
-}
-
-function PantheonEntryRow({
-  entry,
-  onSelect,
-  showCategory = false
-}: {
-  entry: PreparedPantheonEntry;
-  onSelect: (entryId: string) => void;
-  showCategory?: boolean;
-}) {
-  return (
-    <button
-      type="button"
-      className="pantheon-entry-row"
-      onClick={() => onSelect(entry.id)}
-      onKeyDown={(event) => {
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault();
-          onSelect(entry.id);
-        }
-      }}
-      aria-label={`Open Pantheon entry ${entry.title}`}
-    >
-      {showCategory ? (
-        <span className="pantheon-inline-category">{categoryLabel(entry.category)}</span>
-      ) : null}
-      <div className="pantheon-entry-row-top">
-        <strong>{entry.title}</strong>
-        <div className="pantheon-entry-row-meta">
-          <span className="tabular-data">{entry.wordCountLabel}</span>
-          <span className="tabular-data pantheon-entry-date">{entry.sourceDateLabel}</span>
-        </div>
-      </div>
-      <div className="pantheon-entry-row-bottom">
-        <span className={`pantheon-type-tag pantheon-type-${entry.sourceType}`}>
-          {entryTypeLabel(entry.sourceType)}
-        </span>
-        <span className="pantheon-entry-source">{entry.sourceLabel}</span>
-      </div>
-    </button>
-  );
-}
-
-// Rust has already split the frontmatter off and resolved the source label.
-// Nothing here parses note text as anything but markdown: a frontmatter parser
-// in the webview is one that untrusted notes get to feed.
-function prepareEntry(entry: ResearchRecord, sourceLabel: string): PreparedPantheonEntry {
-  return {
-    ...entry,
-    sourceLabel: sourceLabel || "Local source",
-    markdownBody: entry.content.trim(),
-    sourceDateLabel: formatShortDate(entry.sourceDate || entry.createdAt),
-    wordCountLabel: `${formatWordCount(entry.wordCount)} words`
-  };
-}
-
-function buildSections(entries: PreparedPantheonEntry[]): PantheonSection[] {
-  const buckets = new Map<PantheonCategory, PantheonSection>();
-
-  orderedCategories().forEach((category) => {
-    buckets.set(category, {
-      title: categoryLabel(category),
-      description: categoryDescription(category),
-      category,
-      entries: []
-    });
-  });
-
-  entries.forEach((entry) => {
-    buckets.get(entry.category)?.entries.push(entry);
-  });
-
-  return Array.from(buckets.values()).map((section) => ({
-    ...section,
-    entries: [...section.entries].sort(compareEntriesByDateDesc)
-  }));
-}
-
-function buildEntryLabel(entries: PreparedPantheonEntry[]): string {
-  const countLabel = `${entries.length} ${entries.length === 1 ? "entry" : "entries"}`;
-  if (entries.length === 0) return countLabel;
-
-  const latest = [...entries]
-    .map((entry) => entry.createdAt ?? entry.sourceDate)
-    .filter(Boolean)
-    .sort();
-
-  const latestValue = latest[latest.length - 1];
-  if (!latestValue) return countLabel;
-
-  return `${countLabel} \u00b7 Updated ${formatShortDate(latestValue)}`;
-}
-
-function loadExpandedSections(): Record<PantheonCategory, boolean> {
-  const defaults = orderedCategories().reduce(
-    (accumulator, category) => ({
-      ...accumulator,
-      [category]: false
-    }),
-    {} as Record<PantheonCategory, boolean>
-  );
-  orderedCategories().forEach((category, index) => {
-    const stored = readStoredFlag(`${SECTION_STORAGE_PREFIX}${category}`);
-    if (stored === "true" || stored === "false") {
-      defaults[category] = stored === "true";
-    } else {
-      defaults[category] = index < 2;
-    }
-  });
-  return defaults;
-}
-
-// Section state is a convenience. Storage that is full, disabled, or denied
-// must not take the library down with it.
-function readStoredFlag(key: string): string | null {
-  try {
-    return window.localStorage.getItem(key);
-  } catch {
-    return null;
-  }
-}
-
-function persistExpandedState(category: PantheonCategory, expanded: boolean) {
-  try {
-    window.localStorage.setItem(`${SECTION_STORAGE_PREFIX}${category}`, String(expanded));
-  } catch {
-    // The toggle still applies for this session.
-  }
-}
-
-function buildCategoryRefRecord<T>(fallback: T | null = null): Record<PantheonCategory, T | null> {
-  return orderedCategories().reduce(
-    (accumulator, category) => ({
-      ...accumulator,
-      [category]: fallback
-    }),
-    {} as Record<PantheonCategory, T | null>
-  );
-}
-
-function compareEntriesByDateDesc(left: PreparedPantheonEntry, right: PreparedPantheonEntry): number {
-  const leftTime = Date.parse(left.sourceDate || left.createdAt);
-  const rightTime = Date.parse(right.sourceDate || right.createdAt);
-  if (Number.isNaN(leftTime) || Number.isNaN(rightTime)) {
-    return right.createdAt.localeCompare(left.createdAt);
-  }
-  return rightTime - leftTime;
-}
-
-// Title and tags, plus what was already here. Bodies are deliberately not
-// searched: the assistant cannot read them either, and a search that reaches
-// further than the model does would suggest it knows more than it has seen.
-function matchesSearch(entry: PreparedPantheonEntry, query: string): boolean {
-  const needle = query.toLowerCase();
-  return [
-    entry.title,
-    categoryLabel(entry.category),
-    entry.sourceType,
-    entry.sourceLabel,
-    ...(entry.tags ?? [])
-  ].some((value) => value.toLowerCase().includes(needle));
-}
-
-function formatShortDate(value: string): string {
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.valueOf())) return value;
-  return parsed.toLocaleDateString([], { month: "short", day: "numeric" });
-}
-
-function formatWordCount(value: number): string {
-  return new Intl.NumberFormat().format(value);
-}
-
-function parseTagsInput(raw: string): string[] {
-  if (!raw) return [];
-  return raw
-    .split(",")
-    .map((value) => value.trim())
-    .filter((value) => value.length > 0);
-}
-
-function entryTypeLabel(sourceType: ResearchRecord["sourceType"]): string {
-  switch (sourceType) {
-    case "manual":
-      return "PROCEDURE";
-    default:
-      return sourceType.toUpperCase();
-  }
-}
-
-const ALLOWED_ATTACHMENT_EXTENSIONS = ["pdf", "png", "jpg", "jpeg", "webp", "txt", "md"];
-
-function AddEntryModal({
-  onClose,
-  onSubmit,
-  submitting,
-  formError
-}: {
-  onClose: () => void;
-  onSubmit: (formData: AddEntryFormData) => void | Promise<void>;
-  submitting: boolean;
-  formError: string | null;
-}) {
-  const [title, setTitle] = useState("");
-  const [body, setBody] = useState("");
-  const [sourceType, setSourceType] = useState("article");
-  const [sourceUrl, setSourceUrl] = useState("");
-  const [sourceDate, setSourceDate] = useState(() => new Date().toISOString().slice(0, 10));
-  const [tagsRaw, setTagsRaw] = useState("");
-  // Defaults that assert nothing. Saving a source is not agreeing with it, and
-  // the capture form is the operator's own hand, so `collected` is true here.
-  const [stance, setStance] = useState<PantheonStance>("unevaluated");
-  const [whyKept, setWhyKept] = useState("");
-  const [origin, setOrigin] = useState<PantheonOrigin>("collected");
-  const [attachment, setAttachment] = useState<StagedAttachment | null>(null);
-  const [attachmentError, setAttachmentError] = useState<string | null>(null);
-  const [extracting, setExtracting] = useState(false);
-  const [extractedText, setExtractedText] = useState<string | null>(null);
-  const [extractError, setExtractError] = useState<string | null>(null);
-  const [confirmingDiscard, setConfirmingDiscard] = useState(false);
-  const dialogRef = useRef<HTMLDivElement | null>(null);
-
-  // Escape and a stray backdrop click are the easy ways out, so they are the
-  // ones that ask before throwing away a written body. Cancel and the close
-  // button are deliberate and close at once.
-  function requestClose() {
-    if (submitting) return;
-    if (body.trim()) {
-      setConfirmingDiscard(true);
-      return;
-    }
-    onClose();
-  }
-
-  useEffect(() => {
-    function handleEsc(event: KeyboardEvent) {
-      if (event.key !== "Escape" || submitting) return;
-      if (anotherModalIsOpen(dialogRef.current)) return;
-      event.preventDefault();
-      if (confirmingDiscard) {
-        setConfirmingDiscard(false);
-      } else {
-        requestClose();
-      }
-    }
-    window.addEventListener("keydown", handleEsc);
-    return () => window.removeEventListener("keydown", handleEsc);
-  });
-
-  async function handlePickAttachment() {
-    setAttachmentError(null);
-    try {
-      const picked = await invoke<{ token: string; fileName: string } | null>(
-        "pick_attachment_file"
-      );
-      if (!picked) return;
-
-      const filename = picked.fileName;
-      const ext = filename.includes(".")
-        ? filename.split(".").pop()?.toLowerCase() ?? ""
-        : "";
-      if (!ALLOWED_ATTACHMENT_EXTENSIONS.includes(ext)) {
-        setAttachmentError(
-          `File type not allowed. Allowed: ${ALLOWED_ATTACHMENT_EXTENSIONS.join(", ")}.`
-        );
-        return;
-      }
-
-      const staged: StagedAttachment = {
-        token: picked.token,
-        originalFilename: filename,
-        sizeBytes: 0,
-        extension: ext
-      };
-      setAttachment(staged);
-      setExtractedText(null);
-      setExtractError(null);
-
-      if (ext === "pdf") {
-        setExtracting(true);
-        try {
-          const text = await invoke<string>("extract_pdf_text", { token: picked.token });
-          if (!text || text.trim().length === 0) {
-            setExtractedText("");
-            setExtractError("No text extracted (likely a scanned PDF).");
-          } else {
-            setExtractedText(text);
-          }
-        } catch (err) {
-          setExtractedText(null);
-          setExtractError(String(err));
-        } finally {
-          setExtracting(false);
-        }
-      }
-    } catch (err) {
-      setAttachmentError(`Failed to pick file: ${err}`);
-    }
-  }
-
-  function handleRemoveAttachment() {
-    setAttachment(null);
-    setExtractedText(null);
-    setExtractError(null);
-    setAttachmentError(null);
-    setExtracting(false);
-  }
-
-  function handleInsertExtracted() {
-    if (!extractedText) return;
-    const trimmedBody = body.trim();
-    setBody(trimmedBody.length > 0 ? `${trimmedBody}\n\n${extractedText}` : extractedText);
-  }
-
-  // Named so the footer can say which one is holding it, rather than leaving a
-  // dead button and no explanation.
-  const missing = [
-    !title.trim() ? "Title" : null,
-    !body.trim() ? "Body" : null
-  ].filter((value): value is string => value !== null);
-
-  function handleSave() {
-    void onSubmit({
-      title,
-      body,
-      sourceType,
-      sourceUrl,
-      sourceDate,
-      tagsRaw,
-      attachment,
-      stance,
-      whyKept,
-      origin
-    });
-  }
-
-  return (
-    <div className="pantheon-modal-backdrop" onClick={requestClose}>
-      <div
-        ref={dialogRef}
-        className="pantheon-modal pantheon-modal--add-entry"
-        role="dialog"
-        aria-modal="true"
-        aria-label="Add Pantheon entry"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <header className="pantheon-modal-header">
-          <div className="pantheon-modal-title-group">
-            <h2 className="pantheon-modal-title">Add Entry</h2>
-            <span className="pantheon-modal-meta">New Pantheon entry</span>
-          </div>
-          <button
-            type="button"
-            className="pantheon-modal-close"
-            onClick={onClose}
-            aria-label="Close"
-            title="Close (Esc)"
-            disabled={submitting}
-          >
-            ×
-          </button>
-        </header>
-
-        <div className="pantheon-modal-body pantheon-modal-body--form">
-          {formError ? <div className="composer-error">{formError}</div> : null}
-
-          <div className="add-entry-form">
-            <div className="form-field">
-              <label className="form-label" htmlFor="ae-title">
-                Title
-              </label>
-              <input
-                id="ae-title"
-                type="text"
-                className="form-input"
-                placeholder="Entry title"
-                value={title}
-                onChange={(event) => setTitle(event.target.value)}
-                autoFocus
-                disabled={submitting}
-              />
-            </div>
-
-            {/* Second, not last. This is the entry — the metadata below it
-                describes the thing typed here. It used to sit under nine other
-                fields including the attachment dropzone, far enough below the
-                fold that the form read as upload-only and Save looked
-                permanently dead. */}
-            <div className="form-field form-field--body">
-              <label className="form-label" htmlFor="ae-body">
-                Body
-              </label>
-              <textarea
-                id="ae-body"
-                className="form-input form-textarea"
-                placeholder="Write or paste the entry. Markdown supported. An attachment below can be extracted into this field, but typing here is the normal path."
-                value={body}
-                onChange={(event) => setBody(event.target.value)}
-                rows={10}
-                disabled={submitting}
-              />
-            </div>
-
-            <div className="form-field">
-              <label className="form-label" htmlFor="ae-source-type">
-                Source type
-              </label>
-              <select
-                id="ae-source-type"
-                className="form-input"
-                value={sourceType}
-                onChange={(event) => setSourceType(event.target.value)}
-                disabled={submitting}
-              >
-                <option value="article">Article</option>
-                <option value="transcript">Transcript</option>
-                <option value="guide">Guide</option>
-                <option value="paper">Paper</option>
-                <option value="talk">Talk</option>
-                <option value="">Other / unspecified</option>
-              </select>
-            </div>
-
-            <div className="form-row">
-              <div className="form-field">
-                <label className="form-label" htmlFor="ae-source-url">
-                  Source URL <span className="form-optional">(optional)</span>
-                </label>
-                <input
-                  id="ae-source-url"
-                  type="url"
-                  className="form-input"
-                  placeholder="https://..."
-                  value={sourceUrl}
-                  onChange={(event) => setSourceUrl(event.target.value)}
-                  disabled={submitting}
-                />
-              </div>
-              <div className="form-field">
-                <label className="form-label" htmlFor="ae-source-date">
-                  Source date <span className="form-optional">(optional)</span>
-                </label>
-                <input
-                  id="ae-source-date"
-                  type="date"
-                  className="form-input"
-                  value={sourceDate}
-                  onChange={(event) => setSourceDate(event.target.value)}
-                  disabled={submitting}
-                />
-              </div>
-            </div>
-
-            <div className="form-field">
-              <label className="form-label" htmlFor="ae-tags">
-                Tags <span className="form-optional">(optional)</span>
-              </label>
-              <input
-                id="ae-tags"
-                type="text"
-                className="form-input"
-                placeholder="comma, separated, tags"
-                value={tagsRaw}
-                onChange={(event) => setTagsRaw(event.target.value)}
-                disabled={submitting}
-              />
-              <span className="form-helper">
-                <code>olympus/research</code> and <code>{`research/${sourceType || "TYPE"}`}</code>{" "}
-                are added automatically.
-              </span>
-            </div>
-
-            <div className="form-row">
-              <div className="form-field">
-                <label className="form-label" htmlFor="ae-stance">
-                  Stance
-                </label>
-                <select
-                  id="ae-stance"
-                  className="form-input"
-                  value={stance}
-                  onChange={(event) => setStance(event.target.value as PantheonStance)}
-                  disabled={submitting}
-                >
-                  {PANTHEON_STANCES.map((value) => (
-                    <option key={value} value={value}>
-                      {value}
-                    </option>
-                  ))}
-                </select>
-                <span className="form-helper">
-                  Saving a source is not agreeing with it. Left alone, this stays{" "}
-                  <code>unevaluated</code>.
-                </span>
-              </div>
-
-              <div className="form-field">
-                <label className="form-label" htmlFor="ae-origin">
-                  Origin
-                </label>
-                <select
-                  id="ae-origin"
-                  className="form-input"
-                  value={origin}
-                  onChange={(event) => setOrigin(event.target.value as PantheonOrigin)}
-                  disabled={submitting}
-                >
-                  {PANTHEON_ORIGINS.map((value) => (
-                    <option key={value} value={value}>
-                      {value}
-                    </option>
-                  ))}
-                </select>
-                <span className="form-helper">
-                  Who found it. Sources Olympus surfaced stay distinguishable from your own.
-                </span>
-              </div>
-            </div>
-
-            <div className="form-field">
-              <label className="form-label" htmlFor="ae-why-kept">
-                Why kept <span className="form-optional">(optional)</span>
-              </label>
-              <input
-                id="ae-why-kept"
-                type="text"
-                className="form-input"
-                placeholder="What this is for."
-                value={whyKept}
-                onChange={(event) => setWhyKept(event.target.value)}
-                disabled={submitting}
-              />
-              <span className="form-helper">
-                Left blank, the entry reads as having no stated purpose — which is visible rather
-                than guessed at.
-              </span>
-            </div>
-
-            <div className="form-field">
-              <label className="form-label">
-                Attachment <span className="form-optional">(optional)</span>
-              </label>
-              {attachment ? (
-                <div className="attachment-staged-row">
-                  <span className="attachment-staged-name">{attachment.originalFilename}</span>
-                  <span className="attachment-staged-ext">{attachment.extension.toUpperCase()}</span>
-                  <button
-                    type="button"
-                    className="attachment-remove"
-                    onClick={handleRemoveAttachment}
-                    disabled={submitting}
-                    aria-label="Remove attachment"
-                    title="Remove attachment"
-                  >
-                    ×
-                  </button>
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  className="attachment-dropzone"
-                  onClick={() => void handlePickAttachment()}
-                  disabled={submitting}
-                >
-                  Drop a file here, or click to browse
-                </button>
-              )}
-              {attachmentError ? (
-                <span className="form-helper attachment-error-text">{attachmentError}</span>
-              ) : (
-                <span className="form-helper">
-                  Allowed: {ALLOWED_ATTACHMENT_EXTENSIONS.join(", ")}. Files copy into{" "}
-                  <code>02 - Research/_attachments/</code>.
-                </span>
-              )}
-
-              {attachment && attachment.extension === "pdf" ? (
-                <div className="attachment-preview">
-                  <div className="attachment-preview-header">
-                    <span>PDF text preview</span>
-                    {extractedText && extractedText.length > 0 ? (
-                      <button
-                        type="button"
-                        className="attachment-insert-button"
-                        onClick={handleInsertExtracted}
-                        disabled={submitting}
-                        title="Append extracted text to body"
-                      >
-                        Insert into body
-                      </button>
-                    ) : null}
-                  </div>
-                  <div className="attachment-preview-body">
-                    {extracting ? (
-                      <span className="attachment-preview-status">Extracting…</span>
-                    ) : extractError ? (
-                      <span className="attachment-preview-status attachment-preview-error">
-                        {extractError}
-                      </span>
-                    ) : extractedText && extractedText.length > 0 ? (
-                      <pre className="attachment-preview-text">{extractedText}</pre>
-                    ) : (
-                      <span className="attachment-preview-status">No text yet.</span>
-                    )}
-                  </div>
-                </div>
-              ) : null}
-            </div>
-          </div>
-        </div>
-
-        {confirmingDiscard ? (
-          <footer className="pantheon-modal-footer">
-            <span className="pantheon-modal-footer-hint" role="alert">
-              Discard this entry? The body will be lost.
-            </span>
-            <button
-              type="button"
-              className="form-button form-button--ghost"
-              onClick={() => setConfirmingDiscard(false)}
-              autoFocus
-            >
-              Keep editing
-            </button>
-            <button type="button" className="form-button form-button--primary" onClick={onClose}>
-              Discard
-            </button>
-          </footer>
-        ) : (
-        <footer className="pantheon-modal-footer">
-          {/* A disabled button that will not say what it is waiting for is the
-              worst affordance in the form. The footer is pinned, so this was
-              visible and inert while the field it wanted sat below the fold. */}
-          {missing.length > 0 && !submitting ? (
-            <span className="pantheon-modal-footer-hint">
-              {missing.length === 1
-                ? `${missing[0]} is required`
-                : `${missing.join(" and ")} are required`}
-            </span>
-          ) : null}
-          <button
-            type="button"
-            className="form-button form-button--ghost"
-            onClick={onClose}
-            disabled={submitting}
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            className="form-button form-button--primary"
-            onClick={handleSave}
-            disabled={submitting || missing.length > 0}
-            title={missing.length > 0 ? `Still needed: ${missing.join(", ")}` : undefined}
-          >
-            {submitting ? "Saving..." : "Save Entry"}
-          </button>
-        </footer>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function preprocessObsidianCallouts(body: string): string {
-  return body.replace(
-    /^> \[!(\w+)\](?: (.*))?$/gm,
-    (_, type, title) => `> **${(title || String(type)).toUpperCase()}**\n>`
-  );
-}
-
-interface MarkdownNode {
-  type: string;
-  value?: string;
-  children?: MarkdownNode[];
-  data?: object;
-}
-
-const WIKILINK = /\[\[([^\]]+)\]\]/g;
-
-/**
- * Renders `[[target|display]]` as a styled span by building syntax-tree nodes,
- * never an HTML string. Research notes are untrusted: markdown here must not be
- * able to produce an element the renderer did not choose.
- */
-function remarkWikilinks() {
-  return (tree: MarkdownNode) => {
-    splitWikilinks(tree);
-  };
-}
-
-function splitWikilinks(node: MarkdownNode) {
-  if (!node.children) return;
-  node.children = node.children.flatMap((child): MarkdownNode[] => {
-    if (child.type !== "text" || !child.value?.includes("[[")) {
-      splitWikilinks(child);
-      return [child];
-    }
-
-    const pieces: MarkdownNode[] = [];
-    let last = 0;
-    for (const match of child.value.matchAll(WIKILINK)) {
-      const index = match.index ?? 0;
-      if (index > last) pieces.push({ type: "text", value: child.value.slice(last, index) });
-      pieces.push({
-        type: "wikilink",
-        children: [{ type: "text", value: match[1].split("|").pop() ?? match[1] }],
-        data: { hName: "span", hProperties: { className: ["pantheon-wikilink"] } }
-      });
-      last = index + match[0].length;
-    }
-    if (last < child.value.length) pieces.push({ type: "text", value: child.value.slice(last) });
-    return pieces;
-  });
-}
-
-function openExternalLink(event: MouseEvent<HTMLAnchorElement>, href: string | undefined) {
-  // Every link is intercepted: letting one navigate would replace the whole app
-  // window, with no way back and any open write-gate dialog lost.
-  event.preventDefault();
-  if (!href || !/^https?:\/\//i.test(href)) return;
-  if (isTauriRuntime()) {
-    void invoke("open_external_link", { url: href }).catch((error) =>
-      console.warn("[Olympus] Could not open the link.", error)
-    );
-  } else {
-    window.open(href, "_blank", "noopener,noreferrer");
-  }
-}
-
-const entryMarkdownComponents: Components = {
-  a: ({ children, href }) => (
-    <a href={href} rel="noopener noreferrer" onClick={(event) => openExternalLink(event, href)}>
-      {children}
-    </a>
-  ),
-  // A remote image is a request the note's author chose, made on open. The
-  // CSP refuses it anyway; a link keeps the reference without the fetch.
-  img: ({ alt, src }) => (
-    <a
-      href={typeof src === "string" ? src : undefined}
-      rel="noopener noreferrer"
-      onClick={(event) => openExternalLink(event, typeof src === "string" ? src : undefined)}
-    >
-      {alt || "View image"}
-    </a>
-  )
-};

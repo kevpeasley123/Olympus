@@ -3,7 +3,7 @@ import {KnowledgeAudit} from "./components/panels/KnowledgeAudit";
 import type {AuditClient,AuditRun} from "./services/knowledgeAudit";
 import "./styles.css";
 const key="olympus:audit-fixture:v1";
-let runs:AuditRun[]=JSON.parse(localStorage.getItem(key)||"[]");let stale=false,failOnce=false,starts=0;
+let runs:AuditRun[]=JSON.parse(localStorage.getItem(key)||"[]");let stale=false,failOnce=false,starts=0;const opened:{sourceFile:string;excerpt?:string;fingerprint?:string}[]=[];
 function snapshot(id:string,topic:string):AuditRun {return {
   id,graph:"knowledge-audit/v1",topic,status:"snapshot_ready",startedAt:new Date().toISOString(),finishedAt:new Date().toISOString(),error:null,
   route:{id:"knowledge_audit",primary:["Pantheon research files"],supplementary:["prior audit source snapshots","delegation review records"],cannotOverride:["operator intent","curated memory","approval","execution or completion"]},
@@ -17,7 +17,7 @@ const client:AuditClient={
   start:async(id,topic)=>{starts++;const previous=runs.find(r=>r.id===id);if(previous)return previous;const saved=snapshot(id,topic);runs=[saved,...runs];localStorage.setItem(key,JSON.stringify(runs));if(failOnce){failOnce=false;throw Error("Simulated lost response after save")};return saved},
   inspect:async id=>{const run=runs.find(r=>r.id===id);if(!run)throw Error("Missing fixture audit");return {run,currentHealth:[{runId:id,sourceFile:"02 - Research/Agent Engineering.md",state:stale?"stale":"unchanged",checkedAt:new Date().toISOString()}],events:[{sequence:1,node:"research",state:"iteration",detail:"1: 02 - Research/Agent Engineering.md",at:run.startedAt},{sequence:2,node:"route",state:"finished",detail:"needs_you",at:run.startedAt}]}}
 };
-createRoot(document.getElementById("root")!).render(<main style={{padding:24,maxWidth:1000,margin:"auto"}}><p>Isolated UI fixture · simulated data · no vault or production database writes</p><KnowledgeAudit client={client} available/><pre id="result" style={{whiteSpace:"pre-wrap"}}/></main>);
+createRoot(document.getElementById("root")!).render(<main style={{padding:24,maxWidth:1000,margin:"auto"}}><p>Isolated UI fixture · simulated data · no vault or production database writes</p><KnowledgeAudit client={client} available onOpenEntry={target=>opened.push(target)} hasEntry={()=>true}/><pre id="result" style={{whiteSpace:"pre-wrap"}}/></main>);
 const wait=(ms:number)=>new Promise(r=>setTimeout(r,ms));
 async function run() {const checks:string[]=[];const assert=(ok:unknown,label:string)=>{if(!ok)throw Error(label);checks.push(label)};
  const button=(label:string)=>[...document.querySelectorAll<HTMLButtonElement>('button')].find(b=>b.textContent===label)!;
@@ -27,9 +27,15 @@ async function run() {const checks:string[]=[];const assert=(ok:unknown,label:st
  assert(document.body.textContent?.includes('generated proposals'),'Generated authority boundary is visible');
  assert(document.body.textContent?.includes('Agent Engineering has recorded stance'),'Evidence-backed finding renders');
  assert(document.body.textContent?.includes('fixture-file-fingerprint'),'Fingerprint remains inspectable');
- assert(document.body.textContent?.includes('unchanged'),'Current fingerprint health is shown');
+ assert(document.body.textContent?.includes('Unchanged since this audit'),'Current fingerprint health is shown');
+ const facts=document.querySelector('article .inspector-facts')?.textContent??'';
+ assert(facts.includes('Evidence snapshot ready')&&facts.includes('Needs your review')&&!/snapshot_ready|needs_you|\d{4}-\d{2}-\d{2}T/.test(facts),'Status, outcome and time read as words, not stored strings');
+ assert(document.querySelector('.inspector-internals')?.textContent?.includes('snapshot_ready'),'Stored status stays inspectable under Internals');
+ const ref=[...document.querySelectorAll<HTMLButtonElement>('.knowledge-audit-finding button')].find(b=>b.textContent==='Agent Engineering · open entry');
+ assert(ref,'Evidence reference links to its library entry');ref!.click();
+ assert(opened.length===1&&opened[0].sourceFile==='02 - Research/Agent Engineering.md'&&opened[0].fingerprint==='fixture-body-fingerprint'&&opened[0].excerpt?.includes('A loop discovers'),'Opening evidence passes the file, excerpt and body fingerprint');
  assert(!document.querySelector('article script'),'Source HTML is rendered as text');
- stale=true;button('Recheck evidence').click();await wait(100);assert(document.body.textContent?.includes('stale'),'Recheck exposes changed evidence without rewriting the original report');
+ stale=true;button('Recheck evidence').click();await wait(100);assert(document.body.textContent?.includes('Changed since this audit'),'Recheck exposes changed evidence without rewriting the original report');
  const before=runs.length;failOnce=true;type('retry evidence');await wait(70);button('Gather evidence').click();await wait(100);
  assert(document.querySelector('[role="alert"]')?.textContent?.includes('lost response'),'Failure is visible after uncertain delivery');
  button('Check / retry same request').click();await wait(100);assert(runs.length===before+1,'Retry reuses request identity without duplicate reports');

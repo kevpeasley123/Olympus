@@ -32,7 +32,7 @@ export type PantheonFreshness = "recent" | "watch" | "dated" | "stale" | "undate
 export interface ResearchRecord {
   id: string;
   title: string;
-  sourceType: "article" | "transcript" | "note" | "manual";
+  sourceType: "article" | "transcript" | "note" | "manual" | "guide" | "paper" | "talk";
   createdAt: string;
   sourceDate: string;
   tags: string[];

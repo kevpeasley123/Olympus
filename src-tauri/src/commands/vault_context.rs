@@ -418,7 +418,10 @@ mod tests {
             file_modified_at: String::new(),
             body_preview: String::new(),
             body: String::new(),
-            source_label: "Local source".into(),
+            source_label: String::new(),
+            source_url: None,
+            fingerprint: String::new(),
+            file_fingerprint: String::new(),
         }
     }
 
