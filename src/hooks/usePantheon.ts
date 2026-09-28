@@ -27,13 +27,22 @@ export interface PantheonEntry {
   /** Absent means no purpose was ever stated, which is surfaced, not filled in. */
   whyKept?: string;
   project?: string;
-  /** Resolved in Rust from the note's frontmatter; the webview parses none. */
+  /** Resolved in Rust from the note's frontmatter; the webview parses none. Empty when unnamed. */
   sourceLabel: string;
+  /** The frontmatter `source_url`, as text. Open only through `open_external_link`. */
+  sourceUrl?: string;
   tags: string[];
   wordCount: number;
   fileModifiedAt: string;
   bodyPreview: string;
   body: string;
+  /**
+   * `content_fingerprint` of `body`, the value a reply's research snapshot
+   * stores. Absent from a backend that predates it.
+   */
+  fingerprint?: string;
+  /** `content_fingerprint` of the whole file, the value Research Verification binds. */
+  fileFingerprint?: string;
 }
 
 /**

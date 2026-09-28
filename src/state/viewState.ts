@@ -57,6 +57,45 @@ export interface ResearchViewState {
   section: string | null;
   detailEntryId: string | null;
   listScrollTop: number;
+  /** The Research header's segment (review U7). Absent reads as "library". */
+  inspector?: "library" | "questions" | "audits";
+  /** All-entries order. Absent reads as "added". */
+  sort?: "added" | "published" | "title";
+  detailScrollTop?: number;
+  /** How the open entry was reached when not from the list (review U5). */
+  arrival?: ResearchArrival | null;
+  /** The last unsent Add Entry form, kept until saved or discarded (review U3). */
+  addEntryDraft?: ResearchEntryDraft | null;
+}
+
+export interface ResearchArrival {
+  sourceFile: string;
+  /** The text that was supplied or saved, shown apart from the current file. */
+  excerpt?: string;
+  fingerprint?: string;
+  /** What the excerpt belonged to, for the wording of the comparison. */
+  context: "reply" | "verification" | "audit";
+  title?: string;
+  /** Set when the entry was opened from an inspector, so Back returns there. */
+  returnTo?: "questions" | "audits";
+}
+
+export interface ResearchEntryDraft {
+  title: string;
+  body: string;
+  sourceType: string;
+  sourceUrl: string;
+  sourceDate: string;
+  tagsRaw: string;
+  stance: string;
+  whyKept: string;
+  origin: string;
+  project: string;
+  /** A picked file, named by its Rust-side token; the webview never holds its path. */
+  attachment: { token: string; originalFilename: string; extension: string } | null;
+  /** Research-relative path of an attachment copied by a save whose entry write failed. */
+  savedAttachmentPath: string | null;
+  keptAt: string;
 }
 
 export interface CommsReplyDraft {

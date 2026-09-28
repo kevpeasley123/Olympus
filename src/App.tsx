@@ -224,7 +224,7 @@ function App() {
               <FadeInPanel index={1} className="panel-slot panel-slot-library-resident">
                 <ErrorBoundary label="Research view">
                   <LibraryPanel onViewDatabase={syncResearchBase} resident inspectionTarget={researchInspection}
-                    onReturnToCommand={()=>{setResearchInspection(null);setMode("command")}}/>
+                    onReturnToCommand={()=>{setResearchInspection(null);setMode("command")}} projects={projects}/>
                 </ErrorBoundary>
               </FadeInPanel>
             ) : (
@@ -247,7 +247,7 @@ function App() {
                 </FadeInPanel>
                 <FadeInPanel index={7} className="panel-slot panel-slot-library">
                   <ErrorBoundary label="Pantheon strip">
-                    <LibraryPanel onViewDatabase={syncResearchBase} />
+                    <LibraryPanel onViewDatabase={syncResearchBase} projects={projects} />
                   </ErrorBoundary>
                 </FadeInPanel>
               </>
