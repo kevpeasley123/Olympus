@@ -67,6 +67,8 @@ export interface ProjectScanState {
   lastSuccessAt: string | null;
   error: string | null;
   scanning: boolean;
+  /** ISO time of the failure behind `error`, for "Project scan failed 10:42". */
+  failedAt?: string | null;
 }
 
 /**
@@ -216,9 +218,10 @@ export function useDashboardData() {
       const message = errorMessage(error);
       // Projects are left untouched either way: empty if no scan ever
       // succeeded, the last genuine result if one did.
+      const failedAt = new Date().toISOString();
       setProjectScan((current) => current.lastSuccessAt
-        ? { status: "stale", lastSuccessAt: current.lastSuccessAt, error: message, scanning: false }
-        : { status: "failed", lastSuccessAt: null, error: message, scanning: false });
+        ? { status: "stale", lastSuccessAt: current.lastSuccessAt, error: message, scanning: false, failedAt }
+        : { status: "failed", lastSuccessAt: null, error: message, scanning: false, failedAt });
     }
   }, [dashboardState.settings.projectsRootPath, sessionBoundary?.previousSessionStartedAt]);
 

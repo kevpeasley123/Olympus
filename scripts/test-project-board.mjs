@@ -1,0 +1,10 @@
+import {build} from 'esbuild';
+import {mkdir} from 'node:fs/promises';
+await mkdir('output/tests',{recursive:true});
+await build({entryPoints:['src/services/projectCommandBoard.harness.ts','src/services/delegationReview.harness.ts'],bundle:true,format:'esm',platform:'node',outdir:'output/tests',logLevel:'warning'});
+const {runProjectCommandBoardHarness}=await import('../output/tests/projectCommandBoard.harness.js');
+const {runDelegationReviewHarness}=await import('../output/tests/delegationReview.harness.js');
+const board=runProjectCommandBoardHarness();
+console.log(`PASS ${board.passed} project board derivation checks`);
+const review=runDelegationReviewHarness();
+console.log(`PASS ${review.passed} delegation review checks`);

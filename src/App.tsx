@@ -50,7 +50,10 @@ function App() {
     recordObservation,
     syncResearchBase,
     syncProjectsCanvas,
-    refreshAll
+    refreshAll,
+    projectScan,
+    rescanProjects,
+    demoData
   } = useDashboardData();
   const voice = useVoiceState();
   const [voiceFilter, setVoiceFilter] = useState<{status:OperationalStatus|"ALL"; revision:number}>({status:"ALL",revision:0});
@@ -242,6 +245,10 @@ function App() {
                       onClearFilter={() => setProjectFilter(null)}
                       onFocusProject={enterProject}
                       onOpenNote={openNote}
+                      projectScan={projectScan}
+                      onRescan={rescanProjects}
+                      demoData={demoData}
+                      projectsRootPath={settings.projectsRootPath}
                     />
                   </ErrorBoundary>
                 </FadeInPanel>

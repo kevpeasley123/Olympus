@@ -1,78 +1,180 @@
 import { useCallback, useEffect, useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
-import { fetchDelegationDiff, type DelegationRun } from "../../services/delegation";
+import {
+  completeDelegationReview,
+  fetchDelegationDiff,
+  fetchDelegationReview,
+  fetchReviewFingerprint,
+  runDelegationCheck,
+  type DelegationRun,
+  type ReviewDetails
+} from "../../services/delegation";
+import {
+  checkLabel,
+  checkSupportsWorkspace,
+  completionChecklist,
+  MIN_NOTE_CHARS,
+  noteLength,
+  reconcileReviewNotes
+} from "../../services/delegationReview";
+import { EMPTY_REVIEW_NOTES, useViewEntry } from "../../state/viewState";
+import { formatWhen } from "../../services/time";
+import "./projects.css";
 
-interface Check { id: string; checkName: string; exitCode: number | null; output: string; workspaceHash: string }
-interface CheckOption { id: string; label: string; unavailable: string | null }
-interface Details { criteria: string[]; plan: string; checks: Check[]; approvals: string[]; availableChecks: CheckOption[] }
+interface DelegationReviewProps {
+  runId: string;
+  projectId: string;
+  onComplete: (run: DelegationRun) => void;
+}
 
-export function DelegationReview({ runId, onComplete }: { runId: string; onComplete: (run: DelegationRun) => void }) {
-  const [details, setDetails] = useState<Details | null>(null);
+/**
+ * The operator's review of a preserved result. Notes, check selections, the
+ * acknowledgement and unresolved issues live in the session view store
+ * (`reviewNotes`), so a check, a poll, a refresh or a mode switch never erases
+ * them (review U3). Validity is re-derived on every read.
+ */
+export function DelegationReview({ runId, projectId, onComplete }: DelegationReviewProps) {
+  const [entry, setEntry] = useViewEntry("reviewNotes", runId, EMPTY_REVIEW_NOTES);
+  const [details, setDetails] = useState<ReviewDetails | null>(null);
   const [diff, setDiff] = useState("");
   const [hash, setHash] = useState("");
-  const [notes, setNotes] = useState<string[]>([]);
-  const [checkIds, setCheckIds] = useState<string[]>([]);
-  const [issues, setIssues] = useState("");
-  const [reviewed, setReviewed] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [running, setRunning] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const [invalidated, setInvalidated] = useState<string | null>(null);
+  const checklistId = `review-checklist-${runId}`;
 
   const refresh = useCallback(async () => {
-    const before = await invoke<string>("delegation_review_fingerprint", { request: { runId } });
-    const record = await invoke<Details>("fetch_delegation_review", { request: { runId } });
+    const before = await fetchReviewFingerprint(runId);
+    const record = await fetchDelegationReview(runId);
     const changes = await fetchDelegationDiff(runId);
-    const after = await invoke<string>("delegation_review_fingerprint", { request: { runId } });
+    const after = await fetchReviewFingerprint(runId);
     if (before !== after) throw new Error("The workspace changed while loading review. Reopen it for a fresh diff.");
-    setDetails(record); setDiff(changes); setHash(after); setReviewed(false);
-    setNotes(record.criteria.map(() => "")); setCheckIds(record.criteria.map(() => ""));
-  }, [runId]);
+    setDetails(record); setDiff(changes); setHash(after);
+    let message: string | null = null;
+    setEntry(current => {
+      const { next, invalidated: reason } = reconcileReviewNotes(current, {
+        hash: after, approvals: record.approvals, checks: record.checks, criteriaCount: record.criteria.length
+      }, projectId);
+      message = reason;
+      return next;
+    });
+    if (message) setInvalidated(message);
+    return record;
+  }, [runId, projectId, setEntry]);
   useEffect(() => { void refresh().catch(e => setError(String(e))); }, [refresh]);
 
+  const notes = entry.notes;
+  const evidence = entry.evidence;
+  const issues = entry.issues ?? "";
+  const setField = (index: number, key: "notes" | "evidence", value: string) =>
+    setEntry(current => ({ ...current, projectId, [key]: current[key].map((item, i) => i === index ? value : item) }));
+
   async function check(checkId: string) {
-    setBusy(true); setError("");
-    try { await invoke("run_delegation_check", { request: { runId, checkId } }); await refresh(); }
-    catch (e) { setError(String(e)); }
-    finally { setBusy(false); }
+    const previous = new Set(details?.checks.map(item => item.id) ?? []);
+    setBusy(true); setRunning(checkId); setError("");
+    try {
+      await runDelegationCheck(runId, checkId);
+    } catch (e) { setError(String(e)); }
+    try {
+      const record = await refresh();
+      // The fresh result opens so its output is read, not assumed.
+      const fresh = record.checks.find(item => !previous.has(item.id));
+      if (fresh) setExpanded(fresh.id);
+    } catch (e) { setError(String(e)); }
+    finally { setBusy(false); setRunning(null); }
   }
+
+  const checklist = details ? completionChecklist({
+    criteria: details.criteria, notes, evidence, checks: details.checks, options: details.availableChecks,
+    hash, reviewed: entry.reviewed, issues, running
+  }) : [];
+  const unmet = checklist.filter(item => !item.met);
+
   async function complete() {
-    if (!details) return;
+    if (!details || unmet.length) return;
     setBusy(true); setError("");
     try {
-      const run = await invoke<DelegationRun>("complete_delegation_review", { request: {
+      const run = await completeDelegationReview({
         runId, workspaceHash: hash, unresolvedIssues: issues,
-        evidence: details.criteria.map((criterion, i) => ({ criterion, note: notes[i], checkId: checkIds[i] || null }))
-      } });
+        evidence: details.criteria.map((criterion, i) => ({ criterion, note: notes[i] ?? "", checkId: evidence[i] || null }))
+      });
+      setEntry(null);
       onComplete(run);
     } catch (e) { setError(String(e)); }
     finally { setBusy(false); }
   }
-  return <section className="delegation-checkpoint" aria-label="Result review">
+
+  const runningLabel = running && details ? checkLabel(running, details.availableChecks) : null;
+
+  return <section className="delegation-review" aria-label="Result review">
     <h4>Review the preserved result</h4>
     {error && <p className="delegation-error" role="alert">{error}</p>}
+    {invalidated && <div className="delegation-review__notice" role="status">
+      <p>{invalidated}</p>
+      <button type="button" className="delegation-action" onClick={() => setInvalidated(null)}>Dismiss</button>
+    </div>}
+    {!details && !error && <p className="delegation-review__hint">Reading the recorded contract, checks and diff…</p>}
     {details && <>
-      <details><summary>Recorded approvals</summary>{details.approvals.map(row => <p key={row}>{row}</p>)}</details>
-      <details><summary>Plan</summary><pre>{details.plan}</pre></details>
-      <details><summary>Workspace diff</summary><pre className="delegation-diff">{diff}</pre></details>
-      <p>Run applicable checks. A successful process exit alone does not establish the requested outcome.</p>
-      <p>Each check runs build and test scripts from this worktree, which the agent could have changed. It runs without API keys in its environment, but it is not sandboxed.</p>
-      <div className="delegation-actions">
-        {details.availableChecks.map(option => <button className="delegation-action" key={option.id} disabled={busy || !!option.unavailable} title={option.unavailable ?? "Runs code written by the agent"} onClick={() => void check(option.id)}>{option.label} · runs agent code</button>)}
+      <details className="delegation-review__disclosure"><summary>Recorded approvals</summary>{details.approvals.map(row => <p key={row}>{row}</p>)}</details>
+      <details className="delegation-review__disclosure"><summary>Plan</summary><pre>{details.plan || "No plan recorded."}</pre></details>
+      <details className="delegation-review__disclosure"><summary>Workspace diff · fingerprint {hash.slice(0, 8)}</summary><pre className="delegation-diff">{diff}</pre></details>
+
+      <div className="delegation-review__group">
+        <h5>Checks</h5>
+        <p className="delegation-review__hint">A successful process exit alone does not establish the requested outcome. Each check runs build and test scripts from this worktree, which the agent could have changed. It runs without API keys in its environment, but it is not sandboxed.</p>
+        <div className="delegation-actions">
+          {details.availableChecks.map(option => <button type="button" className="delegation-action" key={option.id} disabled={busy || !!option.unavailable} title={option.unavailable ?? "Runs code written by the agent"} onClick={() => void check(option.id)}>{running === option.id ? `Running ${option.label}…` : `${option.label} · runs agent code`}</button>)}
+        </div>
+        {runningLabel && <p className="delegation-review__running" role="status">Running {runningLabel}… The result opens here when it finishes.</p>}
+        {details.availableChecks.filter(option => option.unavailable).map(option => <p className="delegation-review__hint" key={option.id}>{option.label}: {option.unavailable}</p>)}
+        {details.checks.map(item => {
+          const stale = item.workspaceHash !== hash;
+          const status = item.exitCode === null ? "did not finish" : item.exitCode === 0 ? "passed" : `failed · exit ${item.exitCode}`;
+          return <details key={item.id} className={`delegation-review__check ${item.exitCode === 0 && !stale ? "is-pass" : "is-fail"}`} open={expanded === item.id}
+            onToggle={event => { const open = (event.currentTarget as HTMLDetailsElement).open; setExpanded(current => open ? item.id : current === item.id ? null : current); }}>
+            <summary>{checkLabel(item.checkName, details.availableChecks)} · {status}{stale ? " · stale" : ""}{item.finishedAt ? ` · ${formatWhen(item.finishedAt)}` : ""}</summary>
+            <pre className="delegation-diff">{item.output}</pre>
+          </details>;
+        })}
       </div>
-      {details.availableChecks.filter(option => option.unavailable).map(option => <p key={option.id}>{option.label}: {option.unavailable}</p>)}
-      {details.checks.map(check => <details key={check.id}><summary>{check.checkName} · exit {check.exitCode ?? "unavailable"}{check.workspaceHash !== hash ? " · stale" : ""}</summary><pre className="delegation-diff">{check.output}</pre></details>)}
-      {details.criteria.map((criterion, i) => <div key={i}>
-        <label htmlFor={`evidence-${runId}-${i}`}>{criterion}</label>
-        <textarea id={`evidence-${runId}-${i}`} className="observation-input" rows={3} value={notes[i] ?? ""} disabled={busy} placeholder="Describe what you observed and where to find the evidence (at least 20 characters)." onChange={e => setNotes(current => current.map((note, n) => n === i ? e.target.value : note))} />
-        <label htmlFor={`check-${runId}-${i}`}>Evidence type</label>
-        <select id={`check-${runId}-${i}`} className="observation-input" value={checkIds[i] ?? ""} disabled={busy} onChange={e => setCheckIds(current => current.map((id, n) => n === i ? e.target.value : id))}>
-          <option value="">Manual artifact or behavior review — no automated test claim</option>
-          {details.checks.filter(c => c.exitCode === 0 && c.workspaceHash === hash).map(c => <option key={c.id} value={c.id}>{c.checkName} · {c.id.slice(0, 8)}</option>)}
-        </select>
-      </div>)}
-      <label htmlFor={`issues-${runId}`}>Unresolved issues (must be empty to complete)</label>
-      <textarea id={`issues-${runId}`} className="observation-input" value={issues} disabled={busy} onChange={e => setIssues(e.target.value)} />
-      <label><input type="checkbox" checked={reviewed} disabled={busy} onChange={e => setReviewed(e.target.checked)} /> I reviewed the diff and the evidence for every criterion.</label>
-      <button className="delegation-action delegation-action--primary" disabled={busy || !reviewed || !!issues.trim() || notes.some(n => n.trim().length < 20)} onClick={() => void complete()}>{busy ? "Working…" : "Record review and complete"}</button>
+
+      <div className="delegation-review__group">
+        <h5>Evidence per criterion</h5>
+        {details.criteria.map((criterion, i) => {
+          const length = noteLength(notes[i] ?? "");
+          const valid = details.checks.filter(item => checkSupportsWorkspace(item, hash));
+          return <div className="delegation-review__criterion" key={i}>
+            <label htmlFor={`evidence-${runId}-${i}`}><span className="delegation-review__index">{i + 1}</span>{criterion}</label>
+            <textarea id={`evidence-${runId}-${i}`} className="observation-input" rows={3} value={notes[i] ?? ""} disabled={busy}
+              aria-describedby={`evidence-count-${runId}-${i}`}
+              placeholder="What you observed and where to find it (at least 20 characters)."
+              onChange={e => setField(i, "notes", e.target.value)} />
+            <span id={`evidence-count-${runId}-${i}`} className={`delegation-review__count ${length >= MIN_NOTE_CHARS ? "is-met" : ""}`}>{length}/{MIN_NOTE_CHARS} characters minimum</span>
+            <label htmlFor={`check-${runId}-${i}`} className="delegation-review__sublabel">Evidence type</label>
+            <select id={`check-${runId}-${i}`} className="observation-input" value={evidence[i] ?? ""} disabled={busy} onChange={e => setField(i, "evidence", e.target.value)}>
+              <option value="">Manual artifact or behavior review — no automated test claim</option>
+              {valid.map(item => <option key={item.id} value={item.id}>{checkLabel(item.checkName, details.availableChecks)} · passed{item.finishedAt ? ` ${formatWhen(item.finishedAt)}` : ` · ${item.id.slice(0, 8)}`}</option>)}
+            </select>
+          </div>;
+        })}
+      </div>
+
+      <div className="delegation-review__group">
+        <label htmlFor={`issues-${runId}`}>Unresolved issues <span>must be empty to complete; not stored</span></label>
+        <textarea id={`issues-${runId}`} className="observation-input" rows={2} value={issues} disabled={busy} onChange={e => setEntry(current => ({ ...current, projectId, issues: e.target.value }))} />
+        <label className="delegation-review__ack"><input type="checkbox" checked={entry.reviewed} disabled={busy} onChange={e => setEntry(current => ({ ...current, projectId, reviewed: e.target.checked }))} /> I reviewed the diff and the evidence for every criterion.</label>
+      </div>
+
+      <div className="delegation-review__complete">
+        <ul id={checklistId} className="delegation-review__checklist" aria-label="Completion requirements">
+          {checklist.map(item => <li key={item.text} className={item.met ? "is-met" : "is-unmet"}><span aria-hidden="true">{item.met ? "✓" : "✗"}</span><span className="projects-sr-only">{item.met ? "Met: " : "Not met: "}</span>{item.text}</li>)}
+        </ul>
+        <button type="button" className="delegation-action delegation-action--primary" aria-describedby={checklistId} disabled={busy || unmet.length > 0} onClick={() => void complete()}>
+          {busy && !running ? "Working…" : "Record review and complete"}
+        </button>
+        {unmet.length > 0 && <p className="delegation-review__hint">{unmet.length} {unmet.length === 1 ? "condition" : "conditions"} left.</p>}
+      </div>
     </>}
   </section>;
 }

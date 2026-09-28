@@ -41,15 +41,70 @@ export function listDelegationRuns(): Promise<DelegationRun[]> {
   return invoke<DelegationRun[]>("list_delegation_runs");
 }
 
+/**
+ * What an approval scope allows, derived in Rust from the same constants the
+ * launch uses. Display only: the approval binds `subject.scope`.
+ */
+export interface PermittedActions {
+  tools: string[];
+  commands: string[];
+  edits: boolean;
+  budgetUsd: string;
+  launchLimitMinutes: number;
+  excluded: string[];
+}
+
 export interface ApprovalProposal {
   id: string;
   sessionId: string;
+  /** Unix seconds. */
   expiresAt: number;
   subject: {
     projectId: string; projectName: string; repository: string; baseCommit: string;
     driver: string; model: string; stage: string; task: string; criteria: string[];
     scope: string; runId: string; workspace: string; workspaceHash: string; plan: string;
   };
+  /** Null when this build does not recognise the scope; show `subject.scope` raw. */
+  permitted: PermittedActions | null;
+  baseBranch: string | null;
+}
+
+export interface CheckEvidence {
+  id: string;
+  checkName: string;
+  exitCode: number | null;
+  output: string;
+  /** Empty when the workspace changed while the check ran. */
+  workspaceHash: string;
+  startedAt?: string;
+  finishedAt?: string;
+}
+export interface CheckOption { id: string; label: string; unavailable: string | null }
+export interface ReviewDetails {
+  criteria: string[];
+  plan: string;
+  /** Newest first. */
+  checks: CheckEvidence[];
+  approvals: string[];
+  availableChecks: CheckOption[];
+  reviewedAt: string | null;
+}
+
+/** Read-only: the recorded contract, plan and evidence. Creates no proposal. */
+export function fetchDelegationReview(runId: string): Promise<ReviewDetails> {
+  return invoke<ReviewDetails>("fetch_delegation_review", { request: { runId } });
+}
+export function fetchReviewFingerprint(runId: string): Promise<string> {
+  return invoke<string>("delegation_review_fingerprint", { request: { runId } });
+}
+export function runDelegationCheck(runId: string, checkId: string): Promise<CheckEvidence> {
+  return invoke<CheckEvidence>("run_delegation_check", { request: { runId, checkId } });
+}
+export function completeDelegationReview(request: {
+  runId: string; workspaceHash: string; unresolvedIssues: string;
+  evidence: { criterion: string; note: string; checkId: string | null }[];
+}): Promise<DelegationRun> {
+  return invoke<DelegationRun>("complete_delegation_review", { request });
 }
 export function prepareDelegationRun(projectId: string, task: string, criteria: string[]): Promise<ApprovalProposal> {
   return invoke("prepare_delegation_run", { request: { projectId, task, criteria } });
