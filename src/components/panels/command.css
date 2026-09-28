@@ -229,7 +229,15 @@ html .model-diagnostics { font-size: var(--text-xs); }
 .model-diagnostics-routes dt { color: var(--label); }
 .model-diagnostics-routes dd { margin: 0; color: var(--secondary); overflow-wrap: anywhere; }
 .model-diagnostics-table-wrap { max-height: 320px; overflow: auto; margin-top: 10px; }
-.model-diagnostics-table { width: 100%; border-collapse: collapse; font: var(--text-xs) var(--font-mono); }
+/* Fixed layout so the Preferences column never scrolls sideways: cells wrap. */
+.model-diagnostics-table { width: 100%; table-layout: fixed; border-collapse: collapse; font: var(--text-xs) var(--font-mono); }
+.model-diagnostics-table th:nth-child(1) { width: 16%; }
+.model-diagnostics-table th:nth-child(2) { width: 19%; }
+.model-diagnostics-table th:nth-child(3) { width: 19%; }
+.model-diagnostics-table th:nth-child(4) { width: 20%; }
+.model-diagnostics-table th:nth-child(5) { width: 12%; }
+.model-diagnostics-table th:nth-child(6) { width: 14%; }
+.model-diagnostics-table td { overflow-wrap: break-word; }
 .model-diagnostics-table th {
   position: sticky;
   top: 0;
@@ -245,7 +253,8 @@ html .model-diagnostics { font-size: var(--text-xs); }
 .model-diagnostics-table tr[data-status="failed"] td:nth-child(4) { color: #e6b48c; }
 .model-diagnostics-model { overflow-wrap: anywhere; }
 .model-diagnostics-json {
-  margin-left: 8px;
+  display: block;
+  margin-top: 4px;
   padding: 1px 6px;
   border: 1px solid #35495b;
   border-radius: 3px;

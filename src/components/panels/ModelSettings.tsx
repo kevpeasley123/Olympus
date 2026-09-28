@@ -76,7 +76,7 @@ function DiagnosticRow({row}:{row:ModelRequest}){
    <td>{statusLabel(row)}</td>
    <td className="tabular-data">{ms(row.firstTokenMs)}</td>
    <td className="tabular-data">{ms(row.latencyMs)}
-    <button type="button" className="model-diagnostics-json" aria-expanded={open} aria-controls={detailId} onClick={()=>setOpen(value=>!value)}>{open?"Hide record":"Record"}</button></td>
+    <button type="button" className="model-diagnostics-json" aria-expanded={open} aria-controls={detailId} onClick={()=>setOpen(value=>!value)}>{open?"Hide":"Record"}</button></td>
   </tr>
   {open&&<tr className="model-diagnostics-detail" id={detailId}><td colSpan={6}><pre>{JSON.stringify(row,null,2)}</pre></td></tr>}
  </>;
