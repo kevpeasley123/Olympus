@@ -22,16 +22,22 @@
 
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use serde::{Deserialize, Serialize};
 
 use super::vault_write::{
-    self, content_fingerprint, resolve_vault_path, summarise_diff, DiffSummary, WriteDecision,
-    WriteIntent,
+    self, display_path, read_existing, resolve_vault_path, summarise_diff, DiffSummary,
+    WriteDecision, WriteIntent,
 };
 use super::write_confirm;
 
 pub const OBSERVATIONS_NOTE: &str = "09 - System/Profile Observations.md";
+
+/// One append at a time: each composes the whole file from what it read, so
+/// two in flight would race to replace each other.
+static WRITER: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+static TEMP_ID: AtomicU64 = AtomicU64::new(1);
 
 /// An observation is one claim. The cap is a shape constraint, not a storage
 /// one: past a couple of sentences it is a note, and notes belong in
@@ -162,10 +168,21 @@ fn atomic_replace(target: &Path, content: &str) -> Result<(), String> {
         .file_name()
         .and_then(|name| name.to_str())
         .ok_or_else(|| "The observations note has no file name.".to_string())?;
-    let temp = parent.join(format!(".{file_name}.olympus-tmp"));
+    // Unique and `create_new`: a fixed name was shared by concurrent writers
+    // and would follow a link planted at that name.
+    let temp = parent.join(format!(
+        ".{file_name}.{}-{}.olympus-tmp",
+        std::process::id(),
+        TEMP_ID.fetch_add(1, Ordering::Relaxed)
+    ));
 
-    let write_temp = || -> Result<(), String> {
-        let mut handle = fs::File::create(&temp).map_err(|error| error.to_string())?;
+    let mut handle = fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&temp)
+        .map_err(|error| format!("Could not stage the observation: {error}"))?;
+
+    let mut write_temp = || -> Result<(), String> {
         handle
             .write_all(content.as_bytes())
             .map_err(|error| error.to_string())?;
@@ -174,7 +191,9 @@ fn atomic_replace(target: &Path, content: &str) -> Result<(), String> {
         handle.sync_all().map_err(|error| error.to_string())
     };
 
-    if let Err(error) = write_temp() {
+    let staged = write_temp();
+    drop(handle);
+    if let Err(error) = staged {
         let _ = fs::remove_file(&temp);
         return Err(format!("Could not stage the observation: {error}"));
     }
@@ -216,8 +235,25 @@ fn rename_over(temp: &Path, target: &Path) -> Result<(), String> {
     ))
 }
 
-fn read_note(path: &Path) -> Option<String> {
-    fs::read_to_string(path).ok()
+/// Only a missing note is absent. Anything else unreadable — invalid UTF-8, a
+/// sharing violation, a cloud placeholder that will not hydrate — would compose
+/// a header plus one entry and replace every observation in the note.
+fn read_note(path: &Path) -> Result<Option<String>, String> {
+    read_existing(path)
+}
+
+/// The post-approval half of the append: lands `after` only if the note still
+/// holds exactly the bytes it was composed from.
+fn replace_checked(target: &Path, before: Option<&str>, after: &str) -> Result<(), String> {
+    if read_note(target)?.as_deref() != before {
+        return Err(
+            "The observations note changed while the confirmation was open, so this entry \
+             was not added. Try again."
+                .to_string(),
+        );
+    }
+
+    atomic_replace(target, after)
 }
 
 /// Appends one dated observation, after the operator approves it.
@@ -228,6 +264,7 @@ pub async fn append_profile_observation(
     request: ObservationRequest,
 ) -> Result<ObservationResult, String> {
     let observation = normalise(&request.text)?;
+    let _writer = WRITER.lock().await;
 
     let relative = PathBuf::from(OBSERVATIONS_NOTE);
     let target = resolve_vault_path(&relative).map_err(|error| error.to_string())?;
@@ -235,7 +272,7 @@ pub async fn append_profile_observation(
     let read_target = target.clone();
     let before = tauri::async_runtime::spawn_blocking(move || read_note(&read_target))
         .await
-        .map_err(|error| format!("Observation read task panicked: {error}"))?;
+        .map_err(|error| format!("Observation read task panicked: {error}"))??;
 
     let entry = format_entry(&today(), &observation);
     let after = compose(before.as_deref(), &entry);
@@ -258,36 +295,25 @@ pub async fn append_profile_observation(
 
         if !approved {
             return Ok(ObservationResult {
-                path: target.to_string_lossy().to_string(),
+                path: display_path(&target),
                 written: false,
             });
         }
     }
 
+    let resolved = resolve_vault_path(&relative).map_err(|error| error.to_string())?;
+    if resolved != target {
+        return Err("The vault location changed during review. Nothing was added.".to_string());
+    }
+
     // The gate can hold for up to two minutes, and this write replaces the
-    // whole file. If the note changed while the dialog was open — a second
-    // observation approved first, or an edit in Obsidian — then `after` was
-    // composed against contents that no longer exist and writing it would
-    // silently drop whatever landed in between.
-    let recheck_target = target.clone();
-    let expected = before.as_deref().map(content_fingerprint);
-
-    let write_target = target.clone();
-    tauri::async_runtime::spawn_blocking(move || -> Result<(), String> {
-        let current = read_note(&recheck_target).as_deref().map(content_fingerprint);
-
-        if current != expected {
-            return Err(
-                "The observations note changed while the confirmation was open, so this entry \
-                 was not added. Try again."
-                    .to_string(),
-            );
-        }
-
-        atomic_replace(&write_target, &after)
-    })
-    .await
-    .map_err(|error| format!("Observation write task panicked: {error}"))??;
+    // whole file. If the note changed while the dialog was open — an edit in
+    // Obsidian, or a sync — then `after` was composed against contents that no
+    // longer exist and writing it would silently drop whatever landed in
+    // between. Exact bytes: the normalised fingerprint would miss some edits.
+    tauri::async_runtime::spawn_blocking(move || replace_checked(&resolved, before.as_deref(), &after))
+        .await
+        .map_err(|error| format!("Observation write task panicked: {error}"))??;
 
     crate::commands::vault_git::commit_vault_file(OBSERVATIONS_NOTE, "append").map_err(|error| {
         format!(
@@ -298,7 +324,7 @@ pub async fn append_profile_observation(
     crate::commands::persistence::log_vault_write(db.inner(), OBSERVATIONS_NOTE, "append");
 
     Ok(ObservationResult {
-        path: target.to_string_lossy().to_string(),
+        path: display_path(&target),
         written: true,
     })
 }
@@ -456,10 +482,53 @@ mod tests {
         atomic_replace(&target, "first\nsecond\n").expect("second write");
         assert_eq!(fs::read_to_string(&target).unwrap(), "first\nsecond\n");
 
-        assert!(
-            !dir.join(".Profile Observations.md.olympus-tmp").exists(),
+        assert_eq!(
+            fs::read_dir(&dir).unwrap().count(),
+            1,
             "the staging file must not survive a successful write"
         );
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    /// One invalid UTF-8 byte used to read as "no note", and the append then
+    /// replaced every observation with the header and a single line.
+    #[test]
+    fn an_unreadable_note_aborts_rather_than_being_replaced() {
+        let dir = std::env::temp_dir().join("olympus-observations-unreadable");
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).expect("create temp dir");
+
+        let target = dir.join("Profile Observations.md");
+        let original = b"- **2026-07-01** \x97 pasted from cp1252\n".to_vec();
+        fs::write(&target, &original).unwrap();
+
+        assert!(read_note(&target).is_err());
+        let entry = "- **2026-07-25** — x";
+        assert!(replace_checked(&target, None, &compose(None, entry)).is_err());
+        assert_eq!(fs::read(&target).unwrap(), original);
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    /// The approval covered specific bytes. A trailing-whitespace edit made
+    /// during the dialog is invisible to the fingerprint, and still an edit.
+    #[test]
+    fn the_post_approval_check_compares_exact_bytes() {
+        let dir = std::env::temp_dir().join("olympus-observations-recheck");
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).expect("create temp dir");
+
+        let target = dir.join("Profile Observations.md");
+        let before = format!("{NOTE_HEADER}- **2026-07-01** — first\n");
+        fs::write(&target, format!("{before}  ")).unwrap();
+
+        let after = compose(Some(&before), "- **2026-07-25** — second");
+        assert!(replace_checked(&target, Some(&before), &after).is_err());
+
+        fs::write(&target, &before).unwrap();
+        replace_checked(&target, Some(&before), &after).expect("unchanged note");
+        assert_eq!(fs::read_to_string(&target).unwrap(), after);
 
         let _ = fs::remove_dir_all(&dir);
     }

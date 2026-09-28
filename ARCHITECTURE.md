@@ -64,8 +64,8 @@ Olympus has written to the vault since April 2026. Five commands do it. All five
 
 | Command | Operation | Target | Declared intent | Asks first? |
 | --- | --- | --- | --- | --- |
-| `write_pantheon_entry` | create | `02 - Research/<date> <title>.md` | `CreateUnique` | No — `ensure_unique_path` (`pantheon.rs`) suffixes on collision, so nothing is destroyed |
-| `save_attachment_to_vault` | create | `02 - Research/_attachments/<file>` | `CreateUnique` | No — `ensure_unique_attachment_path` (`attachments.rs:55`) suffixes |
+| `write_pantheon_entry` | create | `02 - Research/<date> <title>.md` | `CreateUnique` | No — `create_unique` (`pantheon.rs`) claims a free suffixed name with `create_new`, so nothing is destroyed |
+| `save_attachment_to_vault` | create | `02 - Research/_attachments/<file>` | `CreateUnique` | No — `copy_to_unique` (`attachments.rs`) claims a free suffixed name with `create_new`; the source is a file the operator picked, named to the webview only by a one-use token |
 | `write_memory_artifact` | **overwrite** | `00 - Dashboard/Olympus Research.base`, `Olympus Projects.canvas` | `RegenerateDerived` | Only when the file diverged from what Olympus last wrote, or was never fingerprinted |
 | `promote_chat_memory` | **append** | `04 - Decisions/Decision Log.md` | `AppendAuthored` | **Always**, with the complete bounded addition |
 | `append_profile_observation` | **append** | `09 - System/Profile Observations.md` | `AppendAuthored` | **Always** |
@@ -76,7 +76,7 @@ No command deletes or renames a note the operator can see.
 
 Every vault write goes through `commands::vault_write`, which does two separate things:
 
-- **Containment.** `resolve_vault_path` proves the target lands inside the vault before anything touches disk — rejecting traversal, absolute and UNC paths, alternate data streams, Windows device names, and junctions that redirect out of the vault. Out-of-vault writes are **rejected, never confirmed**: a confirm path would mean the mechanism exists and one misclick authorizes it.
+- **Containment.** `resolve_vault_path` proves the target lands inside the vault before anything touches disk — rejecting traversal, absolute and UNC paths, alternate data streams, Windows device names, names ending in a dot or space, `.git` and `.obsidian` in any case, and junctions or dangling links that redirect out of the vault. Out-of-vault writes are **rejected, never confirmed**: a confirm path would mean the mechanism exists and one misclick authorizes it.
 - **Classification.** Each call site *declares* a `WriteIntent`; the gate never infers one from the filesystem operation. `CreateUnique` is safe only because both creating writers guarantee an unused path — that is a property of those call sites, not of creation.
 
 When a write needs a human, `write_confirm::request_confirmation` emits `vault-write-pending` to the webview and blocks on the answer. Timeout (120s), a dropped channel, and an emit failure all **deny**. The operator's answer returns through `resolve_vault_write`. `WriteConfirmDialog.tsx` renders it; declining is the default on Escape, the backdrop, and the focused button, and the dialog's wording comes from the intent-derived `operation` field so an append is never described as an overwrite.

@@ -68,7 +68,8 @@ interface MigrationOutcome {
 }
 
 interface StagedAttachment {
-  sourcePath: string;
+  /** Names the picked file inside Rust; the webview never holds its path. */
+  token: string;
   originalFilename: string;
   sizeBytes: number;
   extension: string;
@@ -292,8 +293,7 @@ export function LibraryPanel({ onViewDatabase, resident = false,inspectionTarget
       if (formData.attachment) {
         try {
           const writtenAttachmentPath = await invoke<string>("save_attachment_to_vault", {
-            sourcePath: formData.attachment.sourcePath,
-            targetFilename: formData.attachment.originalFilename
+            token: formData.attachment.token
           });
           attachments = [writtenAttachmentPath];
         } catch (err) {
@@ -1153,10 +1153,12 @@ function AddEntryModal({
   async function handlePickAttachment() {
     setAttachmentError(null);
     try {
-      const picked = await invoke<string | null>("pick_attachment_file");
+      const picked = await invoke<{ token: string; fileName: string } | null>(
+        "pick_attachment_file"
+      );
       if (!picked) return;
 
-      const filename = picked.split(/[\\/]/).pop() ?? picked;
+      const filename = picked.fileName;
       const ext = filename.includes(".")
         ? filename.split(".").pop()?.toLowerCase() ?? ""
         : "";
@@ -1168,7 +1170,7 @@ function AddEntryModal({
       }
 
       const staged: StagedAttachment = {
-        sourcePath: picked,
+        token: picked.token,
         originalFilename: filename,
         sizeBytes: 0,
         extension: ext
@@ -1180,7 +1182,7 @@ function AddEntryModal({
       if (ext === "pdf") {
         setExtracting(true);
         try {
-          const text = await invoke<string>("extract_pdf_text", { filePath: picked });
+          const text = await invoke<string>("extract_pdf_text", { token: picked.token });
           if (!text || text.trim().length === 0) {
             setExtractedText("");
             setExtractError("No text extracted (likely a scanned PDF).");
