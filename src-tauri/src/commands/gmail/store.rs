@@ -25,6 +25,43 @@ pub fn remove_cache(c: &mut Connection, id: &str) -> Result<(), String> {
     tx.commit()
         .map_err(|_| "gmail_database_commit_failed".into())
 }
+/// What `remove_cache` would delete, and what narrowing the history range to
+/// `older_than_days` would prune on the next sync. Read-only: the confirmation
+/// dialogs show these numbers so the operator never approves an unknown loss.
+pub fn cache_counts(
+    c: &Connection,
+    id: &str,
+    older_than_days: Option<u32>,
+    now_ms: i64,
+) -> Result<serde_json::Value, String> {
+    let count = |sql: &str| -> Result<i64, String> {
+        c.query_row(sql, [id], |r| r.get(0))
+            .map_err(|_| "gmail_database_read_failed".into())
+    };
+    let older = match older_than_days {
+        Some(days) => Some(serde_json::json!({
+            "days": days,
+            "messages": c.query_row(
+                "SELECT count(*) FROM gmail_messages WHERE account_id=?1 AND internal_date<?2",
+                params![id, now_ms - i64::from(days) * 86_400_000],
+                |r| r.get::<_, i64>(0),
+            ).map_err(|_| "gmail_database_read_failed")?,
+        })),
+        None => None,
+    };
+    Ok(serde_json::json!({
+        "accountId": id,
+        "messages": count("SELECT count(*) FROM gmail_messages WHERE account_id=?1")?,
+        "situations": count("SELECT count(*) FROM communication_situations WHERE account_id=?1")?,
+        "updates": count("SELECT count(*) FROM communication_situation_updates WHERE account_id=?1")?,
+        "drafts": count("SELECT count(*) FROM communication_situation_drafts WHERE account_id=?1")?,
+        "analysisRuns": count("SELECT count(*) FROM communication_runs WHERE account_id=?1")?,
+        "documentContexts": count("SELECT count(*) FROM communication_situation_contexts WHERE account_id=?1")?,
+        // A context without a sources array counts as zero sources, never an error.
+        "documentSources": count("SELECT coalesce(sum(CASE WHEN json_valid(payload_json) THEN CASE WHEN json_type(payload_json,'$.sources')='array' THEN json_array_length(payload_json,'$.sources') ELSE 0 END ELSE 0 END),0) FROM communication_situation_contexts WHERE account_id=?1")?,
+        "olderThan": older,
+    }))
+}
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, Serialize, Deserialize)]
