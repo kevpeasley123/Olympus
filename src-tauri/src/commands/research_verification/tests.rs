@@ -37,9 +37,9 @@ fn fixture(values: Vec<Value>) -> Fixture {
 }
 fn setup() -> (Db, PathBuf, Run) {
     let c = rusqlite::Connection::open_in_memory().unwrap();
-    recover(&c).unwrap();
     c.execute_batch(include_str!("../../../schema.sql"))
         .unwrap();
+    recover(&c).unwrap();
     let db = Db(Mutex::new(c));
     let root = std::env::temp_dir().join(format!(
         "olympus-research-test-{}",
@@ -269,6 +269,76 @@ fn catalog_reads_do_not_recover_or_mutate_runs_and_can_export_synthetic_ui_fixtu
         )
         .unwrap();
     }
+    // The review writer's phase is `complete`, not `completed`.
+    db.0.lock().unwrap().execute("INSERT INTO delegation_runs(id,project_id,project_name,task,driver,model,phase,workspace,branch,base_commit,agent_session_id,milestone) VALUES ('run','p','P','t','d','m','complete','w','b','c','s','Operator reviewed')",[]).unwrap();
+    let recorded = super::catalog(&db, &root, true).unwrap();
+    assert_eq!(recorded["codingDelegate"]["completedRuns"], 1);
+    assert_eq!(recorded["codingDelegate"]["recordedRuns"], 1);
+    cleanup(root);
+}
+
+#[test]
+fn unreadable_or_malformed_notes_are_skipped_and_only_tagged_notes_count() {
+    let (db, root, run) = setup();
+    std::fs::write(
+        root.join("02 - Research/broken.md"),
+        "---\ntags: [olympus/research\ntitle: : :\n---\nagent research",
+    )
+    .unwrap();
+    std::fs::write(root.join("02 - Research/binary.md"), [0xff, 0xfe, 0x00]).unwrap();
+    // Untagged notes past the tagged-note budget do not count against it.
+    for i in 0..300 {
+        std::fs::write(
+            root.join(format!("02 - Research/untagged-{i}.md")),
+            "---\ntags: [other]\n---\nagent research",
+        )
+        .unwrap();
+    }
+    let (sources, warnings) = scan(&root, &run.question, &[]).unwrap();
+    assert_eq!(sources.len(), 3);
+    assert_eq!(warnings.len(), 2);
+    assert!(warnings.iter().any(|w| w.contains("broken.md")));
+    assert!(warnings.iter().any(|w| w.contains("binary.md")));
+    let r = research(&sources);
+    let v = verified(&r, Verdict::Supported, false);
+    let result = finish(&db, &root, run, &fixture(vec![json!(r), json!(v)]));
+    assert_eq!(result.status, "completed");
+    assert!(result
+        .events
+        .iter()
+        .any(|e| e.node == "scope" && e.state == "warning" && e.detail.contains("broken.md")));
+    cleanup(root);
+}
+
+#[test]
+fn a_running_row_past_its_deadline_is_stale_and_does_not_block_a_new_run() {
+    let (db, root, mut run) = setup();
+    let other = Start {
+        id: "second-run".into(),
+        question: "agent research".into(),
+    };
+    assert_eq!(
+        begin(
+            &db,
+            Start {
+                id: other.id.clone(),
+                question: other.question.clone()
+            }
+        )
+        .unwrap_err(),
+        "research_workflow_already_running"
+    );
+    run.deadline = (Utc::now() - chrono::Duration::seconds(STALE_GRACE_SECONDS + 1)).to_rfc3339();
+    child(&mut run, RESEARCH, 0);
+    event(&mut run, "research", "pending", "test");
+    checkpoint(&db, &run).unwrap();
+    let (created, fresh) = begin(&db, other).unwrap();
+    assert!(fresh);
+    assert_eq!(created.status, "running");
+    let stale = load(&db, &run.id).unwrap();
+    assert_eq!(stale.status, "interrupted");
+    assert_eq!(stale.agents[0].status, "interrupted");
+    assert!(stale.error.unwrap().contains("deadline"));
     cleanup(root);
 }
 

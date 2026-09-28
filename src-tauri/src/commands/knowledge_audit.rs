@@ -14,6 +14,7 @@ const GRAPH: &str = "knowledge-audit/v1";
 const MAX_BYTES: u64 = 512_000;
 const MAX_ITERATIONS: usize = 3;
 const HISTORY_LIMIT: usize = 3;
+const STALE_AFTER_MINUTES: u32 = 30;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -214,6 +215,9 @@ fn begin(db: &Db, request: &StartRequest) -> Result<bool, String> {
         }
         return Ok(false);
     }
+    // An audit is a bounded local read; one still `running` long after it began lost its
+    // worker without settling the row, and must not block every later audit until restart.
+    tx.execute("UPDATE knowledge_audit_runs SET status='interrupted',payload_json=json_set(payload_json,'$.status','interrupted','$.error','The audit worker stopped without finishing; retry as a new audit. Prior evidence is preserved.','$.finishedAt',?1) WHERE status='running' AND julianday(json_extract(payload_json,'$.startedAt')) < julianday('now',?2)",params![now(),format!("-{STALE_AFTER_MINUTES} minutes")]).map_err(|e|e.to_string())?;
     let active: i64 = tx
         .query_row(
             "SELECT count(*) FROM knowledge_audit_runs WHERE status='running'",

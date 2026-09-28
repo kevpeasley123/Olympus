@@ -133,8 +133,19 @@ pub struct Start {
     pub question: String,
 }
 
+// A live task stops itself within moments of its deadline; past this, it is not running.
+const STALE_GRACE_SECONDS: i64 = 60;
+
 pub fn recover(connection: &rusqlite::Connection) -> Result<(), String> {
-    connection.execute_batch("CREATE TABLE IF NOT EXISTS research_verification_runs(id TEXT PRIMARY KEY,status TEXT NOT NULL,cancel_requested INTEGER NOT NULL DEFAULT 0,record_json TEXT NOT NULL); CREATE TABLE IF NOT EXISTS research_verification_checkpoints(run_id TEXT NOT NULL,sequence INTEGER NOT NULL,record_json TEXT NOT NULL,PRIMARY KEY(run_id,sequence));").map_err(|e|e.to_string())?;
+    interrupt_running(connection, false, "Application restarted; execution end time and any unreported provider usage are unknown. Start a new run explicitly.")
+}
+/// Marks `running` rows interrupted: all of them at startup, or only those past their
+/// deadline when a task died without settling its row (for example after a panic).
+fn interrupt_running(
+    connection: &rusqlite::Connection,
+    stale_only: bool,
+    reason: &str,
+) -> Result<(), String> {
     let rows = {
         let mut query = connection
             .prepare("SELECT record_json FROM research_verification_runs WHERE status='running'")
@@ -148,8 +159,15 @@ pub fn recover(connection: &rusqlite::Connection) -> Result<(), String> {
     };
     for raw in rows {
         let mut run: Run = serde_json::from_str(&raw).map_err(|e| e.to_string())?;
+        if stale_only
+            && chrono::DateTime::parse_from_rfc3339(&run.deadline).is_ok_and(|deadline| {
+                Utc::now() < deadline + chrono::Duration::seconds(STALE_GRACE_SECONDS)
+            })
+        {
+            continue;
+        }
         run.status = "interrupted".into();
-        run.error=Some("Application restarted; execution end time and any unreported provider usage are unknown. Start a new run explicitly.".into());
+        run.error = Some(reason.into());
         for child in &mut run.agents {
             if child.status == "running" || child.status == "pending" {
                 child.status = "interrupted".into();
@@ -157,7 +175,14 @@ pub fn recover(connection: &rusqlite::Connection) -> Result<(), String> {
                 if let Some(record) = &mut child.request {
                     if record.status == "started" {
                         record.status = "interrupted".into();
-                        record.error_code = Some("application_restarted".into())
+                        record.error_code = Some(
+                            if stale_only {
+                                "deadline_exceeded"
+                            } else {
+                                "application_restarted"
+                            }
+                            .into(),
+                        )
                     }
                 }
             }
@@ -282,12 +307,23 @@ fn read_source(root: &Path, relative: &str) -> Result<String, String> {
     }
     String::from_utf8(bytes).map_err(|_| "source_not_utf8".into())
 }
+#[cfg(test)]
 fn collect(root: &Path, question: &str, existing: &[Source]) -> Result<Vec<Source>, String> {
+    scan(root, question, existing).map(|(sources, _)| sources)
+}
+/// Selects sources from tagged Research notes. One unreadable or malformed note is skipped
+/// and named in the returned warnings; it does not fail the run.
+fn scan(
+    root: &Path,
+    question: &str,
+    existing: &[Source],
+) -> Result<(Vec<Source>, Vec<String>), String> {
     let canonical = root.canonicalize().map_err(|_| "vault_unavailable")?;
     let root = canonical.as_path();
     let folder =
         vault_write::resolve_within(root, Path::new("02 - Research")).map_err(|e| e.to_string())?;
     let mut paths = Vec::new();
+    let mut warnings = Vec::new();
     for (i, item) in walkdir::WalkDir::new(folder)
         .follow_links(false)
         .sort_by_file_name()
@@ -297,7 +333,20 @@ fn collect(root: &Path, question: &str, existing: &[Source]) -> Result<Vec<Sourc
         if i >= 2048 {
             return Err("research_directory_budget_exceeded".into());
         }
-        let entry = item.map_err(|_| "research_directory_unreadable")?;
+        let entry = match item {
+            Ok(entry) => entry,
+            Err(error) => {
+                let path = error
+                    .path()
+                    .and_then(|p| p.strip_prefix(root).ok())
+                    .map(|p| p.to_string_lossy().replace('\\', "/"));
+                warnings.push(format!(
+                    "{} (research_directory_unreadable)",
+                    path.unwrap_or_else(|| "02 - Research".into())
+                ));
+                continue;
+            }
+        };
         if !entry.file_type().is_file()
             || entry.path().extension().and_then(|s| s.to_str()) != Some("md")
         {
@@ -313,24 +362,25 @@ fn collect(root: &Path, question: &str, existing: &[Source]) -> Result<Vec<Sourc
             continue;
         }
         paths.push(relative);
-        if paths.len() > 256 {
-            return Err("research_file_count_budget_exceeded".into());
-        }
     }
     let mut entries = Vec::new();
     let mut fingerprints = std::collections::BTreeMap::new();
     let mut bytes = 0;
     for path in paths {
-        let raw = read_source(root, &path)?;
-        bytes += raw.len();
-        if bytes > 16_000_000 {
-            return Err("research_read_budget_exceeded".into());
-        }
+        let raw = match read_source(root, &path) {
+            Ok(raw) => raw,
+            Err(error) => {
+                warnings.push(format!("{path} ({error})"));
+                continue;
+            }
+        };
         let Some((header, body)) = super::pantheon::split_frontmatter(&raw) else {
             continue;
         };
-        let metadata: serde_yaml::Value =
-            serde_yaml::from_str(header).map_err(|_| "research_frontmatter_invalid")?;
+        let Ok(metadata) = serde_yaml::from_str::<serde_yaml::Value>(header) else {
+            warnings.push(format!("{path} (research_frontmatter_invalid)"));
+            continue;
+        };
         let tags: Vec<String> = metadata
             .get("tags")
             .and_then(|v| v.as_sequence())
@@ -343,6 +393,13 @@ fn collect(root: &Path, question: &str, existing: &[Source]) -> Result<Vec<Sourc
         if !tags.iter().any(|t| t == "olympus/research") {
             continue;
         }
+        if fingerprints.len() >= 256 {
+            return Err("research_file_count_budget_exceeded".into());
+        }
+        bytes += raw.len();
+        if bytes > 16_000_000 {
+            return Err("research_read_budget_exceeded".into());
+        }
         let field = |name: &str| {
             metadata
                 .get(name)
@@ -354,10 +411,16 @@ fn collect(root: &Path, question: &str, existing: &[Source]) -> Result<Vec<Sourc
                 ["endorsed", "provisional", "disputed", "unevaluated"].contains(&s.as_str())
             })
             .unwrap_or("unevaluated".into());
-        entries.push(serde_json::from_value::<super::pantheon::PantheonEntry>(json!({"id":path,"title":field("title").unwrap_or(path.clone()),"sourceFile":path,"entryType":"research","stance":stance,"origin":field("origin"),"sourceDate":field("source_date"),"tags":tags,"project":field("project"),"wordCount":0,"fileModifiedAt":"","bodyPreview":"","body":body.trim()})).map_err(|e|e.to_string())?);
+        let Ok(entry) = serde_json::from_value::<super::pantheon::PantheonEntry>(
+            json!({"id":path,"title":field("title").unwrap_or(path.clone()),"sourceFile":path,"entryType":"research","stance":stance,"origin":field("origin"),"sourceDate":field("source_date"),"tags":tags,"project":field("project"),"wordCount":0,"fileModifiedAt":"","bodyPreview":"","body":body.trim()}),
+        ) else {
+            warnings.push(format!("{path} (research_entry_invalid)"));
+            continue;
+        };
+        entries.push(entry);
         fingerprints.insert(path, vault_write::content_fingerprint(&raw));
     }
-    Ok(research_retrieval::retrieve(&entries, question)
+    let sources = research_retrieval::retrieve(&entries, question)
         .into_iter()
         .map(|source| {
             let fingerprint = fingerprints[&source.source_file].clone();
@@ -371,7 +434,31 @@ fn collect(root: &Path, question: &str, existing: &[Source]) -> Result<Vec<Sourc
                 checked_at: now(),
             }
         })
-        .collect())
+        .collect();
+    Ok((sources, warnings))
+}
+fn warn_skipped(run: &mut Run, warnings: &[String]) {
+    if warnings.is_empty() {
+        return;
+    }
+    let mut listed = warnings
+        .iter()
+        .take(5)
+        .cloned()
+        .collect::<Vec<_>>()
+        .join("; ");
+    if warnings.len() > 5 {
+        listed.push_str(&format!("; and {} more", warnings.len() - 5));
+    }
+    event(
+        run,
+        "scope",
+        "warning",
+        &format!(
+            "Skipped {} unreadable or malformed Research note(s): {listed}.",
+            warnings.len()
+        ),
+    );
 }
 fn source_health(root: &Path, sources: &[Source]) -> Result<(), String> {
     for s in sources {
@@ -915,7 +1002,9 @@ fn join(
 }
 async fn drive(db: &Db, root: &Path, run: &mut Run, model: &dyn Model) -> Result<(), String> {
     guard(db, run)?;
-    run.sources = collect(root, &run.question, &[])?;
+    let (sources, warnings) = scan(root, &run.question, &[])?;
+    run.sources = sources;
+    warn_skipped(run, &warnings);
     event(run,"scope","completed",&format!("{} excerpts selected; at most 3 initially, 6 overall; lexical retrieval is not exhaustive.",run.sources.len()));
     checkpoint(db, run)?;
     if run.sources.is_empty() {
@@ -997,7 +1086,8 @@ async fn drive(db: &Db, root: &Path, run: &mut Run, model: &dyn Model) -> Result
         )?;
         checkpoint(db, run)?;
         if let Some(request) = &verification.clarification {
-            let extra = collect(
+            // The initial scope event already named any notes this rescan skips again.
+            let (extra, _) = scan(
                 root,
                 &format!("{} {}", run.question, request.question),
                 &run.sources,
@@ -1114,6 +1204,7 @@ fn begin(db: &Db, request: Start) -> Result<(Run, bool), String> {
         }
         return Ok((run, false));
     }
+    interrupt_running(&tx, true, "Execution passed its deadline without settling this record; its end time and any unreported provider usage are unknown. Start a new run explicitly.")?;
     let count: i64 = tx
         .query_row(
             "SELECT count(*) FROM research_verification_runs WHERE status='running'",
@@ -1223,7 +1314,7 @@ fn catalog(db: &Db, root: &Path, credential_present: bool) -> Result<Value, Stri
     let c = db.0.lock().map_err(|e| e.to_string())?;
     let completed: i64 = c
         .query_row(
-            "SELECT count(*) FROM delegation_runs WHERE phase='completed'",
+            "SELECT count(*) FROM delegation_runs WHERE phase='complete'",
             [],
             |r| r.get(0),
         )

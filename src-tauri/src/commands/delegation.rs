@@ -13,13 +13,13 @@ use std::process::{Child, Command, Stdio};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{mpsc, Arc, Mutex};
 use std::thread;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use rusqlite::{params, OptionalExtension};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
-use tauri::{AppHandle, Emitter, Manager, State};
+use tauri::{AppHandle, Emitter, Manager};
 
 use super::approvals::{ApprovalState, Proposal, Subject};
 use super::persistence::Db;
@@ -28,8 +28,20 @@ const EVENT_NAME: &str = "delegation-run-updated";
 const MAX_TASK_CHARS: usize = 4_000;
 const MAX_DIFF_CHARS: usize = 120_000;
 const MODEL: &str = super::models::CODING_MODEL;
+// Claude Code applies this per launch. Planning, implementation and each resume launch
+// separately, and Olympus keeps no aggregate spend ledger across them.
 const MAX_BUDGET_USD: &str = "5";
-const IMPLEMENTATION_TOOLS: &str = "Read,Glob,Grep,Edit,Write,Bash(git status:*),Bash(git diff:*),Bash(npm run build:*),Bash(npm test:*),Bash(cargo test:*),Bash(cargo check:*)";
+// A hung CLI would otherwise block new runs for its project indefinitely.
+const MAX_LAUNCH_DURATION: Duration = Duration::from_secs(45 * 60);
+const PLAN_TOOLS: &str = "Read,Glob,Grep";
+// `--tools` is the complete built-in inventory; `--allowedTools` pre-approves within it and
+// `dontAsk` denies the rest. Olympus collects the diff itself, so git diff is not granted.
+const IMPLEMENTATION_BUILTINS: &str = "Read,Glob,Grep,Edit,Write,Bash";
+const IMPLEMENTATION_TOOLS: &str = "Read,Glob,Grep,Edit,Write,Bash(git status:*),Bash(npm run build:*),Bash(npm test:*),Bash(cargo test:*),Bash(cargo check:*)";
+// Load no user, project or local settings (hooks, MCP servers, allow rules), and no MCP servers.
+const NO_SETTING_SOURCES: &str = "";
+const EMPTY_MCP_CONFIG: &str = r#"{"mcpServers":{}}"#;
+const PROCESS_EVENT: &str = "process";
 static NEXT_ID: AtomicU64 = AtomicU64::new(1);
 
 #[derive(Default)]
@@ -86,8 +98,18 @@ enum Stage {
     Implement,
 }
 
+/// Without a console of its own (release builds), each console child would open a window.
+pub(crate) fn hide_console(command: &mut Command) -> &mut Command {
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        command.creation_flags(0x0800_0000);
+    }
+    command
+}
+
 pub(crate) fn git(root: &Path, args: &[&str]) -> Result<String, String> {
-    let output = Command::new("git")
+    let output = hide_console(&mut Command::new("git"))
         .arg("-C")
         .arg(root)
         .args(args)
@@ -213,7 +235,7 @@ fn claude_executable() -> Result<PathBuf, String> {
 }
 
 fn claude_version(executable: &Path) -> Result<String, String> {
-    let output = Command::new(executable)
+    let output = hide_console(&mut Command::new(executable))
         .arg("--version")
         .output()
         .map_err(|error| error.to_string())?;
@@ -561,40 +583,23 @@ fn spawn_claude(app: AppHandle, run: DelegationRun, stage: Stage) -> Result<(), 
             .collect::<Vec<_>>()
             .join("\n")
     );
-    let mut command = Command::new(executable);
-    command
-        .current_dir(&run.workspace)
-        .args(["--print", "--output-format", "stream-json", "--verbose"])
-        .args(["--max-budget-usd", MAX_BUDGET_USD, "--model", MODEL])
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped());
-
-    match stage {
-        Stage::Plan => {
-            command
-                .args(["--session-id", &run.agent_session_id])
-                .args(["--permission-mode", "plan"])
-                .args(["--tools", "Read,Glob,Grep"])
-                .arg(format!("{}{}", plan_prompt(&run), evidence_contract));
-        }
-        Stage::Implement => {
-            command
-                .args(["--resume", &run.agent_session_id])
-                .args(["--permission-mode", "dontAsk"])
-                .args(["--allowedTools", IMPLEMENTATION_TOOLS])
-                .arg(format!(
-                    "{}{}\n\nApproved plan:\n{}",
-                    implementation_prompt(&run),
-                    evidence_contract,
-                    approved_plan
-                ));
-        }
-    }
+    let prompt = match stage {
+        Stage::Plan => format!("{}{}", plan_prompt(&run), evidence_contract),
+        Stage::Implement => format!(
+            "{}{}\n\nApproved plan:\n{}",
+            implementation_prompt(&run),
+            evidence_contract,
+            approved_plan
+        ),
+    };
+    let mut command = claude_command(&executable, &run, stage, prompt);
     allowed_environment(&mut command);
 
     let mut child = command
         .spawn()
         .map_err(|error| format!("Could not start Claude Code: {error}"))?;
+    // Kill-on-close: if Olympus exits or crashes, the Claude process tree goes with it.
+    let job = process_identity::Job::contain(&child);
     let process_id = child.id();
     if let Ok(connection) = app.state::<Db>().0.lock() {
         let _ = connection.execute(
@@ -602,6 +607,7 @@ fn spawn_claude(app: AppHandle, run: DelegationRun, stage: Stage) -> Result<(), 
              strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?1",
             params![run.id, process_id],
         );
+        let _ = record_process(&connection, &run.id, process_id);
     }
     let stdout = child
         .stdout
@@ -662,6 +668,7 @@ fn spawn_claude(app: AppHandle, run: DelegationRun, stage: Stage) -> Result<(), 
             run,
             stage,
             &mut child,
+            job,
             cancel_receiver,
             stdout_thread,
             stderr_thread,
@@ -672,9 +679,37 @@ fn spawn_claude(app: AppHandle, run: DelegationRun, stage: Stage) -> Result<(), 
     Ok(())
 }
 
+fn claude_command(executable: &Path, run: &DelegationRun, stage: Stage, prompt: String) -> Command {
+    let mut command = Command::new(executable);
+    hide_console(&mut command)
+        .current_dir(&run.workspace)
+        .args(["--print", "--output-format", "stream-json", "--verbose"])
+        .args(["--max-budget-usd", MAX_BUDGET_USD, "--model", MODEL])
+        .args(["--setting-sources", NO_SETTING_SOURCES])
+        .args(["--strict-mcp-config", "--mcp-config", EMPTY_MCP_CONFIG])
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+    match stage {
+        Stage::Plan => command
+            .args(["--session-id", &run.agent_session_id])
+            .args(["--permission-mode", "plan"])
+            .args(["--tools", PLAN_TOOLS]),
+        Stage::Implement => command
+            .args(["--resume", &run.agent_session_id])
+            .args(["--permission-mode", "dontAsk"])
+            .args(["--tools", IMPLEMENTATION_BUILTINS])
+            .args(["--allowedTools", IMPLEMENTATION_TOOLS]),
+    };
+    // `--tools`, `--allowedTools` and `--mcp-config` are variadic; without `--` the CLI
+    // reads the prompt as one more tool name and exits with no input.
+    command.arg("--").arg(prompt);
+    command
+}
+
 #[cfg(target_os = "windows")]
 pub(crate) fn terminate_process_tree(process_id: u32) -> bool {
-    Command::new("taskkill")
+    hide_console(&mut Command::new("taskkill"))
         .args(["/PID", &process_id.to_string(), "/T", "/F"])
         .output()
         .map(|output| output.status.success())
@@ -686,43 +721,255 @@ pub(crate) fn terminate_process_tree(_process_id: u32) -> bool {
     false
 }
 
-#[cfg(target_os = "windows")]
-fn process_is_running(process_id: u32) -> bool {
-    Command::new("tasklist")
-        .args(["/FI", &format!("PID eq {process_id}"), "/NH"])
-        .output()
-        .map(|output| {
-            output.status.success()
-                && String::from_utf8_lossy(&output.stdout).contains(&process_id.to_string())
-        })
-        .unwrap_or(false)
+/// A PID alone is not an identity: Windows reuses them. Olympus records the process
+/// creation time beside the PID and acts on a PID only while both still match.
+pub(crate) mod process_identity {
+    #[cfg(windows)]
+    mod os {
+        use std::ffi::c_void;
+        use std::os::windows::io::AsRawHandle;
+        use std::process::Child;
+
+        type Handle = *mut c_void;
+        const PROCESS_QUERY_LIMITED_INFORMATION: u32 = 0x1000;
+        const STILL_ACTIVE: u32 = 259;
+        const JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE: u32 = 0x2000;
+        const JOB_OBJECT_EXTENDED_LIMIT_INFORMATION: i32 = 9;
+
+        #[repr(C)]
+        #[derive(Default)]
+        struct FileTime {
+            low: u32,
+            high: u32,
+        }
+        // JOBOBJECT_BASIC_LIMIT_INFORMATION / JOBOBJECT_EXTENDED_LIMIT_INFORMATION.
+        #[repr(C)]
+        #[derive(Default)]
+        struct BasicLimits {
+            per_process_user_time_limit: i64,
+            per_job_user_time_limit: i64,
+            limit_flags: u32,
+            minimum_working_set_size: usize,
+            maximum_working_set_size: usize,
+            active_process_limit: u32,
+            affinity: usize,
+            priority_class: u32,
+            scheduling_class: u32,
+        }
+        #[repr(C)]
+        #[derive(Default)]
+        struct ExtendedLimits {
+            basic: BasicLimits,
+            io_counters: [u64; 6],
+            process_memory_limit: usize,
+            job_memory_limit: usize,
+            peak_process_memory_used: usize,
+            peak_job_memory_used: usize,
+        }
+        // The kernel rejects a length that differs from the SDK structure.
+        const _: () = assert!(
+            std::mem::size_of::<ExtendedLimits>()
+                == if cfg!(target_pointer_width = "64") {
+                    144
+                } else {
+                    112
+                }
+        );
+
+        #[link(name = "kernel32")]
+        extern "system" {
+            fn OpenProcess(access: u32, inherit: i32, process_id: u32) -> Handle;
+            fn CloseHandle(handle: Handle) -> i32;
+            fn GetExitCodeProcess(process: Handle, code: *mut u32) -> i32;
+            fn GetProcessTimes(
+                process: Handle,
+                creation: *mut FileTime,
+                exit: *mut FileTime,
+                kernel: *mut FileTime,
+                user: *mut FileTime,
+            ) -> i32;
+            fn CreateJobObjectW(attributes: *const c_void, name: *const u16) -> Handle;
+            fn SetInformationJobObject(
+                job: Handle,
+                class: i32,
+                information: *const c_void,
+                length: u32,
+            ) -> i32;
+            fn AssignProcessToJobObject(job: Handle, process: Handle) -> i32;
+        }
+
+        unsafe fn live_creation_time(process: Handle) -> Option<u64> {
+            let mut code = 0u32;
+            if GetExitCodeProcess(process, &mut code) == 0 || code != STILL_ACTIVE {
+                return None;
+            }
+            let mut times: [FileTime; 4] = Default::default();
+            let [creation, exit, kernel, user] = &mut times;
+            if GetProcessTimes(process, creation, exit, kernel, user) == 0 {
+                return None;
+            }
+            Some((u64::from(times[0].high) << 32) | u64::from(times[0].low))
+        }
+
+        pub fn creation_time(process_id: u32) -> Option<u64> {
+            unsafe {
+                let process = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, process_id);
+                if process.is_null() {
+                    return None;
+                }
+                let created = live_creation_time(process);
+                CloseHandle(process);
+                created
+            }
+        }
+
+        /// `None` when the PID no longer names the recorded process; nothing is stopped then.
+        pub fn terminate_if(process_id: u32, identity: u64) -> Option<bool> {
+            unsafe {
+                let process = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, process_id);
+                if process.is_null() {
+                    return None;
+                }
+                // The open handle keeps the PID from being reused while taskkill runs.
+                let stopped = (live_creation_time(process) == Some(identity))
+                    .then(|| super::super::terminate_process_tree(process_id));
+                CloseHandle(process);
+                stopped
+            }
+        }
+
+        /// Closing the last job handle kills every process in it, including when Olympus
+        /// exits or crashes, so a delegated tree cannot outlive the app that supervises it.
+        pub struct Job(Handle);
+        unsafe impl Send for Job {}
+        impl Job {
+            pub fn contain(child: &Child) -> Option<Job> {
+                unsafe {
+                    let handle = CreateJobObjectW(std::ptr::null(), std::ptr::null());
+                    if handle.is_null() {
+                        return None;
+                    }
+                    let job = Job(handle);
+                    let mut limits = ExtendedLimits::default();
+                    limits.basic.limit_flags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+                    let configured = SetInformationJobObject(
+                        job.0,
+                        JOB_OBJECT_EXTENDED_LIMIT_INFORMATION,
+                        &limits as *const ExtendedLimits as *const c_void,
+                        std::mem::size_of::<ExtendedLimits>() as u32,
+                    ) != 0;
+                    (configured
+                        && AssignProcessToJobObject(job.0, child.as_raw_handle() as Handle) != 0)
+                        .then_some(job)
+                }
+            }
+        }
+        impl Drop for Job {
+            fn drop(&mut self) {
+                unsafe {
+                    CloseHandle(self.0);
+                }
+            }
+        }
+    }
+
+    // Linux reads the start time from /proc so the matching logic is testable in CI.
+    #[cfg(not(windows))]
+    mod os {
+        use std::process::Child;
+
+        pub fn creation_time(process_id: u32) -> Option<u64> {
+            let stat = std::fs::read_to_string(format!("/proc/{process_id}/stat")).ok()?;
+            // Fields follow the parenthesised command name, which may contain spaces.
+            let fields: Vec<&str> = stat.rsplit_once(')')?.1.split_whitespace().collect();
+            if fields.first() == Some(&"Z") {
+                return None;
+            }
+            fields.get(19)?.parse().ok()
+        }
+
+        pub fn terminate_if(process_id: u32, identity: u64) -> Option<bool> {
+            (creation_time(process_id) == Some(identity))
+                .then(|| super::super::terminate_process_tree(process_id))
+        }
+
+        pub struct Job;
+        impl Job {
+            pub fn contain(_child: &Child) -> Option<Job> {
+                None
+            }
+        }
+    }
+
+    pub use os::{creation_time, terminate_if, Job};
 }
 
-#[cfg(not(target_os = "windows"))]
-fn process_is_running(_process_id: u32) -> bool {
-    false
+pub(crate) fn record_process(
+    connection: &rusqlite::Connection,
+    run_id: &str,
+    process_id: u32,
+) -> rusqlite::Result<usize> {
+    // delegation_runs has no identity column; the append-only event log carries it.
+    let identity = process_identity::creation_time(process_id)
+        .map(|created| created.to_string())
+        .unwrap_or_else(|| "unknown".into());
+    connection.execute(
+        "INSERT INTO delegation_events (run_id, phase, milestone) VALUES (?1, ?2, ?3)",
+        params![
+            run_id,
+            PROCESS_EVENT,
+            format!("pid {process_id} created {identity}")
+        ],
+    )
 }
 
-#[allow(clippy::too_many_arguments)]
-fn monitor_child(
-    app: AppHandle,
-    run: DelegationRun,
-    stage: Stage,
+/// The recorded PID and identity, only while that PID still names the process Olympus
+/// started. A legacy run without a recorded identity is never treated as running.
+fn live_process(connection: &rusqlite::Connection, run: &DelegationRun) -> Option<(u32, u64)> {
+    let process_id = run.process_id?;
+    let recorded: String = connection
+        .query_row(
+            "SELECT milestone FROM delegation_events WHERE run_id = ?1 AND phase = ?2 \
+             ORDER BY id DESC LIMIT 1",
+            params![run.id, PROCESS_EVENT],
+            |row| row.get(0),
+        )
+        .ok()?;
+    let identity: u64 = recorded
+        .strip_prefix(&format!("pid {process_id} created "))?
+        .parse()
+        .ok()?;
+    (process_identity::creation_time(process_id) == Some(identity))
+        .then_some((process_id, identity))
+}
+
+#[derive(Debug, PartialEq, Eq)]
+enum Stop {
+    Cancelled,
+    TimedOut,
+}
+
+/// Waits for the child, stopping its process tree once on cancel or at the deadline.
+fn supervise(
     child: &mut Child,
-    cancel_receiver: mpsc::Receiver<()>,
-    stdout_thread: thread::JoinHandle<()>,
-    stderr_thread: thread::JoinHandle<()>,
-    result: Arc<Mutex<Result<String, String>>>,
-    stderr_text: Arc<Mutex<String>>,
-) {
-    let mut cancelled = false;
+    cancel_receiver: &mpsc::Receiver<()>,
+    limit: Duration,
+) -> (Result<std::process::ExitStatus, String>, Option<Stop>, bool) {
+    let started = Instant::now();
+    let mut stop = None;
     let mut process_tree_stopped = false;
     let status = loop {
-        if cancel_receiver.try_recv().is_ok() {
-            cancelled = true;
-            process_tree_stopped = terminate_process_tree(child.id());
-            if !process_tree_stopped {
-                let _ = child.kill();
+        if stop.is_none() {
+            if cancel_receiver.try_recv().is_ok() {
+                stop = Some(Stop::Cancelled);
+            } else if started.elapsed() >= limit {
+                stop = Some(Stop::TimedOut);
+            }
+            if stop.is_some() {
+                process_tree_stopped = terminate_process_tree(child.id());
+                if !process_tree_stopped {
+                    let _ = child.kill();
+                }
             }
         }
         match child.try_wait() {
@@ -731,6 +978,26 @@ fn monitor_child(
             Err(error) => break Err(error.to_string()),
         }
     };
+    (status, stop, process_tree_stopped)
+}
+
+#[allow(clippy::too_many_arguments)]
+fn monitor_child(
+    app: AppHandle,
+    run: DelegationRun,
+    stage: Stage,
+    child: &mut Child,
+    job: Option<process_identity::Job>,
+    cancel_receiver: mpsc::Receiver<()>,
+    stdout_thread: thread::JoinHandle<()>,
+    stderr_thread: thread::JoinHandle<()>,
+    result: Arc<Mutex<Result<String, String>>>,
+    stderr_text: Arc<Mutex<String>>,
+) {
+    let (status, mut stop, process_tree_stopped) =
+        supervise(child, &cancel_receiver, MAX_LAUNCH_DURATION);
+    // Stop leftover descendants before joining, or one holding the pipes open would block.
+    drop(job);
 
     let _ = stdout_thread.join();
     let _ = stderr_thread.join();
@@ -738,6 +1005,11 @@ fn monitor_child(
     let Ok(_transition) = approval_state.execution.lock() else {
         return;
     };
+    // Cancel holds this lock while it signals, so a request that landed as the process
+    // exited is visible here and still wins over the result.
+    if stop.is_none() && cancel_receiver.try_recv().is_ok() {
+        stop = Some(Stop::Cancelled);
+    }
     if let Ok(mut active) = app.state::<DelegationProcesses>().0.lock() {
         active.remove(&run.id);
     }
@@ -748,17 +1020,32 @@ fn monitor_child(
         );
     }
 
-    if cancelled {
-        cancellation(
-            &app,
-            &run.id,
-            if process_tree_stopped {
-                "Cancelled; Claude process tree stopped and isolated worktree preserved"
-            } else {
-                "Cancelled; Claude stopped and worktree preserved, but child-process status could not be verified"
-            },
-        );
-        return;
+    match stop {
+        Some(Stop::Cancelled) => {
+            cancellation(
+                &app,
+                &run.id,
+                if process_tree_stopped {
+                    "Cancelled; Claude process tree stopped and isolated worktree preserved"
+                } else {
+                    "Cancelled; Claude stopped and worktree preserved, but child-process status could not be verified"
+                },
+            );
+            return;
+        }
+        Some(Stop::TimedOut) => {
+            fail(
+                &app,
+                &run.id,
+                if process_tree_stopped {
+                    "Claude Code exceeded the 45-minute launch limit; its process tree was stopped and the isolated worktree preserved."
+                } else {
+                    "Claude Code exceeded the 45-minute launch limit and was stopped; child-process status could not be verified. The isolated worktree is preserved."
+                },
+            );
+            return;
+        }
+        None => {}
     }
 
     let status = match status {
@@ -1021,7 +1308,7 @@ fn planning_subject(
         stage: "plan".into(),
         task: request.task.clone(),
         criteria: request.criteria.clone(),
-        scope: "plan-v1: Read,Glob,Grep; no edits; $5 ceiling".into(),
+        scope: plan_scope(),
         run_id: id.into(),
         workspace: workspace.to_string_lossy().into(),
         plan: String::new(),
@@ -1033,7 +1320,8 @@ fn resume_subject(db: &Db, id: &str) -> Result<Subject, String> {
     if run.phase != "waiting" {
         return Err("Only a waiting run can be reviewed for resumption.".into());
     }
-    if run.process_id.is_some_and(process_is_running) {
+    let detached = live_process(&*db.0.lock().map_err(|e| e.to_string())?, &run);
+    if detached.is_some() {
         return Err("A detached process is still running; cancel it before recovery.".into());
     }
     let (criteria, plan) = contract(db, id)?;
@@ -1073,9 +1361,9 @@ fn resume_subject(db: &Db, id: &str) -> Result<Subject, String> {
         task: run.task,
         criteria,
         scope: if plan.is_empty() {
-            "plan-v1: Read,Glob,Grep; no edits; $5 ceiling".into()
+            plan_scope()
         } else {
-            format!("implement-v1: {IMPLEMENTATION_TOOLS}; $5 ceiling; no commit/push/merge")
+            format!("implement-v2: {IMPLEMENTATION_TOOLS}; {LAUNCH_LIMITS}; no commit/push/merge")
         },
         run_id: run.id,
         workspace: run.workspace,
@@ -1083,37 +1371,64 @@ fn resume_subject(db: &Db, id: &str) -> Result<Subject, String> {
     })
 }
 
-#[tauri::command]
-pub fn prepare_delegation_run(
+const LAUNCH_LIMITS: &str =
+    "no settings, hooks or MCP servers; $5 budget per launch, not per run; 45-minute launch limit";
+
+fn plan_scope() -> String {
+    format!("plan-v2: {PLAN_TOOLS}; no edits; {LAUNCH_LIMITS}")
+}
+
+/// Git, worktree and process work must not run on the thread that services the window.
+pub(crate) async fn blocking<T: Send + 'static>(
     app: AppHandle,
-    db: State<Db>,
+    work: impl FnOnce(&AppHandle) -> Result<T, String> + Send + 'static,
+) -> Result<T, String> {
+    tauri::async_runtime::spawn_blocking(move || work(&app))
+        .await
+        .map_err(|error| error.to_string())?
+}
+
+#[tauri::command]
+pub async fn prepare_delegation_run(
+    app: AppHandle,
     request: PrepareDelegationRequest,
 ) -> Result<Proposal, String> {
-    let state = app.state::<ApprovalState>();
-    let _transition = state.execution.lock().map_err(|e| e.to_string())?;
-    state.prepare(
-        run_id(),
-        planning_subject(&app, db.inner(), &request, &run_id())?,
-    )
+    blocking(app, move |app| {
+        let db = app.state::<Db>();
+        let state = app.state::<ApprovalState>();
+        let _transition = state.execution.lock().map_err(|e| e.to_string())?;
+        state.prepare(
+            run_id(),
+            planning_subject(app, db.inner(), &request, &run_id())?,
+        )
+    })
+    .await
 }
 
 #[tauri::command]
-pub fn prepare_delegation_resume(
+pub async fn prepare_delegation_resume(
     app: AppHandle,
-    db: State<Db>,
     request: RunRequest,
 ) -> Result<Proposal, String> {
-    let state = app.state::<ApprovalState>();
-    let _transition = state.execution.lock().map_err(|e| e.to_string())?;
-    state.prepare(run_id(), resume_subject(db.inner(), &request.run_id)?)
+    blocking(app, move |app| {
+        let db = app.state::<Db>();
+        let state = app.state::<ApprovalState>();
+        let _transition = state.execution.lock().map_err(|e| e.to_string())?;
+        state.prepare(run_id(), resume_subject(db.inner(), &request.run_id)?)
+    })
+    .await
 }
 
 #[tauri::command]
-pub fn start_delegation_run(
+pub async fn start_delegation_run(
     app: AppHandle,
-    db: State<Db>,
     request: StartDelegationRequest,
 ) -> Result<DelegationRun, String> {
+    blocking(app, move |app| start_run(app, request)).await
+}
+
+fn start_run(app: &AppHandle, request: StartDelegationRequest) -> Result<DelegationRun, String> {
+    let db = app.state::<Db>();
     let state = app.state::<ApprovalState>();
     let _transition = state.execution.lock().map_err(|e| e.to_string())?;
     let proposal = state.get(&request.proposal_id)?;
@@ -1121,7 +1436,7 @@ pub fn start_delegation_run(
         return Err("This is not a planning proposal.".into());
     }
     let subject = planning_subject(
-        &app,
+        app,
         db.inner(),
         &PrepareDelegationRequest {
             project_id: proposal.subject.project_id.clone(),
@@ -1189,7 +1504,7 @@ pub fn start_delegation_run(
         spawn_claude(app.clone(), run.clone(), Stage::Plan)
     })();
     if let Err(error) = preparation {
-        fail(&app, &run.id, &error);
+        fail(app, &run.id, &error);
         return Err(format!(
             "{error}. Approval was consumed; the failed attempt and any workspace are preserved."
         ));
@@ -1198,11 +1513,15 @@ pub fn start_delegation_run(
 }
 
 #[tauri::command]
-pub fn resume_delegation_run(
+pub async fn resume_delegation_run(
     app: AppHandle,
-    db: State<Db>,
     request: StartDelegationRequest,
 ) -> Result<DelegationRun, String> {
+    blocking(app, move |app| resume_run(app, request)).await
+}
+
+fn resume_run(app: &AppHandle, request: StartDelegationRequest) -> Result<DelegationRun, String> {
+    let db = app.state::<Db>();
     let state = app.state::<ApprovalState>();
     let _transition = state.execution.lock().map_err(|e| e.to_string())?;
     let proposal = state.get(&request.proposal_id)?;
@@ -1228,18 +1547,22 @@ pub fn resume_delegation_run(
             .map_err(|e| e.to_string())?;
     }
     spawn_claude(app.clone(), run.clone(), stage).map_err(|e| {
-        fail(&app, &run.id, &e);
+        fail(app, &run.id, &e);
         e
     })?;
     load_run(db.inner(), &run.id)
 }
 
 #[tauri::command]
-pub fn cancel_delegation_run(
+pub async fn cancel_delegation_run(
     app: AppHandle,
-    db: State<Db>,
     request: RunRequest,
 ) -> Result<DelegationRun, String> {
+    blocking(app, move |app| cancel_run(app, request)).await
+}
+
+fn cancel_run(app: &AppHandle, request: RunRequest) -> Result<DelegationRun, String> {
+    let db = app.state::<Db>();
     let state = app.state::<ApprovalState>();
     let _transition = state.execution.lock().map_err(|e| e.to_string())?;
     {
@@ -1258,12 +1581,14 @@ pub fn cancel_delegation_run(
         .map_err(|error| error.to_string())?
         .get(&request.run_id)
         .cloned();
+    let detached = live_process(&*db.0.lock().map_err(|e| e.to_string())?, &run);
     if let Some(sender) = sender {
         let _ = sender.send(());
-    } else if let Some(process_id) = run.process_id.filter(|id| process_is_running(*id)) {
-        let stopped = terminate_process_tree(process_id);
+    } else if let Some((process_id, identity)) = detached {
+        // Recheck identity at the moment of termination; a mismatch stops nothing.
+        let stopped = process_identity::terminate_if(process_id, identity) == Some(true);
         cancellation(
-            &app,
+            app,
             &request.run_id,
             if stopped {
                 "Cancelled; detached Claude process tree stopped and isolated worktree preserved"
@@ -1273,7 +1598,7 @@ pub fn cancel_delegation_run(
         );
     } else {
         cancellation(
-            &app,
+            app,
             &request.run_id,
             "Cancelled; no Claude process was running and the isolated worktree is preserved",
         );
@@ -1282,7 +1607,12 @@ pub fn cancel_delegation_run(
 }
 
 #[tauri::command]
-pub fn list_delegation_runs(app: AppHandle, db: State<Db>) -> Result<Vec<DelegationRun>, String> {
+pub async fn list_delegation_runs(app: AppHandle) -> Result<Vec<DelegationRun>, String> {
+    blocking(app, list_runs).await
+}
+
+fn list_runs(app: &AppHandle) -> Result<Vec<DelegationRun>, String> {
+    let db = app.state::<Db>();
     let state = app.state::<ApprovalState>();
     let _transition = state.execution.lock().map_err(|e| e.to_string())?;
     let active: Vec<String> = app
@@ -1310,44 +1640,81 @@ pub fn list_delegation_runs(app: AppHandle, db: State<Db>) -> Result<Vec<Delegat
             "preparing" | "planning" | "editing" | "testing" | "reviewing"
         ) && !active.contains(&run.id)
         {
-            let detached_running = run.process_id.is_some_and(process_is_running);
-            let milestone = if detached_running {
-                "Olympus restarted; a detached Claude process is still running"
-            } else {
-                "Previous process ended; isolated worktree preserved"
-            };
-            let checkpoint = if detached_running {
-                "Cancel the detached process tree before deciding whether to resume the preserved run."
-            } else {
-                "Inspect the preserved workspace, then continue or cancel."
-            };
-            connection
-                .execute(
-                    "UPDATE delegation_runs SET phase = 'waiting', milestone = ?2, checkpoint = ?3, \
-                     process_id = ?4, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') \
-                     WHERE id = ?1",
-                    params![
-                        run.id,
-                        milestone,
-                        checkpoint,
-                        if detached_running { run.process_id } else { None }
-                    ],
-                )
-                .map_err(|error| error.to_string())?;
-            run.phase = "waiting".to_string();
-            run.milestone = milestone.to_string();
-            run.checkpoint = Some(checkpoint.to_string());
-            if !detached_running {
-                run.process_id = None;
-            }
+            recover_run(&connection, run)?;
         }
     }
     Ok(runs)
 }
 
+/// Settles a run whose supervising monitor no longer exists in this app instance.
+fn recover_run(connection: &rusqlite::Connection, run: &mut DelegationRun) -> Result<(), String> {
+    let detached_running = live_process(connection, run).is_some();
+    // `testing` with a recorded outcome can only be an Olympus verification check; the
+    // implementation result stands and only the check was lost.
+    if !detached_running && run.phase == "testing" && run.outcome.is_some() {
+        super::delegation_review::interrupt_checks(connection, &run.id)?;
+        let milestone =
+            "Olympus stopped during a verification check; the check is recorded as interrupted";
+        connection
+            .execute(
+                "UPDATE delegation_runs SET phase = 'awaiting_review', milestone = ?2, \
+                 checkpoint = NULL, process_id = NULL, \
+                 updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?1",
+                params![run.id, milestone],
+            )
+            .map_err(|error| error.to_string())?;
+        run.phase = "awaiting_review".to_string();
+        run.milestone = milestone.to_string();
+        run.checkpoint = None;
+        run.process_id = None;
+        return Ok(());
+    }
+    let milestone = if detached_running {
+        "Olympus restarted; a detached Claude process is still running"
+    } else {
+        "Previous process ended; isolated worktree preserved"
+    };
+    let checkpoint = if detached_running {
+        "Cancel the detached process tree before deciding whether to resume the preserved run."
+    } else {
+        "Inspect the preserved workspace, then continue or cancel."
+    };
+    connection
+        .execute(
+            "UPDATE delegation_runs SET phase = 'waiting', milestone = ?2, checkpoint = ?3, \
+             process_id = ?4, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') \
+             WHERE id = ?1",
+            params![
+                run.id,
+                milestone,
+                checkpoint,
+                if detached_running {
+                    run.process_id
+                } else {
+                    None
+                }
+            ],
+        )
+        .map_err(|error| error.to_string())?;
+    run.phase = "waiting".to_string();
+    run.milestone = milestone.to_string();
+    run.checkpoint = Some(checkpoint.to_string());
+    if !detached_running {
+        run.process_id = None;
+    }
+    Ok(())
+}
+
 #[tauri::command]
-pub fn fetch_delegation_diff(db: State<Db>, request: RunRequest) -> Result<String, String> {
-    let run = load_run(db.inner(), &request.run_id)?;
+pub async fn fetch_delegation_diff(app: AppHandle, request: RunRequest) -> Result<String, String> {
+    blocking(app, move |app| {
+        diff_for(app.state::<Db>().inner(), &request.run_id)
+    })
+    .await
+}
+
+fn diff_for(db: &Db, run_id: &str) -> Result<String, String> {
+    let run = load_run(db, run_id)?;
     let workspace = PathBuf::from(&run.workspace);
     if !workspace.is_dir() {
         return Err("The delegated worktree is missing.".to_string());
@@ -1471,5 +1838,154 @@ mod workspace_evidence_tests {
         fs::write(root.join(" new file.txt"), "changed evidence").unwrap();
         assert_ne!(new_file, workspace_hash(&root, &base).unwrap());
         fs::remove_dir_all(root).unwrap();
+    }
+}
+
+#[cfg(test)]
+mod process_boundary_tests {
+    use super::*;
+    use rusqlite::Connection;
+
+    fn run(phase: &str, outcome: Option<&str>, process_id: Option<u32>) -> DelegationRun {
+        DelegationRun {
+            id: "run".into(),
+            project_id: "project-x".into(),
+            project_name: "X".into(),
+            task: "Task".into(),
+            driver: "Claude Code".into(),
+            model: MODEL.into(),
+            phase: phase.into(),
+            workspace: "workspace".into(),
+            branch: "olympus/run-x".into(),
+            base_commit: "base".into(),
+            agent_session_id: "session".into(),
+            process_id,
+            milestone: "m".into(),
+            checkpoint: None,
+            outcome: outcome.map(str::to_string),
+            changed_files: Vec::new(),
+            diff_summary: None,
+            error: None,
+            started_at: String::new(),
+            updated_at: String::new(),
+        }
+    }
+
+    fn database(run: &DelegationRun) -> Db {
+        let connection = Connection::open_in_memory().unwrap();
+        connection
+            .execute_batch(include_str!("../../schema.sql"))
+            .unwrap();
+        let db = Db(Mutex::new(connection));
+        insert_run(&db, run).unwrap();
+        db
+    }
+
+    fn args(command: &Command) -> Vec<String> {
+        command
+            .get_args()
+            .map(|arg| arg.to_string_lossy().into_owned())
+            .collect()
+    }
+
+    #[test]
+    fn launches_pin_tools_settings_and_mcp_and_end_options_before_the_prompt() {
+        for stage in [Stage::Plan, Stage::Implement] {
+            let args = args(&claude_command(
+                Path::new("claude"),
+                &run("approved", None, None),
+                stage,
+                "--tools Bash prompt".into(),
+            ));
+            let at = |flag: &str| args.iter().position(|a| a == flag).unwrap();
+            assert_eq!(args[at("--setting-sources") + 1], "");
+            assert_eq!(args[at("--mcp-config") + 1], EMPTY_MCP_CONFIG);
+            assert!(args.contains(&"--strict-mcp-config".to_string()));
+            assert_eq!(args[args.len() - 2], "--");
+            assert_eq!(args.last().unwrap(), "--tools Bash prompt");
+            let tools = &args[at("--tools") + 1];
+            assert_eq!(
+                tools,
+                if stage == Stage::Plan {
+                    PLAN_TOOLS
+                } else {
+                    IMPLEMENTATION_BUILTINS
+                }
+            );
+            assert!(!args.iter().any(|a| a.contains("git diff")));
+        }
+        assert!(plan_scope().contains("per launch"));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_launch_is_stopped_at_its_deadline_or_on_cancel() {
+        let (_sender, receiver) = mpsc::channel();
+        let mut child = Command::new("sleep").arg("30").spawn().unwrap();
+        let (status, stop, _) = supervise(&mut child, &receiver, Duration::from_millis(200));
+        assert!(status.is_ok());
+        assert_eq!(stop, Some(Stop::TimedOut));
+
+        let (sender, receiver) = mpsc::channel();
+        sender.send(()).unwrap();
+        let mut child = Command::new("sleep").arg("30").spawn().unwrap();
+        let (_, stop, _) = supervise(&mut child, &receiver, MAX_LAUNCH_DURATION);
+        assert_eq!(stop, Some(Stop::Cancelled));
+
+        let (_sender, receiver) = mpsc::channel();
+        let mut child = Command::new("true").spawn().unwrap();
+        let (status, stop, _) = supervise(&mut child, &receiver, MAX_LAUNCH_DURATION);
+        assert!(status.unwrap().success());
+        assert_eq!(stop, None);
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn a_recorded_pid_counts_only_while_it_names_the_same_process() {
+        let mut child = Command::new("sleep").arg("30").spawn().unwrap();
+        let recorded = run("editing", None, Some(child.id()));
+        let db = database(&recorded);
+        let connection = db.0.lock().unwrap();
+        assert_eq!(live_process(&connection, &recorded), None);
+        record_process(&connection, "run", child.id()).unwrap();
+        assert!(live_process(&connection, &recorded).is_some());
+        // A reused PID has a different creation time and is neither reported nor stopped.
+        connection
+            .execute(
+                "INSERT INTO delegation_events (run_id, phase, milestone) VALUES ('run', ?1, ?2)",
+                params![PROCESS_EVENT, format!("pid {} created 1", child.id())],
+            )
+            .unwrap();
+        assert_eq!(live_process(&connection, &recorded), None);
+        assert_eq!(process_identity::terminate_if(child.id(), 1), None);
+        child.kill().unwrap();
+        child.wait().unwrap();
+    }
+
+    #[test]
+    fn recovery_returns_an_interrupted_check_to_review_and_other_phases_to_waiting() {
+        let mut testing = run("testing", Some("Implemented"), Some(u32::MAX));
+        let db = database(&testing);
+        let connection = db.0.lock().unwrap();
+        connection.execute("INSERT INTO delegation_checks(id,run_id,check_name,exit_code,output,workspace_hash,started_at,finished_at) VALUES ('c','run','rust-tests',NULL,'','','2026-09-28T00:00:00Z','')",[]).unwrap();
+        recover_run(&connection, &mut testing).unwrap();
+        assert_eq!(testing.phase, "awaiting_review");
+        assert_eq!(testing.process_id, None);
+        let (exit, finished): (Option<i32>, String) = connection
+            .query_row(
+                "SELECT exit_code, finished_at FROM delegation_checks WHERE id='c'",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!(exit, None);
+        assert!(!finished.is_empty());
+        drop(connection);
+        assert_eq!(load_run(&db, "run").unwrap().phase, "awaiting_review");
+
+        let mut implementing = run("testing", None, None);
+        let db = database(&implementing);
+        recover_run(&db.0.lock().unwrap(), &mut implementing).unwrap();
+        assert_eq!(implementing.phase, "waiting");
     }
 }
