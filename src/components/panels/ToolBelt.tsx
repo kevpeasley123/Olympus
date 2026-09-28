@@ -1,5 +1,4 @@
 import { FileSearch, ImagePlus, Video, Workflow } from "lucide-react";
-import type { KeyboardEvent } from "react";
 import type { ToolDefinition } from "../../types";
 
 const toolIcons: Record<string, typeof ImagePlus> = {
@@ -28,22 +27,11 @@ function ToolRow({ tool, compact }: { tool: ToolDefinition; compact: boolean }) 
   const Icon = toolIcons[tool.id];
   const areaClass = `tool-area-dot ${tool.category.toLowerCase()}`;
 
-  function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
-    if (event.key === "Enter" || event.key === " ") {
-      event.preventDefault();
-    }
-  }
-
+  // No launch is wired yet, so the row is not a control: a focusable
+  // role="button" that does nothing is worse than a plain label.
   return (
-    <div
-      className="tool-row"
-      role="button"
-      tabIndex={0}
-      aria-label={`Launch ${tool.name}`}
-      onKeyDown={handleKeyDown}
-      title={`Launch ${tool.name}`}
-    >
-      <span className="tool-row-icon" title={tool.category}>
+    <div className="tool-row" title={tool.name}>
+      <span className="tool-row-icon" title={tool.category} role="img" aria-label={tool.name}>
         <Icon size={16} strokeWidth={1.8} />
       </span>
       {!compact ? <strong>{tool.name}</strong> : null}

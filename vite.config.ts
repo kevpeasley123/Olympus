@@ -6,7 +6,8 @@ export default defineConfig({
   clearScreen: false,
   server: {
     port: 31420,
-    strictPort: true
+    strictPort: true,
+    fs: { deny: [".env", ".env.*", "*.{crt,pem}", "**/.git/**", "**/output/**", "**/*.sqlite", "**/*.sqlite3"] }
   },
   envPrefix: ["VITE_", "TAURI_"],
   build: {

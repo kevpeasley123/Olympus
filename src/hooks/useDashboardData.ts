@@ -3,6 +3,7 @@ import { normalizeVoicePreferences, type VoicePreferences } from "../services/vo
 import { useActionQueue } from "./useActionQueue";
 import { useDelegationRuns } from "./useDelegationRuns";
 import { buildProjectCommandBoard } from "../services/projectCommandBoard";
+import { composeOpeningBriefing } from "../services/openingBriefing";
 import type { VoiceDepth, VoiceAnswer, VoiceMessageMetadata } from "../services/voiceContract";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { conversationStream } from "../services/conversationStream";
@@ -51,12 +52,23 @@ export function useDashboardData() {
   }, []);
   const taskStore = useActionQueue();
   const runStore = useDelegationRuns();
-  const commandBoard = buildProjectCommandBoard(dashboardState.projects, taskStore.tasks, runStore.data, {tasks:!taskStore.error && !taskStore.loading,runs:!runStore.error && !runStore.loading});
+  const tasksReady = !taskStore.error && !taskStore.loading;
+  const runsReady = !runStore.error && !runStore.loading;
+  const commandBoard = useMemo(
+    () => buildProjectCommandBoard(dashboardState.projects, taskStore.tasks, runStore.data, {tasks:tasksReady,runs:runsReady}),
+    [dashboardState.projects, taskStore.tasks, runStore.data, tasksReady, runsReady]
+  );
   const boardRef = useRef(commandBoard); boardRef.current = commandBoard;
   const [hydrated, setHydrated] = useState(false);
+  /** Read inside `sendChatMessage`, which voice can call before a re-render. */
+  const hydratedRef = useRef(false);
   const [sessionBoundary, setSessionBoundary] = useState<SessionBoundary | null>(null);
   const [sessionReady, setSessionReady] = useState(false);
   const [projectsError, setProjectsError] = useState<string | null>(null);
+  /** Until the first scan settles, `projects` is seed data and must not be briefed. */
+  const [projectsScanned, setProjectsScanned] = useState(false);
+  const openingBriefed = useRef(false);
+  const [openingBriefing, setOpeningBriefing] = useState<{ id: string; text: string } | null>(null);
   /** Problems with `01 - Projects` itself, which belong to no single project. */
   const [projectNoteWarnings, setProjectNoteWarnings] = useState<string[]>([]);
   const [chatPending, setChatPending] = useState(false);
@@ -105,7 +117,15 @@ export function useDashboardData() {
     let cancelled = false;
 
     void (async () => {
-      const stored = await loadState();
+      let stored: OlympusState | null = null;
+      try {
+        stored = await loadState();
+      } catch (error) {
+        // Desktop only. Stay unhydrated: seed state must never be saved over
+        // the real settings, and a send would give the model seed history.
+        console.warn("[Olympus] Could not read the local database.", error);
+        if (!cancelled) setChatError(`The local database could not be read (${errorMessage(error)}). Settings and conversation history are not loaded, and nothing will be saved or sent until Olympus restarts.`);
+      }
       if (cancelled) return;
 
       let boundary: SessionBoundary | null = null;
@@ -119,9 +139,11 @@ export function useDashboardData() {
       }
       if (cancelled) return;
 
-      setDashboardState(stored);
+      if (stored) setDashboardState(stored);
       setSessionBoundary(boundary);
       setSessionReady(true);
+      if (!stored) return;
+      hydratedRef.current = true;
       setHydrated(true);
     })();
 
@@ -137,18 +159,28 @@ export function useDashboardData() {
     void persistPreferences(dashboardState);
   }, [dashboardState, hydrated]);
 
+  // Scans are not coalesced, so a slow scan of an old root can settle after a
+  // newer one. Only the latest request may write.
+  const projectScanSeq = useRef(0);
   const refreshProjects = useCallback(async () => {
+    const request = ++projectScanSeq.current;
     try {
       const scan = await fetchProjects(
         dashboardState.settings.projectsRootPath,
         sessionBoundary?.previousSessionStartedAt ?? null
       );
-      setDashboardState((current) => ({ ...current, projects: scan.projects }));
-      setProjectNoteWarnings(scan.warnings);
+      if (request !== projectScanSeq.current) return;
+      // An unchanged scan keeps the same array, so nothing downstream rebuilds.
+      setDashboardState((current) => JSON.stringify(current.projects) === JSON.stringify(scan.projects)
+        ? current
+        : { ...current, projects: scan.projects });
+      setProjectNoteWarnings((current) => JSON.stringify(current) === JSON.stringify(scan.warnings) ? current : scan.warnings);
       setProjectsError(null);
     } catch (error) {
+      if (request !== projectScanSeq.current) return;
       setProjectsError(errorMessage(error));
     }
+    setProjectsScanned(true);
   }, [dashboardState.settings.projectsRootPath, sessionBoundary?.previousSessionStartedAt]);
 
   useEffect(() => {
@@ -170,16 +202,43 @@ export function useDashboardData() {
     };
   }, [refreshProjects, sessionReady]);
 
+  // Once per launch, after hydration and the first real scan, so the briefing
+  // describes stored state rather than seed data. Composed without a model; the
+  // caller decides whether to speak it.
+  useEffect(() => {
+    if (openingBriefed.current || !hydrated || !projectsScanned) return;
+    if (taskStore.loading || runStore.loading) return;
+    openingBriefed.current = true;
+    if (!dashboardRef.current.settings.briefOnOpen) return;
+    const text = composeOpeningBriefing({
+      projects: dashboardRef.current.projects,
+      board: boardRef.current,
+      sessionBoundary,
+      projectsError
+    });
+    const message = createAssistantMessage(text);
+    message.id = `conversation-briefing-${Date.now()}`;
+    message.voice = { kind: "output", spokenResponse: text };
+    dashboardRef.current = { ...dashboardRef.current, conversation: [...dashboardRef.current.conversation, message] };
+    setDashboardState(dashboardRef.current);
+    void appendConversationMessages([message]);
+    setOpeningBriefing({ id: message.id, text });
+  }, [hydrated, projectsScanned, taskStore.loading, runStore.loading, sessionBoundary, projectsError]);
+
   const sendChatMessage = useCallback(
     async (text: string, voiceDepth?: VoiceDepth, voiceMessageId?: string): Promise<VoiceAnswer | undefined> => {
       if (voiceDepth) while (requestInFlight.current) await new Promise(resolve => window.setTimeout(resolve, 80));
       const trimmed = text.trim();
-      if (!trimmed || requestInFlight.current) return;
+      // Before hydration the history is seed data and the stored conversation
+      // would replace this turn on arrival.
+      if (!trimmed || requestInFlight.current || !hydratedRef.current) return;
       conversationStream.reset();
       emitInstrumentEvent("command-received");
 
       const user = createUserMessage(trimmed);
-      if (voiceDepth) { user.voice = {kind:"input"}; if (voiceMessageId) user.id = voiceMessageId; }
+      // Output modality is independent of input modality: a typed request may
+      // ask for a spoken answer, but only a transcription has a voice input ID.
+      if (voiceMessageId) { user.voice = {kind:"input"}; user.id = voiceMessageId; }
 
       // The user's turn lands immediately and is part of the history the model
       // sees, so it is captured before the request goes out.
@@ -244,12 +303,15 @@ export function useDashboardData() {
           {capability, voiceDepth, commandBoard: boardRef.current}
         );
         const assistant = createAssistantMessage(reply.content, reply.notice, reply.research);
+        assistant.mail = reply.mail;
         assistant.request=reply.request;
         if (reply.voice) assistant.voice = {kind:"output",spokenResponse:reply.voice.spokenResponse,playback:"pending",requiresConfirmation:reply.voice.requiresConfirmation};
         setChatModel(reply.model);
         dashboardRef.current = {...dashboardRef.current,conversation:[...dashboardRef.current.conversation,assistant]};
         setDashboardState(dashboardRef.current);
-        void appendConversationMessages([assistant]);
+        // Persist the planned summary before the transport can record a fast
+        // connection failure or playback receipt for this same message.
+        await appendConversationMessages([assistant]);
         return reply.voice ? {...reply.voice,messageId:assistant.id} : undefined;
       } catch (error) {
         const partial = conversationStream.current().trim();
@@ -349,6 +411,7 @@ export function useDashboardData() {
       quickApps: dashboardState.quickApps,
       projects: dashboardState.projects,
       sessionBoundary,
+      openingBriefing,
       projectsError,
       projectNoteWarnings,
       chat: dashboardState.conversation,
@@ -369,6 +432,7 @@ export function useDashboardData() {
       dashboardState,
       hydrated,
       sessionBoundary,
+      openingBriefing,
       projectsError,
       projectNoteWarnings,
       chatPending,

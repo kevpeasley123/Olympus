@@ -3,7 +3,8 @@
 ## Start and stop
 
 Add `OPENAI_API_KEY` to the project root `.env` and restart the desktop app.
-Keep `ANTHROPIC_API_KEY`: Olympus still uses its existing reasoning backend.
+The same key serves reasoning: voice turns use OpenAI Responses (Sol by default),
+like text. `ANTHROPIC_API_KEY` is needed only for the explicit Claude comparison route.
 Do not paste keys into the conversation or put them in Vite/browser variables.
 Click the console microphone or press Ctrl+Shift+M to toggle voice. Windows may
 request microphone permission on the first activation. Stop voice releases all
@@ -12,16 +13,29 @@ so interruption works. There is no wake word. Silence closes the connection afte
 two minutes; the session cap is fifteen minutes.
 
 Mute silences output, not the microphone. Stop voice ends capture. Interrupt stops
-speech and listens for a correction. Typing remains available; submitting text exits
-voice. Replay regenerates the short spoken summary in an active session, so it uses
-the API; it does not retain a raw audio recording.
+speech and listens for a correction. Typing remains available; submitting text ends
+microphone capture. With Preferences > Voice Lab > Auto Speak enabled, typed replies
+play a concise spoken summary through a receive-only connection, with the microphone
+off. That connection closes after playback. With Auto Speak off, typed replies are
+text-only. Replay can open its own receive-only connection and uses the API; it does
+not retain a raw audio recording.
+
+Opening briefing: once per launch, after the first project scan, Olympus adds a short
+briefing built from provable project state to the conversation and, with Auto Speak on,
+speaks it through the same receive-only path. Preferences > Voice Lab > Opening Briefing
+turns it off. WebView2 runs with `--autoplay-policy=no-user-gesture-required` because no
+gesture precedes it.
 
 ## Architecture
 
 Rust `commands/voice.rs` mints a 60-second client secret with the permanent key.
-The webview negotiates WebRTC with `/v1/realtime/calls` and sends microphone audio
-through its peer connection. Data-channel events carry transcription, VAD, audio
+The webview negotiates WebRTC with `/v1/realtime/calls`. Microphone sessions send
+input audio; typed replies and auditions only receive audio, with VAD disabled.
+Data-channel events carry transcription, VAD, audio
 transcripts, and playback lifecycle. No new server process or package is required.
+Production builds set a CSP whose `connect-src` allows `https://api.openai.com` for
+the SDP exchange; WebRTC media is not governed by `connect-src`. `npm run tauri dev`
+applies no CSP, so voice in a packaged build is its own check (added 2026-09-28).
 
 The current configuration is `gpt-realtime-2.1`, `marin`, output speed 1.0,
 `gpt-4o-mini-transcribe` in English, near-field noise reduction and server VAD
@@ -34,7 +48,9 @@ visualResponse, proposedActions, requiresConfirmation and conversationState.
 Default spoken responses are capped at 55 words; explicit BRIEF allows 110 and
 DEEP_DIVE 90, one conversational part at a time. Oversized speech is replaced with
 a short invitation to inspect the visual detail, never a reading of the full answer.
-Malformed envelopes fail visibly without affecting existing history.
+Malformed envelopes fail visibly without affecting existing history. A refused
+reasoning turn returns a minimal spoken answer carrying the refusal notice, so the
+microphone session continues (2026-09-28).
 
 Realtime receives only the spoken abstraction in an out-of-band response and is
 instructed to render it verbatim. It cannot answer independently or call tools.
@@ -126,8 +142,8 @@ connection/turn generations suppress stale audio. Only the transport restarts;
 the common reasoning handler, project context, conversation and message IDs remain.
 There is no Agents SDK / RealtimeAgent in this application.
 
-Auto Speak governs voice-turn audio generation; disabling it preserves visual answers
-and explicit Replay. Live Captions hides only in-progress recognition; persisted
+Auto Speak governs typed and microphone reply audio; disabling it preserves visual
+answers and explicit Replay. Live Captions hides only in-progress recognition; persisted
 turns stay readable. Interruption off both disables server auto-interruption and
 pauses input capture during output; manual Interrupt restores capture. Brief uses a
 25-word spoken limit, Standard preserves the existing 55-word default, Detailed uses
@@ -164,3 +180,27 @@ no rejected voices. This is API generation evidence, not a ten-voice physical
 speaker or microphone acceptance test. Build includes TypeScript; no lint script
 is configured. Official catalog checked 2026-09-08:
 https://developers.openai.com/api/docs/guides/realtime-conversations#voice-options
+
+
+## Typed replies with audio (September 12, 2026, development)
+
+Typed requests now use the common reasoning handler with the spoken-answer contract
+when Auto Speak is enabled. Input remains labelled Text in shared history. The
+selected voice, concise summary, full written answer and playback metadata are reused;
+no microphone permission is requested. The browser development page remains a
+text-only preview because it has no desktop credential bridge.
+
+The transport waits for the data channel to open before sending the reply. New
+messages, Stop, Interrupt and preference changes suppress stale audio. Output-only
+connections close after playback. Replay works without an armed microphone. The
+console distinguishes microphone capture from spoken output, reports audio failures,
+and labels a reply Played only after its output-buffer completion event. Backend
+instructions distinguish preparing a reply from activating or completing playback.
+
+Protocol coverage includes 21 typed-reply checks in addition to the existing 20
+voice and 35 preference checks. The isolated typed-voice-harness.html fixture checks
+the actual chat UI, keyboard input identity, microphone-off status, playback receipts,
+Replay and failure fallback with simulated audio. Live speaker playback still needs
+an acceptance check in a desktop build; browser simulation cannot establish audibility.
+Receive-only response behavior checked against the official Realtime conversations
+guide on September 12, 2026.

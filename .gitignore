@@ -3,7 +3,11 @@ dist/
 target/
 src-tauri/target/
 .vite/
+# Local review artifacts, private profile copies, and release backups.
+/output/
 .env
+gmail-oauth-client.json
+client_secret_*.json
 *.log
 tauri-run.err
 tauri-run.out
@@ -17,3 +21,7 @@ tauri-run.out
 # Linux build artifact — this project targets Windows; the desktop and
 # windows schemas are the tracked ones.
 src-tauri/gen/schemas/linux-schema.json
+
+# Generated Python bytecode.
+__pycache__/
+*.py[cod]

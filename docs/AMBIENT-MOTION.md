@@ -1,7 +1,13 @@
 # Command ambient motion
 
+Status, 2026-09-28: partly historical. Command now renders only the 3D core
+([COMMAND-3D-LIFECYCLE.md](COMMAND-3D-LIFECYCLE.md)). `AmbientOrbits.tsx`, which drew
+the SVG orbit tracks below, had no importers and was deleted on 2026-09-28.
+`ambientMotion.ts` and `useAmbientMotion.ts` remain; the event queue and day-arc
+clock now stop while the Command instrument is inactive.
+
 The fixed 440-unit SVG remains the layout authority. ProjectRing owns stationary
-segments, labels, and node positions. AmbientOrbits adds decorative, pointer-transparent
+segments, labels, and node positions. AmbientOrbits (since deleted) added decorative, pointer-transparent
 SVG tracks at radii 194 and 190, between the project band and day arc. Inner decorative arcs occupy radii 80–108 around the core. No project segment or label is rotated.
 
 ## Tuning

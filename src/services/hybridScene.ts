@@ -8,10 +8,18 @@ export const SCENE_FINISH={
   network:{rear:.32,mid:.58,front:.95,treeOpacity:.09,crossOpacity:.10},
 };
 import { buildCommandMaterialStudy } from "./commandMaterialStudy";
+import { buildConstellationField } from "./constellationField";
+import { layoutBackdropStars } from "./constellationBackdrop";
+import { advanceConstellationYaw, CONSTELLATION_ROTATION, nodeCategory, NODE_PALETTE, projectConstellationPoint } from "./constellationPresentation";
 import { INNER_CORE_SCALE, HYBRID_CAMERA, CONSTELLATION_DEPTH, nodeDepth, type CommandLayout } from "./hybridCore";
 import type { HybridFrame } from "../components/panels/HybridCommandCore";
 
 export const LISTENING_RINGS = { transitionSeconds:2.8, waveInterval:1, waveDuration:.95, waveTravel:23, waveOpacity:.10 };
+export const VOICE_SIGNATURE = {
+  attackSeconds:.07, releaseSeconds:.24, fadeInSeconds:.20, fadeOutSeconds:.48,
+  phaseSpeed:.75, travelSpeed:.60, amplitude:28.6, coreWidth:.30, glowWidth:1.0,
+  opacity:.90, glowOpacity:.12,
+};
 const EXECUTING_MOTION = { launchesPerSecond:5, transitSeconds:1.2, rotationSpeed:2 };
 const ORANGE = 0xee842d, BLUE = 0x739fbd;
 const point = (angle: number, radius: number) => new T.Vector2(Math.sin(angle * Math.PI / 180) * radius, Math.cos(angle * Math.PI / 180) * radius);
@@ -31,13 +39,63 @@ export function mountHybridScene(host: HTMLDivElement, layout: CommandLayout, cu
   try { renderer = new T.WebGLRenderer({ canvas, context, alpha: true, antialias: true }); }
   catch { fail("The graphics device could not start."); return () => {}; }
   renderer.setClearColor(0x000000, 0);
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  // Modest supersampling on 1x displays keeps bevels from breaking into pixels.
+  renderer.setPixelRatio(Math.min(Math.max(window.devicePixelRatio || 1, 1.5), 2));
   renderer.outputColorSpace = T.SRGBColorSpace;
   renderer.toneMapping = T.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.05;
   host.appendChild(canvas);
   const scene = new T.Scene(); // Transparent scene: the live page supplies the environment background.
   const camera = new T.OrthographicCamera(-220,220,220,-220,1,1000); camera.position.set(HYBRID_CAMERA.x,HYBRID_CAMERA.y,HYBRID_CAMERA.z); camera.lookAt(0,0,0);
+  const pointerTarget=new T.Vector2(),pointer=new T.Vector2();
+  const interaction=host.closest('.command-instrument__dial') ?? host.parentElement!;
+  const movePointer=(event:Event)=>{
+    const e=event as PointerEvent,rect=host.getBoundingClientRect();
+    if(e.pointerType==='touch'||!rect.width||!rect.height)return;
+    pointerTarget.set(T.MathUtils.clamp((e.clientX-rect.left)/rect.width*2-1,-1,1),T.MathUtils.clamp(1-(e.clientY-rect.top)/rect.height*2,-1,1));
+  };
+  const resetPointer=()=>pointerTarget.set(0,0);
+  interaction.addEventListener('pointermove',movePointer);
+  interaction.addEventListener('pointerleave',resetPointer);
+  window.addEventListener('blur',resetPointer);
+  // A plane-anchored perspective projection for the network only. Z=0 retains
+  // the exact orthographic composition; the instrument camera never moves.
+  // Keep camera-space depth for real occlusion against the unchanged chassis/core.
+  function volumeMaterial(material:T.Material){
+    material.onBeforeCompile=shader=>{
+      shader.uniforms.volumePointer={value:pointer};
+      shader.vertexShader='uniform vec2 volumePointer;\n'+shader.vertexShader;
+      shader.vertexShader=shader.vertexShader.replace('#include <project_vertex>',`
+        vec4 volumeLocal=vec4(transformed,1.0);
+        #ifdef USE_INSTANCING
+          volumeLocal=instanceMatrix*volumeLocal;
+        #endif
+        vec4 volumeWorld=modelMatrix*volumeLocal;
+        vec4 volumeOrigin=vec4(0.0,0.0,0.0,1.0);
+        #ifdef USE_INSTANCING
+          volumeOrigin=instanceMatrix*volumeOrigin;
+        #endif
+        vec4 volumeCenter=${material instanceof T.LineBasicMaterial?'volumeWorld':'modelMatrix*volumeOrigin'};
+        vec4 centerView=viewMatrix*volumeCenter;
+        vec4 mvPosition=viewMatrix*volumeWorld;
+        float volumeZ=volumeCenter.z;
+        float perspectiveScale=${CONSTELLATION_DEPTH.perspectiveDistance.toFixed(1)}/(${CONSTELLATION_DEPTH.perspectiveDistance.toFixed(1)}-volumeZ);
+        // Ease magnification out at the project anchors so stars cannot spill
+        // onto glass labels. The interior retains the full depth projection.
+        float anchorFade=1.0-smoothstep(115.0,150.0,length(volumeCenter.xy));
+        vec2 projectedCenter=centerView.xy*mix(1.0,perspectiveScale,anchorFade);
+        projectedCenter+=volumePointer*vec2(${CONSTELLATION_DEPTH.parallaxX},${CONSTELLATION_DEPTH.parallaxY})*(volumeZ+${CONSTELLATION_DEPTH.range.toFixed(1)})*anchorFade;
+        // Preserve the portal opening as yaw brings formerly lateral notes near.
+        // Fixed project anchors (outside the field) retain their rail positions.
+        if(anchorFade>0.0)projectedCenter*=min(1.0,${CONSTELLATION_ROTATION.portalScreenRadius.toFixed(1)}/max(1.0,length(projectedCenter)));
+        mvPosition.xy=projectedCenter+(mvPosition.xy-centerView.xy)*perspectiveScale;
+        gl_Position=projectionMatrix*mvPosition;
+      `);
+    };
+    material.customProgramCacheKey=()=> 'constellation-volume-v3';
+    material.depthTest=true;
+    return material;
+  }
   scene.add(new T.HemisphereLight(0xc5e2ff,0x07121f,.65));
   const light = new T.DirectionalLight(0xddefff,2.1); light.position.set(-100,160,230); scene.add(light);
   const warm = new T.PointLight(ORANGE, 160, 380, 1); warm.position.set(20,-20,100); scene.add(warm);
@@ -45,15 +103,24 @@ export function mountHybridScene(host: HTMLDivElement, layout: CommandLayout, cu
   const glow = new T.MeshStandardMaterial({ color: ORANGE, emissive: ORANGE, emissiveIntensity: .45, metalness: .45, roughness: .28 });
   const cool = new T.MeshStandardMaterial({ color: BLUE, emissive: 0x284d70, emissiveIntensity: .55, metalness: .65, roughness: .3 });
   function mesh(geometry: T.BufferGeometry, material: T.Material, z = 0) { const m = new T.Mesh(geometry,material); m.position.z=z; scene.add(m); return m; }
-  function track(radius: number, width: number, material: T.Material, z: number) { return mesh(new T.TorusGeometry(radius,width,8,192),material,z); }
   const study = buildCommandMaterialStudy(scene, renderer, layout);
+  const field = buildConstellationField(scene);
   renderer.info.autoReset=false;
   const sceneTarget=new T.WebGLRenderTarget(1,1,{type:T.HalfFloatType,samples:4});
   const composer=new EffectComposer(renderer,sceneTarget);
   const renderPass=new RenderPass(scene,camera);
+  // Render the network into the SAME color/depth target, after the instrument.
+  // Orbital depth proxies below affect only this pass, never the visible finish.
+  const networkScene=new T.Scene();
+  const constellationGroup=new T.Group();
+  constellationGroup.name="Real constellation yaw";
+  networkScene.add(constellationGroup);
+  const constellationMotion=current().constellationMotion??{yaw:0};
+  networkScene.add(new T.HemisphereLight(0xc5e2ff,0x07121f,.65),light.clone(),warm.clone());
+  const networkPass=new RenderPass(networkScene,camera);networkPass.clear=false;
   const bloomPass=new UnrealBloomPass(new T.Vector2(512,512),SCENE_FINISH.bloom.strength,SCENE_FINISH.bloom.radius,SCENE_FINISH.bloom.threshold);
   const outputPass=new OutputPass();
-  composer.addPass(renderPass);composer.addPass(bloomPass);composer.addPass(outputPass);
+  composer.addPass(renderPass);composer.addPass(networkPass);composer.addPass(bloomPass);composer.addPass(outputPass);
   const frames: {id:string; material:T.MeshStandardMaterial; active:boolean}[]=[];
   for (const segment of layout.ring.segments) {
     if(study.studyIds.has(segment.project.id)) continue;
@@ -64,7 +131,6 @@ export function mountHybridScene(host: HTMLDivElement, layout: CommandLayout, cu
     mesh(new T.ShapeGeometry(band(segment.startAngle+.25,segment.endAngle-.25,178,179)),active?glow:cool,-1);
     mesh(new T.ShapeGeometry(band(segment.startAngle+.25,segment.endAngle-.25,157,157.45)),cool,-1);
   }
-  track(185,.55,structural,-8); track(190,.35,cool,-15); track(194,.45,structural,-20);
   // Two continuous light paths. Layered additive halos have no metal reflections.
   const orbital: T.Group[]=[];
   const ringLightMaterials:T.ShaderMaterial[]=[];
@@ -87,6 +153,38 @@ export function mountHybridScene(host: HTMLDivElement, layout: CommandLayout, cu
       group.add(new T.Mesh(new T.TorusGeometry(84+i*10,tube,8,192),material));
     }
   }
+  const orbitalDepthMaterial=new T.MeshBasicMaterial({colorWrite:false,depthWrite:true,depthTest:true});
+  const orbitalDepth=orbital.map(ring=>{
+    const proxy=new T.Mesh((ring.children[0] as T.Mesh).geometry,orbitalDepthMaterial);
+    proxy.position.copy(ring.position);proxy.scale.copy(ring.scale);proxy.renderOrder=-1;
+    networkScene.add(proxy);return proxy;
+  });
+  const voiceUniforms={energy:{value:0},presence:{value:0},phase:{value:0}};
+  // Localized speech peaks lift off the intact amber orbital. Sharing its
+  // transform makes the trace part of that orbit, rather than another ring.
+  const voiceTrace=new T.Group();voiceTrace.visible=false;orbital[0].add(voiceTrace);
+  for(const [width,opacity] of [[VOICE_SIGNATURE.coreWidth,VOICE_SIGNATURE.opacity],[VOICE_SIGNATURE.glowWidth,VOICE_SIGNATURE.glowOpacity]]){
+    const material=new T.ShaderMaterial({
+      uniforms:{...voiceUniforms,opacity:{value:opacity}},
+      vertexShader:`uniform float energy;uniform float phase;varying float packet;varying float peak;
+        void main(){
+          float angle=uv.x*6.2831853;
+          float travelingAngle=angle-phase*${VOICE_SIGNATURE.travelSpeed};
+          packet=pow(.5+.5*cos(2.0*travelingAngle),5.0);
+          peak=pow(.5+.5*sin(18.0*travelingAngle),6.0);
+          float lift=.45+energy*${VOICE_SIGNATURE.amplitude.toFixed(1)}*packet*peak;
+          vec3 p=position+vec3(cos(angle),sin(angle),0.0)*lift;
+          gl_Position=projectionMatrix*modelViewMatrix*vec4(p,1.0);
+        }`,
+      fragmentShader:`uniform float energy;uniform float presence;uniform float opacity;varying float packet;varying float peak;
+        void main(){
+          vec3 amber=mix(vec3(1.0,.56,.19),vec3(1.0,.84,.53),peak*.4);
+          gl_FragColor=vec4(amber*(1.35+energy*.5),presence*opacity*smoothstep(.02,.35,packet));
+        }`,
+      transparent:true,blending:T.AdditiveBlending,depthTest:true,depthWrite:false,toneMapped:false,
+    });
+    voiceTrace.add(new T.Mesh(new T.TorusGeometry(84,width,6,384),material));
+  }
   // Reuse one wave per orbital path; no per-frame allocations or React updates.
   const listeningWaves=orbital.map((ring,i)=>{
     const material=new T.MeshBasicMaterial({color:i===0?0xffcf7a:0xe5efff,transparent:true,opacity:0,depthWrite:false,blending:T.AdditiveBlending,toneMapped:false});
@@ -99,24 +197,64 @@ export function mountHybridScene(host: HTMLDivElement, layout: CommandLayout, cu
   let listening=false,transition=1,listeningTime=0,orbitalTime=0,executing=false,operationAge=100,completionAge=100;
   let previousOperation:number|undefined,previousState="idle",executionTime=0,errorState=false,errorAge=100,ringFlowTime=0;
   const nodeGeometry=new T.SphereGeometry(1,10,8);
-  const nodes: {mesh:T.Mesh; project:string; material:T.MeshStandardMaterial; base:number; z:number; period:number}[]=[];
+  const targetGroups=new Map([...interaction.querySelectorAll<SVGGElement>('[data-node-id]')].map(group=>[group.dataset.nodeId,group]));
+  const nodes: {mesh:T.Mesh; world:T.Vector3; target?:SVGGElement; source:{x:number;y:number}; project:string; material:T.MeshStandardMaterial; base:number; z:number; period:number}[]=[];
   for (const n of layout.constellation.nodes) {
-    const z=nodeDepth(n.id), material=cool.clone(); material.emissive.set(0x96cfff);material.color.set(0xa4cddd);const depth=z/CONSTELLATION_DEPTH.range;
+    const radius=Math.hypot(n.x-220,n.y-220),rawDepth=nodeDepth(n.id);
+    const protection=T.MathUtils.smoothstep(radius,CONSTELLATION_DEPTH.protectedRadius,CONSTELLATION_DEPTH.foregroundRadius);
+    const z=rawDepth>0?T.MathUtils.lerp(-4,rawDepth,protection):rawDepth, material=cool.clone(); volumeMaterial(material);material.emissive.set(NODE_PALETTE[nodeCategory(n)].color);material.color.copy(material.emissive);const depth=z/CONSTELLATION_DEPTH.range;
     material.metalness=0;material.roughness=.8;
     material.emissiveIntensity=CONSTELLATION_DEPTH.midIntensity+Math.abs(depth)*(depth<0?CONSTELLATION_DEPTH.rearIntensity-CONSTELLATION_DEPTH.midIntensity:CONSTELLATION_DEPTH.frontIntensity-CONSTELLATION_DEPTH.midIntensity);
-    const m=mesh(nodeGeometry,material,z);m.position.set(n.x-220,220-n.y,z);m.scale.setScalar(n.size*(1+Math.abs(depth)*(depth<0?CONSTELLATION_DEPTH.rearScale-1:CONSTELLATION_DEPTH.frontScale-1)));
-    nodes.push({mesh:m,project:n.projectId,material,base:material.emissiveIntensity,z,period:CONSTELLATION_DEPTH.driftMinPeriod+(depth+1)*.5*CONSTELLATION_DEPTH.driftPeriodSpread});
+    const m=mesh(nodeGeometry,material,z);constellationGroup.add(m);m.position.set(n.x-220,220-n.y,z);m.scale.setScalar(n.size*(1+Math.abs(depth)*(depth<0?CONSTELLATION_DEPTH.rearScale-1:CONSTELLATION_DEPTH.frontScale-1)));
+    nodes.push({mesh:m,world:new T.Vector3(),target:targetGroups.get(n.id),source:n,project:n.projectId,material,base:material.emissiveIntensity,z,period:CONSTELLATION_DEPTH.driftMinPeriod+(depth+1)*.5*CONSTELLATION_DEPTH.driftPeriodSpread});
   }
-  const nodeMeshes=new Map(layout.constellation.nodes.map((n,i)=>[n.id,nodes[i].mesh]));
-  function pos(p:{x:number;y:number;id?:string}) { return p.id&&nodeMeshes.has(p.id)?nodeMeshes.get(p.id)!.position:new T.Vector3(p.x-220,220-p.y,-6); }
-  const depthLines:{attribute:T.BufferAttribute;a:T.Vector3;b:T.Vector3;from:number;to:number}[]=[];
+  const haloCanvas=document.createElement('canvas');haloCanvas.width=haloCanvas.height=64;
+  const haloContext=haloCanvas.getContext('2d')!;
+  const haloGradient=haloContext.createRadialGradient(32,32,0,32,32,32);
+  haloGradient.addColorStop(0,'rgba(255,255,255,.7)');haloGradient.addColorStop(.25,'rgba(255,255,255,.22)');haloGradient.addColorStop(1,'rgba(255,255,255,0)');
+  haloContext.fillStyle=haloGradient;haloContext.fillRect(0,0,64,64);
+  const haloTexture=new T.CanvasTexture(haloCanvas);haloTexture.colorSpace=T.SRGBColorSpace;
+  const distantStars=layoutBackdropStars(layout.constellation.nodes);
+  canvas.dataset.artStars=String(distantStars.length);
+  let backdrop:T.InstancedMesh|undefined;
+  let backdropTexture:T.CanvasTexture|undefined;
+  if(distantStars.length){
+    const starCanvas=document.createElement('canvas');starCanvas.width=starCanvas.height=32;
+    const starContext=starCanvas.getContext('2d')!;
+    const starGradient=starContext.createRadialGradient(16,16,0,16,16,16);
+    starGradient.addColorStop(0,'rgba(255,255,255,1)');
+    starGradient.addColorStop(.22,'rgba(255,255,255,.95)');
+    starGradient.addColorStop(.5,'rgba(255,255,255,.18)');
+    starGradient.addColorStop(1,'rgba(255,255,255,0)');
+    starContext.fillStyle=starGradient;starContext.fillRect(0,0,32,32);
+    backdropTexture=new T.CanvasTexture(starCanvas);backdropTexture.colorSpace=T.SRGBColorSpace;
+    const material=new T.MeshBasicMaterial({map:backdropTexture,color:0xadc7e4,transparent:true,opacity:.85,depthWrite:false,blending:T.AdditiveBlending,toneMapped:false});
+    volumeMaterial(material);
+    backdrop=new T.InstancedMesh(new T.PlaneGeometry(1,1),material,distantStars.length);
+    backdrop.name="Decorative distant stars";backdrop.renderOrder=-1;backdrop.frustumCulled=false;
+    const matrix=new T.Matrix4(),position=new T.Vector3(),scale=new T.Vector3();
+    distantStars.forEach((star,i)=>{
+      matrix.compose(position.set(star.x,star.y,star.z),camera.quaternion,scale.setScalar(star.size));
+      backdrop!.setMatrixAt(i,matrix);
+      backdrop!.setColorAt(i,new T.Color().setScalar(star.intensity));
+    });
+    networkScene.add(backdrop);
+  }
+  const haloMaterial=new T.MeshBasicMaterial({map:haloTexture,transparent:true,opacity:CONSTELLATION_DEPTH.haloOpacity,depthWrite:false,blending:T.AdditiveBlending,toneMapped:false});volumeMaterial(haloMaterial);
+  const halos=new T.InstancedMesh(new T.PlaneGeometry(1,1),haloMaterial,nodes.length);
+  halos.instanceMatrix.setUsage(T.DynamicDrawUsage);halos.frustumCulled=false;networkScene.add(halos);
+  const haloMatrix=new T.Matrix4(),haloScale=new T.Vector3();
+  nodes.forEach((n,i)=>halos.setColorAt(i,n.material.color.clone().multiplyScalar(1+.45*n.z/CONSTELLATION_DEPTH.range)));
+  const nodePositions=new Map(layout.constellation.nodes.map((n,i)=>[n.id,nodes[i].world]));
+  function pos(p:{x:number;y:number;id?:string}) { return p.id&&nodePositions.has(p.id)?nodePositions.get(p.id)!:new T.Vector3(p.x-220,220-p.y,-6); }
+  const depthLines:{attribute:T.BufferAttribute;colors:T.BufferAttribute;a:T.Vector3;b:T.Vector3;from:number;to:number}[]=[];
   function line(a:T.Vector3,b:T.Vector3,opacity:number,from=0,to=1) {
-    const depthWeight=.65+.35*Math.min(1,Math.max(0,((a.z+b.z)/2+12)/24));
-    const material=new T.LineBasicMaterial({color:BLUE,transparent:true,opacity:opacity*depthWeight,depthWrite:false});
+    const material=new T.LineBasicMaterial({color:BLUE,transparent:true,opacity,depthWrite:false,vertexColors:true});volumeMaterial(material);
     const geometry=new T.BufferGeometry().setFromPoints([a,b]);
+    geometry.setAttribute('color',new T.Float32BufferAttribute([1,1,1,1,1,1],3).setUsage(T.DynamicDrawUsage));
     (geometry.getAttribute('position') as T.BufferAttribute).setUsage(T.DynamicDrawUsage);
-    depthLines.push({attribute:geometry.getAttribute('position') as T.BufferAttribute,a,b,from,to});
-    const connection=new T.Line(geometry,material);connection.frustumCulled=false;scene.add(connection);
+    depthLines.push({attribute:geometry.getAttribute('position') as T.BufferAttribute,colors:geometry.getAttribute('color') as T.BufferAttribute,a,b,from,to});
+    const connection=new T.Line(geometry,material);connection.frustumCulled=false;networkScene.add(connection);
   }
   for (const edge of layout.constellation.treeEdges) line(pos(edge.from),pos(edge.to),edge.depth<=1?SCENE_FINISH.network.treeOpacity*.6:SCENE_FINISH.network.treeOpacity);
   for (const edge of layout.constellation.crossProjectEdges) for(const piece of edge.pieces){
@@ -125,6 +263,7 @@ export function mountHybridScene(host: HTMLDivElement, layout: CommandLayout, cu
     line(pos(edge.from),pos(edge.to),SCENE_FINISH.network.crossOpacity,fraction(piece.from),fraction(piece.to));
   }
   const signalLight=new T.MeshBasicMaterial({color:new T.Color(2.2,2.2,2.2),toneMapped:false});
+  volumeMaterial(signalLight);
   const signalGeometry=new T.SphereGeometry(1.2,10,8);
   const signal=mesh(signalGeometry,signalLight,0);
   const executionSignals=Array.from({length:Math.ceil(EXECUTING_MOTION.launchesPerSecond*EXECUTING_MOTION.transitSeconds)},()=>{
@@ -133,16 +272,26 @@ export function mountHybridScene(host: HTMLDivElement, layout: CommandLayout, cu
   let frame: number | undefined, timer: number | undefined;
   let stopped=false, time=0, previous=0;
   const lost=(event:Event)=>{event.preventDefault();fail("Graphics context lost.");};canvas.addEventListener("webglcontextlost",lost);
-  const resize=()=>{const {width,height}=host.getBoundingClientRect();renderer.setSize(Math.max(1,width),Math.max(1,height),false);composer.setSize(Math.max(1,width),Math.max(1,height));};
-  const observer=new ResizeObserver(resize);observer.observe(host);resize();
+  let renderWidth=0,renderHeight=0;
+  const resize=()=>{const {width,height}=host.getBoundingClientRect();if(width<=0||height<=0||(width===renderWidth&&height===renderHeight))return;renderWidth=width;renderHeight=height;renderer.setSize(width,height,false);composer.setSize(width,height);};
+  // A hidden view (background tab, or another mode's display:none) sleeps with
+  // no timer at all; becoming visible or regaining a size wakes it.
+  const hidden=()=>document.visibilityState!=="visible"||host.getBoundingClientRect().width<=0;
+  const wake=()=>{if(!stopped&&frame===undefined&&timer===undefined&&!hidden())frame=requestAnimationFrame(render);};
+  document.addEventListener("visibilitychange",wake);
+  const observer=new ResizeObserver(()=>{resize();wake();});observer.observe(host);resize();
   let announced=false, lastSignature="", lastStats=0, renderCount=0;
   function render(now:number) {
     if(stopped)return;
     frame=undefined;timer=undefined;
     const value=current(), moving=value.running&&document.visibilityState==="visible";
     const delta=moving&&previous?Math.min((now-previous)/1000,.05):0;
+    if(moving)pointer.lerp(pointerTarget,1-Math.exp(-delta*CONSTELLATION_DEPTH.parallaxResponse));
+    else {pointer.set(0,0);pointerTarget.set(0,0);}
     time+=delta;previous=now;
-    orbitalTime+=value.state==="error"?0:delta*(value.state==="thinking"?10:1);
+    constellationMotion.yaw=advanceConstellationYaw(constellationMotion.yaw,delta,moving);
+    constellationGroup.rotation.y=constellationMotion.yaw;
+    orbitalTime+=value.state==="error"?0:delta*(value.state==="thinking"?14:1);
     if(value.state!=="error")ringFlowTime+=delta;
     const nextError=value.state==="error";
     errorAge=nextError?(errorState?errorAge+delta:0):100;
@@ -165,6 +314,7 @@ export function mountHybridScene(host: HTMLDivElement, layout: CommandLayout, cu
       if(executing)idleOrientation.setFromEuler(idleEuler.set(.32+i*.22+orbitalTime*.28*EXECUTING_MOTION.rotationSpeed,.28+i*.18+orbitalTime*.16*EXECUTING_MOTION.rotationSpeed,orbitalTime*.20+i*Math.PI));
       if(errorState)idleOrientation.setFromEuler(idleEuler.set(i===0?.55:-.48,i===0?-.65:.65,i*.7));
       ring.quaternion.copy(transitionStarts[i]).slerp(listening?camera.quaternion:idleOrientation,ease);
+      orbitalDepth[i].quaternion.copy(ring.quaternion);
     });
     if(listening&&transition===1)listeningTime+=delta;
     listeningWaves.forEach((wave,index)=>{
@@ -180,16 +330,47 @@ export function mountHybridScene(host: HTMLDivElement, layout: CommandLayout, cu
     canvas.dataset.listeningWaves=String(listeningWaves.filter(wave=>wave.mesh.visible).length);
     ringLightMaterials.forEach((material,i)=>{material.uniforms.phase.value=ringFlowTime*.48+Math.floor(i/5)*2.1;});
     const energy=value.state==="speaking"?(moving?Math.min(1,Math.max(0,value.voiceLevel)):.15):value.state==="thinking"?.35:value.state==="listening"?.22:executing?.18+operationPulse*.3:0;
+    field.update(energy);
+    const speechTarget=value.state==='speaking'?energy:0;
+    const voiceResponse=speechTarget>voiceUniforms.energy.value?VOICE_SIGNATURE.attackSeconds:VOICE_SIGNATURE.releaseSeconds;
+    const voicePresence=value.state==='speaking'?1:0;
+    const fadeSeconds=voicePresence?VOICE_SIGNATURE.fadeInSeconds:VOICE_SIGNATURE.fadeOutSeconds;
+    if(moving){
+      voiceUniforms.energy.value+=(speechTarget-voiceUniforms.energy.value)*(1-Math.exp(-delta/voiceResponse));
+      voiceUniforms.presence.value+=(voicePresence-voiceUniforms.presence.value)*(1-Math.exp(-delta/fadeSeconds));
+      voiceUniforms.phase.value+=delta*VOICE_SIGNATURE.phaseSpeed*(.7+voiceUniforms.energy.value*.3);
+    }else {voiceUniforms.energy.value=speechTarget;voiceUniforms.presence.value=voicePresence;}
+    voiceTrace.visible=voiceUniforms.presence.value>.005&&value.state!=="error";
+    canvas.dataset.voiceSignature=String(voiceUniforms.presence.value>.005);
+    canvas.dataset.voiceSignatureEnergy=String(voiceUniforms.energy.value);
     glow.emissiveIntensity=.23+(moving?Math.sin(time*.8)*.06:0)+energy*.55;
     study.update(time, energy, moving, value.hoverProject, value.state==="idle", value.state==="speaking", executing, executing||errorState?value.execution?.projectId:undefined, operationPulse, value.state==="complete", errorState?errorAge:-1);
     glow.color.set(value.state==="error"?0xe57854:ORANGE);
     frames.forEach(f=>{f.material.emissiveIntensity=value.hoverProject===f.id?1.1:f.active?.45:.2;});
     nodes.forEach((n,i)=>{n.mesh.position.z=n.z+(moving?Math.sin(time*Math.PI*2/n.period+i*2.4)*CONSTELLATION_DEPTH.driftAmount:0);n.material.emissiveIntensity=n.base+(value.hoverProject===n.project?.6:0)+(moving?Math.sin(time*.35+i)*.07:0);});
+    constellationGroup.updateMatrixWorld(true);
+    nodes.forEach((n,i)=>{
+      n.mesh.getWorldPosition(n.world);
+      if(n.target){
+        const projected=projectConstellationPoint(n.world,pointer);
+        n.target.setAttribute('transform',`translate(${projected.x-n.source.x} ${projected.y-n.source.y})`);
+      }
+      const depth=n.z/CONSTELLATION_DEPTH.range;
+      haloScale.setScalar(n.mesh.scale.x*(depth<0?5.8:5.0));
+      haloMatrix.compose(n.world,camera.quaternion,haloScale);halos.setMatrixAt(i,haloMatrix);
+    });
+    halos.instanceMatrix.needsUpdate=true;
     for(const connection of depthLines){
-      const {attribute,a,b,from,to}=connection;
+      const {attribute,colors,a,b,from,to}=connection;
       attribute.setXYZ(0,a.x+(b.x-a.x)*from,a.y+(b.y-a.y)*from,a.z+(b.z-a.z)*from);
       attribute.setXYZ(1,a.x+(b.x-a.x)*to,a.y+(b.y-a.y)*to,a.z+(b.z-a.z)*to);
       attribute.needsUpdate=true;
+      for(let i=0;i<2;i++){
+        const depth=T.MathUtils.clamp(attribute.getZ(i)/CONSTELLATION_DEPTH.range,-1,1);
+        const intensity=1+Math.abs(depth)*(depth<0?CONSTELLATION_DEPTH.rearLine-1:CONSTELLATION_DEPTH.frontLine-1);
+        colors.setXYZ(i,intensity,intensity,intensity);
+      }
+      colors.needsUpdate=true;
     }
     const edges=executing?layout.constellation.treeEdges.filter(edge=>edge.to.projectId===value.execution?.projectId):layout.constellation.treeEdges;
     signal.visible=!errorState&&!executing&&moving&&edges.length>0&&time%4.5<2;
@@ -205,18 +386,19 @@ export function mountHybridScene(host: HTMLDivElement, layout: CommandLayout, cu
     canvas.dataset.executionSignals=String(executionSignals.filter(orb=>orb.visible).length);
     if(signal.visible){const e=edges[Math.floor(time/4.5)%edges.length];signal.position.copy(pos(executing?e.to:e.from)).lerp(pos(executing?e.from:e.to),(time%4.5)/2);}
     const signature = `${value.state}/${moving?value.voiceLevel:0}/${value.hoverProject}/${canvas.width}/${canvas.height}/${value.running}`;
-    try { if(document.visibilityState==="visible" && (moving || signature !== lastSignature)) { renderer.info.reset();composer.render(); renderCount++; lastSignature=signature; } }
-    catch { fail("Rendering stopped unexpectedly."); return; }
+    try { if(document.visibilityState==="visible" && host.getBoundingClientRect().width>0 && (moving || signature !== lastSignature)) { renderer.info.reset();composer.render(); renderCount++; lastSignature=signature; } }
+    catch { stopped=true; fail("Rendering stopped unexpectedly."); return; }
     if(!announced && renderCount){announced=true;ready();}
-    if(now-lastStats>500){lastStats=now;canvas.dataset.rings=String(orbital.filter(r=>r.visible).length);canvas.dataset.frames=String(renderCount);canvas.dataset.drawCalls=String(renderer.info.render.calls);canvas.dataset.nodes=String(nodes.length);}
+    if(now-lastStats>500){lastStats=now;canvas.dataset.constellationYaw=String(constellationMotion.yaw);canvas.dataset.rings=String(orbital.filter(r=>r.visible).length);canvas.dataset.frames=String(renderCount);canvas.dataset.drawCalls=String(renderer.info.render.calls);canvas.dataset.nodes=String(nodes.length);canvas.dataset.parallax=JSON.stringify([pointer.x,pointer.y]);}
     // One loop; no React updates per frame. Hidden and reduced-motion views render only on changes.
     if(moving)frame=requestAnimationFrame(render);
-    else timer=window.setTimeout(()=>render(performance.now()),250);
+    else if(!hidden())timer=window.setTimeout(()=>render(performance.now()),250);
   }
   frame=requestAnimationFrame(render);
-  return ()=>{stopped=true;if(frame!==undefined)cancelAnimationFrame(frame);if(timer!==undefined)clearTimeout(timer);observer.disconnect();canvas.removeEventListener("webglcontextlost",lost);
+  return ()=>{stopped=true;interaction.removeEventListener('pointermove',movePointer);interaction.removeEventListener('pointerleave',resetPointer);window.removeEventListener('blur',resetPointer);if(frame!==undefined)cancelAnimationFrame(frame);if(timer!==undefined)clearTimeout(timer);observer.disconnect();document.removeEventListener("visibilitychange",wake);canvas.removeEventListener("webglcontextlost",lost);
     const geometries=new Set<T.BufferGeometry>(),materials=new Set<T.Material>();
-    scene.traverse(o=>{const drawable=o as T.Mesh;if(drawable.geometry)geometries.add(drawable.geometry);if(drawable.material)(Array.isArray(drawable.material)?drawable.material:[drawable.material]).forEach(m=>materials.add(m));});
+    for(const root of [scene,networkScene])root.traverse(o=>{const drawable=o as T.Mesh;if(drawable.geometry)geometries.add(drawable.geometry);if(drawable.material)(Array.isArray(drawable.material)?drawable.material:[drawable.material]).forEach(m=>materials.add(m));});
+    halos.dispose();backdrop?.dispose();haloTexture.dispose();backdropTexture?.dispose();
     geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose()); structural.dispose();cool.dispose();glow.dispose();study.dispose();bloomPass.dispose();outputPass.dispose();composer.dispose();renderer.dispose();renderer.forceContextLoss();canvas.remove();
   };
 }

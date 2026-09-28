@@ -36,7 +36,7 @@ export function VoiceSettings({preferences,onChange,ready=true}:{preferences:Voi
     <label className="voice-setting-row">Response Depth<select aria-label="Response Depth" value={preferences.responseDepth} onChange={event=>change({responseDepth:event.target.value as VoicePreferences["responseDepth"]})}>
       <option value="brief">Brief</option><option value="standard">Standard</option><option value="detailed">Detailed</option>
     </select></label>
-    {([["autoSpeak","Auto Speak"],["captionsEnabled","Live Captions"],["bargeInEnabled","Allow Interruption"]] as const).map(([key,label])=><label key={key} className="voice-setting-row">{label}<input type="checkbox" checked={preferences[key]} onChange={event=>change({[key]:event.target.checked})}/></label>)}
-    <p className="voice-settings-hint">Auto Speak controls replies during voice conversations. Live Captions controls in-progress recognition; saved messages always remain readable. With interruption off, microphone input pauses during Olympus playback. Manual Interrupt remains available.</p>
+    {([["autoSpeak","Auto Speak"],["captionsEnabled","Live Captions"],["bargeInEnabled","Allow Interruption"],["briefOnOpen","Opening Briefing"]] as const).map(([key,label])=><label key={key} className="voice-setting-row">{label}<input type="checkbox" checked={preferences[key]} onChange={event=>change({[key]:event.target.checked})}/></label>)}
+    <p className="voice-settings-hint">Auto Speak reads concise replies to typed messages and voice conversations. Typed replies keep your microphone off. Live Captions controls in-progress recognition; saved messages always remain readable. With interruption off, microphone input pauses during Olympus playback. Manual Interrupt remains available. Opening Briefing shows a short project briefing once when Olympus opens, and speaks it when Auto Speak is on.</p>
   </fieldset>;
 }

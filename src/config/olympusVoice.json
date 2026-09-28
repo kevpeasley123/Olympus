@@ -21,7 +21,8 @@
     "responseDepth": "standard",
     "autoSpeak": true,
     "captionsEnabled": true,
-    "bargeInEnabled": true
+    "bargeInEnabled": true,
+    "briefOnOpen": true
   },
   "previewPhrase": "Olympus online. Eight projects are currently being tracked. Two require your attention, and I have a recommendation when you're ready.",
   "behavior": "Speak calmly and naturally, with measured pacing, natural pauses and composed, intelligent delivery. Be slightly formal, concise and clear. Avoid exaggerated enthusiasm, customer-service speech patterns and unnecessary acknowledgements. Deliver recommendations clearly; include supporting detail only when useful. Never imitate a named fictional character or real person.",

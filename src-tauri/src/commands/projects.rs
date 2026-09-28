@@ -464,7 +464,7 @@ fn linked_worktrees(path: &PathBuf) -> Vec<LinkedWorktree> {
 }
 
 fn git_command(path: &PathBuf, args: &[&str]) -> Result<String, String> {
-    let output = Command::new("git")
+    let output = crate::commands::delegation::hide_console(&mut Command::new("git"))
         .arg("-C")
         .arg(path)
         .args(args)
@@ -755,6 +755,7 @@ mod tests {
     /// The vault lives inside the projects root, so without this it is scanned
     /// and rendered as a project of its own.
     #[test]
+    #[ignore = "requires the owner's real vault; run with --ignored"]
     fn the_vault_directory_is_excluded_from_the_scan() {
         let vault = get_vault_path();
 
@@ -793,6 +794,7 @@ mod tests {
     /// are properties of this machine, not of the code, so nothing else can
     /// catch them.
     #[test]
+    #[ignore = "requires the owner's real vault; run with --ignored"]
     fn debug_scan_the_real_projects_root() {
         // Worktrees need not live beneath the configured projects directory.
         let root = std::env::var_os("OLYMPUS_TEST_PROJECTS_ROOT")

@@ -13,6 +13,7 @@ export interface AssistantNotice {
 }
 
 export interface AssistantReply {
+  mail?: import("./gmail").MailExcerpt[];
   request?: import("./modelRouting").ModelRequest;
   voice?: import("./voiceContract").VoiceAnswer;
   research: import("../types").ResearchExcerpt[];

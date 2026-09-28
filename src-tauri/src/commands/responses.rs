@@ -11,7 +11,7 @@ pub fn voice_schema() -> Value {
     ]}}}})
 }
 pub fn payload(route: &Route, instructions: &str, messages: Vec<Value>, voice: bool) -> Value {
-    let mut v = json!({"model":route.model,"instructions":instructions,"input":messages,"store":false,"stream":true,"reasoning":{"effort":route.effort,"context":"current_turn"},"max_output_tokens":8000});
+    let mut v = json!({"model":route.model,"instructions":instructions,"input":messages,"store":false,"stream":true,"reasoning":{"effort":route.effort,"context":"current_turn"},"max_output_tokens":route.max_output_tokens});
     if voice {
         v["text"] = json!({"format":{"type":"json_schema","name":"olympus_voice_answer","strict":true,"schema":voice_schema()}});
     }
@@ -103,6 +103,7 @@ impl Output {
                 let code = e
                     .pointer("/response/incomplete_details/reason")
                     .or_else(|| e.pointer("/response/error/code"))
+                    .or_else(|| e.pointer("/error/code"))
                     .or_else(|| e.get("code"))
                     .and_then(Value::as_str)
                     .unwrap_or("response_failed");
@@ -176,15 +177,69 @@ async fn complete_at(
     endpoint: &str,
     test_key: Option<&str>,
 ) -> Result<Output, String> {
+    transport(
+        payload(route, instructions, messages, voice),
+        channel,
+        record,
+        endpoint,
+        test_key,
+        240,
+    )
+    .await
+}
+/// Strict structured work shares the chat transport but never accepts partial/refused output.
+pub async fn structured(
+    route: &Route,
+    instructions: &str,
+    input: Value,
+    schema: Value,
+    record: &mut RequestRecord,
+) -> Result<String, String> {
+    let mut body = payload(
+        route,
+        instructions,
+        vec![json!({"role":"user","content":input.to_string()})],
+        false,
+    );
+    body["text"] = json!({"format":{"type":"json_schema","name":"communication_assessment","strict":true,"schema":schema}});
+    let output = transport(
+        body,
+        &tauri::ipc::Channel::new(|_| Ok(())),
+        record,
+        "https://api.openai.com/v1/responses",
+        None,
+        60,
+    )
+    .await?;
+    structured_text(output, record)
+}
+fn structured_text(output: Output, record: &RequestRecord) -> Result<String, String> {
+    if !output.terminal || !output.refusal.is_empty() || output.failure.is_some() || record.status != "completed" {
+        return Err("assessment_provider_incomplete_or_refused".into());
+    }
+    if output.text.len()>128_000 {return Err("assessment_output_budget".into())}
+    Ok(output.text)
+}
+async fn transport(
+    body: Value,
+    channel: &tauri::ipc::Channel<AssistantStreamEvent>,
+    record: &mut RequestRecord,
+    endpoint: &str,
+    test_key: Option<&str>,
+    idle_secs: u64,
+) -> Result<Output, String> {
+    // A whole-request timeout would cut off a long, healthy stream. Bound the
+    // connection and each silence instead.
+    let idle = std::time::Duration::from_secs(idle_secs);
     let start = std::time::Instant::now();
     let result=async{
  let key=test_key.map(str::to_owned).or_else(||std::env::var("OPENAI_API_KEY").ok()).filter(|v|!v.trim().is_empty()).ok_or("OpenAI reasoning needs OPENAI_API_KEY in the Olympus project .env.")?;
- let client=reqwest::Client::builder().timeout(std::time::Duration::from_secs(240)).build().map_err(|_|"OpenAI HTTP client unavailable")?;
- let response=client.post(endpoint).bearer_auth(key.trim()).json(&payload(route,instructions,messages,voice)).send().await.map_err(|_|"OpenAI connection failed or timed out. Retry explicitly; no alternate provider was used.")?;
- if !response.status().is_success(){let status=response.status().as_u16();record.error_code=Some(format!("http_{status}"));let data=response.json::<Value>().await.unwrap_or(Value::Null);let code=data.pointer("/error/code").and_then(Value::as_str).unwrap_or("request_rejected");return Err(format!("OpenAI request failed (HTTP {status}, {code}). Check API access, quota and configuration; no alternate provider was used."));}
+ let client=reqwest::Client::builder().connect_timeout(std::time::Duration::from_secs(15)).build().map_err(|_|"OpenAI HTTP client unavailable")?;
+ let response=tokio::time::timeout(idle,client.post(endpoint).bearer_auth(key.trim()).json(&body).send()).await.ok().and_then(Result::ok).ok_or("OpenAI connection failed or timed out. Retry explicitly; no alternate provider was used.")?;
+ if !response.status().is_success(){let status=response.status().as_u16();record.error_code=Some(format!("http_{status}"));let data=tokio::time::timeout(idle,response.json::<Value>()).await.ok().and_then(Result::ok).unwrap_or(Value::Null);let code=data.pointer("/error/code").and_then(Value::as_str).unwrap_or("request_rejected");return Err(format!("OpenAI request failed (HTTP {status}, {code}). Check API access, quota and configuration; no alternate provider was used."));}
  let mut stream=response.bytes_stream();let mut decoder=Decoder::default();let mut output=Output::default();
- while let Some(chunk)=futures_util::StreamExt::next(&mut stream).await{
- let events=match chunk{Ok(bytes)=>decoder.feed(&bytes),Err(_)=>Err("stream_interrupted".into())};
+ loop{
+ let events=match tokio::time::timeout(idle,futures_util::StreamExt::next(&mut stream)).await{Ok(None)=>break,Ok(Some(Ok(bytes)))=>decoder.feed(&bytes),Ok(Some(Err(_)))=>Err("stream_interrupted".into()),Err(_)=>Err("stream_idle_timeout".into())};
  let events=match events{Ok(events)=>events,Err(code)=>{record.error_code=Some(code.clone());output.failure=Some(code);break;}};
  for e in events{if let Some(ui)=output.event(&e,record){if matches!(ui,AssistantStreamEvent::Delta{..})&&record.first_token_ms.is_none(){record.first_token_ms=Some(start.elapsed().as_millis() as u64);}channel.send(ui).ok();}}
  if output.terminal{break;}
@@ -204,6 +259,29 @@ mod tests {
     use super::super::models::{resolve, Capability};
     use super::*;
     #[test]
+    fn structured_assessment_rejects_partial_refused_and_nonterminal_text() {
+        let mut r=RequestRecord::new(&resolve(Capability::Primary),"fixture");r.status="completed".into();
+        let valid=||Output{text:"{}".into(),terminal:true,..Default::default()};
+        assert_eq!(structured_text(valid(),&r).unwrap(),"{}");
+        let mut partial=valid();partial.failure=Some("max_output_tokens".into());assert!(structured_text(partial,&r).is_err());
+        let mut refused=valid();refused.refusal="Refused".into();assert!(structured_text(refused,&r).is_err());
+        let mut unfinished=valid();unfinished.terminal=false;assert!(structured_text(unfinished,&r).is_err());
+    }
+    #[test]
+    fn nested_stream_error_preserves_provider_code() {
+        let mut record = RequestRecord::new(&resolve(Capability::Primary), "test");
+        let mut output = Output::default();
+        output.event(
+            &json!({"type":"error","error":{"type":"insufficient_quota","code":"credit_balance_exhausted"}}),
+            &mut record,
+        );
+        let error = output.finish(&mut record).err().unwrap();
+        assert!(error.contains("credit_balance_exhausted"));
+        assert_eq!(record.status, "failed");
+        assert_eq!(record.error_code.as_deref(), Some("credit_balance_exhausted"));
+        assert!(record.fallback_from.is_none());
+    }
+    #[test]
     fn payload_keeps_local_state_and_voice_contract() {
         let b = payload(&resolve(Capability::Primary), "identity", vec![], true);
         assert_eq!(b["store"], false);
@@ -212,6 +290,11 @@ mod tests {
         assert!(b.get("tools").is_none());
         assert!(b.get("fallbacks").is_none());
         assert!(b.get("system").is_none());
+        assert_eq!(b["max_output_tokens"], 8_000);
+        assert_eq!(
+            payload(&resolve(Capability::DeepReasoning), "", vec![], false)["max_output_tokens"],
+            32_000
+        );
         assert_eq!(
             payload(&resolve(Capability::DeepReasoning), "", vec![], false)["reasoning"]["effort"],
             "high"

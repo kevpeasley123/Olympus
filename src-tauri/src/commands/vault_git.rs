@@ -26,7 +26,15 @@ fn git(
     temporary_index: Option<&Path>,
 ) -> Result<String, String> {
     let mut command = Command::new("git");
-    command.arg("-C").arg(root).args(args);
+    crate::commands::delegation::hide_console(&mut command);
+    // Paths are passed and read back verbatim: without these, git octal-quotes
+    // non-ASCII names in its output and treats `[`, `*` and `?` in a pathspec
+    // as a glob, so a note titled `Café [1]` could never be committed alone.
+    command
+        .arg("-C")
+        .arg(root)
+        .args(["-c", "core.quotePath=false", "--literal-pathspecs"])
+        .args(args);
 
     if let Some(index) = temporary_index {
         command.env("GIT_INDEX_FILE", index);
@@ -105,10 +113,10 @@ fn commit_exact_file_in(
 
         let names = git(
             root,
-            &["diff-tree", "--no-commit-id", "--name-only", "-r", &commit],
+            &["diff-tree", "--no-commit-id", "--name-only", "-z", "-r", &commit],
             None,
         )?;
-        let changed_paths: Vec<&str> = names.lines().filter(|line| !line.trim().is_empty()).collect();
+        let changed_paths: Vec<&str> = names.split('\0').filter(|name| !name.is_empty()).collect();
         if changed_paths != vec![relative_text.as_str()] {
             return Err(format!(
                 "Refusing a vault commit whose tree changed {:?} instead of only {}.",
@@ -208,6 +216,41 @@ mod tests {
         assert!(git(&root, &["status", "--porcelain"], None)
             .unwrap()
             .contains("leave-alone.md"));
+        let _ = fs::remove_dir_all(root);
+    }
+
+    /// A research title with an accent and brackets used to fail after the
+    /// file was written: git quoted the name and globbed the pathspec.
+    #[test]
+    fn commits_a_non_ascii_bracketed_name_and_nothing_it_would_glob() {
+        if Command::new("git").arg("--version").output().is_err() {
+            eprintln!("git is not installed; skipping");
+            return;
+        }
+        let root = repo("unicode");
+        let name = "02 - Research/2026-07-26 Café — notes [1].md";
+        fs::create_dir_all(root.join("02 - Research")).unwrap();
+        fs::write(root.join(name), "new\n").unwrap();
+        // Matched by `[1]` as a glob, but not the file that was written.
+        fs::write(root.join("02 - Research/2026-07-26 Café — notes 1.md"), "human\n").unwrap();
+
+        let commit = commit_exact_file_in(&root, Path::new(name), "create")
+            .unwrap()
+            .expect("new file gets a commit");
+
+        assert_eq!(
+            git(
+                &root,
+                &["diff-tree", "--no-commit-id", "--name-only", "-z", "-r", &commit],
+                None
+            )
+            .unwrap()
+            .trim_end_matches('\0'),
+            name
+        );
+        assert!(git(&root, &["status", "--porcelain"], None)
+            .unwrap()
+            .contains("notes 1.md"));
         let _ = fs::remove_dir_all(root);
     }
 }

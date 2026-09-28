@@ -16,7 +16,12 @@ export interface PollingStore<T> {
   data: T;
   loading: boolean;
   error: string | null;
-  refresh: () => Promise<void>;
+  /**
+   * `force` guarantees a fetch that starts after the call. Without it a caller
+   * can join a fetch already in flight, which may predate the write it wants
+   * to see.
+   */
+  refresh: (options?: { force?: boolean }) => Promise<void>;
 }
 
 export function createPollingStore<T>(options: {
@@ -32,29 +37,49 @@ export function createPollingStore<T>(options: {
   let subscribers = 0;
   let timer: number | undefined;
   let inFlight: Promise<void> | null = null;
+  let dirty = false;
+  // Compared once per poll so an unchanged result does not re-render every
+  // subscriber. Cheap next to the render it saves: the 3 s delegation poll
+  // would otherwise redraw the whole App tree forever.
+  let snapshot: string | undefined;
 
   const listeners = new Set<() => void>();
   const notify = () => {
     for (const listener of listeners) listener();
   };
 
-  async function refresh(): Promise<void> {
-    // Coalesced: several panels mounting at once must not each trigger a scan.
-    if (inFlight) return inFlight;
+  async function refresh(refreshOptions?: { force?: boolean }): Promise<void> {
+    if (inFlight) {
+      // Coalesced: several panels mounting at once must not each trigger a scan.
+      if (!refreshOptions?.force) return inFlight;
+      // The running fetch may predate the caller's write: queue one more.
+      dirty = true;
+      await inFlight;
+      return inFlight ?? undefined;
+    }
 
     inFlight = (async () => {
+      const before = { data, loading, error };
       try {
         const previous = data;
         const next = await options.fetcher();
-        data = next;
-        options.onData?.(next, previous);
+        const serialized = JSON.stringify(next);
+        if (serialized !== snapshot) {
+          snapshot = serialized;
+          data = next;
+        }
+        options.onData?.(data, previous);
         error = null;
       } catch (caught) {
         error = String(caught);
       } finally {
         loading = false;
         inFlight = null;
-        notify();
+        if (data !== before.data || loading !== before.loading || error !== before.error) notify();
+        if (dirty) {
+          dirty = false;
+          void refresh();
+        }
       }
     })();
 

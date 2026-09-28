@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import { isTauriRuntime } from "./launcher";
 import type { TrackedProject } from "../types";
 
 type ActionTone = "success" | "warning" | "error";
@@ -13,10 +14,6 @@ interface WriteMemoryArtifactResult {
   path: string;
   /** False when the write gate was shown and the overwrite was declined. */
   written: boolean;
-}
-
-function isTauriRuntime(): boolean {
-  return typeof window !== "undefined" && ("__TAURI_INTERNALS__" in window || "__TAURI__" in window);
 }
 
 function createResearchBase(): string {
@@ -169,20 +166,14 @@ function createProjectsCanvas(projects: TrackedProject[]): string {
   return JSON.stringify({ nodes, edges }, null, 2);
 }
 
-/// The vault root lives in Rust — see `write_memory_artifact`. Passing it from
-/// here is what let the configured path drift from the one the Pantheon and
-/// attachment writers use.
+/// The vault root and the artifact's path live in Rust — see
+/// `write_memory_artifact`. The webview names which artifact, never where.
 async function writeArtifact(
-  folder: string,
-  fileName: string,
+  kind: "researchBase" | "projectsCanvas",
   content: string
 ): Promise<WriteMemoryArtifactResult> {
   return invoke<WriteMemoryArtifactResult>("write_memory_artifact", {
-    artifact: {
-      folder,
-      file_name: fileName,
-      content
-    }
+    artifact: { kind, content }
   });
 }
 
@@ -195,7 +186,7 @@ export async function syncResearchBaseToVault(): Promise<ObsidianActionResult> {
   }
 
   const fileName = "Olympus Research.base";
-  const result = await writeArtifact("00 - Dashboard", fileName, createResearchBase());
+  const result = await writeArtifact("researchBase", createResearchBase());
 
   if (!result.written) {
     // Declining is a deliberate, correct outcome — phrase it as one.
@@ -224,7 +215,7 @@ export async function syncProjectsCanvasToVault(
   }
 
   const fileName = "Olympus Projects.canvas";
-  const result = await writeArtifact("00 - Dashboard", fileName, createProjectsCanvas(projects));
+  const result = await writeArtifact("projectsCanvas", createProjectsCanvas(projects));
 
   if (!result.written) {
     return {

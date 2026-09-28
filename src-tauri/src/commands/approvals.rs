@@ -256,4 +256,21 @@ mod tests {
             .is_err());
         assert!(db.execute("DELETE FROM approval_consumptions", []).is_err());
     }
+    #[test]
+    fn approval_records_must_reference_real_parents() {
+        let db = db();
+        let enabled: bool = db
+            .query_row("PRAGMA foreign_keys", [], |r| r.get(0))
+            .unwrap();
+        assert!(enabled);
+        assert!(db
+            .execute("INSERT INTO operator_approvals (id, session_id, run_id, stage, task_text, task_hash, subject_json, subject_hash) VALUES ('p', 'no-such-session', 'run', 'stage', 't', 'h', '{}', 'h')", [])
+            .is_err());
+        assert!(db
+            .execute("INSERT INTO approval_consumptions (approval_id, run_id, stage) VALUES ('no-such-approval', 'run', 'stage')", [])
+            .is_err());
+        assert!(db
+            .execute("INSERT INTO approval_revocations (approval_id, session_id, reason) VALUES ('no-such-approval', 'session', 'r')", [])
+            .is_err());
+    }
 }

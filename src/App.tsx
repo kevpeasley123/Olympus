@@ -1,20 +1,23 @@
+import { Communications } from "./components/panels/Communications";
 import { realtimeVoice, voicePreview, useVoiceState } from "./services/realtimeVoice";
 import { validateVoiceNavigation } from "./services/voiceContract";
 import { operationalStatuses, type OperationalStatus } from "./services/projectCommandBoard";
 import { MotionConfig, motion, useReducedMotion } from "motion/react";
 import type { ReactNode } from "react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { BackgroundLayer } from "./components/BackgroundLayer";
 import { AmbientDock } from "./components/panels/AmbientDock";
 import { ChatPanel } from "./components/panels/ChatPanel";
 import { CommandInstrument } from "./components/panels/CommandInstrument";
+import { CommandAgentCatalog } from "./components/panels/CommandAgentCatalog";
+import type { ResearchInspectionTarget } from "./services/commandAgents";
 import { HeaderBar } from "./components/panels/HeaderBar";
 import { LibraryPanel } from "./components/panels/LibraryPanel";
 import { ProjectsPanel } from "./components/panels/ProjectsPanel";
 import { QuickbarPanel } from "./components/panels/QuickbarPanel";
 import { ToolBelt } from "./components/panels/ToolBelt";
 import { WriteConfirmDialog } from "./components/panels/WriteConfirmDialog";
-import { openVaultNote } from "./services/launcher";
+import { isTauriRuntime, openVaultNote } from "./services/launcher";
 import { useActionQueue } from "./hooks/useActionQueue";
 import { usePantheon } from "./hooks/usePantheon";
 import { useDashboardData } from "./hooks/useDashboardData";
@@ -22,12 +25,16 @@ import { useDashboardMode } from "./hooks/useDashboardMode";
 import type { DashboardMode } from "./hooks/useDashboardMode";
 
 function App() {
+  const [preferencesOpen,setPreferencesOpen]=useState(false);
+  const [commandAgent,setCommandAgent]=useState("olympus");
+  const [researchInspection,setResearchInspection]=useState<ResearchInspectionTarget|null>(null);
   const {
     settings, settingsReady, updateVoicePreferences,
     tools,
     quickApps,
     projects,
     sessionBoundary,
+    openingBriefing,
     projectNoteWarnings,
     chat,
     chatPending,
@@ -63,10 +70,20 @@ function App() {
   const research = mode === "research";
   const command = mode === "command";
 
-  function enterProject(projectId: string) {
+  // Stable handlers: AmbientDock re-subscribes its global shortcuts whenever
+  // these change, and App re-renders on every poll that lands.
+  const enterProject = useCallback((projectId: string) => {
     setProjectFilter(projectId);
     setMode("project");
-  }
+  }, [setMode]);
+  const openNote = useCallback((notePath: string) => void openVaultNote(notePath), []);
+  const refreshDashboard = useCallback(() => void refreshAll(), [refreshAll]);
+  const cycleDashboardMode = useCallback(() => {
+    // Cycling is an explicit mode change, so it clears the project filter
+    // for the same reason any other mode switch does.
+    setProjectFilter(null);
+    cycleMode();
+  }, [cycleMode]);
 
   useEffect(() => {
     realtimeVoice.configure({
@@ -87,11 +104,22 @@ function App() {
     });
   }, [sendChatMessage, updateVoiceMessage, projects, setMode]);
   useEffect(() => { if(settingsReady)void realtimeVoice.applyPreferences(settings); }, [settings,settingsReady]);
+  // Spoken through the same output-only path as a typed reply, so Auto Speak
+  // governs it and the transcript keeps a Replay control either way. At most
+  // once: turning Auto Speak on later must not replay it.
+  const spokenBriefing = useRef<string | null>(null);
+  useEffect(() => {
+    if (!openingBriefing || spokenBriefing.current === openingBriefing.id) return;
+    spokenBriefing.current = openingBriefing.id;
+    // The browser runtime has no voice session to open; the text still lands.
+    if (settings.autoSpeak && isTauriRuntime()) void realtimeVoice.replay(openingBriefing.text, openingBriefing.id);
+  }, [openingBriefing, settings.autoSpeak]);
   useEffect(() => () => {realtimeVoice.stop();voicePreview.stop();}, []);
 
   // Switching modes by any other route clears the filter, so Project mode is
   // never silently showing a subset the operator did not ask for.
   function selectMode(next: DashboardMode) {
+    setResearchInspection(null);
     if (next !== "project") {
       setProjectFilter(null);
     }
@@ -123,6 +151,10 @@ function App() {
             </FadeInPanel>
           </aside>
 
+          {command&&<CommandAgentCatalog selectedId={commandAgent} onSelect={setCommandAgent}
+            onResearch={runId=>{setResearchInspection(previous=>({runId,revision:(previous?.revision??0)+1}));setMode("research")}}
+            onProjects={()=>selectMode("project")}/>}
+
           <section className="center-stack dashboard-column">
             {/* Research mode gives the whole column to the library. The other
                 two keep the queue and the projects; the library rides along as
@@ -130,10 +162,11 @@ function App() {
             {/* Command is the instrument and nothing else — no list, no strip,
                 no panel chrome. If a scrolling list appears here it has become
                 Project mode with a different tab lit. */}
-            {command ? (
-              <FadeInPanel index={1} className="panel-slot panel-slot-instrument">
+            {<div className="panel-slot panel-slot-instrument" hidden={!command}>
+
                 <CommandInstrument
-                  visualState={voice.active || voice.phase === "ERROR" ? ({IDLE:"idle",LISTENING:"listening",PROCESSING:"thinking",SPEAKING:"speaking",ERROR:"error"} as const)[voice.phase] : undefined}
+                  active={command}
+                  visualState={voice.active || voice.phase === "ERROR" ? (voice.phase==="IDLE"&&chatPending ? "thinking" : ({IDLE:"idle",LISTENING:"listening",PROCESSING:"thinking",SPEAKING:"speaking",ERROR:"error"} as const)[voice.phase]) : undefined}
                   voiceLevel={voice.level}
                   projects={projects}
                   tasks={actionTasks}
@@ -144,12 +177,13 @@ function App() {
                   assistantModel={chatModel}
                   assistantFellBackFrom={chatFellBackFrom}
                   onSelectProject={enterProject}
-                  onOpenNote={(notePath) => void openVaultNote(notePath)}
+                  onOpenNote={openNote}
                 />
-              </FadeInPanel>
-            ) : research ? (
+              </div>}
+            {command ? null : mode === "communications" ? <Communications onSettings={()=>setPreferencesOpen(true)} /> : research ? (
               <FadeInPanel index={1} className="panel-slot panel-slot-library-resident">
-                <LibraryPanel onViewDatabase={syncResearchBase} resident />
+                <LibraryPanel onViewDatabase={syncResearchBase} resident inspectionTarget={researchInspection}
+                  onReturnToCommand={()=>{setResearchInspection(null);setMode("command")}}/>
               </FadeInPanel>
             ) : (
               <>
@@ -164,7 +198,7 @@ function App() {
                     projectFilter={projectFilter}
                     onClearFilter={() => setProjectFilter(null)}
                     onFocusProject={enterProject}
-                    onOpenNote={(notePath) => void openVaultNote(notePath)}
+                    onOpenNote={openNote}
                   />
                 </FadeInPanel>
                 <FadeInPanel index={7} className="panel-slot panel-slot-library">
@@ -178,8 +212,12 @@ function App() {
           <section className="right-stack dashboard-column">
             <FadeInPanel index={8} className="panel-slot panel-slot-chat">
               <ChatPanel
+                onOpenPreferences={()=>setPreferencesOpen(true)}
+                autoSpeak={settings.autoSpeak}
+                onAutoSpeakChange={autoSpeak=>updateVoicePreferences({autoSpeak})}
+                voiceSettingsReady={settingsReady}
                 messages={chat}
-                onSendMessage={text => { realtimeVoice.stop(); void sendChatMessage(text); }}
+                onSendMessage={text => { voicePreview.stop(); void realtimeVoice.sendText(mode === "communications" ? `[Gmail workspace] ${text}` : text,isTauriRuntime()); }}
                 onRecordObservation={recordObservation}
                 pending={chatPending}
                 error={chatError}
@@ -190,15 +228,11 @@ function App() {
       </div>
 
       <AmbientDock
+        preferencesOpen={preferencesOpen} onPreferencesOpen={setPreferencesOpen}
         voicePreferences={settings} onVoicePreferences={updateVoicePreferences} settingsReady={settingsReady}
-        onRefresh={() => void refreshAll()}
+        onRefresh={refreshDashboard}
         mode={mode}
-        onCycleMode={() => {
-          // Cycling is an explicit mode change, so it clears the project filter
-          // for the same reason any other mode switch does.
-          setProjectFilter(null);
-          cycleMode();
-        }}
+        onCycleMode={cycleDashboardMode}
       />
       <WriteConfirmDialog />
       </main>

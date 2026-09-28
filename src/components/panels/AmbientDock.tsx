@@ -1,13 +1,15 @@
-import { HybridCoreSetting } from "./HybridCommandCore";
+import { GmailSettings } from "./GmailSettings";
 import {ModelDiagnostics} from "./ModelSettings";
 import { VoiceSettings } from "./VoiceSettings";
 import type { VoicePreferences } from "../../services/voicePreferences";
-import { CircleHelp, RefreshCw, Settings2 } from "lucide-react";
+import { CircleHelp, RefreshCw, Settings2, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { MODE_LABELS } from "../../hooks/useDashboardMode";
 import type { DashboardMode } from "../../hooks/useDashboardMode";
 
 interface AmbientDockProps {
+  preferencesOpen:boolean;
+  onPreferencesOpen:(open:boolean)=>void;
   voicePreferences: VoicePreferences;
   onVoicePreferences:(patch:Partial<VoicePreferences>)=>void;
   settingsReady:boolean;
@@ -16,8 +18,7 @@ interface AmbientDockProps {
   onCycleMode: () => void;
 }
 
-export function AmbientDock({ onRefresh, mode, onCycleMode, voicePreferences, onVoicePreferences, settingsReady }: AmbientDockProps) {
-  const [preferencesOpen, setPreferencesOpen] = useState(false);
+export function AmbientDock({ onRefresh, mode, onCycleMode, voicePreferences, onVoicePreferences, settingsReady, preferencesOpen, onPreferencesOpen:setPreferencesOpen }: AmbientDockProps) {
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [refreshSpinning, setRefreshSpinning] = useState(false);
   const [now, setNow] = useState(() => new Date());
@@ -51,23 +52,27 @@ export function AmbientDock({ onRefresh, mode, onCycleMode, voicePreferences, on
       if (!(event.metaKey || event.ctrlKey) || isTypingTarget) {
         return;
       }
+      // A modal owns the keyboard: changing mode or refreshing under the write
+      // gate would move the ground beneath the decision it is asking for. The
+      // default is still suppressed, so Ctrl+R cannot reload the webview.
+      const modalOpen = document.querySelector('[aria-modal="true"]') !== null;
 
       if (event.key.toLowerCase() === "r") {
         event.preventDefault();
-        handleRefresh();
+        if (!modalOpen) handleRefresh();
       }
 
       // An accelerator for the switcher in the header, never the only way to
       // reach a mode.
       if (event.key === "\\") {
         event.preventDefault();
-        onCycleMode();
+        if (!modalOpen) onCycleMode();
       }
     }
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [onCycleMode]);
+  }, [onCycleMode, onRefresh]);
 
   const timeLabel = now.toLocaleTimeString([], {
     hour: "numeric",
@@ -142,17 +147,17 @@ export function AmbientDock({ onRefresh, mode, onCycleMode, voicePreferences, on
           ) : null}
         </div>
 
-        <div className="ambient-floating-control">
+        {mode!=="command"&&<div className="ambient-floating-control">
           <button
             className="ambient-corner-button"
-            onClick={() => setPreferencesOpen((value) => !value)}
+            onClick={() => setPreferencesOpen(!preferencesOpen)}
             title="Open preferences"
             aria-label="Open preferences"
             type="button"
           >
             <Settings2 size={16} />
           </button>
-        </div>
+        </div>}
       </div>
 
       {preferencesOpen ? (
@@ -160,11 +165,14 @@ export function AmbientDock({ onRefresh, mode, onCycleMode, voicePreferences, on
           <div className="panel-header compact">
             <div>
               <p className="eyebrow">Preferences</p>
-              <h2>Olympus Voice</h2>
+              <h2>Olympus Preferences</h2>
             </div>
+            <button className="ghost-icon-action" type="button" aria-label="Close preferences" title="Close preferences" onClick={() => setPreferencesOpen(false)}>
+              <X size={18} aria-hidden="true" />
+            </button>
           </div>
-          <HybridCoreSetting/>
           <ModelDiagnostics/>
+          <GmailSettings/>
           <VoiceSettings preferences={voicePreferences} onChange={onVoicePreferences} ready={settingsReady}/>
           <button className="ghost-action" type="button" onClick={()=>setPreferencesOpen(false)}>Close preferences</button>
         </section>

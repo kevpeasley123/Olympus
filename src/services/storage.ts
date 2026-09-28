@@ -36,27 +36,25 @@ interface PersistedState {
  * Desktop builds persist to SQLite in the Tauri app data directory; the browser
  * dev server keeps using localStorage. Each runtime has exactly one source of
  * truth, so the two never have to be reconciled.
+ *
+ * On desktop a database read failure is thrown, not papered over: falling back
+ * to seed state would let the next preference save overwrite the real settings.
  */
 export async function loadState(): Promise<OlympusState> {
   if (!isTauriRuntime()) {
     return readLocalState();
   }
 
-  try {
-    const persisted = await invoke<PersistedState>("load_persisted_state");
+  const persisted = await invoke<PersistedState>("load_persisted_state");
 
-    if (isEmptyPersistedState(persisted) && hasLocalPayload()) {
-      const local = readLocalState();
-      await migrateLocalState(local);
-      return local;
-    }
-
-    clearLegacyState();
-    return applyPersistedState(persisted);
-  } catch (error) {
-    console.warn("[Olympus] Could not read the local database; falling back to localStorage.", error);
-    return readLocalState();
+  if (isEmptyPersistedState(persisted) && hasLocalPayload()) {
+    const local = readLocalState();
+    await migrateLocalState(local);
+    return local;
   }
+
+  clearLegacyState();
+  return applyPersistedState(persisted);
 }
 
 /**

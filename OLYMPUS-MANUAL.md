@@ -79,6 +79,14 @@ note constellation, and central glyph. The bottom-right Command Console remains
 compact when dormant, opens recent dialogue when engaged, and exposes a larger
 transcript only when requested.
 
+The operational Agent Catalog occupies the left region beside the slim global
+rail. Olympus Core is listed separately as orchestrator; only actual executable
+roles appear here. Selected-role details stay in the same left panel. The right
+region is reserved for the compact console and its upward transcript expansion,
+which must cover neither the catalog nor the central instrument. Catalog inspection
+is read-only and never launches agents. Deeper graph/run inspection links to the
+existing Research surface. See `docs/COMMAND-AGENT-CATALOG.md`.
+
 Command's defining test is “one instrument, readable across the room.”
 A proposal that adds a card, list, or scroll container to its centre column
 belongs in Project mode. The instrument must not shrink to make room for a panel;
@@ -110,6 +118,23 @@ Research has three layers:
 The assistant retrieves research when Kevin queries it or when a relevant source
 would materially improve an answer. It does not inject the entire library into
 every conversation and does not need ceremonial citations for ordinary advice.
+
+Research also hosts read-only inspection of the Research and Verification agents'
+runs, reached from the Command catalog.
+
+### Communications
+
+Read-only understanding of Kevin's email. It leads with situations: ongoing
+matters that emerge from correspondence, explicit operator updates and matching
+Research, each with a relationship map, where things stand, what changed and
+recommended next moves. Browse email is a separate view of the local cache.
+
+Gmail owns mailbox facts. Olympus keeps a bounded local copy and never writes to
+the mailbox. Situations, inferred roles and recommendations are interpretation,
+not commitments, tasks, or proof that a sender is legitimate. Background
+understanding runs while Olympus is open and can be paused. Drafts are generated
+only on request and stay local; sending is deferred. See *Communications
+situations* below and `docs/COMMUNICATIONS.md`.
 
 ## Challenge policy
 
@@ -157,7 +182,8 @@ The implementation boundary and pilot acceptance evidence live in
 
 Proactivity arrives in stages:
 
-1. A proactive briefing when Olympus opens.
+1. A proactive briefing when Olympus opens. Implemented 2026-09-28: spoken once
+   per launch, built only from provable project state.
 2. Scheduled briefs, warnings, and neglected-work signals.
 3. Optional system notifications.
 4. Deliberate push-to-talk voice invocation using “Olympus.”
@@ -167,14 +193,20 @@ Presence should come from awareness and readiness, not constant interruption.
 ## Product priorities
 
 1. Trustworthy live project briefings.
-2. Delegating work to coding agents.
+2. Research and verification agents.
 3. Curated project memory.
 4. Proactive warnings and briefs.
 5. The full project constellation.
 6. Voice commands.
+7. Delegating work to coding agents (implemented, unproven; no pilot prerequisite).
 
 Do not let a lower priority delay the evidence and safety foundations required by
 a higher one.
+
+September 23–24, 2026: Kevin redirected agent work to the Research / Verification
+pair ahead of the Coding Delegate pilot, and removed that pilot as a prerequisite
+for other work. Coding delegation remains implemented and unproven. Kevin
+re-ranked the list above accordingly on September 28, 2026.
 
 ## Evidence standard
 
@@ -195,6 +227,11 @@ No wake word or background activation. While armed, microphone capture is clearl
 labelled, including during answers; Stop voice ends capture. Silence ends a session
 after two minutes; sessions have a fifteen-minute cap.
 
+The Command Console's Text | Voice toggle controls reply output independently of
+microphone capture. Text keeps replies written; Voice also reads a concise spoken
+answer, including for typed messages. This is the same saved preference as Auto
+Speak in Voice Lab. Choosing Voice does not activate the microphone.
+
 Each voice answer has a concise spoken abstraction and full visual detail from one
 reasoning turn. Neither is authorization. Audio can be interrupted immediately;
 the visual answer remains available and playback status distinguishes interrupted
@@ -203,3 +240,18 @@ require the existing explicit on-screen scope review. Voice confirmation is not
 supported in Phase 1. Text remains available when voice is unavailable.
 
 See VOICE.md for configuration, verification limits and the next phase.
+
+
+## Communications situations — approved September 13, 2026
+
+Communications should understand ongoing situations rather than force permanent categories. Relevant email, explicit operator updates and matching Research context inform automatically emerging situations, focused relationship maps, conversation logs and refreshed briefings. Lead with where things stand, what changed and informative recommendations that explain why a response would help. Keep obligations practical and source-backed; generated findings never become commitments or proof of legitimacy.
+
+The operator approved background understanding while Olympus is open, with a visible pause control and incremental visual updates. Draft replies only on demand and keep them editable locally. Gmail sending is deferred: the future send flow must review participants and content, require explicit Send and a final confirmation. See docs/COMMUNICATION-SITUATIONS.md for implemented bounds and acceptance status.
+
+## Situation overview attention guidance
+The overview may recommend one workstream based on source-linked open questions
+in its saved context. This is review guidance, not an operator commitment or proof
+of urgency. Equal priorities remain a tie; no recorded questions is not proof of
+completeness. A recommendation link only navigates. Add an update opens the form
+for context/corrections; saving and subsequent analysis retain their existing
+explicit behavior.

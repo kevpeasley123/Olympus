@@ -1,0 +1,15 @@
+import {transform} from 'esbuild';
+import {readFile,writeFile,mkdir} from 'node:fs/promises';
+import assert from 'node:assert/strict';
+await mkdir('output/tests',{recursive:true});
+const result=await transform(await readFile('src/services/mapTypography.ts','utf8'),{loader:'ts',format:'esm'});
+await writeFile('output/tests/mapTypography.mjs',result.code);
+const {mapName}=await import('../output/tests/mapTypography.mjs');
+assert.equal(mapName('HomeServices Insurance'),'HomeServices Insurance');
+assert.equal(mapName('Northwest Exterminating',22),'Northwest\nExterminating');
+const long=mapName('An unusually long independent architectural inspection organization name');
+assert.ok(long.split('\n').length<=2);
+assert.ok(long.endsWith('…'));
+assert.equal(mapName('x'.repeat(80)),'Full name in details');
+assert.equal(mapName('  A   Company  '),'A Company');
+console.log('PASS 6 map typography checks');

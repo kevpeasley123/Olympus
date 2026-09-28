@@ -1,6 +1,7 @@
 import type { CommandLayout } from "../../services/hybridCore";
 import { layoutProjectConstellation } from "../../services/projectConstellation";
 import { AMBIENT } from "../../services/ambientMotion";
+import { nodeCategory, NODE_PALETTE } from "../../services/constellationPresentation";
 import type { CSSProperties } from "react";
 import { useEffect, useMemo, useState } from "react";
 import type { ActionQueueTask } from "../../hooks/useActionQueue";
@@ -369,6 +370,8 @@ export function ProjectRing({
         /* Stable note identity retains hover targets as the constellation grows. */
         <g
           key={node.id}
+          data-node-id={node.id}
+          data-category={nodeCategory(node)}
           style={{ "--node-phase": `${-(index * 3.17)}s`, "--node-drift-duration": `${AMBIENT.nodeDrift + index % 7 * 2}s` } as CSSProperties}
           data-project-focus={hoveredProject ? (hoveredProject === node.projectId ? "selected" : "muted") : undefined}
           className={`project-ring__node-group project-ring__node-group--depth-${Math.min(
@@ -397,11 +400,11 @@ export function ProjectRing({
             onMouseLeave={() => setHoveredNode(null)}
             onClick={() => onOpenNote(node.id)}
           >
-            <title>{describeNode(node)}</title>
+            <title>{`${NODE_PALETTE[nodeCategory(node)].label} · ${describeNode(node)}`}</title>
           </circle>
           <circle cx={node.x} cy={node.y} r={Math.max(node.size, 4 / Math.max(renderScale, .01))}
             fill="transparent" className="project-ring__star-hit" tabIndex={0} role="button"
-            aria-label={`${describeNode(node)} — open note`}
+            aria-label={`${NODE_PALETTE[nodeCategory(node)].label} · ${describeNode(node)} — open note`}
             onMouseEnter={() => { setHoveredProject(null); setHoveredNode(node); }}
             onMouseLeave={() => setHoveredNode(null)}
             onFocus={() => { setHoveredProject(null); setHoveredNode(node); }}
@@ -414,7 +417,7 @@ export function ProjectRing({
           Nothing here shifts the layout: SVG text at absolute coordinates. */}
       {hoveredNode ? (
         <CentreReadout
-          lines={[describeNode(hoveredNode)]}
+          lines={[NODE_PALETTE[nodeCategory(hoveredNode)].label,describeNode(hoveredNode)]}
           centre={centre}
           renderScale={renderScale}
         />

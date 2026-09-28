@@ -4,6 +4,7 @@ pub mod commands;
 
 use std::fs;
 use std::path::PathBuf;
+#[cfg(target_os = "windows")]
 use std::process::Command;
 
 use commands::vault_write;
@@ -37,10 +38,28 @@ use tauri::Manager;
 
 const SCHEMA: &str = include_str!("../schema.sql");
 
+/// The derived files this command may regenerate. Rust owns the path: taking a
+/// folder and file name from the webview let any script in it write anywhere
+/// in the vault, including `.git/hooks`, without a dialog for a new file.
+#[derive(Debug, Clone, Copy, Deserialize)]
+#[serde(rename_all = "camelCase")]
+enum MemoryArtifactKind {
+    ResearchBase,
+    ProjectsCanvas,
+}
+
+impl MemoryArtifactKind {
+    fn relative_path(self) -> &'static str {
+        match self {
+            Self::ResearchBase => "00 - Dashboard/Olympus Research.base",
+            Self::ProjectsCanvas => "00 - Dashboard/Olympus Projects.canvas",
+        }
+    }
+}
+
 #[derive(Debug, Deserialize)]
 struct MemoryArtifact {
-    folder: String,
-    file_name: String,
+    kind: MemoryArtifactKind,
     content: String,
 }
 
@@ -52,20 +71,6 @@ struct WriteResult {
     /// outcome, not a failure — the command did its job by asking and honouring
     /// the answer — so it returns Ok and lets the caller phrase it neutrally.
     written: bool,
-}
-
-/// Builds the vault-relative path for an artifact. Containment is proven by
-/// `vault_write::resolve_vault_path`, not here — a substring check for ".."
-/// is not a containment check.
-fn artifact_relative_path(folder: &str, file_name: &str) -> PathBuf {
-    let mut path = PathBuf::new();
-
-    if !folder.trim().is_empty() {
-        path.push(folder);
-    }
-
-    path.push(file_name);
-    path
 }
 
 /// Opens the local database and applies the schema. Runs once at startup so the
@@ -117,19 +122,18 @@ async fn write_memory_artifact(
     // this command wrote to the configured path while the Pantheon and
     // attachment writers used the constant, so a divergence would have split
     // the vault in half.
-    let relative = artifact_relative_path(&artifact.folder, &artifact.file_name);
-    let target = vault_write::resolve_vault_path(&relative).map_err(|error| error.to_string())?;
-
-    // Stable key regardless of separator, so a row written on one platform is
-    // still found on another.
-    let key = relative.to_string_lossy().replace('\\', "/");
+    // Already separator-stable, so a fingerprint row written on one platform
+    // is still found on another.
+    let key = artifact.kind.relative_path();
+    let relative = std::path::Path::new(key);
+    let target = vault_write::resolve_vault_path(relative).map_err(|error| error.to_string())?;
 
     // Disk I/O goes to the blocking pool, not a tokio worker. This command now
     // awaits a human, so it must not also be the thing holding a worker busy.
     let target_for_read = target.clone();
-    let on_disk = tauri::async_runtime::spawn_blocking(move || fs::read_to_string(&target_for_read).ok())
+    let on_disk = tauri::async_runtime::spawn_blocking(move || vault_write::read_existing(&target_for_read))
         .await
-        .map_err(|error| format!("Artifact read task panicked: {error}"))?;
+        .map_err(|error| format!("Artifact read task panicked: {error}"))??;
 
     // Scoped so the database lock is released before any await — a MutexGuard
     // held across an await is not Send, and this function now awaits a human.
@@ -149,7 +153,7 @@ async fn write_memory_artifact(
 
         let approved = write_confirm::request_confirmation(
             &app,
-            key.clone(),
+            key.to_string(),
             vault_write::WriteIntent::RegenerateDerived,
             reason,
             summary,
@@ -158,22 +162,24 @@ async fn write_memory_artifact(
 
         if !approved {
             return Ok(WriteResult {
-                path: target.to_string_lossy().to_string(),
+                path: vault_write::display_path(&target),
                 written: false,
             });
         }
     }
 
-    // Confirmation is resolved by this point; the write itself also goes to the
-    // blocking pool rather than running on a worker thread.
-    let target_for_write = target.clone();
-    let content = artifact.content.clone();
+    // The vault can be re-pointed, or a link planted, while the dialog is open.
+    let resolved = vault_write::resolve_vault_path(relative).map_err(|error| error.to_string())?;
+    if resolved != target {
+        return Err("The vault location changed during review. Nothing was written.".to_string());
+    }
 
-    tauri::async_runtime::spawn_blocking(move || -> Result<(), String> {
-        if let Some(parent) = target_for_write.parent() {
-            fs::create_dir_all(parent).map_err(|error| error.to_string())?;
-        }
-        fs::write(&target_for_write, &content).map_err(|error| error.to_string())
+    // Confirmation is resolved by this point; the write itself also goes to the
+    // blocking pool rather than running on a worker thread. It lands only if
+    // the file still holds the bytes the decision above was made about.
+    let content = artifact.content.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        vault_write::replace_if_unchanged(&resolved, on_disk.as_deref(), &content)
     })
     .await
     .map_err(|error| format!("Artifact write task panicked: {error}"))??;
@@ -182,19 +188,20 @@ async fn write_memory_artifact(
     // fingerprint claiming authorship of contents that were never stored.
     commands::persistence::store_artifact_fingerprint(
         db.inner(),
-        &key,
+        key,
         &vault_write::content_fingerprint(&artifact.content),
     )?;
-    commands::vault_git::commit_vault_file(&key, "update").map_err(|error| {
+    // Logged before the commit, which can fail after the file has landed.
+    commands::persistence::log_vault_write(db.inner(), key, "overwrite");
+    commands::vault_git::commit_vault_file(key, "update").map_err(|error| {
         format!(
             "The vault file was written at {key}, but its automatic Git commit failed: {error}. \
              The file remains in the vault."
         )
     })?;
-    commands::persistence::log_vault_write(db.inner(), &key, "overwrite");
 
     Ok(WriteResult {
-        path: target.to_string_lossy().to_string(),
+        path: vault_write::display_path(&target),
         written: true,
     })
 }
@@ -207,7 +214,9 @@ async fn write_memory_artifact(
 /// URI is assembled here rather than accepted ready-made — the webview never
 /// gets to choose the scheme.
 #[tauri::command]
-fn open_vault_note(relative_path: String) -> Result<(), String> {
+fn open_vault_note(app: tauri::AppHandle, relative_path: String) -> Result<(), String> {
+    use tauri_plugin_opener::OpenerExt;
+
     let relative = std::path::Path::new(&relative_path);
     let target = vault_write::resolve_vault_path(relative).map_err(|error| error.to_string())?;
 
@@ -226,20 +235,11 @@ fn open_vault_note(relative_path: String) -> Result<(), String> {
         urlencoding::encode(&relative_path)
     );
 
-    #[cfg(target_os = "windows")]
-    {
-        Command::new("cmd")
-            .args(["/C", "start", "", &uri])
-            .spawn()
-            .map_err(|error| error.to_string())?;
-        return Ok(());
-    }
-
-    #[cfg(not(target_os = "windows"))]
-    {
-        let _ = uri;
-        Err("Opening a note is only wired for Windows.".to_string())
-    }
+    // Handed to the OS URL handler directly. Through `cmd /C start` the `&`
+    // in the URI was a command separator and `file=…` ran as a program.
+    app.opener()
+        .open_url(uri, None::<&str>)
+        .map_err(|error| error.to_string())
 }
 
 #[tauri::command]
@@ -248,25 +248,25 @@ fn launch_quick_app(app_id: String) -> Result<(), String> {
     {
         match app_id.as_str() {
             "quick-spotify" => {
-                Command::new("cmd")
+                commands::delegation::hide_console(&mut Command::new("cmd"))
                     .args(["/C", "start", "", "spotify:"])
                     .spawn()
                     .map_err(|error| error.to_string())?;
             }
             "quick-discord" => {
-                Command::new("cmd")
+                commands::delegation::hide_console(&mut Command::new("cmd"))
                     .args(["/C", "start", "", "discord://"])
                     .spawn()
                     .map_err(|error| error.to_string())?;
             }
             "quick-x" => {
-                Command::new("cmd")
+                commands::delegation::hide_console(&mut Command::new("cmd"))
                     .args(["/C", "start", "", "firefox", "https://x.com"])
                     .spawn()
                     .map_err(|error| error.to_string())?;
             }
             "quick-youtube" => {
-                Command::new("cmd")
+                commands::delegation::hide_console(&mut Command::new("cmd"))
                     .args(["/C", "start", "", "firefox", "https://youtube.com"])
                     .spawn()
                     .map_err(|error| error.to_string())?;
@@ -277,6 +277,8 @@ fn launch_quick_app(app_id: String) -> Result<(), String> {
         return Ok(());
     }
 
+    #[cfg(not(target_os = "windows"))]
+    let _ = app_id;
     #[allow(unreachable_code)]
     Err("Quick app launching is only wired for Windows right now.".to_string())
 }
@@ -321,18 +323,40 @@ pub fn run() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(commands::external_link::navigation_guard())
         .setup(|app| {
             let connection = open_database(app.handle())?;
+            commands::knowledge_audit::recover(&connection)?;
+            commands::research_verification::recover(&connection)?;
+            commands::gmail::recover(&connection)?;
+            commands::gmail::intelligence::recover(&connection)?;
             let session_id = commands::delegation::run_id();
             connection.execute("INSERT INTO operator_sessions(id) VALUES (?1)", [&session_id])?;
             app.manage(commands::approvals::ApprovalState::new(session_id));
             connection.execute("UPDATE model_requests SET record_json=json_set(record_json,'$.status','interrupted','$.errorCode','application_restarted') WHERE json_extract(record_json,'$.status')='started'", [])?;
             app.manage(Db(Mutex::new(connection)));
             app.manage(DelegationProcesses::default());
+            app.manage(commands::gmail::Runtime::default());
+            commands::gmail::start_cadence(app.handle().clone());
+            commands::gmail::situations::start_cadence(app.handle().clone());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            commands::gmail::situations::documents::situation_document_status, commands::gmail::situations::documents::situation_document_open,
+            commands::gmail::situations::situation_snapshot, commands::gmail::situations::engine::situation_refresh, commands::gmail::situations::situation_set_background, commands::gmail::situations::situation_update, commands::gmail::situations::situation_edit, commands::gmail::situations::drafts::situation_draft, commands::gmail::situations::drafts::situation_save_draft,
+            commands::gmail::intelligence::analyze_communications, commands::gmail::intelligence::communication_runs, commands::gmail::intelligence::communication_run_events, commands::gmail::intelligence::communication_feedback, commands::gmail::intelligence::communication_skills,
+            commands::gmail::intelligence::inspection::communication_workflow, commands::gmail::intelligence::inspection::inspect_communication_run,
+            commands::gmail::gmail_workspace, commands::gmail::gmail_remove_cache, commands::gmail::gmail_status, commands::gmail::gmail_connect, commands::gmail::gmail_cancel, commands::gmail::gmail_disconnect, commands::gmail::gmail_sync, commands::gmail::gmail_set_horizon, commands::gmail::gmail_search, commands::gmail::gmail_thread,
             send_assistant_message,
+            commands::knowledge_audit::start_knowledge_audit,
+            commands::research_verification::research_agent_catalog,
+            commands::command_agents::command_agent_catalog,
+            commands::research_verification::start_research_verification,
+            commands::research_verification::inspect_research_verification,
+            commands::research_verification::list_research_verifications,
+            commands::research_verification::cancel_research_verification,
+            commands::knowledge_audit::list_knowledge_audits,
+            commands::knowledge_audit::inspect_knowledge_audit,
             commands::models::model_routes,
             commands::models::model_diagnostics,
             commands::models::record_voice_request,
@@ -352,6 +376,7 @@ pub fn run() {
             fetch_pantheon_entries,
             fetch_operator_profile,
             resolve_vault_write,
+            commands::external_link::open_external_link,
             append_profile_observation,
             promote_chat_memory,
             write_pantheon_entry,

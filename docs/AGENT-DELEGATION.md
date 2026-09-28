@@ -2,8 +2,10 @@
 
 This document defines the recoverable boundary Olympus uses to launch Claude
 Code, Codex, or another coding agent. The first registered pilot driver is
-Claude Code 2.1.220 on Windows; driver selection remains explicit rather than
-automatic.
+Claude Code on Windows; driver selection remains explicit rather than
+automatic. The version is not pinned: it is read when a proposal is prepared and
+recorded with the run. The pilot was written against 2.1.220; the installed
+executable reported 2.1.222 in the September 23, 2026 audit.
 
 ## Pilot outcome
 
@@ -59,8 +61,9 @@ the approved outcome is actually achieved, not merely that an agent stopped.
 ## Isolation and recovery
 
 - Work starts from a known commit in a dedicated worktree and branch.
-- Existing uncommitted project work is never adopted silently. Olympus pauses
-  and offers to protect it or choose a clean base.
+- Existing uncommitted project work is never adopted silently. Olympus refuses
+  to prepare a run while the primary checkout has uncommitted work; the operator
+  commits or stashes it first. There is no in-app protect action.
 - The run records the base commit, branch, and workspace before editing begins.
 - Agent commits remain attributable to the run.
 - Push, merge, deploy, and deletion stay separate operator-approved actions.
@@ -80,7 +83,8 @@ Olympus pauses before:
 - continuing after verification reveals a broader defect.
 
 Ordinary file edits, local tests, and small implementation choices may proceed
-inside the isolated boundary.
+inside the isolated worktree. The worktree isolates changes from the primary
+checkout; it does not isolate processes (see Containment and residual risk).
 
 ## Driver boundary
 
@@ -93,7 +97,8 @@ Each driver adapter must:
 1. confirm its executable and version;
 2. build fixed arguments in Rust;
 3. constrain the working directory to the run workspace;
-4. pass only the minimum required environment;
+4. pass only the minimum required environment (for Claude Code, an allowlist that
+   includes `ANTHROPIC_API_KEY` when set; for checks, an allowlist without keys);
 5. emit structured phase, milestone, checkpoint, and completion events;
 6. distinguish process output from user-facing progress;
 7. terminate cleanly and report whether child processes remain.
@@ -104,15 +109,31 @@ checks, reviewing, waiting, complete, or failed.
 
 ## First driver
 
-Claude Code 2.1.220 is the pilot driver. Its native executable is resolved from
+Claude Code is the pilot driver. Its native executable is resolved from
 one backend-owned location beneath `APPDATA`; the webview cannot choose a
 program or arguments. The adapter uses structured streaming output, a fixed
-UUID session, a $5 run ceiling, and a two-stage permission boundary:
+UUID session, a $5 budget per launch, a 45-minute wall-clock limit per launch,
+and a two-stage permission boundary:
 
 1. A read-only planning run creates the isolated branch/worktree and ends in
    `waiting`.
 2. A second operator approval resumes that same session with a bounded set of
    edit and local verification tools.
+
+The $5 budget is Claude Code's `--max-budget-usd`, which applies to one launch.
+Planning, implementation and every resume are separate launches, and Olympus
+keeps no spend ledger across them, so a run's total can exceed $5.
+
+Every launch passes an exact built-in tool inventory (`--tools`: `Read,Glob,Grep`
+for planning; `Read,Glob,Grep,Edit,Write,Bash` for implementation, with
+`--allowedTools` pre-approving only `git status`, `npm run build`, `npm test`,
+`cargo test` and `cargo check` under `dontAsk`), loads no user, project or local
+settings (`--setting-sources ""`, so no hooks, MCP servers or allow rules from
+settings files), and loads no MCP servers (`--strict-mcp-config` with an empty
+config). Arguments end with `--` so the variadic tool lists cannot swallow the
+prompt. The empty `--setting-sources` value was verified against Claude Code
+2.1.283; it is not yet confirmed on the installed driver (2.1.222 at the last
+audit). It also stops an `apiKeyHelper` in user settings from loading.
 
 The bundled Codex executable is not used because Windows currently refuses
 standalone execution. Auto-routing belongs after this one driver proves its
@@ -134,10 +155,50 @@ tests are verified. A real paid Claude run and its human checkpoint remain the
 acceptance test; Olympus does not initiate that run without the operator's
 button press.
 
-The backend stores the Claude process ID. Cancellation terminates the full
-Windows process tree so a child test runner does not survive invisibly; restart
-recovery reports whether that recorded process is still present before allowing
-the run to resume.
+The backend stores the Claude process ID and, beside it in `delegation_events`,
+the process creation time. Cancellation terminates the full Windows process tree
+so a child test runner does not survive invisibly; restart recovery reports a
+recorded process as still present only while both the ID and the creation time
+match, so a reused ID is never reported as running or killed. Each Claude
+launch and each verification check is assigned to a Windows Job Object with
+kill-on-close: when the process exits, leftover descendants are stopped, and
+when Olympus exits or crashes the whole tree is stopped with it. Job assignment
+happens just after spawn, so a descendant started in that instant could escape
+it. A launch that exceeds 45 minutes is stopped the same way as a cancellation
+and recorded as failed. If Olympus stops during a verification check, recovery
+returns the run to `awaiting_review` and records that check as interrupted.
+
+## Containment and residual risk
+
+The worktree is a directory, not a sandbox. The tool, settings and MCP limits
+above constrain what Claude Code offers the model; they do not confine the
+processes it runs. In particular:
+
+- `npm run build`, `npm test`, `cargo test` and `cargo check` execute
+  repository-controlled code (`package.json` scripts, `build.rs`, test code,
+  Cargo config). The agent can edit that code with `Edit`/`Write` and then run
+  it, which is arbitrary execution as the operator's Windows user, with network
+  access and the user's filesystem permissions.
+- The Claude process receives `ANTHROPIC_API_KEY` (when set) because it needs
+  it to call the model. Code the agent runs inherits that environment.
+- The operator's **Run check** buttons run the same repository scripts again,
+  outside Claude Code. The check runner clears its environment and passes only
+  an allowlist (`PATH`, system and temp directories, the user profile and app
+  data directories, `CARGO_HOME`, `RUSTUP_HOME`, plus a per-project
+  `CARGO_TARGET_DIR`). No API key reaches it. The buttons are labelled as
+  running agent-written code.
+- The per-project `CARGO_TARGET_DIR` under Olympus app data is shared by that
+  project's runs to avoid cold builds, so build output from one run can be
+  reused by a later one.
+- Checks that do not apply to a worktree are reported as not applicable, and
+  missing `node_modules` is reported as such. Olympus does not install
+  dependencies, because install scripts would run code from the agent's
+  `package.json`.
+
+Real containment would need an OS boundary such as Windows Sandbox or an
+AppContainer with no network access. That is not implemented. Until it is,
+delegate only to repositories whose content you trust, and review the diff
+before running any check.
 
 ## Acceptance evidence
 

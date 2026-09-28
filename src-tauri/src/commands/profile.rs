@@ -347,6 +347,7 @@ mod tests {
     /// entirely. Asserting the warnings are empty is what makes a typo in the
     /// operator's own frontmatter fail here instead of going unnoticed.
     #[test]
+    #[ignore = "requires the owner's real vault; run with --ignored"]
     fn debug_load_real_profile() {
         let profile = load_operator_profile();
         eprintln!("[profile] {profile:?}");

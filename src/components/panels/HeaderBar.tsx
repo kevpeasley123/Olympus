@@ -25,7 +25,7 @@ export function HeaderBar({ mode, onSelectMode, projects }: HeaderBarProps) {
           the header keeps only the wordmark. Two omegas and two copies of the
           same sentence would contradict the one-glowing-object rule. */}
       <div className="olympus-header__zone olympus-header__zone--left">
-        {mode === "command" ? (
+        {mode === "command" || mode === "communications" ? (
           <h1 className="olympus-wordmark">OLYMPUS</h1>
         ) : (
           <OmegaInstrument projects={projects} />

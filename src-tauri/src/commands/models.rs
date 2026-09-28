@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use tauri::State;
 
-pub const PRIMARY_MODEL: &str = "gpt-5.6-sol";
+pub const PRIMARY_MODEL: &str = "gpt-6-sol";
 pub const DEEP_MODEL: &str = "gpt-6-astra";
 pub const CLAUDE_MODEL: &str = "claude-opus-5";
 pub const REALTIME_MODEL: &str = "gpt-realtime-2.1";
@@ -28,6 +28,10 @@ pub struct Route {
     pub model: &'static str,
     pub effort: &'static str,
     pub label: &'static str,
+    /// Caps reasoning and answer together on every provider here, so a
+    /// higher-effort route needs more room or it ends `incomplete` on exactly
+    /// the requests the operator chose to pay more for.
+    pub max_output_tokens: u32,
 }
 pub fn resolve(capability: Capability) -> Route {
     match capability {
@@ -37,6 +41,7 @@ pub fn resolve(capability: Capability) -> Route {
             model: PRIMARY_MODEL,
             effort: "medium",
             label: "Sol",
+            max_output_tokens: 8_000,
         },
         Capability::DeepReasoning => Route {
             capability,
@@ -44,6 +49,7 @@ pub fn resolve(capability: Capability) -> Route {
             model: DEEP_MODEL,
             effort: "high",
             label: "Astra · Deep Analysis",
+            max_output_tokens: 32_000,
         },
         Capability::ClaudeComparison => Route {
             capability,
@@ -51,6 +57,8 @@ pub fn resolve(capability: Capability) -> Route {
             model: CLAUDE_MODEL,
             effort: "medium",
             label: "Claude · Comparison",
+            // Streamed, and thinking shares `max_tokens` with the answer.
+            max_output_tokens: 64_000,
         },
     }
 }
@@ -204,6 +212,14 @@ mod tests {
         assert_eq!(resolve(Capability::default()).model, PRIMARY_MODEL);
         assert_eq!(resolve(Capability::DeepReasoning).model, DEEP_MODEL);
         assert!(serde_json::from_str::<Capability>("\"BACKGROUND\"").is_err());
+    }
+    #[test]
+    fn deeper_routes_get_a_larger_output_budget() {
+        let primary = resolve(Capability::Primary).max_output_tokens;
+        assert!(resolve(Capability::DeepReasoning).max_output_tokens > primary);
+        assert!(resolve(Capability::ClaudeComparison).max_output_tokens > primary);
+        // Opus 5 streaming ceiling.
+        assert!(resolve(Capability::ClaudeComparison).max_output_tokens <= 128_000);
     }
     #[test]
     fn records_round_trip_without_prompts() {

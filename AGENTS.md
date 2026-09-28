@@ -7,7 +7,8 @@ and priorities.
 Then read:
 
 1. `ARCHITECTURE.md` for technical boundaries and safety invariants.
-2. `docs/HANDOFF.md` for current verified and assumed state.
+2. `docs/NEXT-SESSION.md` for current verified and assumed state (its top
+   sections; older sections are marked historical). `docs/HANDOFF.md` is historical.
 3. `CLAUDE.md` for model/API constraints that apply to any implementation agent,
    despite the filename.
 

@@ -10,7 +10,7 @@ export const PROJECT_GLASS = {
   ior:1.38, thickness:7, clearcoat:.25, clearcoatRoughness:.18,
   bevelOpacity:.55, bevelReflection:1.1,
   reflection:.7, attenuation:0x536a7b, attenuationDistance:18,
-  rimOpacity:.035, activeRimBoost:.035, hoverRimBoost:.07,
+  rimOpacity:.075, activeRimBoost:.035, hoverRimBoost:.07,
   inactiveChannel:.045, activeChannel:.18,
   backingColor:0x07111a, backingDetailOpacity:.10, surfaceReflection:.4,
 };
@@ -26,7 +26,8 @@ export const MATERIAL_TUNING = {
   structurePrimary: .38, structureSecondary: .12,
 };
 // Idle-only motion profile. Other system states retain their existing behavior.
-export const OMEGA_SPEECH = { scaleGain:.182, attackSeconds:.045, releaseSeconds:.20 };
+export const OMEGA_SPEECH = { scaleGain:.2184, attackSeconds:.045, releaseSeconds:.20 };
+export const PROJECT_HOVER={enterSeconds:.06,leaveSeconds:.075,outlineOpacity:.42,glassEmission:.045,labelLift:.26};
 export const OMEGA_IDLE = {
   breathDuration:5.6, breathStrength:.13, haloBreathMin:.75, haloBreathMax:1.45,
   heartbeatMinInterval:10.5, heartbeatMaxInterval:14.8,
@@ -116,15 +117,13 @@ export function buildCommandMaterialStudy(scene:T.Scene,renderer:T.WebGLRenderer
   const environmentTarget=pmrem.fromScene(environment,.04);scene.environment=environmentTarget.texture;scene.environmentIntensity=.48;
   environment.dispose();pmrem.dispose();
   const engraving=engravedTexture(), contour=contourTexture();
-  const steel=new T.MeshPhysicalMaterial({color:0x526b80,metalness:.95,roughness:.26,envMapIntensity:1.3,clearcoat:.4,clearcoatRoughness:.22});
   const frameMetal=new T.MeshPhysicalMaterial({color:0x1c303f,metalness:.85,roughness:.25,envMapIntensity:.55,clearcoat:.4});
   const dark=new T.MeshStandardMaterial({color:0x070d15,metalness:.7,roughness:.42});
-  const blueEdge=new T.MeshBasicMaterial({color:0x739dbb,transparent:true,opacity:MATERIAL_TUNING.structurePrimary});
   const lines=new T.LineBasicMaterial({color:0x547891,transparent:true,opacity:MATERIAL_TUNING.structureSecondary});
   const warmLines=new T.LineBasicMaterial({color:0xffa13d,transparent:true,opacity:.8,toneMapped:false});
   const group=new T.Group();group.name="Command material study";scene.add(group);
   const mesh=(geometry:T.BufferGeometry,material:T.Material|T.Material[],z:number)=>{const m=new T.Mesh(geometry,material);m.position.z=z;group.add(m);return m;};
-  const extrude=(shape:T.Shape|T.Shape[],depth:number,bevel=.4)=>new T.ExtrudeGeometry(shape,{depth,steps:1,bevelEnabled:true,bevelSize:bevel,bevelThickness:bevel,bevelSegments:6,curveSegments:64});
+  const extrude=(shape:T.Shape|T.Shape[],depth:number,bevel=.4,curveSegments=64)=>new T.ExtrudeGeometry(shape,{depth,steps:1,bevelEnabled:true,bevelSize:bevel,bevelThickness:bevel,bevelSegments:6,curveSegments});
   const coreStart=group.children.length;
   const shapes=new SVGLoader().parse(`<svg xmlns="http://www.w3.org/2000/svg"><path d="${OMEGA}"/></svg>`).paths.flatMap(path=>path.toShapes());
   const body=extrude(shapes,7,.65);body.scale(1,-1,1);body.setIndex(Array.from({length:body.getAttribute('position').count},(_,i)=>i%3===1?i+1:i%3===2?i-1:i));
@@ -154,30 +153,112 @@ export function buildCommandMaterialStudy(scene:T.Scene,renderer:T.WebGLRenderer
   core.scale.setScalar(INNER_CORE_SCALE);group.add(core);
   // The selected study section follows the existing map, never an independently arranged scene.
   const studyIds=new Set(layout.ring.segments.map(segment=>segment.project.id));
-  // Dimensional outer bezel supports the existing day markers at radius 205.
-  const outerBezel=mesh(new T.TorusGeometry(205,1.15,20,384),steel,-3.5);
-  outerBezel.name="Outer command bezel";
-  mesh(new T.TorusGeometry(205,.26,12,384),blueEdge,-2.25);
-  mesh(new T.TorusGeometry(205,.8,16,384),dark,-6);
-  // Interrupted rear rail sections and inset light channels stay inside the footprint.
-  const railLight=new T.MeshBasicMaterial({color:0xc17a35,toneMapped:false});
-  const railTicks:number[]=[];
-  for(let i=0;i<16;i++){
-    const a=i*22.5;
-    mesh(extrude(annulus(a+1,a+20.5,197.5,201),2,.25),frameMetal,-14);
-    mesh(extrude(annulus(a+2,a+20,188.5,190),1.3,.2),dark,-7);
-    if(i%3===0)mesh(new T.ShapeGeometry(annulus(a+5,a+10,201.2,201.8)),railLight,-9);
+  // The chassis and energy channel surround an open gap outside the cassettes.
+  const chassis=new T.MeshPhysicalMaterial({color:0x314450,metalness:.82,roughness:.22,envMapIntensity:1.4,clearcoat:.12,clearcoatRoughness:.3});
+  const chassisSides=new T.MeshStandardMaterial({color:0x0d1822,metalness:.78,roughness:.22,envMapIntensity:1.05});
+  const channelBed=new T.MeshStandardMaterial({color:0x03070c,metalness:.25,roughness:.62});
+  const circularBand=(inner:number,outer:number)=>{
+    const shape=new T.Shape();shape.absarc(0,0,outer,0,Math.PI*2,false);
+    const hole=new T.Path();hole.absarc(0,0,inner,0,Math.PI*2,true);shape.holes.push(hole);
+    return shape;
+  };
+  // Keep the outside silhouette and front plane fixed; deepen only toward the rear.
+  // Separate cap/side materials reveal the recess without another outline or mesh.
+  const primaryGeometry=new T.ExtrudeGeometry(circularBand(198,205),{depth:8,steps:1,bevelEnabled:true,bevelSize:.45,bevelThickness:.45,bevelSegments:6,curveSegments:256});
+  const primary=mesh(primaryGeometry,[chassis,chassisSides],-12);
+  primary.name="Primary structural band";
+  mesh(extrude(circularBand(192,193),1,.12,256),channelBed,-10);
+  // Long, asymmetrically spaced light sources remain within the existing channel.
+  const energySections=[
+    {start:12,end:48,gain:3.2,warm:true},
+    {start:91,end:132,gain:2.6,warm:true},
+    {start:196,end:224,gain:2.9,warm:true},
+    {start:280,end:311,gain:2.4,warm:true},
+    {start:153,end:173,gain:1.1,warm:false},
+    {start:331,end:351,gain:1.25,warm:false},
+  ];
+  for(const {start,end,gain,warm} of energySections){
+    const hotspot=.28+.1*Math.sin(start*.071);
+    const secondaryHotspot=.7+.08*Math.cos(start*.053);
+    const railLight=new T.MeshStandardMaterial({color:0x080e14,emissive:warm?0xff821e:0x9dcced,emissiveIntensity:gain*1.15,metalness:.2,roughness:.34});
+    railLight.onBeforeCompile=shader=>{
+      shader.uniforms.channelStart={value:start};shader.uniforms.channelSpan={value:end-start};
+      shader.uniforms.channelWarm={value:warm?1:0};
+      shader.uniforms.channelHotspot={value:hotspot};shader.uniforms.channelSecondary={value:secondaryHotspot};
+      shader.vertexShader='varying vec2 energyPosition;\n'+shader.vertexShader;
+      shader.vertexShader=shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nenergyPosition=position.xy;');
+      shader.fragmentShader='varying vec2 energyPosition; uniform float channelStart,channelSpan,channelWarm,channelHotspot,channelSecondary;\n'+shader.fragmentShader;
+      shader.fragmentShader=shader.fragmentShader.replace('#include <emissivemap_fragment>',`#include <emissivemap_fragment>
+        float along=clamp(mod(degrees(atan(energyPosition.x,energyPosition.y))-channelStart+360.,360.)/channelSpan,0.,1.);
+        float across=abs(length(energyPosition)-192.5)/.42;
+        float core=exp(-pow(across/mix(.27,.34,channelWarm),2.));
+        float shoulder=mix(.08,.16,channelWarm)*exp(-pow(across/mix(.56,.76,channelWarm),2.));
+        float ends=smoothstep(0.,.13,along)*smoothstep(0.,.17,1.-along);
+        float primaryLobe=exp(-pow((along-channelHotspot)/.15,2.));
+        float secondaryLobe=exp(-pow((along-channelSecondary)/.22,2.));
+        float sourceBalance=.56+.46*primaryLobe+.24*secondaryLobe;
+        totalEmissiveRadiance*= (core+shoulder)*ends*sourceBalance;
+      `);
+    };
+    railLight.customProgramCacheKey=()=> 'contained-energy-channel-v2';
+    mesh(new T.ShapeGeometry(annulus(start,end,192.08,192.92)),railLight,-8.8);
+    const position=polar(start+(end-start)*hotspot,195);
+    const spill=new T.PointLight(warm?0xff942e:0xafd6ef,(warm?18:13)*gain,15,1.5);
+    spill.position.set(position.x,position.y,-5);group.add(spill);
   }
-  for(let i=0;i<180;i++){
-    const p=polar(i*2,193),q=polar(i*2,i%5===0?195:193.7);
-    railTicks.push(p.x,p.y,-10,q.x,q.y,-10);
-  }
-  group.add(new T.LineSegments(new T.BufferGeometry().setAttribute('position',new T.Float32BufferAttribute(railTicks,3)),lines));
   const rippleMaterial=new T.MeshBasicMaterial({color:0xffab54,transparent:true,opacity:0,depthWrite:false,blending:T.AdditiveBlending,toneMapped:false});
   const ripple=mesh(new T.RingGeometry(.995,1,256),rippleMaterial,-8);
-  const tabHousing=frameMetal.clone();tabHousing.color.set(0x0c1b27);tabHousing.roughness=.48;tabHousing.envMapIntensity=.3;
+  const tabHousing=frameMetal.clone();tabHousing.color.set(0x152736);tabHousing.roughness=.3;tabHousing.envMapIntensity=.65;
+  const endCapMaterial=new T.MeshStandardMaterial({color:0x12212c,metalness:.65,roughness:.34,envMapIntensity:.48});
   const activeChannels:T.ShaderMaterial[]=[];
-  const panels:{id:string;face:T.MeshPhysicalMaterial;active:boolean;rim:T.LineBasicMaterial}[]=[];
+  // A shared high-resolution engraving atlas lives below the front glass plane.
+  const labelAtlas=document.createElement('canvas');labelAtlas.width=labelAtlas.height=2048;
+  const labelContext=labelAtlas.getContext('2d')!;
+  const atlasScale=2048/440;labelContext.scale(atlasScale,atlasScale);
+  labelContext.textAlign='center';labelContext.textBaseline='middle';
+  for(const segment of layout.ring.segments){
+    const active=segment.project.status==='active';
+    const fontSize=(active?11.5:10)/Math.max(layout.labelScale,.01);
+    labelContext.font=`500 ${fontSize}px "JetBrains Mono"`;
+    const spacing=fontSize*.09,advance=labelContext.measureText('M').width+spacing;
+    const capacity=Math.floor(((segment.endAngle-segment.startAngle)*Math.PI*168/180-12)/(fontSize*.62));
+    const original=segment.project.name.toUpperCase();
+    const name=original.length<=capacity?original:original.slice(0,Math.max(0,capacity-1))+'…';
+    const flipped=segment.midAngle>90&&segment.midAngle<270;
+    labelContext.fillStyle=active?'#f2bc74':'#ddb17a';
+    Array.from(name).forEach((letter,i)=>{
+      const offset=(i-(name.length-1)/2)*advance/168;
+      const angle=segment.midAngle*Math.PI/180+(flipped?-offset:offset);
+      labelContext.save();labelContext.translate(220+Math.sin(angle)*168,220-Math.cos(angle)*168);
+      labelContext.rotate(angle+(flipped?Math.PI:0));labelContext.fillText(letter,0,0);labelContext.restore();
+    });
+  }
+  const labelTexture=new T.CanvasTexture(labelAtlas);labelTexture.colorSpace=T.SRGBColorSpace;
+  labelTexture.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());
+  const engravingLabel=mesh(new T.PlaneGeometry(440,440),new T.MeshBasicMaterial({map:labelTexture,transparent:true,depthWrite:false,toneMapped:false}),-2);
+  const labelHover=layout.ring.segments.map(s=>new T.Vector3(s.startAngle*Math.PI/180,(s.endAngle-s.startAngle)*Math.PI/180,0));
+  if(labelHover.length){
+    (engravingLabel.material as T.Material).onBeforeCompile=shader=>{
+      shader.uniforms.labelHover={value:labelHover};
+      shader.fragmentShader=`uniform vec3 labelHover[${labelHover.length}];\n`+shader.fragmentShader;
+      shader.fragmentShader=shader.fragmentShader.replace('#include <map_fragment>',`
+        #include <map_fragment>
+        float labelAngle=atan(vMapUv.x-.5,vMapUv.y-.5);
+        for(int i=0;i<${labelHover.length};i++){
+          float offset=mod(labelAngle-labelHover[i].x+12.5663706,6.2831853);
+          if(offset<labelHover[i].y)diffuseColor.rgb*=1.0+labelHover[i].z*${PROJECT_HOVER.labelLift};
+        }
+      `);
+    };
+  }
+  engravingLabel.name='Internal glass lettering';engravingLabel.renderOrder=19;
+  const diffusionCanvas=document.createElement('canvas');diffusionCanvas.width=diffusionCanvas.height=2048;
+  const diffusionContext=diffusionCanvas.getContext('2d')!;
+  diffusionContext.filter=`blur(${atlasScale*.32}px)`;diffusionContext.drawImage(labelAtlas,0,0);
+  const diffusionTexture=new T.CanvasTexture(diffusionCanvas);diffusionTexture.colorSpace=T.SRGBColorSpace;
+  const diffusionLabel=mesh(new T.PlaneGeometry(440,440),new T.MeshBasicMaterial({map:diffusionTexture,transparent:true,opacity:.16,depthWrite:false,blending:T.AdditiveBlending,toneMapped:false}),-2.2);
+  diffusionLabel.name='Subsurface lettering diffusion';diffusionLabel.renderOrder=18;
+  const panels:{id:string;face:T.MeshPhysicalMaterial;active:boolean;rim:T.LineBasicMaterial;hoverEdge:T.ShaderMaterial;hover:number;labelIndex:number}[]=[];
   for(const segment of layout.ring.segments){
     if(!studyIds.has(segment.project.id))continue;
     const {startAngle:a,endAngle:b}=segment,active=segment.project.status==='active';
@@ -203,13 +284,40 @@ export function buildCommandMaterialStudy(scene:T.Scene,renderer:T.WebGLRenderer
     };
     glass.customProgramCacheKey=()=>"olympus-glass-soft-reflection-v6";
     // Open-backed housing: only the perimeter is solid, preserving the glass window.
-    for(const [inner,outer] of [[155.2,156.1],[179.9,180.8]])
-      mesh(extrude(annulus(a,b,inner,outer),10,.18),tabHousing,-13);
-    for(const [start,end] of [[a,a+.3],[b-.3,b]])
-      mesh(extrude(annulus(start,end,156.1,179.9),10,.12),tabHousing,-13);
+    const mountingFrame=annulus(a+.16,b-.16,155.2,180.8);
+    mountingFrame.holes.push(new T.Path(annulus(a+.3,b-.3,156.1,179.9).getPoints()));
+    const mountingGeometry=extrude(mountingFrame,10,.12);
+    const mountingPositions=mountingGeometry.getAttribute('position');
+    const distanceToEnd=(x:number,y:number)=>{
+      const angle=(Math.atan2(x,y)*180/Math.PI-a+720)%360;
+      return Math.min(angle,Math.abs(b-a-angle),360-angle);
+    };
+    // Sink only the end-cap region; the long supporting rails retain their depth.
+    for(let i=0;i<mountingPositions.count;i++){
+      const d=distanceToEnd(mountingPositions.getX(i),mountingPositions.getY(i));
+      const recess=1-T.MathUtils.smoothstep(d,.3,.75);
+      mountingPositions.setZ(i,mountingPositions.getZ(i)-2.2*recess);
+    }
+    mountingGeometry.clearGroups();
+    let groupStart=0,groupMaterial=-1;
+    for(let i=0;i<mountingPositions.count;i+=3){
+      const x=(mountingPositions.getX(i)+mountingPositions.getX(i+1)+mountingPositions.getX(i+2))/3;
+      const y=(mountingPositions.getY(i)+mountingPositions.getY(i+1)+mountingPositions.getY(i+2))/3;
+      const materialIndex=distanceToEnd(x,y)<.6?1:0;
+      if(materialIndex!==groupMaterial){
+        if(i>groupStart)mountingGeometry.addGroup(groupStart,i-groupStart,groupMaterial);
+        groupStart=i;groupMaterial=materialIndex;
+      }
+    }
+    mountingGeometry.addGroup(groupStart,mountingPositions.count-groupStart,groupMaterial);
+    mountingGeometry.computeVertexNormals();
+    mesh(mountingGeometry,[tabHousing,endCapMaterial],-13);
+    // Close the existing narrow frame at the glass lip. Its recessed rear rails
+    // otherwise leave a scenery-colored fringe beside the transparent bevel.
+    mesh(new T.ShapeGeometry(mountingFrame),tabHousing,-1.7);
     // Existing bevel/side faces catch more light than the front pane.
     const bevelGlass=glass.clone();bevelGlass.opacity=PROJECT_GLASS.bevelOpacity;
-    bevelGlass.envMapIntensity=PROJECT_GLASS.bevelReflection;bevelGlass.roughness=.08;
+    bevelGlass.envMapIntensity=PROJECT_GLASS.bevelReflection*1.15;bevelGlass.roughness=.08;
     // Front-only tuning after the bevel clone: construction and edge material stay fixed.
     glass.opacity=FRONT_GLASS.opacity;glass.roughness=FRONT_GLASS.roughness;
     const pane=mesh(extrude(annulus(a+.3,b-.3,156.1,179.9),7,.4),[glass,bevelGlass],-8);
@@ -227,7 +335,10 @@ export function buildCommandMaterialStudy(scene:T.Scene,renderer:T.WebGLRenderer
       };
       backGlass.customProgramCacheKey=()=>"olympus-active-recess-v1";
     }
-    mesh(new T.ShapeGeometry(annulus(a+.6,b-.6,157,179)),backGlass,-12);
+    // A dark lining directly behind the engraved face closes the optical window.
+    // The old smaller plate at Z=-12 left view-dependent scenery slivers around
+    // the pane. This follows its existing footprint and stays behind the labels.
+    mesh(new T.ShapeGeometry(annulus(a+.3,b-.3,156.1,179.9)),backGlass,-3.25);
     const channel:T.Material=active?new T.ShaderMaterial({
       uniforms:{clock:{value:0},motion:{value:0},start:{value:a},span:{value:b-a},strength:{value:ACTIVE_PROJECT.edgeIntensity},duration:{value:ACTIVE_PROJECT.tracerDuration},interval:{value:ACTIVE_PROJECT.tracerInterval}},
       transparent:true,depthWrite:false,toneMapped:false,
@@ -246,29 +357,33 @@ export function buildCommandMaterialStudy(scene:T.Scene,renderer:T.WebGLRenderer
         gl_FragColor=vec4(vec3(4.5,1.2,.18)*(1.+tracer*.5),min(.95,strength*(localized+tracer*.55)));}`,
     }):new T.MeshBasicMaterial({color:0x9fc9df,transparent:true,opacity:PROJECT_GLASS.inactiveChannel,depthWrite:false,toneMapped:false});
     if(active)activeChannels.push(channel as T.ShaderMaterial);
-    for(const [inner,outer] of [[156.6,156.85],[179.15,179.4]])
+    for(const [inner,outer] of active?[[156.6,156.85],[179.15,179.4]]:[])
       mesh(new T.ShapeGeometry(annulus(a+1,b-1,inner,outer)),channel,-1.2);
     const rim=new T.LineBasicMaterial({vertexColors:true,color:active?0xe7bb7a:0xa9d5e8,transparent:true,opacity:PROJECT_GLASS.rimOpacity,depthWrite:false});
     const outline=annulus(a,b,155.2,180.8).getPoints(256);
     const rimGeometry=new T.BufferGeometry().setFromPoints(outline.map(p=>new T.Vector3(p.x,p.y,-.5)));
-    const rimColors=outline.flatMap(p=>{const response=.16+.84*Math.max(0,(p.x*-.65+p.y*.76)/p.length())**3;return [response,response,response];});
+    const rimColors=outline.flatMap(p=>{const response=.35+.65*Math.max(0,(p.x*-.65+p.y*.76)/p.length())**3;return [response,response,response];});
     rimGeometry.setAttribute('color',new T.Float32BufferAttribute(rimColors,3));
     group.add(new T.LineLoop(rimGeometry,rim));
-    // Quiet recessed edge and a sparse internal etch, leaving the face see-through.
-    const rearRim=new T.LineBasicMaterial({color:0x294352,transparent:true,opacity:.04,depthWrite:false});
-    group.add(new T.LineLoop(new T.BufferGeometry().setFromPoints(outline.map(p=>new T.Vector3(p.x,p.y,-12.5))),rearRim));
-    const etch=new T.LineBasicMaterial({color:active?0xb69a74:0x8faebd,transparent:true,opacity:PROJECT_GLASS.backingDetailOpacity,depthWrite:false});
-    const etchPoints:T.Vector3[]=[];
-    for(const radius of [160,176]){
-      for(let angle=a+3;angle<b-3;angle+=.4){const next=Math.min(angle+.4,b-3),p=polar(angle,radius),q=polar(next,radius);etchPoints.push(new T.Vector3(p.x,p.y,-11.8),new T.Vector3(q.x,q.y,-11.8));}
-    }
-    // Sparse backplate registrations, seen through the front sheet and its air gap.
-    for(const angle of [a+(b-a)*.27,a+(b-a)*.73]){
-      const p=polar(angle,163),q=polar(angle,170);
-      etchPoints.push(new T.Vector3(p.x,p.y,-11.8),new T.Vector3(q.x,q.y,-11.8));
-    }
-    group.add(new T.LineSegments(new T.BufferGeometry().setFromPoints(etchPoints),etch));
-    panels.push({id:segment.project.id,face:glass,active,rim});
+    // A feathered perimeter replaces the hard one-pixel hover line.
+    const hoverEdge=new T.ShaderMaterial({
+      uniforms:{strength:{value:0},centerAngle:{value:(a+b)*Math.PI/360},halfAngle:{value:(b-a)*Math.PI/360}},
+      transparent:true,depthWrite:false,toneMapped:false,
+      vertexShader:`varying vec2 edgePosition;void main(){edgePosition=position.xy;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
+      fragmentShader:`varying vec2 edgePosition;uniform float strength,centerAngle,halfAngle;
+        void main(){
+          float radius=length(edgePosition);
+          float angle=atan(edgePosition.x,edgePosition.y);
+          float relative=atan(sin(angle-centerAngle),cos(angle-centerAngle));
+          vec2 q=abs(vec2(radius-168.,relative*radius))-vec2(12.8,halfAngle*radius);
+          float distanceToEdge=abs(length(max(q,0.))+min(max(q.x,q.y),0.));
+          float glow=.58*exp(-pow(distanceToEdge/.65,2.))+.42*exp(-pow(distanceToEdge/1.65,2.));
+          gl_FragColor=vec4(1.,.48,.16,strength*glow);
+        }`,
+    });
+    const hoverOutline=mesh(new T.ShapeGeometry(annulus(a-1.2,b+1.2,152.2,183.8)),hoverEdge,-.45);
+    hoverOutline.renderOrder=21;
+    panels.push({id:segment.project.id,face:glass,active,rim,hoverEdge,hover:0,labelIndex:layout.ring.segments.indexOf(segment)});
 
   }
   const idleCycle=createIdleCoreCycle();
@@ -308,11 +423,14 @@ export function buildCommandMaterialStudy(scene:T.Scene,renderer:T.WebGLRenderer
       activeChannels.forEach(material=>{material.uniforms.clock.value=time;material.uniforms.motion.value=moving?1:0;});
       panels.forEach(p=>{
         const selected=hover===p.id;
-        p.face.emissiveIntensity=0;
+        p.hover=moving?p.hover+((selected?1:0)-p.hover)*(1-Math.exp(-frameDelta/(selected?PROJECT_HOVER.enterSeconds:PROJECT_HOVER.leaveSeconds))):(selected?1:0);
+        p.hoverEdge.uniforms.strength.value=p.hover*PROJECT_HOVER.outlineOpacity;
+        p.face.emissive.set(0xb87432);p.face.emissiveIntensity=p.hover*PROJECT_HOVER.glassEmission;
+        labelHover[p.labelIndex].z=p.hover;
         p.rim.color.set(error&&p.id===executionProject?0xe57950:p.active?0xe7bb7a:0xa9d5e8);
         p.rim.opacity=PROJECT_GLASS.rimOpacity+(p.active?PROJECT_GLASS.activeRimBoost*.25:0)+(selected?PROJECT_GLASS.hoverRimBoost:0)+(p.id===executionProject?.10+operationPulse*.10:0);
       });
     },
-    dispose(){engraving.dispose();contour.dispose();environmentTarget.dispose();scene.environment=null;}
+    dispose(){labelTexture.dispose();diffusionTexture.dispose();engraving.dispose();contour.dispose();environmentTarget.dispose();scene.environment=null;}
   };
 }

@@ -6,14 +6,15 @@ import { useCallback, useEffect, useState } from "react";
  * keeping both would have made a 2x3 state matrix out of two booleans nobody
  * could reason about.
  */
-export type DashboardMode = "command" | "project" | "research";
+export type DashboardMode = "command" | "project" | "research" | "communications";
 
-export const DASHBOARD_MODES: DashboardMode[] = ["command", "project", "research"];
+export const DASHBOARD_MODES: DashboardMode[] = ["command", "project", "research", "communications"];
 
 export const MODE_LABELS: Record<DashboardMode, string> = {
   command: "Command",
   project: "Project",
-  research: "Research"
+  research: "Research",
+  communications: "Communications"
 };
 
 const MODE_KEY = "olympus.mode";
@@ -40,17 +41,33 @@ export function readStoredMode(storage: Pick<Storage, "getItem">): DashboardMode
   return storage.getItem(LEGACY_FOCUS_KEY) === "true" ? "project" : "command";
 }
 
+/**
+ * `localStorage` throws when site data is blocked or the quota is spent. A
+ * remembered mode is a convenience; losing it must not take the app down.
+ */
+const safeStorage: Pick<Storage, "getItem" | "setItem" | "removeItem"> = {
+  getItem(key) {
+    try { return window.localStorage.getItem(key); } catch { return null; }
+  },
+  setItem(key, value) {
+    try { window.localStorage.setItem(key, value); } catch { /* not remembered */ }
+  },
+  removeItem(key) {
+    try { window.localStorage.removeItem(key); } catch { /* nothing to drop */ }
+  }
+};
+
 export function useDashboardMode() {
   const [mode, setMode] = useState<DashboardMode>(() => {
     if (typeof window === "undefined") return "command";
-    return readStoredMode(window.localStorage);
+    return readStoredMode(safeStorage);
   });
 
   useEffect(() => {
-    window.localStorage.setItem(MODE_KEY, mode);
+    safeStorage.setItem(MODE_KEY, mode);
     // Dropped once, not left behind. A stale key that looks like live config is
     // the two-sources-of-truth bug this project has already paid for twice.
-    window.localStorage.removeItem(LEGACY_FOCUS_KEY);
+    safeStorage.removeItem(LEGACY_FOCUS_KEY);
   }, [mode]);
 
   const cycleMode = useCallback(() => {

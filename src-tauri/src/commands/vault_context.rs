@@ -24,6 +24,10 @@ const MAX_DECISION_HISTORY_CHARS: usize = 16_000;
 const DECISION_HISTORY_TRUNCATION: &str =
     "[... earlier decision history omitted to fit context ...]\n\n";
 
+/// The index is metadata for the whole library and grows with every entry.
+/// Entries arrive newest first, so the oldest are the ones left out.
+const MAX_PANTHEON_INDEX_CHARS: usize = 12_000;
+
 /// Kept separate from `STABLE_NOTES` because the prompt assigns it a different
 /// authority: historical evidence, never standing instruction.
 pub const DECISION_HISTORY_NOTE: &str = "04 - Decisions/Decision Log.md";
@@ -56,7 +60,7 @@ pub struct VaultMemory {
 pub fn load_vault_memory() -> VaultMemory {
     let vault = get_vault_path();
     VaultMemory {
-        stable: load_stable_notes(&vault),
+        stable: format!("{}\n### Compiled Olympus skills (availability is not execution permission)\nManual local Communications analysis only. These are executable v1 contracts; vault templates are distinct.\n{}", load_stable_notes(&vault), super::gmail::communication_skills::inventory()),
         decision_history: load_decision_history(&vault),
         pantheon_index: load_pantheon_index(),
         research: Vec::new(),
@@ -170,14 +174,19 @@ fn read_recent_note(path: &Path, maximum: usize) -> Option<String> {
 }
 
 fn load_pantheon_index() -> String {
-    let entries = match parse_pantheon_from_vault() {
-        Ok(entries) => entries,
+    match parse_pantheon_from_vault() {
+        Ok(entries) => render_pantheon_index(&entries, MAX_PANTHEON_INDEX_CHARS),
         Err(error) => {
             eprintln!("[Olympus::VaultContext] pantheon scan failed: {error}");
-            return String::new();
+            String::new()
         }
-    };
+    }
+}
 
+fn render_pantheon_index(
+    entries: &[super::pantheon::PantheonEntry],
+    maximum: usize,
+) -> String {
     if entries.is_empty() {
         return "The Pantheon library has no entries yet.".to_string();
     }
@@ -189,7 +198,10 @@ fn load_pantheon_index() -> String {
         if entries.len() == 1 { "y" } else { "ies" }
     );
 
-    for entry in &entries {
+    // The omission marker is the only text allowed past `maximum`.
+    let mut used = out.chars().count();
+    for (index, entry) in entries.iter().enumerate() {
+        let mut line = String::new();
         let source_type = entry.source_type.as_deref().unwrap_or("unspecified");
         let dated = entry
             .source_date
@@ -197,32 +209,43 @@ fn load_pantheon_index() -> String {
             .or(entry.created.as_deref())
             .unwrap_or("undated");
 
-        out.push_str(&format!(
+        line.push_str(&format!(
             "- \"{}\" — {}, {}, ~{} words, file `{}`",
             entry.title, source_type, dated, entry.word_count, entry.source_file
         ));
 
         // Stance is the field that makes disagreement possible, so it has to
         // reach the model. A stance nothing ever reads is decoration.
-        out.push_str(&format!(", stance: {}", entry.stance));
+        line.push_str(&format!(", stance: {}", entry.stance));
 
         if let Some(origin) = entry.origin.as_deref() {
-            out.push_str(&format!(", {origin}"));
+            line.push_str(&format!(", {origin}"));
         }
 
         // The gap is stated rather than left blank. An entry with no declared
         // purpose should be visibly unexplained, not silently indistinguishable
         // from one the operator justified.
         match entry.why_kept.as_deref() {
-            Some(why) => out.push_str(&format!(", kept because: {why}")),
-            None => out.push_str(", no stated purpose"),
+            Some(why) => line.push_str(&format!(", kept because: {why}")),
+            None => line.push_str(", no stated purpose"),
         }
 
         if !entry.tags.is_empty() {
-            out.push_str(&format!(" [{}]", entry.tags.join(", ")));
+            line.push_str(&format!(" [{}]", entry.tags.join(", ")));
         }
 
-        out.push('\n');
+        line.push('\n');
+        let line_chars = line.chars().count();
+        if used + line_chars > maximum {
+            out.push_str(&format!(
+                "[... {} older entr{} omitted from this index to fit context ...]\n",
+                entries.len() - index,
+                if entries.len() - index == 1 { "y" } else { "ies" }
+            ));
+            break;
+        }
+        used += line_chars;
+        out.push_str(&line);
     }
 
     out
@@ -318,6 +341,7 @@ mod tests {
     /// string on failure, so printing alone would pass whether the notes loaded
     /// or vanished.
     #[test]
+    #[ignore = "requires the owner's real vault; run with --ignored"]
     fn debug_load_real_vault_memory() {
         let memory = load_vault_memory();
         eprintln!(
@@ -344,9 +368,16 @@ mod tests {
             );
         }
 
+        // Long logs deliberately retain their newest lines, so their leading
+        // heading is no longer present. Verify the actual retained source tail.
+        let decision_note = read_trimmed_note(&get_vault_path().join(DECISION_HISTORY_NOTE))
+            .expect("the real Decision Log must be readable");
+        let retained = memory.decision_history
+            .strip_prefix(DECISION_HISTORY_TRUNCATION)
+            .unwrap_or(&memory.decision_history);
         assert!(
-            memory.decision_history.contains("# Decision Log"),
-            "the Decision Log is missing from the assistant's historical evidence"
+            !retained.is_empty() && decision_note.ends_with(retained),
+            "the Decision Log's newest evidence is missing or differs from its source"
         );
         assert!(
             memory.decision_history.chars().count() <= MAX_DECISION_HISTORY_CHARS,
@@ -366,6 +397,45 @@ mod tests {
             !memory.stable.contains('\u{feff}'),
             "a BOM survived into the assistant's context — `read_note` stopped stripping it"
         );
+    }
+
+    fn index_entry(index: usize) -> super::super::pantheon::PantheonEntry {
+        super::super::pantheon::PantheonEntry {
+            id: format!("entry-{index}"),
+            title: format!("Entry {index:03}"),
+            source_file: format!("02 - Research/entry-{index}.md"),
+            entry_type: "research".into(),
+            source_type: Some("article".into()),
+            created: None,
+            source_date: None,
+            origin: None,
+            written_by: None,
+            stance: "unevaluated".into(),
+            why_kept: None,
+            project: None,
+            tags: vec![],
+            word_count: 100,
+            file_modified_at: String::new(),
+            body_preview: String::new(),
+            body: String::new(),
+            source_label: "Local source".into(),
+        }
+    }
+
+    #[test]
+    fn pantheon_index_keeps_the_newest_entries_within_its_budget() {
+        let entries: Vec<_> = (0..500).map(index_entry).collect();
+        let index = render_pantheon_index(&entries, 4_000);
+        let marker = index.lines().last().unwrap();
+
+        assert!(index.starts_with("500 entries"), "the full count is still stated");
+        assert!(index.contains("Entry 000"), "entries arrive newest first");
+        assert!(!index.contains("Entry 499"));
+        assert!(marker.contains("older entries omitted"), "{marker}");
+        assert!(index.chars().count() <= 4_000 + marker.chars().count() + 1);
+
+        let small = render_pantheon_index(&entries[..3], 4_000);
+        assert!(small.contains("Entry 002") && !small.contains("omitted"));
     }
 
     #[test]

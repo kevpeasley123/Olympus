@@ -1,0 +1,32 @@
+import {transform} from 'esbuild';
+import {mkdir,readFile,writeFile} from 'node:fs/promises';
+import assert from 'node:assert/strict';
+await mkdir('output/tests/dossier',{recursive:true});
+for(const name of ['relationshipDossier','relationshipDossierFixture','documentSituationFixture','contextualActors']){
+ const source=await readFile(`src/services/${name}.ts`,'utf8');
+ const compiled=await transform(source,{loader:'ts',format:'esm'});
+ await writeFile(`output/tests/dossier/${name}.mjs`,compiled.code.replace('./documentSituationFixture','./documentSituationFixture.mjs'));
+}
+const {relationshipDossier:project}=await import('../output/tests/dossier/relationshipDossier.mjs');
+const {dossierFixture}=await import('../output/tests/dossier/relationshipDossierFixture.mjs');
+const {projectContextualActors}=await import('../output/tests/dossier/contextualActors.mjs');
+const context=dossierFixture(),actors=projectContextualActors('synthetic',context),actor=name=>actors.find(a=>a.primary===name),dossier=name=>project(context,actor(name));
+let count=0;const check=(name,fn)=>{fn();count++;console.log('PASS '+name)};
+check('projection never changes canonical data',()=>{const before=JSON.stringify(context);actors.forEach(a=>project(context,a));assert.equal(JSON.stringify(context),before)});
+check('contact union preserves actual values',()=>assert.equal(dossier('Example Renovations').contacts.length,4));
+check('unknown origin is explicit',()=>assert.match(dossier('Robin Taylor').origin,/originally established is not recorded/));
+check('earliest record does not claim introduction',()=>assert.match(dossier('Northstar Inspections').origin,/^Earliest documented interaction:/));
+check('explicit introduction is retained',()=>assert.match(dossier('Example Renovations').origin,/Introduced by the purchasing agent/));
+check('agreed amount preserves unpaid caveat',()=>assert.match(dossier('Example Renovations').business[0].text,/not evidence of payment/));
+check('estimated work not promoted to completion',()=>assert.match(dossier('Example Renovations').business[1].text,/remains an estimate/));
+check('shared document is not actor-specific evidence',()=>{const c=structuredClone(context);c.facts=[{...c.facts[0],label:'Other contractor',text:'Another company completed work.'}];const d=project(c,actor('Example Renovations'));assert.equal(d.records.length,1);assert.ok(!d.business.some(r=>r.text.includes('Another company')))});
+check('long notes retained without primary prose dump',()=>{const d=dossier('Example Archive Services');assert.ok(d.notes[0].length>1000);assert.ok(d.business[0].text.length<100)});
+check('documented identity is not active work',()=>{const c=structuredClone(context);c.entities.filter(e=>actor('Example Renovations').entityIds.includes(e.id)).forEach(e=>e.status='documented');assert.match(project(c,actor('Example Renovations')).status,/current work or service status is not recorded/)});
+check('current uncertainty remains explicit',()=>assert.match(dossier('Example Lending').status,/unconfirmed/));
+check('completed inspection does not complete repairs',()=>assert.match(dossier('Northstar Inspections').status,/repair follow-up is not established/));
+check('no fabricated contacts',()=>assert.deepEqual(dossier('Robin Taylor').contacts,[]));
+check('recommendation remains workstream scoped',()=>assert.equal(dossier('Example Renovations').nextStepScope,'Renovation recommendation'));
+check('missing next step does not claim no action needed',()=>{const c=structuredClone(context);c.workstreams.forEach(w=>w.nextStep='');assert.match(project(c,actor('Example Renovations')).nextStep,/Confirm the current relationship status/)});
+check('canonical identities and relations remain available',()=>{const d=dossier('Northstar Inspections');assert.equal(d.members.length,2);assert.deepEqual(d.relationships,context.relationships.filter(r=>d.members.some(m=>m.id===r.from||m.id===r.to)))});
+for(const [name,type] of [['Example Renovations','contractor'],['Northstar Inspections','inspector'],['Example Lending','lender'],['Example Assurance','insurer'],['Sample Water','utility'],['Sample Association','hoa']])check(type+' uses adaptive headings',()=>assert.equal(dossier(name).type,type));
+console.log(`PASS ${count} dossier projection tests`);

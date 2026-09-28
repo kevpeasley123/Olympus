@@ -209,17 +209,12 @@ pub async fn migrate_pantheon_schema(
 
         // Re-read after approval. The gate can hold for two minutes and this is
         // a full-file replace, so an edit that landed while the dialog was open
-        // would otherwise be discarded.
+        // would otherwise be discarded. A note that became unreadable or was
+        // removed is left alone too, not written over.
         let recheck = before.clone();
         let write_target = target.clone();
-        let written = tauri::async_runtime::spawn_blocking(move || -> Result<(), String> {
-            match fs::read_to_string(&write_target) {
-                Ok(current) if current != recheck => Err(
-                    "The note changed while the confirmation was open, so it was left alone."
-                        .to_string(),
-                ),
-                _ => fs::write(&write_target, after).map_err(|error| error.to_string()),
-            }
+        let written = tauri::async_runtime::spawn_blocking(move || {
+            vault_write::replace_if_unchanged(&write_target, Some(&recheck), &after)
         })
         .await
         .map_err(|error| format!("Migration write panicked: {error}"))?;

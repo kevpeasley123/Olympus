@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import { useCallback } from "react";
 import { createPollingStore } from "./createPollingStore";
 
 /** Mirrors `STANCE_VALUES` in `commands/pantheon.rs`. */
@@ -26,6 +27,8 @@ export interface PantheonEntry {
   /** Absent means no purpose was ever stated, which is surfaced, not filled in. */
   whyKept?: string;
   project?: string;
+  /** Resolved in Rust from the note's frontmatter; the webview parses none. */
+  sourceLabel: string;
   tags: string[];
   wordCount: number;
   fileModifiedAt: string;
@@ -52,5 +55,8 @@ const useStore = createPollingStore<PantheonEntry[]>({
 
 export function usePantheon() {
   const { data, loading, error, refresh } = useStore();
-  return { entries: data, loading, error, refresh };
+  // Callers refresh after adding an entry; joining a scan that began before
+  // the write would hide the new entry for up to five minutes.
+  const refreshNow = useCallback(() => refresh({ force: true }), [refresh]);
+  return { entries: data, loading, error, refresh: refreshNow };
 }

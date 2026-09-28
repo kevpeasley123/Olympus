@@ -39,6 +39,10 @@ pub struct PantheonEntry {
     /// rather than filled in — a guessed purpose is worse than a stated gap.
     pub why_kept: Option<String>,
     pub project: Option<String>,
+    /// Where the source came from, for display. Resolved here so the webview
+    /// never parses frontmatter itself.
+    #[serde(default)]
+    pub source_label: String,
     pub tags: Vec<String>,
     pub word_count: u32,
     pub file_modified_at: String,
@@ -148,6 +152,18 @@ pub(crate) fn extract_tags(value: &serde_yaml::Value) -> Vec<String> {
                 .collect()
         })
         .unwrap_or_default()
+}
+
+/// `origin` is deliberately not a candidate: it now answers who found the
+/// source, and its legacy value is the writer, so either reading would put the
+/// wrong fact in the source slot.
+fn source_label(value: &serde_yaml::Value) -> String {
+    ["source", "source_name", "channel", "publisher"]
+        .iter()
+        .filter_map(|key| extract_string(value, key))
+        .map(|label| label.trim().to_string())
+        .find(|label| !label.is_empty())
+        .unwrap_or_else(|| "Local source".to_string())
 }
 
 fn count_words(body: &str) -> u32 {
@@ -296,6 +312,7 @@ pub(crate) fn parse_pantheon_from_vault() -> Result<Vec<PantheonEntry>, String> 
             .unwrap_or_else(|| DEFAULT_STANCE.to_string());
         let why_kept = extract_string(&frontmatter, "why_kept");
         let project = extract_string(&frontmatter, "project");
+        let source_label = source_label(&frontmatter);
         let body_full = body.trim().to_string();
         let word_count = count_words(&body_full);
         let body_preview = make_preview(&body_full);
@@ -314,6 +331,7 @@ pub(crate) fn parse_pantheon_from_vault() -> Result<Vec<PantheonEntry>, String> 
             stance,
             why_kept,
             project,
+            source_label,
             tags,
             word_count,
             file_modified_at,
@@ -386,10 +404,14 @@ fn sanitize_filename(title: &str) -> String {
     }
 }
 
-fn ensure_unique_path(path: PathBuf) -> PathBuf {
-    if !path.exists() {
-        return path;
-    }
+/// Creates the entry at `path`, or at the first free ` (n)` sibling.
+///
+/// Claiming the name and writing it are one `create_new` call. Checking that a
+/// name is free and then writing with a call that overwrites leaves a window in
+/// which another writer, or a sync, lands a file this would then replace.
+fn create_unique(path: PathBuf, content: &str) -> Result<PathBuf, String> {
+    use std::io::Write;
+
     let stem = path
         .file_stem()
         .and_then(|s| s.to_str())
@@ -404,18 +426,38 @@ fn ensure_unique_path(path: PathBuf) -> PathBuf {
         .parent()
         .map(|p| p.to_path_buf())
         .unwrap_or_else(|| PathBuf::from("."));
-    for n in 2..100 {
-        let candidate = parent.join(format!("{} ({}).{}", stem, n, ext));
-        if !candidate.exists() {
-            return candidate;
-        }
-    }
     let ts = Local::now().format("%H%M%S").to_string();
-    parent.join(format!("{} ({}).{}", stem, ts, ext))
+    let candidates = std::iter::once(path)
+        .chain((2..100).map(|n| parent.join(format!("{} ({}).{}", stem, n, ext))))
+        .chain(std::iter::once(parent.join(format!("{} ({}).{}", stem, ts, ext))));
+
+    for candidate in candidates {
+        let mut file = match fs::OpenOptions::new().write(true).create_new(true).open(&candidate) {
+            Ok(file) => file,
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => continue,
+            Err(error) => return Err(format!("Failed to write entry: {error}")),
+        };
+        if let Err(error) = file.write_all(content.as_bytes()) {
+            drop(file);
+            let _ = fs::remove_file(&candidate);
+            return Err(format!("Failed to write entry: {error}"));
+        }
+        return Ok(candidate);
+    }
+    Err("Every candidate name for this entry is taken.".to_string())
 }
 
 fn escape_yaml_string(s: &str) -> String {
     s.replace('\\', "\\\\").replace('"', "\\\"")
+}
+
+/// Every frontmatter value is written on one line. A newline or other control
+/// character in one would end the scalar early and start a new key.
+fn single_line(field: &str, value: &str) -> Result<(), String> {
+    if value.chars().any(char::is_control) {
+        return Err(format!("{field} must be a single line of text."));
+    }
+    Ok(())
 }
 
 fn build_entry_content(
@@ -423,7 +465,26 @@ fn build_entry_content(
     body: &str,
     req: &WritePantheonEntryRequest,
     today: &str,
-) -> String {
+) -> Result<String, String> {
+    single_line("Title", title)?;
+    for (field, value) in [
+        ("Source type", &req.source_type),
+        ("Source URL", &req.source_url),
+        ("Source date", &req.source_date),
+        ("Why kept", &req.why_kept),
+        ("Project", &req.project),
+    ] {
+        if let Some(value) = value {
+            single_line(field, value.trim())?;
+        }
+    }
+    for tag in &req.additional_tags {
+        single_line("A tag", tag.trim())?;
+    }
+    for attachment in &req.attachments {
+        single_line("An attachment name", attachment.trim())?;
+    }
+
     let mut tags: Vec<String> = vec!["olympus/research".to_string()];
 
     if let Some(source_type) = &req.source_type {
@@ -521,9 +582,10 @@ fn build_entry_content(
         }
     }
 
+    // Quoted: these arrive as free text from the capture form.
     frontmatter.push_str("tags:\n");
     for tag in &tags {
-        frontmatter.push_str(&format!("  - {}\n", tag));
+        frontmatter.push_str(&format!("  - \"{}\"\n", escape_yaml_string(tag)));
     }
 
     let cleaned_attachments: Vec<String> = req
@@ -549,7 +611,7 @@ fn build_entry_content(
     for attachment in &cleaned_attachments {
         full.push_str(&format!("\n\n![[{}]]\n", attachment));
     }
-    full
+    Ok(full)
 }
 
 fn perform_write_pantheon_entry(req: WritePantheonEntryRequest) -> Result<String, String> {
@@ -567,7 +629,7 @@ fn perform_write_pantheon_entry(req: WritePantheonEntryRequest) -> Result<String
     let safe_title = sanitize_filename(&title);
     let filename = format!("{} {}.md", today, safe_title);
 
-    // ensure_unique_path below guarantees this never overwrites, which is what
+    // create_unique below guarantees this never overwrites, which is what
     // puts it in the silent tier. If that guarantee is ever removed, the intent
     // declared here must change with it.
     let _tier = classify(WriteIntent::CreateUnique);
@@ -583,16 +645,14 @@ fn perform_write_pantheon_entry(req: WritePantheonEntryRequest) -> Result<String
     fs::create_dir_all(&target_dir)
         .map_err(|e| format!("Failed to ensure research directory exists: {}", e))?;
 
-    let final_path = ensure_unique_path(target_path);
+    let content = build_entry_content(&title, &body, &req, &today)?;
+
+    let final_path = create_unique(target_path, &content)?;
     let final_filename = final_path
         .file_name()
         .and_then(|n| n.to_str())
         .unwrap_or(&filename)
         .to_string();
-
-    let content = build_entry_content(&title, &body, &req, &today);
-
-    fs::write(&final_path, content).map_err(|e| format!("Failed to write entry: {}", e))?;
 
     Ok(format!("{}/{}", RESEARCH_FOLDER, final_filename))
 }
@@ -642,6 +702,17 @@ mod tests {
         assert!(split_frontmatter("just body").is_none());
     }
 
+    #[test]
+    fn source_label_takes_the_first_named_source_and_never_the_origin() {
+        let named: serde_yaml::Value =
+            serde_yaml::from_str("origin: collected\nsource: \"  \"\nsource_name: Stratechery\npublisher: Ben")
+                .unwrap();
+        assert_eq!(source_label(&named), "Stratechery");
+
+        let unnamed: serde_yaml::Value = serde_yaml::from_str("origin: olympus-found").unwrap();
+        assert_eq!(source_label(&unnamed), "Local source");
+    }
+
     /// The scaffold scripts write UTF-8 with a BOM. Before this was handled,
     /// every scaffolded note read as having no frontmatter and was skipped.
     #[test]
@@ -681,6 +752,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "requires the owner's real vault; run with --ignored"]
     fn debug_parse_real_vault() {
         match parse_pantheon_from_vault() {
             Ok(entries) => {
@@ -795,7 +867,7 @@ mod tests {
     #[test]
     fn test_build_entry_content_includes_required_fields() {
         let req = make_request("Test Title", "Some body content.");
-        let content = build_entry_content("Test Title", "Some body content.", &req, "2026-04-28");
+        let content = build_entry_content("Test Title", "Some body content.", &req, "2026-04-28").unwrap();
         assert!(content.starts_with("---\n"), "must start with frontmatter");
         assert!(content.contains("title: \"Test Title\""), "must include title");
         assert!(content.contains("type: research"), "must include type");
@@ -804,7 +876,7 @@ mod tests {
             content.contains("written_by: \"Olympus dashboard\""),
             "writer provenance moved to written_by when origin was repurposed"
         );
-        assert!(content.contains("- olympus/research"), "must include olympus/research tag");
+        assert!(content.contains("- \"olympus/research\""), "must include olympus/research tag");
         assert!(content.contains("Some body content."), "must include body");
 
         // Defaults, stated rather than inherited: an entry the operator captured
@@ -831,13 +903,13 @@ mod tests {
             additional_tags: vec!["ai".to_string(), "talks".to_string()],
             ..make_request("Test", "body")
         };
-        let content = build_entry_content("Test", "body", &req, "2026-04-28");
+        let content = build_entry_content("Test", "body", &req, "2026-04-28").unwrap();
         assert!(content.contains("source_type: \"transcript\""));
         assert!(content.contains("source_url: \"https://example.com/talk\""));
         assert!(content.contains("source_date: \"2025-01-15\""));
-        assert!(content.contains("- research/transcript"));
-        assert!(content.contains("- ai"));
-        assert!(content.contains("- talks"));
+        assert!(content.contains("- \"research/transcript\""));
+        assert!(content.contains("- \"ai\""));
+        assert!(content.contains("- \"talks\""));
     }
 
     #[test]
@@ -850,7 +922,7 @@ mod tests {
             additional_tags: vec!["".to_string(), "  ".to_string()],
             ..make_request("Test", "body")
         };
-        let content = build_entry_content("Test", "body", &req, "2026-04-28");
+        let content = build_entry_content("Test", "body", &req, "2026-04-28").unwrap();
         assert!(!content.contains("source_type:"), "should not include empty source_type");
         assert!(!content.contains("source_url:"), "should not include missing source_url");
         assert!(!content.contains("source_date:"), "should not include whitespace source_date");
@@ -858,7 +930,7 @@ mod tests {
         assert!(!content.contains("attachments:"));
         assert!(!content.contains("![["));
         let tag_lines: Vec<&str> = content.lines().filter(|l| l.trim_start().starts_with("- ")).collect();
-        assert_eq!(tag_lines, vec!["  - olympus/research"]);
+        assert_eq!(tag_lines, vec!["  - \"olympus/research\""]);
     }
 
     #[test]
@@ -870,7 +942,7 @@ mod tests {
             attachments: vec!["_attachments/foo-bar.pdf".to_string()],
             ..make_request("With File", "User-typed body content.")
         };
-        let content = build_entry_content("With File", "User-typed body content.", &req, "2026-04-28");
+        let content = build_entry_content("With File", "User-typed body content.", &req, "2026-04-28").unwrap();
         assert!(
             content.contains("attachments:\n  - \"_attachments/foo-bar.pdf\""),
             "frontmatter should include attachments list"
@@ -888,7 +960,7 @@ mod tests {
             attachments: vec!["".to_string(), "   ".to_string()],
             ..make_request("T", "b")
         };
-        let content = build_entry_content("T", "b", &req, "2026-04-28");
+        let content = build_entry_content("T", "b", &req, "2026-04-28").unwrap();
         assert!(!content.contains("attachments:"));
         assert!(!content.contains("![["));
     }
@@ -944,7 +1016,7 @@ mod tests {
             project: Some("01 - Projects/Project Olympus.md".to_string()),
             ..make_request("Test", "body")
         };
-        let content = build_entry_content("Test", "body", &req, "2026-07-26");
+        let content = build_entry_content("Test", "body", &req, "2026-07-26").unwrap();
 
         assert!(content.contains("stance: disputed"));
         assert!(content.contains("origin: olympus-found"));
@@ -956,13 +1028,70 @@ mod tests {
     /// so writing it would produce an entry that silently loses a field it
     /// appears to carry.
     #[test]
+    fn tags_and_source_type_are_quoted_yaml_strings() {
+        let req = WritePantheonEntryRequest {
+            source_type: Some("talk: \"keynote\"".to_string()),
+            additional_tags: vec!["a: b".to_string(), "#x".to_string(), "back\\slash".to_string()],
+            ..make_request("Test", "body")
+        };
+        let content = build_entry_content("Test", "body", &req, "2026-07-26").unwrap();
+        let (frontmatter, _) = split_frontmatter(&content).expect("frontmatter");
+        let value: serde_yaml::Value = serde_yaml::from_str(frontmatter).expect("valid yaml");
+
+        assert_eq!(extract_string(&value, "source_type").as_deref(), Some("talk: \"keynote\""));
+        assert_eq!(
+            extract_tags(&value),
+            vec!["olympus/research", "research/talk: \"keynote\"", "a: b", "#x", "back\\slash"]
+        );
+    }
+
+    /// A newline in any frontmatter value would close the scalar and start a
+    /// key of the caller's choosing.
+    #[test]
+    fn control_characters_in_frontmatter_values_are_rejected() {
+        let injected = "x\nstance: endorsed";
+        let cases = [
+            WritePantheonEntryRequest { additional_tags: vec![injected.to_string()], ..make_request("T", "b") },
+            WritePantheonEntryRequest { source_type: Some(injected.to_string()), ..make_request("T", "b") },
+            WritePantheonEntryRequest { source_url: Some(injected.to_string()), ..make_request("T", "b") },
+            WritePantheonEntryRequest { why_kept: Some("x\ry".to_string()), ..make_request("T", "b") },
+            WritePantheonEntryRequest { project: Some("x\u{0}".to_string()), ..make_request("T", "b") },
+            WritePantheonEntryRequest { attachments: vec![injected.to_string()], ..make_request("T", "b") },
+        ];
+        for req in &cases {
+            assert!(build_entry_content("T", "b", req, "2026-07-26").is_err(), "{req:?}");
+        }
+        assert!(build_entry_content("T\n---", "b", &make_request("T", "b"), "2026-07-26").is_err());
+        // The body is Markdown and keeps its newlines.
+        assert!(build_entry_content("T", "line\nline", &make_request("T", "b"), "2026-07-26").is_ok());
+    }
+
+    #[test]
+    fn create_unique_never_replaces_an_existing_entry() {
+        let dir = std::env::temp_dir().join(format!("olympus-pantheon-unique-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("2026-07-26 Entry.md");
+        fs::write(&path, "human").unwrap();
+        fs::write(dir.join("2026-07-26 Entry (2).md"), "also human").unwrap();
+
+        let written = create_unique(path.clone(), "new").unwrap();
+
+        assert_eq!(written, dir.join("2026-07-26 Entry (3).md"));
+        assert_eq!(fs::read_to_string(&written).unwrap(), "new");
+        assert_eq!(fs::read_to_string(&path).unwrap(), "human");
+        assert_eq!(fs::read_to_string(dir.join("2026-07-26 Entry (2).md")).unwrap(), "also human");
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
     fn an_unrecognised_stance_is_not_written_through() {
         let req = WritePantheonEntryRequest {
             stance: Some("mostly agree".to_string()),
             origin: Some("borrowed".to_string()),
             ..make_request("Test", "body")
         };
-        let content = build_entry_content("Test", "body", &req, "2026-07-26");
+        let content = build_entry_content("Test", "body", &req, "2026-07-26").unwrap();
 
         assert!(content.contains("stance: unevaluated"));
         assert!(content.contains("origin: collected"));

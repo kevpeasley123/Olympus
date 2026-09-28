@@ -18,6 +18,7 @@ pub struct ToolState {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ConversationMessage {
+    #[serde(default)] pub mail: Vec<super::gmail::store::Excerpt>,
     #[serde(default)] pub request: Option<super::models::RequestRecord>,
     #[serde(default)] pub voice: Option<serde_json::Value>,
     pub id: String,
@@ -234,9 +235,21 @@ pub fn store_artifact_fingerprint(
         .map_err(|error| error.to_string())
 }
 
+/// A side row that no longer parses is logged and dropped. Failing the whole
+/// load would hand the webview seed state, and its next preference save would
+/// overwrite the real settings with it.
+fn side_row<T: serde::de::DeserializeOwned>(raw: Option<String>, table: &str, message_id: &str) -> Option<T> {
+    serde_json::from_str(&raw?)
+        .map_err(|error| eprintln!("[Olympus::Db] skipped unreadable {table} row for message {message_id}: {error}"))
+        .ok()
+}
+
 #[tauri::command]
 pub fn load_persisted_state(db: State<Db>) -> Result<PersistedState, String> {
-    let connection = locked(&db)?;
+    load_state_from(&*locked(&db)?)
+}
+
+fn load_state_from(connection: &Connection) -> Result<PersistedState, String> {
 
     let mut settings_query = connection
         .prepare("SELECT key, value FROM settings")
@@ -263,20 +276,22 @@ pub fn load_persisted_state(db: State<Db>) -> Result<PersistedState, String> {
 
     let mut conversation_query = connection
         .prepare(
-            "SELECT id, role, content, timestamp, COALESCE((SELECT sources_json FROM conversation_research WHERE message_id = conversation_messages.id), '[]'), (SELECT metadata_json FROM conversation_voice WHERE message_id = conversation_messages.id), (SELECT record_json FROM model_requests WHERE id=(SELECT request_id FROM conversation_model WHERE message_id=conversation_messages.id)) FROM conversation_messages \
+            "SELECT id, role, content, timestamp, COALESCE((SELECT sources_json FROM conversation_research WHERE message_id = conversation_messages.id), '[]'), (SELECT metadata_json FROM conversation_voice WHERE message_id = conversation_messages.id), (SELECT record_json FROM model_requests WHERE id=(SELECT request_id FROM conversation_model WHERE message_id=conversation_messages.id)), COALESCE((SELECT sources_json FROM conversation_mail WHERE message_id=conversation_messages.id), '[]') FROM conversation_messages \
              ORDER BY created_at ASC, rowid ASC",
         )
         .map_err(|error| error.to_string())?;
     let conversation = conversation_query
         .query_map([], |row| {
+            let id: String = row.get(0)?;
             Ok(ConversationMessage {
+                mail: side_row(row.get(7)?, "conversation_mail", &id).unwrap_or_default(),
                 request: row.get::<_,Option<String>>(6)?.and_then(|s|serde_json::from_str(&s).ok()),
-                voice: row.get::<_, Option<String>>(5)?.map(|s| serde_json::from_str(&s)).transpose().map_err(|e| rusqlite::Error::FromSqlConversionFailure(5, rusqlite::types::Type::Text, Box::new(e)))?,
-                id: row.get(0)?,
+                voice: side_row(row.get(5)?, "conversation_voice", &id),
+                research: side_row(row.get(4)?, "conversation_research", &id).unwrap_or_default(),
                 role: row.get(1)?,
                 content: row.get(2)?,
                 timestamp: row.get(3)?,
-                research: serde_json::from_str(&row.get::<_, String>(4)?).map_err(|e| rusqlite::Error::FromSqlConversionFailure(4, rusqlite::types::Type::Text, Box::new(e)))?,
+                id,
             })
         })
         .map_err(|error| error.to_string())?
@@ -343,6 +358,9 @@ pub(crate) fn store_messages(connection: &mut Connection, messages: Vec<Conversa
     let transaction = connection.transaction().map_err(|e| e.to_string())?;
 
     for message in messages {
+        // Provenance is fixed when a message is first stored. A later append of
+        // the same ID may only update voice playback metadata.
+        transaction.execute("INSERT INTO conversation_mail(message_id,sources_json) VALUES (?1,?2) ON CONFLICT(message_id) DO NOTHING",params![message.id,serde_json::to_string(&message.mail).map_err(|_|"Mail provenance serialization failed")?]).map_err(|_|"Mail provenance persistence failed")?;
         if let Some(request)=&message.request {
             transaction.execute("INSERT INTO conversation_model(message_id,request_id) SELECT ?1,?2 WHERE EXISTS(SELECT 1 FROM model_requests WHERE id=?2) ON CONFLICT(message_id) DO NOTHING",params![message.id,request.id]).map_err(|e|e.to_string())?;
         }
@@ -350,15 +368,14 @@ pub(crate) fn store_messages(connection: &mut Connection, messages: Vec<Conversa
             transaction.execute("INSERT INTO conversation_voice (message_id, metadata_json) VALUES (?1, ?2) ON CONFLICT(message_id) DO UPDATE SET metadata_json=excluded.metadata_json", params![message.id, serde_json::to_string(voice).map_err(|e| e.to_string())?]).map_err(|e| e.to_string())?;
         }
         transaction.execute(
-            "INSERT INTO conversation_research (message_id, sources_json) VALUES (?1, ?2) ON CONFLICT(message_id) DO UPDATE SET sources_json = excluded.sources_json",
+            "INSERT INTO conversation_research (message_id, sources_json) VALUES (?1, ?2) ON CONFLICT(message_id) DO NOTHING",
             params![message.id, serde_json::to_string(&message.research).map_err(|e| e.to_string())?],
         ).map_err(|e| e.to_string())?;
         transaction
             .execute(
                 "INSERT INTO conversation_messages (id, role, content, timestamp) \
                  VALUES (?1, ?2, ?3, ?4) \
-                 ON CONFLICT(id) DO UPDATE SET \
-                   role = excluded.role, content = excluded.content, timestamp = excluded.timestamp",
+                 ON CONFLICT(id) DO NOTHING",
                 params![message.id, message.role, message.content, message.timestamp],
             )
             .map_err(|error| error.to_string())?;
@@ -372,6 +389,7 @@ pub fn clear_conversation(db: State<Db>) -> Result<(), String> {
     let connection = locked(&db)?;
     connection.execute("DELETE FROM conversation_model", []).map_err(|e|e.to_string())?;
     connection.execute("DELETE FROM conversation_voice", []).map_err(|e| e.to_string())?;
+    connection.execute("DELETE FROM conversation_mail", []).map_err(|_|"Mail provenance removal failed")?;
     connection.execute("DELETE FROM conversation_research", []).map_err(|e| e.to_string())?;
     connection
         .execute("DELETE FROM conversation_messages", [])
@@ -389,7 +407,7 @@ mod tests {
       let mut c=Connection::open_in_memory().unwrap();c.execute_batch(include_str!("../../schema.sql")).unwrap();
       let r=super::super::models::RequestRecord::new(&super::super::models::resolve(super::super::models::Capability::DeepReasoning),"command");
       c.execute("INSERT INTO model_requests(id,record_json) VALUES (?1,?2)",params![r.id,serde_json::to_string(&r).unwrap()]).unwrap();
-      let message=|request|ConversationMessage{request,id:"answer".into(),role:"assistant".into(),content:"Same answer".into(),timestamp:"12:00".into(),research:vec![],voice:None};
+      let message=|request|ConversationMessage{mail:vec![],request,id:"answer".into(),role:"assistant".into(),content:"Same answer".into(),timestamp:"12:00".into(),research:vec![],voice:None};
       store_messages(&mut c,vec![message(Some(r.clone()))]).unwrap();store_messages(&mut c,vec![message(None)]).unwrap();
       assert_eq!(c.query_row("SELECT request_id FROM conversation_model WHERE message_id='answer'",[],|r|r.get::<_,String>(0)).unwrap(),r.id);
       assert_eq!(c.query_row("SELECT count(*) FROM conversation_messages",[],|r|r.get::<_,i64>(0)).unwrap(),1);
@@ -401,7 +419,7 @@ mod tests {
         let mut db = Connection::open_in_memory().unwrap();
         db.execute_batch(include_str!("../../schema.sql")).unwrap();
         let message = |id: &str, voice: Option<serde_json::Value>| ConversationMessage {
-            request: None, id: id.into(), role: "assistant".into(), content: "Full visual detail".into(), timestamp: "12:00".into(), research: vec![], voice,
+            mail:vec![], request: None, id: id.into(), role: "assistant".into(), content: "Full visual detail".into(), timestamp: "12:00".into(), research: vec![], voice,
         };
         store_messages(&mut db, vec![message("typed", None), message("spoken", Some(serde_json::json!({"kind":"output","spokenResponse":"Short answer","playback":"pending"}))), message("typed-after",None)]).unwrap();
         store_messages(&mut db, vec![message("spoken",Some(serde_json::json!({"kind":"output","spokenResponse":"Short answer","audioTranscript":"Short","playback":"interrupted"})))]).unwrap();
@@ -411,6 +429,50 @@ mod tests {
         assert_eq!(value["playback"],"interrupted");assert_eq!(value["spokenResponse"],"Short answer");
         let order:Vec<String>=db.prepare("SELECT id FROM conversation_messages ORDER BY rowid").unwrap().query_map([],|r|r.get(0)).unwrap().collect::<Result<_,_>>().unwrap();
         assert_eq!(order, vec!["typed","spoken","typed-after"]);
+    }
+
+    #[test]
+    fn a_repeated_append_cannot_rewrite_content_or_provenance() {
+        let mut db = Connection::open_in_memory().unwrap();
+        db.execute_batch(include_str!("../../schema.sql")).unwrap();
+        let excerpt = |title: &str| super::super::research_retrieval::ResearchExcerpt {
+            title: title.into(), source_file: "02 - Research/a.md".into(), source_date: None,
+            stance: "unevaluated".into(), origin: None, excerpt: "quoted".into(), truncated: false, fingerprint: "f".into(),
+        };
+        let message = |content: &str, title: &str, playback: &str| ConversationMessage {
+            mail: vec![], request: None, id: "answer".into(), role: "assistant".into(), content: content.into(),
+            timestamp: "12:00".into(), research: vec![excerpt(title)],
+            voice: Some(serde_json::json!({"kind":"output","playback":playback})),
+        };
+        store_messages(&mut db, vec![message("Original answer", "Original source", "pending")]).unwrap();
+        store_messages(&mut db, vec![message("Forged answer", "Forged source", "completed")]).unwrap();
+
+        let state = load_state_from(&db).unwrap();
+        assert_eq!(state.conversation.len(), 1);
+        let stored = &state.conversation[0];
+        assert_eq!(stored.content, "Original answer");
+        assert_eq!(stored.research[0].title, "Original source");
+        assert_eq!(stored.voice.as_ref().unwrap()["playback"], "completed", "voice metadata still updates");
+    }
+
+    #[test]
+    fn an_unreadable_side_row_is_skipped_rather_than_failing_the_load() {
+        let db = Connection::open_in_memory().unwrap();
+        db.execute_batch(include_str!("../../schema.sql")).unwrap();
+        db.execute("INSERT INTO settings (key, value) VALUES ('projectsRootPath', 'D:/real')", []).unwrap();
+        for id in ["bad", "good"] {
+            db.execute("INSERT INTO conversation_messages (id, role, content, timestamp) VALUES (?1, 'user', 'hi', '12:00')", params![id]).unwrap();
+        }
+        db.execute("INSERT INTO conversation_mail (message_id, sources_json) VALUES ('bad', '[{\"unexpected\":1}]')", []).unwrap();
+        db.execute("INSERT INTO conversation_research (message_id, sources_json) VALUES ('bad', 'not json')", []).unwrap();
+        db.execute("INSERT INTO conversation_voice (message_id, metadata_json) VALUES ('bad', '{')", []).unwrap();
+
+        let state = load_state_from(&db).expect("one bad side row must not fail the whole load");
+        assert_eq!(state.settings.get("projectsRootPath").map(String::as_str), Some("D:/real"));
+        assert_eq!(state.conversation.len(), 2);
+        let bad = state.conversation.iter().find(|m| m.id == "bad").unwrap();
+        assert!(bad.mail.is_empty() && bad.research.is_empty() && bad.voice.is_none());
+        assert_eq!(bad.content, "hi");
     }
 
     fn session_db() -> Db {
