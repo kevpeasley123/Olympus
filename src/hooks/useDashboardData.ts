@@ -149,16 +149,25 @@ export function useDashboardData() {
     void persistPreferences(dashboardState);
   }, [dashboardState, hydrated]);
 
+  // Scans are not coalesced, so a slow scan of an old root can settle after a
+  // newer one. Only the latest request may write.
+  const projectScanSeq = useRef(0);
   const refreshProjects = useCallback(async () => {
+    const request = ++projectScanSeq.current;
     try {
       const scan = await fetchProjects(
         dashboardState.settings.projectsRootPath,
         sessionBoundary?.previousSessionStartedAt ?? null
       );
-      setDashboardState((current) => ({ ...current, projects: scan.projects }));
-      setProjectNoteWarnings(scan.warnings);
+      if (request !== projectScanSeq.current) return;
+      // An unchanged scan keeps the same array, so nothing downstream rebuilds.
+      setDashboardState((current) => JSON.stringify(current.projects) === JSON.stringify(scan.projects)
+        ? current
+        : { ...current, projects: scan.projects });
+      setProjectNoteWarnings((current) => JSON.stringify(current) === JSON.stringify(scan.warnings) ? current : scan.warnings);
       setProjectsError(null);
     } catch (error) {
+      if (request !== projectScanSeq.current) return;
       setProjectsError(errorMessage(error));
     }
   }, [dashboardState.settings.projectsRootPath, sessionBoundary?.previousSessionStartedAt]);

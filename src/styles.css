@@ -918,7 +918,7 @@ small {
   min-height: 40px;
   padding: var(--space-8) var(--space-12);
   border-bottom: 1px solid var(--divider);
-  cursor: pointer;
+  cursor: default;
   transition: background 100ms ease, border-color 100ms ease;
 }
 

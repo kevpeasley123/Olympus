@@ -4,7 +4,7 @@ import { formatPath } from "../../utils/formatPath";
 import type { ObsidianActionResult } from "../../services/obsidian";
 import { useActionQueue, type ActionQueueTask } from "../../hooks/useActionQueue";
 import { attributeTasks, groupBySourceFile } from "../../services/taskAttribution";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useDelegationRuns } from "../../hooks/useDelegationRuns";
 import { buildProjectCommandBoard, operationalStatuses, reviewProjectContext, sortCommandProjects, type OperationalStatus } from "../../services/projectCommandBoard";
 import { isTauriRuntime } from "../../services/launcher";
@@ -36,6 +36,13 @@ const STATUS_LABELS: Record<ProjectStatus, string> = {
   unclassified: "UNCLASSIFIED"
 };
 
+/**
+ * The last voice filter revision applied. Module scope, not a ref: the panel
+ * unmounts in Command and Research, and a voice request made from Command must
+ * still apply when it mounts, while a remount must not re-apply an old one.
+ */
+let consumedVoiceRevision = 0;
+
 /** How many tasks a card shows before it needs asking. */
 const VISIBLE_TASK_LIMIT = 3;
 
@@ -55,11 +62,17 @@ export function ProjectsPanel({
   const [syncing, setSyncing] = useState(false);
   const [delegationProposal, setDelegationProposal] = useState<DelegationProposal | null>(null);
   const [filter, setFilter] = useState<OperationalStatus | "ALL">("ALL");
-  useEffect(() => { if (requestedStatus) setFilter(requestedStatus.status); }, [requestedStatus]);
+  useEffect(() => {
+    if (!requestedStatus || requestedStatus.revision === consumedVoiceRevision) return;
+    consumedVoiceRevision = requestedStatus.revision;
+    setFilter(requestedStatus.status);
+  }, [requestedStatus]);
   const [sort, setSort] = useState<"priority" | "recent" | "name">("priority");
   const { tasks, error: tasksError, loading: tasksLoading } = useActionQueue();
   const { data: runs, error: runsError, loading: runsLoading } = useDelegationRuns();
-  const rows = buildProjectCommandBoard(allProjects, tasks, runs, { tasks: !tasksError && !tasksLoading, runs: !runsError && !runsLoading });
+  const tasksAvailable = !tasksError && !tasksLoading, runsAvailable = !runsError && !runsLoading;
+  const rows = useMemo(() => buildProjectCommandBoard(allProjects, tasks, runs, { tasks: tasksAvailable, runs: runsAvailable }),
+    [allProjects, tasks, runs, tasksAvailable, runsAvailable]);
   const selected = rows.find(row => row.project.id === projectFilter);
   const visible = sortCommandProjects(rows.filter(row => filter === "ALL" || row.operationalStatus === filter), sort);
   const attention = rows.filter(row => row.operatorDecisions.length > 0);

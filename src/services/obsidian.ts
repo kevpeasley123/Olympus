@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import { isTauriRuntime } from "./launcher";
 import type { TrackedProject } from "../types";
 
 type ActionTone = "success" | "warning" | "error";
@@ -13,10 +14,6 @@ interface WriteMemoryArtifactResult {
   path: string;
   /** False when the write gate was shown and the overwrite was declined. */
   written: boolean;
-}
-
-function isTauriRuntime(): boolean {
-  return typeof window !== "undefined" && ("__TAURI_INTERNALS__" in window || "__TAURI__" in window);
 }
 
 function createResearchBase(): string {

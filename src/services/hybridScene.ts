@@ -274,7 +274,12 @@ export function mountHybridScene(host: HTMLDivElement, layout: CommandLayout, cu
   const lost=(event:Event)=>{event.preventDefault();fail("Graphics context lost.");};canvas.addEventListener("webglcontextlost",lost);
   let renderWidth=0,renderHeight=0;
   const resize=()=>{const {width,height}=host.getBoundingClientRect();if(width<=0||height<=0||(width===renderWidth&&height===renderHeight))return;renderWidth=width;renderHeight=height;renderer.setSize(width,height,false);composer.setSize(width,height);};
-  const observer=new ResizeObserver(resize);observer.observe(host);resize();
+  // A hidden view (background tab, or another mode's display:none) sleeps with
+  // no timer at all; becoming visible or regaining a size wakes it.
+  const hidden=()=>document.visibilityState!=="visible"||host.getBoundingClientRect().width<=0;
+  const wake=()=>{if(!stopped&&frame===undefined&&timer===undefined&&!hidden())frame=requestAnimationFrame(render);};
+  document.addEventListener("visibilitychange",wake);
+  const observer=new ResizeObserver(()=>{resize();wake();});observer.observe(host);resize();
   let announced=false, lastSignature="", lastStats=0, renderCount=0;
   function render(now:number) {
     if(stopped)return;
@@ -382,15 +387,15 @@ export function mountHybridScene(host: HTMLDivElement, layout: CommandLayout, cu
     if(signal.visible){const e=edges[Math.floor(time/4.5)%edges.length];signal.position.copy(pos(executing?e.to:e.from)).lerp(pos(executing?e.from:e.to),(time%4.5)/2);}
     const signature = `${value.state}/${moving?value.voiceLevel:0}/${value.hoverProject}/${canvas.width}/${canvas.height}/${value.running}`;
     try { if(document.visibilityState==="visible" && host.getBoundingClientRect().width>0 && (moving || signature !== lastSignature)) { renderer.info.reset();composer.render(); renderCount++; lastSignature=signature; } }
-    catch { fail("Rendering stopped unexpectedly."); return; }
+    catch { stopped=true; fail("Rendering stopped unexpectedly."); return; }
     if(!announced && renderCount){announced=true;ready();}
     if(now-lastStats>500){lastStats=now;canvas.dataset.constellationYaw=String(constellationMotion.yaw);canvas.dataset.rings=String(orbital.filter(r=>r.visible).length);canvas.dataset.frames=String(renderCount);canvas.dataset.drawCalls=String(renderer.info.render.calls);canvas.dataset.nodes=String(nodes.length);canvas.dataset.parallax=JSON.stringify([pointer.x,pointer.y]);}
     // One loop; no React updates per frame. Hidden and reduced-motion views render only on changes.
     if(moving)frame=requestAnimationFrame(render);
-    else timer=window.setTimeout(()=>render(performance.now()),250);
+    else if(!hidden())timer=window.setTimeout(()=>render(performance.now()),250);
   }
   frame=requestAnimationFrame(render);
-  return ()=>{stopped=true;interaction.removeEventListener('pointermove',movePointer);interaction.removeEventListener('pointerleave',resetPointer);window.removeEventListener('blur',resetPointer);if(frame!==undefined)cancelAnimationFrame(frame);if(timer!==undefined)clearTimeout(timer);observer.disconnect();canvas.removeEventListener("webglcontextlost",lost);
+  return ()=>{stopped=true;interaction.removeEventListener('pointermove',movePointer);interaction.removeEventListener('pointerleave',resetPointer);window.removeEventListener('blur',resetPointer);if(frame!==undefined)cancelAnimationFrame(frame);if(timer!==undefined)clearTimeout(timer);observer.disconnect();document.removeEventListener("visibilitychange",wake);canvas.removeEventListener("webglcontextlost",lost);
     const geometries=new Set<T.BufferGeometry>(),materials=new Set<T.Material>();
     for(const root of [scene,networkScene])root.traverse(o=>{const drawable=o as T.Mesh;if(drawable.geometry)geometries.add(drawable.geometry);if(drawable.material)(Array.isArray(drawable.material)?drawable.material:[drawable.material]).forEach(m=>materials.add(m));});
     halos.dispose();backdrop?.dispose();haloTexture.dispose();backdropTexture?.dispose();

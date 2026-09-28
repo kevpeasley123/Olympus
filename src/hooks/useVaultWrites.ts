@@ -35,7 +35,7 @@ export function useVaultWrites() {
   // never pass through the gate. Do not "simplify" this to event-driven only.
   useEffect(() => {
     return subscribeToInstrumentEvents((event) => {
-      if (event === "vault-write") void refresh();
+      if (event === "vault-write") void refresh({ force: true });
     });
   }, [refresh]);
 

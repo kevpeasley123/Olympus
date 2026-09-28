@@ -44,7 +44,7 @@ export function useVaultGraph() {
   // rim is demonstrably telling the truth about something that just happened.
   useEffect(() => {
     return subscribeToInstrumentEvents((event) => {
-      if (event === "vault-write") void refresh();
+      if (event === "vault-write") void refresh({ force: true });
     });
   }, [refresh]);
 
