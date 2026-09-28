@@ -2,7 +2,7 @@ import { PreferencesDialog } from "./PreferencesDialog";
 import type { VoicePreferences } from "../../services/voicePreferences";
 import { isEditableTarget, isModalOpen, SHORTCUT_LIST, SHORTCUTS, type ShortcutScope } from "../../services/shortcuts";
 import { CircleHelp, RefreshCw, Settings2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { MODE_LABELS } from "../../hooks/useDashboardMode";
 import type { DashboardMode } from "../../hooks/useDashboardMode";
 
@@ -71,6 +71,24 @@ export function AmbientDock({ onRefresh, mode, onCycleMode, voicePreferences, on
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [onCycleMode, onRefresh]);
 
+  // The popover sits over the console, so it behaves like any transient
+  // layer: Escape or a press elsewhere closes it, before the console steps back.
+  const shortcutsRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!shortcutsOpen) return;
+    const close = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || isModalOpen()) return;
+      event.stopPropagation();
+      setShortcutsOpen(false);
+    };
+    const outside = (event: PointerEvent) => {
+      if (!shortcutsRef.current?.contains(event.target as Node)) setShortcutsOpen(false);
+    };
+    window.addEventListener("keydown", close, true);
+    document.addEventListener("pointerdown", outside);
+    return () => { window.removeEventListener("keydown", close, true); document.removeEventListener("pointerdown", outside); };
+  }, [shortcutsOpen]);
+
   const timeLabel = now.toLocaleTimeString([], {
     hour: "numeric",
     minute: "2-digit",
@@ -109,7 +127,7 @@ export function AmbientDock({ onRefresh, mode, onCycleMode, voicePreferences, on
       </div>
 
       <div className="ambient-bottom-right">
-        <div className="ambient-floating-control">
+        <div className="ambient-floating-control" ref={shortcutsRef}>
           <button
             className="ambient-corner-button"
             onClick={() => setShortcutsOpen((value) => !value)}
