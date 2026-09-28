@@ -104,16 +104,20 @@ export function scrollBehavior(): ScrollBehavior {
   return prefersReducedMotion() ? "auto" : "smooth";
 }
 
-/** Brings a range into the middle of its scroll container. */
-export function scrollRangeIntoView(range: Range, container: HTMLElement | null) {
+/**
+ * Brings a range to the upper third of its scroll container. Arrival jumps
+ * straight there; a deliberate "Show excerpt" may glide unless motion is reduced.
+ */
+export function scrollRangeIntoView(range: Range, container: HTMLElement | null, animate = false) {
   const element = range.startContainer.parentElement;
   if (!element) return;
+  const behavior: ScrollBehavior = animate ? scrollBehavior() : "auto";
   if (!container) {
-    element.scrollIntoView({ block: "center", behavior: scrollBehavior() });
+    element.scrollIntoView({ block: "center", behavior });
     return;
   }
   const rect = range.getBoundingClientRect();
   const box = container.getBoundingClientRect();
   const target = container.scrollTop + rect.top - box.top - Math.max(48, box.height / 3);
-  container.scrollTo({ top: Math.max(0, target), behavior: scrollBehavior() });
+  container.scrollTo({ top: Math.max(0, target), behavior });
 }

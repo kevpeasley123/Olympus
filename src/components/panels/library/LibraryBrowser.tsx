@@ -3,6 +3,7 @@ import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useStat
 import { categoryLabel, orderedCategories } from "../../../services/pantheonAnalysis";
 import { useViewSlice } from "../../../state/viewState";
 import type { PantheonCategory } from "../../../types";
+import type { MutableRefObject } from "react";
 import { EntryDetail, MissingSource, type LibraryProject } from "./EntryDetail";
 import { scrollBehavior } from "./excerptHighlight";
 import {
@@ -22,6 +23,9 @@ import { StanceMark } from "./StanceMark";
 const SECTION_STORAGE_PREFIX = "pantheon.sectionExpanded.";
 const RECENT_COUNT = 20;
 const BODY_TIER_PAGE = 100;
+/** All entries renders in pages as the reader nears the end; thousands of rows at once blocked input for seconds. */
+const ALL_PAGE = 250;
+const ROW_ESTIMATE_PX = 48;
 
 type DateMode = "added" | "published";
 
@@ -37,15 +41,20 @@ interface LibraryBrowserProps {
   onOpenEntry: (id: string) => void;
   onBack: () => void;
   backToInspector: string | null;
+  /** Filled with a function that records the current scroll; called before the view is hidden. */
+  snapshotRef?: MutableRefObject<(() => void) | null>;
 }
 
-export function LibraryBrowser({ entries, loading, query, projects, active, openToken, onOpenEntry, onBack, backToInspector }: LibraryBrowserProps) {
+export function LibraryBrowser({ entries, loading, query, projects, active, openToken, onOpenEntry, onBack, backToInspector, snapshotRef }: LibraryBrowserProps) {
   const [research, setResearch] = useViewSlice("research");
   const { view, detailEntryId, arrival } = research;
   const sort: LibrarySort = research.sort ?? "added";
   const activeCategory = (research.section ?? orderedCategories()[0]) as PantheonCategory;
   const [expandedSections, setExpandedSections] = useState<Record<PantheonCategory, boolean>>(loadExpandedSections);
   const [bodyTierLimit, setBodyTierLimit] = useState(BODY_TIER_PAGE);
+  // Enough rows for a restored scroll position to land, then a page more.
+  const [allLimit, setAllLimit] = useState(() => ALL_PAGE + Math.ceil(research.listScrollTop / ROW_ESTIMATE_PX));
+  const allSentinel = useRef<HTMLDivElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const sectionRefs = useRef<Partial<Record<PantheonCategory, HTMLElement | null>>>({});
   const suppressSpyUntil = useRef(0);
@@ -78,16 +87,31 @@ export function LibraryBrowser({ entries, loading, query, projects, active, open
 
   useEffect(() => setBodyTierLimit(BODY_TIER_PAGE), [query]);
 
+  useEffect(() => {
+    const sentinel = allSentinel.current;
+    if (!sentinel || !active || typeof IntersectionObserver === "undefined") return;
+    const observer = new IntersectionObserver((seen) => {
+      if (seen.some((entry) => entry.isIntersecting)) setAllLimit((limit) => limit + ALL_PAGE);
+    }, { root: scrollRef.current, rootMargin: "0px 0px 800px 0px" });
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  });
+
   // Reading position. The list's scroll is remembered while it is showing,
   // parked in the view store when an entry opens or the panel unmounts, and
   // put back on Back, on a remount after a mode switch, and when this
   // segment is shown again (display:none drops a scroll position).
   const showingDetailRef = useRef(showingDetail);
   showingDetailRef.current = showingDetail;
+  const layoutWidth = useRef(0);
   const onScroll = useCallback(() => {
-    const top = scrollRef.current?.scrollTop ?? 0;
-    if (showingDetailRef.current) detailScroll.current = top;
-    else listScroll.current = top;
+    const container = scrollRef.current;
+    // Hiding the segment zeroes the element and can deliver a late scroll
+    // event; that is not the operator moving.
+    if (!container || container.clientHeight === 0) return;
+    layoutWidth.current = container.clientWidth;
+    if (showingDetailRef.current) detailScroll.current = container.scrollTop;
+    else listScroll.current = container.scrollTop;
   }, []);
 
   // A new query starts its results at the top; the first render keeps the
@@ -100,13 +124,40 @@ export function LibraryBrowser({ entries, loading, query, projects, active, open
     if (!showingDetailRef.current && scrollRef.current) scrollRef.current.scrollTop = 0;
   }, [query]);
 
-  useEffect(() => () => {
+  // Read from the element, not only from scroll events: those arrive a frame
+  // later, and a segment switch or mode change can land first. Not when the
+  // width has changed since: a list reflowed by the next mode's layout has a
+  // scroll position the operator never saw.
+  const snapshot = useCallback(() => {
+    const container = scrollRef.current;
+    if (!container || !container.isConnected || container.clientHeight === 0) return;
+    if (layoutWidth.current && container.clientWidth !== layoutWidth.current) return;
+    if (showingDetailRef.current) detailScroll.current = container.scrollTop;
+    else listScroll.current = container.scrollTop;
+  }, []);
+  if (snapshotRef) snapshotRef.current = snapshot;
+
+  // A layout cleanup runs while the DOM is still attached.
+  useLayoutEffect(() => () => {
+    snapshot();
     const list = listScroll.current;
     const detail = detailScroll.current;
     setResearch((current) => ({ ...current, listScrollTop: list, detailScrollTop: detail }));
-  }, [setResearch]);
+  }, [setResearch, snapshot]);
+
+  // A category jump scrolls once the grouped view it targets has rendered.
+  const pendingJump = useRef<PantheonCategory | null>(null);
+  useLayoutEffect(() => {
+    const category = pendingJump.current;
+    if (!category || !active) return;
+    const node = sectionRefs.current[category];
+    if (!node) return;
+    pendingJump.current = null;
+    node.scrollIntoView({ behavior: scrollBehavior(), block: "start" });
+  });
 
   useLayoutEffect(() => {
+    if (active && scrollRef.current && scrollRef.current.clientHeight > 0) layoutWidth.current = scrollRef.current.clientWidth;
     const before = previousDetail.current;
     const now = selected ? selected.id : missing ? "missing" : null;
     previousDetail.current = now;
@@ -192,10 +243,7 @@ export function LibraryBrowser({ entries, loading, query, projects, active, open
       return { ...current, [category]: true };
     });
     suppressSpyUntil.current = Date.now() + 600;
-    // After the grouped view has rendered.
-    window.requestAnimationFrame(() => {
-      sectionRefs.current[category]?.scrollIntoView({ behavior: scrollBehavior(), block: "start" });
-    });
+    pendingJump.current = category;
   }
 
   function toggleSection(category: PantheonCategory) {
@@ -343,8 +391,14 @@ export function LibraryBrowser({ entries, loading, query, projects, active, open
                 </label>
               </div>
               <div className="pantheon-flat-list">
-                {all.map((entry) => <EntryRow key={entry.id} entry={entry} onOpen={openFromList} showCategory dateMode={sort === "published" ? "published" : "added"} />)}
+                {all.slice(0, allLimit).map((entry) => <EntryRow key={entry.id} entry={entry} onOpen={openFromList} showCategory dateMode={sort === "published" ? "published" : "added"} />)}
               </div>
+              {all.length > allLimit ? (
+                <div ref={allSentinel} className="library-more-row">
+                  <span className="section-copy">Showing {allLimit} of {all.length}</span>
+                  <button type="button" className="ghost-action library-action" onClick={() => setAllLimit(all.length)}>Show all</button>
+                </div>
+              ) : null}
             </div>
           ) : (
             <div className="library-list pantheon-sections">

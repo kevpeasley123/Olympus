@@ -4,7 +4,6 @@ import {researchVerification,type ResearchClient,type AgentCatalog,type AgentDef
 import {runStatusLabel,verdictLabel,humanize} from "../../services/researchLabels";
 import {formatWhen} from "../../services/time";
 import {Counts,Facts,FlowStructure,Internals,JsonBlock,isFlowNodeList,when} from "./library/InspectorParts";
-import {scrollBehavior} from "./library/excerptHighlight";
 import "./researchVerification.css";
 
 export interface InspectorEntryTarget {sourceFile:string;excerpt?:string;fingerprint?:string;title?:string}
@@ -41,7 +40,7 @@ export function ResearchVerification({client=researchVerification,available=isTa
     timer=setTimeout(()=>void poll(),500);return()=>{active=false;clearTimeout(timer)};
   },[client,run?.id,run?.status]);
   // A citation opens its saved excerpt, brings it into view and moves focus there.
-  useEffect(()=>{if(!reveal)return;const node=document.getElementById(`rv-${reveal.id}`);if(!node)return;node.scrollIntoView({block:"start",behavior:scrollBehavior()});node.querySelector<HTMLElement>("summary")?.focus({preventScroll:true})},[reveal]);
+  useEffect(()=>{if(!reveal)return;const node=document.getElementById(`rv-${reveal.id}`);if(!node)return;node.scrollIntoView({block:"start"});node.querySelector<HTMLElement>("summary")?.focus({preventScroll:true})},[reveal]);
   async function inspect(id:string){const current=++generation.current;setBusy(true);setError("");try{const value=await client.inspect(id);if(mounted.current&&current===generation.current){setRun(value);setAgent(null);setCancelPending(false);setOpenSources(new Set())}}catch(e){if(mounted.current&&current===generation.current)setError(String(e))}finally{if(mounted.current&&current===generation.current)setBusy(false)}}
   async function refresh(){setError("");try{const [c,r]=await Promise.all([client.catalog(),client.list()]);if(mounted.current){setCatalog(c);setRuns(r)}}catch(e){if(mounted.current)setError(String(e))}}
   async function start(retry=false){const request=retry&&pending?pending:{id:crypto.randomUUID(),question:question.trim()};setPending(request);const current=++generation.current;setBusy(true);setError("");try{const value=await client.start(request.id,request.question);if(mounted.current&&current===generation.current){setRun(value);setPending(null);setAgent(null);setCancelPending(false);await refresh()}}catch(e){if(mounted.current&&current===generation.current)setError(String(e))}finally{if(mounted.current&&current===generation.current)setBusy(false)}}

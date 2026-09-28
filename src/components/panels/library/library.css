@@ -15,8 +15,8 @@
    The board's ghost actions: 11px text, 28px tall. The library's used to render
    at twice the size beside them. */
 .ghost-action.library-action {
-  min-height: 28px;
-  padding: 0 10px;
+  min-height: 26px;
+  padding: 0 9px;
   gap: 6px;
   font-size: var(--text-xs);
   white-space: nowrap;
@@ -24,8 +24,8 @@
 }
 
 .ghost-action.library-action.icon-only-action {
-  width: 28px;
-  min-width: 28px;
+  width: 26px;
+  min-width: 26px;
   padding: 0;
 }
 
@@ -199,12 +199,6 @@
   max-width: 1100px;
 }
 
-.library-row {
-  /* Thousands of rows lay out only when near the viewport. */
-  content-visibility: auto;
-  contain-intrinsic-size: auto 64px;
-}
-
 .library-row .pantheon-entry-row-top strong {
   font-size: 14px;
 }
@@ -249,6 +243,13 @@
   margin-top: var(--space-12);
 }
 
+.library-more-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  padding: var(--space-12) 0;
+}
+
 .library-sort {
   display: inline-flex;
   align-items: center;
@@ -272,6 +273,14 @@
   font-size: var(--text-xs);
   font-weight: var(--weight-medium);
   white-space: nowrap;
+}
+
+.library-stance__shape {
+  display: inline-block;
+  width: 1em;
+  font-size: 11px;
+  line-height: 1;
+  text-align: center;
 }
 
 .library-stance.is-endorsed { color: var(--positive); }
@@ -367,7 +376,8 @@
   .library-detail__grid {
     grid-template-columns: minmax(0, 68ch) minmax(200px, 250px);
     grid-template-areas: "body rail";
-    justify-content: space-between;
+    justify-content: start;
+    column-gap: var(--space-32);
   }
 
   .library-detail__grid > .library-rail dl {

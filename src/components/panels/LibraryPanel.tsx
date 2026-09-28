@@ -85,8 +85,10 @@ export function LibraryPanel({ onViewDatabase, resident = false, inspectionTarge
     return latest ? `${count} · last added ${latest}` : count;
   }, [entries, loading, raw.length]);
 
+  const librarySnapshot = useRef<(() => void) | null>(null);
   const selectSegment = useCallback((next: Segment) => {
     const current = readSegment();
+    if (current === "library" && next !== "library") librarySnapshot.current?.();
     const node = inspectorRefs.current[current];
     if (current !== "library" && node) inspectorScroll.current[current] = node.scrollTop;
     setVisited((previous) => (previous.has(next) ? previous : new Set(previous).add(next)));
@@ -206,8 +208,9 @@ export function LibraryPanel({ onViewDatabase, resident = false, inspectionTarge
       if (event.key !== "Escape" || event.defaultPrevented || event.isComposing) return;
       // Only for keys pressed in the library or on nothing in particular; the
       // console and other panels own their own Escape.
+      // The Project-mode database is a modal: every Escape is its own.
       const target = event.target as Node | null;
-      const inside = target === document.body || (target !== null && surfaceRef.current?.contains(target));
+      const inside = !resident || target === document.body || (target !== null && surfaceRef.current?.contains(target));
       if (!inside) return;
       const state = research;
       if (target === searchInputRef.current && state.query) {
@@ -221,7 +224,7 @@ export function LibraryPanel({ onViewDatabase, resident = false, inspectionTarge
         setQuery("");
       } else if (!resident) {
         event.preventDefault();
-        setDatabaseRequested(false);
+        closeDatabase();
       }
     }
 
@@ -255,8 +258,21 @@ export function LibraryPanel({ onViewDatabase, resident = false, inspectionTarge
     const result = await onViewDatabase();
     setStatus(result);
     setBusyAction(null);
+    returnFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     setDatabaseRequested(true);
   }
+
+  function closeDatabase() {
+    setDatabaseRequested(false);
+    const origin = returnFocus.current;
+    returnFocus.current = null;
+    if (origin?.isConnected) window.setTimeout(() => origin.focus(), 0);
+  }
+
+  // Focus moves into the modal database, as it does into every dialog.
+  useEffect(() => {
+    if (!resident && databaseRequested) searchInputRef.current?.focus();
+  }, [databaseRequested, resident]);
 
   function handleSaved(path: string) {
     setAddEntryOpen(false);
@@ -343,7 +359,7 @@ export function LibraryPanel({ onViewDatabase, resident = false, inspectionTarge
           resident,
           <div
             className={resident ? "pantheon-resident-shell" : "pantheon-modal-backdrop"}
-            onClick={resident ? undefined : () => setDatabaseRequested(false)}
+            onClick={resident ? undefined : closeDatabase}
           >
             <div
               ref={(node) => { databaseDialogRef.current = node; surfaceRef.current = node; }}
@@ -410,7 +426,7 @@ export function LibraryPanel({ onViewDatabase, resident = false, inspectionTarge
                       leaves. A close button that emptied the centre column
                       would strand Research mode on a blank panel. */}
                   {resident ? null : (
-                    <button type="button" className="pantheon-modal-close" onClick={() => setDatabaseRequested(false)} aria-label="Close Pantheon Database" title="Close (Esc)">
+                    <button type="button" className="pantheon-modal-close" onClick={closeDatabase} aria-label="Close Pantheon Database" title="Close (Esc)">
                       ×
                     </button>
                   )}
@@ -440,6 +456,7 @@ export function LibraryPanel({ onViewDatabase, resident = false, inspectionTarge
                     onOpenEntry={openEntry}
                     onBack={back}
                     backToInspector={research.arrival?.returnTo === "questions" ? "Questions" : research.arrival?.returnTo === "audits" ? "Audits" : null}
+                    snapshotRef={librarySnapshot}
                   />
                 </div>
                 {visited.has("questions") || segment === "questions" ? (

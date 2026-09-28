@@ -1,11 +1,14 @@
-import { CircleCheck, CircleDashed, CircleDot, TriangleAlert } from "lucide-react";
 import { stanceLabel } from "./libraryModel";
 
+/**
+ * Glyphs rather than icon components: a list of thousands of rows renders one
+ * of these per row, and an SVG each was the most expensive part of the row.
+ */
 const SHAPES = {
-  endorsed: CircleCheck,
-  provisional: CircleDot,
-  disputed: TriangleAlert,
-  unevaluated: CircleDashed
+  endorsed: "✓",
+  provisional: "◐",
+  disputed: "▲",
+  unevaluated: "◌"
 } as const;
 
 /**
@@ -15,10 +18,9 @@ const SHAPES = {
  */
 export function StanceMark({ stance, compact = false }: { stance: string | undefined; compact?: boolean }) {
   const value = (stance && stance in SHAPES ? stance : "unevaluated") as keyof typeof SHAPES;
-  const Shape = SHAPES[value];
   return (
     <span className={`library-stance is-${value}${compact ? " is-compact" : ""}`}>
-      <Shape size={compact ? 11 : 12} aria-hidden="true" strokeWidth={2.25} />
+      <span className="library-stance__shape" aria-hidden="true">{SHAPES[value]}</span>
       <span>{stanceLabel(value)}</span>
     </span>
   );

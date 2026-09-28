@@ -90,6 +90,8 @@ export function EntryDetail({ entry, arrival, backLabel, onBack, onOpenEntry, re
   const handledToken = useRef<number | null>(null);
   const [highlight, setHighlight] = useState<HighlightStatus>("none");
   const provenance = arrival ? provenanceState(entry, arrival.fingerprint) : null;
+  const provenanceRef = useRef(provenance);
+  provenanceRef.current = provenance;
   const project = useMemo(() => matchProject(entry.project, projects), [entry.project, projects]);
   const desktop = isTauriRuntime();
 
@@ -115,7 +117,8 @@ export function EntryDetail({ entry, arrival, backLabel, onBack, onOpenEntry, re
       titleRef.current?.focus({ preventScroll: true });
       const container = scrollContainer.current;
       if (container) container.scrollTop = 0;
-      if (rangeRef.current) scrollRangeIntoView(rangeRef.current, container);
+      // A changed source leads with that fact; the highlight is one click away.
+      if (rangeRef.current && provenanceRef.current !== "changed") scrollRangeIntoView(rangeRef.current, container);
     } else if (handledToken.current === null) {
       handledToken.current = openToken;
     }
@@ -124,7 +127,7 @@ export function EntryDetail({ entry, arrival, backLabel, onBack, onOpenEntry, re
   useLayoutEffect(() => () => { paintExcerpt(null); }, []);
 
   const showExcerpt = useCallback(() => {
-    if (rangeRef.current) scrollRangeIntoView(rangeRef.current, scrollContainer.current);
+    if (rangeRef.current) scrollRangeIntoView(rangeRef.current, scrollContainer.current, true);
   }, [scrollContainer]);
 
   const added = formatLibraryDay(entry.addedAt);
