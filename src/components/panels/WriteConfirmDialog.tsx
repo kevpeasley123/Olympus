@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
@@ -18,6 +18,11 @@ import { isTauriRuntime } from "../../services/launcher";
  *  - The wording comes from `operation`, which Rust derives from the declared
  *    write intent. Asking "overwrite?" about an append would be false, and a
  *    dialog the operator learns to disbelieve is worse than no dialog.
+ *
+ * Requests queue in arrival order: a second write must not replace the first
+ * on screen and leave it to time out unseen. Each request times out on its
+ * own clock in Rust, so an answer can arrive too late; only an answer Rust
+ * says it accepted counts as a write.
  */
 
 interface DiffSummary {
@@ -49,8 +54,18 @@ const COPY: Record<WriteOperation, { title: string; keep: string; approve: strin
   }
 };
 
+/** How long the "nothing was written" notice stays before the next request. */
+const EXPIRED_NOTICE_MS = 4000;
+
+const FOCUSABLE = 'button:not([disabled]), [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
+
 export function WriteConfirmDialog() {
-  const [pending, setPending] = useState<PendingWrite | null>(null);
+  const [queue, setQueue] = useState<PendingWrite[]>([]);
+  const [expired, setExpired] = useState(false);
+  const dialogRef = useRef<HTMLDivElement | null>(null);
+  const restoreFocusRef = useRef<HTMLElement | null>(null);
+  const pending = queue[0] ?? null;
+  const open = pending !== null || expired;
 
   useEffect(() => {
     // The browser preview has no Tauri event transport. Keeping the listener
@@ -68,7 +83,17 @@ export function WriteConfirmDialog() {
     let unlisten: (() => void) | undefined;
 
     void listen<PendingWrite>("vault-write-pending", (event) => {
-      setPending(event.payload);
+      // Taken before the dialog renders: by the time an effect runs, autofocus
+      // has already moved focus onto the dialog's own button.
+      const active = document.activeElement;
+      if (active instanceof HTMLElement && !dialogRef.current?.contains(active)) {
+        restoreFocusRef.current = active;
+      }
+      setQueue((current) =>
+        current.some((request) => request.id === event.payload.id)
+          ? current
+          : [...current, event.payload]
+      );
     }).then((dispose) => {
       if (cancelled) {
         dispose();
@@ -89,38 +114,126 @@ export function WriteConfirmDialog() {
     }
 
     const id = pending.id;
-    setPending(null);
+    setQueue((current) => current.filter((request) => request.id !== id));
 
-    // The omega pulses on approval, which is the only write moment the webview
-    // knows about — Rust emits nothing on completion. A declined write is not
-    // an event, so nothing pulses for one.
-    if (approved) {
-      emitInstrumentEvent("vault-write");
-    }
-
+    let accepted = false;
     try {
-      await invoke("resolve_vault_write", { id, approved });
+      accepted = await invoke<boolean>("resolve_vault_write", { id, approved });
     } catch (error) {
       // The write denies itself on timeout, so a failure to deliver the answer
       // is safe — the file is kept either way.
       console.warn("[Olympus] Could not deliver the write decision.", error);
     }
+
+    // The omega pulses on an approval Rust accepted, which is the only write
+    // moment the webview knows about — Rust emits nothing on completion. A
+    // declined write is not an event, so nothing pulses for one.
+    if (approved && accepted) {
+      emitInstrumentEvent("vault-write");
+    } else if (approved) {
+      setExpired(true);
+    }
   };
 
   useEffect(() => {
-    if (!pending) {
+    if (!expired) {
+      return;
+    }
+    const timer = window.setTimeout(() => setExpired(false), EXPIRED_NOTICE_MS);
+    return () => window.clearTimeout(timer);
+  }, [expired]);
+
+  // Focus returns to wherever the operator was once the last request is
+  // answered, not to the top of the document.
+  useEffect(() => {
+    if (open) {
+      return;
+    }
+    const target = restoreFocusRef.current;
+    restoreFocusRef.current = null;
+    if (target?.isConnected) {
+      target.focus();
+    }
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) {
       return;
     }
 
+    // Capture phase, and stopped there: Escape here must not also reach the
+    // window-level shortcuts of whatever is underneath, such as the library
+    // closing itself behind the gate.
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        void resolve(false);
+        event.preventDefault();
+        event.stopPropagation();
+        if (expired) {
+          setExpired(false);
+        } else {
+          void resolve(false);
+        }
+        return;
+      }
+
+      if (event.key !== "Tab" || !dialogRef.current) {
+        return;
+      }
+      const focusable = Array.from(dialogRef.current.querySelectorAll<HTMLElement>(FOCUSABLE));
+      if (focusable.length === 0) {
+        return;
+      }
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const inside = dialogRef.current.contains(document.activeElement);
+      if (event.shiftKey && (document.activeElement === first || !inside)) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && (document.activeElement === last || !inside)) {
+        event.preventDefault();
+        first.focus();
       }
     };
 
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
+    window.addEventListener("keydown", onKeyDown, true);
+    return () => window.removeEventListener("keydown", onKeyDown, true);
   });
+
+  // Shown before the next queued request, so an approval that did not land is
+  // never followed straight into a dialog that looks like its confirmation.
+  if (expired) {
+    return createPortal(
+      <div className="write-gate-backdrop" onClick={() => setExpired(false)}>
+        <div
+          ref={dialogRef}
+          className="write-gate"
+          role="alertdialog"
+          aria-modal="true"
+          aria-labelledby="write-gate-title"
+          onClick={(event) => event.stopPropagation()}
+        >
+          <h2 id="write-gate-title" className="write-gate__title">
+            Nothing was written
+          </h2>
+          <p className="write-gate__reason">
+            That request had already expired. Olympus denies a write nobody answers within
+            two minutes, and the file was kept as it was.
+          </p>
+          <div className="write-gate__actions">
+            <button
+              type="button"
+              className="write-gate__keep"
+              autoFocus
+              onClick={() => setExpired(false)}
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </div>,
+      document.body
+    );
+  }
 
   if (!pending) {
     return null;
@@ -133,6 +246,7 @@ export function WriteConfirmDialog() {
   return createPortal(
     <div className="write-gate-backdrop" onClick={() => void resolve(false)}>
       <div
+        ref={dialogRef}
         className="write-gate"
         role="alertdialog"
         aria-modal="true"
@@ -145,6 +259,11 @@ export function WriteConfirmDialog() {
 
         <p className="write-gate__path">{pending.path}</p>
         <p className="write-gate__reason">{pending.reason}</p>
+        {queue.length > 1 ? (
+          <p className="write-gate__reason">
+            {queue.length - 1} more {queue.length === 2 ? "request" : "requests"} waiting after this one.
+          </p>
+        ) : null}
 
         <div className="write-gate__counts">
           <span className="write-gate__added">+{pending.summary.added}</span>
@@ -172,6 +291,7 @@ export function WriteConfirmDialog() {
 
         <div className="write-gate__actions">
           <button
+            key={pending.id}
             type="button"
             className="write-gate__keep"
             autoFocus

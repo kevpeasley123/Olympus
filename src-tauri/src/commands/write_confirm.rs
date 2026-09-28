@@ -135,23 +135,25 @@ fn forget(id: &str) {
     }
 }
 
-/// The webview's answer. Unknown ids are not an error: a timed-out request has
-/// already been denied and removed, and the dialog may still be on screen.
+/// The webview's answer, and whether it arrived while the request was live.
+///
+/// `false` is not an error: a timed-out request has already been denied and
+/// removed, and the dialog may still be on screen. The webview needs the
+/// distinction so it does not report a write that Rust already refused.
 #[tauri::command]
-pub fn resolve_vault_write(id: String, approved: bool) -> Result<(), String> {
+pub fn resolve_vault_write(id: String, approved: bool) -> Result<bool, String> {
     let sender = PENDING
         .lock()
         .map_err(|error| error.to_string())?
         .remove(&id);
 
     match sender {
-        Some(sender) => {
-            let _ = sender.send(approved);
-            Ok(())
-        }
+        // A failed send means the waiting side gave up between its timeout and
+        // `forget`, so the decision did not land either.
+        Some(sender) => Ok(sender.send(approved).is_ok()),
         None => {
             eprintln!("[Olympus::WriteGate] no pending write for {id}; it likely timed out");
-            Ok(())
+            Ok(false)
         }
     }
 }
@@ -160,9 +162,40 @@ pub fn resolve_vault_write(id: String, approved: bool) -> Result<(), String> {
 mod tests {
     use super::*;
 
+    /// An expired approval must say so, or the dialog reports a write that
+    /// Rust already denied.
     #[test]
-    fn resolving_an_unknown_id_is_not_an_error() {
-        assert!(resolve_vault_write("write-does-not-exist".to_string(), true).is_ok());
+    fn resolving_an_unknown_id_is_not_accepted() {
+        assert_eq!(
+            resolve_vault_write("write-does-not-exist".to_string(), true),
+            Ok(false)
+        );
+    }
+
+    #[test]
+    fn a_live_decision_is_accepted_and_delivered() {
+        let (sender, receiver) = oneshot::channel::<bool>();
+        PENDING
+            .lock()
+            .unwrap()
+            .insert("write-live".to_string(), sender);
+
+        assert_eq!(resolve_vault_write("write-live".to_string(), true), Ok(true));
+        assert_eq!(receiver.blocking_recv(), Ok(true));
+    }
+
+    /// The waiting side timed out and dropped its receiver, but has not yet
+    /// removed the entry.
+    #[test]
+    fn a_decision_racing_the_timeout_is_not_accepted() {
+        let (sender, receiver) = oneshot::channel::<bool>();
+        PENDING
+            .lock()
+            .unwrap()
+            .insert("write-racing".to_string(), sender);
+        drop(receiver);
+
+        assert_eq!(resolve_vault_write("write-racing".to_string(), true), Ok(false));
     }
 
     #[test]
@@ -183,7 +216,7 @@ mod tests {
             .insert("write-late".to_string(), sender);
 
         forget("write-late");
-        resolve_vault_write("write-late".to_string(), true).unwrap();
+        assert_eq!(resolve_vault_write("write-late".to_string(), true), Ok(false));
 
         // The receiver sees a closed channel, which the caller treats as a deny.
         assert!(receiver.blocking_recv().is_err());

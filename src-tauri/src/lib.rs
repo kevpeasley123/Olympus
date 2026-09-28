@@ -321,6 +321,7 @@ pub fn run() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(commands::external_link::navigation_guard())
         .setup(|app| {
             let connection = open_database(app.handle())?;
             commands::knowledge_audit::recover(&connection)?;
@@ -373,6 +374,7 @@ pub fn run() {
             fetch_pantheon_entries,
             fetch_operator_profile,
             resolve_vault_write,
+            commands::external_link::open_external_link,
             append_profile_observation,
             promote_chat_memory,
             write_pantheon_entry,

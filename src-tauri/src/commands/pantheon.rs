@@ -39,6 +39,10 @@ pub struct PantheonEntry {
     /// rather than filled in — a guessed purpose is worse than a stated gap.
     pub why_kept: Option<String>,
     pub project: Option<String>,
+    /// Where the source came from, for display. Resolved here so the webview
+    /// never parses frontmatter itself.
+    #[serde(default)]
+    pub source_label: String,
     pub tags: Vec<String>,
     pub word_count: u32,
     pub file_modified_at: String,
@@ -148,6 +152,18 @@ pub(crate) fn extract_tags(value: &serde_yaml::Value) -> Vec<String> {
                 .collect()
         })
         .unwrap_or_default()
+}
+
+/// `origin` is deliberately not a candidate: it now answers who found the
+/// source, and its legacy value is the writer, so either reading would put the
+/// wrong fact in the source slot.
+fn source_label(value: &serde_yaml::Value) -> String {
+    ["source", "source_name", "channel", "publisher"]
+        .iter()
+        .filter_map(|key| extract_string(value, key))
+        .map(|label| label.trim().to_string())
+        .find(|label| !label.is_empty())
+        .unwrap_or_else(|| "Local source".to_string())
 }
 
 fn count_words(body: &str) -> u32 {
@@ -296,6 +312,7 @@ pub(crate) fn parse_pantheon_from_vault() -> Result<Vec<PantheonEntry>, String> 
             .unwrap_or_else(|| DEFAULT_STANCE.to_string());
         let why_kept = extract_string(&frontmatter, "why_kept");
         let project = extract_string(&frontmatter, "project");
+        let source_label = source_label(&frontmatter);
         let body_full = body.trim().to_string();
         let word_count = count_words(&body_full);
         let body_preview = make_preview(&body_full);
@@ -314,6 +331,7 @@ pub(crate) fn parse_pantheon_from_vault() -> Result<Vec<PantheonEntry>, String> 
             stance,
             why_kept,
             project,
+            source_label,
             tags,
             word_count,
             file_modified_at,
@@ -640,6 +658,17 @@ mod tests {
     #[test]
     fn split_frontmatter_no_frontmatter() {
         assert!(split_frontmatter("just body").is_none());
+    }
+
+    #[test]
+    fn source_label_takes_the_first_named_source_and_never_the_origin() {
+        let named: serde_yaml::Value =
+            serde_yaml::from_str("origin: collected\nsource: \"  \"\nsource_name: Stratechery\npublisher: Ben")
+                .unwrap();
+        assert_eq!(source_label(&named), "Stratechery");
+
+        let unnamed: serde_yaml::Value = serde_yaml::from_str("origin: olympus-found").unwrap();
+        assert_eq!(source_label(&unnamed), "Local source");
     }
 
     /// The scaffold scripts write UTF-8 with a BOM. Before this was handled,

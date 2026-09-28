@@ -26,6 +26,8 @@ export interface PantheonEntry {
   /** Absent means no purpose was ever stated, which is surfaced, not filled in. */
   whyKept?: string;
   project?: string;
+  /** Resolved in Rust from the note's frontmatter; the webview parses none. */
+  sourceLabel: string;
   tags: string[];
   wordCount: number;
   fileModifiedAt: string;

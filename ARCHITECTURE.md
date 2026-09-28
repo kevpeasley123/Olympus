@@ -54,9 +54,11 @@ Tauri commands exposed by the desktop shell:
 | Write gate | `resolve_vault_write` |
 | Live data | `scan_tracked_projects`, `fetch_action_queue` |
 | Delegation | `start_delegation_run`, `resume_delegation_run`, `cancel_delegation_run`, `list_delegation_runs`, `fetch_delegation_diff` |
-| Shell / files | `launch_quick_app`, `restart_olympus`, `pick_attachment_file`, `extract_pdf_text` |
+| Shell / files | `launch_quick_app`, `restart_olympus`, `pick_attachment_file`, `extract_pdf_text`, `open_external_link` |
 
 The SQLite connection is opened once during `setup()` and held in managed state, so the frontend can assume persistence is ready before it can invoke anything.
+
+The webview renders untrusted text (research notes, email, repository output), so the production build sets a CSP in `tauri.conf.json`: scripts only from the bundle, no frames or objects, images and fonts local, and `connect-src` limited to Tauri IPC plus `https://api.openai.com` for the Realtime SDP exchange (WebRTC media is not governed by `connect-src`). `style-src` keeps `'unsafe-inline'` because React and `motion` set style attributes; `dangerousDisableAssetCspModification` stops Tauri adding a style nonce, which would silently disable it. A new remote endpoint in the webview needs a matching `connect-src` entry, checked in the desktop app, since `npm run tauri dev` serves Vite directly and applies no CSP. Links open through `open_external_link` (http and https only), and a navigation guard in `commands::external_link` refuses any top-level navigation off the app origin.
 
 ## Vault writes
 
@@ -79,7 +81,7 @@ Every vault write goes through `commands::vault_write`, which does two separate 
 - **Containment.** `resolve_vault_path` proves the target lands inside the vault before anything touches disk — rejecting traversal, absolute and UNC paths, alternate data streams, Windows device names, and junctions that redirect out of the vault. Out-of-vault writes are **rejected, never confirmed**: a confirm path would mean the mechanism exists and one misclick authorizes it.
 - **Classification.** Each call site *declares* a `WriteIntent`; the gate never infers one from the filesystem operation. `CreateUnique` is safe only because both creating writers guarantee an unused path — that is a property of those call sites, not of creation.
 
-When a write needs a human, `write_confirm::request_confirmation` emits `vault-write-pending` to the webview and blocks on the answer. Timeout (120s), a dropped channel, and an emit failure all **deny**. The operator's answer returns through `resolve_vault_write`. `WriteConfirmDialog.tsx` renders it; declining is the default on Escape, the backdrop, and the focused button, and the dialog's wording comes from the intent-derived `operation` field so an append is never described as an overwrite.
+When a write needs a human, `write_confirm::request_confirmation` emits `vault-write-pending` to the webview and blocks on the answer. Timeout (120s), a dropped channel, and an emit failure all **deny**. The operator's answer returns through `resolve_vault_write`. `WriteConfirmDialog.tsx` renders it; declining is the default on Escape, the backdrop, and the focused button, and the dialog's wording comes from the intent-derived `operation` field so an append is never described as an overwrite. Concurrent requests queue by ID rather than replacing each other on screen. `resolve_vault_write` returns whether the answer reached a live request, and the dialog reports an approval that arrived after the timeout as nothing written instead of as a write.
 
 Fingerprints of app-authored files live in the SQLite `artifact_hashes` table, normalised for line endings and trailing whitespace before hashing — the vault syncs through OneDrive and is opened by Obsidian, and neither round-trip is a human edit. A file whose fingerprint still matches is regenerated silently; one that diverged, or was never recorded, prompts. **Absent must mean confirm** — treating a missing row as clean would make the check bypassable by deleting it.
 
