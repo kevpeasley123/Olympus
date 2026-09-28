@@ -1,7 +1,8 @@
 # Olympus — Architecture
 
 Current as of September 28, 2026: release 0.19.0 plus the 2026-09-28 review fixes
-(see `docs/NEXT-SESSION.md`).
+and the 2026-09-28 design-review implementation (see `docs/NEXT-SESSION.md` and
+[the implementation checklist](docs/reviews/2026-09-28-design-usability/IMPLEMENTATION-CHECKLIST.md)).
 
 ## Knowledge workflows
 
@@ -44,7 +45,7 @@ package.json     Frontend dependencies and npm scripts
 .env.example     Required environment variables (copy to .env)
 ```
 
-Tauri commands exposed by the desktop shell — all 77 in the `invoke_handler` list in `src-tauri/src/lib.rs`:
+Tauri commands exposed by the desktop shell — all 78 in the `invoke_handler` list in `src-tauri/src/lib.rs` (regenerated 2026-09-28; `gmail_cache_counts` is the only addition since 0.19.0):
 
 | Area | Commands |
 | --- | --- |
@@ -58,16 +59,18 @@ Tauri commands exposed by the desktop shell — all 77 in the `invoke_handler` l
 | Knowledge audit | `start_knowledge_audit`, `list_knowledge_audits`, `inspect_knowledge_audit` |
 | Research / Verification agents | `research_agent_catalog`, `start_research_verification`, `inspect_research_verification`, `list_research_verifications`, `cancel_research_verification` |
 | Command catalog | `command_agent_catalog` |
-| Gmail | `gmail_status`, `gmail_connect`, `gmail_cancel`, `gmail_disconnect`, `gmail_sync`, `gmail_set_horizon`, `gmail_search`, `gmail_thread`, `gmail_workspace`, `gmail_remove_cache` |
+| Gmail | `gmail_status`, `gmail_connect`, `gmail_cancel`, `gmail_disconnect`, `gmail_sync`, `gmail_set_horizon`, `gmail_search`, `gmail_thread`, `gmail_workspace`, `gmail_remove_cache`, `gmail_cache_counts` |
 | Communication Intelligence | `analyze_communications`, `communication_runs`, `communication_run_events`, `communication_feedback`, `communication_skills`, `communication_workflow`, `inspect_communication_run` |
 | Situations | `situation_snapshot`, `situation_refresh`, `situation_set_background`, `situation_update`, `situation_edit`, `situation_draft`, `situation_save_draft`, `situation_document_status`, `situation_document_open` |
 | Shell / files | `launch_quick_app`, `restart_olympus`, `pick_attachment_file`, `extract_pdf_text`, `open_external_link` |
+
+Read-only additions to existing command results (2026-09-28, design review): `load_persisted_state` returns each message's `at` (the row's `created_at` as ISO 8601 UTC; nothing new is written); `create_voice_session` names a plain provider error code such as `insufficient_quota`, never the response body; `fetch_pantheon_entries` carries each entry's body fingerprint (the value a reply's research snapshot stores), whole-file fingerprint (the value Research Verification binds) and frontmatter `source_url`; `prepare_delegation_run` and `prepare_delegation_resume` return display-only `permitted` and `baseBranch` beside the bound `subject`; `fetch_delegation_review` returns `reviewedAt`; `situation_snapshot` reports understanding freshness (last publish, last attempt, consecutive failures, the worker's real resume time during backoff) and a content revision, answering `{unchanged, revision}` when the caller already holds that revision. `gmail_cache_counts` counts what cache removal, or a narrower history range, would delete; it validates the range like `gmail_set_horizon` and deletes nothing.
 
 `pick_attachment_file` keeps the chosen path in Rust and returns a one-use token; `extract_pdf_text` and `save_attachment_to_vault` accept only that token. `write_memory_artifact` takes an artifact kind (the research `.base` or the projects `.canvas`), and Rust chooses the path.
 
 The SQLite connection is opened once during `setup()` and held in managed state, so the frontend can assume persistence is ready before it can invoke anything.
 
-The webview renders untrusted text (research notes, email, repository output), so the production build sets a CSP in `tauri.conf.json`: scripts only from the bundle, no frames or objects, images and fonts local, and `connect-src` limited to Tauri IPC plus `https://api.openai.com` for the Realtime SDP exchange (WebRTC media is not governed by `connect-src`). `style-src` keeps `'unsafe-inline'` because React and `motion` set style attributes; `dangerousDisableAssetCspModification` stops Tauri adding a style nonce, which would silently disable it. A new remote endpoint in the webview needs a matching `connect-src` entry, checked in the desktop app, since `npm run tauri dev` serves Vite directly and applies no CSP. Links open through `open_external_link` (http and https only), and a navigation guard in `commands::external_link` refuses any top-level navigation off the app origin.
+The webview renders untrusted text (research notes, email, repository output), so the production build sets a CSP in `tauri.conf.json`: scripts only from the bundle, no frames or objects, images and fonts local, and `connect-src` limited to Tauri IPC plus `https://api.openai.com` for the Realtime SDP exchange (WebRTC media is not governed by `connect-src`). `style-src` keeps `'unsafe-inline'` because React and `motion` set style attributes; `dangerousDisableAssetCspModification` stops Tauri adding a style nonce, which would silently disable it. A new remote endpoint in the webview needs a matching `connect-src` entry, checked in the desktop app, since `npm run tauri dev` serves Vite directly and applies no CSP. Links open through `open_external_link` (http and https only), and a navigation guard in `commands::external_link` refuses any top-level navigation off the app origin. The CSP and the guard were not changed by the design review; console chat links, which previously used `target="_blank"`, now go through the same opener (`src/services/externalLink.ts`), as research links already did.
 
 ## Vault writes
 
@@ -139,9 +142,13 @@ shell, and none accepts a ready-made URL or path from the webview:
 - `open_vault_note` (`lib.rs`) resolves the relative path through the vault
   containment guard and assembles an `obsidian://open` URI in Rust. It used
   `cmd /C start` until 2026-09-28, where the `&` in the URI was a command
-  separator.
-- `open_external_link` (`commands/external_link.rs`) accepts http and https
-  only; any other scheme is refused, because the opener would hand `file:` or a
+  separator. Since the design review the library also calls it for embedded
+  research attachments; the frontend offers Open only for files directly under
+  `02 - Research/_attachments/` with an allowed extension, and the Rust
+  containment guard still resolves the path.
+- `open_external_link` (`commands/external_link.rs`) is called for research
+  links, console chat links (since the design review) and a library entry's
+  source link. It accepts http and https only; any other scheme is refused, because the opener would hand `file:` or a
   custom protocol to the shell. The same module's navigation guard refuses any
   top-level webview navigation off the app origin.
 - Gmail OAuth (`gmail/auth.rs`) opens Google's consent URL, built in Rust, in
@@ -272,7 +279,31 @@ Dashboard panels compose from `src/App.tsx`. Live data sources:
   the latest turn, not in the system prompt. See `docs/MODEL-ROUTING.md` for
   request routing and diagnostics.
 
-Seeded fallbacks live in `src/data/seed.ts`. State is plain React (`useState` / `useEffect` / `useMemo`). `src/services/storage.ts` selects a persistence backend per runtime: SQLite in the desktop shell, `localStorage` in the browser dev server, with one source of truth each. State hydrates asynchronously after mount, and the save effect is gated on hydration so seed defaults cannot overwrite stored state on first render.
+Seeded fallbacks live in `src/data/seed.ts`. Since 2026-09-28 the desktop starts from `desktopInitialState` — seed settings, tools and quick apps, but no projects and no conversation — and `useDashboardData()` reports a `projectScan` state (`loading`, `ready`, `stale`, `failed`) with the last success time, instead of showing example projects until the first scan. A failed first scan leaves the list empty; a later failure keeps the last genuine result as `stale`. Only the browser preview shows the seed projects and conversation, flagged `demoData` and labelled as examples. Desktop hydration drops only messages that exactly match the seed fixture. State is plain React (`useState` / `useEffect` / `useMemo`). `src/services/storage.ts` selects a persistence backend per runtime: SQLite in the desktop shell, `localStorage` in the browser dev server, with one source of truth each. State hydrates asynchronously after mount, and the save effect is gated on hydration so seed defaults cannot overwrite stored state on first render.
+
+## Frontend structure (design review, 2026-09-28)
+
+The design-review implementation added shared modules that surfaces build on
+rather than duplicating:
+
+| Module | Role |
+| --- | --- |
+| `src/state/viewState.ts` | Session view state, in memory only (never `localStorage`). Slices: `project` (open detail, board and detail scroll), `projectDrafts` (unsent run task and criteria per project), `reviewNotes` (per run), `research` (view, query, section, sort, open entry, scroll, Add Entry draft), `comms` (per account: situation, workstream, actor, tab, view, unsent reply drafts), `navigation` (pending cross-surface targets). Lost on app restart by design. Leaving Project mode keeps the open project only while `projectHasOpenWork()` is true. |
+| `src/services/navigation.ts` | `openResearchEntry`, `openCommunicationsSituation`, `openProject`. App switches mode; the destination reads `useNavigationTarget()` and consumes the revision it handled. Also the refresh bus (`subscribeToRefresh`, `emitRefreshRequested`) that lets Communications join Ctrl+R. Navigation only; nothing here approves or writes. |
+| `src/services/shortcuts.ts` | One registry (`SHORTCUTS`, `SHORTCUT_LIST`) that both the handlers and the dock's shortcut popover read: Ctrl/Cmd+K console, Ctrl/Cmd+\\ cycle mode, Ctrl/Cmd+Shift+M microphone, Ctrl/Cmd+R refresh, Esc, `/` library search. Handlers yield while any `aria-modal` dialog is open. Ctrl/Cmd+R always suppresses the webview reload, even while typing. |
+| `src/components/Modal.tsx` | Dialog primitive: role and `aria-modal`, label, focus in, Tab trap, Escape for the topmost dialog only, focus restore, portal to `body`. z-index 8000, below the write gate (9000). `WriteConfirmDialog` was deliberately not moved onto it. |
+| `src/components/ErrorBoundary.tsx` | Per-region boundary with a contained fallback, **Reload view** (remounts the region) and a Technical detail disclosure. |
+| `src/components/panels/PreferencesDialog.tsx` | Preferences as a dialog: Replies & briefing, Voice (voice lab behind a disclosure), Gmail (polls every 2 s only while expanded), Model diagnostics, and Restart Olympus behind a confirmation that lists observed live work. Restart was removed from the Pantheon strip. |
+| `src/services/time.ts` | `formatWhen` and `dayLabel`, the shared date formatter ("2 h ago · 09:55", "Yesterday 14:10", "in 5 min · 12:00"). |
+| `src/components/panels/library/` | LibraryPanel split into `LibraryBrowser`, `EntryDetail`, `AddEntryDialog`, `entryMarkdown`, `excerptHighlight`, `StanceMark`, `InspectorParts` and the pure `libraryModel.ts` (tested by `scripts/test-library.mjs`). |
+| `projects.css`, `command.css`, `communications.css`, `library/library.css`, `library/inspector.css` | Surface stylesheets split out of `styles.css`, which keeps the tokens (`--focus-ring`, `--text-micro` … `--text-2xl`, `--label` at #7f93ad) and the global `:focus-visible` ring. `scripts/test-css-tokens.mjs` fails on an undefined `var(--x)` without a fallback. |
+
+Error-boundary layout in `App.tsx`: header, tool rail, agent catalog, Command
+view, Communications view, Research view, Project view, Pantheon strip, command
+console and status dock each have their own boundary. There is no root boundary
+around App, and `WriteConfirmDialog` sits outside every boundary, so a view that
+fails to render never unmounts the console or a pending write decision. (If the
+gate did unmount, Rust would still deny the write on timeout.)
 
 ## Build and run
 

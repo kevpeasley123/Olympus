@@ -1,4 +1,42 @@
-Status, 2026-09-28: the Communications workspace reference; dated sections below are historical layers. Released through 0.19.0. The live analysis graph is `communication-intelligence/v4` ([COMMUNICATION-INTELLIGENCE-V3.md](COMMUNICATION-INTELLIGENCE-V3.md), [WORKFLOW-INSPECTION.md](WORKFLOW-INSPECTION.md)); it calls the primary model on explicit Analyze/Refresh, and background situation understanding ([COMMUNICATION-SITUATIONS.md](COMMUNICATION-SITUATIONS.md)) calls it while the app is open. Statements below that no model calls are made describe earlier versions.
+Status, 2026-09-28: the Communications workspace reference; dated sections below are historical layers. Released through 0.19.0. The live analysis graph is `communication-intelligence/v4` ([COMMUNICATION-INTELLIGENCE-V3.md](COMMUNICATION-INTELLIGENCE-V3.md), [WORKFLOW-INSPECTION.md](WORKFLOW-INSPECTION.md)); it calls the primary model on explicit Analyze/Refresh, and background situation understanding ([COMMUNICATION-SITUATIONS.md](COMMUNICATION-SITUATIONS.md)) calls it while the app is open. Statements below that no model calls are made describe earlier versions. The September 28, 2026 design-review section immediately below supersedes earlier layout, polling and wording where they differ.
+
+# Design-review changes — September 28, 2026
+
+Items U3, U5, U8, U12, D1, D3, F1, F4 and F5 of the [design review](reviews/2026-09-28-design-usability/DESIGN-USABILITY-REVIEW.md). Code: `Communications.tsx`, `SituationsWorkspace.tsx`, `SituationRelationshipWeb.tsx`, `DocumentSituationMap.tsx`, `NextStepStrip.tsx`, `SituationSourceReview.tsx`, `SituationDraftEditor.tsx`, `useSituationSnapshot.ts`, `GmailSettings.tsx`, `communications.css`, `situations.css`; services `gmail.ts`, `situationNavigator.ts`, `situationGraph.ts`, `mapTypography.ts`, `recipients.ts`, `commsTime.ts`; Rust `gmail/store.rs` and `gmail/mod.rs` (`gmail_cache_counts`), `gmail/situations.rs` (freshness and revision).
+
+**Laptop layout.** From 1200px wide, the navigator, map and inspector sit side by side, with an inspector of about 300px (`clamp(290px, 24vw, 340px)`); email and document situations share one layout. At 1500×800 and above the map uses the space left of the chat and the inspector takes the chat's width; at 2200px it grows to 520–680px and the briefing reads at 15px. Below 1200px the inspector stacks under the map and the page scrolls. Where the window is short or the inspector narrow (below 1500 wide or 900 tall), a one-line **next-step strip** above the map states the briefing's useful next step and jumps to it. When too little height is left for a readable map, the page scrolls instead of squeezing the canvas.
+
+**Map.** The fit scale comes from the measured canvas, capped at 1.1× and floored at 0.45×; below that the canvas scrolls. Map text never renders under 12px: font sizes grow in graph units as the scale falls, and a density setting (full, compact, tight) drops secondary lines instead of shrinking text. Anchor labels wrap by whole words. A legend replaces the repeated "Organization unconfirmed" on each node. A scope with no supported actors shows a sentence rather than a lone anchor scaled up. The canvas focus ring sits inside the canvas, with a "+ or − to zoom" hint.
+
+**Inspector.** Activity & updates, source review and drafts render in the inspector column; the absolute 65vh overlay is gone. Selecting a correspondence contact opens their log there.
+
+**Review source.** Three labelled blocks: **Recommendation** (or Olympus interpretation), marked Generated; **Quoted from source**, marked Verbatim — the observation's exact `details[].quote` values, each with **Show in message**, which highlights the matching text in the cached thread and moves focus to it; and **Full thread**. **Ask Olympus** attaches the thread reference to the console as context under a "Gmail thread reference" heading instead of pasting it into the prompt. The situation path never says "No candidate findings".
+
+**Header status cluster.** The header reads "Gmail · Connected · read only" (or syncing, not connected, authentication required, sync failed) and a freshness line: "Mail synced … · Understanding updated … · Background on/paused". It never says Connected alone while an error is recorded. The actions are labelled **Sync mail** (fetch new mail now; disabled until reconnected when authentication is required) and **Refresh situations** (run situation understanding now; sends cached excerpts to the reasoning provider), beside the understanding settings. The Browse email view's analysis action is renamed **Run thread triage**, under "Thread triage history".
+
+**Distinct error states.** Each problem is stated with its cause behind Details and the one action that recovers:
+
+- Authentication required — Reconnect, and Gmail settings.
+- Mail sync failed — with the backend's scheduled next attempt ("next attempt in 5 min · 12:00") when there is one, otherwise "cached mail remains available"; Retry now.
+- Mail view could not be read — Retry now.
+- Understanding paused after N failed attempts; next attempt at the background worker's real resume time — Retry now. Background attempts back off from five minutes to four hours; previous analysis stays shown.
+- Intelligence refresh failed · Showing previous analysis — Retry now.
+- Situation action failed — Dismiss.
+- Situations could not be refreshed · showing the last reading — Retry now.
+
+The settings link opens Preferences with the Gmail section already expanded and focused.
+
+**Data-reducing actions.** See [GMAIL.md](GMAIL.md#design-review-changes--september-28-2026): cache removal states the backend's counts and the recovery path; narrowing the history range asks first with the number of messages it would prune.
+
+**Navigator.** Situations are ordered by the existing review policy (needs attention, then review soon, then the rest), most recently updated first within each band. Situations known only from correspondence have no saved context for the policy and read "Not assessed". Each card has a priority chip. Filters: All, Active, Emerging, Open questions; a title search. Arrow keys move between cards (one tab stop), and **Skip to briefing** jumps past the list. Overview cards open their situation.
+
+**Session state and drafts.** Situation, workstream, actor, dossier tab, view (situations or mail), navigator filter and search, and unsent reply drafts are kept per account in session view state, so a mode switch or refresh returns to the same place; an unsent draft left open reopens in the inspector. Closing a changed draft asks Keep editing / Save and close / Discard changes. Recipients are kept as typed, display names included, and parsed when the field is left or on save: addresses are extracted, deduplicated and lower-cased, entries without an address are named ("Not an email address: …"), and at most eight recipients are allowed. A disabled Draft reply says why (another action running, or understanding needs refreshing). Drafts are lost on app restart unless saved locally.
+
+**Polling and refresh.** One situation poll serves the header and the maps: every 3 s while the maps are shown, every 15 s otherwise, and not at all while the window is hidden. The poll passes the snapshot revision it holds; the backend answers `unchanged` and the view skips re-parsing. Gmail status is read every 10 s while the window is visible; the mail list and the thread-triage history are read only while shown. Ctrl/Cmd+R re-reads mail status, the mail view (when shown) and situations; it does not sync Gmail or run understanding.
+
+**Wording and dates.** Ordinary views use human labels and the shared date formatter; message ids, thread ids and fingerprints are under Inspect source disclosures.
+
+Verification: build; `cargo test --lib` with `gmail_cache_counts`, freshness and revision tests on in-memory databases; `scripts/test-situation-navigator.mjs` (15), `scripts/test-map-typography.mjs`; situations, communications, gmail and relationship-dossier harnesses; a viewport matrix at eight sizes and 25 app flows on the IPC mock (see the [implementation checklist](reviews/2026-09-28-design-usability/IMPLEMENTATION-CHECKLIST.md)). Not verified with a real account: the error states, counts, next-attempt times and revoke.
 
 # Focused refinement — September 12, 2026
 
@@ -26,7 +64,7 @@ Communications is a fourth existing dashboard mode, with the Olympus wordmark, e
 
 ## Implemented
 
-Connection/sync header, settings route, four metrics, smart groups, 40-message pages inside a bounded scroll area, sender filter, local search, daily activity, insights and top senders. Disconnected/browser-only, empty, busy, authentication, offline and import-cap states are distinct. View range never changes sync history or initiates ingestion. Native state refreshes every ten seconds while the workspace is mounted.
+Connection/sync header, settings route, four metrics, smart groups, 40-message pages inside a bounded scroll area, sender filter, local search, daily activity, insights and top senders. Disconnected/browser-only, empty, busy, authentication, offline and import-cap states are distinct. View range never changes sync history or initiates ingestion. Native state refreshes every ten seconds while the workspace is mounted. *(Superseded 2026-09-28: status every 10 s while the window is visible; the mail list only while it is shown.)*
 
 ## Analytics
 

@@ -171,7 +171,9 @@ opaque quality score or automatic optimization is introduced.
 ## AGENT CATALOG
 
 Research / Pantheon → **Research with verification & agent catalog** is a secondary
-disclosure next to Knowledge Audit. No new top-level section.
+disclosure next to Knowledge Audit. No new top-level section. *(Superseded
+2026-09-28: it is the **Questions (verified)** view of the Research header's
+Library | Questions | Audits control; see "Inspector layout" below.)*
 
 The catalog separates two compiled role definitions, current pair availability, the
 legacy Coding Delegate, Olympus as orchestrator, and dated documentary candidates /
@@ -188,6 +190,31 @@ Raw contract/message details are disclosures, not new navigation destinations.
 The backend-owned assistant build inventory now acknowledges the pair and qualifies
 the existing `awaiting_review` behavior as Coding Delegate-specific. Chat still
 cannot launch this workflow; the operator uses its explicit Research UI action.
+
+## INSPECTOR LAYOUT (2026-09-28)
+
+Design-review items U5, U7 and D4. The runner, records and authority boundary are
+unchanged; this is presentation of saved runs.
+
+- The workflow is the **Questions (verified)** segment of Research. It takes the full
+  height, stays mounted when another segment is shown and keeps its scroll; Agent
+  Catalog deep links select it. The question form folds away while a saved run is
+  open, so its brief starts near the top.
+- A run reads in Workflow Inspection's order: the question; the brief, with
+  Supported / Contradicted / Insufficient counts; evidence cards; a small structure
+  view of the flow; then executions, messages, receipts, identity binding, saved
+  excerpt fingerprints and JSON under an **Internals** disclosure. Labels and times
+  are human-readable.
+- A citation reads "{source title} · excerpt". Activating it reveals that source's
+  evidence card, scrolls to it and moves focus there.
+- Each evidence card offers **Open entry**, which opens the library entry with the
+  saved excerpt and fingerprint and states whether the source is unchanged, changed
+  or no longer in the library (see
+  [CURATED-MEMORY.md](CURATED-MEMORY.md#research-library-and-the-evidence-path--september-28-2026)).
+  A card whose source file is not in the library now says "Not in the library now".
+
+Verification: research-verification harness (29 checks) and mock checks. No live
+run was made.
 
 ## AUTHORITY
 
@@ -261,6 +288,8 @@ latency and usage. Coding's dormant pilot is not a prerequisite.
 - `src-tauri/src/commands/research_verification.rs`: fixed runner, source boundary,
   messages, validation, persistence, cancellation, catalog and IPC.
 - `src-tauri/src/commands/research_verification/tests.rs`: deterministic acceptance.
-- `src/components/panels/ResearchVerification.tsx` and its stylesheet: secondary UI.
+- `src/components/panels/ResearchVerification.tsx` and its stylesheet: the Questions
+  view; shared inspector parts in `src/components/panels/library/InspectorParts.tsx`
+  and `library/inspector.css` (2026-09-28).
 - `src/services/researchVerification.ts`: typed IPC contract.
 - `src/research-verification-harness.tsx`: isolated browser acceptance harness.

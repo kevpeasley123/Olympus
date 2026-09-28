@@ -1,5 +1,15 @@
 # Situation Map polish — September 13, 2026
 
+Status, 2026-09-28: historical. The design-review changes in
+[COMMUNICATIONS.md](COMMUNICATIONS.md#design-review-changes--september-28-2026)
+supersede parts of this pass: the inspector is about 300px beside the map from
+1200px wide (370px or the chat width only at 1500×800 and above; 520–680px at
+2200px); map text has a 12px floor, with a fit scale between 0.45× and 1.1× and
+density levels that drop secondary lines instead of shrinking text; a legend
+replaces the per-node "Organization unconfirmed"; and refresh failures are stated
+in the Communications header status cluster with their recovery action rather than
+under the map. The five zoom steps and Reset view are unchanged.
+
 ## Map polish and layout
 Preserved the navigator/map/briefing composition, overview geometry, initial fit, traveling lights, bounded zoom and chat exclusion. Wide desktop inspector is now 50px narrower (430px at the normal 480px chat width, with a 370px floor), returning that space to the map. Smaller layouts retain their existing readable scrolling fallback. No Gmail capabilities, workflows, skills or model calls were added.
 

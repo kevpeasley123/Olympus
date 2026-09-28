@@ -1,4 +1,4 @@
-Status, 2026-09-28: released (0.18.0 onward; current release 0.19.0). Background understanding backs off from five minutes to four hours after consecutive failures, keeps situations over the 24-situation limit as deferred observations, and skips over-bound threads; Remove cached mailbox deletes all situation records for the account (2026-09-28 fixes). The dated sections below are historical layers, newest first. The executive prioritization entry that opened this file now lives only in [EXECUTIVE-PRIORITIZATION.md](EXECUTIVE-PRIORITIZATION.md) and [NEXT-SESSION.md](NEXT-SESSION.md).
+Status, 2026-09-28: released (0.18.0 onward; current release 0.19.0). Background understanding backs off from five minutes to four hours after consecutive failures, keeps situations over the 24-situation limit as deferred observations, and skips over-bound threads; Remove cached mailbox deletes all situation records for the account (2026-09-28 fixes). The dated sections below are historical layers, newest first. The September 28, 2026 design-review changes (laptop layout, 12px map text floor, inspector-based activity, Review source blocks, header status and recovery, navigator, draft persistence, revision-based polling) are described in [COMMUNICATIONS.md](COMMUNICATIONS.md#design-review-changes--september-28-2026) and supersede the layout, polling and wording below where they differ. The executive prioritization entry that opened this file now lives only in [EXECUTIVE-PRIORITIZATION.md](EXECUTIVE-PRIORITIZATION.md) and [NEXT-SESSION.md](NEXT-SESSION.md).
 
 ## Historical: final executive overview polish — September 13, 2026
 
@@ -68,6 +68,9 @@ bottom action area with bounded disclosures.
 Narrower or short desktops prioritize readable detail: briefing stacks below on
 narrow widths and the overview remains a substantial scrollable canvas. They are
 not claimed to satisfy the no-page-scroll guarantee for normal wide desktops.
+*(Superseded 2026-09-28: from 1200px the navigator, map and a ~300px inspector sit
+side by side, with a next-step strip above the map below 1500×900; only below
+1200px does the inspector stack under the map.)*
 The global Olympus header and Gmail read-only/data authority boundaries are unchanged.
 
 ### Fit and controls
@@ -233,7 +236,7 @@ Communications leads with an ongoing situation briefing beside a relationship ma
 
 “Update Olympus” records corrections, goals, changes and pasted external summaries as explicit operator context. Recent explicit updates take priority over prior generated inferences. Matching Research Center excerpts supply context, never automatic operator intent. Recommendations remain generated advice, not obligations or approved actions. Relationships and roles are inferred; neither an email nor a generated map establishes legitimacy.
 
-Reply drafts are generated only after **Draft reply**. The initial recipient comes from the latest cached incoming sender, not model output. To, subject and body are editable and saved locally with revision checks. There is no send command, Gmail draft creation, attachment upload or permission expansion. A later sending evolution must show recipients/content/attachments for review, require explicit Send and a final confirmation.
+Reply drafts are generated only after **Draft reply**. The initial recipient comes from the latest cached incoming sender, not model output. To, subject and body are editable and saved locally with revision checks. (Since 2026-09-28 unsent edits are also kept in session view state across mode switches, closing a changed draft asks Keep editing / Save and close / Discard changes, and recipients keep display names and are parsed on blur or save; see [COMMUNICATIONS.md](COMMUNICATIONS.md#design-review-changes--september-28-2026).) There is no send command, Gmail draft creation, attachment upload or permission expansion. A later sending evolution must show recipients/content/attachments for review, require explicit Send and a final confirmation.
 
 ## Implementation
 
@@ -252,11 +255,11 @@ Discovery validates participant membership, relationship endpoints, output size 
 
 ## Refresh and privacy
 
-Background understanding defaults on for this operator-approved evolution and runs only while the native app is open, including when another mode is selected. The worker checks every 30 seconds after a 20-second startup delay, with at least five minutes between background analysis attempts. Operator edits invalidate the pending context and make the next worker check eligible. Manual Refresh now is also available. The existing single-running-analysis constraint prevents overlap with legacy analysis.
+Background understanding defaults on for this operator-approved evolution and runs only while the native app is open, including when another mode is selected. The worker checks every 30 seconds after a 20-second startup delay, with at least five minutes between background analysis attempts. Operator edits invalidate the pending context and make the next worker check eligible. Manual Refresh now is also available (since 2026-09-28 labelled **Refresh situations** in the Communications header). The existing single-running-analysis constraint prevents overlap with legacy analysis.
 
 The primary OpenAI model receives bounded cached email excerpts, situation context, selected operator updates and relevant Research excerpts. The UI and Gmail preferences disclose this; the background toggle pauses it. Pausing also invalidates an in-progress analysis. Gmail remains `gmail.readonly`, tokens remain in the existing native credential store, and no mailbox or model call occurs merely by opening the browser harness.
 
-Frontend snapshots poll every three seconds without initiating model calls. Existing map node positions, selected situation/person, scroll and editable draft text survive refreshes. New people fade in briefly, with reduced-motion support. Source changes mark findings/drafts stale; old understanding remains visibly available. Preflight and run failures are surfaced instead of silently presenting completion.
+Frontend snapshots poll every three seconds without initiating model calls. *(Superseded 2026-09-28: every 3 s while the maps are shown, 15 s otherwise, paused while the window is hidden; the poll passes its revision and an unchanged snapshot is not re-parsed. `situation_snapshot` also reports understanding freshness — last publish, last attempt, consecutive failures and the worker's real resume time during backoff.)* Existing map node positions, selected situation/person, scroll and editable draft text survive refreshes. New people fade in briefly, with reduced-motion support. Source changes mark findings/drafts stale; old understanding remains visibly available. Preflight and run failures are surfaced instead of silently presenting completion.
 
 ## Deliberate first-release bounds
 

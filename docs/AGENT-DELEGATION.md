@@ -146,9 +146,13 @@ end-to-end behavior.
 - Driver, worktree creation, progress parsing, cancellation, recovery, and diff:
   `src-tauri/src/commands/delegation.rs`.
 - Proposal, checkpoint, progress, cancellation, and review surface:
-  `src/components/panels/DelegationPanel.tsx`.
+  `src/components/panels/DelegationPanel.tsx` and `DelegationReview.tsx`; the
+  review form's rules are pure functions in `src/services/delegationReview.ts`,
+  and prepare blockers are `prepareBlocker` in `src/services/projectCommandBoard.ts`.
 - Entry point: **Prepare Claude run** beside a real committed next action in
-  Project mode.
+  Project mode. (Since 2026-09-28: in the detail of any project that has a folder
+  under the projects root; the button is disabled with the reason when Olympus
+  would refuse. See the section at the end.)
 
 The process boundary, persistence, state transitions, frontend build, and unit
 tests are verified. A real paid Claude run and its human checkpoint remain the
@@ -226,3 +230,70 @@ and per-criterion evidence against a workspace fingerprint. Completion requires 
 explicit operator review; latest failed or stale checks block completion. Manual evidence
 is recorded as manual evidence. The app does not infer that every project needs the
 same checks. See `OPERATOR-APPROVAL-DESIGN.md` for limits and pilot acceptance work.
+
+## Project-mode review surface — September 28, 2026
+
+Design-review items U3 and U11. The launcher, approval records and backend checks
+above are unchanged; `prepare_delegation_run` and `complete_delegation_review`
+still revalidate everything the surface states.
+
+**Before preparing.** Prepare is disabled, with the reason stated up front, when
+Olympus would refuse: browser preview; no folder under the projects root; a plan
+waiting, a result awaiting review, or a run in progress on the project (one run per
+project; the reason points to it); a folder that is not a Git repository; uncommitted
+changes in the primary checkout ("Commit or stash them first"); a repository with no
+commits. The backend's dirty-checkout refusal now also says "Commit or stash it"
+instead of naming a protect action that does not exist. The draft task starts from
+the recorded next step only for active projects; watching and archived projects
+start blank.
+
+**Drafts.** The task and criteria are kept per project in session view state
+(`projectDrafts`) and survive polls, refreshes and mode switches. Closing a changed
+draft asks Keep editing / Discard. The draft is lost on app restart.
+
+**Reading a waiting plan.** A `waiting` run has a **Read the plan** disclosure
+("read-only · no approval, no timer"). It reads `fetch_delegation_review`, which
+returns the recorded criteria and plan and writes nothing; a Rust test pins that
+reading a waiting run's plan changes no approval, check, review or event row. Only
+**Review approval scope** prepares a proposal and starts its expiry.
+
+**Approval subject.** The proposal renders inside the run it belongs to (or the
+draft, for planning) as a definition list: project, repository, base as
+`branch @ short hash` (full hash on hover), stage, driver and model, permitted
+actions in words, task, criteria, plan, workspace. Permitted actions come from the
+display-only `permitted` field (see
+[OPERATOR-APPROVAL-DESIGN.md](OPERATOR-APPROVAL-DESIGN.md#display-fields-and-review-surface--september-28-2026)),
+for example "Read and search the repository only (Read, Glob, Grep); no edits and no
+shell commands. Loads no settings files, hooks or MCP servers. $5 budget and
+45-minute limit per launch, not per run." The exact scope string is behind a
+disclosure; when the build does not recognise the scope, the raw string is shown
+instead. A live countdown ("Expires in m:ss") runs to the proposal's expiry, after
+which Approve is disabled and the review must be prepared again. There is one
+primary action, **Approve planning** or **Approve implementation**, beside Cancel
+review.
+
+**Stopping.** **Stop run…** opens a confirmation stating that Olympus stops any
+running agent or check process tree, revokes pending approval, preserves the branch,
+worktree and diff, and that a stopped run cannot be resumed. Keep running is the
+default.
+
+**Review and completion.** Notes per criterion, check selections, the "I reviewed"
+acknowledgement and the unresolved-issues text live in session view state
+(`reviewNotes`, keyed by run) and survive checks, polls, refreshes and mode
+switches; unresolved issues are still never stored in SQLite. On each read the form
+is reconciled with the run: when the workspace fingerprint or the recorded approvals
+change, only the check selections that no longer describe the workspace and the
+acknowledgement are cleared, the form says why (with old and new fingerprint
+prefixes), and every note is kept. A live checklist lists every condition
+`complete_delegation_review` enforces — a note of 20 to 2,000 characters per
+criterion, selected checks that match this workspace, no failed, unfinished or stale
+check, the review acknowledgement, empty unresolved issues — and Complete is enabled
+only when all are met. A running check reads "Running {check}…"; its result opens
+itself when it finishes. A completed run shows when the operator review was recorded
+(`reviewedAt`).
+
+Verification: Rust tests for `permitted` and the read-only plan read; build;
+`scripts/test-project-board.mjs` (prepare blockers, review-note persistence and
+invalidation, completion checklist); mock checks. Not verified: `permitted` and
+`baseBranch` text against real runs, and approve and stop against the real backend
+in the desktop app.

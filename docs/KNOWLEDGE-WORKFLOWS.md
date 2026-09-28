@@ -211,6 +211,19 @@ guards. Loops own bounded discovery within a node. The current loop is determini
 model-selected actions, routers and parallel agent execution remain deferred until
 a concrete workflow needs them. Do not introduce every future node kind now.
 
+## Audits view (2026-09-28)
+
+Design-review items U5, U7 and D4; presentation only. Knowledge audits are the
+**Audits** segment of Research (Library | Questions | Audits), full height, kept
+mounted with their scroll. A saved audit reads: the topic, what needs attention,
+evidence packets, whether each source snapshot is unchanged now, a small structure
+view, and route, fingerprints (full-file and excerpt body), events and JSON under an
+**Internals** disclosure. **Recheck evidence** checks each source's fingerprint now
+and does not rewrite the saved report. Each evidence packet offers **Open entry**,
+which opens the library entry with the saved excerpt and fingerprint and says
+whether it is unchanged, changed or no longer in the library; a packet whose file is
+not in the library now says so. Findings remain generated proposals.
+
 ## Acceptance and verification
 
 Acceptance: persisted reports and source evidence survive reopen; source and

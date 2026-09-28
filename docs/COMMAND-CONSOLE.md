@@ -36,7 +36,8 @@ no invented activity feed or hidden reasoning is shown.
 Keyboard: focus opens live; Enter sends, Shift+Enter adds a line, IME composition does
 not submit. Escape steps Transcript → Engaged → Dormant without clearing the draft.
 An active memory/observation edit is not discarded by console dismissal. Ctrl/Cmd+K
-focuses the input and respects an active modal; `olympus:focus-console` is the programmatic
+focuses the input and respects an active modal (since 2026-09-28 it is the console's
+only; the library's Ctrl+K binding was removed and library search is `/`); `olympus:focus-console` is the programmatic
 focus entry point. Clicking outside engaged dialogue recedes to the command bar.
 
 Desktop retains the existing instrument space and right-column boundary. Engaged is
@@ -71,3 +72,86 @@ Checks: src/services/commandConsole.harness.ts, console-harness.html,
 src/console-harness.tsx. Product docs: OLYMPUS-MANUAL.md, this document, and
 docs/HANDOFF.md. Version metadata: package.json/package-lock.json, Cargo.toml/
 Cargo.lock, and tauri.conf.json.
+
+## Design-review changes — September 28, 2026
+
+Items U2, U5, U6, U9, U10, D3, D6 and F6 of the
+[design review](reviews/2026-09-28-design-usability/DESIGN-USABILITY-REVIEW.md).
+Code: `ChatPanel.tsx`, `ReplyModeToggle.tsx`, `services/conversationHistory.ts`,
+`services/voiceFailure.ts`, `services/routeLabel.ts`, `services/externalLink.ts`,
+`services/shortcuts.ts`, `App.tsx` (`instrumentState`).
+
+**Status line.** The console status distinguishes text from audio. RESPONDING means
+reply text is arriving; SPEAKING is only ever audio playback; LISTENING is a live
+microphone between or during turns (formerly MICROPHONE ON); PREPARING AUDIO is a
+spoken reply being set up with the microphone off; AUDIO UNAVAILABLE follows a voice
+failure. A MIC LIVE badge sits beside the status whenever the microphone is capturing,
+and the microphone button carries `data-live`. The status line wraps its controls
+instead of truncating the status. The instrument's status line under the dial names
+the route (Sol, Astra, Claude comparison) rather than a model id, with the exact
+model in the tooltip, and uses "responding" and "speaking" the same way.
+
+**Opening briefing.** While the console is dormant and this launch's briefing has
+not been opened, the status reads BRIEFING READY and one line under it previews the
+briefing's first sentence (not a tab stop; clicking it opens the console). Opening
+the console or sending a message marks it seen. The bubble is labelled "Opening
+briefing · from project state, no model" instead of the text/voice modality icon,
+and is never collapsed. Its playback receipt is never "unconfirmed": with Text
+replies it reads "Not spoken (Text replies)" (stored as `playback: "skipped"`).
+Every stored briefing stays in the transcript, but only the newest one is sent as
+model history, prefixed as composed by Olympus from project state
+(`modelHistory`, `briefingTurnContent`). Briefings are recognised by the
+`conversation-briefing-` id prefix, so older rows need no migration.
+
+**Voice failure row.** A voice-provider failure no longer sets the instrument's
+error state; `error` there now means a failed reasoning request only. The console
+shows one plain line (for example "Audio unavailable — OpenAI quota exceeded.
+Replies stay in text.") with **Retry audio** (repeats the last attempt once, spoken
+reply or microphone session; no loop), **Switch replies to Text** (shown with Voice
+replies on, for output failures) and **Dismiss**, and the provider's wording behind a
+Technical detail disclosure. After a voice failure in a session, the opening briefing
+is not spoken on that launch.
+
+**Streamed answer with Voice replies on.** Typed requests with Voice replies stream
+the written answer like any other reply: Rust decodes the `visualResponse` string out
+of the arriving JSON (`voice::VisualStream`) and forwards only that text; the envelope
+never reaches the webview. The written answer is primary; the spoken summary is a
+closed "Spoken summary" disclosure beside Replay and the playback receipt. Limitation:
+the strict response schema is serialised with alphabetical keys (serde_json without
+`preserve_order`), so the model generates `spokenResponse` before `visualResponse`
+and visible text begins only after the spoken summary (at most 55 words by default)
+has been generated. Reordering would change `Value` key order globally and was not
+done.
+
+**Transcript.** Messages carry `at` (ISO time): set on creation, and on desktop
+loaded from each row's `created_at`, so older records gain a date without a
+migration. Rows imported from browser `localStorage` carry their import time. The
+footer shows `formatWhen` ("2 h ago · 09:55") with the full date as a tooltip, and a
+day separator ("Today", "Yesterday", a date) opens each new calendar day; undated
+legacy rows show their old `HH:MM` and neither get nor break a separator. The footer
+names the route ("Sol · medium", "Astra · high (one request)") with provider, model
+and request id in the tooltip. Replay is a visible button with an icon on every
+spoken reply that has a summary. Save memory and Note observation are quiet until
+hover or focus. The newest settled message is shown in full.
+
+**Links and evidence.** Markdown links and linked images in chat open through
+`openExternalLink` (Rust `open_external_link` on desktop, http and https only)
+instead of `target="_blank"`. Each "Research supplied to this reply" source has
+**Open in library**, which opens the entry in Research with the reply's stored
+fingerprint and excerpt (see [CURATED-MEMORY.md](CURATED-MEMORY.md)). Gmail evidence
+shows the message date; message and thread ids and the fingerprint move into a
+"Source identifiers" disclosure. Communications can attach a thread reference under
+its own heading ("Gmail thread reference") instead of "Project board snapshot".
+
+**Shortcuts.** Key handling reads the registry in `services/shortcuts.ts`, which also
+renders the dock's popover: Ctrl/Cmd+K console, Ctrl/Cmd+Shift+M microphone,
+Ctrl/Cmd+\ cycle mode, Ctrl/Cmd+R refresh (never reloads), Esc, `/` library search.
+Command mode adds a **Skip to console** link as its first tab stop.
+
+Verification: build; `scripts/test-command-voice.mjs` (14) and `scripts/test-time.mjs`;
+console, typed-voice, voice, voice-settings and project-ring harnesses; Rust tests for
+`VisualStream` (escapes, surrogate pairs, every chunk size, decoy keys) and the
+forwarding filter; mock checks recorded in the
+[implementation checklist](reviews/2026-09-28-design-usability/IMPLEMENTATION-CHECKLIST.md).
+Not verified: streaming latency against real providers, WebView2 autoplay, a real
+429, and dates on real SQLite rows.

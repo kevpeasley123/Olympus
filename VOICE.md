@@ -14,8 +14,9 @@ two minutes; the session cap is fifteen minutes.
 
 Mute silences output, not the microphone. Stop voice ends capture. Interrupt stops
 speech and listens for a correction. Typing remains available; submitting text ends
-microphone capture. With Preferences > Voice Lab > Auto Speak enabled, typed replies
-play a concise spoken summary through a receive-only connection, with the microphone
+microphone capture. With Preferences > Voice Lab > Auto Speak enabled (since
+2026-09-28: **Voice** replies, set in the console or under Preferences > Replies &
+briefing), typed replies play a concise spoken summary through a receive-only connection, with the microphone
 off. That connection closes after playback. With Auto Speak off, typed replies are
 text-only. Replay can open its own receive-only connection and uses the API; it does
 not retain a raw audio recording.
@@ -23,7 +24,8 @@ not retain a raw audio recording.
 Opening briefing: once per launch, after the first project scan, Olympus adds a short
 briefing built from provable project state to the conversation and, with Auto Speak on,
 speaks it through the same receive-only path. Preferences > Voice Lab > Opening Briefing
-turns it off. WebView2 runs with `--autoplay-policy=no-user-gesture-required` because no
+turns it off (since 2026-09-28 the switch is under Preferences > Replies & briefing). After
+a voice failure earlier in the session the briefing is not spoken. WebView2 runs with `--autoplay-policy=no-user-gesture-required` because no
 gesture precedes it.
 
 ## Architecture
@@ -64,7 +66,9 @@ The actual generated audio transcript is retained alongside the planned summary.
 ERROR state. The console and existing instrument consume its state; low-rate output
 energy provides a restrained brightness cue, disabled under reduced motion.
 SPEAKING follows output-buffer events, not completion of model generation. IDLE can
-still mean an armed microphone between turns, explicitly labelled MICROPHONE ON.
+still mean an armed microphone between turns, explicitly labelled MICROPHONE ON
+(since 2026-09-28 the console labels it LISTENING and shows a MIC LIVE badge; a
+voice ERROR no longer reaches the instrument — see the section at the end).
 
 VAD speech-start and Interrupt mute/pause locally, cancel the response and clear
 the server audio buffer. Connection/turn generations reject late setup callbacks
@@ -158,7 +162,7 @@ Verification includes 22 settings/session protocol checks, existing 20 voice che
 Simulated microphone reconnection and interruption are not physical acoustic tests.
 
 
-## Voice Lab � 0.8.1
+## Voice Lab — 0.8.1
 
 All ten Realtime voices are visible in Preferences > Voice Lab. The shared
 `src/config/olympusVoice.json` remains the single frontend/backend catalog;
@@ -204,3 +208,37 @@ Replay and failure fallback with simulated audio. Live speaker playback still ne
 an acceptance check in a desktop build; browser simulation cannot establish audibility.
 Receive-only response behavior checked against the official Realtime conversations
 guide on September 12, 2026.
+
+## Design-review changes (September 28, 2026)
+
+See [COMMAND-CONSOLE.md](docs/COMMAND-CONSOLE.md) for the console side of each item.
+
+- **Failure is not an alarm.** A Realtime failure (quota, spend limit, 429, missing or
+  refused key, microphone, timeout, blocked playback) no longer puts the instrument in
+  its error state; `instrumentState` in `App.tsx` reserves `error` for a failed
+  reasoning request. The console reads the failure in one line (`voiceFailure.ts`)
+  with Retry audio, Switch replies to Text and Dismiss. `RealtimeVoice.retry()`
+  repeats the last attempt once — the spoken reply or the microphone session — and
+  `dismissError()` clears it without retrying. `create_voice_session` now names the
+  provider's error code (for example `insufficient_quota`) so the line can say why;
+  the response body is never echoed. The session counts failures, and the opening
+  briefing is not spoken after one.
+- **Text leads.** With Voice replies on, the written answer streams as it is
+  generated (Rust `VisualStream` forwards only the decoded `visualResponse`) and is
+  shown first; the spoken summary is a closed disclosure. No second reasoning call is
+  made and the request payload is unchanged; `parse_answer` still validates the whole
+  object at the end. Because the schema's properties are serialised alphabetically,
+  `spokenResponse` is generated first, so the visible answer starts only after the
+  spoken summary has been produced.
+- **Receipts.** `playback: "skipped"` records that no audio was attempted because
+  replies were set to Text; the receipt reads "Not spoken (Text replies)" instead of
+  "Playback unconfirmed". In the browser preview an unrecorded receipt reads "Not
+  spoken · audio plays in the desktop app".
+- **Names.** Responding (text arriving) is distinct from Speaking (audio). MIC LIVE
+  shows while the microphone captures.
+- **Preferences.** Reply mode (Text / Voice, the same control as the console) and
+  Opening Briefing sit first under Replies & briefing; the voice lab is behind a
+  disclosure in the Voice section.
+
+Not verified in this environment: WebView2 autoplay of the opening briefing, a real
+429 or quota failure, and streaming latency on real Sol and Claude voice turns.

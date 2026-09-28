@@ -25,7 +25,7 @@ Revocation is another event, not an edit of the original. Creation, consumption,
 
 1. Project mode displays the proposed task and distinguishes “unverified commitment” from a verified approval.
 2. **Prepare run** asks Rust to create a short-lived pending proposal. Rust resolves project, base, driver, task and scope; the webview cannot supply an executable or substitute these values during approval.
-3. The desktop review displays the exact task, project, base, driver, permitted stage, and recovery location. The operator chooses **Approve planning** or **Cancel**.
+3. The desktop review displays the exact task, project, base, driver, permitted stage, and recovery location. The operator chooses **Approve planning** or **Cancel**. (Since 2026-09-28 the review also shows permitted actions in words, the base branch and a countdown; see "Display fields and review surface" below.)
 4. Approval resolves only that pending proposal, in the current desktop session, before its expiry. Rust stamps and records it. Unknown, expired, replayed, cancelled, or mismatched requests deny.
 5. Starting the run consumes approval transactionally before process launch. If worktree or process preparation fails, preserve the failed attempt and recovery information; do not silently reuse approval for another run.
 6. Implementation requires another pending proposal showing the completed plan, changed scope if any, and permitted edit/test actions. **Approve implementation** records a separately bound event.
@@ -67,3 +67,36 @@ Losing SQLite loses verifiability and requires fresh approval. This deliberately
 ## Implementation boundary
 
 Individual delegated tasks require the in-app review flow. Installing this mechanism does not approve a task. Approval and consumption are recorded together before launch; failed launches require new approval. Verification records bind to the workspace fingerprint. Manual artifact or behavior review is explicitly labelled and does not claim an automated test ran.
+
+## Display fields and review surface — September 28, 2026
+
+Added by the design review (U11). None of this changes what an approval binds.
+
+- **`permitted`.** `prepare_delegation_run` and `prepare_delegation_resume` return the
+  proposal with a display-only `permitted` field beside `subject`: built-in tools,
+  pre-approved command prefixes, whether edits are allowed, the per-launch budget,
+  the per-launch time limit and what the scope excludes. Rust derives it from the
+  same constants the launch uses, and only when `subject.scope` is byte-for-byte a
+  scope this build issues (`plan_scope()` or `implementation_scope()`); anything
+  else, including a scope one character off, yields `null` and the surface shows
+  the raw scope string. A unit test pins both the derivation and the refusal.
+- **`baseBranch`.** The primary checkout's branch at preparation time, when it is on
+  one, so the base reads `branch @ short hash`. It is read from the repository for
+  display and is not part of the subject.
+- **Binding.** Approval still binds `subject` alone. `permitted` and `baseBranch` are
+  never sent back, recorded as approval or compared at start or resume.
+- **Reading a plan is not a proposal.** A waiting run's plan and criteria are read
+  through `fetch_delegation_review`, which writes nothing; no proposal exists and no
+  expiry starts until the operator asks to review the approval scope.
+- **Expiry.** The surface counts down to `expiresAt` and disables Approve at zero;
+  the backend's expiry check is unchanged.
+- **`reviewedAt`.** `fetch_delegation_review` returns when the operator review was
+  recorded in `delegation_reviews`, so a completed run can say so.
+- **Review form.** Notes, check selections, acknowledgement and unresolved issues are
+  session view state, not records. A changed workspace fingerprint or approval
+  record clears the selections and acknowledgement and keeps the notes; completion
+  is revalidated by the backend regardless. The completion checklist mirrors the
+  conditions `complete_delegation_review` enforces; it does not replace them.
+
+Desktop acceptance still needed: the `permitted` sentence and `baseBranch` against
+real prepared runs, and approve and stop against the real backend.

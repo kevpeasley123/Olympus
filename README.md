@@ -100,17 +100,25 @@ releases.
 
 ## Delegate a coding task
 
-In desktop **Project** mode, a project with a committed next action shows
-**Prepare Claude run**. That first click only surfaces the exact task and safety
-boundary. **Start planning** then creates a dedicated branch and isolated
-worktree and asks Claude Code for a read-only plan.
+In desktop **Project** mode, a project's detail shows **Prepare Claude run**
+when the project has a folder under the projects root. When Olympus would refuse
+a run (no Git repository, uncommitted work in the primary checkout, a run
+already open on the project), the button is disabled and the reason is stated.
+Prepare opens a draft task and acceptance criteria; the task starts from the
+recorded next step only for active projects. **Review planning scope** shows the
+exact subject, the permitted actions in words and a countdown to the proposal's
+expiry. **Approve planning** creates a dedicated branch and isolated worktree
+and asks Claude Code for a read-only plan.
 
-Claude stops at a visible decision checkpoint. **Approve and implement** is the
-separate permission to edit and run bounded local checks. Progress shows
-planning, editing, testing, reviewing, waiting, completion, or failure.
-Cancellation and app restarts preserve the worktree. Olympus returns changed
-files and a reviewable diff; it does not push, merge, deploy, or delete the
-workspace.
+Claude stops at a visible decision checkpoint. **Read the plan** shows it
+without starting an approval window; **Review approval scope** and then
+**Approve implementation** is the separate permission to edit and run bounded
+local checks. **Stop run…** asks first. Progress shows planning, editing,
+testing, reviewing, waiting, completion, or failure. Cancellation and app
+restarts preserve the worktree. Olympus returns changed files and a reviewable
+diff; it does not push, merge, deploy, or delete the workspace. (Button labels
+corrected 2026-09-28; the earlier "Start planning" and "Approve and implement"
+wording did not match the app.)
 
 ## Assistant Setup
 
@@ -155,10 +163,18 @@ What is stored, by area (`src-tauri/schema.sql` declares every table and sets
 | Communications | `communication_runs`, `communication_events`, `communication_evaluations`, and six `communication_situation*` tables | Account-scoped; Remove cache deletes them with the mailbox |
 | Reserved | `projects`, `tasks`, `research_items`, `skill_recipes`, `dashboard_modules`, `operator_briefs` | Declared, never read or written |
 
-The project scan is refreshed live and deliberately not persisted.
+The project scan is refreshed live and deliberately not persisted. Since 2026-09-28 the desktop app starts with no example projects: until the first scan settles the ring and board say "Scanning projects…", a failed scan shows nothing rather than example data, and a later failure keeps the last genuine result marked stale. Only the browser preview shows labelled example projects.
 
 Conversation is appended when a message is sent rather than rewritten alongside other state, so a long history costs nothing on unrelated updates. The first desktop launch after an existing browser install imports any `localStorage` state into SQLite automatically.
 
 ## Command renderer
 
-Command renders only the 3D instrument. The 0.10.0 Dimensional core preference and the SVG renderer were removed; SVG labels and hit targets remain aligned over the scene, and a graphics failure offers Retry instead of a fallback. See [renderer lifecycle](docs/COMMAND-3D-LIFECYCLE.md) and the historical [0.10.0 prototype notes](docs/COMMAND-3D-IMPLEMENTATION.md).
+Since 2026-09-28 the flat SVG instrument (project ring, linked notes, day arc and an Ω glyph) draws immediately and stays the whole instrument if WebGL is unavailable or fails; the 3D scene starts the first time Command is shown and replaces the flat glyph once it has painted. A graphics failure says "3D view unavailable · showing the flat instrument" and offers Retry 3D view. This supersedes the earlier statement that Command renders only the 3D instrument with no fallback. See [renderer lifecycle](docs/COMMAND-3D-LIFECYCLE.md) and the historical [0.10.0 prototype notes](docs/COMMAND-3D-IMPLEMENTATION.md).
+
+## Keyboard and preferences
+
+The dock's **?** popover lists the shortcuts from the same registry the handlers use: Ctrl/Cmd+K focuses the console from any mode; Ctrl/Cmd+\ cycles Command, Project, Research and Communications (ignored while typing); Ctrl/Cmd+Shift+M starts or stops the microphone; Ctrl/Cmd+R refreshes projects, tasks, runs, library, vault and the mail view and never reloads the window; Esc closes a dialog or steps the console back; `/` focuses library search in Research. While a dialog is open, it owns the keyboard.
+
+Preferences (the gear in the dock) is a dialog: Replies & briefing (Text or Voice replies, Opening Briefing), Voice, Gmail, Model diagnostics, and **Restart Olympus**, which moved there from the Pantheon strip on 2026-09-28 and asks for confirmation, naming any reply, voice session or delegated run it would interrupt.
+
+Unsent drafts, open entries, review notes and scroll positions survive mode switches and refreshes for the session. They are held in memory only and are lost when the app restarts.

@@ -1,3 +1,77 @@
+## Design-review implementation — September 28, 2026
+
+The [design and usability review](reviews/2026-09-28-design-usability/DESIGN-USABILITY-REVIEW.md)
+items U1–U12, D1–D6 and F1–F6 were implemented on `claude/blissful-lamport-2l4o96`
+(`d920883`..`a3925ea`); P1–P6 are deferred. Per-item status, evidence and limitations
+are in the [implementation checklist](reviews/2026-09-28-design-usability/IMPLEMENTATION-CHECKLIST.md).
+Version is unchanged.
+
+What changed for the operator:
+
+- **Nothing fictional on desktop.** No example projects or seed conversation at launch. Ring,
+  header and board say Scanning projects…, Project scan failed · Retry, or Stale · last scan,
+  and show nothing rather than examples. Only the browser preview shows labelled examples.
+- **Work survives navigation.** Run drafts, review notes, library position and Add Entry
+  drafts, situation and reply drafts survive refreshes and mode switches for the session
+  (memory only; lost on restart). Closing changed work asks first.
+- **Voice failures stay quiet.** An audio failure no longer turns the instrument red; the
+  console gives one plain line with Retry audio, Switch replies to Text and Dismiss. With
+  Voice replies on, the written answer streams and leads, with the spoken summary as a caption.
+- **Clearer console.** BRIEFING READY with a one-line preview; the briefing is labelled as
+  composed from project state, and only the newest is sent as model history. Responding vs
+  Speaking, MIC LIVE, route names instead of model ids, dated messages with day separators,
+  visible Replay, chat links through the guarded opener.
+- **Claims lead to evidence.** Open in library from a reply, a verification citation or an
+  audit says whether the source is unchanged, changed or gone, and highlights the excerpt.
+  Communications' Review source separates generated, quoted and full-thread text.
+- **Legible delegation.** Prepare states why it is unavailable; a waiting plan can be read
+  without starting an approval window; the approval shows the base branch, permitted actions
+  in words and a countdown; Stop run confirms; completion lists every unmet condition.
+- **Project board.** Pinned NEEDS YOU / BLOCKED rows, a freshness line, a legend stated once,
+  ARCHIVED instead of COMPLETE, and source-labelled Attention observations.
+- **Research library.** Library | Questions | Audits, tiered search without automatic tags,
+  stance words and shapes, Recently added, working wikilinks and attachment chips.
+- **Communications on a laptop.** Navigator, map and inspector side by side from 1200px, a
+  next-step strip, a 12px map text floor, a status cluster with distinct error states and real
+  next-attempt times, cache removal and range narrowing that state their counts and how to
+  recover, a filterable and searchable navigator, Sync mail / Refresh situations / Run thread
+  triage.
+- **Keyboard and safety.** One shortcut registry drives the popover; Ctrl/Cmd+R never reloads
+  and refreshes everything including mail; Preferences is a real dialog and holds Restart
+  behind a confirmation; each region has its own error boundary outside which the write gate
+  stays mounted. The 3D scene starts on the first Command visit and the flat SVG instrument is
+  the fallback.
+
+Verification, as recorded in the checklist after all four merges: `npm run build` passes;
+every `scripts/test-*.mjs` passes; `cargo test --lib` 398 passed, 0 failed, 11 ignored (Linux).
+Surface harnesses (console, typed-voice, voice, voice-settings, project-ring, project-board,
+research-verification, knowledge-audit, workflow-inspection, situations, communications, gmail,
+relationship-dossier) passed in their surface passes. This documentation pass did not rerun
+them. Browser checks ran against the synthetic IPC mock at several
+viewports, including WebGL disabled. The mock is not the desktop app: nothing here was run in
+WebView2, against real providers, a real Gmail account or the real vault. Remaining known
+limits (Tab count to the console 21–22, visible answer waits for the spoken summary, drafts
+lost on restart) are listed per item in the checklist.
+
+Desktop acceptance, native-only checks:
+
+1. Opening briefing autoplay in WebView2 with Voice replies on; a real voice 429 or quota
+   failure shows the quiet row and leaves the instrument idle.
+2. Streaming latency of a typed turn with Voice replies on, on real Sol and on Claude
+   comparison.
+3. `open_external_link` from a chat link and a library source link, and `open_vault_note`
+   from an attachment chip: the browser or Obsidian opens and Olympus stays put.
+4. Restart from Preferences; Job Object behaviour unchanged (no `claude.exe` or check process
+   left after quitting).
+5. The Command scene on the real GPU: not created when Olympus opens in Research, created on
+   the first Command visit, SVG fallback when WebGL fails, rendering paused when hidden.
+6. Transcript dates and day separators on real SQLite rows, including older rows.
+7. Gmail with the real account: authentication-required, sync-failed and backoff states with
+   the backend's next-attempt times; removal and narrowing counts; revoke.
+8. Delegation: the `permitted` sentence and `baseBranch` against a real prepared run; approve,
+   countdown expiry and Stop run against the real backend.
+9. Visual review at the operator's normal window size.
+
 ## Opening briefing and priorities — September 28, 2026
 
 Operator decisions: Olympus speaks a short briefing once when it opens (manual
