@@ -46,6 +46,12 @@ export interface ReviewNotesState {
    * hash changes, the surface resets only the choices that went stale.
    */
   workspaceHash?: string;
+  /** The recorded approvals the review was written against; a change resets `reviewed`. */
+  approvalsKey?: string;
+  /** Unresolved issues typed but not yet cleared. Never stored in SQLite. */
+  issues?: string;
+  /** The review form is expanded on its run card. */
+  open?: boolean;
   /** Lets App keep a project open while its review is unfinished. */
   projectId?: string;
 }
@@ -197,5 +203,6 @@ export function projectHasOpenWork(projectId: string | null): boolean {
   const draft = readViewSlice("projectDrafts")[projectId];
   if (draft && (draft.task.trim() || draft.criteria.some((line) => line.trim()))) return true;
   return Object.values(readViewSlice("reviewNotes")).some((review) =>
-    review.projectId === projectId && (review.reviewed || review.notes.some((note) => note.trim()) || review.evidence.length > 0));
+    review.projectId === projectId && (review.reviewed || review.notes.some((note) => note.trim())
+      || review.evidence.some(Boolean) || Boolean(review.issues?.trim())));
 }

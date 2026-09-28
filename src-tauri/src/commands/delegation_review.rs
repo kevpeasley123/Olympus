@@ -4,7 +4,7 @@ use super::{
     delegation::{self, DelegationProcesses, DelegationRun, RunRequest},
     persistence::Db,
 };
-use rusqlite::params;
+use rusqlite::{params, OptionalExtension};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::{
@@ -70,6 +70,8 @@ pub struct ReviewDetails {
     pub checks: Vec<CheckEvidence>,
     pub approvals: Vec<String>,
     pub available_checks: Vec<CheckOption>,
+    /// When the operator's review was recorded; `None` until the run is completed.
+    pub reviewed_at: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -133,12 +135,21 @@ fn review(db: &Db, run_id: &str) -> Result<ReviewDetails, String> {
         .map_err(|e| e.to_string())?
         .collect::<Result<Vec<_>, _>>()
         .map_err(|e| e.to_string())?;
+    let reviewed_at = connection
+        .query_row(
+            "SELECT reviewed_at FROM delegation_reviews WHERE run_id=?1",
+            [run_id],
+            |r| r.get::<_, String>(0),
+        )
+        .optional()
+        .map_err(|e| e.to_string())?;
     Ok(ReviewDetails {
         criteria,
         plan,
         checks: evidence,
         approvals,
         available_checks,
+        reviewed_at,
     })
 }
 
@@ -626,5 +637,46 @@ mod tests {
             check_id: None,
         }];
         assert!(validate_review(&["Works".into()], &evidence, &recorded, "").is_err());
+    }
+
+    /// Project mode reads a waiting run's plan through this before any approval
+    /// proposal exists, so it must stay a pure read.
+    #[test]
+    fn review_details_read_a_waiting_plan_and_the_review_time_without_writing() {
+        let connection = rusqlite::Connection::open_in_memory().unwrap();
+        connection
+            .execute_batch(include_str!("../../schema.sql"))
+            .unwrap();
+        connection.execute("INSERT INTO delegation_runs(id,project_id,project_name,task,driver,model,phase,workspace,branch,base_commit,agent_session_id,milestone) VALUES ('run','p','P','Task','d','m','waiting','/nonexistent/olympus-run','b','abc','s','Plan recorded')",[]).unwrap();
+        connection.execute("INSERT INTO delegation_contracts(run_id,criteria_json,plan) VALUES ('run','[\"Works\"]','1. Read. 2. Edit.')",[]).unwrap();
+        let db = Db(std::sync::Mutex::new(connection));
+        let counts = |db: &Db| -> Vec<i64> {
+            let c = db.0.lock().unwrap();
+            [
+                "operator_approvals",
+                "delegation_checks",
+                "delegation_reviews",
+                "delegation_events",
+            ]
+            .iter()
+            .map(|t| {
+                c.query_row(&format!("SELECT COUNT(*) FROM {t}"), [], |r| r.get(0))
+                    .unwrap()
+            })
+            .collect()
+        };
+        let before = counts(&db);
+        let details = review(&db, "run").unwrap();
+        assert_eq!(details.plan, "1. Read. 2. Edit.");
+        assert_eq!(details.criteria, ["Works"]);
+        assert_eq!(details.reviewed_at, None);
+        assert_eq!(counts(&db), before);
+        assert_eq!(delegation::load_run(&db, "run").unwrap().phase, "waiting");
+
+        db.0.lock().unwrap().execute("INSERT INTO delegation_reviews(run_id,session_id,criteria_evidence_json,workspace_hash,reviewed_at) VALUES ('run','s','[]','h','2026-09-28T10:00:00Z')",[]).unwrap();
+        assert_eq!(
+            review(&db, "run").unwrap().reviewed_at.as_deref(),
+            Some("2026-09-28T10:00:00Z")
+        );
     }
 }

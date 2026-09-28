@@ -1,6 +1,8 @@
 import type { ActionQueueTask } from "../hooks/useActionQueue";
 import type { SessionBoundary, TrackedProject } from "../types";
 import { attributeTasks } from "./taskAttribution";
+import type { DelegationRun } from "./delegation";
+import { formatWhen } from "./time";
 
 export interface ProjectBrief {
   project: TrackedProject;
@@ -135,7 +137,7 @@ function attentionItems(project: TrackedProject, now: Date): string[] {
   const items: string[] = [];
 
   if (project.repoState === "git-pending") {
-    items.push("Uncommitted work is present and should be protected before broader changes.");
+    items.push("Uncommitted work is present; commit or stash it before broader changes.");
   }
 
   const delegatedChanges = project.linkedWorktrees.filter(
@@ -177,6 +179,63 @@ function attentionItems(project: TrackedProject, now: Date): string[] {
   }
 
   return items.slice(0, 3);
+}
+
+export type AttentionSource = "Vault note" | "Git" | "Run record";
+
+export interface AttentionItem {
+  kind: "vision" | "uncommitted" | "worktree" | "review";
+  text: string;
+  source: AttentionSource;
+}
+
+/**
+ * The manual's Attention field (review F2): observations from named sources,
+ * never blockers. Nothing here feeds operational status or ownership.
+ */
+export function projectAttention(
+  project: TrackedProject,
+  runs: Pick<DelegationRun, "phase" | "updatedAt" | "task">[],
+  now: Date = new Date()
+): AttentionItem[] {
+  const items: AttentionItem[] = [];
+
+  if (!project.vision.trim()) {
+    items.push({ kind: "vision", text: "Vision not stated", source: "Vault note" });
+  } else if (!project.visionReviewedAt) {
+    items.push({ kind: "vision", text: "Vision has no review date", source: "Vault note" });
+  } else {
+    const days = daysBetween(project.visionReviewedAt, now);
+    if (days !== null && days > VISION_REVIEW_DAYS) {
+      items.push({ kind: "vision", text: `Vision last reviewed ${days} days ago`, source: "Vault note" });
+    }
+  }
+
+  if (project.repoState === "git-pending") {
+    items.push({
+      kind: "uncommitted",
+      text: project.lastCommitAt ? "Primary checkout has uncommitted changes" : "Repository has no commits yet",
+      source: "Git"
+    });
+  }
+
+  for (const worktree of project.linkedWorktrees.filter((item) => item.changedFiles > 0)) {
+    items.push({
+      kind: "worktree",
+      text: `Worktree ${worktree.branch} has ${worktree.changedFiles} uncommitted ${worktree.changedFiles === 1 ? "file" : "files"}`,
+      source: "Git"
+    });
+  }
+
+  for (const run of runs.filter((item) => item.phase === "awaiting_review")) {
+    items.push({
+      kind: "review",
+      text: `Agent result awaiting review since ${formatWhen(run.updatedAt, { now })}`,
+      source: "Run record"
+    });
+  }
+
+  return items;
 }
 
 function recommendation(project: TrackedProject, tasks: ActionQueueTask[]): string {

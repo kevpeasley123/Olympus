@@ -1286,7 +1286,8 @@ fn planning_subject(
     let (project_name, repository) = resolve_project(db, &request.project_id)?;
     if !git(&repository, &["status", "--porcelain"])?.is_empty() {
         return Err(
-            "The primary checkout has uncommitted work. Protect it before preparing a run.".into(),
+            "The primary checkout has uncommitted work. Commit or stash it before preparing a run."
+                .into(),
         );
     }
     let base_commit = git(&repository, &["rev-parse", "HEAD"])?;
@@ -1363,7 +1364,7 @@ fn resume_subject(db: &Db, id: &str) -> Result<Subject, String> {
         scope: if plan.is_empty() {
             plan_scope()
         } else {
-            format!("implement-v2: {IMPLEMENTATION_TOOLS}; {LAUNCH_LIMITS}; no commit/push/merge")
+            implementation_scope()
         },
         run_id: run.id,
         workspace: run.workspace,
@@ -1376,6 +1377,90 @@ const LAUNCH_LIMITS: &str =
 
 fn plan_scope() -> String {
     format!("plan-v2: {PLAN_TOOLS}; no edits; {LAUNCH_LIMITS}")
+}
+
+fn implementation_scope() -> String {
+    format!("implement-v2: {IMPLEMENTATION_TOOLS}; {LAUNCH_LIMITS}; no commit/push/merge")
+}
+
+/// A proposal as the review surface receives it. The approval binds `subject` alone;
+/// the fields beside it are display derived from the same constants, never authority.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PreparedProposal {
+    #[serde(flatten)]
+    pub proposal: Proposal,
+    /// `None` for a scope this build does not issue; the surface then shows it raw.
+    pub permitted: Option<PermittedActions>,
+    /// The primary checkout's branch at `baseCommit`, when it is on one.
+    pub base_branch: Option<String>,
+}
+
+#[derive(Debug, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct PermittedActions {
+    /// Built-in tools Claude Code is offered for the launch.
+    pub tools: Vec<String>,
+    /// Command prefixes pre-approved inside `Bash`; any other command is denied.
+    pub commands: Vec<String>,
+    pub edits: bool,
+    pub budget_usd: String,
+    pub launch_limit_minutes: u64,
+    /// What the scope rules out.
+    pub excluded: Vec<String>,
+}
+
+/// Describes a scope only when it is byte-for-byte one this build issues, so the
+/// words shown beside Approve cannot drift from the scope being approved.
+fn permitted_actions(scope: &str) -> Option<PermittedActions> {
+    let launch_limit_minutes = MAX_LAUNCH_DURATION.as_secs() / 60;
+    let isolation = "settings, hooks and MCP servers".to_string();
+    if scope == plan_scope() {
+        return Some(PermittedActions {
+            tools: PLAN_TOOLS.split(',').map(str::to_string).collect(),
+            commands: Vec::new(),
+            edits: false,
+            budget_usd: MAX_BUDGET_USD.into(),
+            launch_limit_minutes,
+            excluded: vec!["edits".into(), "shell commands".into(), isolation],
+        });
+    }
+    if scope == implementation_scope() {
+        let mut tools = Vec::new();
+        let mut commands = Vec::new();
+        for entry in IMPLEMENTATION_TOOLS.split(',') {
+            match entry
+                .strip_prefix("Bash(")
+                .and_then(|rest| rest.strip_suffix(":*)"))
+            {
+                Some(command) => commands.push(command.to_string()),
+                None => tools.push(entry.to_string()),
+            }
+        }
+        return Some(PermittedActions {
+            tools,
+            commands,
+            edits: true,
+            budget_usd: MAX_BUDGET_USD.into(),
+            launch_limit_minutes,
+            excluded: vec!["commit".into(), "push".into(), "merge".into(), isolation],
+        });
+    }
+    None
+}
+
+fn present(proposal: Proposal) -> PreparedProposal {
+    let base_branch = git(
+        Path::new(&proposal.subject.repository),
+        &["rev-parse", "--abbrev-ref", "HEAD"],
+    )
+    .ok()
+    .filter(|branch| !branch.is_empty() && branch != "HEAD");
+    PreparedProposal {
+        permitted: permitted_actions(&proposal.subject.scope),
+        base_branch,
+        proposal,
+    }
 }
 
 /// Git, worktree and process work must not run on the thread that services the window.
@@ -1392,15 +1477,17 @@ pub(crate) async fn blocking<T: Send + 'static>(
 pub async fn prepare_delegation_run(
     app: AppHandle,
     request: PrepareDelegationRequest,
-) -> Result<Proposal, String> {
+) -> Result<PreparedProposal, String> {
     blocking(app, move |app| {
         let db = app.state::<Db>();
         let state = app.state::<ApprovalState>();
         let _transition = state.execution.lock().map_err(|e| e.to_string())?;
-        state.prepare(
-            run_id(),
-            planning_subject(app, db.inner(), &request, &run_id())?,
-        )
+        state
+            .prepare(
+                run_id(),
+                planning_subject(app, db.inner(), &request, &run_id())?,
+            )
+            .map(present)
     })
     .await
 }
@@ -1409,12 +1496,14 @@ pub async fn prepare_delegation_run(
 pub async fn prepare_delegation_resume(
     app: AppHandle,
     request: RunRequest,
-) -> Result<Proposal, String> {
+) -> Result<PreparedProposal, String> {
     blocking(app, move |app| {
         let db = app.state::<Db>();
         let state = app.state::<ApprovalState>();
         let _transition = state.execution.lock().map_err(|e| e.to_string())?;
-        state.prepare(run_id(), resume_subject(db.inner(), &request.run_id)?)
+        state
+            .prepare(run_id(), resume_subject(db.inner(), &request.run_id)?)
+            .map(present)
     })
     .await
 }
@@ -1915,6 +2004,41 @@ mod process_boundary_tests {
             assert!(!args.iter().any(|a| a.contains("git diff")));
         }
         assert!(plan_scope().contains("per launch"));
+    }
+
+    #[test]
+    fn permitted_actions_describe_exactly_the_issued_scopes() {
+        let plan = permitted_actions(&plan_scope()).unwrap();
+        assert_eq!(plan.tools, ["Read", "Glob", "Grep"]);
+        assert!(plan.commands.is_empty() && !plan.edits);
+        assert_eq!(plan.budget_usd, MAX_BUDGET_USD);
+        assert_eq!(plan.launch_limit_minutes, 45);
+
+        let implement = permitted_actions(&implementation_scope()).unwrap();
+        assert_eq!(implement.tools, ["Read", "Glob", "Grep", "Edit", "Write"]);
+        assert_eq!(
+            implement.commands,
+            [
+                "git status",
+                "npm run build",
+                "npm test",
+                "cargo test",
+                "cargo check"
+            ]
+        );
+        assert!(implement.edits);
+        for action in ["commit", "push", "merge"] {
+            assert!(implement.excluded.iter().any(|item| item == action));
+            assert!(implementation_scope().contains(action));
+        }
+        // The words beside Approve come from the same constants the launch uses.
+        for command in &implement.commands {
+            assert!(IMPLEMENTATION_TOOLS.contains(&format!("Bash({command}:*)")));
+        }
+
+        // Anything else, including a scope one character off, is shown raw.
+        assert_eq!(permitted_actions(&format!("{} ", plan_scope())), None);
+        assert_eq!(permitted_actions("implement-v1: Read"), None);
     }
 
     #[cfg(unix)]
