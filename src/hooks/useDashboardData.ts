@@ -54,6 +54,8 @@ export function useDashboardData() {
   const commandBoard = buildProjectCommandBoard(dashboardState.projects, taskStore.tasks, runStore.data, {tasks:!taskStore.error && !taskStore.loading,runs:!runStore.error && !runStore.loading});
   const boardRef = useRef(commandBoard); boardRef.current = commandBoard;
   const [hydrated, setHydrated] = useState(false);
+  /** Read inside `sendChatMessage`, which voice can call before a re-render. */
+  const hydratedRef = useRef(false);
   const [sessionBoundary, setSessionBoundary] = useState<SessionBoundary | null>(null);
   const [sessionReady, setSessionReady] = useState(false);
   const [projectsError, setProjectsError] = useState<string | null>(null);
@@ -105,7 +107,15 @@ export function useDashboardData() {
     let cancelled = false;
 
     void (async () => {
-      const stored = await loadState();
+      let stored: OlympusState | null = null;
+      try {
+        stored = await loadState();
+      } catch (error) {
+        // Desktop only. Stay unhydrated: seed state must never be saved over
+        // the real settings, and a send would give the model seed history.
+        console.warn("[Olympus] Could not read the local database.", error);
+        if (!cancelled) setChatError(`The local database could not be read (${errorMessage(error)}). Settings and conversation history are not loaded, and nothing will be saved or sent until Olympus restarts.`);
+      }
       if (cancelled) return;
 
       let boundary: SessionBoundary | null = null;
@@ -119,9 +129,11 @@ export function useDashboardData() {
       }
       if (cancelled) return;
 
-      setDashboardState(stored);
+      if (stored) setDashboardState(stored);
       setSessionBoundary(boundary);
       setSessionReady(true);
+      if (!stored) return;
+      hydratedRef.current = true;
       setHydrated(true);
     })();
 
@@ -174,7 +186,9 @@ export function useDashboardData() {
     async (text: string, voiceDepth?: VoiceDepth, voiceMessageId?: string): Promise<VoiceAnswer | undefined> => {
       if (voiceDepth) while (requestInFlight.current) await new Promise(resolve => window.setTimeout(resolve, 80));
       const trimmed = text.trim();
-      if (!trimmed || requestInFlight.current) return;
+      // Before hydration the history is seed data and the stored conversation
+      // would replace this turn on arrival.
+      if (!trimmed || requestInFlight.current || !hydratedRef.current) return;
       conversationStream.reset();
       emitInstrumentEvent("command-received");
 
