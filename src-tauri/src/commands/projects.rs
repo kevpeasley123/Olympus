@@ -464,7 +464,7 @@ fn linked_worktrees(path: &PathBuf) -> Vec<LinkedWorktree> {
 }
 
 fn git_command(path: &PathBuf, args: &[&str]) -> Result<String, String> {
-    let output = Command::new("git")
+    let output = crate::commands::delegation::hide_console(&mut Command::new("git"))
         .arg("-C")
         .arg(path)
         .args(args)

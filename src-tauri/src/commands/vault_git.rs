@@ -26,6 +26,7 @@ fn git(
     temporary_index: Option<&Path>,
 ) -> Result<String, String> {
     let mut command = Command::new("git");
+    crate::commands::delegation::hide_console(&mut command);
     // Paths are passed and read back verbatim: without these, git octal-quotes
     // non-ASCII names in its output and treats `[`, `*` and `?` in a pathspec
     // as a glob, so a note titled `Café [1]` could never be committed alone.

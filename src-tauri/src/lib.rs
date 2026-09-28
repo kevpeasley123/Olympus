@@ -248,25 +248,25 @@ fn launch_quick_app(app_id: String) -> Result<(), String> {
     {
         match app_id.as_str() {
             "quick-spotify" => {
-                Command::new("cmd")
+                commands::delegation::hide_console(&mut Command::new("cmd"))
                     .args(["/C", "start", "", "spotify:"])
                     .spawn()
                     .map_err(|error| error.to_string())?;
             }
             "quick-discord" => {
-                Command::new("cmd")
+                commands::delegation::hide_console(&mut Command::new("cmd"))
                     .args(["/C", "start", "", "discord://"])
                     .spawn()
                     .map_err(|error| error.to_string())?;
             }
             "quick-x" => {
-                Command::new("cmd")
+                commands::delegation::hide_console(&mut Command::new("cmd"))
                     .args(["/C", "start", "", "firefox", "https://x.com"])
                     .spawn()
                     .map_err(|error| error.to_string())?;
             }
             "quick-youtube" => {
-                Command::new("cmd")
+                commands::delegation::hide_console(&mut Command::new("cmd"))
                     .args(["/C", "start", "", "firefox", "https://youtube.com"])
                     .spawn()
                     .map_err(|error| error.to_string())?;
