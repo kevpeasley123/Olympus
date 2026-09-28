@@ -112,7 +112,7 @@ async function run() { const checks: string[] = []; const check = (v: unknown, s
     for (const mode of ['Command', 'Project', 'Research', 'Communications']) {
         click(mode);
         await wait();
-        check(document.querySelector(`[role="tab"][aria-selected="true"]`)?.textContent === mode, `${mode} navigation`);
+        check(document.querySelector(`.mode-switcher [aria-pressed="true"]`)?.textContent === mode, `${mode} navigation`);
     }
     check(readStoredMode({ getItem: () => 'communications' }) === 'communications', 'Stored Communications mode restores');
     check(document.querySelector('.comms-brief')!.getAnimations({subtree:true}).length===0,'Brief has no continuous motion, including reduced-motion use');

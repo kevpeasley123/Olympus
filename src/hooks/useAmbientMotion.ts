@@ -16,12 +16,13 @@ export function useMotionPermission() {
   return running;
 }
 
-export function useAmbientMotion(state: OlympusVisualState) {
+/** `active` false (the instrument is hidden in another mode) holds the queue without changing `running`. */
+export function useAmbientMotion(state: OlympusVisualState, active = true) {
   const running = useMotionPermission();
   const [events, setEvents] = useState<Record<AmbientEvent, number>>({ tracer: 0, sweep: 0, node: 0, micro: 0 });
   useEffect(() => {
     setEvents({ tracer: 0, sweep: 0, node: 0, micro: 0 });
-    if (!running) return;
+    if (!running || !active) return;
     const random = seededRandom(Date.now());
     const kinds: AmbientEvent[] = ["tracer", "node", "micro", "sweep"];
     const now = performance.now();
@@ -41,6 +42,6 @@ export function useAmbientMotion(state: OlympusVisualState) {
     };
     schedule();
     return () => window.clearTimeout(timer);
-  }, [running, state]);
+  }, [running, active, state]);
   return { running, events };
 }

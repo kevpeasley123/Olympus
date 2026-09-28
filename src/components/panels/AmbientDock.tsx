@@ -52,23 +52,27 @@ export function AmbientDock({ onRefresh, mode, onCycleMode, voicePreferences, on
       if (!(event.metaKey || event.ctrlKey) || isTypingTarget) {
         return;
       }
+      // A modal owns the keyboard: changing mode or refreshing under the write
+      // gate would move the ground beneath the decision it is asking for. The
+      // default is still suppressed, so Ctrl+R cannot reload the webview.
+      const modalOpen = document.querySelector('[aria-modal="true"]') !== null;
 
       if (event.key.toLowerCase() === "r") {
         event.preventDefault();
-        handleRefresh();
+        if (!modalOpen) handleRefresh();
       }
 
       // An accelerator for the switcher in the header, never the only way to
       // reach a mode.
       if (event.key === "\\") {
         event.preventDefault();
-        onCycleMode();
+        if (!modalOpen) onCycleMode();
       }
     }
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [onCycleMode]);
+  }, [onCycleMode, onRefresh]);
 
   const timeLabel = now.toLocaleTimeString([], {
     hour: "numeric",

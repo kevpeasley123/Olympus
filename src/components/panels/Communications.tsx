@@ -35,7 +35,8 @@ export function Communications({api=communicationsClient,onSettings,intelligence
   if(!selected)return;
   const previous=document.activeElement as HTMLElement|null;
   inspectorClose.current?.focus();
-  const escape=(e:KeyboardEvent)=>{if(e.key==='Escape'){e.stopPropagation();close()}};
+  // An open modal (the write gate) owns Escape; closing the inspector under it would swallow the key.
+  const escape=(e:KeyboardEvent)=>{if(e.key==='Escape'&&!document.querySelector('[aria-modal="true"]')){e.stopPropagation();close()}};
   window.addEventListener('keydown',escape,true);
   return()=>{window.removeEventListener('keydown',escape,true);previous?.focus()};
  },[selected]);

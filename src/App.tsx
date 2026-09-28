@@ -4,7 +4,7 @@ import { validateVoiceNavigation } from "./services/voiceContract";
 import { operationalStatuses, type OperationalStatus } from "./services/projectCommandBoard";
 import { MotionConfig, motion, useReducedMotion } from "motion/react";
 import type { ReactNode } from "react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { BackgroundLayer } from "./components/BackgroundLayer";
 import { AmbientDock } from "./components/panels/AmbientDock";
 import { ChatPanel } from "./components/panels/ChatPanel";
@@ -69,10 +69,20 @@ function App() {
   const research = mode === "research";
   const command = mode === "command";
 
-  function enterProject(projectId: string) {
+  // Stable handlers: AmbientDock re-subscribes its global shortcuts whenever
+  // these change, and App re-renders on every poll that lands.
+  const enterProject = useCallback((projectId: string) => {
     setProjectFilter(projectId);
     setMode("project");
-  }
+  }, [setMode]);
+  const openNote = useCallback((notePath: string) => void openVaultNote(notePath), []);
+  const refreshDashboard = useCallback(() => void refreshAll(), [refreshAll]);
+  const cycleDashboardMode = useCallback(() => {
+    // Cycling is an explicit mode change, so it clears the project filter
+    // for the same reason any other mode switch does.
+    setProjectFilter(null);
+    cycleMode();
+  }, [cycleMode]);
 
   useEffect(() => {
     realtimeVoice.configure({
@@ -156,7 +166,7 @@ function App() {
                   assistantModel={chatModel}
                   assistantFellBackFrom={chatFellBackFrom}
                   onSelectProject={enterProject}
-                  onOpenNote={(notePath) => void openVaultNote(notePath)}
+                  onOpenNote={openNote}
                 />
               </div>}
             {command ? null : mode === "communications" ? <Communications onSettings={()=>setPreferencesOpen(true)} /> : research ? (
@@ -177,7 +187,7 @@ function App() {
                     projectFilter={projectFilter}
                     onClearFilter={() => setProjectFilter(null)}
                     onFocusProject={enterProject}
-                    onOpenNote={(notePath) => void openVaultNote(notePath)}
+                    onOpenNote={openNote}
                   />
                 </FadeInPanel>
                 <FadeInPanel index={7} className="panel-slot panel-slot-library">
@@ -209,14 +219,9 @@ function App() {
       <AmbientDock
         preferencesOpen={preferencesOpen} onPreferencesOpen={setPreferencesOpen}
         voicePreferences={settings} onVoicePreferences={updateVoicePreferences} settingsReady={settingsReady}
-        onRefresh={() => void refreshAll()}
+        onRefresh={refreshDashboard}
         mode={mode}
-        onCycleMode={() => {
-          // Cycling is an explicit mode change, so it clears the project filter
-          // for the same reason any other mode switch does.
-          setProjectFilter(null);
-          cycleMode();
-        }}
+        onCycleMode={cycleDashboardMode}
       />
       <WriteConfirmDialog />
       </main>

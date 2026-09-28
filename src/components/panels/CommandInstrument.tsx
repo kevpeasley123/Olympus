@@ -131,7 +131,7 @@ export function CommandInstrument({
     return () => window.clearTimeout(timer);
   }, [visualState]);
   const ambientState = visualState === "complete" && completionSettled ? "idle" : visualState ?? glyphState;
-  const ambient = useAmbientMotion(ambientState);
+  const ambient = useAmbientMotion(ambientState, active);
   const instrumentParallax = useSceneParallax(active && ambient.running, "instrument");
 
   // Identity first, then activity: the model is the stable half and must not
@@ -161,9 +161,15 @@ export function CommandInstrument({
       setRenderScale((current) => (Math.abs(current - next) < 0.001 ? current : next));
     };
     measure();
-    const observer = new ResizeObserver(measure);
+    // A window drag reports every pixel; the 3D scene rebuilds its label
+    // atlas for a new scale, so only the size the drag settles on counts.
+    let settle: number | undefined;
+    const observer = new ResizeObserver(() => {
+      window.clearTimeout(settle);
+      settle = window.setTimeout(measure, 150);
+    });
     observer.observe(dial);
-    return () => observer.disconnect();
+    return () => { observer.disconnect(); window.clearTimeout(settle); };
   }, []);
 
   useEffect(() => {
@@ -183,14 +189,14 @@ export function CommandInstrument({
     let clock: number | undefined;
     const visibilityChanged = () => {
       window.clearInterval(clock);
-      if (document.visibilityState !== "visible") return;
+      if (document.visibilityState !== "visible" || !active) return;
       setNow(Date.now());
       clock = window.setInterval(() => setNow(Date.now()), 10_000);
     };
     visibilityChanged();
     document.addEventListener("visibilitychange", visibilityChanged);
     return () => { window.clearInterval(clock); document.removeEventListener("visibilitychange", visibilityChanged); };
-  }, []);
+  }, [active]);
 
   return (
     <div className="command-instrument" data-visual-state={ambientState} data-voice-energy={voiceLevel > 0.15 ? "active" : "quiet"}
