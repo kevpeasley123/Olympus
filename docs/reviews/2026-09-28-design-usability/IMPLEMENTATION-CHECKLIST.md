@@ -147,7 +147,50 @@ Opened by AmbientDock (`preferencesOpen` state in App, as before). Order:
 | Command & voice | `8658bcd`, `c3683e0`, `4984ae1`, `7284274`, `0e58baa` | `9d8fdf9` (conflicts in `ChatPanel.tsx` and `App.tsx` resolved by keeping both sides) | build; `cargo test` 389; 11 scripts including `test-command-voice.mjs` (14); console, typed-voice, voice, voice-settings, command-agent, project-ring harnesses; mock 200/208 (the only remaining failures are the Tab-count target — see U9); WebGL-off at four sizes |
 | Research | `087cb7a`, `c2fab5d`, `3ec35f7` | `a3925ea` | build; `cargo test` 387; `test-library.mjs` (12); research-verification 29; knowledge-audit pass; workflow-inspection 23; mock 60 checks at each of four sizes (search re-run after an expectation fix) |
 
-After all four merges: `npm run build` passes, every `scripts/test-*.mjs` passes, and `cargo test --lib` gives 398 passed, 0 failed, 11 ignored. Integration QA across surfaces is recorded below.
+After all four merges: `npm run build` passes, every `scripts/test-*.mjs` passes, and `cargo test --lib` gives 398 passed, 0 failed, 11 ignored.
+
+## Integration QA (merged tree)
+
+A combined synthetic IPC mock covering all four surfaces ran 416 checks across 1280×800, 1440×900, 1920×1080 and 2560×1440. 412 passed. The four failures are one per viewport: the Tab count to the console (21–22 against a target of 15; see U9).
+
+| Area checked | Result |
+| --- | --- |
+| Scan-state agreement across ring, header, board and briefing; no seed content | 22 per viewport, all pass |
+| Voice 429 | 7 per viewport, all pass |
+| Text-mode briefing, including only the newest briefing in history | 7 per viewport, all pass |
+| Evidence paths | 10 per viewport, all pass |
+| Four-mode continuity with work in progress | 10 per viewport, all pass |
+| Keyboard | 29 of 30 per viewport |
+| Restart, error boundary, write gate above Preferences | 3 per viewport, all pass |
+| WebGL off; no 3D chunk on a Research launch | 3 per viewport, all pass |
+| Reduced motion and long content | 6 per viewport, all pass |
+| Console control row on one line | 6 per viewport, all pass |
+
+At 2560, SwiftShader starves animation frames, so forced clicks and a WebGL-off browser were used for some captures.
+
+**Defects fixed in QA:**
+
+| Commit | Fix |
+| --- | --- |
+| `831dbb9` | F2: attention observation in the opening briefing |
+| `66c4864` | NO PROJECTS readout on a genuine empty scan |
+| `4a3e7fb` | Shortcut popover closes on Escape or an outside press |
+| `62084f1` | Console control row fits on one line at 1280 |
+| `677ab95` | Preferences follows the type scale |
+| `c4a07b8` | Two harnesses updated for the redesigned inspector and the long fixture |
+
+**Found, not fixed:**
+- **Tab count:** reaching the target would need roving focus in the catalog and mode switcher, which is a design change.
+- **Communications below 1500px with the console engaged:** the view shrinks to about 370px. This is a layout-contract decision (SITUATION-MAP-POLISH).
+- **"Ask Olympus about this thread":** the operator's bubble shows the raw thread-reference text. Separating displayed text from sent text touches the Rust marker contract.
+
+**Final test counts:**
+- `npm run build` passes.
+- 15 of 15 node scripts pass.
+- `cargo test --lib` gives 398 passed, 0 failed, 11 ignored.
+- Browser harnesses: 17 of 19 pages pass.
+  - `communications?errors&long` is a visual fixture with no checks; it renders without errors.
+  - `hybrid-core` fails its SwiftShader voice-timing check, as it did on the baseline.
 
 ## Items
 
@@ -174,7 +217,7 @@ The evidence recorded here is unit, build and mock only. Every item still needs 
 | D5 | Project board repetition | done | `ProjectsPanel.tsx`, `projectCommandBoard.ts`, `projects.css` | mock (first row y=292 at 1440×900, y=346 at 1280×800) | Sort control wraps onto its own line at 1280. |
 | D6 | Precise state names | done | `ChatPanel.tsx`, `CommandInstrument.tsx`, `ProjectsPanel.tsx`, `DelegationPanel.tsx` | mock; unit (ARCHIVED display mapping) | — |
 | F1 | Source-specific freshness | done | `ProjectsPanel.tsx`, `Communications.tsx`, `situations.rs` (`understanding` last run), stores' `lastSuccessAt` | mock | — |
-| F2 | Attention field | partial → see integration | `projectBriefing.ts`, `ProjectsPanel.tsx` | unit (observations never change status or owner) | Board and detail are done. Opening-briefing inclusion was assigned to integration QA. |
+| F2 | Attention field | done | `projectBriefing.ts`, `ProjectsPanel.tsx`, `openingBriefing.ts` | unit (observations never change status or owner; `test-opening-briefing.mjs` 21 checks); mock (briefing observation sentence) | At most one attention sentence in the briefing; the rest stay on the board. |
 | F3 | Research search, lists, capture | done | `library/libraryModel.ts`, `pantheonRecord.ts`, `pantheon.rs`, `AddEntryDialog.tsx`, `entryMarkdown.tsx` | unit (search tiers, dirty fields, source types, wikilinks); mock | No Tauri drag-and-drop. Attachments open through `open_vault_note` (Obsidian), limited to `_attachments`. |
 | F4 | Situation navigator scale | done | `situationNavigator.ts`, `SituationsWorkspace.tsx` | unit (navigator 15); mock | Email-only situations show "Not assessed", because the policy reads saved document context only. |
 | F5 | Hidden work, WebGL fallback, deferred init | done | `CommandInstrument.tsx`, `HybridCommandCore.tsx`, `hybridScene.ts`, `useSituationSnapshot.ts`, `situations.rs` (revision), Library model and paging | mock (WebGL-off SVG at four sizes; no 3D chunk when opening in Research; snapshot unchanged skip); measured (Research typing at 3,000 entries: long tasks 1.3–2.0 s → 0.13–0.36 s, dev build on SwiftShader) | No GPU claims. Real-GPU profiling is a native check. |

@@ -34,7 +34,8 @@ Design-review item F5, `CommandInstrument.tsx`, `hybridScene.ts`, `command.css`.
   decoration rests.
 - **Scan state.** The ring's centre readout shows SCANNING… / SCAN FAILED /
   STALE · HH:MM from the project scan, with the full sentence and Retry on the
-  line under the dial. Loading and failure show no project names.
+  line under the dial. Loading and failure show no project names. A genuine
+  scan that finds nothing reads NO PROJECTS with a one-line explanation.
 - **Keyboard.** The ring is one tab stop: Left/Right move between projects,
   Down enters a project's notes, Up or Escape returns, Home/End jump to the ends.
 

@@ -97,7 +97,11 @@ briefing's first sentence (not a tab stop; clicking it opens the console). Openi
 the console or sending a message marks it seen. The bubble is labelled "Opening
 briefing · from project state, no model" instead of the text/voice modality icon,
 and is never collapsed. Its playback receipt is never "unconfirmed": with Text
-replies it reads "Not spoken (Text replies)" (stored as `playback: "skipped"`).
+replies it reads "Not spoken (Text replies)" (stored as `playback: "skipped"`). The
+briefing adds at most one sentence of source-backed attention (for example "Observed
+for attention: Atlas has uncommitted changes in its main checkout"), worded as an
+observation, never a blocker; Git facts rank above vault-note hygiene. A failed or
+empty scan leads with that fact, so the preview line carries it.
 Every stored briefing stays in the transcript, but only the newest one is sent as
 model history, prefixed as composed by Olympus from project state
 (`modelHistory`, `briefingTurnContent`). Briefings are recognised by the
