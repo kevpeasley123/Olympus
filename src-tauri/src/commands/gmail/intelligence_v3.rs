@@ -286,7 +286,8 @@ mod tests {
     fn selection_is_bounded_and_includes_recent_unflagged_updates() {
         let (db, root) = fixture();
         for n in 0..10 {
-            mail(&db, &format!("m{n}"), &format!("t{n}"), "Receipt", 1000 + n);
+            // Seconds apart: `mail` reads the clock per call, so 1 ms steps reordered on a slow tick.
+            mail(&db, &format!("m{n}"), &format!("t{n}"), "Receipt", 1000 + n * 1000);
         }
         let c = db.0.lock().unwrap();
         let chosen = selected(&c, "fixture", 7, Utc::now().timestamp_millis(), true).unwrap();

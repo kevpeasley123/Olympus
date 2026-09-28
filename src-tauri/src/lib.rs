@@ -4,6 +4,7 @@ pub mod commands;
 
 use std::fs;
 use std::path::PathBuf;
+#[cfg(target_os = "windows")]
 use std::process::Command;
 
 use commands::vault_write;
@@ -276,6 +277,8 @@ fn launch_quick_app(app_id: String) -> Result<(), String> {
         return Ok(());
     }
 
+    #[cfg(not(target_os = "windows"))]
+    let _ = app_id;
     #[allow(unreachable_code)]
     Err("Quick app launching is only wired for Windows right now.".to_string())
 }

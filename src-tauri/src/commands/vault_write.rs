@@ -530,14 +530,25 @@ mod tests {
     fn rejects_absolute_and_unc_paths() {
         let root = temp_root("absolute");
 
+        // A leading separator is `RootDir` on every platform.
         assert_eq!(
-            resolve_within(&root, Path::new(r"C:\Windows\System32\evil.md")),
+            resolve_within(&root, Path::new("/etc/evil.md")),
             Err(VaultWriteError::Absolute)
         );
-        assert_eq!(
-            resolve_within(&root, Path::new(r"\\server\share\evil.md")),
-            Err(VaultWriteError::Absolute)
-        );
+
+        // Drive letters and UNC shares only parse as a `Prefix` on Windows;
+        // elsewhere they are ordinary (if odd) file names.
+        #[cfg(windows)]
+        {
+            assert_eq!(
+                resolve_within(&root, Path::new(r"C:\Windows\System32\evil.md")),
+                Err(VaultWriteError::Absolute)
+            );
+            assert_eq!(
+                resolve_within(&root, Path::new(r"\\server\share\evil.md")),
+                Err(VaultWriteError::Absolute)
+            );
+        }
     }
 
     /// `C:notes` is relative to the current directory *on drive C*, not to the

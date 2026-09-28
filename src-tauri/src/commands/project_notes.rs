@@ -655,6 +655,7 @@ mod tests {
     /// empty index on failure, so without asserting the precondition this test
     /// would pass just as happily with the folder missing.
     #[test]
+    #[ignore = "requires the owner's real vault; run with --ignored"]
     fn debug_join_the_real_project_note() {
         let folder = get_vault_path().join(PROJECTS_FOLDER);
         let index = load_project_notes_from(&folder);

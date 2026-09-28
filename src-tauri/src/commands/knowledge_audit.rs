@@ -996,6 +996,7 @@ mod tests {
         assert!(!saved.definition.iter().any(|n| n.id == "shell"));
     }
     #[test]
+    #[ignore = "requires the owner's real vault; run with --ignored"]
     fn real_vault_readonly_audit_uses_disposable_operational_database() {
         let (db, _) = fixture();
         let root = super::super::get_vault_path();
