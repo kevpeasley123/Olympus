@@ -39,6 +39,17 @@ html .console-status[data-status="audio-unavailable"] { color: #d9bf9c; }
   html .model-route-prefix { display: none; }
   html .console-reply-mode button svg { display: none; }
 }
+/* At 1280 the console column is ~335px inside: tighten spacing, not type, so
+   the longest status ("AUDIO UNAVAILABLE") and every control share one row.
+   The wrap above remains the fallback for anything narrower still. */
+@container (max-width: 380px) {
+  html .console-status-line { column-gap: 3px; }
+  html .console-status { letter-spacing: .02em; }
+  html .console-status-line .ghost-icon-action { width: 24px; height: 24px; }
+  html .console-omega { font-size: 19px; }
+  html .console-reply-mode button { padding: 3px 4px; }
+  html .model-route-trigger { padding: 4px 2px; }
+}
 html .console-reply-mode button,
 html .model-route-trigger { font-size: var(--text-xs); }
 html .console-header > span,
