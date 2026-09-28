@@ -6,14 +6,16 @@ Approved architecture, implemented 2026-09-08. The Olympus identity, project tru
 
 `src-tauri/src/commands/models.rs` is the only production model-ID catalog:
 
-| Capability | Provider / model | Effort |
-|---|---|---|
-| PRIMARY | OpenAI gpt-6-sol | medium |
-| DEEP_REASONING | OpenAI gpt-6-astra | high |
-| CLAUDE_COMPARISON | Anthropic claude-opus-5 | medium |
-| Realtime speech | OpenAI gpt-realtime-2.1 | n/a |
-| Transcription | OpenAI gpt-4o-mini-transcribe | n/a |
-| Delegated code execution | Claude Code sonnet | existing driver |
+| Capability | Provider / model | Effort | Max output tokens |
+|---|---|---|---|
+| PRIMARY | OpenAI gpt-6-sol | medium | 8,000 |
+| DEEP_REASONING | OpenAI gpt-6-astra | high | 32,000 |
+| CLAUDE_COMPARISON | Anthropic claude-opus-5 | medium | 64,000 |
+| Realtime speech | OpenAI gpt-realtime-2.1 | n/a | n/a |
+| Transcription | OpenAI gpt-4o-mini-transcribe | n/a | n/a |
+| Delegated code execution | Claude Code sonnet | existing driver | n/a |
+
+The output budget is per route (`Route::max_output_tokens`) because it caps reasoning and answer together on both providers: a shared 8,000 left high-effort Astra requests ending `incomplete`. The Claude budget covers adaptive thinking plus text and is streamed.
 
 Next answer selects a single request, then resets to PRIMARY, including on failure. Voice turns use the same selector and reasoning path. No automatic cross-provider retry or recursive escalation exists. The existing Anthropic-specific fallback metadata remains scoped to explicit comparison.
 
@@ -21,9 +23,15 @@ The GPT-6 migration changes the shared PRIMARY route from GPT-5.6 Sol to GPT-6 S
 
 ## API boundary
 
-`assistant.rs` builds the existing identity, bounded local history, vault memory and project/research context. `responses.rs` sends Responses requests with `store: false`, explicit effort and `reasoning.context: current_turn`; no provider-side conversation ID or reasoning history is persisted. The existing structured voice answer is requested using strict `text.format` JSON schema. Only existing navigation actions are parsed; this adds no execution tools.
+`assistant.rs` builds the existing identity, bounded local history (at most 40 turns and 120,000 characters, newest kept), vault memory and project/research context.
+
+Only handling rules and backend-owned facts go in the system prompt / Responses `instructions`: identity, durable vault notes and the Decision Log (cached), running-build facts, route and environment. Everything another party could have written — tracked project vision, latest commit and next action, the Project Command Board, the research library index (capped at 12,000 characters, newest entries first), selected research excerpts and Gmail evidence — is one user-role item wrapped in `<olympus_evidence>` tags, placed immediately before the operator's latest message and never persisted to history. Embedded copies of the tag are neutralised. The Anthropic messages array still opens on a user turn, and the cache breakpoint stays on the stable system block. `responses.rs` sends Responses requests with `store: false`, explicit effort and `reasoning.context: current_turn`; no provider-side conversation ID or reasoning history is persisted. The existing structured voice answer is requested using strict `text.format` JSON schema. Only existing navigation actions are parsed; this adds no execution tools.
 
 The SSE decoder handles UTF-8 chunk boundaries, actual model metadata, text deltas, completion, refusal, incomplete output and transport interruption. Partial text has a truncation notice; partial structured voice JSON is rejected. Errors remain visible without silently changing providers.
+
+The Anthropic stream follows the same rules: its decoder buffers bytes, an `error` event records its `error.type` as the request's error code, and a stream that ends without a `stop_reason` is interrupted rather than complete (text is kept with a truncation notice and the record is `incomplete`; no text is an error). A refused voice turn on either provider returns a minimal spoken answer carrying the notice, so the microphone session continues.
+
+Neither adapter has a whole-request timeout. Each bounds the connection (15 s) and every silence between chunks (Responses 240 s for chat, 60 s for structured work; Anthropic 120 s), so a long, healthy stream is not cut off.
 
 ## Diagnostics and persistence
 

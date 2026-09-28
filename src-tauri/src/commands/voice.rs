@@ -66,6 +66,18 @@ pub fn parse_answer(raw: &str, depth: &str) -> Result<VoiceAnswer, String> {
     answer.conversation_state = "awaiting_input".into();
     Ok(answer)
 }
+/// A declined voice turn still answers the microphone session: the notice is
+/// spoken and shown, no action is proposed, and the session stays open.
+pub fn notice_answer(provider_text: &str) -> VoiceAnswer {
+    let spoken = "That request was declined by the provider.";
+    VoiceAnswer {
+        spoken_response: spoken.into(),
+        visual_response: if provider_text.trim().is_empty() { spoken.into() } else { provider_text.trim().into() },
+        proposed_actions: Vec::new(),
+        requires_confirmation: false,
+        conversation_state: "awaiting_input".into(),
+    }
+}
 
 pub fn session_config(settings:&VoiceSettings, preview:bool) -> Value {
     json!({"expires_after":{"anchor":"created_at","seconds":60},"session":{
@@ -120,5 +132,6 @@ mod tests {
     #[test] fn session_does_not_auto_answer() { let v=session_config(&VoiceSettings::default(),false); assert_eq!(v["session"]["audio"]["input"]["turn_detection"]["create_response"],false); assert!(v["session"].get("tools").is_none()); }
     #[test] fn separates_long_visual_from_spoken() { let raw=json!({"spokenResponse":"The pilot needs scope review.","visualResponse":"Evidence. ".repeat(900),"proposedActions":[],"requiresConfirmation":false,"conversationState":"awaiting_input"}); let a=parse_answer(&raw.to_string(),"ANSWER").unwrap(); assert!(a.spoken_response.len()<100); assert!(a.visual_response.len()>8000); }
     #[test] fn rejects_execution_action() { let raw=json!({"spokenResponse":"Done","visualResponse":"Done","proposedActions":[{"type":"execute"}],"conversationState":"awaiting_input"}); assert!(parse_answer(&raw.to_string(),"ANSWER").is_err()); }
+    #[test] fn refusal_answer_speaks_the_notice_and_proposes_nothing() { let a=notice_answer(""); assert!(a.spoken_response.contains("declined")); assert_eq!(a.visual_response,a.spoken_response); assert!(a.proposed_actions.is_empty()&&!a.requires_confirmation); assert_eq!(notice_answer("Cannot help.").visual_response,"Cannot help."); }
     #[test] fn long_speech_is_not_read() { let raw=json!({"spokenResponse":"word ".repeat(1000),"visualResponse":"Long detail","conversationState":"awaiting_input"}); assert!(parse_answer(&raw.to_string(),"ANSWER").unwrap().spoken_response.len()<150); }
 }
