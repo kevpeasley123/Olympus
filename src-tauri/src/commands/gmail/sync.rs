@@ -14,6 +14,7 @@ pub struct Batch {
     pub cursor: String,
     pub full: bool,
     pub fallback: bool,
+    pub skipped: usize,
 }
 fn cursor(v: &Value) -> Result<String, ApiError> {
     v["historyId"]
@@ -45,10 +46,7 @@ pub fn collect(
                 ],
             ) {
                 Err(ApiError::NotFound) => {
-                    full = true;
                     fallback = true;
-                    ids.clear();
-                    deleted.clear();
                     break;
                 }
                 other => other?,
@@ -73,8 +71,16 @@ pub fn collect(
                 break;
             }
             if page == 19 {
-                return Err(ApiError::Other("gmail_history_page_limit".into()));
+                fallback = true;
             }
+        }
+        // An expired cursor or a backlog beyond one batch replays forever if it
+        // fails; bounded reconciliation replaces it without wiping good cache.
+        if fallback || ids.len() > 2000 {
+            full = true;
+            fallback = true;
+            ids.clear();
+            deleted.clear();
         }
     }
     if full {
@@ -115,30 +121,46 @@ pub fn collect(
     if ids.len() > 2000 {
         return Err(ApiError::Other("gmail_scope_limit_reduce_horizon".into()));
     }
+    let ids = ids.into_iter().collect::<Vec<_>>();
+    if !ids.iter().all(|id| super::provider_id(id)) {
+        return Err(ApiError::Other("gmail_invalid_provider_id".into()));
+    }
     let mut messages = Vec::new();
+    let mut skipped = 0;
     let mut text_bytes = 0usize;
-    for id in ids {
-        if !super::provider_id(&id) {
-            return Err(ApiError::Other("gmail_invalid_provider_id".into()));
-        }
+    for chunk in ids.chunks(40) {
         if start.elapsed() > Duration::from_secs(600) {
             return Err(ApiError::Other("gmail_sync_budget_reduce_horizon".into()));
         }
+        let paths = chunk
+            .iter()
+            .map(|id| format!("messages/{id}"))
+            .collect::<Vec<_>>();
         // Fetch current state even if duplicate/out-of-order history includes deletion.
-        match api.get(&format!("messages/{id}"), &[("format", "full".into())]) {
-            Ok(value) => {
-                deleted.remove(&id);
-                let mail = normalize(&account.id, &value).map_err(ApiError::Other)?;
-                text_bytes += mail.canonical_text.len() + mail.clean_text.len();
-                if text_bytes > 32_000_000 {
-                    return Err(ApiError::Other("gmail_batch_limit_reduce_horizon".into()));
+        for (id, result) in chunk
+            .iter()
+            .zip(api.get_many(&paths, &[("format", "full".into())]))
+        {
+            match result {
+                Ok(value) => {
+                    deleted.remove(id);
+                    // Only an unreadable identity or timestamp is skipped; body
+                    // problems are recorded in the snapshot's body status.
+                    let Ok(mail) = normalize(&account.id, &value) else {
+                        skipped += 1;
+                        continue;
+                    };
+                    text_bytes += mail.canonical_text.len() + mail.clean_text.len();
+                    if text_bytes > 32_000_000 {
+                        return Err(ApiError::Other("gmail_batch_limit_reduce_horizon".into()));
+                    }
+                    messages.push(mail)
                 }
-                messages.push(mail)
+                Err(ApiError::NotFound) => {
+                    deleted.insert(id.clone());
+                }
+                Err(e) => return Err(e),
             }
-            Err(ApiError::NotFound) => {
-                deleted.insert(id);
-            }
-            Err(e) => return Err(e),
         }
     }
     Ok(Batch {
@@ -147,5 +169,6 @@ pub fn collect(
         cursor: latest,
         full,
         fallback,
+        skipped,
     })
 }

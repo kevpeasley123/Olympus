@@ -24,6 +24,13 @@ fn guard(
     }
     Ok(())
 }
+const SITUATION_LIMIT: usize = 24;
+fn active_count(known: &[Value]) -> usize {
+    known
+        .iter()
+        .filter(|s| !matches!(s["state"].as_str(), Some("dismissed" | "merged" | "closed")))
+        .count()
+}
 pub(super) fn participant_emails(text: &str) -> BTreeSet<String> {
     text.split(|c: char| !c.is_ascii_alphanumeric() && !"@._+-".contains(c))
         .filter(|s| {
@@ -235,11 +242,21 @@ where
             })
             .collect::<Vec<_>>();
         changed.sort_by(|a, b| b.1 .1.cmp(&a.1 .1).then_with(|| a.0.cmp(b.0)));
-        let threads = changed
-            .into_iter()
-            .take(6)
-            .map(|(id, _)| thread(&c, &a, id))
-            .collect::<Result<Vec<_>, _>>()?;
+        let mut threads = Vec::new();
+        for (tid, signature) in changed {
+            if threads.len() == 6 {
+                break;
+            }
+            match thread(&c, &a, tid) {
+                Ok(t) => threads.push(t),
+                // Recorded as observed so one oversized thread cannot fail every batch.
+                Err(e) if e == "situation_thread_bounds" => {
+                    let record = json!({"threadId":tid,"relevant":false,"situationId":"","title":"","summary":"Not analyzed: the thread exceeds situation discovery's participant bound.","people":[],"relationships":[],"details":[],"skipped":e});
+                    c.execute("INSERT INTO communication_situation_sources VALUES(?1,?2,?3,NULL,?4,?5) ON CONFLICT(account_id,thread_id) DO UPDATE SET signature=excluded.signature,situation_id=NULL,payload_json=excluded.payload_json,updated_at=excluded.updated_at",params![a.id,tid,signature.0,record.to_string(),now()]).map_err(err)?;
+                }
+                Err(e) => return Err(e),
+            }
+        }
         let dirty = known
             .iter()
             .filter(|s| !matches!(s["state"].as_str(), Some("dismissed" | "merged" | "closed")))
@@ -304,18 +321,22 @@ where
                 if let Some(old)=observations.iter().find(|s|s["threadId"]==tid){if let Some(id)=old["situationId"].as_str(){changed_ids.insert(id.to_string());}}
                 if o.relevant {
                     let dismissed_target=observations.iter().find(|s|s["threadId"]==tid).and_then(|o|known.iter().find(|s|s["id"]==o["situationId"]&&matches!(s["state"].as_str(),Some("dismissed"|"closed")))).and_then(|s|s["id"].as_str()).map(str::to_owned);
-                    let target=if let Some(id)=dismissed_target{id}else if o.situation_id.starts_with("new:"){
-                        if let Some(s)=known.iter().find(|s|normalize(s["title"].as_str().unwrap_or(""))==normalize(&o.title)){s["id"].as_str().unwrap().to_string()}
-                        else if let Some(id)=new_keys.get(&o.situation_id){id.clone()}
+                    let target=if let Some(id)=dismissed_target{Some(id)}else if o.situation_id.starts_with("new:"){
+                        if let Some(s)=known.iter().find(|s|normalize(s["title"].as_str().unwrap_or(""))==normalize(&o.title)){Some(s["id"].as_str().unwrap().to_string())}
+                        else if let Some(id)=new_keys.get(&o.situation_id){Some(id.clone())}
+                        else if active_count(&known)>=SITUATION_LIMIT{None}
                         else {
-                            if known.iter().filter(|s|!matches!(s["state"].as_str(),Some("dismissed"|"merged"|"closed"))).count()>=24{return Err("situation_limit_close_or_merge_some".into())}
                             let sid=crate::commands::delegation::run_id();new_keys.insert(o.situation_id.clone(),sid.clone());
-                            let s=json!({"id":sid,"title":o.title,"state":"emerging","briefing":{},"updatedAt":now()});known.push(s.clone());new_situations.push(s);sid
+                            let s=json!({"id":sid,"title":o.title,"state":"emerging","briefing":{},"updatedAt":now()});known.push(s.clone());new_situations.push(s);Some(sid)
                         }
-                    }else{o.situation_id};
-                    let mut target=target;
-                    for _ in 0..96{let s=known.iter().find(|s|s["id"]==target).ok_or("unknown_situation")?;if let Some(next)=s["mergedInto"].as_str(){target=next.into()}else{break;}}
-                    record["situationId"]=json!(target);changed_ids.insert(target);
+                    }else{Some(o.situation_id)};
+                    if let Some(mut target)=target{
+                        for _ in 0..96{let s=known.iter().find(|s|s["id"]==target).ok_or("unknown_situation")?;if let Some(next)=s["mergedInto"].as_str(){target=next.into()}else{break;}}
+                        record["situationId"]=json!(target);changed_ids.insert(target);
+                    }else{
+                        // Persist the observation anyway: repeating the paid call cannot make room.
+                        record["situationId"]=Value::Null;record["relevant"]=json!(false);record["deferred"]=json!("situation_limit_close_or_merge_some");
+                    }
                 }else{record["situationId"]=Value::Null;}
                 record["signature"]=json!(signatures.get(&tid).ok_or("source_disappeared")?.0);
                 record["evidenceRefs"]=json!(t["messages"].as_array().unwrap().iter().map(|m|json!({"messageId":m["id"],"threadId":tid,"fingerprint":m["fingerprint"],"timestamp":m["timestamp"]})).collect::<Vec<_>>());
@@ -536,6 +557,62 @@ mod tests {
         assert_eq!(calls,vec!["situation_discovery","situation_discovery_retry","situation_briefing"]);
         let snapshot=snapshot(&db.0.lock().unwrap()).unwrap();assert_eq!(snapshot["situations"].as_array().unwrap().len(),1);assert!(snapshot["observations"][0]["details"].as_array().unwrap().is_empty());
       });
+    }
+    #[test]
+    fn over_bound_thread_is_recorded_as_skipped_without_failing_the_batch() {
+        tauri::async_runtime::block_on(async {
+            let db = database();
+            mail(&db, "aa", "Please provide a statement.");
+            mail(&db, "bb", "Announcement to a large list.");
+            let cc = (0..30).map(|i| format!("person{i}@example.invalid")).collect::<Vec<_>>().join(", ");
+            db.0.lock().unwrap().execute("UPDATE gmail_messages SET snapshot_json=json_set(snapshot_json,'$.cc',?1) WHERE id='bb'", [cc]).unwrap();
+            let mut discovered = vec![];
+            refresh_with(&db, false, vec![], |_, input, _, purpose| {
+                if purpose == "situation_discovery" {
+                    discovered.extend(input["threads"].as_array().unwrap().iter().map(|t| t["threadId"].clone()));
+                }
+                std::future::ready(Ok((answer(purpose, &input).to_string(), json!({}))))
+            })
+            .await
+            .unwrap();
+            assert_eq!(discovered, vec![json!("aa")]);
+            let c = db.0.lock().unwrap();
+            let skipped = observations(&c, "fixture").unwrap().into_iter().find(|o| o["threadId"] == "bb").unwrap();
+            assert_eq!(skipped["skipped"], "situation_thread_bounds");
+            assert_eq!(skipped["relevant"], false);
+        });
+    }
+    #[test]
+    fn situation_limit_persists_the_observation_instead_of_repeating_discovery() {
+        tauri::async_runtime::block_on(async {
+            let db = database();
+            {
+                let c = db.0.lock().unwrap();
+                for i in 0..24 {
+                    c.execute("INSERT INTO communication_situations(account_id,id,title,state,updated_at) VALUES('fixture',?1,?1,'active','now')", [format!("s{i}")]).unwrap();
+                }
+            }
+            mail(&db, "aa", "Please provide a statement.");
+            let mut discovery = 0;
+            for _ in 0..2 {
+                refresh_with(&db, false, vec![], |_, input, _, purpose| {
+                    if purpose == "situation_discovery" {
+                        discovery += 1;
+                    }
+                    std::future::ready(Ok((answer(purpose, &input).to_string(), json!({}))))
+                })
+                .await
+                .unwrap();
+            }
+            assert_eq!(discovery, 1);
+            let c = db.0.lock().unwrap();
+            assert_eq!(situations(&c, "fixture").unwrap().len(), 24);
+            let observed = observations(&c, "fixture").unwrap();
+            assert_eq!(observed[0]["deferred"], "situation_limit_close_or_merge_some");
+            drop(c);
+            edit(&mut db.0.lock().unwrap(), "s0", Edit::Close, "").unwrap();
+            assert!(observations(&db.0.lock().unwrap(), "fixture").unwrap().is_empty());
+        });
     }
 
 }

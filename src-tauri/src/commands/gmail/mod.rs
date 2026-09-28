@@ -59,6 +59,23 @@ impl ApiError {
 }
 pub trait Api {
     fn get(&mut self, path: &str, query: &[(&str, String)]) -> Result<Value, ApiError>;
+    /// Results in path order, stopping after the first error other than NotFound.
+    fn get_many(
+        &mut self,
+        paths: &[String],
+        query: &[(&str, String)],
+    ) -> Vec<Result<Value, ApiError>> {
+        let mut results = Vec::new();
+        for path in paths {
+            let result = self.get(path, query);
+            let stop = matches!(&result, Err(e) if !matches!(e, ApiError::NotFound));
+            results.push(result);
+            if stop {
+                break;
+            }
+        }
+        results
+    }
 }
 #[derive(Default)]
 pub struct Runtime {
@@ -106,11 +123,14 @@ pub struct Status {
     candidates: Vec<Value>,
 }
 #[tauri::command]
-pub fn gmail_status(
-    app: tauri::AppHandle,
-    db: tauri::State<'_, Db>,
-    runtime: tauri::State<'_, Runtime>,
-) -> Result<Status, String> {
+pub async fn gmail_status(app: tauri::AppHandle) -> Result<Status, String> {
+    tauri::async_runtime::spawn_blocking(move || status(&app))
+        .await
+        .map_err(|_| "gmail_worker_failed")?
+}
+fn status(app: &tauri::AppHandle) -> Result<Status, String> {
+    let db = app.state::<Db>();
+    let runtime = app.state::<Runtime>();
     let c = db.0.lock().map_err(|_| "gmail_database_unavailable")?;
     let account = store::account(&c)?;
     let id = account.as_ref().map(|a| a.id.as_str()).unwrap_or("");
@@ -125,7 +145,7 @@ pub fn gmail_status(
     } else {
         Vec::new()
     };
-    let path = config_path(&app)?;
+    let path = config_path(app)?;
     Ok(Status {
         account,
         busy: runtime.busy.load(Ordering::SeqCst),
@@ -195,7 +215,9 @@ fn sync_inner(app: &tauri::AppHandle, runtime: &Runtime) -> Result<(), String> {
     let c = db.0.lock().map_err(|_| "gmail_database_unavailable")?;
     match result {
         Ok(batch) => {
-            c.execute("UPDATE gmail_sync_runs SET status='succeeded',finished_at=?2,mode=?3,changes=?4 WHERE id=?1",params![run,now(),if batch.fallback{"expired_cursor_full"}else if batch.full{"bounded_full"}else{"incremental"},batch.messages.len()+batch.deleted.len()]).map_err(|_|"gmail_database_write_failed")?;
+            // Skipped messages lacked a readable identity or timestamp; the run still succeeded.
+            let note = (batch.skipped > 0).then(|| format!("skipped_unreadable_messages:{}", batch.skipped));
+            c.execute("UPDATE gmail_sync_runs SET status='succeeded',finished_at=?2,mode=?3,changes=?4,error=?5 WHERE id=?1",params![run,now(),if batch.fallback{"expired_cursor_full"}else if batch.full{"bounded_full"}else{"incremental"},batch.messages.len()+batch.deleted.len(),note]).map_err(|_|"gmail_database_write_failed")?;
             Ok(())
         }
         Err(e) => {
@@ -228,8 +250,7 @@ pub async fn gmail_connect(app: tauri::AppHandle) -> Result<(), String> {
         let cfg = auth::config(&config_path(&app)?)?;
         let (access, refresh) = auth::authorize(&app, &runtime, &cfg)?;
         let mut api = auth::GmailHttp::new(String::new(), cfg, &runtime)?;
-        api.token = access;
-        api.expires = std::time::Instant::now() + Duration::from_secs(120);
+        api.set_token(access, Duration::from_secs(120));
         let profile = api.get("profile", &[]).map_err(|e| e.code())?;
         let email = profile["emailAddress"]
             .as_str()
@@ -282,6 +303,9 @@ pub fn gmail_disconnect(
     runtime.cancel.store(true, Ordering::SeqCst);
     let c = db.0.lock().map_err(|_| "gmail_database_unavailable")?;
     if let Some(a) = store::account(&c)? {
+        if let Ok(refresh) = auth::Secrets::get(&auth::WindowsSecrets, &a.id) {
+            auth::revoke(refresh);
+        }
         auth::disconnect(&auth::WindowsSecrets, &c, &a.id)?;
     }
     Ok(())
@@ -409,22 +433,27 @@ pub fn context(c: &Connection, q: &str) -> (String, Vec<store::Excerpt>) {
 }
 
 #[tauri::command]
-pub fn gmail_workspace(
-    db: tauri::State<'_, Db>,
+pub async fn gmail_workspace(
+    app: tauri::AppHandle,
     days: u32,
     group: String,
     sender: String,
     page: u32,
 ) -> Result<Value, String> {
-    let c = db.0.lock().map_err(|_| "gmail_database_unavailable")?;
-    communications::workspace(
-        &c,
-        days,
-        &group,
-        &sender,
-        page,
-        chrono::Utc::now().timestamp_millis(),
-    )
+    tauri::async_runtime::spawn_blocking(move || {
+        let db = app.state::<Db>();
+        let c = db.0.lock().map_err(|_| "gmail_database_unavailable")?;
+        communications::workspace(
+            &c,
+            days,
+            &group,
+            &sender,
+            page,
+            chrono::Utc::now().timestamp_millis(),
+        )
+    })
+    .await
+    .map_err(|_| "gmail_worker_failed")?
 }
 
 pub mod intelligence;

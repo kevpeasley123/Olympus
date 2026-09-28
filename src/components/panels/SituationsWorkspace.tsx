@@ -6,7 +6,7 @@ import './situations.css';
 import {SituationRelationshipWeb} from './SituationRelationshipWeb';
 import {DocumentSituationMap} from './DocumentSituationMap';
 const active=(state:string)=>!['closed','dismissed','merged'].includes(state);
-const readable=(e:unknown)=>String(e).includes('detail_')?'The first map could not be completed because a source detail could not be verified. Try Refresh now.':String(e).replace(/_/g,' ');
+const readable=(e:unknown)=>String(e).includes('detail_')?'The first map could not be completed because a source detail could not be verified. Try Refresh now.':String(e)==='communication_analysis_already_running'?'Another analysis is running. Retry when it finishes.':String(e).replace(/_/g,' ');
 export function SituationsWorkspace({api=situationsClient,onOpen}:{api?:SituationsClient;onOpen:(row:CommunicationRow)=>void}){
  const [data,setData]=useState<SituationSnapshot|null>(null),[selected,setSelected]=useState(''),[person,setPerson]=useState(''),[overview,setOverview]=useState(false),[peoplePage,setPeoplePage]=useState(0);
  const [error,setError]=useState(''),[busy,setBusy]=useState(''),[update,setUpdate]=useState(''),[title,setTitle]=useState(''),[target,setTarget]=useState(''),[draft,setDraft]=useState<LocalDraft|null>(null),[notice,setNotice]=useState('');

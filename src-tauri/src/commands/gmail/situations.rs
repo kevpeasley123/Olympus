@@ -12,6 +12,7 @@ use rusqlite::{params, Connection, OptionalExtension};
 use serde::Deserialize;
 use serde_json::{json, Value};
 use std::collections::BTreeMap;
+use std::sync::atomic::{AtomicI64, AtomicU32, Ordering};
 use tauri::{Manager, State};
 const GRAPH: &str = "communication-situations/v1";
 fn err(e: impl std::fmt::Display) -> String {
@@ -236,6 +237,7 @@ fn edit(c: &mut Connection, id: &str, action: Edit, value: &str) -> Result<(), S
     if source["state"] == "merged" {
         return Err("situation_already_merged".into());
     }
+    let frees_slot = matches!(action, Edit::Dismiss | Edit::Close | Edit::Merge);
     let tx = c.transaction().map_err(err)?;
     match action {
         Edit::Rename => {
@@ -269,10 +271,36 @@ fn edit(c: &mut Connection, id: &str, action: Edit, value: &str) -> Result<(), S
             tx.execute("UPDATE communication_situations SET state=?3,updated_at=?4 WHERE account_id=?1 AND id=?2",params![a.id,id,state,now()]).map_err(err)?;
         }
     }
+    if frees_slot {
+        // Threads deferred at the situation limit are rediscovered once room exists.
+        tx.execute("DELETE FROM communication_situation_sources WHERE account_id=?1 AND json_extract(payload_json,'$.deferred') IS NOT NULL",[&a.id]).map_err(err)?;
+    }
     bump(&tx, &a.id)?;
     tx.commit().map_err(err)
 }
+// Repeating failures would repeat paid calls. Consecutive failures back off
+// from five minutes to four hours; any success, manual or background, resets.
+// Held in memory only, so a restart retries once.
+static FAILURES: AtomicU32 = AtomicU32::new(0);
+static RESUME_AT: AtomicI64 = AtomicI64::new(0);
+fn backoff_ms(failures: u32) -> i64 {
+    (300_000i64 << failures.saturating_sub(1).min(6)).min(14_400_000)
+}
 fn record_outcome(db: &Db, result: &Result<(), String>) {
+    match result {
+        Ok(()) => {
+            FAILURES.store(0, Ordering::SeqCst);
+            RESUME_AT.store(0, Ordering::SeqCst);
+        }
+        Err(e) if e != "gmail_not_connected" && e != "database_busy" => {
+            let failures = FAILURES.fetch_add(1, Ordering::SeqCst) + 1;
+            RESUME_AT.store(
+                chrono::Utc::now().timestamp_millis() + backoff_ms(failures),
+                Ordering::SeqCst,
+            );
+        }
+        Err(_) => {}
+    }
     if let Ok(c) = db.0.lock() {
         if let Ok(a) = account(&c) {
             if ensure(&c, &a.id).is_ok() {
@@ -290,8 +318,10 @@ pub fn start_cadence(app: tauri::AppHandle) {
         loop {
             // Unlike the display, this worker remains active when Communications is not selected.
             let db = app.state::<Db>();
-            let result = engine::refresh(&db, false).await;
-            record_outcome(&db, &result);
+            if chrono::Utc::now().timestamp_millis() >= RESUME_AT.load(Ordering::SeqCst) {
+                let result = engine::refresh(&db, false).await;
+                record_outcome(&db, &result);
+            }
             tokio::time::sleep(std::time::Duration::from_secs(30)).await;
         }
     });
