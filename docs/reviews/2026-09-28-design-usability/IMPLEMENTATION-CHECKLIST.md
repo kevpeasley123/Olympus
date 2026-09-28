@@ -137,54 +137,58 @@ Opened by AmbientDock (`preferencesOpen` state in App, as before). Order:
   - Also exports `dayLabel(value, now?)`, `isSameDay`, `clockTime`, `toDate`.
   - Tested by `node scripts/test-time.mjs`.
 
-### Left for surface agents
+## Surface passes (merged)
 
-- **Command:**
-  - U1 ring readout ("Scanning projects…", "Project scan failed · Retry") from `projectScan`, and header next-step blanking. Pass `projectScan`/`rescanProjects` down from App.
-  - U2, U6, U10.
-  - Ring roving tabindex and "Skip to console".
-  - F6: chat links, transcript ISO time and day separators via `dayLabel`, Replay visibility.
-  - Chat "Open in library" via `openResearchEntry`.
-- **Projects:**
-  - U1 board skeleton and banner.
-  - F1 freshness line from `projectScan.lastSuccessAt` and the stores' `lastSuccessAt`.
-  - U3: DelegationPanel draft into `projectDrafts`; DelegationReview into `reviewNotes`, with `projectId` set; board and detail scroll.
-  - D5, U11, and `formatWhen` for commit dates.
-- **Research:**
-  - LibraryPanel state into the `research` slice.
-  - Consume `useNavigationTarget("research")`.
-  - U7, F3.
-  - Button sizes (D1).
-- **Communications:**
-  - Its state into the `comms` slice; consume `useNavigationTarget("communications")`.
-  - `subscribeToRefresh` and extend the Ctrl+R label.
-  - U8, U12, F4, "Close draft" Save/Discard.
+| Surface | Branch commits | Merge | Verification reported by the pass |
+| --- | --- | --- | --- |
+| Foundation | `d920883` | direct | build; 10 scripts; 8 harnesses; mock checks for scan failure, Preferences, shortcuts, Ctrl+R, error boundary |
+| Projects & delegation | `8f2fc27`, `06db61e` | `d2aedf4` | build; `cargo test` 385 passed; `test-project-board.mjs` (44 board + 18 review checks); project-board harness 24; mock 60/60 at 1440, board and scan subset at 1280/1920/2560 |
+| Communications | `e50f851`, `4f4090e`, `6dc4f98` | `605388f` | build; `cargo test` 386; scripts including a new navigator test (15); situations 30/76/76; communications 60/60; gmail 27; relationship dossier 72; viewport matrix at 8 sizes; 25/25 app flows on the mock |
+| Command & voice | `8658bcd`, `c3683e0`, `4984ae1`, `7284274`, `0e58baa` | `9d8fdf9` (conflicts in `ChatPanel.tsx` and `App.tsx` resolved by keeping both sides) | build; `cargo test` 389; 11 scripts including `test-command-voice.mjs` (14); console, typed-voice, voice, voice-settings, command-agent, project-ring harnesses; mock 200/208 (the only remaining failures are the Tab-count target — see U9); WebGL-off at four sizes |
+| Research | `087cb7a`, `c2fab5d`, `3ec35f7` | `a3925ea` | build; `cargo test` 387; `test-library.mjs` (12); research-verification 29; knowledge-audit pass; workflow-inspection 23; mock 60 checks at each of four sizes (search re-run after an expectation fix) |
+
+After all four merges: `npm run build` passes, every `scripts/test-*.mjs` passes, and `cargo test --lib` gives 398 passed, 0 failed, 11 ignored. Integration QA across surfaces is recorded below.
 
 ## Items
 
-| ID | Summary | Status | Files | Verification | Limitations |
+The evidence recorded here is unit, build and mock only. Every item still needs desktop acceptance — see "Native checks".
+
+| ID | Summary | Status | Main files | Verification | Limitations |
 | --- | --- | --- | --- | --- | --- |
-| U1 | Seed projects shown as real; scan state | partial | `src/hooks/useDashboardData.ts`, `src/services/storage.ts`, `src/data/seed.ts` | build; mock (`scanFails`: no seed name in Project or on the ring; scan OK renders mock projects; browser demo keeps labelled seed) | Data layer only. Ring readout, board banner, Retry and header blanking are surface work (Command, Projects). |
-| U2 | Voice failure alarms the instrument | pending | | | |
-| U3 | Operator work lost to refresh and navigation | partial | `src/state/viewState.ts`, `src/App.tsx` | build; mock (Project detail cleared on mode switch when no work is open) | Store and App-level project detail rule only. Panels must move their state into the slices; the "keep detail open" path is exercised once ProjectsPanel/DelegationReview write `projectDrafts`/`reviewNotes`. |
-| U4 | Restart beside Refresh | done | `src/components/panels/PreferencesDialog.tsx`, `src/components/panels/LibraryPanel.tsx` | build; mock (no restart control on the strip; Restart asks for confirmation) | Confirmation names drafts generically; live reply, voice and running delegated runs are listed only when observed. Native restart not exercised. |
-| U5 | Claim-to-evidence path | pending | | | |
-| U6 | Typed replies with Voice on | pending | | | |
-| U7 | Research inspectors and reading position | pending | | | |
-| U8 | Communications at laptop widths | pending | | | |
-| U9 | Keyboard model and Preferences dialog | partial | `src/services/shortcuts.ts`, `src/components/Modal.tsx`, `src/components/panels/{AmbientDock,PreferencesDialog,ChatPanel,LibraryPanel}.tsx`, `src/styles.css` | build; mock (dialog role/label, focus in, Tab trapped, Escape closes, focus back to gear, Ctrl+\ suppressed, popover text, Ctrl+K → console in Research, `/` → search only outside fields) | Ring roving tabindex, "Skip to console" and the ≤15-Tab target are Command surface work. |
-| U10 | Opening briefing in Text mode and labels | pending | | | |
-| U11 | Delegation plan, blockers, approval legibility | pending | | | |
-| U12 | Gmail recovery; data-reducing actions | pending | | | |
-| D1 | Type scale and size floor | partial | `src/styles.css` `:root` | build | Tokens only (`--text-micro` … `--text-2xl`, `--leading-*`). Surfaces apply them. |
-| D2 | Tokens, contrast, focus ring | partial | `src/styles.css`, `commandAgents.css`, `researchVerification.css`, `situations.css`, `scripts/test-css-tokens.mjs` | unit (`node scripts/test-css-tokens.mjs`: 0 undefined); mock (library search shows the ring) | One-off colour folding and a full contrast audit remain. Focus styles that replace the outline with a border/colour change were left as they are. |
-| D3 | Implementation details and dates in ordinary views | partial | `src/services/time.ts`, `src/services/time.harness.ts`, `scripts/test-time.mjs` | unit (25 checks, three time zones) | `formatWhen`/`dayLabel` exist; no surface uses them yet. |
-| D4 | Workflow Inspection layout for inspectors | pending | | | |
-| D5 | Project board repetition | pending | | | |
-| D6 | Precise state names | pending | | | |
-| F1 | Source-specific freshness | partial | `src/hooks/createPollingStore.ts` and the store hooks | build | `lastSuccessAt` exposed; nothing renders it yet. Communications last-run time still needs backend exposure. |
-| F2 | Attention field | pending | | | |
-| F3 | Research search, lists, capture | pending | | | |
-| F4 | Situation navigator scale | pending | | | |
-| F5 | Hidden work, WebGL fallback, deferred init | pending | | | |
-| F6 | Links, Ctrl+R, error boundaries, seed chat, transcript dates, Replay | partial | `src/components/ErrorBoundary.tsx`, `src/App.tsx`, `src/components/panels/AmbientDock.tsx`, `src/hooks/useDashboardData.ts`, `src/services/storage.ts` | build; mock (Ctrl+R while typing does not reload and refreshes projects, tasks, runs, library, graph, vault writes; forced Research render error shows the fallback with header and console still mounted) | Done here: Ctrl+R, boundaries, seed conversation. Left: chat links via `open_external_link`, transcript day separators, Replay visibility (Command surface). |
+| U1 | Seed projects shown as real; scan state | done | `useDashboardData.ts`, `storage.ts`, `seed.ts`, `CommandInstrument.tsx`, `ProjectRing.tsx`, `HeaderBar.tsx`, `ProjectsPanel.tsx` | mock (loading, failed, stale and empty across ring, header and board; no seed names on desktop); unit (board states) | Browser preview keeps the labelled demo seed by design. |
+| U2 | Voice failure alarms the instrument | done | `App.tsx` (`instrumentState`), `realtimeVoice.ts`, `voiceFailure.ts`, `ChatPanel.tsx`, `voice.rs` | mock (429: core idle, readable row, Retry audio / Switch to Text / Dismiss; red only on a request failure); unit | Real WebView2 autoplay and a real 429 are native checks. |
+| U3 | Operator work lost to refresh and navigation | done | `viewState.ts`, `DelegationReview.tsx`, `DelegationPanel.tsx`, `delegationReview.ts`, Library files, `SituationsWorkspace.tsx`, `recipients.ts` | unit (notes survive refresh; hash change clears selections and acknowledgement, keeps notes); mock (drafts, detail, query, entry, situation, reply draft survive mode switches; close prompts) | Session memory only. Drafts are lost on app restart by design; no durable store for sensitive text. |
+| U4 | Restart beside Refresh | done | `PreferencesDialog.tsx`, `LibraryPanel.tsx` | mock | Native restart not exercised. |
+| U5 | Claim-to-evidence path | done | `ChatPanel.tsx` (Open in library), `library/*` (destination, `excerptHighlight.ts`), `pantheon.rs` (fingerprints), `ResearchVerification.tsx`, `KnowledgeAudit.tsx`, `SituationSourceReview.tsx`, `communications.ts` | unit (fingerprint equals retrieval's value; changed and unchanged cases); mock (Unchanged / Changed / No longer in library; citations; Review source three blocks; thread as attached context) | The Gmail thread marker is still stored in chat history, under a "Gmail thread reference" heading, because the backend reads it from the message. |
+| U6 | Typed replies with Voice on | done | `voice.rs` (`VisualStream`), `responses.rs`, `assistant.rs`, `useDashboardData.ts`, `ChatPanel.tsx` | unit (escapes, surrogates, every chunk size 1–9, decoys); mock (text about 0.9 s after send) | The strict schema is sent with alphabetical keys, so `spokenResponse` is generated before `visualResponse`. Visible text therefore starts after the spoken summary (≤55 words). Reordering needs serde_json `preserve_order`, which would change `Value` key order globally; not done. |
+| U7 | Research inspectors and reading position | done | `LibraryPanel.tsx`, `library/LibraryBrowser.tsx`, `library/EntryDetail.tsx` | mock (segments; brief starts 267px down at 1280; open/back restores scroll and focus; header clean at four sizes) | — |
+| U8 | Communications at laptop widths | done | `SituationsWorkspace.tsx`, `NextStepStrip`, `DocumentSituationMap.tsx`, `SituationRelationshipWeb.tsx`, `situationGraph.ts`, `mapTypography.ts`, `situations.css` | unit (map typography 10); mock (next step visible on arrival at 1280/1440; map text ≥12px at four sizes; no overlay interception) | Review source's full-thread block sits below the fold in the narrow inspector. |
+| U9 | Keyboard model and Preferences dialog | done | `shortcuts.ts`, `Modal.tsx`, `PreferencesDialog.tsx`, `AmbientDock.tsx`, `ProjectRing.tsx`, `ChatPanel.tsx`, `LibraryPanel.tsx` | mock (dialog behaviour; popover text; Ctrl+K; `/`; roving ring; skip links) | Tab walk to the console in Command is 21–22, down from 67–69. The review's ≤15 was a starting point; the remaining stops are real controls (mode switcher, quick apps, catalog). |
+| U10 | Opening briefing in Text mode and labels | done | `ChatPanel.tsx`, `conversationHistory.ts`, `assistant.ts`, `useDashboardData.ts` | unit; mock (BRIEFING READY; label; "Not spoken (Text replies)"; only the newest briefing in history) | — |
+| U11 | Delegation plan, blockers, approval legibility | done | `DelegationPanel.tsx`, `DelegationReview.tsx`, `delegation.rs`, `delegation_review.rs` | unit (read-only plan read writes nothing; `permitted` built from launch constants); mock (plan readable without a proposal; blocker reasons; definition list; countdown; completion checklist) | Needs desktop checks: real `permitted` and `baseBranch` output, and approve/stop against the real backend. |
+| U12 | Gmail recovery; data-reducing actions | done | `gmail/store.rs`, `gmail/mod.rs` (`gmail_cache_counts`), `situations.rs`, `gmail.ts`, `Communications.tsx`, `GmailSettings.tsx` | unit (counts); mock (four error states; real next-attempt times from the backend; counts dialog; narrowing prompt) | Real-account behaviour is a desktop check. |
+| D1 | Type scale and size floor | done | tokens in `styles.css`; `projects.css`, `command.css`, `communications.css`, `situations.css`, `library/library.css` | mock measurements per surface | A few 10–11px mono badges remain in Communications' Browse email. The one-off colour audit is not exhaustive. |
+| D2 | Tokens, contrast, focus ring | done | `styles.css`, component CSS, `scripts/test-css-tokens.mjs` | unit (0 undefined tokens); measured `--label` contrast ≥4.54 on all tiers | Colour consolidation was opportunistic, not complete. |
+| D3 | Implementation details and dates in ordinary views | done | `time.ts`, `commsTime.ts`, `researchLabels.ts`, per-surface components | unit (time 25 checks); mock | Identifiers remain available inside Inspect and Internals disclosures by design. |
+| D4 | Workflow Inspection layout for inspectors | done | `ResearchVerification.tsx`, `KnowledgeAudit.tsx`, `library/InspectorParts.tsx`, `ModelSettings.tsx` (diagnostics table), `WorkflowInspection.tsx` | harnesses (research-verification 29, workflow-inspection 23, knowledge-audit pass) | — |
+| D5 | Project board repetition | done | `ProjectsPanel.tsx`, `projectCommandBoard.ts`, `projects.css` | mock (first row y=292 at 1440×900, y=346 at 1280×800) | Sort control wraps onto its own line at 1280. |
+| D6 | Precise state names | done | `ChatPanel.tsx`, `CommandInstrument.tsx`, `ProjectsPanel.tsx`, `DelegationPanel.tsx` | mock; unit (ARCHIVED display mapping) | — |
+| F1 | Source-specific freshness | done | `ProjectsPanel.tsx`, `Communications.tsx`, `situations.rs` (`understanding` last run), stores' `lastSuccessAt` | mock | — |
+| F2 | Attention field | partial → see integration | `projectBriefing.ts`, `ProjectsPanel.tsx` | unit (observations never change status or owner) | Board and detail are done. Opening-briefing inclusion was assigned to integration QA. |
+| F3 | Research search, lists, capture | done | `library/libraryModel.ts`, `pantheonRecord.ts`, `pantheon.rs`, `AddEntryDialog.tsx`, `entryMarkdown.tsx` | unit (search tiers, dirty fields, source types, wikilinks); mock | No Tauri drag-and-drop. Attachments open through `open_vault_note` (Obsidian), limited to `_attachments`. |
+| F4 | Situation navigator scale | done | `situationNavigator.ts`, `SituationsWorkspace.tsx` | unit (navigator 15); mock | Email-only situations show "Not assessed", because the policy reads saved document context only. |
+| F5 | Hidden work, WebGL fallback, deferred init | done | `CommandInstrument.tsx`, `HybridCommandCore.tsx`, `hybridScene.ts`, `useSituationSnapshot.ts`, `situations.rs` (revision), Library model and paging | mock (WebGL-off SVG at four sizes; no 3D chunk when opening in Research; snapshot unchanged skip); measured (Research typing at 3,000 entries: long tasks 1.3–2.0 s → 0.13–0.36 s, dev build on SwiftShader) | No GPU claims. Real-GPU profiling is a native check. |
+| F6 | Links, Ctrl+R, error boundaries, seed chat, transcript dates, Replay | done | `externalLink.ts`, `ChatPanel.tsx`, `shortcuts.ts`, `ErrorBoundary.tsx`, `persistence.rs` (`at`), `useDashboardData.ts` | unit; mock | Rows imported from localStorage carry their import time as their date. |
+
+## Native checks (not available in this environment)
+
+- WebView2: opening-briefing autoplay, and a real voice 429.
+- Streaming latency on real Sol and Claude voice turns.
+- `open_external_link` and `open_vault_note` round trips.
+- Restart from Preferences.
+- Job Object and process behaviour, unchanged from earlier work.
+- The Command scene on a real GPU: deferral, SVG fallback, and pausing when hidden.
+- Transcript dates on real SQLite rows.
+- Gmail error states, counts and revoke with a real account.
+- Delegation `permitted` text and `baseBranch` against real runs; approve and stop.
+- Visual review by the operator at their normal window size.
