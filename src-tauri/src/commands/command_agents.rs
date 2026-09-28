@@ -53,7 +53,7 @@ fn snapshot(
             .collect::<Vec<_>>();
         agents.push(json!({"id":id,"name":definition.name,"version":definition.version,"kind":"agent","status":if ready{"AVAILABLE"}else{"UNAVAILABLE"},"tone":if ready{"ready"}else{"unavailable"},"description":if id==RESEARCH{"Finds and synthesizes scoped evidence."}else{"Checks claims against supplied evidence."},"role":definition.purpose,"skills":skills,"authority":"Read-only evidence assessment. No source, project or memory writes; no approval or policy authority.","sourceScope":"Scoped Pantheon Research excerpts only","workflows":[{"id":research_agents::GRAPH,"name":"Research Verification v1","destination":"research"}],"peers":definition.peers,"modelStrategy":format!("{} · {}",models::PRIMARY_MODEL,"medium"),"availability":reason,"history":history(connection,id)?,"evidence":"Compiled role; quality and live acceptance must be assessed from saved runs."}));
     }
-    let (count,completed,last):(i64,i64,Option<String>)=connection.query_row("SELECT count(*),coalesce(sum(CASE WHEN phase='completed' THEN 1 ELSE 0 END),0),max(started_at) FROM delegation_runs",[],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?))).map_err(|e|e.to_string())?;
+    let (count,completed,last):(i64,i64,Option<String>)=connection.query_row("SELECT count(*),coalesce(sum(CASE WHEN phase='complete' THEN 1 ELSE 0 END),0),max(started_at) FROM delegation_runs",[],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?))).map_err(|e|e.to_string())?;
     agents.push(json!({"id":"coding-delegate","name":"Coding Delegate","version":null,"kind":"legacy","status":if completed==0{"UNPROVEN"}else{"RECORDED"},"tone":"muted","description":"Bounded implementation executor.","role":"Existing Claude Code delegation adapter with separate planning and implementation approval gates.","skills":[],"authority":"Only the explicitly approved project, stage and worktree. Completion requires recorded checks and operator review.","sourceScope":"Approved project / isolated worktree","workflows":[{"id":"coding-delegation","name":"Project delegation","destination":"projects"}],"peers":[],"modelStrategy":models::CODING_MODEL,"availability":"Driver detected in the September 23 audit (Claude Code 2.1.222); current readiness not probed here.","history":{"count":count,"lastAt":last,"recent":[],"unit":"recorded runs"},"evidence":if completed==0{"No completed Olympus delegation runs found. Potentially dormant; not deprecated."}else{"Completed delegation records exist; inspect their project review evidence."}}));
     Ok(
         json!({"observedAt":chrono::Utc::now().to_rfc3339(),"orchestrator":{"id":"olympus","name":"Olympus Core","kind":"orchestrator","version":null,"status":"ACTIVE","tone":"ready","description":"Coordinates workflows, agents, skills and execution.","role":"Coordinates the application's compiled workflows and bounded agents.","capabilities":["Planning","Routing","Fixed graph execution","Bounded agent coordination","Synthesis"],"authority":"Backend-owned routes and existing approval gates. Chat cannot launch agent runs or grant execution consent; writes and Coding execution use their dedicated approval flows.","sourceScope":"Evidence supplied through configured application routes","usedBy":"System-wide orchestration"},"agents":agents}),
@@ -106,6 +106,14 @@ mod tests {
             snapshot(&c, true, false).unwrap()["agents"][1]["status"],
             "UNAVAILABLE"
         );
+    }
+    #[test]
+    fn a_reviewed_complete_delegation_is_recorded() {
+        let c = db();
+        c.execute("INSERT INTO delegation_runs(id,project_id,project_name,task,driver,model,phase,workspace,branch,base_commit,agent_session_id,milestone) VALUES ('run','p','P','t','d','m','complete','w','b','c','s','Operator reviewed')",[]).unwrap();
+        let view = snapshot(&c, true, true).unwrap();
+        assert_eq!(view["agents"][2]["status"], "RECORDED");
+        assert_eq!(view["agents"][2]["history"]["count"], 1);
     }
     #[test]
     fn history_counts_dispatched_children_without_recovery_or_fabricated_activity() {

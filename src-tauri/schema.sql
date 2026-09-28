@@ -203,6 +203,16 @@ CREATE TABLE IF NOT EXISTS knowledge_audit_events (
 );
 CREATE INDEX IF NOT EXISTS knowledge_audit_events_run ON knowledge_audit_events(run_id,sequence);
 
+-- Research/Verification pair runs. Operational records only; no source or memory writes.
+CREATE TABLE IF NOT EXISTS research_verification_runs (
+  id TEXT PRIMARY KEY, status TEXT NOT NULL,
+  cancel_requested INTEGER NOT NULL DEFAULT 0, record_json TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS research_verification_checkpoints (
+  run_id TEXT NOT NULL, sequence INTEGER NOT NULL, record_json TEXT NOT NULL,
+  PRIMARY KEY(run_id, sequence)
+);
+
 -- Gmail is an external source cache; user tokens live in Windows Credential Manager.
 CREATE TABLE IF NOT EXISTS gmail_accounts (
  id TEXT PRIMARY KEY, email TEXT NOT NULL, enabled INTEGER NOT NULL DEFAULT 0,

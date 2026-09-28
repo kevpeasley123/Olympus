@@ -3,7 +3,8 @@ import { invoke } from "@tauri-apps/api/core";
 import { fetchDelegationDiff, type DelegationRun } from "../../services/delegation";
 
 interface Check { id: string; checkName: string; exitCode: number | null; output: string; workspaceHash: string }
-interface Details { criteria: string[]; plan: string; checks: Check[]; approvals: string[] }
+interface CheckOption { id: string; label: string; unavailable: string | null }
+interface Details { criteria: string[]; plan: string; checks: Check[]; approvals: string[]; availableChecks: CheckOption[] }
 
 export function DelegationReview({ runId, onComplete }: { runId: string; onComplete: (run: DelegationRun) => void }) {
   const [details, setDetails] = useState<Details | null>(null);
@@ -53,9 +54,11 @@ export function DelegationReview({ runId, onComplete }: { runId: string; onCompl
       <details><summary>Plan</summary><pre>{details.plan}</pre></details>
       <details><summary>Workspace diff</summary><pre className="delegation-diff">{diff}</pre></details>
       <p>Run applicable checks. A successful process exit alone does not establish the requested outcome.</p>
+      <p>Each check runs build and test scripts from this worktree, which the agent could have changed. It runs without API keys in its environment, but it is not sandboxed.</p>
       <div className="delegation-actions">
-        {[["frontend-build", "Frontend build"], ["rust-tests", "Rust tests"], ["npm-test", "npm test"]].map(([id, label]) => <button className="delegation-action" key={id} disabled={busy} onClick={() => void check(id)}>{label}</button>)}
+        {details.availableChecks.map(option => <button className="delegation-action" key={option.id} disabled={busy || !!option.unavailable} title={option.unavailable ?? "Runs code written by the agent"} onClick={() => void check(option.id)}>{option.label} · runs agent code</button>)}
       </div>
+      {details.availableChecks.filter(option => option.unavailable).map(option => <p key={option.id}>{option.label}: {option.unavailable}</p>)}
       {details.checks.map(check => <details key={check.id}><summary>{check.checkName} · exit {check.exitCode ?? "unavailable"}{check.workspaceHash !== hash ? " · stale" : ""}</summary><pre className="delegation-diff">{check.output}</pre></details>)}
       {details.criteria.map((criterion, i) => <div key={i}>
         <label htmlFor={`evidence-${runId}-${i}`}>{criterion}</label>

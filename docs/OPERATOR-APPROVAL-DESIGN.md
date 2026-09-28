@@ -36,13 +36,15 @@ A session ID provided by the webview is not proof of a desktop launch. The backe
 
 At both start and resume, verify project, repository, base, task bytes, stage, driver, plan (when applicable), session, expiry, revocation, and unused status. Failure creates no agent process. Editing task text invalidates an earlier approval. Approval is never inferred from the agent's output or from a note's contents.
 
-After restart, show preserved work and the interrupted state. Require a new review before resuming; do not mint approval from a stored run. Cancellation revokes unused proposals and stops the existing process tree, preserving the worktree and diff.
+After restart, show preserved work and the interrupted state. Require a new review before resuming; do not mint approval from a stored run. Cancellation revokes unused proposals and stops the existing process tree, preserving the worktree and diff. A recorded process ID is acted on only while the process's creation time still matches the one recorded at launch, so a reused ID is neither reported as running nor stopped.
 
 Vault fields may reference an approval ID for display, but are not required for authorization. The UI derives approval status from SQLite. No writer emits “Kevin approved” prose. Existing generic vault writers never gain an approval-record creation capability. Chat memory can quote a claim about approval; that quotation has zero execution authority.
 
 ## Completion must also become evidence-based
 
 An agent's successful exit means `awaiting_review`, not `complete`. A run records the requested outcome, criteria, actual checks with exit codes, changed files against the base (including new and committed files), and unresolved issues. Completion requires criteria mapped to evidence. Agent assertions are attributed as assertions; deterministic checks and operator review remain distinct evidence types. Push, merge, deploy, and destructive cleanup remain separate actions.
+
+A check that does not apply to the worktree (no matching `package.json` script, no `Cargo.toml`, or no installed `node_modules`) records nothing and does not block completion. A check that runs and fails, times out, or is interrupted by an Olympus restart is recorded without an exit code and blocks completion until it is rerun. Checks run code from the agent's worktree; see `AGENT-DELEGATION.md` for what that environment does and does not contain.
 
 ## Scope of protection
 
