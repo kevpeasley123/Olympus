@@ -13,9 +13,11 @@ const wait=()=>new Promise(resolve=>setTimeout(resolve,100));
 async function run(){const protocol=await runRealtimeVoiceHarness();await wait();const input=document.querySelector<HTMLTextAreaElement>('[aria-label="Command to Olympus"]')!;input.focus();Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,"value")!.set!.call(input,"Keep my typed follow-up");input.dispatchEvent(new Event("input",{bubbles:true}));await wait();document.querySelector<HTMLButtonElement>('[aria-label="Start voice conversation"]')!.click();await wait();if(input.value!=="Keep my typed follow-up")throw Error("Draft lost on voice failure");if(!document.body.textContent?.includes("desktop app"))throw Error("Missing graceful fallback");document.querySelector<HTMLButtonElement>('[aria-label="Send command"]')!.click();await wait();if(!document.body.textContent?.includes("Keep my typed follow-up"))throw Error("Text disabled after failure");if(!document.body.textContent?.includes("Playback interrupted"))throw Error("Missing interruption disclosure");if(!document.body.textContent?.includes("Authorization required"))throw Error("Missing confirmation boundary");const user=document.querySelector<HTMLElement>('.conversation-bubble.user')!;
 const assistant=document.querySelector<HTMLElement>('.conversation-bubble.assistant')!;
 if(user.getBoundingClientRect().left<=assistant.getBoundingClientRect().left)throw Error("Speaker alignment lost");
-const details=assistant.querySelector<HTMLDetailsElement>('.console-response-details')!;
-if(details.open)throw Error("Full visual response expanded by default");
-details.open=true;await wait();if(!assistant.textContent?.includes("The details remain here"))throw Error("Full response missing");details.open=false;
+// The written answer leads; the spoken abstraction is a closed caption beneath it (review U6).
+if(!assistant.querySelector('.console-markdown')?.textContent?.includes("The details remain here"))throw Error("Full written response is not primary");
+const details=assistant.querySelector<HTMLDetailsElement>('.console-spoken-summary')!;
+if(details.open)throw Error("Spoken summary expanded by default");
+details.open=true;await wait();if(!details.textContent?.includes("No operator checkpoints are confirmed"))throw Error("Spoken summary missing");details.open=false;
 // Inject display state only: no microphone, credentials or network in this fixture.
 Object.assign(realtimeVoice.getSnapshot(),{active:true,error:null});
 realtimeVoice.handleEvent({type:"input_audio_buffer.speech_started",item_id:"layout-test"});

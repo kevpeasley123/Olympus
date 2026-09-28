@@ -69,7 +69,15 @@ export interface ConversationMessage {
   id: string;
   role: "system" | "assistant" | "user";
   content: string;
+  /** Local `HH:MM` when the message was created. Kept for older records. */
   timestamp: string;
+  /**
+   * ISO 8601 time. Set on creation; on desktop, loaded messages carry the
+   * row's stored time, so older records have a date too.
+   */
+  at?: string;
+  /** App-composed rather than a conversational turn. See `conversationHistory`. */
+  kind?: "briefing";
   /**
    * How the turn ended, when it ended in a way the operator needs to know about.
    *

@@ -14,7 +14,8 @@ export interface VoiceMessageMetadata {
   kind:"input"|"output";
   spokenResponse?:string;
   audioTranscript?:string;
-  playback?:"pending"|"completed"|"interrupted"|"unavailable";
+  /** `skipped`: no audio was attempted because replies were set to Text. */
+  playback?:"pending"|"completed"|"interrupted"|"unavailable"|"skipped";
   requiresConfirmation?:boolean;
 }
 export const VOICE_CLIENT = { shortcutCode:"KeyM", connectTimeoutMs:25000, idleTimeoutMs:120000, maxSessionMs:15*60*1000 } as const;

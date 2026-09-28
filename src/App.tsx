@@ -1,5 +1,6 @@
 import { Communications } from "./components/panels/Communications";
-import { realtimeVoice, voicePreview, useVoiceState } from "./services/realtimeVoice";
+import { realtimeVoice, voicePreview, useVoiceState, type VoiceSnapshot } from "./services/realtimeVoice";
+import type { OlympusVisualState } from "./services/ambientMotion";
 import { validateVoiceNavigation } from "./services/voiceContract";
 import { operationalStatuses, type OperationalStatus } from "./services/projectCommandBoard";
 import { MotionConfig, motion, useReducedMotion } from "motion/react";
@@ -45,6 +46,9 @@ function App() {
     chatModel,
     chatProducing,
     chatFellBackFrom,
+    chatCapability,
+    projectScan,
+    rescanProjects,
     sendChatMessage,
     updateVoiceMessage,
     recordObservation,
@@ -144,7 +148,8 @@ function App() {
     if (!openingBriefing || spokenBriefing.current === openingBriefing.id) return;
     spokenBriefing.current = openingBriefing.id;
     // The browser runtime has no voice session to open; the text still lands.
-    if (settings.autoSpeak && isTauriRuntime()) void realtimeVoice.replay(openingBriefing.text, openingBriefing.id);
+    // After a voice failure this session it stays text: no retry loop (U2).
+    if (settings.autoSpeak && isTauriRuntime() && realtimeVoice.getSnapshot().failures === 0) void realtimeVoice.replay(openingBriefing.text, openingBriefing.id);
   }, [openingBriefing, settings.autoSpeak]);
   useEffect(() => () => {realtimeVoice.stop();voicePreview.stop();}, []);
 
@@ -170,7 +175,7 @@ function App() {
           gate sits outside every boundary. */}
       <FadeInPanel index={0} className="panel-slot panel-slot-header">
         <ErrorBoundary label="Header">
-          <HeaderBar mode={mode} onSelectMode={selectMode} projects={projects} />
+          <HeaderBar mode={mode} onSelectMode={selectMode} projects={projects} projectScan={projectScan} />
         </ErrorBoundary>
       </FadeInPanel>
 
@@ -205,7 +210,7 @@ function App() {
               <ErrorBoundary label="Command view">
                 <CommandInstrument
                   active={command}
-                  visualState={voice.active || voice.phase === "ERROR" ? (voice.phase==="IDLE"&&chatPending ? "thinking" : ({IDLE:"idle",LISTENING:"listening",PROCESSING:"thinking",SPEAKING:"speaking",ERROR:"error"} as const)[voice.phase]) : undefined}
+                  visualState={instrumentState(voice, chatError)}
                   voiceLevel={voice.level}
                   projects={projects}
                   tasks={actionTasks}
@@ -215,6 +220,9 @@ function App() {
                   assistantProducing={chatProducing}
                   assistantModel={chatModel}
                   assistantFellBackFrom={chatFellBackFrom}
+                  assistantCapability={chatCapability}
+                  projectScan={projectScan}
+                  onRetryScan={rescanProjects}
                   onSelectProject={enterProject}
                   onOpenNote={openNote}
                 />
@@ -268,6 +276,7 @@ function App() {
                   onRecordObservation={recordObservation}
                   pending={chatPending}
                   error={chatError}
+                  briefing={openingBriefing}
                 />
               </ErrorBoundary>
             </FadeInPanel>
@@ -289,6 +298,23 @@ function App() {
       </main>
     </MotionConfig>
   );
+}
+
+/**
+ * The instrument's state from the voice transport and the reasoning turn.
+ *
+ * A voice-provider failure is not an instrument error: audio is one output
+ * channel and text still works, so it stays in the console's voice row
+ * (review U2). `error` is reserved for a failed reasoning request. With the
+ * voice session idle, the reply's own pending/producing state decides.
+ */
+function instrumentState(voice: VoiceSnapshot, chatError: string | null): OlympusVisualState | undefined {
+  if (voice.active) {
+    if (voice.phase === "LISTENING") return "listening";
+    if (voice.phase === "PROCESSING") return "thinking";
+    if (voice.phase === "SPEAKING") return "speaking";
+  }
+  return chatError ? "error" : undefined;
 }
 
 function FadeInPanel({

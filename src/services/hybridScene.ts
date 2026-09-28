@@ -22,6 +22,11 @@ export const VOICE_SIGNATURE = {
 };
 const EXECUTING_MOTION = { launchesPerSecond:5, transitSeconds:1.2, rotationSpeed:2 };
 const ORANGE = 0xee842d, BLUE = 0x739fbd;
+/**
+ * The canvas data attributes exist for the harnesses. Written every frame they
+ * are DOM work nobody watches, so production builds skip them (review F5).
+ */
+const HARNESS_ATTRIBUTES = import.meta.env.DEV;
 const point = (angle: number, radius: number) => new T.Vector2(Math.sin(angle * Math.PI / 180) * radius, Math.cos(angle * Math.PI / 180) * radius);
 function band(start: number, end: number, inner: number, outer: number) {
   const shape = new T.Shape();
@@ -198,7 +203,7 @@ export function mountHybridScene(host: HTMLDivElement, layout: CommandLayout, cu
   let previousOperation:number|undefined,previousState="idle",executionTime=0,errorState=false,errorAge=100,ringFlowTime=0;
   const nodeGeometry=new T.SphereGeometry(1,10,8);
   const targetGroups=new Map([...interaction.querySelectorAll<SVGGElement>('[data-node-id]')].map(group=>[group.dataset.nodeId,group]));
-  const nodes: {mesh:T.Mesh; world:T.Vector3; target?:SVGGElement; source:{x:number;y:number}; project:string; material:T.MeshStandardMaterial; base:number; z:number; period:number}[]=[];
+  const nodes: {mesh:T.Mesh; world:T.Vector3; target?:SVGGElement; transform?:string; source:{x:number;y:number}; project:string; material:T.MeshStandardMaterial; base:number; z:number; period:number}[]=[];
   for (const n of layout.constellation.nodes) {
     const radius=Math.hypot(n.x-220,n.y-220),rawDepth=nodeDepth(n.id);
     const protection=T.MathUtils.smoothstep(radius,CONSTELLATION_DEPTH.protectedRadius,CONSTELLATION_DEPTH.foregroundRadius);
@@ -326,8 +331,8 @@ export function mountHybridScene(host: HTMLDivElement, layout: CommandLayout, cu
         wave.material.opacity=LISTENING_RINGS.waveOpacity*Math.sin(Math.PI*progress)**2;
       }
     });
-    canvas.dataset.listeningOpen=String(listening&&transition===1);
-    canvas.dataset.listeningWaves=String(listeningWaves.filter(wave=>wave.mesh.visible).length);
+    if(HARNESS_ATTRIBUTES){canvas.dataset.listeningOpen=String(listening&&transition===1);
+    canvas.dataset.listeningWaves=String(listeningWaves.filter(wave=>wave.mesh.visible).length);}
     ringLightMaterials.forEach((material,i)=>{material.uniforms.phase.value=ringFlowTime*.48+Math.floor(i/5)*2.1;});
     const energy=value.state==="speaking"?(moving?Math.min(1,Math.max(0,value.voiceLevel)):.15):value.state==="thinking"?.35:value.state==="listening"?.22:executing?.18+operationPulse*.3:0;
     field.update(energy);
@@ -341,8 +346,8 @@ export function mountHybridScene(host: HTMLDivElement, layout: CommandLayout, cu
       voiceUniforms.phase.value+=delta*VOICE_SIGNATURE.phaseSpeed*(.7+voiceUniforms.energy.value*.3);
     }else {voiceUniforms.energy.value=speechTarget;voiceUniforms.presence.value=voicePresence;}
     voiceTrace.visible=voiceUniforms.presence.value>.005&&value.state!=="error";
-    canvas.dataset.voiceSignature=String(voiceUniforms.presence.value>.005);
-    canvas.dataset.voiceSignatureEnergy=String(voiceUniforms.energy.value);
+    if(HARNESS_ATTRIBUTES){canvas.dataset.voiceSignature=String(voiceUniforms.presence.value>.005);
+    canvas.dataset.voiceSignatureEnergy=String(voiceUniforms.energy.value);}
     glow.emissiveIntensity=.23+(moving?Math.sin(time*.8)*.06:0)+energy*.55;
     study.update(time, energy, moving, value.hoverProject, value.state==="idle", value.state==="speaking", executing, executing||errorState?value.execution?.projectId:undefined, operationPulse, value.state==="complete", errorState?errorAge:-1);
     glow.color.set(value.state==="error"?0xe57854:ORANGE);
@@ -352,8 +357,11 @@ export function mountHybridScene(host: HTMLDivElement, layout: CommandLayout, cu
     nodes.forEach((n,i)=>{
       n.mesh.getWorldPosition(n.world);
       if(n.target){
+        // Hit targets follow their star to a tenth of a viewBox unit; writing
+        // only real changes keeps the idle drift from touching the DOM each frame.
         const projected=projectConstellationPoint(n.world,pointer);
-        n.target.setAttribute('transform',`translate(${projected.x-n.source.x} ${projected.y-n.source.y})`);
+        const transform=`translate(${(projected.x-n.source.x).toFixed(1)} ${(projected.y-n.source.y).toFixed(1)})`;
+        if(transform!==n.transform){n.transform=transform;n.target.setAttribute('transform',transform);}
       }
       const depth=n.z/CONSTELLATION_DEPTH.range;
       haloScale.setScalar(n.mesh.scale.x*(depth<0?5.8:5.0));
@@ -383,19 +391,22 @@ export function mountHybridScene(host: HTMLDivElement, layout: CommandLayout, cu
         orb.position.copy(pos(edge.to)).lerp(pos(edge.from),age/EXECUTING_MOTION.transitSeconds);
       }
     });
-    canvas.dataset.executionSignals=String(executionSignals.filter(orb=>orb.visible).length);
+    if(HARNESS_ATTRIBUTES)canvas.dataset.executionSignals=String(executionSignals.filter(orb=>orb.visible).length);
     if(signal.visible){const e=edges[Math.floor(time/4.5)%edges.length];signal.position.copy(pos(executing?e.to:e.from)).lerp(pos(executing?e.from:e.to),(time%4.5)/2);}
     const signature = `${value.state}/${moving?value.voiceLevel:0}/${value.hoverProject}/${canvas.width}/${canvas.height}/${value.running}`;
     try { if(document.visibilityState==="visible" && host.getBoundingClientRect().width>0 && (moving || signature !== lastSignature)) { renderer.info.reset();composer.render(); renderCount++; lastSignature=signature; } }
     catch { stopped=true; fail("Rendering stopped unexpectedly."); return; }
     if(!announced && renderCount){announced=true;ready();}
-    if(now-lastStats>500){lastStats=now;canvas.dataset.constellationYaw=String(constellationMotion.yaw);canvas.dataset.rings=String(orbital.filter(r=>r.visible).length);canvas.dataset.frames=String(renderCount);canvas.dataset.drawCalls=String(renderer.info.render.calls);canvas.dataset.nodes=String(nodes.length);canvas.dataset.parallax=JSON.stringify([pointer.x,pointer.y]);}
+    if(HARNESS_ATTRIBUTES&&now-lastStats>500){lastStats=now;canvas.dataset.constellationYaw=String(constellationMotion.yaw);canvas.dataset.rings=String(orbital.filter(r=>r.visible).length);canvas.dataset.frames=String(renderCount);canvas.dataset.drawCalls=String(renderer.info.render.calls);canvas.dataset.nodes=String(nodes.length);canvas.dataset.parallax=JSON.stringify([pointer.x,pointer.y]);}
     // One loop; no React updates per frame. Hidden and reduced-motion views render only on changes.
     if(moving)frame=requestAnimationFrame(render);
     else if(!hidden())timer=window.setTimeout(()=>render(performance.now()),250);
   }
   frame=requestAnimationFrame(render);
-  return ()=>{stopped=true;interaction.removeEventListener('pointermove',movePointer);interaction.removeEventListener('pointerleave',resetPointer);window.removeEventListener('blur',resetPointer);if(frame!==undefined)cancelAnimationFrame(frame);if(timer!==undefined)clearTimeout(timer);observer.disconnect();document.removeEventListener("visibilitychange",wake);canvas.removeEventListener("webglcontextlost",lost);
+  return ()=>{stopped=true;
+    // The SVG targets outlive the scene; put them back where the flat instrument draws them.
+    nodes.forEach(n=>n.target?.removeAttribute('transform'));
+    interaction.removeEventListener('pointermove',movePointer);interaction.removeEventListener('pointerleave',resetPointer);window.removeEventListener('blur',resetPointer);if(frame!==undefined)cancelAnimationFrame(frame);if(timer!==undefined)clearTimeout(timer);observer.disconnect();document.removeEventListener("visibilitychange",wake);canvas.removeEventListener("webglcontextlost",lost);
     const geometries=new Set<T.BufferGeometry>(),materials=new Set<T.Material>();
     for(const root of [scene,networkScene])root.traverse(o=>{const drawable=o as T.Mesh;if(drawable.geometry)geometries.add(drawable.geometry);if(drawable.material)(Array.isArray(drawable.material)?drawable.material:[drawable.material]).forEach(m=>materials.add(m));});
     halos.dispose();backdrop?.dispose();haloTexture.dispose();backdropTexture?.dispose();

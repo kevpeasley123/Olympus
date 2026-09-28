@@ -1,6 +1,11 @@
 import {useEffect,useState,useRef,useId} from "react";
 import {loadModelCatalog,loadModelDiagnostics,selectNextModel,useNextModel,type ModelCatalog,type ModelCapability,type ModelRequest} from "../../services/modelRouting";
 import {isTauriRuntime} from "../../services/launcher";
+import {routeLabel} from "../../services/routeLabel";
+import {formatWhen} from "../../services/time";
+import "./command.css";
+const ms=(value:number|null)=>value===null?"—":value<1000?`${value} ms`:`${(value/1000).toFixed(1)} s`;
+const statusLabel=(row:ModelRequest)=>row.errorCode?`${row.status} · ${row.errorCode}`:row.status;
 const routeNames:Record<ModelCapability,string>={PRIMARY:"SOL",DEEP_REASONING:"ASTRA",CLAUDE_COMPARISON:"CLAUDE"};
 const routeDescriptions:Record<ModelCapability,string>={PRIMARY:"Default reasoning",DEEP_REASONING:"Deep reasoning",CLAUDE_COMPARISON:"Explicit comparison"};
 export function ModelRouteControl({disabled=false}:{disabled?:boolean}) {
@@ -43,14 +48,36 @@ export function ModelRouteControl({disabled=false}:{disabled?:boolean}) {
     </div>}
   </div>;
 }
+/**
+ * Request diagnostics as a table (review D4): the columns answer "what ran,
+ * how, and how fast"; each row's full record stays one disclosure away.
+ */
 export function ModelDiagnostics(){
  const [rows,setRows]=useState<ModelRequest[]>([]);const [error,setError]=useState<string|null>(null);const [catalog,setCatalog]=useState<ModelCatalog|null>(null);
  async function refresh(){try{setCatalog(await loadModelCatalog());setRows(await loadModelDiagnostics());setError(null);}catch{setError("Model diagnostics are available in the desktop app.");}}
  return <details className="model-diagnostics" onToggle={event=>{if(event.currentTarget.open)void refresh();}}><summary>Model diagnostics</summary>
- {catalog&&<p>Brain: {catalog.routes[0].model}<br/>Voice: {catalog.realtime}<br/>Transcription: {catalog.transcription}<br/>Coding driver: {catalog.coding}</p>}
+ {catalog&&<dl className="model-diagnostics-routes"><dt>Brain</dt><dd>{catalog.routes[0].model}</dd><dt>Voice</dt><dd>{catalog.realtime}</dd><dt>Transcription</dt><dd>{catalog.transcription}</dd><dt>Coding driver</dt><dd>{catalog.coding}</dd></dl>}
  <button type="button" className="ghost-action" onClick={()=>void refresh()}>Refresh requests</button>
  {error&&<p role="status">{error}</p>}
- <div className="model-diagnostics-list">{rows.map(row=><details key={row.id}><summary>{row.actualModel??`${row.requestedModel} (requested)`} · {row.status}</summary><pre>{JSON.stringify(row,null,2)}</pre></details>)}</div>
- <p>Request metadata only. Costs are not estimated; reported token usage is available above. Deep Analysis is operator-selected and never recursive.</p>
+ {rows.length>0?<div className="model-diagnostics-table-wrap"><table className="model-diagnostics-table">
+  <thead><tr><th scope="col">Time</th><th scope="col">Route</th><th scope="col">Model</th><th scope="col">Status</th><th scope="col">First token</th><th scope="col">Latency</th></tr></thead>
+  <tbody>{rows.map(row=><DiagnosticRow key={row.id} row={row}/>)}</tbody>
+ </table></div>:!error&&<p className="model-diagnostics-empty">No requests recorded yet.</p>}
+ <p>Request metadata only. Costs are not estimated; reported token usage is in each row's record. Deep Analysis is operator-selected and never recursive.</p>
  </details>;
+}
+function DiagnosticRow({row}:{row:ModelRequest}){
+ const [open,setOpen]=useState(false);const detailId=useId();
+ return <>
+  <tr data-status={row.status}>
+   <td><time dateTime={row.requestedAt} title={formatWhen(row.requestedAt,{withDate:true})}>{formatWhen(row.requestedAt)}</time></td>
+   <td>{routeLabel(row)}<small>{row.purpose.replace(/_/g," ")}</small></td>
+   <td className="model-diagnostics-model">{row.actualModel??`${row.requestedModel} (requested)`}{row.fallbackFrom&&<small>fell back from {row.fallbackFrom}</small>}</td>
+   <td>{statusLabel(row)}</td>
+   <td className="tabular-data">{ms(row.firstTokenMs)}</td>
+   <td className="tabular-data">{ms(row.latencyMs)}
+    <button type="button" className="model-diagnostics-json" aria-expanded={open} aria-controls={detailId} onClick={()=>setOpen(value=>!value)}>{open?"Hide record":"Record"}</button></td>
+  </tr>
+  {open&&<tr className="model-diagnostics-detail" id={detailId}><td colSpan={6}><pre>{JSON.stringify(row,null,2)}</pre></td></tr>}
+ </>;
 }

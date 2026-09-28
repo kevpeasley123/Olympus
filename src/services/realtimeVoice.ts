@@ -6,8 +6,11 @@ import { voiceHttpError } from "./voiceHttpError";
 import { VOICE_CLIENT, voiceErrorMessage } from "./voiceContract";
 import type { VoiceAnswer, VoiceDepth, VoiceMessageMetadata, VoicePhase, VoiceUiAction } from "./voiceContract";
 
-export interface VoiceSnapshot { phase:VoicePhase; captionsEnabled:boolean; active:boolean; connecting:boolean; microphoneOn:boolean; muted:boolean; inputText:string; inputMessageId?:string; outputMessageId?:string; outputText:string; error:string|null; level:number }
-const initial: VoiceSnapshot = {phase:"IDLE",captionsEnabled:true,active:false,connecting:false,microphoneOn:false,muted:false,inputText:"",outputText:"",error:null,level:0};
+/** `failures` counts voice failures this session; `retryable` says Retry audio has something to repeat. */
+export interface VoiceSnapshot { phase:VoicePhase; captionsEnabled:boolean; active:boolean; connecting:boolean; microphoneOn:boolean; muted:boolean; inputText:string; inputMessageId?:string; outputMessageId?:string; outputText:string; error:string|null; level:number; failures:number; retryable:boolean }
+const initial: VoiceSnapshot = {phase:"IDLE",captionsEnabled:true,active:false,connecting:false,microphoneOn:false,muted:false,inputText:"",outputText:"",error:null,level:0,failures:0,retryable:false};
+/** What Retry audio repeats: one explicit attempt, never a loop. */
+type VoiceAttempt = {kind:"microphone"} | {kind:"replay";text:string;messageId?:string};
 interface VoiceCallbacks {
   answer:(text:string,depth?:VoiceDepth,messageId?:string)=>Promise<VoiceAnswer|undefined>;
   update:(id:string,metadata:Partial<VoiceMessageMetadata>)=>void;
@@ -79,6 +82,8 @@ export class RealtimeVoice {
   private seen=new Set<string>();
   private turnConnections=new Map<string,number>();
   private processing=false;
+  private lastAttempt:VoiceAttempt|null=null;
+  private remember(attempt:VoiceAttempt|null){this.lastAttempt=attempt;this.patch({retryable:attempt!==null});}
   constructor(private deps:VoiceDependencies=browserDependencies) {}
   subscribe=(listener:()=>void)=>{this.listeners.add(listener);return ()=>{this.listeners.delete(listener);};};
   getSnapshot=()=>this.snapshot;
@@ -109,6 +114,7 @@ export class RealtimeVoice {
   async start(preview=false,outputOnly=preview){
     if(this.snapshot.active||this.snapshot.connecting)return;
     this.previewMode=preview;this.outputOnly=outputOnly;this.ignoredItems.clear();
+    if(!preview&&!outputOnly)this.remember({kind:"microphone"});
     const generation=++this.connectionGeneration;
     const connected=new Promise<void>(resolve=>{this.finishConnecting=resolve;});
     this.patch({active:false,connecting:true,microphoneOn:!outputOnly,error:null,phase:"IDLE",inputText:"",inputMessageId:undefined,outputMessageId:undefined,outputText:""});
@@ -168,7 +174,16 @@ export class RealtimeVoice {
     this.order=this.order.filter(id=>this.ready.has(id));
     this.patch({active:false,connecting:false,microphoneOn:false,phase:"IDLE",level:0,error:null,inputMessageId:undefined});
   }
-  private fail(message:string){this.finishOutput("unavailable");this.stop();this.patch({phase:"ERROR",error:message});}
+  private fail(message:string){this.finishOutput("unavailable");this.stop();this.patch({phase:"ERROR",error:message,failures:this.snapshot.failures+1});}
+  /** Clears a voice failure from view. Nothing is retried. */
+  dismissError(){if(this.snapshot.phase==="ERROR"||this.snapshot.error)this.patch({phase:"IDLE",error:null});}
+  /** Repeats the last failed attempt once: the spoken reply, or the microphone session. */
+  async retry(){
+    const attempt=this.lastAttempt;if(!attempt)return;
+    this.dismissError();
+    if(attempt.kind==="microphone"){this.stop();await this.start();}
+    else await this.replay(attempt.text,attempt.messageId);
+  }
   mute(){this.patch({muted:!this.snapshot.muted});if(this.audio)this.audio.muted=this.snapshot.muted||!this.output;}
   interrupt(){
     ++this.turnGeneration;
@@ -261,6 +276,7 @@ export class RealtimeVoice {
     if(this.auditionPaused){if(answer.messageId)this.callbacks?.update(answer.messageId,{playback:"interrupted"});return;}
     if(!this.preferences.bargeInEnabled)this.captureEnabled(false);
     this.audioDiagnostic=this.diagnostic(this.previewMode?"preview":"audio");this.reportDiagnostic(this.audioDiagnostic,"started");
+    if(!this.previewMode)this.remember({kind:"replay",text:answer.spokenResponse,messageId:answer.messageId});
     this.output=answer;this.outputGeneration=this.turnGeneration;this.generatedTranscript="";
     this.patch({phase:"PROCESSING",outputText:answer.spokenResponse,outputMessageId:answer.messageId,error:null});
     this.send({type:"response.create",response:{conversation:"none",metadata:{turn:String(this.outputGeneration)},output_modalities:["audio"],
@@ -282,7 +298,10 @@ export class RealtimeVoice {
       if(!speakReply||!answer){if(speakReply&&connection===this.connectionGeneration)this.stop();return;}
       await connecting;
       if(connection!==this.connectionGeneration||turn!==this.turnGeneration||!this.snapshot.active||!this.preferences.autoSpeak){
-        if(answer.messageId)this.callbacks?.update(answer.messageId,{playback:this.snapshot.phase==="ERROR"?"unavailable":"interrupted"});
+        const failed=this.snapshot.phase==="ERROR";
+        if(answer.messageId)this.callbacks?.update(answer.messageId,{playback:failed?"unavailable":"interrupted"});
+        // The connection failed before this answer existed; Retry audio speaks it.
+        if(failed&&answer.spokenResponse)this.remember({kind:"replay",text:answer.spokenResponse,messageId:answer.messageId});
         return;
       }
       for(const action of answer.proposedActions)this.callbacks?.navigate(action);
@@ -294,6 +313,7 @@ export class RealtimeVoice {
     if(this.snapshot.connecting)this.stop();
     this.interrupt();
     const turn=this.turnGeneration;
+    this.remember({kind:"replay",text,messageId});
     if(messageId)this.callbacks?.update(messageId,{playback:"pending"});
     if(!this.snapshot.active)await this.start(false,true);
     if(turn!==this.turnGeneration||!this.snapshot.active){

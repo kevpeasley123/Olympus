@@ -38,6 +38,7 @@ export function createUserMessage(content: string): ConversationMessage {
     id: `conversation-user-${Date.now()}`,
     role: "user",
     content,
+    at: new Date().toISOString(),
     timestamp: timeLabel()
   };
 }
@@ -49,6 +50,7 @@ export function buildPantheonReply(query: string, entries: ResearchRecord[]): Co
     id: `conversation-assistant-${Date.now() + 1}`,
     role: "assistant",
     content: composeReply(query, matched, entries.length),
+    at: new Date().toISOString(),
     timestamp: timeLabel()
   };
 }
