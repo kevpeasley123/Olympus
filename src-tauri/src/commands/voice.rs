@@ -66,6 +66,214 @@ pub fn parse_answer(raw: &str, depth: &str) -> Result<VoiceAnswer, String> {
     answer.conversation_state = "awaiting_input".into();
     Ok(answer)
 }
+/// Streams the decoded `visualResponse` string out of a voice answer while the
+/// JSON is still arriving, so a typed turn with Voice replies on reads like any
+/// other streamed reply without a second reasoning call.
+///
+/// Only the top-level `visualResponse` value is emitted, already unescaped, and
+/// nothing else: keys, `spokenResponse` and the rest of the envelope never reach
+/// the console. The complete text is still parsed by `parse_answer` at the end;
+/// this is presentation only and grants nothing.
+#[derive(Default)]
+pub struct VisualStream {
+    /// Open containers, `true` for an object.
+    stack: Vec<bool>,
+    in_string: bool,
+    /// The string being read is a key of the top-level object.
+    reading_key: bool,
+    /// The string being read is the `visualResponse` value.
+    capturing: bool,
+    expect_key: bool,
+    key: String,
+    /// The last top-level key, while its value has not started yet.
+    pending_key: Option<String>,
+    after_colon: bool,
+    escape: Escape,
+    /// A decoded high surrogate waiting for its low half.
+    high_surrogate: Option<u32>,
+    done: bool,
+}
+
+#[derive(Default, Clone, Copy, PartialEq)]
+enum Escape {
+    #[default]
+    None,
+    Backslash,
+    Unicode { value: u32, digits: u8 },
+}
+
+const VISUAL_KEY: &str = "visualResponse";
+/// Keys longer than this are not the one being looked for; stop buffering them.
+const MAX_KEY_CHARS: usize = 32;
+
+impl VisualStream {
+    /// Feeds one provider delta and returns whatever visible text it completed.
+    pub fn push(&mut self, chunk: &str) -> String {
+        let mut out = String::new();
+        if self.done {
+            return out;
+        }
+        for c in chunk.chars() {
+            if self.in_string {
+                self.string_char(c, &mut out);
+                if self.done {
+                    break;
+                }
+            } else {
+                self.structure_char(c);
+            }
+        }
+        out
+    }
+
+    fn structure_char(&mut self, c: char) {
+        let top_level_object = self.stack.len() == 1 && self.stack[0];
+        match c {
+            '{' | '[' => {
+                self.stack.push(c == '{');
+                self.expect_key = c == '{';
+                self.after_colon = false;
+                if self.stack.len() > 1 {
+                    self.pending_key = None;
+                }
+            }
+            '}' | ']' => {
+                self.stack.pop();
+                self.expect_key = false;
+                self.after_colon = false;
+            }
+            ',' => {
+                self.expect_key = self.stack.last() == Some(&true);
+                self.after_colon = false;
+                if top_level_object {
+                    self.pending_key = None;
+                }
+            }
+            ':' => {
+                self.expect_key = false;
+                self.after_colon = true;
+            }
+            '"' => {
+                self.in_string = true;
+                self.escape = Escape::None;
+                self.high_surrogate = None;
+                self.reading_key = top_level_object && self.expect_key;
+                self.capturing = top_level_object
+                    && self.after_colon
+                    && self.pending_key.as_deref() == Some(VISUAL_KEY);
+                self.key.clear();
+                self.after_colon = false;
+            }
+            c if c.is_whitespace() => {}
+            _ => {
+                // A number, literal or anything else is a value that is not the
+                // string being looked for.
+                if top_level_object && self.after_colon {
+                    self.pending_key = None;
+                }
+                self.after_colon = false;
+            }
+        }
+    }
+
+    fn string_char(&mut self, c: char, out: &mut String) {
+        match self.escape {
+            Escape::Backslash => {
+                self.escape = Escape::None;
+                let decoded = match c {
+                    'n' => '\n',
+                    't' => '\t',
+                    'r' => '\r',
+                    'b' => '\u{0008}',
+                    'f' => '\u{000C}',
+                    'u' => {
+                        self.escape = Escape::Unicode { value: 0, digits: 0 };
+                        return;
+                    }
+                    // `"`, `\`, `/` and anything unexpected stand for themselves.
+                    other => other,
+                };
+                self.emit_char(decoded, out);
+            }
+            Escape::Unicode { value, digits } => {
+                let Some(digit) = c.to_digit(16) else {
+                    // Malformed escape: substitute rather than guess, and let the
+                    // character be read normally.
+                    self.escape = Escape::None;
+                    self.emit_char(char::REPLACEMENT_CHARACTER, out);
+                    self.string_char(c, out);
+                    return;
+                };
+                let value = value * 16 + digit;
+                if digits < 3 {
+                    self.escape = Escape::Unicode { value, digits: digits + 1 };
+                    return;
+                }
+                self.escape = Escape::None;
+                self.emit_unit(value, out);
+            }
+            Escape::None => match c {
+                '\\' => self.escape = Escape::Backslash,
+                '"' => self.end_string(out),
+                other => self.emit_char(other, out),
+            },
+        }
+    }
+
+    /// One UTF-16 code unit from a `\u` escape.
+    fn emit_unit(&mut self, unit: u32, out: &mut String) {
+        if (0xD800..=0xDBFF).contains(&unit) {
+            if self.high_surrogate.is_some() {
+                self.push_decoded(char::REPLACEMENT_CHARACTER, out);
+            }
+            self.high_surrogate = Some(unit);
+            return;
+        }
+        if (0xDC00..=0xDFFF).contains(&unit) {
+            let decoded = self
+                .high_surrogate
+                .take()
+                .and_then(|high| char::from_u32(0x10000 + ((high - 0xD800) << 10) + (unit - 0xDC00)))
+                .unwrap_or(char::REPLACEMENT_CHARACTER);
+            self.push_decoded(decoded, out);
+            return;
+        }
+        self.emit_char(char::from_u32(unit).unwrap_or(char::REPLACEMENT_CHARACTER), out);
+    }
+
+    fn emit_char(&mut self, c: char, out: &mut String) {
+        if self.high_surrogate.take().is_some() {
+            self.push_decoded(char::REPLACEMENT_CHARACTER, out);
+        }
+        self.push_decoded(c, out);
+    }
+
+    fn push_decoded(&mut self, c: char, out: &mut String) {
+        if self.capturing {
+            out.push(c);
+        } else if self.reading_key && self.key.chars().count() <= MAX_KEY_CHARS {
+            self.key.push(c);
+        }
+    }
+
+    fn end_string(&mut self, out: &mut String) {
+        if self.high_surrogate.take().is_some() {
+            self.push_decoded(char::REPLACEMENT_CHARACTER, out);
+        }
+        self.in_string = false;
+        if self.capturing {
+            // One answer, one visual field: anything after it is envelope.
+            self.capturing = false;
+            self.done = true;
+        } else if self.reading_key {
+            self.pending_key = Some(std::mem::take(&mut self.key));
+        } else if self.stack.len() == 1 {
+            self.pending_key = None;
+        }
+        self.reading_key = false;
+    }
+}
+
 /// A declined voice turn still answers the microphone session: the notice is
 /// spoken and shown, no action is proposed, and the session stays open.
 pub fn notice_answer(provider_text: &str) -> VoiceAnswer {
@@ -133,5 +341,45 @@ mod tests {
     #[test] fn separates_long_visual_from_spoken() { let raw=json!({"spokenResponse":"The pilot needs scope review.","visualResponse":"Evidence. ".repeat(900),"proposedActions":[],"requiresConfirmation":false,"conversationState":"awaiting_input"}); let a=parse_answer(&raw.to_string(),"ANSWER").unwrap(); assert!(a.spoken_response.len()<100); assert!(a.visual_response.len()>8000); }
     #[test] fn rejects_execution_action() { let raw=json!({"spokenResponse":"Done","visualResponse":"Done","proposedActions":[{"type":"execute"}],"conversationState":"awaiting_input"}); assert!(parse_answer(&raw.to_string(),"ANSWER").is_err()); }
     #[test] fn refusal_answer_speaks_the_notice_and_proposes_nothing() { let a=notice_answer(""); assert!(a.spoken_response.contains("declined")); assert_eq!(a.visual_response,a.spoken_response); assert!(a.proposed_actions.is_empty()&&!a.requires_confirmation); assert_eq!(notice_answer("Cannot help.").visual_response,"Cannot help."); }
+    fn streamed(chunks: &[&str]) -> String {
+        let mut stream = VisualStream::default();
+        chunks.iter().map(|chunk| stream.push(chunk)).collect()
+    }
+    fn answer_json(visual: &str) -> String {
+        json!({"spokenResponse":"Say \"visualResponse\": \"not this\"","visualResponse":visual,"proposedActions":[{"type":"open_project","projectId":"visualResponse"}],"requiresConfirmation":false,"conversationState":"awaiting_input"}).to_string()
+    }
+    #[test] fn visual_stream_emits_only_the_decoded_visual_field() {
+        let visual = "Line one\nLine \"two\" \\ path/to\tfile é Ω 😀 done";
+        let raw = answer_json(visual);
+        assert!(raw.contains("\\\"two\\\"") && raw.contains("\\n"), "fixture must exercise escapes");
+        assert_eq!(streamed(&[&raw]), visual);
+        let escaped = r#"{"spokenResponse":"x","visualResponse":"café 😀 \/ \b\f\r","conversationState":"awaiting_input"}"#;
+        let parsed: Value = serde_json::from_str(escaped).unwrap();
+        assert_eq!(streamed(&[escaped]), parsed["visualResponse"].as_str().unwrap());
+    }
+    #[test] fn visual_stream_survives_every_chunk_boundary() {
+        let visual = "Answer with \"quotes\", a \\ backslash, \u{00e9}, \u{1F600} and\nnew lines.";
+        let raw = answer_json(visual);
+        let escaped = r#"{"visualResponse":"café 😀 end","spokenResponse":"x"}"#;
+        for text in [raw.as_str(), escaped] {
+            let expected: Value = serde_json::from_str(text).unwrap();
+            let chars: Vec<char> = text.chars().collect();
+            for size in 1..=9 {
+                let chunks: Vec<String> = chars.chunks(size).map(|c| c.iter().collect()).collect();
+                let refs: Vec<&str> = chunks.iter().map(String::as_str).collect();
+                assert_eq!(streamed(&refs), expected["visualResponse"].as_str().unwrap(), "chunk size {size}");
+            }
+        }
+        // An escape split exactly between its parts.
+        assert_eq!(streamed(&[r#"{"visualResponse":"a\"#, r#"u00"#, r#"e9\"#, r#"ud83d\u"#, r#"de00\"#, r#""b"}"#]), "aé😀\"b");
+    }
+    #[test] fn visual_stream_ignores_decoys_and_everything_after_the_field() {
+        assert_eq!(streamed(&[r#"{"spokenResponse":"visualResponse","proposedActions":[{"visualResponse":"nested"}],"visualResponse":"real","conversationState":"after"}"#]), "real");
+        assert_eq!(streamed(&["```json\n", r#"{"visualResponse":"fenced"}"#, "\n```"]), "fenced");
+        assert_eq!(streamed(&[r#"{"visualResponse":null,"spokenResponse":"no visual"}"#]), "");
+        assert_eq!(streamed(&[r#"{"visualResponse": "#, r#"   "spaced"}"#]), "spaced");
+        let lone = streamed(&[r#"{"visualResponse":"x\ud83d y"}"#]);
+        assert_eq!(lone, "x\u{FFFD} y", "a lone surrogate is replaced, not dropped");
+    }
     #[test] fn long_speech_is_not_read() { let raw=json!({"spokenResponse":"word ".repeat(1000),"visualResponse":"Long detail","conversationState":"awaiting_input"}); assert!(parse_answer(&raw.to_string(),"ANSWER").unwrap().spoken_response.len()<150); }
 }
