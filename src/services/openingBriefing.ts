@@ -1,5 +1,6 @@
 import type { SessionBoundary, TrackedProject } from "../types";
 import type { ProjectCommandState } from "./projectCommandBoard";
+import type { AttentionItem } from "./projectBriefing";
 import { selectNextAction } from "./nextAction";
 
 /**
@@ -20,6 +21,8 @@ export interface OpeningBriefingInput {
 }
 
 const MAX_ITEM_CHARS = 110;
+// Git facts outrank vault-note hygiene; run reviews are already said as "needs you".
+const OBSERVATION_RANK: Partial<Record<AttentionItem["kind"], number>> = { uncommitted: 0, worktree: 1, vision: 2 };
 const MAX_ATTENTION_ITEMS = 2;
 const NUMBERS = ["No", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten"];
 
@@ -39,6 +42,42 @@ function clip(text: string): string {
   return `${cut.slice(0, Math.max(cut.lastIndexOf(" "), 60))}…`;
 }
 
+function observation(project: TrackedProject, item: AttentionItem): string {
+  if (item.kind === "uncommitted") {
+    return project.lastCommitAt
+      ? `${project.name} has uncommitted changes in its main checkout`
+      : `${project.name} has no commits yet`;
+  }
+  if (item.kind === "worktree") {
+    const files = project.linkedWorktrees.filter((worktree) => worktree.changedFiles > 0);
+    const total = files.reduce((sum, worktree) => sum + worktree.changedFiles, 0);
+    return `${project.name} has ${lower(count(total, "uncommitted file"))} in ${files.length === 1 ? "an agent worktree" : `${files.length} agent worktrees`}`;
+  }
+  if (!project.vision.trim()) return `${project.name} has no stated vision`;
+  const reviewed = /(\d+) days ago/.exec(item.text);
+  return reviewed
+    ? `the ${project.name} vision was last reviewed ${reviewed[1]} days ago`
+    : `the ${project.name} vision has no review date`;
+}
+
+/**
+ * One sentence from the board's source-labelled attention items (review F2).
+ * Said as an observation, never as a blocker: nothing here changes status.
+ */
+function attentionSentence(board: ProjectCommandState[]): string | null {
+  const candidates = board
+    .filter((row) => row.project.status === "active" || row.project.status === "watching")
+    .flatMap((row) => row.attention
+      .filter((item) => OBSERVATION_RANK[item.kind] !== undefined)
+      .map((item) => ({ row, item })))
+    // Stable, so board order breaks ties.
+    .sort((left, right) => (OBSERVATION_RANK[left.item.kind] ?? 9) - (OBSERVATION_RANK[right.item.kind] ?? 9));
+  if (candidates.length === 0) return null;
+  const [{ row, item }] = candidates;
+  const more = candidates.length - 1;
+  return `Observed for attention: ${clip(observation(row.project, item))}${more > 0 ? `, and ${lower(count(more, "more observation"))} on the Project board` : ""}.`;
+}
+
 function sinceClause(sessionBoundary: SessionBoundary | null, now: Date): string | null {
   const previous = sessionBoundary?.previousSessionStartedAt
     ? new Date(sessionBoundary.previousSessionStartedAt)
@@ -56,10 +95,10 @@ export function composeOpeningBriefing(
   now = new Date()
 ): string {
   if (projectsError) {
-    return "Olympus is open. The project scan failed, so there is no project briefing yet.";
+    return "The project scan failed, so there is no project briefing yet.";
   }
   if (projects.length === 0) {
-    return "Olympus is open. No projects are tracked yet.";
+    return "No projects are tracked yet.";
   }
 
   const sentences: string[] = [];
@@ -90,6 +129,9 @@ export function composeOpeningBriefing(
       ? `Delegated work is running on ${running[0].project.name}.`
       : `Delegated work is running on ${lower(count(running.length, "project"))}.`);
   }
+
+  const observed = attentionSentence(board);
+  if (observed) sentences.push(observed);
 
   const next = selectNextAction(projects);
   if (next.kind === "stated") {

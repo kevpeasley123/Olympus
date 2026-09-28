@@ -33,11 +33,33 @@ export function runOpeningBriefingHarness() {
   check(unset.includes("Olympus is active but has no recorded next step."), "Never borrows another project's step");
 
   const failed = brief([project], [], boundary, "root missing");
-  check(failed.includes("project scan failed"), "A failed scan is stated, not guessed around");
+  check(failed.startsWith("The project scan failed"), "A failed scan is stated first, not guessed around");
 
   const long = brief([{...project, nextStep: "word ".repeat(80)}]);
   check(long.length < 400, "Items are clipped so the spoken briefing stays short");
 
-  check(brief([]) === "Olympus is open. No projects are tracked yet.", "Empty state");
+  check(brief([]) === "No projects are tracked yet.", "Empty state leads with the fact, so the one-line preview carries it");
+
+  // Attention (review F2): one source-backed observation, never a blocker.
+  const reviewed = {...project, visionReviewedAt: "2026-09-01"};
+  const clean = brief([reviewed]);
+  check(!clean.includes("Observed for attention"), `No attention sentence without an observation: ${clean}`);
+  const dirty = {...reviewed, id: "a", name: "Atlas", repoState: "git-pending" as const, sinceSessionCommits: [], nextStep: ""};
+  const observed = brief([reviewed, {...reviewed, id: "s", name: "Stale", visionReviewedAt: "2026-01-02"}, dirty]);
+  check(observed.includes("Observed for attention: Atlas has uncommitted changes in its main checkout, and one more observation on the Project board."),
+    `Git fact outranks vault hygiene and the rest is counted: ${observed}`);
+  check((observed.match(/Observed for attention/g) ?? []).length === 1, "At most one attention sentence");
+  check(!/Atlas (is blocked|needs you)/.test(observed) && !/blocker/i.test(observed), "An observation is never said as a blocker");
+  check(observed.indexOf("Observed for attention") < observed.indexOf("Next recorded step"), "Observation precedes the next step");
+  const worktree = brief([{...reviewed, linkedWorktrees: [{path: "/w", branch: "olympus/run-2", head: "abc", lastCommitAt: null, changedFiles: 3}]}]);
+  check(worktree.includes("Olympus has three uncommitted files in an agent worktree."), `Worktree phrased without the branch: ${worktree}`);
+  const stale = brief([{...reviewed, visionReviewedAt: "2026-01-02"}]);
+  check(stale.includes("Observed for attention: the Olympus vision was last reviewed 269 days ago."), `Vault-note observation reads as a sentence: ${stale}`);
+  const archived = brief([reviewed, {...dirty, status: "archived" as const}]);
+  check(!archived.includes("Observed for attention"), "Archived projects add no observation");
+  const awaiting = brief([reviewed], [review]);
+  check(!awaiting.includes("Observed for attention"), "A run awaiting review is said once, as needs you, not again as an observation");
+  check(brief([dirty]) === brief([dirty]), "Deterministic");
+  check(observed.length < 400, `Still short with an observation: ${observed.length}`);
   return { passed };
 }
