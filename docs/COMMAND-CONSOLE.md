@@ -120,12 +120,15 @@ is not spoken on that launch.
 the written answer like any other reply: Rust decodes the `visualResponse` string out
 of the arriving JSON (`voice::VisualStream`) and forwards only that text; the envelope
 never reaches the webview. The written answer is primary; the spoken summary is a
-closed "Spoken summary" disclosure beside Replay and the playback receipt. Limitation:
-the strict response schema is serialised with alphabetical keys (serde_json without
-`preserve_order`), so the model generates `spokenResponse` before `visualResponse`
-and visible text begins only after the spoken summary (at most 55 words by default)
-has been generated. Reordering would change `Value` key order globally and was not
-done.
+closed "Spoken summary" disclosure beside Replay and the playback receipt. The
+OpenAI request lists `visualResponse` first in the strict schema's `properties` and
+`required`, so visible text can start before the spoken summary is generated. Only
+that request's bytes are reordered (`responses::VisualFirst`, used by `wire_body`);
+serde_json `preserve_order` stays off, and the stored answer is unchanged. Limitation:
+generating properties in schema order is how the provider behaves, not a documented
+guarantee; the Claude comparison route has no schema and only follows the prompt's
+example order. `VisualStream` reads either order, so a spoken-first answer still
+streams, just later.
 
 **Transcript.** Messages carry `at` (ISO time): set on creation, and on desktop
 loaded from each row's `created_at`, so older records gain a date without a

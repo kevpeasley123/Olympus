@@ -45,7 +45,7 @@ pub fn response_instructions(depth: &str) -> String {
     let limit = match depth { "SHORT" => 25, "BRIEF" => 110, "DEEP_DIVE" => 90, _ => 55 };
     format!(r#"
 VOICE TURN CONTRACT: Return a single JSON object, no code fences:
-{{"spokenResponse":"...","visualResponse":"...","proposedActions":[],"requiresConfirmation":false,"conversationState":"awaiting_input"}}
+{{"visualResponse":"...","spokenResponse":"...","proposedActions":[],"requiresConfirmation":false,"conversationState":"awaiting_input"}}
 Generate ONE grounded answer in two forms. spokenResponse is the concise abstraction of visualResponse, not an independent answer. Calm, measured, original Olympus identity; no actor imitation or canned acknowledgements. Conclusion first. ANSWER: 1-4 sentences, normally 5-20 seconds. Current depth {depth}: at most {limit} words spoken. BRIEF may give a short summary. DEEP_DIVE gives one digestible part and asks whether to continue. Put citations, exhaustive lists, reasoning and logs in visualResponse. Never read markdown, JSON, or long written responses aloud.
 Use the supplied project command board as source data; null means unknown. No claim of readiness or execution from Git activity. Suggestions are not commitments. Audio plays only after this answer is generated; never claim you activated voice or that playback already succeeded. The application reports actual delivery separately.
 Only navigation actions are available: {{"type":"show_projects","status":"NEEDS_YOU"}} (or ALL/READY/IN_PROGRESS/BLOCKED/WAITING/MONITORING/UNKNOWN/COMPLETE), {{"type":"open_project","projectId":"exact supplied id"}}, {{"type":"review_proposal","projectId":"exact supplied id"}}. Emit only for an explicit operator request. These actions only navigate; they NEVER approve, execute, defer, save a decision, or write. For any consequential intent, requiresConfirmation=true, explain that the operator must inspect and confirm the exact scope in the existing on-screen review controls. Voice "confirm" alone cannot approve anything. Never claim that a proposal exists without a recorded checkpoint. Otherwise proposedActions=[].
@@ -400,6 +400,25 @@ mod tests {
         assert_eq!(streamed(&[r#"{"visualResponse": "#, r#"   "spaced"}"#]), "spaced");
         let lone = streamed(&[r#"{"visualResponse":"x\ud83d y"}"#]);
         assert_eq!(lone, "x\u{FFFD} y", "a lone surrogate is replaced, not dropped");
+    }
+    /// The provider is asked for visualResponse first but not bound to it:
+    /// either order parses to the same answer and persists the same fields.
+    #[test] fn answer_order_changes_neither_parsing_nor_the_stored_shape() {
+        let visual_first = r#"{"visualResponse":"Full answer","spokenResponse":"Short.","proposedActions":[{"type":"open_project","projectId":"atlas"}],"requiresConfirmation":false,"conversationState":"awaiting_input"}"#;
+        let spoken_first = r#"{"spokenResponse":"Short.","visualResponse":"Full answer","proposedActions":[{"type":"open_project","projectId":"atlas"}],"requiresConfirmation":false,"conversationState":"awaiting_input"}"#;
+        let a = serde_json::to_value(parse_answer(visual_first, "ANSWER").unwrap()).unwrap();
+        let b = serde_json::to_value(parse_answer(spoken_first, "ANSWER").unwrap()).unwrap();
+        assert_eq!(a, b);
+        let mut keys: Vec<_> = a.as_object().unwrap().keys().cloned().collect();
+        keys.sort();
+        assert_eq!(keys, ["conversationState", "proposedActions", "requiresConfirmation", "spokenResponse", "visualResponse"]);
+        for raw in [visual_first, spoken_first] { assert_eq!(streamed(&[raw]), "Full answer"); }
+    }
+    #[test] fn visual_first_answer_streams_before_the_summary_arrives() {
+        let mut stream = VisualStream::default();
+        assert_eq!(stream.push(r#"{"visualResponse":"Visible "#), "Visible ");
+        assert_eq!(stream.push(r#"now","spokenResponse":"visualResponse"#), "now");
+        assert_eq!(stream.push(r#"","proposedActions":[],"conversationState":"awaiting_input"}"#), "");
     }
     #[test] fn long_speech_is_not_read() { let raw=json!({"spokenResponse":"word ".repeat(1000),"visualResponse":"Long detail","conversationState":"awaiting_input"}); assert!(parse_answer(&raw.to_string(),"ANSWER").unwrap().spoken_response.len()<150); }
 }
