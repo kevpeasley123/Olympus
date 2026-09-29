@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { gmailRemoveCache, gmailAction, gmailCacheCounts, gmailError, gmailHorizon, gmailNative, gmailSearch, gmailStateLabel, gmailStatus, gmailThread, gmailSettingsRequestPending, clearGmailSettingsRequest, countOf, type GmailCacheCounts, type GmailStatus, type MailExcerpt, type MailMessage } from "../../services/gmail";
 import { formatWhen } from "../../services/time";
+import { forgetCommsAccount } from "../../state/viewState";
 import "./communications.css";
 export interface GmailClient { native:()=>boolean; status:typeof gmailStatus; action:typeof gmailAction; horizon:typeof gmailHorizon; search:typeof gmailSearch; thread:typeof gmailThread; removeCache:typeof gmailRemoveCache; counts?:typeof gmailCacheCounts }
 const client:GmailClient={native:gmailNative,status:gmailStatus,action:gmailAction,horizon:gmailHorizon,search:gmailSearch,thread:gmailThread,removeCache:gmailRemoveCache,counts:gmailCacheCounts};
@@ -67,7 +68,7 @@ export function GmailSettings({api=client}:{api?:GmailClient}) {
   {removal.error&&<p>The counts could not be read ({removal.error}); removal still deletes every item listed below.</p>}
   <p>Also removes the search index, generated candidates, sync receipts{removal.counts?` and ${countOf(removal.counts.analysisRuns,"analysis run")}`:" and analysis history"}. Previously cited chat excerpts remain; clear conversation separately.</p>
   <p className="gmail-irreversible"><strong>Cannot be undone.</strong> Mail can be imported again by reconnecting. Imported document context must be re-imported with <code>scripts/import-situation-context.py</code> while Olympus is stopped.</p>
-  <div className="gmail-confirm-actions"><button className="ghost-action" type="button" autoFocus onClick={()=>setRemoval(null)}>Keep cache</button><button className="ghost-action destructive-action" type="button" disabled={busy||(!removal.counts&&!removal.error)} onClick={()=>void run(async()=>{await api.removeCache();setRemoval(null);setResults([]);setThread([])})}>Confirm cache removal</button></div>
+  <div className="gmail-confirm-actions"><button className="ghost-action" type="button" autoFocus onClick={()=>setRemoval(null)}>Keep cache</button><button className="ghost-action destructive-action" type="button" disabled={busy||(!removal.counts&&!removal.error)} onClick={()=>{const accountId=state?.account?.id;void run(async()=>{await api.removeCache();if(accountId)forgetCommsAccount(accountId);setRemoval(null);setResults([]);setThread([])})}}>Confirm cache removal</button></div>
  </div>:<button className="ghost-action" type="button" disabled={busy} onClick={()=>void askRemoval()}>Remove cached mailbox</button>}</div>}
  <p className="section-copy">Disconnect stops sync, asks Google to revoke this authorization and removes the local credential. Revocation is best effort; confirm it in your Google Account’s third-party connections. Cached mail, analysis history and previously cited answers remain. Sync runs only while Olympus is open.</p>
  {enabled&&<details><summary>Search cached mail and review candidates</summary>

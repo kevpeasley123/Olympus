@@ -238,6 +238,14 @@ export function writeViewEntry<K extends RecordSliceKey>(key: K, id: string, upd
   });
 }
 
+/**
+ * A removed mailbox cache takes the account's unsent drafts and selections
+ * with it, so nothing purged reattaches when the account syncs again.
+ */
+export function forgetCommsAccount(accountId: string): void {
+  writeViewEntry("comms", accountId, null, EMPTY_COMMS_ACCOUNT);
+}
+
 /** One entry of a keyed slice, e.g. the draft for one project or the notes for one run. */
 export function useViewEntry<K extends RecordSliceKey>(key: K, id: string, fallback: EntryOf<K>): [EntryOf<K>, (update: Updater<EntryOf<K>> | null) => void] {
   const [record] = useViewSlice(key);
