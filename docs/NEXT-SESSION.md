@@ -1,5 +1,7 @@
 ## Design-review implementation — September 28, 2026
 
+2026-09-29 release-readiness pass: see the reconciled item table and the "Release-readiness pass" section in [IMPLEMENTATION-CHECKLIST.md](reviews/2026-09-28-design-usability/IMPLEMENTATION-CHECKLIST.md). Desktop acceptance, grouped by risk, is in [DESKTOP-ACCEPTANCE.md](reviews/2026-09-28-design-usability/DESKTOP-ACCEPTANCE.md). U6 is partial because provider ordering is unverified. U9 is complete against the operator's revised criterion. hybrid-core's voice-timing failure is pre-existing and environmental.
+
 The [design and usability review](reviews/2026-09-28-design-usability/DESIGN-USABILITY-REVIEW.md)
 items U1–U12, D1–D6 and F1–F6 were implemented on `claude/blissful-lamport-2l4o96`
 (`d920883`..`a3925ea`); P1–P6 are deferred. Per-item status, evidence and limitations

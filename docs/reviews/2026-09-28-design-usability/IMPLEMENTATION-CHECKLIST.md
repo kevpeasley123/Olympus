@@ -192,36 +192,105 @@ At 2560, SwiftShader starves animation frames, so forced clicks and a WebGL-off 
   - `communications?errors&long` is a visual fixture with no checks; it renders without errors.
   - `hybrid-core` fails its SwiftShader voice-timing check, as it did on the baseline.
 
-## Items
+## Items (reconciled 2026-09-29)
 
-The evidence recorded here is unit, build and mock only. Every item still needs desktop acceptance — see "Native checks".
+**Columns:**
 
-| ID | Summary | Status | Main files | Verification | Limitations |
-| --- | --- | --- | --- | --- | --- |
-| U1 | Seed projects shown as real; scan state | done | `useDashboardData.ts`, `storage.ts`, `seed.ts`, `CommandInstrument.tsx`, `ProjectRing.tsx`, `HeaderBar.tsx`, `ProjectsPanel.tsx` | mock (loading, failed, stale and empty across ring, header and board; no seed names on desktop); unit (board states) | Browser preview keeps the labelled demo seed by design. |
-| U2 | Voice failure alarms the instrument | done | `App.tsx` (`instrumentState`), `realtimeVoice.ts`, `voiceFailure.ts`, `ChatPanel.tsx`, `voice.rs` | mock (429: core idle, readable row, Retry audio / Switch to Text / Dismiss; red only on a request failure); unit | Real WebView2 autoplay and a real 429 are native checks. |
-| U3 | Operator work lost to refresh and navigation | done | `viewState.ts`, `DelegationReview.tsx`, `DelegationPanel.tsx`, `delegationReview.ts`, Library files, `SituationsWorkspace.tsx`, `recipients.ts` | unit (notes survive refresh; hash change clears selections and acknowledgement, keeps notes); mock (drafts, detail, query, entry, situation, reply draft survive mode switches; close prompts) | Session memory only. Drafts are lost on app restart by design; no durable store for sensitive text. |
-| U4 | Restart beside Refresh | done | `PreferencesDialog.tsx`, `LibraryPanel.tsx` | mock | Native restart not exercised. |
-| U5 | Claim-to-evidence path | done (follow-up: attached context) | `ChatPanel.tsx` (Open in library), `library/*` (destination, `excerptHighlight.ts`), `pantheon.rs` (fingerprints), `ResearchVerification.tsx`, `KnowledgeAudit.tsx`, `SituationSourceReview.tsx`, `communications.ts` | unit (fingerprint equals retrieval's value; changed and unchanged cases); mock (Unchanged / Changed / No longer in library; citations; Review source three blocks; thread as attached context) | Follow-up: the thread reference (and the project board snapshot) is stored beside the operator's words (`attachment`, `scope`; `conversation_turn_context`) and shown as an "Attached: …" chip with Inspect. The model receives the same composed text as before, so the Rust marker contract is unchanged. Unit (`test-turn-attachment.mjs` 17; Rust persistence round trip and legacy rows); mock (chip not marker at 1280 and 1440; marker in `send_assistant_message`; chip after reload; legacy rows split for display, sent unchanged). |
-| U6 | Typed replies with Voice on | done | `voice.rs` (`VisualStream`), `responses.rs`, `assistant.rs`, `useDashboardData.ts`, `ChatPanel.tsx` | unit (escapes, surrogates, every chunk size 1–9, decoys, either field order); unit (request bytes read off a local socket list `visualResponse` first); mock (text about 0.9 s after send) | The OpenAI request now lists `visualResponse` first (`responses::VisualFirst` reorders only that object in the sent bytes; `preserve_order` stays off; stored answers unchanged). Schema-order generation is provider behaviour, not a guarantee; the Claude route follows the prompt example only. Not yet observed against the live provider. |
-| U7 | Research inspectors and reading position | done | `LibraryPanel.tsx`, `library/LibraryBrowser.tsx`, `library/EntryDetail.tsx` | mock (segments; brief starts 267px down at 1280; open/back restores scroll and focus; header clean at four sizes) | — |
-| U8 | Communications at laptop widths | done | `SituationsWorkspace.tsx`, `NextStepStrip`, `DocumentSituationMap.tsx`, `SituationRelationshipWeb.tsx`, `situationGraph.ts`, `mapTypography.ts`, `situations.css` | unit (map typography 10); mock (next step visible on arrival at 1280/1440; map text ≥12px at four sizes; no overlay interception) | Review source's full-thread block sits below the fold in the narrow inspector. |
-| U9 | Keyboard model and Preferences dialog | done | `shortcuts.ts`, `Modal.tsx`, `PreferencesDialog.tsx`, `AmbientDock.tsx`, `ProjectRing.tsx`, `ChatPanel.tsx`, `LibraryPanel.tsx` | mock (dialog behaviour; popover text; Ctrl+K; `/`; roving ring; skip links) | Tab walk to the console in Command is 22, down from 67–69. The review's ≤15 was a starting point; the remaining stops are real controls (mode switcher, quick apps, catalog). Follow-up: **Skip to console** is the first tab stop in every mode, visible on focus (13px, focus ring) and focuses the input. Measured with the mock at 1280×800 and 1440×900: skip link at Tab 1 in all four modes; Tab walk to the console is Command 22, Project 36, Research 54, Communications 41 (settled situation view). |
-| U10 | Opening briefing in Text mode and labels | done | `ChatPanel.tsx`, `conversationHistory.ts`, `assistant.ts`, `useDashboardData.ts` | unit; mock (BRIEFING READY; label; "Not spoken (Text replies)"; only the newest briefing in history) | — |
-| U11 | Delegation plan, blockers, approval legibility | done | `DelegationPanel.tsx`, `DelegationReview.tsx`, `delegation.rs`, `delegation_review.rs` | unit (read-only plan read writes nothing; `permitted` built from launch constants); mock (plan readable without a proposal; blocker reasons; definition list; countdown; completion checklist) | Needs desktop checks: real `permitted` and `baseBranch` output, and approve/stop against the real backend. |
-| U12 | Gmail recovery; data-reducing actions | done | `gmail/store.rs`, `gmail/mod.rs` (`gmail_cache_counts`), `situations.rs`, `gmail.ts`, `Communications.tsx`, `GmailSettings.tsx` | unit (counts); mock (four error states; real next-attempt times from the backend; counts dialog; narrowing prompt) | Real-account behaviour is a desktop check. |
-| D1 | Type scale and size floor | done | tokens in `styles.css`; `projects.css`, `command.css`, `communications.css`, `situations.css`, `library/library.css` | mock measurements per surface | A few 10–11px mono badges remain in Communications' Browse email. The one-off colour audit is not exhaustive. |
-| D2 | Tokens, contrast, focus ring | done | `styles.css`, component CSS, `scripts/test-css-tokens.mjs` | unit (0 undefined tokens); measured `--label` contrast ≥4.54 on all tiers | Colour consolidation was opportunistic, not complete. |
-| D3 | Implementation details and dates in ordinary views | done | `time.ts`, `commsTime.ts`, `researchLabels.ts`, per-surface components | unit (time 25 checks); mock | Identifiers remain available inside Inspect and Internals disclosures by design. |
-| D4 | Workflow Inspection layout for inspectors | done | `ResearchVerification.tsx`, `KnowledgeAudit.tsx`, `library/InspectorParts.tsx`, `ModelSettings.tsx` (diagnostics table), `WorkflowInspection.tsx` | harnesses (research-verification 29, workflow-inspection 23, knowledge-audit pass) | — |
-| D5 | Project board repetition | done | `ProjectsPanel.tsx`, `projectCommandBoard.ts`, `projects.css` | mock (first row y=292 at 1440×900, y=346 at 1280×800) | Sort control wraps onto its own line at 1280. |
-| D6 | Precise state names | done | `ChatPanel.tsx`, `CommandInstrument.tsx`, `ProjectsPanel.tsx`, `DelegationPanel.tsx` | mock; unit (ARCHIVED display mapping) | — |
-| F1 | Source-specific freshness | done | `ProjectsPanel.tsx`, `Communications.tsx`, `situations.rs` (`understanding` last run), stores' `lastSuccessAt` | mock | — |
-| F2 | Attention field | done | `projectBriefing.ts`, `ProjectsPanel.tsx`, `openingBriefing.ts` | unit (observations never change status or owner; `test-opening-briefing.mjs` 21 checks); mock (briefing observation sentence) | At most one attention sentence in the briefing; the rest stay on the board. |
-| F3 | Research search, lists, capture | done | `library/libraryModel.ts`, `pantheonRecord.ts`, `pantheon.rs`, `AddEntryDialog.tsx`, `entryMarkdown.tsx` | unit (search tiers, dirty fields, source types, wikilinks); mock | No Tauri drag-and-drop. Attachments open through `open_vault_note` (Obsidian), limited to `_attachments`. |
-| F4 | Situation navigator scale | done | `situationNavigator.ts`, `SituationsWorkspace.tsx` | unit (navigator 15); mock | Email-only situations show "Not assessed", because the policy reads saved document context only. |
-| F5 | Hidden work, WebGL fallback, deferred init | done | `CommandInstrument.tsx`, `HybridCommandCore.tsx`, `hybridScene.ts`, `useSituationSnapshot.ts`, `situations.rs` (revision), Library model and paging | mock (WebGL-off SVG at four sizes; no 3D chunk when opening in Research; snapshot unchanged skip); measured (Research typing at 3,000 entries: long tasks 1.3–2.0 s → 0.13–0.36 s, dev build on SwiftShader) | No GPU claims. Real-GPU profiling is a native check. |
-| F6 | Links, Ctrl+R, error boundaries, seed chat, transcript dates, Replay | done | `externalLink.ts`, `ChatPanel.tsx`, `shortcuts.ts`, `ErrorBoundary.tsx`, `persistence.rs` (`at`), `useDashboardData.ts` | unit; mock | Rows imported from localStorage carry their import time as their date. |
+| Column | Meaning |
+| --- | --- |
+| **Impl** | Code complete |
+| **Browser** | Verified in Chromium against the synthetic IPC mock, plus unit tests. This is not desktop evidence. |
+| **Desktop** | Verified in the Tauri app. Nothing has been verified there yet; see `DESKTOP-ACCEPTANCE.md`. |
+
+**Status values:**
+
+| Value | Meaning |
+| --- | --- |
+| done | Complete and verified at the stated level |
+| partial | An acceptance requirement is still unmet or unverifiable in this environment |
+
+All browser results below are from the final run on `cc0f182`:
+
+| Suite | Result |
+| --- | --- |
+| Integration checks | 103 of 104 at each of 1280×800, 1440×900, 1920×1080 and 2560×1440 |
+| Harnesses | 17 of 17 |
+| Attachment checks | 32 of 32 at 1280 and 1440 |
+| Skip-link probe | Passes |
+
+| ID | Summary | Status | Impl | Browser | Desktop | Notes |
+| --- | --- | --- | --- | --- | --- | --- |
+| U1 | Truthful project-scan state | done | ✓ | ✓ | — | Browser preview keeps the labelled demo seed by design. |
+| U2 | Voice failure kept out of the instrument | done | ✓ | ✓ | — | A real 429 and WebView2 autoplay are desktop checks (D3, D4). |
+| U3 | Operator work survives refresh and navigation | done | ✓ | ✓ | — | Regression fixes M1 (kept Add Entry draft), M2 (comms state purged with the cache) and L1 (untouched prefill and ended runs don't pin a project) applied 2026-09-29. Session memory only. |
+| U4 | Restart moved to Preferences with confirmation | done | ✓ | ✓ | — | Real restart is desktop check A11. |
+| U5 | Claim-to-evidence path | done | ✓ | ✓ | — | 2026-09-29: the chat bubble shows the operator's words plus an "Attached: …" chip with Inspect. The backend still receives the thread marker, so the resolver is unchanged. Persisted in the additive `conversation_turn_context` table. |
+| U6 | Typed replies stream with Voice on | **partial** | ✓ | ✓ (mock stream) | — | 2026-09-29: the OpenAI request bytes now list `visualResponse` first (`responses.rs` `wire_body`/`VisualFirst`), pinned by unit tests including one that reads the request off a socket. No global serialization, fingerprint or persisted-contract change. **Unmet:** providers usually generate strict-schema properties in schema order, but this is not documented; the Claude route relies on the prompt example only; no live provider test (desktop D1, D2). |
+| U7 | Research inspectors and reading position | done | ✓ | ✓ | — | — |
+| U8 | Communications at laptop widths | done | ✓ | ✓ | — | The full-thread block of Review source is below the fold in the narrow inspector. The console squeezing the view below 1500px is an accepted deviation (layout contract). |
+| U9 | Keyboard model and Preferences dialog | done against the revised criterion | ✓ | ✓ | — | 2026-09-29 revision (operator instruction): a visible, keyboard-accessible Skip to console path, with no controls removed. Met: it is the first Tab stop in all four modes, 13px with a focus ring, and Enter focuses the console. The review's original ≤15 Tab target is **not met**: Command 22, Project 36, Research 54, Communications 41. Every remaining stop is a real control. The integration check still records that target as its one failure. |
+| U10 | Opening briefing in Text mode and labels | done | ✓ | ✓ | — | — |
+| U11 | Delegation plan, blockers, approval legibility | done | ✓ | ✓ | — | 2026-09-29 fixes: L2 names the base branch only when HEAD is the base commit and never falls back to the project branch; L3 drops the cached resume approval when its run leaves `waiting`; L5 caches the review time. Real runs are desktop group E. |
+| U12 | Gmail recovery; data-reducing actions | done | ✓ | ✓ | — | L4 (2026-09-29): backoff is reported only for the account that failed. Real account is desktop check D6. |
+| D1 | Type scale and size floor | done | ✓ | ✓ | — | A few 10–11px mono badges remain in Browse email. |
+| D2 | Tokens, contrast, focus ring | done | ✓ | ✓ | — | Colour consolidation was opportunistic. |
+| D3 | Human labels and dates | done | ✓ | ✓ | — | — |
+| D4 | Workflow Inspection layout for inspectors | done | ✓ | ✓ | — | — |
+| D5 | Project board repetition | done | ✓ | ✓ | — | The Sort control wraps at 1280. |
+| D6 | Precise state names | done | ✓ | ✓ | — | — |
+| F1 | Source-specific freshness | done | ✓ | ✓ | — | — |
+| F2 | Attention field and briefing sentence | done | ✓ | ✓ | — | The harness clock was pinned 2026-09-29, after a real-clock dependency failed a day later. |
+| F3 | Research search, lists, capture | done | ✓ | ✓ | — | No Tauri drag-and-drop. |
+| F4 | Situation navigator scale | done | ✓ | ✓ | — | Email-only situations show "Not assessed". |
+| F5 | Hidden work, WebGL fallback, deferred init | done | ✓ | ✓ | — | No GPU claims; desktop check A12. |
+| F6 | Links, Ctrl+R, error boundaries, seed chat, dates, Replay | done | ✓ | ✓ | — | 2026-09-29: the Ctrl/Cmd+R reload block moved to a capture listener in `main.tsx`, outside every error boundary. |
+
+## Release-readiness pass (2026-09-29)
+
+**Changes merged:**
+
+| Merge | Change |
+| --- | --- |
+| `3cec120` → `8d81a0e` | U6 visual-first request order |
+| `8d81a0e` | Opening-briefing harness clock pinned |
+| `4033d42` | Regression-review fixes M1, M2, L1–L5, and the Ctrl+R reload guard |
+| `cc0f182` | Skip to console in every mode; attached-context chips |
+| `f524120` | `DESKTOP-ACCEPTANCE.md` |
+
+**Regression review of `d47f95f..056e91f`:**
+- No Critical or High findings.
+- **Approval binding:** `approvals.rs` is unchanged. The only new command is `gmail_cache_counts`. `permitted`, `baseBranch` and `reviewedAt` are output-only.
+- **Account isolation:** new queries are filtered by account.
+- **Earlier security fixes intact:** the CSP is unchanged; no raw HTML, `rehype-raw` or `gray-matter`; the write gate sits outside every boundary; attachment tokens, the `write_memory_artifact` enum, `vault_write` and delegation containment are unchanged.
+
+**Hybrid-core baseline:** `hybrid-core-harness` "Voice signature follows changing speech energy" failed in every run on all three commits:
+
+| Commit | Failed runs |
+| --- | --- |
+| `e4669c9` (0.19.0) | 3 of 3 |
+| `d47f95f` (pre-design-review) | 5 of 5 |
+| `056e91f` (final) | 5 of 5 |
+
+- Every run used the same flags and a 1440×900 viewport, and 53 checks passed before the failure each time.
+- The cause is the environment: SwiftShader renders about one frame every three seconds at a 1457px canvas, and the check needs frames to move a smoothed energy value.
+- It is **pre-existing** and is excluded from the harness count above rather than counted as passing.
+- It needs a GPU browser run; see `DESKTOP-ACCEPTANCE.md`.
+
+**Test counts on the final tree:**
+- `npm run build` passes.
+- 16 of 16 node scripts pass.
+- `cargo test --lib` gives 405 passed, 0 failed, 11 ignored.
+
+**Accepted deviations** (recorded, not defects):
+- **U9:** the ≤15 Tab target is replaced by the Skip to console criterion.
+- **U8:** Communications is squeezed below 1500px while the console is engaged. This is a layout-contract decision.
+- **Legacy dates:** rows imported from localStorage carry their import date.
+- **Session-only drafts:** drafts are held in session memory only, by design.
+
+**Unaccepted, still open:**
+- **U6:** provider ordering is unverified.
+- **Desktop acceptance:** not started.
+- **`cargo fmt --check`:** already failed on untouched files before this work.
 
 ## Native checks (not available in this environment)
 
