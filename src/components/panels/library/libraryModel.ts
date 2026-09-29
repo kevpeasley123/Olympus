@@ -428,6 +428,26 @@ export function isDraftDirty(draft: EntryDraftFields, blank: EntryDraftFields): 
   return changedDraftFields(draft, blank).length > 0;
 }
 
+/**
+ * A kept draft is pending while it holds typed work the operator has neither
+ * restored nor discarded. Only one draft is kept, so while one is pending the
+ * form stays closed to edits: anything typed would later have to overwrite it
+ * on keep or unmount, or be overwritten by Restore, without asking.
+ */
+export function keptDraftPending(kept: ResearchEntryDraft | null | undefined, restored: boolean): boolean {
+  return Boolean(kept && !restored && isDraftDirty(kept, blankDraft(kept.sourceDate)));
+}
+
+/** Whether keeping `form` may replace the stored draft: never a pending one. */
+export function mayKeepDraft(
+  form: EntryDraftFields,
+  blank: EntryDraftFields,
+  kept: ResearchEntryDraft | null | undefined,
+  restored: boolean
+): boolean {
+  return isDraftDirty(form, blank) && !keptDraftPending(kept, restored);
+}
+
 export interface WritePantheonEntryRequest {
   title: string;
   body: string;

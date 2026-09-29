@@ -11,7 +11,8 @@ import {
   blankDraft,
   changedDraftFields,
   draftRequest,
-  isDraftDirty,
+  keptDraftPending,
+  mayKeepDraft,
   type EntryDraftFields,
   type WritePantheonEntryRequest
 } from "./libraryModel";
@@ -65,17 +66,21 @@ export function AddEntryDialog({ projects, onClose, onSaved, client = tauriAddEn
   const [extractedText, setExtractedText] = useState<string | null>(null);
   const [extractError, setExtractError] = useState<string | null>(null);
   const kept = research.addEntryDraft ?? null;
-  const offerRestore = Boolean(kept && !restored && isDraftDirty(kept, blankDraft(kept.sourceDate)));
+  // Until the kept draft is restored or discarded the form is read-only, so
+  // a second draft can never silently replace it and Restore never replaces
+  // typed text (review M1).
+  const offerRestore = keptDraftPending(kept, restored);
+  const locked = submitting || offerRestore;
   const changed = useMemo(() => changedDraftFields(form, blank), [form, blank]);
   const dirty = changed.length > 0;
 
   // A mode switch or navigation can unmount the dialog without a close. Typed
   // work goes to the session's view store rather than being dropped.
-  const latest = useRef({ form, dirty, settled: false });
-  latest.current = { ...latest.current, form, dirty };
+  const latest = useRef({ form, kept, restored, settled: false });
+  latest.current = { ...latest.current, form, kept, restored };
   useEffect(() => () => {
-    const { form: last, dirty: wasDirty, settled } = latest.current;
-    if (!settled && wasDirty) keep(last);
+    const { form: last, kept: stored, restored: wasRestored, settled } = latest.current;
+    if (!settled && mayKeepDraft(last, blank, stored, wasRestored)) keep(last);
   }, []);
 
   function keep(fields: EntryDraftFields) {
@@ -108,7 +113,7 @@ export function AddEntryDialog({ projects, onClose, onSaved, client = tauriAddEn
   }
 
   function keepAndClose() {
-    keep(form);
+    if (mayKeepDraft(form, blank, kept, restored)) keep(form);
     settle(onClose);
   }
 
@@ -120,7 +125,7 @@ export function AddEntryDialog({ projects, onClose, onSaved, client = tauriAddEn
   }
 
   function restore() {
-    if (!kept) return;
+    if (!kept || dirty) return;
     const { keptAt: _keptAt, ...fields } = kept as ResearchEntryDraft;
     setForm(fields);
     setRestored(true);
@@ -231,7 +236,7 @@ export function AddEntryDialog({ projects, onClose, onSaved, client = tauriAddEn
       title="Add Entry"
       showTitle={false}
       className="library-add-entry"
-      initialFocus="#ae-title"
+      initialFocus={offerRestore ? ".library-notice button" : "#ae-title"}
       dismissOnBackdrop
     >
       <header className="pantheon-modal-header">
@@ -250,6 +255,7 @@ export function AddEntryDialog({ projects, onClose, onSaved, client = tauriAddEn
             <div className="library-notice" role="status">
               <span>
                 An unsent entry is kept from {formatWhen(kept.keptAt)}: <strong>{kept.title.trim() || "Untitled"}</strong>.
+                Restore it or discard it before starting another.
               </span>
               <span className="library-notice__actions">
                 <button type="button" className="ghost-action library-action" onClick={restore}>Restore</button>
@@ -261,14 +267,14 @@ export function AddEntryDialog({ projects, onClose, onSaved, client = tauriAddEn
           <div className="form-field">
             <label className="form-label" htmlFor="ae-title">Title</label>
             <input id="ae-title" type="text" className="form-input" placeholder="Entry title" value={form.title}
-              onChange={(event) => update("title", event.target.value)} disabled={submitting} />
+              onChange={(event) => update("title", event.target.value)} disabled={locked} />
           </div>
 
           {/* Second, not last. This is the entry — the metadata below it
               describes the thing typed here. */}
           <div className="form-field form-field--body">
             <label className="form-label" htmlFor="ae-body">Body</label>
-            <textarea id="ae-body" className="form-input form-textarea" rows={10} value={form.body} disabled={submitting}
+            <textarea id="ae-body" className="form-input form-textarea" rows={10} value={form.body} disabled={locked}
               placeholder="Write or paste the entry. Markdown supported. An attachment below can be extracted into this field, but typing here is the normal path."
               onChange={(event) => update("body", event.target.value)} />
           </div>
@@ -276,7 +282,7 @@ export function AddEntryDialog({ projects, onClose, onSaved, client = tauriAddEn
           <div className="form-row">
             <div className="form-field">
               <label className="form-label" htmlFor="ae-source-type">Source type</label>
-              <select id="ae-source-type" className="form-input" value={form.sourceType} disabled={submitting}
+              <select id="ae-source-type" className="form-input" value={form.sourceType} disabled={locked}
                 onChange={(event) => update("sourceType", event.target.value)}>
                 <option value="article">Article</option>
                 <option value="transcript">Transcript</option>
@@ -288,7 +294,7 @@ export function AddEntryDialog({ projects, onClose, onSaved, client = tauriAddEn
             </div>
             <div className="form-field">
               <label className="form-label" htmlFor="ae-project">Project <span className="form-optional">(optional)</span></label>
-              <select id="ae-project" className="form-input" value={form.project} disabled={submitting}
+              <select id="ae-project" className="form-input" value={form.project} disabled={locked}
                 onChange={(event) => update("project", event.target.value)}>
                 <option value="">No project</option>
                 {projectOptions.map((name) => <option key={name} value={name}>{name}</option>)}
@@ -300,19 +306,19 @@ export function AddEntryDialog({ projects, onClose, onSaved, client = tauriAddEn
             <div className="form-field">
               <label className="form-label" htmlFor="ae-source-url">Source URL <span className="form-optional">(optional)</span></label>
               <input id="ae-source-url" type="url" className="form-input" placeholder="https://..." value={form.sourceUrl}
-                onChange={(event) => update("sourceUrl", event.target.value)} disabled={submitting} />
+                onChange={(event) => update("sourceUrl", event.target.value)} disabled={locked} />
             </div>
             <div className="form-field">
               <label className="form-label" htmlFor="ae-source-date">Source date <span className="form-optional">(optional)</span></label>
               <input id="ae-source-date" type="date" className="form-input" value={form.sourceDate}
-                onChange={(event) => update("sourceDate", event.target.value)} disabled={submitting} />
+                onChange={(event) => update("sourceDate", event.target.value)} disabled={locked} />
             </div>
           </div>
 
           <div className="form-field">
             <label className="form-label" htmlFor="ae-tags">Tags <span className="form-optional">(optional)</span></label>
             <input id="ae-tags" type="text" className="form-input" placeholder="comma, separated, tags" value={form.tagsRaw}
-              onChange={(event) => update("tagsRaw", event.target.value)} disabled={submitting} />
+              onChange={(event) => update("tagsRaw", event.target.value)} disabled={locked} />
             <span className="form-helper">
               <code>olympus/research</code> and <code>{`research/${form.sourceType || "TYPE"}`}</code> are added automatically and are not searched.
             </span>
@@ -321,7 +327,7 @@ export function AddEntryDialog({ projects, onClose, onSaved, client = tauriAddEn
           <div className="form-row">
             <div className="form-field">
               <label className="form-label" htmlFor="ae-stance">Stance</label>
-              <select id="ae-stance" className="form-input" value={form.stance} disabled={submitting}
+              <select id="ae-stance" className="form-input" value={form.stance} disabled={locked}
                 onChange={(event) => update("stance", event.target.value)}>
                 {PANTHEON_STANCES.map((value) => <option key={value} value={value}>{STANCE_TEXT[value] ?? value}</option>)}
               </select>
@@ -329,7 +335,7 @@ export function AddEntryDialog({ projects, onClose, onSaved, client = tauriAddEn
             </div>
             <div className="form-field">
               <label className="form-label" htmlFor="ae-origin">Origin</label>
-              <select id="ae-origin" className="form-input" value={form.origin} disabled={submitting}
+              <select id="ae-origin" className="form-input" value={form.origin} disabled={locked}
                 onChange={(event) => update("origin", event.target.value)}>
                 {PANTHEON_ORIGINS.map((value) => <option key={value} value={value}>{ORIGIN_TEXT[value] ?? value}</option>)}
               </select>
@@ -340,7 +346,7 @@ export function AddEntryDialog({ projects, onClose, onSaved, client = tauriAddEn
           <div className="form-field">
             <label className="form-label" htmlFor="ae-why-kept">Why kept <span className="form-optional">(optional)</span></label>
             <input id="ae-why-kept" type="text" className="form-input" placeholder="What this is for." value={form.whyKept}
-              onChange={(event) => update("whyKept", event.target.value)} disabled={submitting} />
+              onChange={(event) => update("whyKept", event.target.value)} disabled={locked} />
             <span className="form-helper">Left blank, the entry reads as having no stated purpose — which is visible rather than guessed at.</span>
           </div>
 
@@ -350,11 +356,11 @@ export function AddEntryDialog({ projects, onClose, onSaved, client = tauriAddEn
               <div className="attachment-staged-row" aria-labelledby="ae-attachment-label">
                 <span className="attachment-staged-name">{form.attachment.originalFilename}</span>
                 <span className="attachment-staged-ext">{form.attachment.extension.toUpperCase()}</span>
-                <button type="button" className="attachment-remove" onClick={handleRemoveAttachment} disabled={submitting}
+                <button type="button" className="attachment-remove" onClick={handleRemoveAttachment} disabled={locked}
                   aria-label="Remove attachment" title="Remove attachment">×</button>
               </div>
             ) : (
-              <button type="button" className="attachment-dropzone" onClick={() => void handlePickAttachment()} disabled={submitting}
+              <button type="button" className="attachment-dropzone" onClick={() => void handlePickAttachment()} disabled={locked}
                 aria-describedby="ae-attachment-help">
                 Choose a file…
               </button>
@@ -377,7 +383,7 @@ export function AddEntryDialog({ projects, onClose, onSaved, client = tauriAddEn
                 <div className="attachment-preview-header">
                   <span>PDF text preview</span>
                   {extractedText && extractedText.length > 0 ? (
-                    <button type="button" className="attachment-insert-button" onClick={handleInsertExtracted} disabled={submitting}
+                    <button type="button" className="attachment-insert-button" onClick={handleInsertExtracted} disabled={locked}
                       title="Append extracted text to body">Insert into body</button>
                   ) : null}
                 </div>
@@ -414,7 +420,7 @@ export function AddEntryDialog({ projects, onClose, onSaved, client = tauriAddEn
           ) : null}
           <button type="button" className="form-button form-button--ghost" onClick={requestClose} disabled={submitting}>Cancel</button>
           <button type="button" className="form-button form-button--primary" onClick={() => void handleSave()}
-            disabled={submitting || missing.length > 0}
+            disabled={locked || missing.length > 0}
             title={missing.length > 0 ? `Still needed: ${missing.join(", ")}` : undefined}>
             {submitting ? "Saving…" : error ? "Retry save" : "Save Entry"}
           </button>
