@@ -284,3 +284,37 @@ html .model-diagnostics { font-size: var(--text-xs); }
 }
 .model-diagnostics-detail pre { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: var(--text-xs); }
 .model-diagnostics-empty { color: var(--muted); }
+
+/* ---- Attached context on an operator turn (review U5) -------------------- */
+/* The bubble shows the operator's words; what they attached is a chip, and the
+   exact reference the model received is one disclosure away. */
+.console-attachment { margin-top: 6px; font-size: var(--text-xs); color: var(--label); }
+.console-attachment > summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  padding: 3px 8px;
+  border: 1px solid rgba(198, 151, 86, .35);
+  border-radius: 6px;
+  background: rgba(198, 151, 86, .08);
+  color: #d3ad7c;
+  cursor: pointer;
+  list-style: none;
+}
+.console-attachment > summary::-webkit-details-marker { display: none; }
+.console-attachment > summary > svg { flex: none; }
+.console-attachment > summary > span:first-of-type { min-width: 0; overflow-wrap: anywhere; }
+.console-attachment-inspect { flex: none; color: var(--label); white-space: nowrap; text-decoration: underline; text-underline-offset: 2px; }
+.console-attachment[open] .console-attachment-inspect { text-decoration: none; }
+html .command-console .console-attachment > p { margin: 6px 0 4px; color: var(--label); font-size: var(--text-xs); }
+.console-attachment > pre {
+  max-height: 160px;
+  margin: 0;
+  overflow: auto;
+  color: #b5c1d0;
+  font: var(--text-xs) var(--font-mono);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.console-turn-scope { color: var(--label); font: var(--text-xs) var(--font-mono); letter-spacing: .02em; text-transform: none; }

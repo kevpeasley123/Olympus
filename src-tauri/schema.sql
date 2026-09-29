@@ -240,6 +240,11 @@ CREATE TABLE IF NOT EXISTS gmail_candidates (
 );
 CREATE TABLE IF NOT EXISTS conversation_mail (message_id TEXT PRIMARY KEY,sources_json TEXT NOT NULL);
 
+-- What an operator turn carried besides their own words: a context attachment
+-- (Gmail thread reference, project board snapshot) and the mode scope. The
+-- message row keeps only what the operator typed; the model is sent both.
+CREATE TABLE IF NOT EXISTS conversation_turn_context (message_id TEXT PRIMARY KEY, context_json TEXT NOT NULL);
+
 -- Manual local intelligence. Generated evidence, never an execution authorization.
 CREATE TABLE IF NOT EXISTS communication_runs (
  id TEXT PRIMARY KEY, account_id TEXT NOT NULL, days INTEGER NOT NULL,

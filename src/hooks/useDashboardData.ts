@@ -26,7 +26,7 @@ import { emitInstrumentEvent } from "../services/instrumentEvents";
 import { buildPantheonReply, createUserMessage } from "../services/pantheonChat";
 import { appendConversationMessages, initialDashboardState, loadState, persistPreferences } from "../services/storage";
 import { beginOperatorSession } from "../services/session";
-import type { OlympusState, SessionBoundary } from "../types";
+import type { OlympusState, SessionBoundary, TurnContext } from "../types";
 
 function errorMessage(error: unknown): string {
   if (error instanceof Error) {
@@ -276,7 +276,7 @@ export function useDashboardData() {
   }, [hydrated, projectsScanned, taskStore.loading, runStore.loading, sessionBoundary, projectsError]);
 
   const sendChatMessage = useCallback(
-    async (text: string, voiceDepth?: VoiceDepth, voiceMessageId?: string): Promise<VoiceAnswer | undefined> => {
+    async (text: string, voiceDepth?: VoiceDepth, voiceMessageId?: string, turn?: TurnContext): Promise<VoiceAnswer | undefined> => {
       if (voiceDepth) while (requestInFlight.current) await new Promise(resolve => window.setTimeout(resolve, 80));
       const trimmed = text.trim();
       // Before hydration the history is seed data and the stored conversation
@@ -289,6 +289,10 @@ export function useDashboardData() {
       // Output modality is independent of input modality: a typed request may
       // ask for a spoken answer, but only a transcription has a voice input ID.
       if (voiceMessageId) { user.voice = {kind:"input"}; user.id = voiceMessageId; }
+      // The transcript shows the operator's words; the model is sent them with
+      // the attachment and scope composed back in (`turnAttachment`).
+      if (turn?.attachment) user.attachment = turn.attachment;
+      if (turn?.scope) user.scope = turn.scope;
 
       // The user's turn lands immediately and is part of the history the model
       // sees, so it is captured before the request goes out.

@@ -277,7 +277,7 @@ function App() {
                   onAutoSpeakChange={autoSpeak=>updateVoicePreferences({autoSpeak})}
                   voiceSettingsReady={settingsReady}
                   messages={chat}
-                  onSendMessage={text => { voicePreview.stop(); void realtimeVoice.sendText(mode === "communications" ? `[Gmail workspace] ${text}` : text,isTauriRuntime()); }}
+                  onSendMessage={(text, attachment) => { voicePreview.stop(); void realtimeVoice.sendText(text,isTauriRuntime(),{attachment,scope:mode === "communications" ? "gmail-workspace" : undefined}); }}
                   onRecordObservation={recordObservation}
                   pending={chatPending}
                   error={chatError}

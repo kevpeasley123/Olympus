@@ -91,6 +91,32 @@ export interface ConversationMessage {
     kind: "refusal" | "truncated";
     message: string;
   };
+  /**
+   * Source data the operator attached to this turn. Stored beside `content`,
+   * which holds only their own words; `turnAttachment` composes the text the
+   * model is sent. Absent on older rows, which folded it into `content`.
+   */
+  attachment?: TurnAttachment;
+  /** The mode that scoped this turn's retrieval. */
+  scope?: TurnScope;
+}
+
+export type TurnScope = "gmail-workspace";
+
+export interface TurnAttachment {
+  kind: "gmail-thread" | "project-snapshot";
+  /** Operator-facing name: "Gmail thread · <subject>", or the project. */
+  label: string;
+  /** The heading the model reads above `context`. */
+  heading: string;
+  /** Sent verbatim: a `[Gmail thread: <id>]` reference or a board snapshot. */
+  context: string;
+}
+
+/** What a send carries besides the operator's words. */
+export interface TurnContext {
+  attachment?: TurnAttachment;
+  scope?: TurnScope;
 }
 
 /**
