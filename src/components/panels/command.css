@@ -161,20 +161,28 @@ html .command-console .conversation-bubble:not(:hover):not(:focus-within) .conso
 /* ---- Skip link (U9) ------------------------------------------------------ */
 .skip-to-console {
   position: fixed;
-  top: 8px;
-  left: 12px;
+  top: 10px;
+  left: 16px;
   z-index: 8500;
-  padding: 6px 12px;
+  padding: 8px 14px;
   border: 1px solid var(--focus-ring);
   border-radius: 4px;
   background: #0b1522;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .55);
   color: var(--primary);
-  font-size: var(--text-sm);
+  font: var(--weight-medium) var(--text-base)/var(--leading-tight) var(--font-sans);
+  letter-spacing: .01em;
   text-decoration: none;
-  transform: translateY(-160%);
+  transform: translateY(calc(-100% - 24px));
 }
+/* Shown only while focused, and then unmistakably: the shared ring outside
+   the border, over whatever the header is drawing underneath. */
 .skip-to-console:focus,
-.skip-to-console:focus-visible { transform: none; }
+.skip-to-console:focus-visible {
+  transform: none;
+  outline: var(--focus-ring-width) solid var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
 
 /* ---- Instrument ---------------------------------------------------------- */
 html .command-instrument__status { font-size: var(--text-sm); color: #a8b6c8; opacity: .9; }
