@@ -33,8 +33,9 @@ export function HeaderBar({ mode, onSelectMode, projects, projectScan }: HeaderB
   const scanned = !projectScan || projectScan.status === "ready" || (projectScan.status === "stale" && projects.length > 0);
   return (
     <header className="topbar olympus-header">
-      {/* First stop in Command, ahead of the rail, catalog and ring (review U9). */}
-      {mode === "command" && <a className="skip-to-console" href="#olympus-console-input" onClick={skipToConsole}>Skip to console</a>}
+      {/* The first tab stop in every mode: the console sits last in reading
+          order, behind the rail, catalog, board, library or mail (review U9). */}
+      <a className="skip-to-console" href="#olympus-console-input" onClick={skipToConsole}>Skip to console</a>
       {/* Command mode moves the glyph and the sentence to the centre column, so
           the header keeps only the wordmark. Two omegas and two copies of the
           same sentence would contradict the one-glowing-object rule. */}

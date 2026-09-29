@@ -2,6 +2,7 @@ import { Channel, invoke } from "@tauri-apps/api/core";
 import { isTauriRuntime } from "./launcher";
 import { briefingTurnContent, isBriefing, modelHistory } from "./conversationHistory";
 import type { ConversationMessage, OlympusSettings, TrackedProject } from "../types";
+import { turnText } from "./turnAttachment";
 
 /**
  * An app-level statement about how the turn ended. Never model prose — it is
@@ -115,6 +116,8 @@ export function createAssistantMessage(
 /** Keep conversational references to the spoken abstraction available on later typed turns. */
 export function conversationTurnContent(message: ConversationMessage): string {
   if (isBriefing(message)) return briefingTurnContent(message);
-  if (message.voice?.kind !== "output") return message.content;
+  // An attachment rides with its turn in every later request too, so "that
+  // thread" stays resolvable from history.
+  if (message.voice?.kind !== "output") return turnText(message);
   return `${message.content}\n\nSpoken summary: ${message.voice.spokenResponse ?? "Unavailable"}\nPlayback: ${message.voice.playback ?? "unconfirmed"}. An interrupted transcript may contain words not heard.\nAudio transcript: ${message.voice.audioTranscript ?? "Unavailable"}`;
 }

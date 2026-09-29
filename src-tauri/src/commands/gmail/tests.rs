@@ -544,6 +544,8 @@ fn conversation_roundtrip_keeps_mail_provenance() {
         content: "Attributed synthetic answer".into(),
         timestamp: "now".into(),
         research: vec![],
+        attachment: None,
+        scope: None,
     };
     super::super::persistence::store_messages(&mut c, vec![item]).unwrap();
     let raw: String = c

@@ -133,6 +133,7 @@ export function initialTask(project: TrackedProject): string {
 
 export function reviewProjectContext(rows: ProjectCommandState[]) {
   window.dispatchEvent(new CustomEvent("olympus:focus-console", { detail: {
+    kind: "project-snapshot",
     label: rows.length === 1 ? rows[0].project.name : "Project portfolio",
     prompt: "Review these project priorities with me and recommend the next move.",
     context: JSON.stringify(rows.map(row => ({project:row.project.name, classification:row.project.status, operationalStatus:operationalStatusLabels[row.operationalStatus], state:row.currentState, nextMove:row.nextMove, owner:row.nextMoveOwner ?? "UNKNOWN", recordedNextAction:row.nextAction, recommendation:row.olympusRecommendation, recommendationSource:row.recommendationSource, blockers:row.blockers, attentionObservations:row.attention.map(item => `${item.text} (${item.source})`), operatorCheckpoints:row.operatorDecisions.map(({runId,text}) => ({runId,text})), openTasks:row.openTaskCount})), null, 2)

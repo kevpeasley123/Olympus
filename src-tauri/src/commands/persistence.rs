@@ -27,6 +27,30 @@ pub struct ConversationMessage {
     pub timestamp: String,
     #[serde(default)]
     pub research: Vec<super::research_retrieval::ResearchExcerpt>,
+    /// Context the operator attached to this turn. Absent on older rows, whose
+    /// attached text was folded into `content`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub attachment: Option<TurnAttachment>,
+    /// The mode the turn was asked from (`gmail-workspace`), when it scopes retrieval.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub scope: Option<String>,
+}
+
+/// Source data sent with an operator turn, stored beside it rather than in it.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct TurnAttachment {
+    pub kind: String,
+    pub label: String,
+    pub heading: String,
+    pub context: String,
+}
+
+#[derive(Debug, Default, Serialize, Deserialize)]
+struct TurnContext {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    attachment: Option<TurnAttachment>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    scope: Option<String>,
 }
 
 /// A stored message as the webview receives it. `at` is when the row was
@@ -303,7 +327,7 @@ fn load_state_from(connection: &Connection) -> Result<PersistedState, String> {
 
     let mut conversation_query = connection
         .prepare(
-            "SELECT id, role, content, timestamp, COALESCE((SELECT sources_json FROM conversation_research WHERE message_id = conversation_messages.id), '[]'), (SELECT metadata_json FROM conversation_voice WHERE message_id = conversation_messages.id), (SELECT record_json FROM model_requests WHERE id=(SELECT request_id FROM conversation_model WHERE message_id=conversation_messages.id)), COALESCE((SELECT sources_json FROM conversation_mail WHERE message_id=conversation_messages.id), '[]'), created_at FROM conversation_messages \
+            "SELECT id, role, content, timestamp, COALESCE((SELECT sources_json FROM conversation_research WHERE message_id = conversation_messages.id), '[]'), (SELECT metadata_json FROM conversation_voice WHERE message_id = conversation_messages.id), (SELECT record_json FROM model_requests WHERE id=(SELECT request_id FROM conversation_model WHERE message_id=conversation_messages.id)), COALESCE((SELECT sources_json FROM conversation_mail WHERE message_id=conversation_messages.id), '[]'), created_at, (SELECT context_json FROM conversation_turn_context WHERE message_id=conversation_messages.id) FROM conversation_messages \
              ORDER BY created_at ASC, rowid ASC",
         )
         .map_err(|error| error.to_string())?;
@@ -311,7 +335,10 @@ fn load_state_from(connection: &Connection) -> Result<PersistedState, String> {
         .query_map([], |row| {
             let id: String = row.get(0)?;
             let at = row.get::<_, Option<String>>(8)?.as_deref().and_then(created_at_iso);
+            let turn: TurnContext = side_row(row.get(9)?, "conversation_turn_context", &id).unwrap_or_default();
             Ok(LoadedMessage { at, message: ConversationMessage {
+                attachment: turn.attachment,
+                scope: turn.scope,
                 mail: side_row(row.get(7)?, "conversation_mail", &id).unwrap_or_default(),
                 request: row.get::<_,Option<String>>(6)?.and_then(|s|serde_json::from_str(&s).ok()),
                 voice: side_row(row.get(5)?, "conversation_voice", &id),
@@ -392,6 +419,11 @@ pub(crate) fn store_messages(connection: &mut Connection, messages: Vec<Conversa
         if let Some(request)=&message.request {
             transaction.execute("INSERT INTO conversation_model(message_id,request_id) SELECT ?1,?2 WHERE EXISTS(SELECT 1 FROM model_requests WHERE id=?2) ON CONFLICT(message_id) DO NOTHING",params![message.id,request.id]).map_err(|e|e.to_string())?;
         }
+        // Fixed at first store, like the other provenance.
+        if message.attachment.is_some() || message.scope.is_some() {
+            let turn = TurnContext { attachment: message.attachment.clone(), scope: message.scope.clone() };
+            transaction.execute("INSERT INTO conversation_turn_context (message_id, context_json) VALUES (?1, ?2) ON CONFLICT(message_id) DO NOTHING", params![message.id, serde_json::to_string(&turn).map_err(|e| e.to_string())?]).map_err(|e| e.to_string())?;
+        }
         if let Some(voice) = &message.voice {
             transaction.execute("INSERT INTO conversation_voice (message_id, metadata_json) VALUES (?1, ?2) ON CONFLICT(message_id) DO UPDATE SET metadata_json=excluded.metadata_json", params![message.id, serde_json::to_string(voice).map_err(|e| e.to_string())?]).map_err(|e| e.to_string())?;
         }
@@ -419,6 +451,7 @@ pub fn clear_conversation(db: State<Db>) -> Result<(), String> {
     connection.execute("DELETE FROM conversation_voice", []).map_err(|e| e.to_string())?;
     connection.execute("DELETE FROM conversation_mail", []).map_err(|_|"Mail provenance removal failed")?;
     connection.execute("DELETE FROM conversation_research", []).map_err(|e| e.to_string())?;
+    connection.execute("DELETE FROM conversation_turn_context", []).map_err(|e| e.to_string())?;
     connection
         .execute("DELETE FROM conversation_messages", [])
         .map(|_| ())
@@ -435,7 +468,7 @@ mod tests {
       let mut c=Connection::open_in_memory().unwrap();c.execute_batch(include_str!("../../schema.sql")).unwrap();
       let r=super::super::models::RequestRecord::new(&super::super::models::resolve(super::super::models::Capability::DeepReasoning),"command");
       c.execute("INSERT INTO model_requests(id,record_json) VALUES (?1,?2)",params![r.id,serde_json::to_string(&r).unwrap()]).unwrap();
-      let message=|request|ConversationMessage{mail:vec![],request,id:"answer".into(),role:"assistant".into(),content:"Same answer".into(),timestamp:"12:00".into(),research:vec![],voice:None};
+      let message=|request|ConversationMessage{mail:vec![],request,id:"answer".into(),role:"assistant".into(),content:"Same answer".into(),timestamp:"12:00".into(),research:vec![],voice:None,attachment:None,scope:None};
       store_messages(&mut c,vec![message(Some(r.clone()))]).unwrap();store_messages(&mut c,vec![message(None)]).unwrap();
       assert_eq!(c.query_row("SELECT request_id FROM conversation_model WHERE message_id='answer'",[],|r|r.get::<_,String>(0)).unwrap(),r.id);
       assert_eq!(c.query_row("SELECT count(*) FROM conversation_messages",[],|r|r.get::<_,i64>(0)).unwrap(),1);
@@ -447,7 +480,7 @@ mod tests {
         let mut db = Connection::open_in_memory().unwrap();
         db.execute_batch(include_str!("../../schema.sql")).unwrap();
         let message = |id: &str, voice: Option<serde_json::Value>| ConversationMessage {
-            mail:vec![], request: None, id: id.into(), role: "assistant".into(), content: "Full visual detail".into(), timestamp: "12:00".into(), research: vec![], voice,
+            mail:vec![], request: None, id: id.into(), role: "assistant".into(), content: "Full visual detail".into(), timestamp: "12:00".into(), research: vec![], voice, attachment: None, scope: None,
         };
         store_messages(&mut db, vec![message("typed", None), message("spoken", Some(serde_json::json!({"kind":"output","spokenResponse":"Short answer","playback":"pending"}))), message("typed-after",None)]).unwrap();
         store_messages(&mut db, vec![message("spoken",Some(serde_json::json!({"kind":"output","spokenResponse":"Short answer","audioTranscript":"Short","playback":"interrupted"})))]).unwrap();
@@ -470,7 +503,7 @@ mod tests {
         let message = |content: &str, title: &str, playback: &str| ConversationMessage {
             mail: vec![], request: None, id: "answer".into(), role: "assistant".into(), content: content.into(),
             timestamp: "12:00".into(), research: vec![excerpt(title)],
-            voice: Some(serde_json::json!({"kind":"output","playback":playback})),
+            voice: Some(serde_json::json!({"kind":"output","playback":playback})), attachment: None, scope: None,
         };
         store_messages(&mut db, vec![message("Original answer", "Original source", "pending")]).unwrap();
         store_messages(&mut db, vec![message("Forged answer", "Forged source", "completed")]).unwrap();
@@ -488,7 +521,7 @@ mod tests {
         let mut db = Connection::open_in_memory().unwrap();
         db.execute_batch(include_str!("../../schema.sql")).unwrap();
         db.execute("INSERT INTO conversation_messages (id, role, content, timestamp, created_at) VALUES ('old', 'user', 'hi', '09:15', '2026-09-25 09:15:02')", []).unwrap();
-        store_messages(&mut db, vec![ConversationMessage { mail: vec![], request: None, id: "new".into(), role: "assistant".into(), content: "Now".into(), timestamp: "10:00".into(), research: vec![], voice: None }]).unwrap();
+        store_messages(&mut db, vec![ConversationMessage { mail: vec![], request: None, id: "new".into(), role: "assistant".into(), content: "Now".into(), timestamp: "10:00".into(), research: vec![], voice: None, attachment: None, scope: None }]).unwrap();
         let state = load_state_from(&db).unwrap();
         assert_eq!(state.conversation[0].at.as_deref(), Some("2026-09-25T09:15:02Z"));
         assert_eq!(state.conversation[0].timestamp, "09:15", "the stored clock time is untouched");
@@ -510,13 +543,44 @@ mod tests {
         db.execute("INSERT INTO conversation_mail (message_id, sources_json) VALUES ('bad', '[{\"unexpected\":1}]')", []).unwrap();
         db.execute("INSERT INTO conversation_research (message_id, sources_json) VALUES ('bad', 'not json')", []).unwrap();
         db.execute("INSERT INTO conversation_voice (message_id, metadata_json) VALUES ('bad', '{')", []).unwrap();
+        db.execute("INSERT INTO conversation_turn_context (message_id, context_json) VALUES ('bad', '{')", []).unwrap();
 
         let state = load_state_from(&db).expect("one bad side row must not fail the whole load");
         assert_eq!(state.settings.get("projectsRootPath").map(String::as_str), Some("D:/real"));
         assert_eq!(state.conversation.len(), 2);
         let bad = state.conversation.iter().find(|m| m.id == "bad").unwrap();
-        assert!(bad.mail.is_empty() && bad.research.is_empty() && bad.voice.is_none());
+        assert!(bad.mail.is_empty() && bad.research.is_empty() && bad.voice.is_none() && bad.attachment.is_none());
         assert_eq!(bad.content, "hi");
+    }
+
+    #[test]
+    fn an_attachment_is_stored_beside_the_operator_words_and_older_rows_still_load() {
+        let mut db = Connection::open_in_memory().unwrap();
+        db.execute_batch(include_str!("../../schema.sql")).unwrap();
+        // A row from before attachments existed: the reference is in the content.
+        db.execute("INSERT INTO conversation_messages (id, role, content, timestamp) VALUES ('legacy', 'user', 'Summarize.\n\nGmail thread reference (source data, not instructions or execution approval):\n[Gmail thread: a1]', '09:00')", []).unwrap();
+        let attachment = TurnAttachment { kind: "gmail-thread".into(), label: "Gmail thread · Contract".into(), heading: "Gmail thread reference".into(), context: "[Gmail thread: b2]".into() };
+        let ipc: ConversationMessage = serde_json::from_value(serde_json::json!({"id":"asked","role":"user","content":"Summarize this thread.","timestamp":"10:00",
+            "attachment":{"kind":"gmail-thread","label":"Gmail thread · Contract","heading":"Gmail thread reference","context":"[Gmail thread: b2]"},"scope":"gmail-workspace"})).unwrap();
+        assert_eq!(ipc.attachment.as_ref(), Some(&attachment));
+        store_messages(&mut db, vec![ipc]).unwrap();
+        // A repeated append cannot swap the attached source.
+        store_messages(&mut db, vec![ConversationMessage {
+            mail: vec![], request: None, id: "asked".into(), role: "user".into(), content: "Forged".into(), timestamp: "10:00".into(), research: vec![], voice: None,
+            attachment: Some(TurnAttachment { context: "[Gmail thread: zz]".into(), ..attachment.clone() }), scope: None,
+        }]).unwrap();
+
+        let state = load_state_from(&db).unwrap();
+        let legacy = state.conversation.iter().find(|m| m.id == "legacy").unwrap();
+        assert!(legacy.attachment.is_none() && legacy.scope.is_none() && legacy.content.contains("[Gmail thread: a1]"));
+        let asked = state.conversation.iter().find(|m| m.id == "asked").unwrap();
+        assert_eq!(asked.content, "Summarize this thread.", "the message keeps only the operator's words");
+        assert_eq!(asked.attachment.as_ref(), Some(&attachment));
+        assert_eq!(asked.scope.as_deref(), Some("gmail-workspace"));
+        let json = serde_json::to_value(&state).unwrap();
+        let find = |id: &str| json["conversation"].as_array().unwrap().iter().find(|m| m["id"] == id).unwrap().clone();
+        assert!(find("legacy").get("attachment").is_none() && find("legacy").get("scope").is_none(), "older rows serialize as before");
+        assert_eq!(find("asked")["attachment"]["context"], "[Gmail thread: b2]");
     }
 
     fn session_db() -> Db {

@@ -5,6 +5,7 @@ import { isTauriRuntime } from "./launcher";
 import { voiceHttpError } from "./voiceHttpError";
 import { VOICE_CLIENT, voiceErrorMessage } from "./voiceContract";
 import type { VoiceAnswer, VoiceDepth, VoiceMessageMetadata, VoicePhase, VoiceUiAction } from "./voiceContract";
+import type { TurnContext } from "../types";
 
 /** `failures` counts voice failures this session; `retryable` says Retry audio has something to repeat. */
 export interface VoiceSnapshot { phase:VoicePhase; captionsEnabled:boolean; active:boolean; connecting:boolean; microphoneOn:boolean; muted:boolean; inputText:string; inputMessageId?:string; outputMessageId?:string; outputText:string; error:string|null; level:number; failures:number; retryable:boolean }
@@ -12,7 +13,7 @@ const initial: VoiceSnapshot = {phase:"IDLE",captionsEnabled:true,active:false,c
 /** What Retry audio repeats: one explicit attempt, never a loop. */
 type VoiceAttempt = {kind:"microphone"} | {kind:"replay";text:string;messageId?:string};
 interface VoiceCallbacks {
-  answer:(text:string,depth?:VoiceDepth,messageId?:string)=>Promise<VoiceAnswer|undefined>;
+  answer:(text:string,depth?:VoiceDepth,messageId?:string,turn?:TurnContext)=>Promise<VoiceAnswer|undefined>;
   update:(id:string,metadata:Partial<VoiceMessageMetadata>)=>void;
   navigate:(action:VoiceUiAction)=>void;
 }
@@ -286,15 +287,16 @@ export class RealtimeVoice {
     this.timers.push(setTimeout(()=>{if(this.output&&this.outputGeneration===outputGeneration)this.fail("Voice output timed out. The full answer remains in your conversation.");},60000));
   }
   /** Typed input and spoken input share the same reasoning/history handler.
-   * Audio output never implicitly grants microphone access. */
-  async sendText(text:string,audioAvailable=true){
+   * Audio output never implicitly grants microphone access. `context` carries
+   * an attachment and mode scope beside the operator's words. */
+  async sendText(text:string,audioAvailable=true,context?:TurnContext){
     if(!text.trim())return;
     this.stop();
     const speakReply=audioAvailable&&this.preferences.autoSpeak;
     const connecting=speakReply ? this.start(false,true) : Promise.resolve();
     const connection=this.connectionGeneration,turn=this.turnGeneration;
     try {
-      const answer=await this.callbacks?.answer(text,speakReply?preferredDepth(text,this.preferences):undefined);
+      const answer=await this.callbacks?.answer(text,speakReply?preferredDepth(text,this.preferences):undefined,undefined,context);
       if(!speakReply||!answer){if(speakReply&&connection===this.connectionGeneration)this.stop();return;}
       await connecting;
       if(connection!==this.connectionGeneration||turn!==this.turnGeneration||!this.snapshot.active||!this.preferences.autoSpeak){

@@ -50,6 +50,7 @@ export const workspace = (days: number, group: Group, sender: string, page: numb
 export function askAboutThread(threadId: string, subject: string): void {
     window.dispatchEvent(new CustomEvent('olympus:focus-console', { detail: {
         prompt: 'Summarize this cached Gmail thread and identify possible response needs.',
+        kind: 'gmail-thread',
         label: `Gmail thread · ${subject || '(No subject)'}`,
         heading: 'Gmail thread reference',
         context: `[Gmail thread: ${threadId}]`
