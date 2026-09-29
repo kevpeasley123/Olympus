@@ -12,7 +12,7 @@ export function runOpeningBriefingHarness() {
   const other: TrackedProject = {...project,id:"q",name:"Atlas",status:"watching",sinceSessionCommits:[commit],nextStep:""};
   const boundary = { currentSessionStartedAt: "2026-09-28T08:59:00", previousSessionStartedAt: "2026-09-26T20:15:00" };
   const brief = (projects: TrackedProject[], runs: DelegationRun[] = [], sessionBoundary: typeof boundary | null = boundary, projectsError: string | null = null) =>
-    composeOpeningBriefing({ projects, board: buildProjectCommandBoard(projects, [], runs), sessionBoundary, projectsError }, now);
+    composeOpeningBriefing({ projects, board: buildProjectCommandBoard(projects, [], runs, { tasks: true, runs: true }, now), sessionBoundary, projectsError }, now);
 
   const plain = brief([project, other]);
   check(plain.includes("three commits across two projects"), `Counts commits since the last session: ${plain}`);
