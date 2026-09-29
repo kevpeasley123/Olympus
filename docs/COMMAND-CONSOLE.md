@@ -132,7 +132,7 @@ streams, just later.
 
 **Transcript.** Messages carry `at` (ISO time): set on creation, and on desktop
 loaded from each row's `created_at`, so older records gain a date without a
-migration. Rows imported from browser `localStorage` carry their import time. The
+migration. Rows imported from browser `localStorage` carry their import time and are **not yet labelled as such**, an open defect: they must read as import dates when the original time is unknown (see the design-review checklist). The
 footer shows `formatWhen` ("2 h ago · 09:55") with the full date as a tooltip, and a
 day separator ("Today", "Yesterday", a date) opens each new calendar day; undated
 legacy rows show their old `HH:MM` and neither get nor break a separator. The footer

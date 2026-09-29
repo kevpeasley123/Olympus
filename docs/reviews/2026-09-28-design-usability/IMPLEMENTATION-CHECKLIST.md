@@ -227,7 +227,7 @@ All browser results below are from the final run on `cc0f182`:
 | U5 | Claim-to-evidence path | done | ✓ | ✓ | — | 2026-09-29: the chat bubble shows the operator's words plus an "Attached: …" chip with Inspect. The backend still receives the thread marker, so the resolver is unchanged. Persisted in the additive `conversation_turn_context` table. |
 | U6 | Typed replies stream with Voice on | **partial** | ✓ | ✓ (mock stream) | — | 2026-09-29: the OpenAI request bytes now list `visualResponse` first (`responses.rs` `wire_body`/`VisualFirst`), pinned by unit tests including one that reads the request off a socket. No global serialization, fingerprint or persisted-contract change. **Unmet:** providers usually generate strict-schema properties in schema order, but this is not documented; the Claude route relies on the prompt example only; no live provider test (desktop D1, D2). |
 | U7 | Research inspectors and reading position | done | ✓ | ✓ | — | — |
-| U8 | Communications at laptop widths | done | ✓ | ✓ | — | The full-thread block of Review source is below the fold in the narrow inspector. The console squeezing the view below 1500px is an accepted deviation (layout contract). |
+| U8 | Communications at laptop widths | **partial** | ✓ | ✓ | — | The full-thread block of Review source is below the fold in the narrow inspector. **Unresolved limitation:** with the console engaged below 1500px wide the view shrinks to about 370px; needs a layout decision and fix (not accepted). |
 | U9 | Keyboard model and Preferences dialog | done against the revised criterion | ✓ | ✓ | — | 2026-09-29 revision (operator instruction): a visible, keyboard-accessible Skip to console path, with no controls removed. Met: it is the first Tab stop in all four modes, 13px with a focus ring, and Enter focuses the console. The review's original ≤15 Tab target is **not met**: Command 22, Project 36, Research 54, Communications 41. Every remaining stop is a real control. The integration check still records that target as its one failure. |
 | U10 | Opening briefing in Text mode and labels | done | ✓ | ✓ | — | — |
 | U11 | Delegation plan, blockers, approval legibility | done | ✓ | ✓ | — | 2026-09-29 fixes: L2 names the base branch only when HEAD is the base commit and never falls back to the project branch; L3 drops the cached resume approval when its run leaves `waiting`; L5 caches the review time. Real runs are desktop group E. |
@@ -243,7 +243,7 @@ All browser results below are from the final run on `cc0f182`:
 | F3 | Research search, lists, capture | done | ✓ | ✓ | — | No Tauri drag-and-drop. |
 | F4 | Situation navigator scale | done | ✓ | ✓ | — | Email-only situations show "Not assessed". |
 | F5 | Hidden work, WebGL fallback, deferred init | done | ✓ | ✓ | — | No GPU claims; desktop check A12. |
-| F6 | Links, Ctrl+R, error boundaries, seed chat, dates, Replay | done | ✓ | ✓ | — | 2026-09-29: the Ctrl/Cmd+R reload block moved to a capture listener in `main.tsx`, outside every error boundary. |
+| F6 | Links, Ctrl+R, error boundaries, seed chat, dates, Replay | done | ✓ | ✓ | — | 2026-09-29: the Ctrl/Cmd+R reload block moved to a capture listener in `main.tsx`, outside every error boundary. **Open defect:** rows imported from localStorage show their import moment as if it were the original date. They must be labelled as import dates (see Unresolved). |
 
 ## Release-readiness pass (2026-09-29)
 
@@ -281,15 +281,21 @@ All browser results below are from the final run on `cc0f182`:
 - 16 of 16 node scripts pass.
 - `cargo test --lib` gives 405 passed, 0 failed, 11 ignored.
 
-**Accepted deviations** (recorded, not defects):
-- **U9:** the ≤15 Tab target is replaced by the Skip to console criterion.
-- **U8:** Communications is squeezed below 1500px while the console is engaged. This is a layout-contract decision.
-- **Legacy dates:** rows imported from localStorage carry their import date.
-- **Session-only drafts:** drafts are held in session memory only, by design.
+**Accepted deviations** (recorded on operator instruction):
+- **U9:** the ≤15 Tab target is replaced by the Skip to console criterion. This follows the operator's 2026-09-29 instruction not to optimize Tab counts by making controls inaccessible.
+- **Session-only drafts:** drafts are held in session memory only, by design. Durable storage of sensitive draft text was not authorized.
 
-**Unaccepted, still open:**
-- **U6:** provider ordering is unverified.
-- **Desktop acceptance:** not started.
+**Unresolved** (not accepted; corrected 2026-09-29):
+- **U6 — partial.** The visual-first request order is implemented and unit-tested. Live-provider evidence that written text streams before the spoken summary is absent, so it stays partial until desktop checks D1 and D2 establish the behaviour.
+- **U8 — narrow Communications layout.** Below 1500px wide, with the console engaged, the map and inspector shrink to about 370px and leave empty space. This is an unresolved limitation, not an operator-accepted deviation. It needs a layout decision (SITUATION-MAP-POLISH contract) and a fix.
+- **Imported message dates — defect.**
+  - **What happens:** rows imported from browser `localStorage` on first desktop launch take the import moment as their `created_at`, and the transcript shows that as though it were when the message was written.
+  - **Requirement:** where the original timestamp is unknown, the date must be labelled as an import date, e.g. "Imported Sep 29 · original time 14:10".
+  - **Proposed fix, not implemented:**
+    - The import path records which message ids it imported, in an additive table or column.
+    - `load_persisted_state` returns `importedAt` instead of `at` for those rows.
+    - The transcript renders the import label and uses no day separator for them.
+- **Desktop acceptance:** not started. See `DESKTOP-ACCEPTANCE.md`.
 - **`cargo fmt --check`:** already failed on untouched files before this work.
 
 ## Native checks (not available in this environment)
