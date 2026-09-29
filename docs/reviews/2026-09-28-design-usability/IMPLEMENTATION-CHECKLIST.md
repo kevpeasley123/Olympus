@@ -243,7 +243,7 @@ All browser results below are from the final run on `cc0f182`:
 | F3 | Research search, lists, capture | done | ✓ | ✓ | — | No Tauri drag-and-drop. |
 | F4 | Situation navigator scale | done | ✓ | ✓ | — | Email-only situations show "Not assessed". |
 | F5 | Hidden work, WebGL fallback, deferred init | done | ✓ | ✓ | — | No GPU claims; desktop check A12. |
-| F6 | Links, Ctrl+R, error boundaries, seed chat, dates, Replay | done | ✓ | ✓ | — | 2026-09-29: the Ctrl/Cmd+R reload block moved to a capture listener in `main.tsx`, outside every error boundary. **Open defect:** rows imported from localStorage show their import moment as if it were the original date. They must be labelled as import dates (see Unresolved). |
+| F6 | Links, Ctrl+R, error boundaries, seed chat, dates, Replay | done | ✓ | ✓ | — | 2026-09-29: the Ctrl/Cmd+R reload block moved to a capture listener in `main.tsx`, outside every error boundary. Imported-date defect fixed 2026-09-29: rows imported from localStorage now read "Imported … · original time HH:MM" (see Fixed after the readiness pass). |
 
 ## Release-readiness pass (2026-09-29)
 
@@ -288,15 +288,15 @@ All browser results below are from the final run on `cc0f182`:
 **Unresolved** (not accepted; corrected 2026-09-29):
 - **U6 — partial.** The visual-first request order is implemented and unit-tested. Live-provider evidence that written text streams before the spoken summary is absent, so it stays partial until desktop checks D1 and D2 establish the behaviour.
 - **U8 — narrow Communications layout.** Below 1500px wide, with the console engaged, the map and inspector shrink to about 370px and leave empty space. This is an unresolved limitation, not an operator-accepted deviation. It needs a layout decision (SITUATION-MAP-POLISH contract) and a fix.
-- **Imported message dates — defect.**
-  - **What happens:** rows imported from browser `localStorage` on first desktop launch take the import moment as their `created_at`, and the transcript shows that as though it were when the message was written.
-  - **Requirement:** where the original timestamp is unknown, the date must be labelled as an import date, e.g. "Imported Sep 29 · original time 14:10".
-  - **Proposed fix, not implemented:**
-    - The import path records which message ids it imported, in an additive table or column.
-    - `load_persisted_state` returns `importedAt` instead of `at` for those rows.
-    - The transcript renders the import label and uses no day separator for them.
-- **Desktop acceptance:** not started. See `DESKTOP-ACCEPTANCE.md`.
+- **Desktop acceptance:** not started. The isolated profile and fixture scripts it needs are implemented; see `DESKTOP-ACCEPTANCE.md` section 2.
 - **`cargo fmt --check`:** already failed on untouched files before this work.
+
+**Fixed after the readiness pass (2026-09-29):**
+- **Imported message dates.**
+  - **Was:** rows imported from browser `localStorage` on first desktop launch took the import moment as their `created_at`, and the transcript showed it as the message date.
+  - **Now:** the one-time import calls `append_conversation_messages` with `imported: true`. The rows it inserts are recorded in the additive `conversation_imports` table, in the same transaction, and a row already stored is never relabelled. `load_persisted_state` returns `importedAt` and no `at` for them. The transcript reads "Imported {formatWhen(importedAt)} · original time HH:MM", or "original time unknown". Such rows neither open nor break a day separator. The first session after the import shows them the same way.
+  - **Limitation:** rows imported before this change carry no marker and still show the import moment as their date.
+  - **Evidence:** Rust unit test `imported_rows_carry_their_import_time_instead_of_a_message_date`; `commandVoice` harness checks for the label and separators; `npm run build`. Also an `#[ignore]`d load of a database seeded by `scripts/acceptance/seed-db.mjs`. **Not seen in the desktop app:** that is N17 in `DESKTOP-ACCEPTANCE.md`.
 
 ## Native checks (not available in this environment)
 

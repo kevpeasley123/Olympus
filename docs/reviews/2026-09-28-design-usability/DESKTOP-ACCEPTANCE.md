@@ -1,6 +1,6 @@
 # Desktop acceptance — design-review implementation
 
-Revised 2026-09-29. Applies to branch `claude/blissful-lamport-2l4o96` at `1ec2998` or later. Nothing here has been run in the desktop app yet.
+Revised 2026-09-29. Applies to branch `claude/blissful-lamport-2l4o96`. Section 2 is implemented, and sections 3 and 4 need this branch at the commit that adds `scripts/acceptance/`, or later. Nothing here has been run in the desktop app yet.
 
 Evidence so far is build, unit tests and Chromium against a synthetic IPC mock. None of that counts as desktop acceptance.
 
@@ -24,15 +24,15 @@ These facts come from reading the code at `1ec2998`:
 | Projects root | Seed default `C:\Users\kevpe\OneDrive\Desktop\Projects` (`src/data/seed.ts`), stored in the DB `settings` table; Preferences cannot edit it | It scans your **real repositories**. `git status` can refresh `.git/index`, so the scan is not strictly read-only. |
 | Delegation | Worktrees and cargo targets under `app_data_dir` | A misclick could start a paid, code-running run. |
 
-**Conclusion:** the app cannot be isolated as it stands. The database and webview profile can be separated with configuration. The vault, projects root, API keys, Gmail and background understanding cannot.
+**Conclusion (at `1ec2998`):** the app could not be isolated. The database and webview profile can be separated with configuration. The vault, projects root, API keys, Gmail and background understanding could not, which is what section 2b now closes. An ordinary dev launch, without `OLYMPUS_ACCEPTANCE_DIR` and the acceptance config, still behaves as this table describes.
 
-## 2. Proposed isolated configuration
+## 2. Isolated configuration (implemented 2026-09-29)
 
-This is a proposal only. Nothing below has been implemented.
+Approved as proposed and implemented on this branch. Evidence is compilation, `cargo test --lib`, `npm run build`, the `scripts/test-*.mjs` harnesses, and the two scripts run against a scratch directory and a scratch database built from `schema.sql` (section 2c). **None of it has run in the desktop app.**
 
-### 2a. No code change: a separate identifier
+### 2a. Configuration: a separate identifier
 
-Tauri CLI 2 merges `--config <file>` into `tauri.conf.json` as a JSON merge patch. The file `scripts/acceptance/tauri.acceptance.json` (to be added) would contain:
+`scripts/acceptance/tauri.acceptance.json`:
 
 ```json
 { "identifier": "com.projectolympus.acceptance", "productName": "Olympus Acceptance" }
@@ -40,41 +40,59 @@ Tauri CLI 2 merges `--config <file>` into `tauri.conf.json` as a JSON merge patc
 
 This gives a separate `app_data_dir` (database, delegation worktrees and targets, situation imports) and a separate WebView2 profile. The installed app and its data are never opened.
 
-A second file, `tauri.acceptance-nowebgl.json`, would also restate the window with `"additionalBrowserArgs": "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --autoplay-policy=no-user-gesture-required --disable-webgl"`. It forces the 2D fallback. Merge patch replaces the `windows` array, so the whole window object is restated.
+`scripts/acceptance/tauri.acceptance-nowebgl.json` adds the whole `app.windows` array from `src-tauri/tauri.conf.json`, with `--disable-webgl` appended to `additionalBrowserArgs`. Tauri merges `--config` files as a JSON merge patch, which replaces arrays, so the window object is restated in full.
 
-### 2b. Smallest required code change
+Checked with the installed `@tauri-apps/cli` 2.10.1:
+- A relative `--config` path resolves against the **working directory**, not `src-tauri`. A file present only at the repository root was read, and a missing path was rejected at argument parsing. `npm run tauri` runs from the repository root, so the commands in section 3 work as written. From anywhere else, pass an absolute path.
+- Both files pass the CLI's config validation: `tauri dev --config <file>` got past validation to `BeforeDevCommand`. A deliberately invalid value was rejected at the same point.
 
-**One environment variable, `OLYMPUS_ACCEPTANCE_DIR`, honoured only in debug builds** (`cfg(debug_assertions)`). The installed release build ignores it. When it is set:
+### 2b. Code: `OLYMPUS_ACCEPTANCE_DIR`, debug builds only
 
-| # | Change | Place |
+`src-tauri/src/commands/acceptance.rs`. The release build compiles `acceptance_dir()` as `None`, so the installed app cannot read the variable at all. A blank value counts as unset. A relative path is anchored to the working directory once at startup, and the value is read once. When it is set:
+
+| # | Behaviour | Place |
 | --- | --- | --- |
-| 1 | Skip `load_olympus_env()`, and `remove_var` `OPENAI_API_KEY` and `ANTHROPIC_API_KEY` for this process only. Every provider path then fails with its existing "needs OPENAI_API_KEY" error, and no network request is made. `.env` is never read or modified. | `lib.rs` `run()` |
-| 2 | `get_vault_path()` returns `<dir>/vault`. | `commands/mod.rs` |
-| 3 | `scan_tracked_projects` uses `<dir>/projects` whatever root the webview sends. | `commands/projects.rs` |
-| 4 | Do not start `gmail::start_cadence` or `situations::start_cadence`. `gmail::auth::entry()` refuses, so the keyring is never touched. `gmail_connect`, `gmail_sync` and `gmail_disconnect` return "Disabled in the acceptance profile". | `lib.rs`, `gmail/auth.rs`, `gmail/mod.rs` |
-| 5 | `prepare_delegation_run`, `prepare_delegation_resume`, `start_delegation_run` and `resume_delegation_run` refuse. Reading plans and reviews and running the local checks stay available; checks run in synthetic worktrees only. | `commands/delegation.rs` |
-| 6 | Log `[Olympus::Acceptance] profile <dir>` at startup, and add a read-only `acceptance_profile` command. The header then shows a persistent "Acceptance profile — synthetic data; providers and Gmail disabled" label, so the run cannot be mistaken for production. | `lib.rs`, `HeaderBar.tsx` |
+| 1 | `load_olympus_env()` is skipped, and `OPENAI_API_KEY` and `ANTHROPIC_API_KEY` are removed from this process only, before the builder starts. Every provider path then fails with its existing "needs …_API_KEY" error. `.env` is never opened or modified. | `lib.rs` `prepare_environment()` |
+| 2 | `get_vault_path()` returns `<dir>/vault`. Every vault reader and writer resolves through it. | `commands/mod.rs` |
+| 3 | `scan_tracked_projects` scans `<dir>/projects`, whatever root the webview sends. The vault exclusion still applies. | `commands/projects.rs` |
+| 4 | Neither `gmail::start_cadence` nor `situations::start_cadence` starts. `gmail::auth::entry()` refuses before the platform check, so the keyring is never opened. `gmail_connect`, `gmail_sync` (and the sync worker) and `gmail_disconnect` refuse with `gmail_acceptance_profile_disabled`, which reads "Disabled in the acceptance profile. Gmail is not contacted and no credential is read." Cached reads keep working on the acceptance database: `gmail_status`, `gmail_workspace`, `gmail_thread`, `gmail_search`, `gmail_cache_counts` and `situation_snapshot`. Model-backed Gmail paths (analysis, situation refresh and drafts) fail because no key is present. | `lib.rs`, `gmail/auth.rs`, `gmail/mod.rs` |
+| 5 | `prepare_delegation_run`, `prepare_delegation_resume`, `start_delegation_run` and `resume_delegation_run` refuse first, and so does `spawn_claude`, the one place a process is started. Reading runs, plans and reviews, `fetch_delegation_diff`, `run_delegation_check`, `cancel_delegation_run` and `complete_delegation_review` stay available; checks run in the synthetic worktree. | `commands/delegation.rs` |
+| 6 | Startup logs `[Olympus::Acceptance] profile <dir>`. The read-only `acceptance_profile` command returns `{active, dir}` or `null`. The header shows "Acceptance profile — synthetic data; providers and Gmail disabled" in every mode, and Preferences › Gmail says it is disabled. | `lib.rs`, `acceptance.rs`, `HeaderBar.tsx`, `GmailSettings.tsx` |
 
-**Tests:** unit tests for each switch, including that `.env` is not loaded and that the Gmail entry point refuses. No schema or behaviour change without the variable.
+**Tests:** in `acceptance.rs`, the variable's parsing, the startup plan (no `.env`, both keys removed), path redirection and the refusals. The profile is injected per test thread, and the suite never reads the real variable. Also: `projects.rs` (scan root and vault exclusion under the profile), `gmail/tests.rs` (every keyring call refuses), `delegation.rs` (each launch command and `spawn_claude` refuses first). Without the variable, behaviour is unchanged and every existing test passes.
 
-**Estimated size:** about 60–90 lines of Rust plus a small header label. The database needs no code: its separation comes from 2a.
+**Deviation:** Gmail refusals return the code `gmail_acceptance_profile_disabled` instead of the literal text. The webview maps every Gmail error code to a sentence, and that sentence starts "Disabled in the acceptance profile".
 
-**Two fixture scripts**, not app code:
-- `scripts/acceptance/build-fixtures.mjs <dir>` writes:
-  - a synthetic vault with the ten folders, project notes (active, watching and archived statuses, next steps, vision review dates), research notes with wikilinks, a `_attachments/` PDF and a decision log;
-  - `<dir>/projects/` with git repos: clean, dirty, commits since a session boundary, a linked worktree, and a plain folder.
-- `scripts/acceptance/seed-db.mjs <dir>` runs after the first launch has created the database, using Node's built-in `node:sqlite`. It inserts:
-  - a synthetic, enabled Gmail account row (safe because of switch 4);
-  - one situation, via the existing `scripts/import-situation-context.py --db` with a synthetic pack;
-  - a delegation run in `awaiting_review` pointing at a synthetic worktree whose `package.json` build script only echoes;
-  - conversation rows across several days, including a reply with research provenance;
-  - one row marked as imported from localStorage, to exercise the import-date defect.
+### 2c. Fixture scripts
 
-**Approval needed before implementation:** switches 1–6, the two config files and the two scripts. Nothing in 2b has been written.
+- **`node scripts/acceptance/build-fixtures.mjs <dir>`** refuses a directory that exists and is not empty. It writes:
+  - `<dir>/vault`: the ten folders. `01 - Projects` holds five project notes (active, watching, archived; one with no next step; one whose vision review is 200 days old). `02 - Research` holds three notes in the Add Entry format, as Paper, Guide and Article, with headings, a wikilink to another entry, an unresolved wikilink, `![[_attachments/sample.pdf]]` and a valid one-page PDF. There is also a task note, `04 - Decisions/Decision Log.md`, and in `09 - System` the `User Profile.md` and `Olympus Charter.md`. The vault is a git repository, so gated writes can commit.
+  - `<dir>/projects`: `acceptance-clean`, `acceptance-dirty` (a modified and an untracked file), `acceptance-history` (six commits over four days, two within 24 hours), `acceptance-worktree` (a linked worktree in `<dir>/worktrees` with uncommitted files) and `acceptance-plain` (not git). `Project Acceptance Archive` has a note and no folder.
+  - Git identity is set per repository. No global configuration is touched.
+- **`node scripts/acceptance/seed-db.mjs <dir> [--db <path>]`** runs after the first launch, with the app closed. It uses Node's `node:sqlite`: Node 22.13 or later runs it directly; 22.5–22.12 get `--experimental-sqlite`, which the script adds by re-running itself. The default database is `%APPDATA%\com.projectolympus.acceptance\olympus.sqlite`. It refuses:
+  - any path containing `commandstation`;
+  - a default path outside the acceptance identifier;
+  - a missing database, or one without the current tables;
+  - a second run (it records an `acceptance-seed` row in `processing_logs`);
+  - an existing enabled Gmail account.
+
+  It inserts:
+  - an enabled synthetic Gmail account;
+  - the situation "Office move (synthetic)" with document context from two invented files in `<dir>/situation-docs`. The pack is validated with a port of `import-situation-context.py`'s `validate()` and inserted directly, so no Python is needed. Against a scratch database, the rows are identical to what that script writes for the same pack.
+  - a delegation run `awaiting_review` in a git worktree of `acceptance-history` under `<dir>/delegations`. Its `package.json` build only prints `acceptance build ok`, it has no test script, and it has an empty `node_modules` so the build check is available.
+  - eight messages over four days. One reply has research provenance for `Evidence Before Authority.md`, fingerprinted as `pantheon.rs` does.
+  - one message marked as imported from localStorage (original time 14:10).
+  - a commit in `acceptance-history` made at seed time, i.e. after the first launch.
+
+Verified here: both scripts ran; the Rust scan, research parser (including the PDF), conversation load, review read, real build check and situation snapshot read their output through `#[ignore]`d tests; the seeded database passes `PRAGMA foreign_key_check` and `integrity_check`. To repeat:
+
+```bash
+OLYMPUS_TEST_ACCEPTANCE_FIXTURE=<dir> OLYMPUS_TEST_ACCEPTANCE_DB=<db> cargo test --lib acceptance -- --include-ignored
+```
 
 ## 3. Launch, verification, cleanup and rollback
 
-These steps assume 2a and 2b are in place. PowerShell, from the repository checkout.
+PowerShell, from the repository root. The `--config` paths are relative to the working directory (section 2a).
 
 ```powershell
 # Launch
@@ -90,10 +108,10 @@ npm run tauri -- dev --config scripts/acceptance/tauri.acceptance.json
 ```
 
 **Verify the isolation before testing anything:**
-1. The terminal shows `[Olympus::Acceptance] profile …\olympus-acceptance-…`, `[Olympus::Db] opened …\com.projectolympus.acceptance\olympus.sqlite`, and **no** `[Olympus::Env] loaded .env` line.
-2. The header shows the Acceptance profile label.
-3. The project names are the synthetic ones.
-4. Preferences › Gmail says disabled.
+1. The terminal shows `[Olympus::Acceptance] profile …\olympus-acceptance-…`, `[Olympus::Db] opened …\com.projectolympus.acceptance\olympus.sqlite`, and **no** `[Olympus::Env] loaded .env` line (nor the "no .env file found" line).
+2. The header shows "Acceptance profile — synthetic data; providers and Gmail disabled".
+3. The project names are the synthetic ones (`acceptance-…` and `Project Acceptance Archive`).
+4. Preferences › Gmail says "Disabled in the acceptance profile". After seeding, it lists the synthetic `acceptance.operator@example.invalid` account.
 
 If any of these fails, close the app and stop.
 
@@ -133,7 +151,7 @@ This pass is safe: synthetic profile, no providers, no Gmail, no delegation laun
 | N14 | GPU rendering | Normal launch, Command mode | The 2D ring appears first, then the 3D instrument. There is no stutter when switching modes. Leaving Command pauses the scene. |
 | N15 | 2D fallback | Relaunch with `--config scripts/acceptance/tauri.acceptance-nowebgl.json` | The 2D instrument stays, and the ring, labels and project clicks work. A styled "Retry 3D view" appears. |
 | N16 | Windows text | At 1280×800 and at your normal size, at 100% and at your usual display scaling | Console status, board owner chips and filters, and library text are readable. The console control row stays on one line. |
-| N17 | Timestamps | Transcript over the seeded days | Day separators read Today, Yesterday and dates. **Known defect:** the seeded "imported" row shows its import moment as a plain date. It should say "Imported …". Record what appears. |
+| N17 | Timestamps | Transcript over the seeded days | Day separators read Today, Yesterday and dates. The seeded imported row reads "Imported {when} · original time 14:10". It neither opens a day nor splits one (fix of 2026-09-29, unit- and harness-tested only). Record what appears. |
 
 Record results per row as pass, fail or observed, with a screenshot for each fail.
 

@@ -45,7 +45,7 @@ package.json     Frontend dependencies and npm scripts
 .env.example     Required environment variables (copy to .env)
 ```
 
-Tauri commands exposed by the desktop shell — all 78 in the `invoke_handler` list in `src-tauri/src/lib.rs` (regenerated 2026-09-28; `gmail_cache_counts` is the only addition since 0.19.0):
+Tauri commands exposed by the desktop shell — all 79 in the `invoke_handler` list in `src-tauri/src/lib.rs` (regenerated 2026-09-29; `gmail_cache_counts` and `acceptance_profile` are the additions since 0.19.0):
 
 | Area | Commands |
 | --- | --- |
@@ -63,8 +63,11 @@ Tauri commands exposed by the desktop shell — all 78 in the `invoke_handler` l
 | Communication Intelligence | `analyze_communications`, `communication_runs`, `communication_run_events`, `communication_feedback`, `communication_skills`, `communication_workflow`, `inspect_communication_run` |
 | Situations | `situation_snapshot`, `situation_refresh`, `situation_set_background`, `situation_update`, `situation_edit`, `situation_draft`, `situation_save_draft`, `situation_document_status`, `situation_document_open` |
 | Shell / files | `launch_quick_app`, `restart_olympus`, `pick_attachment_file`, `extract_pdf_text`, `open_external_link` |
+| Acceptance | `acceptance_profile` (read-only; `null` unless the debug-only acceptance profile is active) |
 
 Read-only additions to existing command results (2026-09-28, design review): `load_persisted_state` returns each message's `at` (the row's `created_at` as ISO 8601 UTC; nothing new is written); `create_voice_session` names a plain provider error code such as `insufficient_quota`, never the response body; `fetch_pantheon_entries` carries each entry's body fingerprint (the value a reply's research snapshot stores), whole-file fingerprint (the value Research Verification binds) and frontmatter `source_url`; `prepare_delegation_run` and `prepare_delegation_resume` return display-only `permitted` and `baseBranch` beside the bound `subject`; `fetch_delegation_review` returns `reviewedAt`; `situation_snapshot` reports understanding freshness (last publish, last attempt, consecutive failures, the worker's real resume time during backoff) and a content revision, answering `{unchanged, revision}` when the caller already holds that revision. `gmail_cache_counts` counts what cache removal, or a narrower history range, would delete; it validates the range like `gmail_set_horizon` and deletes nothing.
+
+2026-09-29: `append_conversation_messages` takes an optional `imported` flag, set only by the one-time `localStorage` import; the rows it inserts are recorded in the additive `conversation_imports` table in the same transaction, and `load_persisted_state` returns `importedAt` instead of `at` for them.
 
 `pick_attachment_file` keeps the chosen path in Rust and returns a one-use token; `extract_pdf_text` and `save_attachment_to_vault` accept only that token. `write_memory_artifact` takes an artifact kind (the research `.base` or the projects `.canvas`), and Rust chooses the path.
 
@@ -334,6 +337,8 @@ ANTHROPIC_API_KEY=   # optional: explicit Claude comparison; passed to Claude Co
 Gmail needs no key in `.env`: its Desktop OAuth client file lives in the app data directory, and refresh tokens live in Windows Credential Manager (see `docs/GMAIL.md`). The `OLYMPUS_*_FIXTURE` and `OLYMPUS_TEST_PROJECTS_ROOT` variables are read only by tests and harnesses.
 
 `.env` is gitignored and loaded by `load_olympus_env()` in `src-tauri/src/lib.rs`, which resolves it relative to the Cargo manifest — so it belongs at the repo root, next to `package.json`.
+
+`OLYMPUS_ACCEPTANCE_DIR` selects the desktop acceptance profile (`src-tauri/src/commands/acceptance.rs`). It is honoured only in debug builds; the release build compiles `acceptance_dir()` as `None`. When it names a directory, the app skips `.env`, removes `OPENAI_API_KEY` and `ANTHROPIC_API_KEY` from its own process, reads the vault from `<dir>/vault`, scans `<dir>/projects` whatever root is stored, starts neither Gmail cadence, refuses Gmail connect, sync, disconnect and every keyring access, and refuses delegation prepare, start and resume. It logs `[Olympus::Acceptance] profile <dir>` at startup, and the header shows a persistent label. The database and webview profile are separated by launching with `--config scripts/acceptance/tauri.acceptance.json`. See `docs/reviews/2026-09-28-design-usability/DESKTOP-ACCEPTANCE.md`.
 
 ---
 
