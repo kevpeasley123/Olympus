@@ -1,3 +1,17 @@
+## Continuation — native acceptance attempt, September 29, 2026
+
+Verified at `f073af6`, which is still the head of `claude/blissful-lamport-2l4o96`, in a Linux container (not Windows):
+
+- `cargo test --lib`: 415 passed, 0 failed, 15 ignored (2 paid, 9 real-vault, 4 acceptance-fixture). The 4 fixture tests plus the other acceptance tests pass against a freshly built fixture and a seeded scratch DB (13 of 13).
+- `npm run build` passes, and 16 of 16 `scripts/test-*.mjs` pass. The builder and seeder refusals behave as documented, except for linked paths.
+- The imported-date labelling landed in `76524f5`. The "open defect" wording in the section below is superseded, and N17 is still unobserved.
+
+**Blocked:** the acceptance guard has two isolation defects (`reviews/2026-09-28-design-usability/NATIVE-ACCEPTANCE-2026-09-29.md`). The acceptance config without `OLYMPUS_ACCEPTANCE_DIR` is not refused and can make a paid call carrying real-vault research. A refused launch opens the production WebView2 profile. N1–N17 were not run. A fix is prepared and unapplied: `proposed-isolation-fix-2026-09-29.patch` (417 of 417 unit tests pass with it).
+
+Next, in order: the operator authorizes the fix → apply it on the branch, run `cargo test --lib` and a Windows type check → the native pass on Windows from a fresh worktree with no `.env`, following DESKTOP-ACCEPTANCE §3–4.
+
+Boundaries unchanged: no merge, push, commit, install, paid call, real Gmail or delegation without a specific instruction.
+
 ## Design-review implementation — September 28, 2026
 
 2026-09-29 release-readiness pass: see the reconciled item table and the "Release-readiness pass" section in [IMPLEMENTATION-CHECKLIST.md](reviews/2026-09-28-design-usability/IMPLEMENTATION-CHECKLIST.md). Desktop acceptance, grouped by risk, is in [DESKTOP-ACCEPTANCE.md](reviews/2026-09-28-design-usability/DESKTOP-ACCEPTANCE.md). U6 stays partial until live-provider evidence exists. U9 is complete against the operator's revised criterion. U8's narrow layout with the console open is unresolved, and imported message dates are not yet labelled as import dates (open defect). hybrid-core's voice-timing failure is pre-existing and environmental.

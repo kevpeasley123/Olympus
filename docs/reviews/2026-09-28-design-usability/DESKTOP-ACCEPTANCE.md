@@ -117,6 +117,8 @@ If any of these fails, close the app and stop.
 
 Guard (added 2026-09-29): if `OLYMPUS_ACCEPTANCE_DIR` is set but the `--config` override was forgotten, the app refuses to start rather than open the production database. The error names the missing `--config`. That refusal is correct; relaunch with the config.
 
+**Do not launch until the guard is fixed (source review, 2026-09-29).** Two defects are recorded in `NATIVE-ACCEPTANCE-2026-09-29.md`. (1) The refusal happens in `setup`, after Tauri has already created the window, so a refused launch still opens the production WebView2 profile. (2) The reverse case is not refused. `--config` is compiled in, so launching the acceptance build without the variable (a new shell, or the debug exe run directly) loads `.env`, reads the real vault and projects root, and lets the situation worker make a paid call about 20 s after start once the database is seeded. A focused fix is prepared, not applied: `proposed-isolation-fix-2026-09-29.patch`.
+
 **Cleanup:**
 ```powershell
 Remove-Item Env:OLYMPUS_ACCEPTANCE_DIR
