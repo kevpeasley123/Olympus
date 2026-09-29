@@ -128,11 +128,11 @@ export function mountHybridScene(host: HTMLDivElement, layout: CommandLayout, cu
   composer.addPass(renderPass);composer.addPass(networkPass);composer.addPass(bloomPass);composer.addPass(outputPass);
   const frames: {id:string; material:T.MeshStandardMaterial; active:boolean}[]=[];
   for (const segment of layout.ring.segments) {
-    if(study.studyIds.has(segment.project.id)) continue;
-    const active=segment.project.status==="active";
+    if(study.studyIds.has(segment.id)) continue;
+    const active=false;
     const material=structural.clone(); material.color.set(active?0x110c08:0x050d16); material.emissive.set(active?0x462009:0x0e2639); material.emissiveIntensity=active?.45:.2;
     mesh(new T.ExtrudeGeometry(band(segment.startAngle,segment.endAngle,156.5,179.5),{depth:9,bevelEnabled:true,bevelSize:.65,bevelThickness:1.1,bevelSegments:2,curveSegments:24,steps:1}),material,-13);
-    frames.push({id:segment.project.id,material,active});
+    frames.push({id:segment.id,material,active});
     mesh(new T.ShapeGeometry(band(segment.startAngle+.25,segment.endAngle-.25,178,179)),active?glow:cool,-1);
     mesh(new T.ShapeGeometry(band(segment.startAngle+.25,segment.endAngle-.25,157,157.45)),cool,-1);
   }
@@ -267,6 +267,14 @@ export function mountHybridScene(host: HTMLDivElement, layout: CommandLayout, cu
     const fraction=(p:{x:number;y:number})=>lengthSquared?((p.x-edge.from.x)*dx+(p.y-edge.from.y)*dy)/lengthSquared:0;
     line(pos(edge.from),pos(edge.to),SCENE_FINISH.network.crossOpacity,fraction(piece.from),fraction(piece.to));
   }
+  const pathKey=(ids:readonly string[]|undefined)=>(ids??[]).join("|");
+  const activePaths=new Map<string,{from:{x:number;y:number};to:{x:number;y:number}}[]>();
+  const segmentsById=new Map(layout.ring.segments.map(segment=>[segment.id,segment]));
+  function pathsFor(ids:readonly string[]|undefined){
+    const key=pathKey(ids);if(activePaths.has(key))return;
+    activePaths.set(key,(ids??[]).flatMap(id=>{const segment=segmentsById.get(id);if(!segment)return [];
+      const angle=segment.midAngle*Math.PI/180;return [{from:{x:220+Math.sin(angle)*150,y:220-Math.cos(angle)*150},to:{x:220,y:220}}];}));
+  }
   const signalLight=new T.MeshBasicMaterial({color:new T.Color(2.2,2.2,2.2),toneMapped:false});
   volumeMaterial(signalLight);
   const signalGeometry=new T.SphereGeometry(1.2,10,8);
@@ -349,10 +357,11 @@ export function mountHybridScene(host: HTMLDivElement, layout: CommandLayout, cu
     if(HARNESS_ATTRIBUTES){canvas.dataset.voiceSignature=String(voiceUniforms.presence.value>.005);
     canvas.dataset.voiceSignatureEnergy=String(voiceUniforms.energy.value);}
     glow.emissiveIntensity=.23+(moving?Math.sin(time*.8)*.06:0)+energy*.55;
-    study.update(time, energy, moving, value.hoverProject, value.state==="idle", value.state==="speaking", executing, executing||errorState?value.execution?.projectId:undefined, operationPulse, value.state==="complete", errorState?errorAge:-1);
+    const light=value.light??{};
+    study.update(time, energy, moving, light, value.state==="idle", value.state==="speaking", executing, operationPulse, value.state==="complete", errorState?errorAge:-1);
     glow.color.set(value.state==="error"?0xe57854:ORANGE);
-    frames.forEach(f=>{f.material.emissiveIntensity=value.hoverProject===f.id?1.1:f.active?.45:.2;});
-    nodes.forEach((n,i)=>{n.mesh.position.z=n.z+(moving?Math.sin(time*Math.PI*2/n.period+i*2.4)*CONSTELLATION_DEPTH.driftAmount:0);n.material.emissiveIntensity=n.base+(value.hoverProject===n.project?.6:0)+(moving?Math.sin(time*.35+i)*.07:0);});
+    frames.forEach(f=>{f.material.emissiveIntensity=.2+(light[f.id]??0)*.9;});
+    nodes.forEach((n,i)=>{n.mesh.position.z=n.z+(moving?Math.sin(time*Math.PI*2/n.period+i*2.4)*CONSTELLATION_DEPTH.driftAmount:0);n.material.emissiveIntensity=n.base+(moving?Math.sin(time*.35+i)*.07:0);});
     constellationGroup.updateMatrixWorld(true);
     nodes.forEach((n,i)=>{
       n.mesh.getWorldPosition(n.world);
@@ -380,7 +389,10 @@ export function mountHybridScene(host: HTMLDivElement, layout: CommandLayout, cu
       }
       colors.needsUpdate=true;
     }
-    const edges=executing?layout.constellation.treeEdges.filter(edge=>edge.to.projectId===value.execution?.projectId):layout.constellation.treeEdges;
+    // Working: signals travel from each active domain through the Ω, and only
+    // while a recorded mission step is active. Idle keeps the ambient tracer.
+    pathsFor(value.activeDomains);
+    const edges=executing?(activePaths.get(pathKey(value.activeDomains))??[]):layout.constellation.treeEdges;
     signal.visible=!errorState&&!executing&&moving&&edges.length>0&&time%4.5<2;
     const launch=Math.floor(executionTime*EXECUTING_MOTION.launchesPerSecond);
     executionSignals.forEach((orb,index)=>{
@@ -393,7 +405,7 @@ export function mountHybridScene(host: HTMLDivElement, layout: CommandLayout, cu
     });
     if(HARNESS_ATTRIBUTES)canvas.dataset.executionSignals=String(executionSignals.filter(orb=>orb.visible).length);
     if(signal.visible){const e=edges[Math.floor(time/4.5)%edges.length];signal.position.copy(pos(executing?e.to:e.from)).lerp(pos(executing?e.from:e.to),(time%4.5)/2);}
-    const signature = `${value.state}/${moving?value.voiceLevel:0}/${value.hoverProject}/${canvas.width}/${canvas.height}/${value.running}`;
+    const signature = `${value.state}/${moving?value.voiceLevel:0}/${JSON.stringify(light)}/${canvas.width}/${canvas.height}/${value.running}`;
     try { if(document.visibilityState==="visible" && host.getBoundingClientRect().width>0 && (moving || signature !== lastSignature)) { renderer.info.reset();composer.render(); renderCount++; lastSignature=signature; } }
     catch { stopped=true; fail("Rendering stopped unexpectedly."); return; }
     if(!announced && renderCount){announced=true;ready();}

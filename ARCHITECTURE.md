@@ -45,7 +45,7 @@ package.json     Frontend dependencies and npm scripts
 .env.example     Required environment variables (copy to .env)
 ```
 
-Tauri commands exposed by the desktop shell — all 79 in the `invoke_handler` list in `src-tauri/src/lib.rs` (regenerated 2026-09-29; `gmail_cache_counts` and `acceptance_profile` are the additions since 0.19.0):
+Tauri commands exposed by the desktop shell — all 81 in the `invoke_handler` list in `src-tauri/src/lib.rs` (regenerated 2026-09-29; `gmail_cache_counts` and `acceptance_profile` are the additions since 0.19.0, `command_capabilities` and `command_missions` the uncommitted Command Armory additions):
 
 | Area | Commands |
 | --- | --- |
@@ -58,7 +58,7 @@ Tauri commands exposed by the desktop shell — all 79 in the `invoke_handler` l
 | Delegation review | `fetch_delegation_review`, `run_delegation_check`, `delegation_review_fingerprint`, `complete_delegation_review` |
 | Knowledge audit | `start_knowledge_audit`, `list_knowledge_audits`, `inspect_knowledge_audit` |
 | Research / Verification agents | `research_agent_catalog`, `start_research_verification`, `inspect_research_verification`, `list_research_verifications`, `cancel_research_verification` |
-| Command catalog | `command_agent_catalog` |
+| Command catalog | `command_agent_catalog`, `command_capabilities`, `command_missions` (read-only projections; see `docs/COMMAND-ARMORY-REDESIGN.md`) |
 | Gmail | `gmail_status`, `gmail_connect`, `gmail_cancel`, `gmail_disconnect`, `gmail_sync`, `gmail_set_horizon`, `gmail_search`, `gmail_thread`, `gmail_workspace`, `gmail_remove_cache`, `gmail_cache_counts` |
 | Communication Intelligence | `analyze_communications`, `communication_runs`, `communication_run_events`, `communication_feedback`, `communication_skills`, `communication_workflow`, `inspect_communication_run` |
 | Situations | `situation_snapshot`, `situation_refresh`, `situation_set_background`, `situation_update`, `situation_edit`, `situation_draft`, `situation_save_draft`, `situation_document_status`, `situation_document_open` |

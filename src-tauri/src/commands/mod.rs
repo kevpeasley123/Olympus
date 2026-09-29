@@ -10,6 +10,7 @@ pub mod memory_promotion;
 pub mod research_retrieval;
 pub mod research_agents;
 pub mod command_agents;
+pub mod capabilities;
 pub mod research_verification;
 pub mod knowledge_audit;
 pub mod pantheon;

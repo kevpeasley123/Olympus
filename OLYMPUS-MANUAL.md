@@ -16,11 +16,13 @@ system that maintains project truth, memory, decisions, and delegated work.
 ## Opening experience
 
 On launch, Command is the ambient, glanceable state of Olympus. It should be
-readable from across the room: the full omega instrument with a compact command console anchored at the
-bottom-right. Conversation expands on demand, with history a deliberate mode. The instrument is the mode, not an illustration beside another
-interface. Project names live on the ring; hovering one may show only its name
-and open-task count. Briefing prose and repository details belong in Project
-mode.
+readable from across the room: the full omega instrument, the Agent Catalog on
+the left, and the conversation workspace in its own right column (compact on
+request). The instrument is the mode, not an illustration beside another
+interface. The ring shows what Olympus can do — its capability domains, derived
+from real runtime Tools and Skills — not projects (decided 2026-09-29, Command
+Armory redesign). Projects, briefing prose and repository details belong in
+Project mode.
 
 Project mode opens the Project Command Board: compact operational status,
 operator checkpoints, next move and owner, and clearly labelled deterministic
@@ -74,18 +76,23 @@ not commands to repeat an old choice forever.
 ### Command
 
 The ambient command and conversation surface. Its centre column contains the
-full-size omega instrument: the day arc, labelled project-window ring, linked
-note constellation, and central glyph. The bottom-right Command Console remains
-compact when dormant, opens recent dialogue when engaged, and exposes a larger
-transcript only when requested.
+full-size omega instrument: the day arc, the capability-domain ring, the linked
+note constellation (ambient), and central glyph. A lens (the selected agent),
+a selected domain, or a recorded mission reveals individual Tools and Skills
+inside their domain's wedge with an honest state: available, in scope, active,
+completed, unavailable, or requires approval. Revealing and inspecting never
+invoke anything. The conversation workspace fills the right column by default
+(idle suggestions, conversation, a Mission View projected from recorded run
+events, pinned composer) and compacts to the anchored command bar on request.
 
 The operational Agent Catalog occupies the left region beside the slim global
 rail. Olympus Core is listed separately as orchestrator; only actual executable
 roles appear here. Selected-role details stay in the same left panel. The right
-region is reserved for the compact console and its upward transcript expansion,
-which must cover neither the catalog nor the central instrument. Catalog inspection
+region belongs to the conversation workspace, which must cover neither the
+catalog nor the central instrument. Catalog inspection
 is read-only and never launches agents. Deeper graph/run inspection links to the
-existing Research surface. See `docs/COMMAND-AGENT-CATALOG.md`.
+existing Research surface. See `docs/COMMAND-AGENT-CATALOG.md` and
+`docs/COMMAND-ARMORY-REDESIGN.md`.
 
 Command's defining test is “one instrument, readable across the room.”
 A proposal that adds a card, list, or scroll container to its centre column

@@ -214,24 +214,47 @@ pub(crate) fn run_id() -> String {
     )
 }
 
-fn claude_executable() -> Result<PathBuf, String> {
-    let app_data = std::env::var_os("APPDATA")
-        .ok_or_else(|| "APPDATA is unavailable; Claude Code cannot be located.".to_string())?;
-    let executable = PathBuf::from(app_data)
-        .join("npm")
-        .join("node_modules")
-        .join("@anthropic-ai")
-        .join("claude-code")
-        .join("bin")
-        .join("claude.exe");
-
-    if !executable.is_file() {
-        return Err(format!(
-            "The registered Claude Code executable is missing at {}.",
-            executable.display()
-        ));
+/// Where Claude Code may be installed, most specific first: an explicit
+/// `OLYMPUS_CLAUDE_CODE` path, then `claude.exe` on `PATH` (the native
+/// installer), then the native installer's and npm's known locations. Only
+/// real executables qualify; npm's `claude.cmd` shim cannot be spawned directly.
+fn claude_candidates(
+    var: impl Fn(&str) -> Option<std::ffi::OsString>,
+) -> Vec<PathBuf> {
+    let name = if cfg!(windows) { "claude.exe" } else { "claude" };
+    let mut candidates = Vec::new();
+    if let Some(explicit) = var("OLYMPUS_CLAUDE_CODE").filter(|value| !value.is_empty()) {
+        candidates.push(PathBuf::from(explicit));
     }
-    Ok(executable)
+    if let Some(path) = var("PATH") {
+        candidates.extend(std::env::split_paths(&path).map(|dir| dir.join(name)));
+    }
+    if let Some(home) = var("USERPROFILE").or_else(|| var("HOME")) {
+        candidates.push(PathBuf::from(home).join(".local").join("bin").join(name));
+    }
+    if let Some(app_data) = var("APPDATA") {
+        candidates.push(
+            PathBuf::from(app_data)
+                .join("npm")
+                .join("node_modules")
+                .join("@anthropic-ai")
+                .join("claude-code")
+                .join("bin")
+                .join(name),
+        );
+    }
+    candidates
+}
+
+pub(crate) fn claude_executable() -> Result<PathBuf, String> {
+    let candidates = claude_candidates(|key| std::env::var_os(key));
+    candidates
+        .iter()
+        .find(|candidate| candidate.is_file())
+        .cloned()
+        .ok_or_else(|| {
+            "Claude Code was not found on PATH, in the native installer's location or in the npm global install. Set OLYMPUS_CLAUDE_CODE to its full path.".to_string()
+        })
 }
 
 fn claude_version(executable: &Path) -> Result<String, String> {
@@ -536,8 +559,10 @@ fn allowed_environment(command: &mut Command) {
         "TMP",
         "SystemRoot",
         "ComSpec",
-        "ANTHROPIC_API_KEY",
     ];
+    // No API key or token: Claude Code prefers `ANTHROPIC_API_KEY` and
+    // `ANTHROPIC_AUTH_TOKEN` over its subscription login, so passing either
+    // would bill the API for every delegated run (docs/ARMORY-PLAN.md, 0b).
     let values: Vec<(String, std::ffi::OsString)> = keys
         .iter()
         .filter_map(|key| std::env::var_os(key).map(|value| ((*key).to_string(), value)))
@@ -2181,5 +2206,44 @@ mod process_boundary_tests {
         let db = database(&implementing);
         recover_run(&db.0.lock().unwrap(), &mut implementing).unwrap();
         assert_eq!(implementing.phase, "waiting");
+    }
+    /// Subscription billing depends on this: Claude Code uses an API key or
+    /// token ahead of its login, so neither may reach a delegated child.
+    #[test]
+    fn delegated_children_never_receive_provider_credentials() {
+        let mut command = Command::new("claude");
+        allowed_environment(&mut command);
+        let passed: Vec<String> = command
+            .get_envs()
+            .map(|(key, _)| key.to_string_lossy().into_owned())
+            .collect();
+        for key in ["ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "OPENAI_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN"] {
+            assert!(!passed.iter().any(|name| name == key), "{key} must not be passed");
+        }
+        let source = include_str!("delegation.rs");
+        let allowlist = &source[source.find("fn allowed_environment").unwrap()..];
+        let allowlist = &allowlist[..allowlist.find("];").unwrap()];
+        assert!(!allowlist.contains("API_KEY") && !allowlist.contains("AUTH_TOKEN"));
+    }
+
+    #[test]
+    fn claude_code_is_looked_for_in_every_install_location_in_order() {
+        let env = |key: &str| -> Option<std::ffi::OsString> {
+            match key {
+                "OLYMPUS_CLAUDE_CODE" => Some("C:/explicit/claude.exe".into()),
+                "PATH" => Some(std::env::join_paths(["/first", "/second"]).unwrap()),
+                "USERPROFILE" => Some("C:/Users/kev".into()),
+                "APPDATA" => Some("C:/Users/kev/AppData/Roaming".into()),
+                _ => None,
+            }
+        };
+        let name = if cfg!(windows) { "claude.exe" } else { "claude" };
+        let candidates = claude_candidates(env);
+        assert_eq!(candidates[0], PathBuf::from("C:/explicit/claude.exe"));
+        assert_eq!(candidates[1], PathBuf::from("/first").join(name));
+        assert_eq!(candidates[2], PathBuf::from("/second").join(name));
+        assert_eq!(candidates[3], PathBuf::from("C:/Users/kev").join(".local").join("bin").join(name));
+        assert!(candidates[4].ends_with(PathBuf::from("npm/node_modules/@anthropic-ai/claude-code/bin").join(name)));
+        assert!(claude_candidates(|_| None).is_empty());
     }
 }

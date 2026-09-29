@@ -1,0 +1,1197 @@
+{
+  "capabilities": {
+    "acceptance": false,
+    "agents": [
+      {
+        "id": "olympus",
+        "note": "Aggregate armory: every Tool and Skill a workflow or route can use.",
+        "skills": [
+          "communication-assess",
+          "project-relevance",
+          "situation-discovery",
+          "situation-briefing",
+          "research-retrieval",
+          "evidence-synthesis",
+          "claim-verification"
+        ],
+        "tools": [
+          "gmail",
+          "pantheon",
+          "vault",
+          "obsidian",
+          "git",
+          "claude-code",
+          "model-primary",
+          "model-deep",
+          "model-claude",
+          "realtime-voice",
+          "transcription",
+          "file-attachments",
+          "quick-apps",
+          "browser"
+        ]
+      },
+      {
+        "id": "research",
+        "note": "Receives parent-selected Pantheon excerpts; the agent itself holds no tools, web or write authority.",
+        "skills": [
+          "research-retrieval",
+          "evidence-synthesis"
+        ],
+        "tools": [
+          "pantheon",
+          "model-primary"
+        ]
+      },
+      {
+        "id": "verification",
+        "note": "Judges claims against the parent's evidence packet only.",
+        "skills": [
+          "claim-verification"
+        ],
+        "tools": [
+          "pantheon",
+          "model-primary"
+        ]
+      },
+      {
+        "id": "coding-delegate",
+        "note": "No versioned skill bindings; bounded to the approved project, stage and worktree.",
+        "skills": [],
+        "tools": [
+          "claude-code",
+          "git"
+        ]
+      }
+    ],
+    "domains": [
+      {
+        "available": 5,
+        "id": "communications",
+        "label": "Communications",
+        "skills": 4,
+        "summary": "Mail understanding and situation briefings",
+        "tools": 1
+      },
+      {
+        "available": 4,
+        "id": "research",
+        "label": "Research",
+        "skills": 3,
+        "summary": "Scoped evidence retrieval, synthesis and verification",
+        "tools": 1
+      },
+      {
+        "available": 2,
+        "id": "knowledge",
+        "label": "Knowledge",
+        "skills": 0,
+        "summary": "The Obsidian vault: durable memory and decisions",
+        "tools": 2
+      },
+      {
+        "available": 1,
+        "id": "code",
+        "label": "Code",
+        "skills": 0,
+        "summary": "Repository state and approved coding delegation",
+        "tools": 2
+      },
+      {
+        "available": 2,
+        "id": "reasoning",
+        "label": "Reasoning",
+        "skills": 0,
+        "summary": "Backend-owned model routes",
+        "tools": 3
+      },
+      {
+        "available": 2,
+        "id": "voice",
+        "label": "Voice",
+        "skills": 0,
+        "summary": "Spoken replies and transcription",
+        "tools": 2
+      },
+      {
+        "available": 1,
+        "id": "files",
+        "label": "Files",
+        "skills": 0,
+        "summary": "Operator-chosen files and PDF text",
+        "tools": 1
+      },
+      {
+        "available": 1,
+        "id": "system",
+        "label": "System",
+        "skills": 0,
+        "summary": "Handoffs to the operating system",
+        "tools": 2
+      }
+    ],
+    "observedAt": "2026-09-29T07:53:33.156472064+00:00",
+    "skills": [
+      {
+        "allowedTools": [
+          "gmail",
+          "model-primary"
+        ],
+        "domain": "communications",
+        "effects": "None. Prohibited: Gmail writes, tasks, decisions, project writes, memory promotion.",
+        "id": "communication-assess",
+        "inputs": "Bounded cached threads (at most six, four messages each)",
+        "kind": "skill",
+        "name": "Communication Assessment",
+        "output": "Events, changes, operator impact and a proposed next move per thread",
+        "purpose": "Interpret bounded communication evidence: events, changes, operator impact and proposed next move",
+        "usage": {
+          "count": 0,
+          "lastAt": null
+        },
+        "usageUnit": "analysis runs",
+        "usedBy": [
+          "olympus"
+        ],
+        "version": 2,
+        "workflows": [
+          "Communication Intelligence v4"
+        ]
+      },
+      {
+        "allowedTools": [
+          "gmail",
+          "git"
+        ],
+        "domain": "communications",
+        "effects": "None.",
+        "id": "project-relevance",
+        "inputs": "Assessed threads and tracked project metadata",
+        "kind": "skill",
+        "name": "Project Relevance",
+        "output": "Source-linked project matches with confidence",
+        "purpose": "Match bounded evidence to declared project names and aliases without forced assignment",
+        "usage": {
+          "count": 0,
+          "lastAt": null
+        },
+        "usageUnit": "analysis runs",
+        "usedBy": [
+          "olympus"
+        ],
+        "version": 2,
+        "workflows": [
+          "Communication Intelligence v4"
+        ]
+      },
+      {
+        "allowedTools": [
+          "gmail",
+          "model-primary"
+        ],
+        "domain": "communications",
+        "effects": "None beyond publishing generated situations locally.",
+        "id": "situation-discovery",
+        "inputs": "Changed cached threads, known situations, operator updates",
+        "kind": "skill",
+        "name": "Situation Discovery",
+        "output": "One grounded observation per thread",
+        "purpose": "Group changed correspondence into ongoing real-world situations",
+        "usage": {
+          "count": 0,
+          "lastAt": null
+        },
+        "usageUnit": "situation runs",
+        "usedBy": [
+          "olympus"
+        ],
+        "version": 1,
+        "workflows": [
+          "Communication Situations v1"
+        ]
+      },
+      {
+        "allowedTools": [
+          "gmail",
+          "pantheon",
+          "model-primary"
+        ],
+        "domain": "communications",
+        "effects": "None beyond publishing generated briefings locally.",
+        "id": "situation-briefing",
+        "inputs": "Observations, selected research and operator updates",
+        "kind": "skill",
+        "name": "Situation Briefing",
+        "output": "One briefing per situation",
+        "purpose": "Explain where each situation stands and the informative next moves",
+        "usage": {
+          "count": 0,
+          "lastAt": null
+        },
+        "usageUnit": "situation runs",
+        "usedBy": [
+          "olympus"
+        ],
+        "version": 1,
+        "workflows": [
+          "Communication Situations v1"
+        ]
+      },
+      {
+        "allowedTools": [
+          "pantheon"
+        ],
+        "domain": "research",
+        "effects": "None. Prohibited: source, project and memory writes, approvals, tool execution, web.",
+        "id": "research-retrieval",
+        "inputs": "A question and the tagged Research entries",
+        "kind": "skill",
+        "name": "Research Retrieval",
+        "output": "Up to three ranked excerpts, 4,000 characters each",
+        "purpose": "Bounded lexical ranking of Research entries",
+        "usage": {
+          "count": 1,
+          "lastAt": "2026-09-29T07:10:00Z"
+        },
+        "usageUnit": "research verification runs",
+        "usedBy": [
+          "olympus",
+          "research"
+        ],
+        "version": 1,
+        "workflows": [
+          "Research Verification v1"
+        ]
+      },
+      {
+        "allowedTools": [
+          "pantheon",
+          "model-primary"
+        ],
+        "domain": "research",
+        "effects": "None. Prohibited: source, project and memory writes, approvals, tool execution, web.",
+        "id": "evidence-synthesis",
+        "inputs": "A question and the parent's scoped excerpts",
+        "kind": "skill",
+        "name": "Evidence Synthesis",
+        "output": "At most five candidate claims with exact citations",
+        "purpose": "Candidate claims with exact evidence citations",
+        "usage": {
+          "count": 1,
+          "lastAt": "2026-09-29T07:10:02Z"
+        },
+        "usageUnit": "agent executions",
+        "usedBy": [
+          "research"
+        ],
+        "version": 1,
+        "workflows": [
+          "Research Verification v1"
+        ]
+      },
+      {
+        "allowedTools": [
+          "pantheon",
+          "model-primary"
+        ],
+        "domain": "research",
+        "effects": "None. Prohibited: source, project and memory writes, approvals, tool execution, web.",
+        "id": "claim-verification",
+        "inputs": "Candidate claims and the parent's evidence packet",
+        "kind": "skill",
+        "name": "Claim Verification",
+        "output": "Supported / Contradicted / Insufficient per claim",
+        "purpose": "Independent claim judgments with evidence citations",
+        "usage": {
+          "count": 1,
+          "lastAt": "2026-09-29T07:11:20Z"
+        },
+        "usageUnit": "agent executions",
+        "usedBy": [
+          "verification"
+        ],
+        "version": 1,
+        "workflows": [
+          "Research Verification v1"
+        ]
+      }
+    ],
+    "tools": [
+      {
+        "approval": "none",
+        "authority": "Read-only (gmail.readonly). Olympus never sends, labels, archives or deletes mail.",
+        "capabilities": [
+          "Sync Inbox and Sent into a bounded local cache",
+          "Search cached mail",
+          "Read cached threads"
+        ],
+        "detail": "Connected · read-only · operator@example.invalid · last 90 days",
+        "domain": "communications",
+        "effects": [
+          "external_read",
+          "local_cache_write"
+        ],
+        "id": "gmail",
+        "kind": "tool",
+        "name": "Gmail",
+        "state": "AVAILABLE",
+        "toolKind": "connection",
+        "usage": {
+          "count": 1,
+          "lastAt": "2026-09-29T08:40:00Z"
+        },
+        "usageUnit": "syncs",
+        "usedBy": [
+          "olympus"
+        ],
+        "workflows": [
+          "Communication Intelligence v4",
+          "Communication Situations v1"
+        ]
+      },
+      {
+        "approval": "none",
+        "authority": "Read-only retrieval. New entries are written only through the vault write gate.",
+        "capabilities": [
+          "Rank tagged Research entries for a question",
+          "Excerpt entries with content fingerprints"
+        ],
+        "detail": "Research folder present in the vault.",
+        "domain": "research",
+        "effects": [
+          "local_read"
+        ],
+        "id": "pantheon",
+        "kind": "tool",
+        "name": "Pantheon library",
+        "state": "AVAILABLE",
+        "toolKind": "source",
+        "usage": {
+          "count": 1,
+          "lastAt": "2026-09-29T07:10:00Z"
+        },
+        "usageUnit": "research verification runs",
+        "usedBy": [
+          "olympus",
+          "research",
+          "verification"
+        ],
+        "workflows": [
+          "Research Verification v1",
+          "Knowledge Audit v1",
+          "Chat research context"
+        ]
+      },
+      {
+        "approval": "writes",
+        "authority": "Reads freely. Every write declares an intent, is proven contained and asks before touching anything Olympus did not author.",
+        "capabilities": [
+          "Read durable memory and the Decision Log as context",
+          "Append profile observations",
+          "Promote decisions from chat",
+          "Write research entries and dashboard artifacts"
+        ],
+        "detail": "Vault folder present.",
+        "domain": "knowledge",
+        "effects": [
+          "local_read",
+          "gated_local_write"
+        ],
+        "id": "vault",
+        "kind": "tool",
+        "name": "Obsidian vault",
+        "state": "AVAILABLE",
+        "toolKind": "source",
+        "usage": null,
+        "usageUnit": null,
+        "usedBy": [
+          "olympus"
+        ],
+        "workflows": [
+          "Chat context",
+          "Memory promotion",
+          "Observations"
+        ]
+      },
+      {
+        "approval": "none",
+        "authority": "Handoff only. Paths are resolved inside the vault before opening.",
+        "capabilities": [
+          "Open a contained vault note in Obsidian"
+        ],
+        "detail": "Opens a vault note in Obsidian; Olympus stays put.",
+        "domain": "knowledge",
+        "effects": [
+          "os_handoff"
+        ],
+        "id": "obsidian",
+        "kind": "tool",
+        "name": "Obsidian app",
+        "state": "AVAILABLE",
+        "toolKind": "handoff",
+        "usage": null,
+        "usageUnit": null,
+        "usedBy": [
+          "olympus"
+        ],
+        "workflows": [
+          "Research library",
+          "Attachments"
+        ]
+      },
+      {
+        "approval": "none",
+        "authority": "Read-only status. `git status` may refresh a repository's index.",
+        "capabilities": [
+          "Scan the projects root",
+          "Read branch, commits and working-tree state"
+        ],
+        "detail": "git found at /usr/bin/git",
+        "domain": "code",
+        "effects": [
+          "local_read"
+        ],
+        "id": "git",
+        "kind": "tool",
+        "name": "Git repositories",
+        "state": "AVAILABLE",
+        "toolKind": "local",
+        "usage": null,
+        "usageUnit": null,
+        "usedBy": [
+          "olympus",
+          "coding-delegate"
+        ],
+        "workflows": [
+          "Project scan",
+          "Project delegation"
+        ]
+      },
+      {
+        "approval": "required",
+        "authority": "Only the approved project, stage and worktree. Planning and implementation each require operator approval; completion requires recorded checks and review.",
+        "capabilities": [
+          "Plan in an isolated worktree",
+          "Implement after a separate approval",
+          "Run recorded verification checks"
+        ],
+        "detail": "Claude Code was not found.",
+        "domain": "code",
+        "effects": [
+          "execute_in_worktree"
+        ],
+        "id": "claude-code",
+        "kind": "tool",
+        "name": "Claude Code",
+        "state": "UNAVAILABLE",
+        "toolKind": "executor",
+        "usage": {
+          "count": 0,
+          "lastAt": null
+        },
+        "usageUnit": "delegation runs",
+        "usedBy": [
+          "coding-delegate"
+        ],
+        "workflows": [
+          "Project delegation"
+        ]
+      },
+      {
+        "approval": "none",
+        "authority": "Reasoning only; no tools, writes or approvals.",
+        "capabilities": [
+          "Chat and voice reasoning",
+          "Structured agent and workflow output"
+        ],
+        "detail": "OpenAI credentials configured; provider access and credit are not probed here.",
+        "domain": "reasoning",
+        "effects": [
+          "provider_request"
+        ],
+        "id": "model-primary",
+        "kind": "tool",
+        "model": "gpt-6-sol",
+        "name": "Sol",
+        "state": "AVAILABLE",
+        "toolKind": "model",
+        "usage": {
+          "count": 0,
+          "lastAt": null
+        },
+        "usageUnit": "model requests",
+        "usedBy": [
+          "olympus",
+          "research",
+          "verification"
+        ],
+        "workflows": [
+          "Chat",
+          "Research Verification v1",
+          "Communication Intelligence v4",
+          "Communication Situations v1"
+        ]
+      },
+      {
+        "approval": "none",
+        "authority": "Reasoning only; selected per request by the operator.",
+        "capabilities": [
+          "Explicit one-request deep analysis"
+        ],
+        "detail": "OpenAI credentials configured; provider access and credit are not probed here.",
+        "domain": "reasoning",
+        "effects": [
+          "provider_request"
+        ],
+        "id": "model-deep",
+        "kind": "tool",
+        "model": "gpt-6-astra",
+        "name": "Astra · Deep Analysis",
+        "state": "AVAILABLE",
+        "toolKind": "model",
+        "usage": {
+          "count": 0,
+          "lastAt": null
+        },
+        "usageUnit": "model requests",
+        "usedBy": [
+          "olympus"
+        ],
+        "workflows": [
+          "Chat"
+        ]
+      },
+      {
+        "approval": "none",
+        "authority": "Reasoning only; selected per request by the operator.",
+        "capabilities": [
+          "Explicit comparison answers"
+        ],
+        "detail": "Anthropic credentials unavailable in this process.",
+        "domain": "reasoning",
+        "effects": [
+          "provider_request"
+        ],
+        "id": "model-claude",
+        "kind": "tool",
+        "model": "claude-opus-5",
+        "name": "Claude · Comparison",
+        "state": "UNAVAILABLE",
+        "toolKind": "model",
+        "usage": {
+          "count": 0,
+          "lastAt": null
+        },
+        "usageUnit": "model requests",
+        "usedBy": [
+          "olympus"
+        ],
+        "workflows": [
+          "Chat"
+        ]
+      },
+      {
+        "approval": "none",
+        "authority": "Audio output only; reasoning stays on the chat route.",
+        "capabilities": [
+          "Speak replies and the opening briefing",
+          "Voice conversation turns"
+        ],
+        "detail": "OpenAI credentials configured; provider access and credit are not probed here.",
+        "domain": "voice",
+        "effects": [
+          "provider_request"
+        ],
+        "id": "realtime-voice",
+        "kind": "tool",
+        "model": "gpt-realtime-2.1",
+        "name": "Realtime speech",
+        "state": "AVAILABLE",
+        "toolKind": "model",
+        "usage": {
+          "count": 0,
+          "lastAt": null
+        },
+        "usageUnit": "voice sessions",
+        "usedBy": [
+          "olympus"
+        ],
+        "workflows": [
+          "Voice replies"
+        ]
+      },
+      {
+        "approval": "none",
+        "authority": "Runs only while the microphone is live.",
+        "capabilities": [
+          "Transcribe the operator's microphone while voice is on"
+        ],
+        "detail": "OpenAI credentials configured; provider access and credit are not probed here.",
+        "domain": "voice",
+        "effects": [
+          "provider_request"
+        ],
+        "id": "transcription",
+        "kind": "tool",
+        "model": "gpt-4o-mini-transcribe",
+        "name": "Transcription",
+        "state": "AVAILABLE",
+        "toolKind": "model",
+        "usage": null,
+        "usageUnit": null,
+        "usedBy": [
+          "olympus"
+        ],
+        "workflows": [
+          "Voice input"
+        ]
+      },
+      {
+        "approval": "writes",
+        "authority": "Only files the operator selects. Copies into the vault ask first.",
+        "capabilities": [
+          "Read an operator-chosen file",
+          "Extract PDF text",
+          "Copy into the vault's _attachments through the write gate"
+        ],
+        "detail": "The operator picks each file; Olympus never browses the file system.",
+        "domain": "files",
+        "effects": [
+          "local_read",
+          "gated_local_write"
+        ],
+        "id": "file-attachments",
+        "kind": "tool",
+        "name": "File attachments",
+        "state": "AVAILABLE",
+        "toolKind": "local",
+        "usage": null,
+        "usageUnit": null,
+        "usedBy": [
+          "olympus"
+        ],
+        "workflows": [
+          "Research Add Entry"
+        ]
+      },
+      {
+        "approval": "none",
+        "authority": "A fixed allowlist of four targets; no arguments from chat.",
+        "capabilities": [
+          "Open Spotify",
+          "Open Discord",
+          "Open X or YouTube in Firefox"
+        ],
+        "detail": "Quick app launching is only wired for Windows.",
+        "domain": "system",
+        "effects": [
+          "os_handoff"
+        ],
+        "id": "quick-apps",
+        "kind": "tool",
+        "name": "Quick apps",
+        "state": "UNAVAILABLE",
+        "toolKind": "handoff",
+        "usage": null,
+        "usageUnit": null,
+        "usedBy": [
+          "olympus"
+        ],
+        "workflows": [
+          "Tool rail"
+        ]
+      },
+      {
+        "approval": "none",
+        "authority": "Guarded opener; the app window never navigates away.",
+        "capabilities": [
+          "Open a link from chat or the library in the system browser"
+        ],
+        "detail": "Opens http and https links in the system browser.",
+        "domain": "system",
+        "effects": [
+          "os_handoff"
+        ],
+        "id": "browser",
+        "kind": "tool",
+        "name": "Browser handoff",
+        "state": "AVAILABLE",
+        "toolKind": "handoff",
+        "usage": null,
+        "usageUnit": null,
+        "usedBy": [
+          "olympus"
+        ],
+        "workflows": [
+          "Chat",
+          "Research library"
+        ]
+      }
+    ]
+  },
+  "missions": {
+    "completed": {
+      "missions": [
+        {
+          "approval": null,
+          "destination": "research",
+          "finishedAt": "2026-09-29T07:12:40Z",
+          "id": "rv-complete",
+          "kind": "research-verification",
+          "request": "Does evidence-first review reduce rework?",
+          "result": {
+            "detail": "Model judgment over three library excerpts; not proof of truth.",
+            "summary": "2 supported · 0 contradicted · 1 insufficient"
+          },
+          "source": "research_verification_runs",
+          "startedAt": "2026-09-29T07:10:00Z",
+          "status": "completed",
+          "steps": [
+            {
+              "agent": null,
+              "id": "scope",
+              "label": "Select scoped sources",
+              "recorded": "completed",
+              "skills": [
+                "research-retrieval"
+              ],
+              "state": "completed",
+              "tools": [
+                "pantheon"
+              ]
+            },
+            {
+              "agent": "research",
+              "id": "research",
+              "label": "Research: candidate claims",
+              "recorded": "completed",
+              "skills": [
+                "evidence-synthesis"
+              ],
+              "state": "completed",
+              "tools": [
+                "model-primary"
+              ]
+            },
+            {
+              "agent": "verification",
+              "id": "verification",
+              "label": "Verify claims",
+              "recorded": "completed",
+              "skills": [
+                "claim-verification"
+              ],
+              "state": "completed",
+              "tools": [
+                "model-primary"
+              ]
+            },
+            {
+              "agent": "research",
+              "id": "clarification",
+              "label": "Clarify insufficient claims",
+              "recorded": "not_dispatched",
+              "skills": [
+                "evidence-synthesis"
+              ],
+              "state": "skipped",
+              "tools": [
+                "model-primary"
+              ]
+            },
+            {
+              "agent": "verification",
+              "id": "reverification",
+              "label": "Re-verify",
+              "recorded": null,
+              "skills": [
+                "claim-verification"
+              ],
+              "state": "not-run",
+              "tools": [
+                "model-primary"
+              ]
+            },
+            {
+              "agent": null,
+              "id": "join",
+              "label": "Assemble the brief",
+              "recorded": "completed",
+              "skills": [],
+              "state": "completed",
+              "tools": []
+            }
+          ],
+          "title": "Research verification",
+          "workflow": "Research Verification v1"
+        }
+      ],
+      "observedAt": "2026-09-29T07:53:33.157429073+00:00"
+    },
+    "mailActive": {
+      "missions": [
+        {
+          "approval": null,
+          "destination": "communications",
+          "finishedAt": null,
+          "id": "ci-running",
+          "kind": "communication-intelligence",
+          "request": "Analyze the last 7 days of cached mail",
+          "result": null,
+          "source": "communication_runs",
+          "startedAt": "2026-09-29T09:05:00Z",
+          "status": "running",
+          "steps": [
+            {
+              "agent": null,
+              "id": "snapshot",
+              "label": "Read the mail cache",
+              "recorded": "completed",
+              "skills": [],
+              "state": "completed",
+              "tools": [
+                "gmail"
+              ]
+            },
+            {
+              "agent": null,
+              "id": "select",
+              "label": "Select threads",
+              "recorded": "completed",
+              "skills": [],
+              "state": "completed",
+              "tools": [
+                "gmail"
+              ]
+            },
+            {
+              "agent": null,
+              "id": "assess",
+              "label": "Assess threads",
+              "recorded": "running",
+              "skills": [
+                "communication-assess"
+              ],
+              "state": "active",
+              "tools": [
+                "gmail",
+                "model-primary"
+              ]
+            },
+            {
+              "agent": null,
+              "id": "project",
+              "label": "Match to projects",
+              "recorded": null,
+              "skills": [
+                "project-relevance"
+              ],
+              "state": "pending",
+              "tools": [
+                "git"
+              ]
+            },
+            {
+              "agent": null,
+              "id": "synthesize",
+              "label": "Validate and join",
+              "recorded": null,
+              "skills": [],
+              "state": "pending",
+              "tools": []
+            }
+          ],
+          "title": "Thread analysis",
+          "workflow": "Communication Intelligence"
+        },
+        {
+          "approval": null,
+          "destination": "research",
+          "finishedAt": "2026-09-29T07:12:40Z",
+          "id": "rv-complete",
+          "kind": "research-verification",
+          "request": "Does evidence-first review reduce rework?",
+          "result": {
+            "detail": "Model judgment over three library excerpts; not proof of truth.",
+            "summary": "2 supported · 0 contradicted · 1 insufficient"
+          },
+          "source": "research_verification_runs",
+          "startedAt": "2026-09-29T07:10:00Z",
+          "status": "completed",
+          "steps": [
+            {
+              "agent": null,
+              "id": "scope",
+              "label": "Select scoped sources",
+              "recorded": "completed",
+              "skills": [
+                "research-retrieval"
+              ],
+              "state": "completed",
+              "tools": [
+                "pantheon"
+              ]
+            },
+            {
+              "agent": "research",
+              "id": "research",
+              "label": "Research: candidate claims",
+              "recorded": "completed",
+              "skills": [
+                "evidence-synthesis"
+              ],
+              "state": "completed",
+              "tools": [
+                "model-primary"
+              ]
+            },
+            {
+              "agent": "verification",
+              "id": "verification",
+              "label": "Verify claims",
+              "recorded": "completed",
+              "skills": [
+                "claim-verification"
+              ],
+              "state": "completed",
+              "tools": [
+                "model-primary"
+              ]
+            },
+            {
+              "agent": "research",
+              "id": "clarification",
+              "label": "Clarify insufficient claims",
+              "recorded": "not_dispatched",
+              "skills": [
+                "evidence-synthesis"
+              ],
+              "state": "skipped",
+              "tools": [
+                "model-primary"
+              ]
+            },
+            {
+              "agent": "verification",
+              "id": "reverification",
+              "label": "Re-verify",
+              "recorded": null,
+              "skills": [
+                "claim-verification"
+              ],
+              "state": "not-run",
+              "tools": [
+                "model-primary"
+              ]
+            },
+            {
+              "agent": null,
+              "id": "join",
+              "label": "Assemble the brief",
+              "recorded": "completed",
+              "skills": [],
+              "state": "completed",
+              "tools": []
+            }
+          ],
+          "title": "Research verification",
+          "workflow": "Research Verification v1"
+        }
+      ],
+      "observedAt": "2026-09-29T07:53:33.158621140+00:00"
+    },
+    "none": {
+      "missions": [],
+      "observedAt": "2026-09-29T07:53:33.156472064+00:00"
+    },
+    "researchActive": {
+      "missions": [
+        {
+          "approval": null,
+          "destination": "research",
+          "finishedAt": null,
+          "id": "rv-running",
+          "kind": "research-verification",
+          "request": "What does the library say about approval gates for agents?",
+          "result": null,
+          "source": "research_verification_runs",
+          "startedAt": "2026-09-29T09:00:00Z",
+          "status": "running",
+          "steps": [
+            {
+              "agent": null,
+              "id": "scope",
+              "label": "Select scoped sources",
+              "recorded": "completed",
+              "skills": [
+                "research-retrieval"
+              ],
+              "state": "completed",
+              "tools": [
+                "pantheon"
+              ]
+            },
+            {
+              "agent": "research",
+              "id": "research",
+              "label": "Research: candidate claims",
+              "recorded": "completed",
+              "skills": [
+                "evidence-synthesis"
+              ],
+              "state": "completed",
+              "tools": [
+                "model-primary"
+              ]
+            },
+            {
+              "agent": "verification",
+              "id": "verification",
+              "label": "Verify claims",
+              "recorded": "running",
+              "skills": [
+                "claim-verification"
+              ],
+              "state": "active",
+              "tools": [
+                "model-primary"
+              ]
+            },
+            {
+              "agent": "research",
+              "id": "clarification",
+              "label": "Clarify insufficient claims",
+              "recorded": null,
+              "skills": [
+                "evidence-synthesis"
+              ],
+              "state": "pending",
+              "tools": [
+                "model-primary"
+              ]
+            },
+            {
+              "agent": "verification",
+              "id": "reverification",
+              "label": "Re-verify",
+              "recorded": null,
+              "skills": [
+                "claim-verification"
+              ],
+              "state": "pending",
+              "tools": [
+                "model-primary"
+              ]
+            },
+            {
+              "agent": null,
+              "id": "join",
+              "label": "Assemble the brief",
+              "recorded": null,
+              "skills": [],
+              "state": "pending",
+              "tools": []
+            }
+          ],
+          "title": "Research verification",
+          "workflow": "Research Verification v1"
+        },
+        {
+          "approval": null,
+          "destination": "research",
+          "finishedAt": "2026-09-29T07:12:40Z",
+          "id": "rv-complete",
+          "kind": "research-verification",
+          "request": "Does evidence-first review reduce rework?",
+          "result": {
+            "detail": "Model judgment over three library excerpts; not proof of truth.",
+            "summary": "2 supported · 0 contradicted · 1 insufficient"
+          },
+          "source": "research_verification_runs",
+          "startedAt": "2026-09-29T07:10:00Z",
+          "status": "completed",
+          "steps": [
+            {
+              "agent": null,
+              "id": "scope",
+              "label": "Select scoped sources",
+              "recorded": "completed",
+              "skills": [
+                "research-retrieval"
+              ],
+              "state": "completed",
+              "tools": [
+                "pantheon"
+              ]
+            },
+            {
+              "agent": "research",
+              "id": "research",
+              "label": "Research: candidate claims",
+              "recorded": "completed",
+              "skills": [
+                "evidence-synthesis"
+              ],
+              "state": "completed",
+              "tools": [
+                "model-primary"
+              ]
+            },
+            {
+              "agent": "verification",
+              "id": "verification",
+              "label": "Verify claims",
+              "recorded": "completed",
+              "skills": [
+                "claim-verification"
+              ],
+              "state": "completed",
+              "tools": [
+                "model-primary"
+              ]
+            },
+            {
+              "agent": "research",
+              "id": "clarification",
+              "label": "Clarify insufficient claims",
+              "recorded": "not_dispatched",
+              "skills": [
+                "evidence-synthesis"
+              ],
+              "state": "skipped",
+              "tools": [
+                "model-primary"
+              ]
+            },
+            {
+              "agent": "verification",
+              "id": "reverification",
+              "label": "Re-verify",
+              "recorded": null,
+              "skills": [
+                "claim-verification"
+              ],
+              "state": "not-run",
+              "tools": [
+                "model-primary"
+              ]
+            },
+            {
+              "agent": null,
+              "id": "join",
+              "label": "Assemble the brief",
+              "recorded": "completed",
+              "skills": [],
+              "state": "completed",
+              "tools": []
+            }
+          ],
+          "title": "Research verification",
+          "workflow": "Research Verification v1"
+        }
+      ],
+      "observedAt": "2026-09-29T07:53:33.157939644+00:00"
+    }
+  },
+  "note": "Synthetic. Generated by capabilities::tests::write_capability_fixture; no real mailbox, vault or run data."
+}
