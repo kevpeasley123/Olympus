@@ -76,6 +76,12 @@ export interface ConversationMessage {
    * row's stored time, so older records have a date too.
    */
   at?: string;
+  /**
+   * When the desktop imported this row from browser `localStorage`. Such rows
+   * have no `at`: the only date stored for them is the import moment, and it
+   * must not read as when the message was written.
+   */
+  importedAt?: string;
   /** App-composed rather than a conversational turn. See `conversationHistory`. */
   kind?: "briefing";
   /**

@@ -1,5 +1,5 @@
 import type { ConversationMessage } from "../types";
-import { BRIEFING_ID_PREFIX, daySeparators, isBriefing, modelHistory } from "./conversationHistory";
+import { BRIEFING_ID_PREFIX, daySeparators, importedTimeLabel, isBriefing, modelHistory } from "./conversationHistory";
 import { routeLabel, routeName } from "./routeLabel";
 import { describeVoiceFailure } from "./voiceFailure";
 
@@ -30,6 +30,16 @@ export function runCommandVoiceHarness() {
   const labels = daySeparators([iso(25, 9), iso(25, 10), undefined, iso(27, 9), iso(28, 8), iso(28, 11)], now);
   check(JSON.stringify(labels) === JSON.stringify(["Fri Sep 25", null, null, "Yesterday", "Today", null]), `Day separators ${JSON.stringify(labels)}`);
   check(daySeparators([undefined, undefined], now).every(label => label === null), "Legacy HH:MM rows get no separator");
+
+  // Rows imported from localStorage: named as imported, never dated by it,
+  // and invisible to the day separators (they carry no `at`).
+  const importedAt = new Date(2026, 8, 27, 8, 0).toISOString();
+  const importedLabel = importedTimeLabel({ importedAt, timestamp: "14:10" }, now);
+  check(importedLabel === "Imported Yesterday 08:00 · original time 14:10", `Imported label ${importedLabel}`);
+  check(importedTimeLabel({ importedAt, timestamp: "" }, now) === "Imported Yesterday 08:00 · original time unknown", "Imported row without a clock time");
+  check(importedTimeLabel({ importedAt: undefined, timestamp: "14:10" }, now) === null, "Ordinary rows get no import label");
+  const withImport = daySeparators([iso(25, 9), undefined, iso(25, 11), iso(28, 8)], now);
+  check(JSON.stringify(withImport) === JSON.stringify(["Fri Sep 25", null, null, "Today"]), `An imported row neither opens nor breaks a day ${JSON.stringify(withImport)}`);
 
   // Route labels: human first, identifiers elsewhere.
   check(routeLabel({ capability: "PRIMARY", reasoningEffort: "medium" }) === "Sol · medium", "Sol route label");

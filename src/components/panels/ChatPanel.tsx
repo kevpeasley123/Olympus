@@ -18,7 +18,7 @@ import type { ConsoleMode } from "../../services/commandConsole";
 import { useConversationScroll } from "../../hooks/useConversationScroll";
 import { useConversationStream } from "../../services/conversationStream";
 import { subscribeToInstrumentEvents } from "../../services/instrumentEvents";
-import { daySeparators, isBriefing } from "../../services/conversationHistory";
+import { daySeparators, importedTimeLabel, isBriefing } from "../../services/conversationHistory";
 import { describeVoiceFailure } from "../../services/voiceFailure";
 import { openExternalLink } from "../../services/externalLink";
 import { openResearchEntry } from "../../services/navigation";
@@ -444,7 +444,8 @@ const ConversationBubble = memo(function ConversationBubble({
       </details>}
       {!live && <div className="conversation-bubble-footer">
         <small className="tabular-data console-message-meta">
-          {message.at ? <time dateTime={message.at} title={formatWhen(message.at, { withDate: true })}>{formatWhen(message.at)}</time> : message.timestamp}
+          {message.importedAt ? <time dateTime={message.importedAt} title={`Imported from browser storage ${formatWhen(message.importedAt, { withDate: true })}`}>{importedTimeLabel(message)}</time>
+            : message.at ? <time dateTime={message.at} title={formatWhen(message.at, { withDate: true })}>{formatWhen(message.at)}</time> : message.timestamp}
           {message.request && <span className="message-model" title={routeTitle(message.request)}> · {routeLabel(message.request)}</span>}
         </small>
         <span className="console-quiet-actions">

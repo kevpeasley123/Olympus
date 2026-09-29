@@ -1,5 +1,5 @@
 import type { ConversationMessage } from "../types";
-import { dayLabel, isSameDay, toDate } from "./time";
+import { dayLabel, formatWhen, isSameDay, toDate } from "./time";
 
 /**
  * The opening briefing's persisted marker. Every briefing ever stored carries
@@ -30,6 +30,21 @@ export function modelHistory(history: ConversationMessage[]): ConversationMessag
 /** Labelled so the model reads it as composed by the app, not as its own earlier answer. */
 export function briefingTurnContent(message: ConversationMessage): string {
   return `[Opening briefing composed by Olympus from project state when the app opened; no model wrote it.]\n${message.content}`;
+}
+
+/**
+ * The time line for a message imported from browser `localStorage`, or null
+ * for any other message. Its only stored date is the import moment, so that
+ * is named as such; the original `HH:MM`, when the browser kept one, is
+ * shown beside it without a date, because the date was never recorded.
+ */
+export function importedTimeLabel(
+  message: Pick<ConversationMessage, "importedAt" | "timestamp">,
+  now: Date = new Date()
+): string | null {
+  if (!message.importedAt) return null;
+  const original = /^\d{1,2}:\d{2}$/.test(message.timestamp.trim()) ? `original time ${message.timestamp.trim()}` : "original time unknown";
+  return `Imported ${formatWhen(message.importedAt, { now })} · ${original}`;
 }
 
 /** When the message happened: its ISO `at`, when it has one. */

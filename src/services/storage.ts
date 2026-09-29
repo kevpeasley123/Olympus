@@ -61,8 +61,7 @@ export async function loadState(): Promise<OlympusState> {
     // A browser-era payload carries the seed fixtures merged in; they must not
     // be imported into the real history.
     const local = withoutDemoData(readLocalState());
-    await migrateLocalState(local);
-    return local;
+    return migrateLocalState(local);
   }
 
   clearLegacyState();
@@ -95,13 +94,18 @@ export async function persistPreferences(state: OlympusState): Promise<void> {
   }
 }
 
-export async function appendConversationMessages(messages: ConversationMessage[]): Promise<void> {
-  if (messages.length === 0 || !isTauriRuntime()) return;
+export async function appendConversationMessages(
+  messages: ConversationMessage[],
+  options: { imported?: boolean } = {}
+): Promise<boolean> {
+  if (messages.length === 0 || !isTauriRuntime()) return false;
 
   try {
-    await invoke("append_conversation_messages", { messages });
+    await invoke("append_conversation_messages", { messages, imported: options.imported ?? false });
+    return true;
   } catch (error) {
     console.warn("[Olympus] Could not append conversation history.", error);
+    return false;
   }
 }
 
@@ -173,12 +177,24 @@ function hasLocalPayload(): boolean {
   return window.localStorage.getItem(STORAGE_KEY) !== null;
 }
 
-/** One-time import so an existing localStorage install keeps its history. */
-async function migrateLocalState(local: OlympusState): Promise<void> {
+/**
+ * One-time import so an existing localStorage install keeps its history.
+ *
+ * The rows are marked as imported, and this session shows them the way every
+ * later load will: with the import time and no message date, since the only
+ * date the database can give them is the moment of this import.
+ */
+async function migrateLocalState(local: OlympusState): Promise<OlympusState> {
   console.info("[Olympus] Importing existing localStorage state into the local database.");
   await persistPreferences(local);
-  await appendConversationMessages(local.conversation);
+  const imported = await appendConversationMessages(local.conversation, { imported: true });
   clearLegacyState();
+  if (!imported) return local;
+  const importedAt = new Date().toISOString();
+  return {
+    ...local,
+    conversation: local.conversation.map(({ at: _at, ...message }) => ({ ...message, importedAt }))
+  };
 }
 
 function readLocalState(): OlympusState {

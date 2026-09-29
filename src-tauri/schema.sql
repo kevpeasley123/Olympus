@@ -184,6 +184,14 @@ CREATE TABLE IF NOT EXISTS delegation_reviews (
   workspace_hash TEXT NOT NULL, reviewed_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );
 
+-- Rows the desktop imported from browser localStorage on first launch. Their
+-- `created_at` is the import moment, not when they were written, so the
+-- transcript labels them as imported instead of dating them by it.
+CREATE TABLE IF NOT EXISTS conversation_imports (
+  message_id TEXT PRIMARY KEY,
+  imported_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+);
+
 CREATE TABLE IF NOT EXISTS conversation_voice (message_id TEXT PRIMARY KEY, metadata_json TEXT NOT NULL);
 
 -- Request provenance is independent of chat contents and never stores prompts.

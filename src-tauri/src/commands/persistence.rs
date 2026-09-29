@@ -56,14 +56,19 @@ struct TurnContext {
 /// A stored message as the webview receives it. `at` is when the row was
 /// appended, as ISO 8601 UTC: older rows carry only an `HH:MM` `timestamp`, and
 /// `created_at` is the one date every row already has. Messages are appended at
-/// send time, so it is the message's own time; rows imported from the browser
-/// era carry the import time instead.
+/// send time, so it is the message's own time.
+///
+/// Rows imported from the browser era are the exception: their `created_at` is
+/// the import moment. They carry `importedAt` and no `at`, so nothing can read
+/// the import as the time the message was written.
 #[derive(Debug, Serialize)]
 pub struct LoadedMessage {
     #[serde(flatten)]
     pub message: ConversationMessage,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub at: Option<String>,
+    #[serde(rename = "importedAt", skip_serializing_if = "Option::is_none")]
+    pub imported_at: Option<String>,
 }
 
 impl std::ops::Deref for LoadedMessage {
@@ -327,16 +332,20 @@ fn load_state_from(connection: &Connection) -> Result<PersistedState, String> {
 
     let mut conversation_query = connection
         .prepare(
-            "SELECT id, role, content, timestamp, COALESCE((SELECT sources_json FROM conversation_research WHERE message_id = conversation_messages.id), '[]'), (SELECT metadata_json FROM conversation_voice WHERE message_id = conversation_messages.id), (SELECT record_json FROM model_requests WHERE id=(SELECT request_id FROM conversation_model WHERE message_id=conversation_messages.id)), COALESCE((SELECT sources_json FROM conversation_mail WHERE message_id=conversation_messages.id), '[]'), created_at, (SELECT context_json FROM conversation_turn_context WHERE message_id=conversation_messages.id) FROM conversation_messages \
+            "SELECT id, role, content, timestamp, COALESCE((SELECT sources_json FROM conversation_research WHERE message_id = conversation_messages.id), '[]'), (SELECT metadata_json FROM conversation_voice WHERE message_id = conversation_messages.id), (SELECT record_json FROM model_requests WHERE id=(SELECT request_id FROM conversation_model WHERE message_id=conversation_messages.id)), COALESCE((SELECT sources_json FROM conversation_mail WHERE message_id=conversation_messages.id), '[]'), created_at, (SELECT context_json FROM conversation_turn_context WHERE message_id=conversation_messages.id), (SELECT imported_at FROM conversation_imports WHERE message_id=conversation_messages.id) FROM conversation_messages \
              ORDER BY created_at ASC, rowid ASC",
         )
         .map_err(|error| error.to_string())?;
     let conversation = conversation_query
         .query_map([], |row| {
             let id: String = row.get(0)?;
-            let at = row.get::<_, Option<String>>(8)?.as_deref().and_then(created_at_iso);
+            let imported_at: Option<String> = row.get(10)?;
+            let at = match imported_at {
+                Some(_) => None,
+                None => row.get::<_, Option<String>>(8)?.as_deref().and_then(created_at_iso),
+            };
             let turn: TurnContext = side_row(row.get(9)?, "conversation_turn_context", &id).unwrap_or_default();
-            Ok(LoadedMessage { at, message: ConversationMessage {
+            Ok(LoadedMessage { at, imported_at, message: ConversationMessage {
                 attachment: turn.attachment,
                 scope: turn.scope,
                 mail: side_row(row.get(7)?, "conversation_mail", &id).unwrap_or_default(),
@@ -400,16 +409,26 @@ pub fn save_tool_states(db: State<Db>, states: Vec<ToolState>) -> Result<(), Str
 
 /// Append-only: the conversation log grows rather than being rewritten, so a
 /// long history never costs anything on an ordinary state change.
+///
+/// `imported` is set only by the one-time localStorage import. Those rows are
+/// marked in the same transaction, and only when this call inserted them, so a
+/// message already stored is never relabelled.
 #[tauri::command]
 pub fn append_conversation_messages(
     db: State<Db>,
     messages: Vec<ConversationMessage>,
+    imported: Option<bool>,
 ) -> Result<(), String> {
     let mut connection = locked(&db)?;
-    store_messages(&mut connection, messages)
+    store_messages_as(&mut connection, messages, imported.unwrap_or(false))
 }
 
+#[cfg(test)]
 pub(crate) fn store_messages(connection: &mut Connection, messages: Vec<ConversationMessage>) -> Result<(), String> {
+    store_messages_as(connection, messages, false)
+}
+
+fn store_messages_as(connection: &mut Connection, messages: Vec<ConversationMessage>, imported: bool) -> Result<(), String> {
     let transaction = connection.transaction().map_err(|e| e.to_string())?;
 
     for message in messages {
@@ -431,7 +450,7 @@ pub(crate) fn store_messages(connection: &mut Connection, messages: Vec<Conversa
             "INSERT INTO conversation_research (message_id, sources_json) VALUES (?1, ?2) ON CONFLICT(message_id) DO NOTHING",
             params![message.id, serde_json::to_string(&message.research).map_err(|e| e.to_string())?],
         ).map_err(|e| e.to_string())?;
-        transaction
+        let inserted = transaction
             .execute(
                 "INSERT INTO conversation_messages (id, role, content, timestamp) \
                  VALUES (?1, ?2, ?3, ?4) \
@@ -439,6 +458,11 @@ pub(crate) fn store_messages(connection: &mut Connection, messages: Vec<Conversa
                 params![message.id, message.role, message.content, message.timestamp],
             )
             .map_err(|error| error.to_string())?;
+        if imported && inserted == 1 {
+            transaction
+                .execute("INSERT INTO conversation_imports (message_id) VALUES (?1) ON CONFLICT(message_id) DO NOTHING", params![message.id])
+                .map_err(|error| error.to_string())?;
+        }
     }
 
     transaction.commit().map_err(|error| error.to_string())
@@ -452,6 +476,7 @@ pub fn clear_conversation(db: State<Db>) -> Result<(), String> {
     connection.execute("DELETE FROM conversation_mail", []).map_err(|_|"Mail provenance removal failed")?;
     connection.execute("DELETE FROM conversation_research", []).map_err(|e| e.to_string())?;
     connection.execute("DELETE FROM conversation_turn_context", []).map_err(|e| e.to_string())?;
+    connection.execute("DELETE FROM conversation_imports", []).map_err(|e| e.to_string())?;
     connection
         .execute("DELETE FROM conversation_messages", [])
         .map(|_| ())
@@ -530,6 +555,32 @@ mod tests {
         assert_eq!(json["conversation"][0]["at"], "2026-09-25T09:15:02Z");
         assert_eq!(json["conversation"][0]["content"], "hi", "message fields stay at the top level");
         assert_eq!(created_at_iso("not a date"), None);
+    }
+
+    #[test]
+    fn imported_rows_carry_their_import_time_instead_of_a_message_date() {
+        let mut db = Connection::open_in_memory().unwrap();
+        db.execute_batch(include_str!("../../schema.sql")).unwrap();
+        let message = |id: &str, content: &str| ConversationMessage { mail: vec![], request: None, id: id.into(), role: "user".into(), content: content.into(), timestamp: "14:10".into(), research: vec![], voice: None, attachment: None, scope: None };
+        store_messages(&mut db, vec![message("native", "Typed on desktop")]).unwrap();
+        store_messages_as(&mut db, vec![message("browser", "From localStorage"), message("native", "Forged import")], true).unwrap();
+        db.execute("UPDATE conversation_imports SET imported_at='2026-09-29T08:00:00Z' WHERE message_id='browser'", []).unwrap();
+
+        let state = load_state_from(&db).unwrap();
+        let find = |id: &str| state.conversation.iter().find(|m| m.id == id).unwrap();
+        assert_eq!(find("browser").imported_at.as_deref(), Some("2026-09-29T08:00:00Z"));
+        assert_eq!(find("browser").at, None, "the import moment is not the message's date");
+        assert_eq!(find("browser").timestamp, "14:10", "the original clock time is kept");
+        let native = find("native");
+        assert!(native.imported_at.is_none() && native.at.is_some(), "an existing row is never relabelled");
+        assert_eq!(native.content, "Typed on desktop");
+
+        let json = serde_json::to_value(&state).unwrap();
+        let browser = json["conversation"].as_array().unwrap().iter().find(|m| m["id"] == "browser").unwrap();
+        assert_eq!(browser["importedAt"], "2026-09-29T08:00:00Z");
+        assert!(browser.get("at").is_none());
+        let native = json["conversation"].as_array().unwrap().iter().find(|m| m["id"] == "native").unwrap();
+        assert!(native.get("importedAt").is_none(), "ordinary rows serialize as before");
     }
 
     #[test]
