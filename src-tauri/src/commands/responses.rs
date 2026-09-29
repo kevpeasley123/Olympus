@@ -3,12 +3,59 @@ use super::assistant::{AssistantNotice, AssistantStreamEvent};
 use super::models::{RequestRecord, Route};
 use serde_json::{json, Value};
 pub fn voice_schema() -> Value {
-    json!({"type":"object","additionalProperties":false,"required":["spokenResponse","visualResponse","proposedActions","requiresConfirmation","conversationState"],"properties":{
+    // `required` lists the visible answer first; `properties` is ordered on the
+    // wire by `VisualFirst`, since a `Value` map is alphabetical.
+    json!({"type":"object","additionalProperties":false,"required":["visualResponse","spokenResponse","proposedActions","requiresConfirmation","conversationState"],"properties":{
     "spokenResponse":{"type":"string"},"visualResponse":{"type":"string"},"requiresConfirmation":{"type":"boolean"},"conversationState":{"type":"string","enum":["awaiting_input"]},
     "proposedActions":{"type":"array","maxItems":3,"items":{"anyOf":[
     {"type":"object","additionalProperties":false,"required":["type","status"],"properties":{"type":{"type":"string","enum":["show_projects"]},"status":{"type":["string","null"],"enum":["ALL","NEEDS_YOU","READY","IN_PROGRESS","BLOCKED","WAITING","MONITORING","UNKNOWN","COMPLETE",null]}}},
     {"type":"object","additionalProperties":false,"required":["type","projectId"],"properties":{"type":{"type":"string","enum":["open_project","review_proposal"]},"projectId":{"type":"string"}}}
     ]}}}})
+}
+/// Serializes a request body exactly as `serde_json` would, except that in an
+/// object holding both answer fields (the voice schema's `properties`)
+/// `visualResponse` is written first.
+///
+/// A strict-schema provider generates properties in schema order, and the
+/// console can stream only `visualResponse`. `serde_json` maps are sorted
+/// (`preserve_order` is off deliberately: it would reorder every `Value` in the
+/// app, persisted and fingerprinted ones included), which put `spokenResponse`
+/// first and held visible text back until the spoken summary was done. Schema
+/// order is how providers behave, not a documented guarantee, so `VisualStream`
+/// still reads either order.
+struct VisualFirst<'a>(&'a Value);
+impl serde::Serialize for VisualFirst<'_> {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        use serde::ser::{SerializeMap, SerializeSeq};
+        const VISUAL: &str = "visualResponse";
+        match self.0 {
+            Value::Object(map) => {
+                let lead = map.contains_key(VISUAL) && map.contains_key("spokenResponse");
+                let mut out = serializer.serialize_map(Some(map.len()))?;
+                if lead {
+                    out.serialize_entry(VISUAL, &VisualFirst(&map[VISUAL]))?;
+                }
+                for (key, value) in map {
+                    if !(lead && key == VISUAL) {
+                        out.serialize_entry(key, &VisualFirst(value))?;
+                    }
+                }
+                out.end()
+            }
+            Value::Array(items) => {
+                let mut out = serializer.serialize_seq(Some(items.len()))?;
+                for item in items {
+                    out.serialize_element(&VisualFirst(item))?;
+                }
+                out.end()
+            }
+            scalar => scalar.serialize(serializer),
+        }
+    }
+}
+/// The bytes sent to the provider.
+fn wire_body(body: &Value) -> Result<Vec<u8>, String> {
+    serde_json::to_vec(&VisualFirst(body)).map_err(|_| "OpenAI request could not be encoded.".into())
 }
 pub fn payload(route: &Route, instructions: &str, messages: Vec<Value>, voice: bool) -> Value {
     let mut v = json!({"model":route.model,"instructions":instructions,"input":messages,"store":false,"stream":true,"reasoning":{"effort":route.effort,"context":"current_turn"},"max_output_tokens":route.max_output_tokens});
@@ -240,7 +287,7 @@ async fn transport(
     let result=async{
  let key=test_key.map(str::to_owned).or_else(||std::env::var("OPENAI_API_KEY").ok()).filter(|v|!v.trim().is_empty()).ok_or("OpenAI reasoning needs OPENAI_API_KEY in the Olympus project .env.")?;
  let client=reqwest::Client::builder().connect_timeout(std::time::Duration::from_secs(15)).build().map_err(|_|"OpenAI HTTP client unavailable")?;
- let response=tokio::time::timeout(idle,client.post(endpoint).bearer_auth(key.trim()).json(&body).send()).await.ok().and_then(Result::ok).ok_or("OpenAI connection failed or timed out. Retry explicitly; no alternate provider was used.")?;
+ let response=tokio::time::timeout(idle,client.post(endpoint).bearer_auth(key.trim()).header(reqwest::header::CONTENT_TYPE,"application/json").body(wire_body(&body)?).send()).await.ok().and_then(Result::ok).ok_or("OpenAI connection failed or timed out. Retry explicitly; no alternate provider was used.")?;
  if !response.status().is_success(){let status=response.status().as_u16();record.error_code=Some(format!("http_{status}"));let data=tokio::time::timeout(idle,response.json::<Value>()).await.ok().and_then(Result::ok).unwrap_or(Value::Null);let code=data.pointer("/error/code").and_then(Value::as_str).unwrap_or("request_rejected");return Err(format!("OpenAI request failed (HTTP {status}, {code}). Check API access, quota and configuration; no alternate provider was used."));}
  let mut stream=response.bytes_stream();let mut decoder=Decoder::default();let mut output=Output::default();let mut visual=voice.then(super::voice::VisualStream::default);
  loop{
@@ -322,6 +369,67 @@ mod tests {
             payload(&resolve(Capability::DeepReasoning), "", vec![], false)["reasoning"]["effort"],
             "high"
         );
+    }
+    #[test]
+    fn voice_schema_reaches_the_wire_visual_first() {
+        let body = payload(&resolve(Capability::Primary), "identity", vec![json!({"role":"user","content":"{\"spokenResponse\":1,\"visualResponse\":2}"})], true);
+        let wire = String::from_utf8(wire_body(&body).unwrap()).unwrap();
+        let visual = wire.find(r#""visualResponse":{"type":"string"}"#).unwrap();
+        let spoken = wire.find(r#""spokenResponse":{"type":"string"}"#).unwrap();
+        assert!(visual < spoken, "visualResponse must be the first schema property: {wire}");
+        assert!(wire.contains(r#""properties":{"visualResponse":{"type":"string"},"conversationState":"#), "only visualResponse moves; the rest stays sorted");
+        assert!(wire.contains(r#""required":["visualResponse","spokenResponse","proposedActions","requiresConfirmation","conversationState"]"#));
+        // Same document, only reordered; message text is untouched.
+        assert_eq!(serde_json::from_str::<Value>(&wire).unwrap(), body);
+        // Everything outside the answer schema keeps serde_json's own bytes.
+        let plain = payload(&resolve(Capability::DeepReasoning), "x", vec![json!({"role":"user","content":"hi","b":[1.5,null,true],"a":{"z":1,"y":2}})], false);
+        assert_eq!(wire_body(&plain).unwrap(), serde_json::to_vec(&plain).unwrap());
+        let mut schema = voice_schema();
+        schema["properties"].as_object_mut().unwrap().remove("spokenResponse");
+        assert_eq!(wire_body(&schema).unwrap(), serde_json::to_vec(&schema).unwrap(), "a lone visualResponse key is not moved");
+    }
+    /// The order that matters is the one in the bytes the provider receives,
+    /// so read them off a local socket rather than trusting the encoder alone.
+    #[test]
+    fn voice_request_bytes_list_the_visual_answer_first() {
+        use std::io::{Read, Write};
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = std::thread::spawn(move || {
+            let (mut socket, _) = listener.accept().unwrap();
+            socket.set_read_timeout(Some(std::time::Duration::from_secs(5))).unwrap();
+            let mut request = Vec::new();
+            let mut buffer = [0; 16384];
+            loop {
+                let n = socket.read(&mut buffer).unwrap();
+                request.extend_from_slice(&buffer[..n]);
+                let text = String::from_utf8_lossy(&request).to_string();
+                if let Some(end) = text.find("\r\n\r\n") {
+                    let length: usize = text[..end].lines()
+                        .find_map(|l| l.to_ascii_lowercase().strip_prefix("content-length:").map(|v| v.trim().parse().unwrap()))
+                        .unwrap();
+                    if request.len() >= end + 4 + length { break; }
+                }
+                if n == 0 { break; }
+            }
+            let body = r#"{"error":{"code":"invalid_api_key"}}"#;
+            write!(socket,"HTTP/1.1 401 Unauthorized\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",body.len(),body).unwrap();
+            String::from_utf8(request).unwrap()
+        });
+        let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
+        let mut record = RequestRecord::new(&resolve(Capability::Primary), "wire_fixture");
+        let result = runtime.block_on(complete_at(
+            &resolve(Capability::Primary), "fixture", vec![], true,
+            &tauri::ipc::Channel::new(|_| Ok(())), &mut record,
+            &format!("http://{address}"), Some("fixture-not-a-key"),
+        ));
+        let request = server.join().unwrap();
+        assert!(result.is_err());
+        assert!(request.to_ascii_lowercase().contains("content-type: application/json"));
+        let body = &request[request.find("\r\n\r\n").unwrap() + 4..];
+        let properties = body.find(r#""properties":{"visualResponse":"#).expect("visualResponse opens the answer properties");
+        assert!(properties < body.find(r#""spokenResponse":{"type""#).unwrap());
+        assert_eq!(serde_json::from_str::<Value>(body).unwrap(), payload(&resolve(Capability::Primary), "fixture", vec![], true));
     }
     #[test]
     fn utf8_stream_survives_byte_boundaries() {
