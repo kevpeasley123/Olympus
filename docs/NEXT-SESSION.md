@@ -1,16 +1,25 @@
-## Continuation — native acceptance attempt, September 29, 2026
+## Continuation — acceptance isolation fixed, native pass next (September 29, 2026)
 
-Verified at `f073af6`, which is still the head of `claude/blissful-lamport-2l4o96`, in a Linux container (not Windows):
+Branch `claude/blissful-lamport-2l4o96`:
+- `d111df4` records the defects found at `f073af6`. **Do not launch the acceptance setup at `f073af6`.**
+- The next commit, "Check the acceptance identity before anything starts", fixes them.
 
-- `cargo test --lib`: 415 passed, 0 failed, 15 ignored (2 paid, 9 real-vault, 4 acceptance-fixture). The 4 fixture tests plus the other acceptance tests pass against a freshly built fixture and a seeded scratch DB (13 of 13).
-- `npm run build` passes, and 16 of 16 `scripts/test-*.mjs` pass. The builder and seeder refusals behave as documented, except for linked paths.
-- The imported-date labelling landed in `76524f5`. The "open defect" wording in the section below is superseded, and N17 is still unobserved.
+`run()` now compares the compiled identifier with `OLYMPUS_ACCEPTANCE_DIR` before `.env`, the window and webview profile, the database, the keyring and the workers, and refuses every mismatch in both directions. A release build compiled with the acceptance identifier refuses to start. The seeder resolves links and requires the app's `acceptance-profile-launch` record for its fixture. Details and evidence: `reviews/2026-09-28-design-usability/NATIVE-ACCEPTANCE-2026-09-29.md` (Part 2). Contract: DESKTOP-ACCEPTANCE §2b.
 
-**Blocked:** the acceptance guard has two isolation defects (`reviews/2026-09-28-design-usability/NATIVE-ACCEPTANCE-2026-09-29.md`). The acceptance config without `OLYMPUS_ACCEPTANCE_DIR` is not refused and can make a paid call carrying real-vault research. A refused launch opens the production WebView2 profile. N1–N17 were not run. A fix is prepared and unapplied: `proposed-isolation-fix-2026-09-29.patch` (417 of 417 unit tests pass with it).
+Verified on Linux only:
+- `cargo test --lib`: 418 passed, 0 failed, 15 ignored.
+- With the 4 fixture tests enabled: 16 of 16 acceptance-filtered tests pass.
+- 17 of 17 `scripts/test-*.mjs` pass (including `test-acceptance-seed.mjs`, links as symlinks), and `npm run build` passes.
+- The Windows GNU `cargo check` passes in debug and release, with 0 warnings.
+- The compiled debug and release binaries were run under Xvfb in scratch homes. The old binaries reproduced both defects; the fixed ones refuse before creating anything.
 
-Next, in order: the operator authorizes the fix → apply it on the branch, run `cargo test --lib` and a Windows type check → the native pass on Windows from a fresh worktree with no `.env`, following DESKTOP-ACCEPTANCE §3–4.
+N1–N17 are **not tested**. There was no Windows, WebView2 or junction execution.
 
-Boundaries unchanged: no merge, push, commit, install, paid call, real Gmail or delegation without a specific instruction.
+The imported-date labelling landed in `76524f5`. The "open defect" wording in the next section is superseded, and N17 is still unobserved.
+
+Next: the first isolated Windows pass, per DESKTOP-ACCEPTANCE §3–4 (a fresh worktree with no `.env`). Include one deliberate launch without the variable, and run `node scripts/test-acceptance-seed.mjs` on Windows so the junction cases execute.
+
+Boundaries: no merge, install, release, paid call, real Gmail or live delegation without a specific instruction.
 
 ## Design-review implementation — September 28, 2026
 

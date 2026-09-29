@@ -124,17 +124,94 @@ pub fn projects_root() -> Option<PathBuf> {
 /// and WebView2 profile, so the acceptance profile must never run under it.
 pub const PRODUCTION_IDENTIFIER: &str = "com.projectolympus.commandstation";
 
-/// Refuses to start the acceptance profile under the production identifier.
-/// Without the `--config` override the synthetic vault would be paired with
-/// the real database, whose startup writes need no confirmation.
-pub fn check_identifier(active: bool, identifier: &str) -> Result<(), String> {
-    if active && identifier == PRODUCTION_IDENTIFIER {
-        return Err(format!(
-            "{ENV_VAR} is set but the app identifier is the production one ({PRODUCTION_IDENTIFIER}). \
-             Launch with --config scripts/acceptance/tauri.acceptance.json so the acceptance \
-             profile gets its own database and webview profile."
-        ));
+/// `scripts/acceptance/tauri.acceptance.json`. Its database holds seeded rows,
+/// including an enabled Gmail account, that only this profile's refusals keep
+/// away from `.env`, the real vault and the background workers.
+pub const ACCEPTANCE_IDENTIFIER: &str = "com.projectolympus.acceptance";
+
+/// Written to `processing_logs` at each acceptance launch. `seed-db.mjs` seeds
+/// only a database carrying one for its own fixture directory, so the database
+/// proves what it is rather than the path it was found at.
+pub const LAUNCH_EVENT: &str = "acceptance-profile-launch";
+
+/// Decides whether this process may start, from the compiled identifier and
+/// the variable alone. `run()` calls it before `.env`, the builder, the window
+/// and its webview profile, the database, the keyring and the workers: Tauri
+/// creates the configured window before `setup`, so a check there is too late.
+///
+/// `--config` is merged at compile time, so the identifier describes the
+/// binary, not the command line that happens to launch it. Every pairing other
+/// than "variable and acceptance identifier" or "no variable and any other
+/// identifier" is refused. Windows compares app data paths without case, so a
+/// case variant of the acceptance identifier is refused as well.
+pub fn check_startup(
+    debug_build: bool,
+    profile: Option<&Path>,
+    identifier: &str,
+) -> Result<(), String> {
+    match profile {
+        Some(dir) => {
+            if identifier != ACCEPTANCE_IDENTIFIER {
+                return Err(format!(
+                    "{ENV_VAR} is set, but this build's identifier is {identifier}, not \
+                     {ACCEPTANCE_IDENTIFIER}. Launch with --config \
+                     scripts/acceptance/tauri.acceptance.json, or remove the variable \
+                     (Remove-Item Env:{ENV_VAR}) for an ordinary launch."
+                ));
+            }
+            if !dir.is_dir() {
+                return Err(format!(
+                    "{ENV_VAR} names {}, which is not an existing directory. Build the fixture \
+                     first with node scripts/acceptance/build-fixtures.mjs, or correct the variable.",
+                    dir.display()
+                ));
+            }
+            Ok(())
+        }
+        None if identifier.eq_ignore_ascii_case(ACCEPTANCE_IDENTIFIER) => Err(if debug_build {
+            format!(
+                "This build uses the acceptance identifier ({identifier}) but {ENV_VAR} is not \
+                 set in this shell. Set it to the fixture directory, or launch without the \
+                 acceptance --config for an ordinary launch."
+            )
+        } else {
+            format!(
+                "This release build was compiled with the acceptance identifier ({identifier}). \
+                 Release builds ignore {ENV_VAR}, so it would read the real vault, .env and \
+                 Gmail. Rebuild without the acceptance --config."
+            )
+        }),
+        None => Ok(()),
     }
+}
+
+/// Ends the process before anything is opened. Release builds have no console,
+/// so on Windows the reason is also shown in a message box.
+pub fn refuse_startup(message: &str) -> ! {
+    eprintln!("[Olympus::Acceptance] refused to start: {message}");
+    #[cfg(all(windows, not(debug_assertions)))]
+    {
+        let _ = rfd::MessageDialog::new()
+            .set_level(rfd::MessageLevel::Error)
+            .set_title("Olympus did not start")
+            .set_description(message)
+            .set_buttons(rfd::MessageButtons::Ok)
+            .show();
+    }
+    std::process::exit(2);
+}
+
+/// Marks the acceptance database as opened by the profile for `dir`.
+pub fn record_launch(
+    connection: &rusqlite::Connection,
+    dir: &Path,
+    identifier: &str,
+) -> rusqlite::Result<()> {
+    let payload = serde_json::json!({ "dir": dir.display().to_string(), "identifier": identifier });
+    connection.execute(
+        "INSERT INTO processing_logs (event_type, message, payload_json) VALUES (?1, 'Acceptance profile launch', ?2)",
+        [LAUNCH_EVENT, &payload.to_string()],
+    )?;
     Ok(())
 }
 
@@ -169,14 +246,86 @@ pub fn acceptance_profile() -> Option<AcceptanceProfile> {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+    use std::fs;
+
+    /// Every pairing of build, variable and identifier. This exercises the
+    /// decision only; that `run()` makes it first is pinned separately below
+    /// and was observed in the compiled binary (NATIVE-ACCEPTANCE report).
     #[test]
-    fn the_profile_refuses_the_production_identifier() {
-        assert!(check_identifier(true, PRODUCTION_IDENTIFIER).is_err());
-        assert!(check_identifier(true, "com.projectolympus.acceptance").is_ok());
-        assert!(check_identifier(false, PRODUCTION_IDENTIFIER).is_ok());
+    fn startup_accepts_only_the_matching_pairs() {
+        let fixture = std::env::temp_dir().join("olympus-acceptance-startup");
+        fs::create_dir_all(&fixture).unwrap();
+        let missing = std::env::temp_dir().join("olympus-acceptance-startup-missing");
+        let _ = fs::remove_dir_all(&missing);
+
+        for debug in [true, false] {
+            // Ordinary launches, and the release build ignoring the variable.
+            assert!(check_startup(debug, None, PRODUCTION_IDENTIFIER).is_ok());
+            // The acceptance build without its variable, in either build.
+            let refused = check_startup(debug, None, ACCEPTANCE_IDENTIFIER).unwrap_err();
+            assert!(refused.contains(ENV_VAR));
+            assert_eq!(refused.contains("release build"), !debug);
+            assert!(check_startup(debug, None, "COM.ProjectOlympus.Acceptance").is_err());
+        }
+        // The variable is only ever set in a debug build.
+        assert!(check_startup(true, Some(&fixture), ACCEPTANCE_IDENTIFIER).is_ok());
+        let production = check_startup(true, Some(&fixture), PRODUCTION_IDENTIFIER).unwrap_err();
+        assert!(production.contains("--config"));
+        assert!(check_startup(true, Some(&fixture), "com.example.unknown").is_err());
+        assert!(check_startup(true, Some(&fixture), "COM.projectolympus.acceptance").is_err());
+        let absent = check_startup(true, Some(&missing), ACCEPTANCE_IDENTIFIER).unwrap_err();
+        assert!(absent.contains("not an existing directory"));
+
+        let _ = fs::remove_dir_all(fixture);
     }
 
-    use super::*;
+    /// The checked-in configs must carry the identifier the check expects, or
+    /// the acceptance build would be refused (or, worse, the check never match).
+    #[test]
+    fn both_acceptance_configs_use_the_acceptance_identifier() {
+        let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../scripts/acceptance");
+        for file in ["tauri.acceptance.json", "tauri.acceptance-nowebgl.json"] {
+            let raw = fs::read_to_string(dir.join(file)).unwrap();
+            let config: serde_json::Value = serde_json::from_str(&raw).unwrap();
+            assert_eq!(config["identifier"], ACCEPTANCE_IDENTIFIER, "{file}");
+        }
+        let production: serde_json::Value = serde_json::from_str(
+            &fs::read_to_string(Path::new(env!("CARGO_MANIFEST_DIR")).join("tauri.conf.json")).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(production["identifier"], PRODUCTION_IDENTIFIER);
+    }
+
+    /// Source order, not behaviour: `run()` decides before it loads `.env` or
+    /// starts the builder, and `setup` no longer carries the check.
+    #[test]
+    fn run_checks_the_identity_before_the_environment_and_the_builder() {
+        let source = include_str!("../lib.rs");
+        let run = &source[source.find("pub fn run()").expect("run() exists")..];
+        let check = run.find("check_startup(").expect("run() checks the identity");
+        assert!(check < run.find("prepare_environment()").unwrap());
+        assert!(check < run.find("tauri::Builder::default()").unwrap());
+        assert!(!run.contains("check_identifier"));
+    }
+
+    #[test]
+    fn the_launch_marker_names_the_fixture_directory() {
+        let connection = rusqlite::Connection::open_in_memory().unwrap();
+        connection.execute_batch(crate::SCHEMA).unwrap();
+        let dir = std::env::temp_dir().join("olympus-acceptance-marker");
+        record_launch(&connection, &dir, ACCEPTANCE_IDENTIFIER).unwrap();
+        let payload: String = connection
+            .query_row(
+                "SELECT payload_json FROM processing_logs WHERE event_type = ?1",
+                [LAUNCH_EVENT],
+                |row| row.get(0),
+            )
+            .unwrap();
+        let payload: serde_json::Value = serde_json::from_str(&payload).unwrap();
+        assert_eq!(payload["dir"], dir.display().to_string());
+        assert_eq!(payload["identifier"], ACCEPTANCE_IDENTIFIER);
+    }
 
     fn cwd() -> PathBuf {
         std::env::temp_dir().join("olympus-cwd")

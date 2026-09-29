@@ -1,6 +1,10 @@
 # Native acceptance — 2026-09-29
 
-**Result: not run.** Two isolation defects were found in the acceptance profile before any launch. Following the rule "if you find an isolation defect, do not launch", nothing was launched. Separately, this session ran in a Linux cloud container, where Windows and WebView2 are unavailable. N1–N17 are all **not tested**.
+**Result: N1–N17 not tested.** Part 1 records two isolation defects found at `f073af6` before any launch. Following the rule "if you find an isolation defect, do not launch", nothing was launched then. **The acceptance setup at `f073af6` must not be launched.**
+
+Part 2 records the fix, applied on the branch in "Check the acceptance identity before anything starts" (the commit after `d111df4`). It was verified in a Linux container: unit tests, a Windows type check, and the compiled debug and release binaries run under Xvfb in a scratch home directory. That is not Windows or WebView2 evidence, so the native pass is still owed.
+
+# Part 1 — findings at `f073af6`
 
 ## Source and environment
 
@@ -66,23 +70,61 @@ The SQLite database is not opened, so the documented claim holds for the databas
 
 `--db <link>\olympus.sqlite`, where `<link>` is a junction or symlink to `…\com.projectolympus.commandstation`, is accepted. This was reproduced with a symlink on Linux: the production-named scratch DB was seeded. Using it needs an explicit `--db`.
 
-### Proposed focused fix (prepared, not applied)
+The first proposed fix was recorded as a patch in `d111df4`. The applied fix in Part 2 supersedes it; git history keeps the draft.
 
-`proposed-isolation-fix-2026-09-29.patch`, beside this report. It is three files and about 50 lines:
+# Part 2 — the fix and what verifies it
 
-1. `acceptance.rs`: add `ACCEPTANCE_IDENTIFIER`. `check_identifier` also refuses "acceptance identifier + variable unset". Tests pin both configs to the constant, and pin that `run()` checks before `tauri::Builder::default()`.
-2. `lib.rs`: `run()` calls `generate_context!()` first and checks `context.config().identifier` **before** `prepare_environment()` and the builder. The check leaves `setup`. A refused launch loads no `.env`, creates no window and opens no webview profile or database.
-3. `seed-db.mjs`: also refuse when `realpathSync.native(dbPath)` contains `commandstation`.
+## What changed
 
-Verified in a second disposable worktree: `cargo test --lib` 417 passed, 0 failed, 15 ignored, and the patched seeder refuses the symlinked path. It has not been compiled for Windows or launched.
+| File | Change |
+| --- | --- |
+| `src-tauri/src/lib.rs` | `run()` starts with `generate_context!()` and `acceptance::check_startup(cfg!(debug_assertions), acceptance_dir(), context.config().identifier)`. A refusal exits there, before `prepare_environment()` (`.env`), the builder, the window and its webview profile, the database, the keyring and the workers. The check in `setup` is gone. `setup` now records the acceptance launch in `processing_logs`. |
+| `src-tauri/src/commands/acceptance.rs` | `check_startup` replaces `check_identifier`. It refuses the variable with any identifier other than the exact acceptance one, and the variable naming something that is not a directory. It refuses the acceptance identifier in any letter case without the variable, and in a release build always, with a release-specific message. `refuse_startup` prints the reason, shows it in a message box in a Windows release build (no console), and exits with code 2. `record_launch` writes `acceptance-profile-launch` with `{dir, identifier}`. |
+| `scripts/acceptance/seed-db.mjs` | Resolves the fixture directory and the database through symlinks and junctions (`realpathSync.native`). It refuses a resolved path containing `commandstation`, and a default path whose resolved folder is not `com.projectolympus.acceptance`. It also refuses any database without a launch record whose directory resolves to this fixture. All refusals happen before any write. |
+| `scripts/test-acceptance-seed.mjs` | New regression script: 17 checks. |
 
-Until a fix lands, two things lower the risk (they are not isolation): run from a fresh worktree that has no `.env`, and confirm the variable in the same shell (`echo $env:OLYMPUS_ACCEPTANCE_DIR`) before every launch. OS-level `OPENAI_API_KEY`/`ANTHROPIC_API_KEY` variables, if they exist, would still be inherited in defect 2.
+## Verification (Linux x86_64, this container)
+
+| Check | Result | What it shows |
+| --- | --- | --- |
+| `cargo test --lib` | 418 passed, 0 failed, 15 ignored (2 paid, 9 real-vault, 4 acceptance-fixture) | No regression. The count is 415 at `f073af6`, minus 1 replaced test, plus 4 new. |
+| `OLYMPUS_TEST_ACCEPTANCE_FIXTURE=… OLYMPUS_TEST_ACCEPTANCE_DB=… cargo test --lib acceptance -- --include-ignored` | 16 passed, 0 failed. This includes the 4 fixture tests enabled explicitly, run against the database the real app created and the new seeder seeded. | The fixture and seed still read correctly through the backend. |
+| `startup_accepts_only_the_matching_pairs` | pass | **Helper only:** every build × variable × identifier pairing, including case variants and a missing directory. |
+| `run_checks_the_identity_before_the_environment_and_the_builder` | pass | **Source order only:** in `run()`, `check_startup(` precedes `prepare_environment()` and `tauri::Builder::default()`. |
+| `both_acceptance_configs_use_the_acceptance_identifier`, `the_launch_marker_names_the_fixture_directory` | pass | The configs match the constant, and the marker round-trips. |
+| `node scripts/test-acceptance-seed.mjs` | 17 checks pass (links exercised as **symlinks**). It fails on the `f073af6` seeder at the symlink bypass. | The production directory is refused by name, through a link, and as a linked default location. Refused too: no launch record, a record for another fixture, and an unreadable record, each with nothing written. A fixture reached through a link seeds, and a second seed is refused. |
+| `npm run build`; all 17 `scripts/test-*.mjs` | pass | |
+| `cargo check --lib --tests --target x86_64-pc-windows-gnu`, and `cargo check --release --lib --target x86_64-pc-windows-gnu` (real mingw C toolchain) | 0 errors, 0 warnings | The Windows-only message-box branch compiles. Nothing Windows was executed. |
+
+**Startup order, observed in the compiled binaries.** Debug builds were compiled with the production and acceptance configs, the latter via `TAURI_CONFIG` as the CLI passes it; the embedded identifier was confirmed with `strings`. Release builds were compiled with `--features tauri/custom-protocol`. Each binary ran with a scratch `HOME`/`XDG_*`, first with no display and then under Xvfb. For the refusal cases, a canary `.env` with fake values sat where `load_olympus_env` looks. It was removed before any run that started fully.
+
+| Binary | Variable | Old (`f073af6`) | Fixed |
+| --- | --- | --- | --- |
+| debug, production id | set | `profile` logged. Tauri created `data/com.projectolympus.commandstation` (the webview profile) and then panicked "Failed to setup app" (**defect 1 reproduced**) | exit 2, refused, **no directory created**, no `.env` line |
+| debug, acceptance id | unset | loaded `.env`, opened `…/com.projectolympus.acceptance/olympus.sqlite` and ran (**defect 2 reproduced**) | exit 2, refused, no directory, no `.env` line |
+| debug, acceptance id | blank, or a missing directory | — | exit 2, refused, no directory |
+| debug, acceptance id | fixture | — | `profile` logged, no `.env` line, DB under `com.projectolympus.acceptance`, launch record written. After seeding and a 35 s relaunch: 0 Gmail sync runs, 0 situation runs, 0 model requests. |
+| debug, production id | unset | — | `.env` loaded (canary) with no display. Under Xvfb, DB under `com.projectolympus.commandstation` in the scratch home: ordinary startup |
+| release, acceptance id | set or unset | — | exit 2, "This release build was compiled with the acceptance identifier…", no directory created |
+| release, production id | set or unset | — | ordinary startup, and the variable is ignored as documented. `.env` absent; the scratch-home DB was opened |
+
+## Limitations
+
+- **No Windows or WebView2 execution.** The `%LOCALAPPDATA%` profile claim, the Windows message box, and junction handling in the seeder are all unexecuted. `test-acceptance-seed.mjs` creates real junctions when run on Windows, but so far it has run only on Linux, with symlinks.
+- The Xvfb runs had no dev server, so the frontend never loaded in the debug runs. They show the backend startup order, not UI behaviour.
+- A release build compiled with the acceptance config now refuses to start. It never reads production resources, because the check runs before anything else.
+
+## Merge readiness
+
+Build and unit evidence is green, and the isolation defects are fixed at source and binary level on Linux. **Still not ready for merge consideration** until the first isolated Windows pass runs N1–N17. That pass should include one deliberate launch without the variable, to see the refusal under WebView2.
+
+# Current status
 
 ## N1–N17
 
 | # | Area | Outcome | Reason |
 | --- | --- | --- | --- |
-| N1 | Loading | not tested | No launch: isolation defects 1–2 and no Windows host |
+| N1 | Loading | not tested | No Windows host. (At `f073af6`, the isolation defects also blocked launching.) |
 | N2 | Ready | not tested | same |
 | N3 | Empty | not tested | same |
 | N4 | Failed | not tested | same. Which state appears (SCAN FAILED or NO PROJECTS) is still unconfirmed. |
@@ -96,55 +138,33 @@ Until a fix lands, two things lower the risk (they are not isolation): run from 
 | N12 | Evidence disclosures | not tested | same. Also: `open_vault_note` builds `obsidian://open?vault=vault&…` from the fixture folder name, so Obsidian opens the note only if the fixture vault is registered in Obsidian (which writes Obsidian's own config, outside `$Acc`). Otherwise it reports an unknown vault, which is expected and not a product failure. |
 | N13 | Communications 1280×800 / 1440×900 | not tested | same |
 | N14 | GPU rendering | not tested | same, and needs a real GPU |
-| N15 | 2D fallback | not tested | same. The no-WebGL config shares both defects. |
+| N15 | 2D fallback | not tested | same. The no-WebGL config carries the same identifier, so the same startup check covers it. |
 | N16 | Windows text | not tested | same |
 | N17 | Timestamps / imported label | not tested | same. The seeded imported row exists (`conversation_imports`, original time 14:10) and `debug_load_the_seeded_acceptance_database` passed. |
 
 Failure states the fixture cannot exercise are unchanged from DESKTOP-ACCEPTANCE §4: N4 depends on backend behaviour for a missing root, and N5 needs a manual rename while the app runs. No pass has been manufactured for either.
 
-## Merge readiness
-
-**Not ready for merge consideration.** The acceptance profile's isolation guarantee has two confirmed defects, and the native pass (N1–N17) has not run. Build and unit evidence is green at `f073af6`.
-
 ## Outstanding beyond the synthetic pass (separate decisions)
 
 - **Live provider (P):** U6 time to first visible text with Voice on (Sol and Claude), voice 429 handling, opening-briefing autoplay in WebView2, and a thread-grounded answer. U6 stays partial.
 - **Real Gmail (G), destructive (X), delegation (E):** unchanged from DESKTOP-ACCEPTANCE §5.
-- **Release:** the release build ignores the variable (`#[cfg(not(debug_assertions))]` returns `None`). A Windows release compile and installed-app acceptance are still owed.
+- **Release:** the release build ignores the variable, and refuses to start if it was compiled with the acceptance identifier (Part 2). A Windows release build and installed-app acceptance are still owed.
 - **Known, unchanged:** narrow Communications with the console open (U8) is unresolved. The Skip to console link replaces the ≤15-Tab target. Drafts are lost on restart. Pre-fix imported rows are ambiguous. hybrid-core timing needs a GPU. P1–P6 are deferred.
 
-## Local steps for the native pass (after the fix is applied and pushed)
+## First isolated Windows pass
 
-Use a separate worktree so the existing checkouts, their `node_modules` and their `.env` stay untouched. Run everything in one PowerShell window.
-
-```powershell
-cd C:\Users\kevpe\OneDrive\Desktop\Projects\Olympus
-git status --short                       # expect clean; do not switch a dirty checkout
-git fetch origin claude/blissful-lamport-2l4o96
-$Wt  = Join-Path $env:TEMP "olympus-acc-src-$(Get-Date -Format yyyyMMdd-HHmmss)"
-git worktree add --detach $Wt origin/claude/blissful-lamport-2l4o96
-cd $Wt; git log -1 --oneline             # record the revision; confirm it contains the fix
-Test-Path .env                           # must be False
-npm ci
-$Acc = Join-Path $env:TEMP "olympus-acceptance-$(Get-Date -Format yyyyMMdd-HHmmss)"
-node scripts/acceptance/build-fixtures.mjs $Acc
-$env:OLYMPUS_ACCEPTANCE_DIR = $Acc
-echo $env:OLYMPUS_ACCEPTANCE_DIR         # confirm before every launch
-npm run tauri -- dev --config scripts/acceptance/tauri.acceptance.json
-```
-
-Before touching anything, check the terminal and the window:
-- `[Olympus::Acceptance] profile <$Acc>` and `[Olympus::Db] opened …\AppData\Roaming\com.projectolympus.acceptance\olympus.sqlite` both appear.
-- No `[Olympus::Env]` line appears.
-- The header shows the acceptance label, and the project names are all `acceptance-…`.
-
-If any of these is wrong, close the window and stop.
-
-Then close the app, run `node scripts/acceptance/seed-db.mjs $Acc` in the same window, relaunch with the same command, and run N1–N17 (DESKTOP-ACCEPTANCE §4). For N15, relaunch with `--config scripts/acceptance/tauri.acceptance-nowebgl.json`. With the fix in place, a new shell that lacks the variable should be refused before any window opens. Checking that is worth one deliberate attempt.
-
-Cleanup, after `Get-Item` confirms each resolved path is under `$env:TEMP\olympus-acceptance-*` or is `com.projectolympus.acceptance`:
-`Remove-Item Env:OLYMPUS_ACCEPTANCE_DIR`; remove `$Acc`, `$env:APPDATA\com.projectolympus.acceptance` and `$env:LOCALAPPDATA\com.projectolympus.acceptance`. Then run `git worktree remove $Wt` from the original checkout. Never target `com.projectolympus.commandstation`.
+Follow DESKTOP-ACCEPTANCE §3 (fresh worktree, no `.env`, one PowerShell window) and §4, then fill in the N1–N17 table above. Before N1, confirm:
+- the refusal: in a new window without the variable, `npm run tauri -- dev --config scripts/acceptance/tauri.acceptance.json` must print `refused to start` and show no window;
+- the profile, database and `.env` lines in the terminal, and the header label;
+- `node scripts/test-acceptance-seed.mjs` reports junctions on `win32`.
 
 ## Cleanup record (this session)
 
-Everything was created under the session scratchpad (`/tmp/claude-0/…/scratchpad`) and nowhere else: worktrees `acc` and `fix` (detached, `f073af6`), fixtures `fixture-20260929-042716`, `fixture-link` and `fixture-link2`, scratch databases under `db/`, and logs. No Windows path, production database, credential or `.env` was touched. The container is disposable. To remove the two worktrees from the session checkout's metadata: `git worktree remove --force <scratchpad>/acc` and `…/fix`, run only against those two paths.
+Everything was created under the session scratchpad (`/tmp/claude-0/…/scratchpad`) and nowhere else:
+- worktrees `acc` (the branch) and `fix` (detached at `f073af6`);
+- fixtures `fixture-*`, `fx-run` and link fixtures;
+- scratch databases under `db/`;
+- per-run scratch homes under `runs/` and binaries under `bins/`;
+- logs.
+
+The canary `.env` files were deleted before the full-start runs. The only packages installed were container build dependencies: the WebKitGTK/GTK dev packages and the mingw-w64 cross compiler. No Windows path, production database, credential or `.env` was touched. The container is disposable. To remove the two worktrees from the session checkout's metadata: `git worktree remove --force <scratchpad>/acc` and `…/fix`, run only against those two paths.

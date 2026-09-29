@@ -1,6 +1,8 @@
 # Desktop acceptance — design-review implementation
 
-Revised 2026-09-29. Applies to branch `claude/blissful-lamport-2l4o96`. Section 2 is implemented, and sections 3 and 4 need this branch at the commit that adds `scripts/acceptance/`, or later. Nothing here has been run in the desktop app yet.
+Revised 2026-09-29 (startup contract corrected). Applies to branch `claude/blissful-lamport-2l4o96`. Section 2 is implemented. Sections 3 and 4 need this branch at the commit that moves the identity check into `run()` (the one after `d111df4`), or later. Nothing here has been run in the desktop app yet.
+
+**Do not launch the acceptance setup at `f073af6`, or at any commit before the startup-contract fix.** Its check ran too late and in one direction only; see `NATIVE-ACCEPTANCE-2026-09-29.md`. Confirm that `git log --oneline` shows "Check the acceptance identity before anything starts" before step 3.
 
 Evidence so far is build, unit tests and Chromium against a synthetic IPC mock. None of that counts as desktop acceptance.
 
@@ -48,6 +50,20 @@ Checked with the installed `@tauri-apps/cli` 2.10.1:
 
 ### 2b. Code: `OLYMPUS_ACCEPTANCE_DIR`, debug builds only
 
+**Startup contract (corrected 2026-09-29).** `--config` is merged when the binary is compiled (the Tauri CLI passes it to `generate_context!` as `TAURI_CONFIG`), so the identifier describes the build, not the command that starts it. The first thing `run()` does is compare the compiled identifier with the variable, in `acceptance::check_startup`. That happens before `.env` is read, before the builder, before the window and its WebView2 profile, and before the database, the keyring and the background workers. A refusal prints `[Olympus::Acceptance] refused to start: …` and exits with code 2. A Windows release build also shows the reason in a message box, because it has no console.
+
+| Build | `OLYMPUS_ACCEPTANCE_DIR` | Compiled identifier | Result |
+| --- | --- | --- | --- |
+| debug | unset or blank | production | ordinary launch |
+| debug | an existing directory | acceptance | acceptance profile |
+| debug | set | production, or anything but the exact acceptance identifier | refused: names the missing `--config` |
+| debug | names a missing path or a file | acceptance | refused: build the fixture first |
+| debug | unset or blank | acceptance (any letter case) | refused: set the variable in this shell |
+| release | ignored | production | ordinary launch (the variable is never read) |
+| release | ignored | acceptance (any letter case) | refused: rebuild without the acceptance `--config` |
+
+The check replaced the one in `setup` at `f073af6`. That one ran after Tauri had created the window, and it did not refuse the acceptance build without its variable.
+
 `src-tauri/src/commands/acceptance.rs`. The release build compiles `acceptance_dir()` as `None`, so the installed app cannot read the variable at all. A blank value counts as unset. A relative path is anchored to the working directory once at startup, and the value is read once. When it is set:
 
 | # | Behaviour | Place |
@@ -57,7 +73,7 @@ Checked with the installed `@tauri-apps/cli` 2.10.1:
 | 3 | `scan_tracked_projects` scans `<dir>/projects`, whatever root the webview sends. The vault exclusion still applies. | `commands/projects.rs` |
 | 4 | Neither `gmail::start_cadence` nor `situations::start_cadence` starts. `gmail::auth::entry()` refuses before the platform check, so the keyring is never opened. `gmail_connect`, `gmail_sync` (and the sync worker) and `gmail_disconnect` refuse with `gmail_acceptance_profile_disabled`, which reads "Disabled in the acceptance profile. Gmail is not contacted and no credential is read." Cached reads keep working on the acceptance database: `gmail_status`, `gmail_workspace`, `gmail_thread`, `gmail_search`, `gmail_cache_counts` and `situation_snapshot`. Model-backed Gmail paths (analysis, situation refresh and drafts) fail because no key is present. | `lib.rs`, `gmail/auth.rs`, `gmail/mod.rs` |
 | 5 | `prepare_delegation_run`, `prepare_delegation_resume`, `start_delegation_run` and `resume_delegation_run` refuse first, and so does `spawn_claude`, the one place a process is started. Reading runs, plans and reviews, `fetch_delegation_diff`, `run_delegation_check`, `cancel_delegation_run` and `complete_delegation_review` stay available; checks run in the synthetic worktree. | `commands/delegation.rs` |
-| 6 | Startup logs `[Olympus::Acceptance] profile <dir>`. The read-only `acceptance_profile` command returns `{active, dir}` or `null`. The header shows "Acceptance profile — synthetic data; providers and Gmail disabled" in every mode, and Preferences › Gmail says it is disabled. | `lib.rs`, `acceptance.rs`, `HeaderBar.tsx`, `GmailSettings.tsx` |
+| 6 | Startup logs `[Olympus::Acceptance] profile <dir>`, and each acceptance launch records a `processing_logs` row `acceptance-profile-launch` with `{dir, identifier}`, which the seeder requires. The read-only `acceptance_profile` command returns `{active, dir}` or `null`. The header shows "Acceptance profile — synthetic data; providers and Gmail disabled" in every mode, and Preferences › Gmail says it is disabled. | `lib.rs`, `acceptance.rs`, `HeaderBar.tsx`, `GmailSettings.tsx` |
 
 **Tests:** in `acceptance.rs`, the variable's parsing, the startup plan (no `.env`, both keys removed), path redirection and the refusals. The profile is injected per test thread, and the suite never reads the real variable. Also: `projects.rs` (scan root and vault exclusion under the profile), `gmail/tests.rs` (every keyring call refuses), `delegation.rs` (each launch command and `spawn_claude` refuses first). Without the variable, behaviour is unchanged and every existing test passes.
 
@@ -69,9 +85,10 @@ Checked with the installed `@tauri-apps/cli` 2.10.1:
   - `<dir>/vault`: the ten folders. `01 - Projects` holds five project notes (active, watching, archived; one with no next step; one whose vision review is 200 days old). `02 - Research` holds three notes in the Add Entry format, as Paper, Guide and Article, with headings, a wikilink to another entry, an unresolved wikilink, `![[_attachments/sample.pdf]]` and a valid one-page PDF. There is also a task note, `04 - Decisions/Decision Log.md`, and in `09 - System` the `User Profile.md` and `Olympus Charter.md`. The vault is a git repository, so gated writes can commit.
   - `<dir>/projects`: `acceptance-clean`, `acceptance-dirty` (a modified and an untracked file), `acceptance-history` (six commits over four days, two within 24 hours), `acceptance-worktree` (a linked worktree in `<dir>/worktrees` with uncommitted files) and `acceptance-plain` (not git). `Project Acceptance Archive` has a note and no folder.
   - Git identity is set per repository. No global configuration is touched.
-- **`node scripts/acceptance/seed-db.mjs <dir> [--db <path>]`** runs after the first launch, with the app closed. It uses Node's `node:sqlite`: Node 22.13 or later runs it directly; 22.5–22.12 get `--experimental-sqlite`, which the script adds by re-running itself. The default database is `%APPDATA%\com.projectolympus.acceptance\olympus.sqlite`. It refuses:
-  - any path containing `commandstation`;
-  - a default path outside the acceptance identifier;
+- **`node scripts/acceptance/seed-db.mjs <dir> [--db <path>]`** runs after the first launch, with the app closed. It uses Node's `node:sqlite`: Node 22.13 or later runs it directly; 22.5–22.12 get `--experimental-sqlite`, which the script adds by re-running itself. The default database is `%APPDATA%\com.projectolympus.acceptance\olympus.sqlite`. It judges the destination by its final path (`realpathSync.native`, which follows symlinks and junctions) and by the database's own contents, not by the name it was given. It refuses:
+  - any given or resolved path containing `commandstation`;
+  - a default path that resolves outside a `com.projectolympus.acceptance` folder;
+  - a database without an `acceptance-profile-launch` record whose directory resolves to the same fixture directory (the app writes this at each acceptance launch; the production app never does);
   - a missing database, or one without the current tables;
   - a second run (it records an `acceptance-seed` row in `processing_logs`);
   - an existing enabled Gmail account.
@@ -84,7 +101,7 @@ Checked with the installed `@tauri-apps/cli` 2.10.1:
   - one message marked as imported from localStorage (original time 14:10).
   - a commit in `acceptance-history` made at seed time, i.e. after the first launch.
 
-Verified here: both scripts ran; the Rust scan, research parser (including the PDF), conversation load, review read, real build check and situation snapshot read their output through `#[ignore]`d tests; the seeded database passes `PRAGMA foreign_key_check` and `integrity_check`. To repeat:
+Verified here: both scripts ran; the Rust scan, research parser (including the PDF), conversation load, review read, real build check and situation snapshot read their output through `#[ignore]`d tests; the seeded database passes `PRAGMA foreign_key_check` and `integrity_check`. `node scripts/test-acceptance-seed.mjs` checks the destination refusals with directory links (junctions on Windows, symlinks elsewhere; so far run on Linux only). A scratch database built from `schema.sql` needs the launch record inserted by hand before it can be seeded. To repeat:
 
 ```bash
 OLYMPUS_TEST_ACCEPTANCE_FIXTURE=<dir> OLYMPUS_TEST_ACCEPTANCE_DB=<db> cargo test --lib acceptance -- --include-ignored
@@ -92,12 +109,19 @@ OLYMPUS_TEST_ACCEPTANCE_FIXTURE=<dir> OLYMPUS_TEST_ACCEPTANCE_DB=<db> cargo test
 
 ## 3. Launch, verification, cleanup and rollback
 
-PowerShell, from the repository root. The `--config` paths are relative to the working directory (section 2a).
+PowerShell, one window throughout. The `--config` paths are relative to the working directory (section 2a). Use a separate worktree, so your usual checkout, its `node_modules` and its `.env` are not involved.
 
 ```powershell
-# Launch
-git fetch origin; git switch claude/blissful-lamport-2l4o96; git pull
+# Source: a fresh worktree of the branch, from your usual checkout
+git status --short                               # do not switch or reset a dirty checkout
+git fetch origin claude/blissful-lamport-2l4o96
+$Wt = Join-Path $env:TEMP "olympus-acc-src-$(Get-Date -Format yyyyMMdd-HHmmss)"
+git worktree add --detach $Wt origin/claude/blissful-lamport-2l4o96
+cd $Wt; git log --oneline -3                     # must include the startup-contract fix
+Test-Path .env                                   # expect False
 npm ci
+
+# Launch
 $Acc = Join-Path $env:TEMP "olympus-acceptance-$(Get-Date -Format yyyyMMdd-HHmmss)"
 node scripts/acceptance/build-fixtures.mjs $Acc
 $env:OLYMPUS_ACCEPTANCE_DIR = $Acc          # this PowerShell session only
@@ -115,22 +139,24 @@ npm run tauri -- dev --config scripts/acceptance/tauri.acceptance.json
 
 If any of these fails, close the app and stop.
 
-Guard (added 2026-09-29): if `OLYMPUS_ACCEPTANCE_DIR` is set but the `--config` override was forgotten, the app refuses to start rather than open the production database. The error names the missing `--config`. That refusal is correct; relaunch with the config.
+Refusals (section 2b): the variable without the `--config`, the `--config` without the variable (for example, a new PowerShell window after seeding, or the debug exe started directly), or a variable naming a missing directory. In each case the app stops with `[Olympus::Acceptance] refused to start: …` before any window appears. That refusal is correct: fix the named cause and relaunch. If a window appears without the acceptance label, close it and stop.
 
-**Do not launch until the guard is fixed (source review, 2026-09-29).** Two defects are recorded in `NATIVE-ACCEPTANCE-2026-09-29.md`. (1) The refusal happens in `setup`, after Tauri has already created the window, so a refused launch still opens the production WebView2 profile. (2) The reverse case is not refused. `--config` is compiled in, so launching the acceptance build without the variable (a new shell, or the debug exe run directly) loads `.env`, reads the real vault and projects root, and lets the situation worker make a paid call about 20 s after start once the database is seeded. A focused fix is prepared, not applied: `proposed-isolation-fix-2026-09-29.patch`.
+History: at `f073af6` the check ran in `setup`, after the window, and in one direction only. A refused launch still opened the production WebView2 profile, and the acceptance build without the variable loaded `.env`, read the real vault and, once seeded, could make a paid situation call. Do not launch that revision.
 
-**Cleanup:**
+**Cleanup:** resolve each target first and delete it only if it is this session's `$Acc` (under `$env:TEMP\olympus-acceptance-…`) or a folder named exactly `com.projectolympus.acceptance`. Never delete anything named `com.projectolympus.commandstation`.
 ```powershell
 Remove-Item Env:OLYMPUS_ACCEPTANCE_DIR
-Remove-Item -Recurse -Force $Acc
-Remove-Item -Recurse -Force "$env:APPDATA\com.projectolympus.acceptance"
-Remove-Item -Recurse -Force "$env:LOCALAPPDATA\com.projectolympus.acceptance"
+foreach ($t in @($Acc, "$env:APPDATA\com.projectolympus.acceptance", "$env:LOCALAPPDATA\com.projectolympus.acceptance")) {
+  $r = Get-Item -LiteralPath $t -Force -ErrorAction SilentlyContinue
+  if ($r -and -not $r.LinkType -and $r.FullName -notmatch 'commandstation') { "remove $($r.FullName)" }  # review, then Remove-Item -Recurse -Force -LiteralPath
+}
+cd $env:TEMP; git -C <your usual checkout> worktree remove $Wt
 ```
-The last path is the WebView2 profile; confirm the exact folder name on first run.
+The `LOCALAPPDATA` folder is the WebView2 profile. Confirm the exact folder name on first run. A link (`LinkType` set) is reported rather than followed; investigate it by hand.
 
 **Rollback:**
 - Production data and the installed app are never opened, so there is nothing to restore.
-- To abandon the branch, run `git switch -` (or `git switch master`) and then `npm ci`.
+- The branch lives in its own worktree, so abandoning it means removing that worktree. Your usual checkout is not switched.
 - To remove the acceptance switch after acceptance, revert its commit. It is inert in release builds either way.
 
 ## 4. First native pass

@@ -339,17 +339,26 @@ fn prepare_environment() {
 }
 
 pub fn run() {
+    // Before anything else: `.env`, the window and its webview profile, the
+    // database, the keyring and the workers all follow from this decision.
+    let context = tauri::generate_context!();
+    if let Err(message) = commands::acceptance::check_startup(
+        cfg!(debug_assertions),
+        commands::acceptance::acceptance_dir().as_deref(),
+        &context.config().identifier,
+    ) {
+        commands::acceptance::refuse_startup(&message);
+    }
     prepare_environment();
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(commands::external_link::navigation_guard())
         .setup(|app| {
-            commands::acceptance::check_identifier(
-                commands::acceptance::active(),
-                &app.config().identifier,
-            )?;
             let connection = open_database(app.handle())?;
+            if let Some(dir) = commands::acceptance::acceptance_dir() {
+                commands::acceptance::record_launch(&connection, &dir, &app.config().identifier)?;
+            }
             commands::knowledge_audit::recover(&connection)?;
             commands::research_verification::recover(&connection)?;
             commands::gmail::recover(&connection)?;
@@ -428,6 +437,6 @@ pub fn run() {
             commands::delegation_review::delegation_review_fingerprint,
             commands::delegation_review::complete_delegation_review
         ])
-        .run(tauri::generate_context!())
+        .run(context)
         .expect("error while running Project Olympus");
 }

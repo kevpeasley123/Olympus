@@ -288,7 +288,7 @@ All browser results below are from the final run on `cc0f182`:
 **Unresolved** (not accepted; corrected 2026-09-29):
 - **U6 — partial.** The visual-first request order is implemented and unit-tested. Live-provider evidence that written text streams before the spoken summary is absent, so it stays partial until desktop checks D1 and D2 establish the behaviour.
 - **U8 — narrow Communications layout.** Below 1500px wide, with the console engaged, the map and inspector shrink to about 370px and leave empty space. This is an unresolved limitation, not an operator-accepted deviation. It needs a layout decision (SITUATION-MAP-POLISH contract) and a fix.
-- **Desktop acceptance:** not started. The isolated profile and fixture scripts it needs are implemented; see `DESKTOP-ACCEPTANCE.md` section 2. 2026-09-29: blocked before launch by two isolation defects in the profile guard; see `NATIVE-ACCEPTANCE-2026-09-29.md`.
+- **Desktop acceptance:** not started. The isolated profile and fixture scripts it needs are implemented; see `DESKTOP-ACCEPTANCE.md` section 2. 2026-09-29: two isolation defects found in the profile guard at `f073af6` (do not launch that revision) and fixed in the following commits; N1–N17 are still untested on Windows. See `NATIVE-ACCEPTANCE-2026-09-29.md`.
 - **`cargo fmt --check`:** already failed on untouched files before this work.
 
 **Fixed after the readiness pass (2026-09-29):**

@@ -7,8 +7,11 @@
 // config has created the database, with the app closed. <dir> is the fixture
 // directory. The database defaults to the acceptance identifier's app data
 // directory (%APPDATA%\com.projectolympus.acceptance\olympus.sqlite on
-// Windows); --db names another one explicitly. A path containing
-// "commandstation", the production identifier, is always refused.
+// Windows); --db names another one explicitly. The destination is judged by
+// what it resolves to, through symlinks and junctions: a resolved path
+// containing "commandstation", the production identifier, is always refused,
+// and so is a database without the launch record the acceptance profile
+// writes for this fixture directory (processing_logs "acceptance-profile-launch").
 //
 // Inserts: an enabled synthetic Gmail account; one situation with document
 // context (the rows scripts/import-situation-context.py writes, inserted
@@ -23,9 +26,9 @@
 
 import { spawnSync, execFileSync } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
-import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { homedir, platform } from "node:os";
-import { join, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 let sqlite;
@@ -42,7 +45,10 @@ try {
 const { DatabaseSync } = sqlite;
 
 const IDENTIFIER = "com.projectolympus.acceptance";
+const PRODUCTION = "commandstation";
 const SEED_EVENT = "acceptance-seed";
+// Written by the app at each acceptance launch (commands/acceptance.rs LAUNCH_EVENT).
+const LAUNCH_EVENT = "acceptance-profile-launch";
 const usage = "Usage: node scripts/acceptance/seed-db.mjs <dir> [--db <path>]";
 
 function fail(message) {
@@ -63,7 +69,19 @@ if (positional.length !== 1) {
   console.error(usage);
   process.exit(2);
 }
-const dir = resolve(positional[0]);
+/** The final path, through every symlink and junction; `null` when it does not exist. */
+function real(path) {
+  try {
+    return realpathSync.native(path);
+  } catch {
+    return null;
+  }
+}
+// Windows paths compare without case; elsewhere they do not.
+const samePath = (a, b) => (platform() === "win32" ? a.toLowerCase() === b.toLowerCase() : a === b);
+
+const dir = real(resolve(positional[0]));
+if (!dir) fail(`${resolve(positional[0])} does not exist. Run build-fixtures.mjs into it first.`);
 
 /** Tauri's app_data_dir: the platform data directory joined with the identifier. */
 function defaultDatabase() {
@@ -74,9 +92,14 @@ function defaultDatabase() {
   return join(data, IDENTIFIER, "olympus.sqlite");
 }
 const dbPath = resolve(dbArg ?? defaultDatabase());
-if (dbPath.toLowerCase().includes("commandstation")) fail(`${dbPath} belongs to the production identifier.`);
-if (!dbArg && !dbPath.includes(IDENTIFIER)) fail(`${dbPath} is not under ${IDENTIFIER}; pass --db explicitly.`);
+if (dbPath.toLowerCase().includes(PRODUCTION)) fail(`${dbPath} belongs to the production identifier.`);
 if (!existsSync(dbPath)) fail(`${dbPath} does not exist. Launch once with the acceptance config first, then close the app.`);
+// The name given proves nothing: a junction or symlink anywhere along it can
+// lead into the production directory.
+const realDb = real(dbPath);
+if (!realDb) fail(`${dbPath} could not be resolved to a final path.`);
+if (realDb.toLowerCase().includes(PRODUCTION)) fail(`${dbPath} resolves to ${realDb}, which belongs to the production identifier.`);
+if (!dbArg && !samePath(basename(dirname(realDb)), IDENTIFIER)) fail(`${dbPath} resolves to ${realDb}, outside the ${IDENTIFIER} directory; pass --db explicitly.`);
 
 const vault = join(dir, "vault");
 const history = join(dir, "projects", "acceptance-history");
@@ -93,6 +116,18 @@ for (const table of ["gmail_accounts", "communication_situations", "communicatio
 }
 if (db.prepare("SELECT 1 FROM processing_logs WHERE event_type = ?").get(SEED_EVENT)) fail(`${dbPath} is already seeded.`);
 if (db.prepare("SELECT 1 FROM gmail_accounts WHERE enabled = 1").get()) fail(`${dbPath} already has an enabled Gmail account.`);
+// Identity from the database itself: only an acceptance launch for this fixture
+// writes this record, and the production app never does.
+const launchedHere = db.prepare("SELECT payload_json FROM processing_logs WHERE event_type = ?").all(LAUNCH_EVENT).some((row) => {
+  let recorded;
+  try {
+    recorded = real(JSON.parse(row.payload_json).dir);
+  } catch {
+    return false;
+  }
+  return recorded !== null && samePath(recorded, dir);
+});
+if (!launchedHere) fail(`${realDb} has no record of an acceptance-profile launch for ${dir}. Launch once with OLYMPUS_ACCEPTANCE_DIR=${dir} and the acceptance config, close the app, then seed.`);
 
 // ---- Helpers ----------------------------------------------------------------
 
