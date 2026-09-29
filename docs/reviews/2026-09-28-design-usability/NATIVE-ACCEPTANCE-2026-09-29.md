@@ -1,8 +1,86 @@
 # Native acceptance — 2026-09-29
 
-**Result: N1–N17 not tested.** Part 1 records two isolation defects found at `f073af6` before any launch. Following the rule "if you find an isolation defect, do not launch", nothing was launched then. **The acceptance setup at `f073af6` must not be launched.**
+**Result: N1-N17 all run on Windows on 2026-09-28, no blockers.** See "Current status" below for the full row-by-row record; Parts 1 and 2 are kept as the history of the isolation defects and their fix.
 
 Part 2 records the fix, applied on the branch in "Check the acceptance identity before anything starts" (the commit after `d111df4`). It was verified in a Linux container: unit tests, a Windows type check, and the compiled debug and release binaries run under Xvfb in a scratch home directory. That is not Windows or WebView2 evidence, so the native pass is still owed.
+
+# Current status — first native Windows pass, 2026-09-28
+
+**Run on Windows 11 (10.0.26200), from a detached worktree of `e2adec9` in `%TEMP%`, no `.env`, acceptance profile only.** The installed app, `com.projectolympus.commandstation`, `.env`, credentials, the real vault and Gmail were not touched. No paid calls were made. Node 24.14.0, npm 11.9.0, cargo 1.95.0.
+
+**N1–N17 all run. No BLOCKERS.** Six MINOR issues and several partial coverages are recorded below.
+
+## Startup contract — verified before N1
+
+| Check | Result |
+| --- | --- |
+| Acceptance `--config`, variable **unset** | **Refused.** `[Olympus::Acceptance] refused to start: This build uses the acceptance identifier (com.projectolympus.acceptance) but OLYMPUS_ACCEPTANCE_DIR is not set in this shell.` Exit code 2. No `[Olympus::Env]`, no `[Olympus::Db]`. |
+| Did the refusal create anything? | **No.** Both `com.projectolympus.acceptance` folders still absent afterwards; no surviving process. No window was observed, but the process exited during the refusal, so this rests on the absent WebView2 folder and the refusal ordering rather than direct observation. |
+| Acceptance `--config`, variable **set** | Started. `[Olympus::Acceptance] profile …\olympus-acceptance-20260928-225400` |
+| Database path | `[Olympus::Db] opened …\com.projectolympus.acceptance\olympus.sqlite` |
+| `[Olympus::Env]` line | **Absent in all seven acceptance launches.** |
+| Header label | "Acceptance profile — synthetic data; providers and Gmail disabled" |
+| Providers | "Audio unavailable — no OpenAI API key is configured. Replies stay in text." |
+| Preferences › Gmail (§3 item 4) | "Disabled in the acceptance profile. Connect, Sync now and Disconnect are refused and Gmail is never contacted; the account shown is synthetic." Lists `acceptance.operator@example.invalid`. The OAuth client path shown is under `com.projectolympus.acceptance`. |
+
+**Production untouched, measured at start and end:** `%APPDATA%\com.projectolympus.commandstation\olympus.sqlite` unchanged at `2026-09-28T21:01:54`, 15,831,040 bytes. `%LOCALAPPDATA%\com.projectolympus.commandstation` unchanged at `2026-04-25T22:37:38`.
+
+## Two documented limitations now closed on Windows
+
+- `node scripts/test-acceptance-seed.mjs` — **PASS, 17 checks, "links exercised as junctions on win32".** Part 2 ran this on Linux with symlinks only. Junction handling in the seeder is now executed.
+- The `%LOCALAPPDATA%` WebView2 profile claim is confirmed: `com.projectolympus.acceptance` was created on first acceptance launch; the `commandstation` folder's timestamp never moved.
+
+## Method
+
+Rows N1–N4 and N15's first launch were judged from `PrintWindow(PW_RENDERFULLCONTENT)` captures in `acceptance-shots-2026-09-28/` (a curated subset; the full capture set stayed out of the repo for size). The remaining rows were driven over DevTools Protocol against the **real desktop app** (WebView2 / Edg 153), started with `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=9333` in the launch shell only — no repo change, no extra config file, loopback only, gone when the app closes. Clicks and keys were dispatched as real `Input.*` events, not `element.click()`. This allowed exact measurement (`innerWidth`, computed font sizes, WebGL draw-call counts) that eyes cannot provide.
+
+## N1–N17
+
+| # | Result | Evidence |
+| --- | --- | --- |
+| N1 | **pass** | 12 frames over 5 s. Ring reads `SCANNING…`, caption "Scanning projects…". **No example or seed project in any frame.** |
+| N2 | **pass** | Ring and board both show all six synthetic entries. Freshness line: "Projects scanned just now · 23:13 · tasks just now · runs just now · live updates". Briefing names `acceptance-history`, `acceptance-dirty`, `acceptance-worktree` and the seed-time commit. |
+| N3 | **pass, wording note** | Ring `NO_PROJECTS`; briefing exactly "No projects are tracked yet."; caption "No projects found under the projects root" — **does not name the path** (MINOR 1). Board wording not separately checked. |
+| N4 | **observed — SCAN FAILED variant** | Of the two documented possibilities, this build shows `SCAN FAILED` + Retry, no rows. Briefing agrees. Detail truncated (MINOR 2). |
+| N5 | **pass** | Root renamed while running: genuine rows stayed; banner "Last successful scan 1 min ago · 23:28. Latest refresh failed: Projects root path does not exist or is not a d…"; ring `STALE · 23:28`. Restored + Retry → "Projects scanned just now · 23:30", banner gone. **The stale state only appeared at the next periodic scan** (MINOR 4). |
+| N6 | **pass, all four modes** | `.skip-to-console` is first in focus order, 13px, slides from y −50 to y 10 on focus, 2px focus ring `rgb(239,189,122)`. Enter focuses `#olympus-console-input`. |
+| N7 | **pass** | Focus stayed inside `[role=dialog]` through 44 Tabs. Ctrl+\ inert while open (dialog stayed, mode unchanged). Escape closed it and returned focus to the gear (`aria-label="Open preferences"`). |
+| N8 | **pass, with a caveat** | No reload in any of the four modes; the console draft survived, including mid-typing. **Caveat:** a CDP-dispatched Ctrl+R reaches the renderer, not WebView2's host accelerator, so this verifies the app's own handler only. |
+| N9 | **pass** | Notes typed on both criteria, reviewed ticked, then "Frontend build · runs agent code" ran the synthetic echo script → "Frontend build · passed just now · 23:22". Both notes and the tick survived the check and a later poll. No clearing notice, correct since the workspace hash did not change. |
+| N10 | **pass (3 of 4 draft types)** | Console draft, library search value and the Add Entry title+body all restored after Command → Project → Communications → Research. Cancelling the changed Add Entry draft raised **Keep editing / Discard** with the draft retained. **The Communications reply draft was not exercised.** |
+| N11 | **pass (partial)** | All three segments present (Questions carries a "verified" suffix). Opening an entry then Back restored row focus (`Evidence Before Authority`) and the section's expanded state. `/` focused search without inserting the character, and stayed inert while typing (value became `evid/`). **List-position restoration was not exercisable** — three fixture entries do not scroll at this width. |
+| N12 | **pass (attachment not opened)** | First read: "Unchanged since this reply. The file's text matches what was supplied." with the excerpt highlighted. After appending a line to `02 - Research/Evidence Before Authority.md`: "Changed since this reply. The file on disk differs from the text supplied then; that text is kept below, apart from the current file." Resolved wikilink (`Checklist Discipline`) navigates; the unresolved one is an inert span. **The attachment's Open was deliberately not clicked** — it launches the system PDF viewer. |
+| N13 | **pass, one flag** | At exactly 1280×800 and 1440×900 (`innerWidth` confirmed). Next-step strip visible on arrival at both. **U8 measured:** the console occupies a fixed **480px** at both widths; map 607→726px and inspector 307→340px as the window grows, so the console's cost is constant rather than the ~370px estimated at 1440. Smallest map text is an 11px `<small>` hint, "Select a workstream to reveal its full structure", which **measured 0×0 in every state tried** — flagged, not confirmed (MINOR 6). All map text that was confirmed laid out is ≥12px. |
+| N14 | **pass** | One WebGL2 canvas, 121 frames in 2.013 s (60fps). Draw calls: **35,935 per 2 s in Command, 0 in Project, 36,179 on return** — the scene genuinely pauses on leaving Command. Stutter is perceptual and not judged. |
+| N15 | **pass** | `tauri.acceptance-nowebgl.json`, same profile and DB path. No canvas; flat SVG instrument with all five labels. "3D view unavailable · showing the flat instrument." plus a styled "Retry 3D view" button (Command mode only). Clicking `acceptance-dirty` on the flat ring at its real box (886,502) opened that project. |
+| N16 | **observed, measured** | Console status 16px. The console control row stays on **one line** at 1280 (no overflow; differing child tops are vertical centering). But small type is pervasive: **84 visible sub-12px text nodes in Command**, and **137 on the project board** (136 at 11px, 1 at 10px — "← All projects", the smallest interactive text). Owner chip 11px. Eyebrow labels reach 9px. Readability at your display scaling remains your call (MINOR 5). |
+| N17 | **pass** | Separators read `THU SEP 24`, `SAT SEP 26`, `YESTERDAY`, `TODAY`. The imported row reads "Imported Fri Sep 25, 23:00 · original time 14:10" and sits **inside the Thu Sep 24 group**: it opens no `FRI SEP 25` separator and does not split the day. **First runtime evidence of the 2026-09-29 fix**, which was unit- and harness-tested only. |
+
+## BLOCKERS
+
+None. Nothing crashed, no data appeared outside the acceptance profile, the projects shown were correct in every state, navigation worked in every mode including the 2D fallback, and no text was illegible.
+
+## MINOR
+
+1. **The empty-state caption does not name the projects root.** N3 reads "No projects found under the projects root"; §4 expects the path.
+2. **The scan-failure detail is truncated.** N4 shows "Projects root path does not exist or …" clipped at the container edge, so the operator never sees which path failed — the one place the path matters most.
+3. **White flash before first paint.** Captures at 52 ms and 2277 ms show a plain white window on a dark-themed app. Partly a `PrintWindow` compositing artifact; confirm by eye before treating it as real.
+4. **Stale state is not reported until the next periodic scan.** Immediately after the projects root vanished, a manual refresh still reported "Projects scanned just now" with no failure indication; the banner and `STALE` ring appeared only at the next scan (~60 s). For that window, the surfaces assert a fresh successful scan against a root that is gone.
+5. **Small type is pervasive at 100%.** 11px body text and 9–10px eyebrow labels throughout, including a 10px navigation control. Nothing was unreadable at 1280×800, but there is little headroom.
+6. **An 11px map hint that never lays out.** "Select a workstream to reveal its full structure" computes to 11px but measured 0×0 in every state tried — either dead markup or a rule that would breach the 12px floor if it ever renders.
+
+## Not covered
+
+- The Communications reply draft in N10.
+- The attachment Open path in N12 (not clicked by choice).
+- List-position restoration in N11 (needs more entries than the fixture holds).
+- N8 against WebView2's native Ctrl+R accelerator.
+- Perceptual judgements: N14 stutter, N16 readability at your display scaling.
+- N3/N4 wording on the project board specifically, as opposed to the Command surfaces.
+
+## Fixture state
+
+`02 - Research/Evidence Before Authority.md` in the fixture vault carries one appended line from N12 and was deliberately left changed. The fixture is disposable; nothing outside `%TEMP%` was modified.
 
 # Part 1 — findings at `f073af6`
 
