@@ -1449,13 +1449,24 @@ fn permitted_actions(scope: &str) -> Option<PermittedActions> {
     None
 }
 
+/// The branch to show beside `base_commit`: only one checked out with its tip at
+/// exactly that commit. Otherwise "branch @ hash" would name a commit the branch
+/// no longer points at, so the surface shows the hash alone. Display only.
+fn branch_at(repository: &Path, base_commit: &str) -> Option<String> {
+    let head = git(repository, &["rev-parse", "HEAD"]).ok()?;
+    if head != base_commit {
+        return None;
+    }
+    git(repository, &["rev-parse", "--abbrev-ref", "HEAD"])
+        .ok()
+        .filter(|branch| !branch.is_empty() && branch != "HEAD")
+}
+
 fn present(proposal: Proposal) -> PreparedProposal {
-    let base_branch = git(
+    let base_branch = branch_at(
         Path::new(&proposal.subject.repository),
-        &["rev-parse", "--abbrev-ref", "HEAD"],
-    )
-    .ok()
-    .filter(|branch| !branch.is_empty() && branch != "HEAD");
+        &proposal.subject.base_commit,
+    );
     PreparedProposal {
         permitted: permitted_actions(&proposal.subject.scope),
         base_branch,
@@ -1926,6 +1937,30 @@ mod workspace_evidence_tests {
         assert_ne!(committed, new_file);
         fs::write(root.join(" new file.txt"), "changed evidence").unwrap();
         assert_ne!(new_file, workspace_hash(&root, &base).unwrap());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn the_base_names_a_branch_only_while_its_tip_is_that_commit() {
+        let root = std::env::temp_dir().join(format!("olympus-base-branch-{}", run_id()));
+        fs::create_dir_all(&root).unwrap();
+        git(&root, &["init", "-b", "main"]).unwrap();
+        git(&root, &["config", "user.name", "Olympus test"]).unwrap();
+        git(&root, &["config", "user.email", "test@example.invalid"]).unwrap();
+        fs::write(root.join("tracked.txt"), "before").unwrap();
+        git(&root, &["add", "."]).unwrap();
+        git(&root, &["commit", "-m", "base"]).unwrap();
+        let base = git(&root, &["rev-parse", "HEAD"]).unwrap();
+        assert_eq!(branch_at(&root, &base).as_deref(), Some("main"));
+
+        // The branch moved on: "main @ base" would be false, so no branch.
+        fs::write(root.join("tracked.txt"), "after").unwrap();
+        git(&root, &["commit", "-am", "later"]).unwrap();
+        assert_eq!(branch_at(&root, &base), None);
+
+        // Detached at the base itself: there is no branch to name.
+        git(&root, &["checkout", "--detach", &base]).unwrap();
+        assert_eq!(branch_at(&root, &base), None);
         fs::remove_dir_all(root).unwrap();
     }
 }

@@ -144,3 +144,13 @@ export function completionChecklist(input: ChecklistInput): ChecklistItem[] {
     : { met: true, text: "No unresolved issues" });
   return items;
 }
+
+/**
+ * Whether a cached resume approval still has a run to resume: only while that
+ * run is listed as waiting. Before the first successful list nothing is known,
+ * so the proposal is kept; the backend refuses a revoked one regardless.
+ */
+export function preparedResumeApplies(runId: string, runs: { id: string; phase: string }[], loaded: boolean): boolean {
+  if (!loaded) return true;
+  return runs.some(run => run.id === runId && run.phase === "waiting");
+}

@@ -18,7 +18,8 @@ import {
 import { isTauriRuntime } from "../../services/launcher";
 import { formatWhen } from "../../services/time";
 import { initialTask } from "../../services/projectCommandBoard";
-import { EMPTY_PROJECT_DRAFT, EMPTY_REVIEW_NOTES, useViewEntry, useViewSlice, writeViewEntry } from "../../state/viewState";
+import { preparedResumeApplies } from "../../services/delegationReview";
+import { EMPTY_PROJECT_DRAFT, EMPTY_REVIEW_NOTES, projectDraftHasWork, pruneEndedReviewNotes, useViewEntry, useViewSlice, writeViewEntry } from "../../state/viewState";
 import { Modal } from "../Modal";
 import type { TrackedProject } from "../../types";
 import "./projects.css";
@@ -59,7 +60,7 @@ export function DelegationPanel({ project, blocker }: DelegationPanelProps) {
   useEffect(() => { setPreparedState(preparedByProject.get(projectId) ?? null); }, [projectId]);
 
   const [reviewNotes, setReviewNotes] = useViewSlice("reviewNotes");
-  const { data: runs, refresh, error: runsError } = useDelegationRuns();
+  const { data: runs, refresh, error: runsError, lastSuccessAt } = useDelegationRuns();
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [diffs, setDiffs] = useState<Record<string, string>>({});
@@ -71,7 +72,21 @@ export function DelegationPanel({ project, blocker }: DelegationPanelProps) {
   const visibleRuns = useMemo(() => runs.filter(run => run.projectId === projectId), [runs, projectId]);
   const criteriaText = draft ? draft.criteria.join("\n") : "";
   const criteriaList = draft ? draft.criteria.map(line => line.trim()).filter(Boolean) : [];
-  const draftChanged = Boolean(draft && (draft.task.trim() !== initialTask(project) || criteriaList.length > 0));
+  const draftChanged = projectDraftHasWork(draft, draft?.prefill ?? initialTask(project));
+
+  // Notes for a run that has ended no longer describe anything to act on.
+  useEffect(() => { pruneEndedReviewNotes(runs.filter(terminal).map(run => run.id)); }, [runs]);
+
+  // A resume approval belongs to a run that is waiting. Once the run moves on
+  // (stopped, resumed elsewhere, failed) the backend has revoked it, so the
+  // cached proposal goes too rather than offering Approve for it.
+  useEffect(() => {
+    if (!prepared?.resuming) return;
+    const runId = prepared.proposal.subject.runId;
+    if (preparedResumeApplies(runId, runs, lastSuccessAt !== null)) return;
+    void cancelDelegationProposal(prepared.proposal.id).catch(() => undefined);
+    setPrepared(null);
+  }, [prepared, runs, lastSuccessAt, setPrepared]);
 
   const reviewOpen = (runId: string) => Boolean(reviewNotes[runId]?.open);
   const setReviewOpen = (runId: string, open: boolean) => setReviewNotes(current => ({
@@ -95,7 +110,8 @@ export function DelegationPanel({ project, blocker }: DelegationPanelProps) {
 
   function openDraft() {
     setError(null);
-    setDraft({ task: initialTask(project), criteria: [] });
+    const prefill = initialTask(project);
+    setDraft({ task: prefill, criteria: [], prefill });
   }
 
   async function prepare(runId?: string) {
@@ -211,7 +227,7 @@ export function DelegationPanel({ project, blocker }: DelegationPanelProps) {
               {!draft.task.trim() ? "Write the task." : "Add at least one acceptance criterion."}
             </span>}
           </div>}
-          {planningApproval && <ApprovalSubject proposal={planningApproval} branchFallback={project.branch} busy={busy}
+          {planningApproval && <ApprovalSubject proposal={planningApproval} busy={busy}
             onApprove={() => void approve()} onCancel={() => void cancelReview()} />}
         </article>
       )}
@@ -263,7 +279,7 @@ export function DelegationPanel({ project, blocker }: DelegationPanelProps) {
 
               {run.error ? <p className="delegation-error">{run.error}</p> : null}
 
-              {approval && <ApprovalSubject proposal={approval} branchFallback={project.branch} busy={busy}
+              {approval && <ApprovalSubject proposal={approval} busy={busy}
                 onApprove={() => void approve()} onCancel={() => void cancelReview()} />}
 
               <div className="delegation-actions">
@@ -319,12 +335,20 @@ export function DelegationPanel({ project, blocker }: DelegationPanelProps) {
   );
 }
 
+/** A completed run's review time never changes; read it once per run per session. */
+const reviewedAtByRun = new Map<string, string>();
+
 function OutcomeLabel({ run }: { run: DelegationRun }) {
-  const [reviewedAt, setReviewedAt] = useState<string | null | undefined>(undefined);
+  const [reviewedAt, setReviewedAt] = useState<string | null | undefined>(() => reviewedAtByRun.get(run.id));
   useEffect(() => {
     if (run.phase !== "complete") return;
+    const known = reviewedAtByRun.get(run.id);
+    if (known) { setReviewedAt(known); return; }
     let live = true;
-    fetchDelegationReview(run.id).then(details => { if (live) setReviewedAt(details.reviewedAt ?? null); }).catch(() => { if (live) setReviewedAt(null); });
+    fetchDelegationReview(run.id).then(details => {
+      if (details.reviewedAt) reviewedAtByRun.set(run.id, details.reviewedAt);
+      if (live) setReviewedAt(details.reviewedAt ?? null);
+    }).catch(() => { if (live) setReviewedAt(null); });
     return () => { live = false; };
   }, [run.id, run.phase]);
   if (run.phase === "complete") {
@@ -377,13 +401,15 @@ function permittedSentence(proposal: ApprovalProposal): string | null {
   return `${reach}${commands}.${excluded} Loads no settings files, hooks or MCP servers. $${permitted.budgetUsd} budget and ${permitted.launchLimitMinutes}-minute limit per launch, not per run.`;
 }
 
-function ApprovalSubject({ proposal, branchFallback, busy, onApprove, onCancel }: {
-  proposal: ApprovalProposal; branchFallback: string; busy: string | null; onApprove: () => void; onCancel: () => void;
+function ApprovalSubject({ proposal, busy, onApprove, onCancel }: {
+  proposal: ApprovalProposal; busy: string | null; onApprove: () => void; onCancel: () => void;
 }) {
   const remaining = useCountdown(proposal.expiresAt);
   const expired = remaining <= 0;
   const subject = proposal.subject;
-  const branch = proposal.baseBranch ?? branchFallback;
+  // Null unless a branch's tip is exactly the base commit; the hash alone is
+  // then the honest statement of what is approved.
+  const branch = proposal.baseBranch;
   const sentence = permittedSentence(proposal);
   const stage = subject.stage === "plan" ? "Planning — read-only, stops for your approval before editing" : "Implementation — edits the isolated worktree";
   const titleId = useId();
