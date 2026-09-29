@@ -145,3 +145,16 @@ fn snapshot_revision_is_stable_and_short_circuits_unchanged_polls() {
     assert_eq!(changed["situations"][0]["title"], "Home purchase");
     assert!(changed.get("unchanged").is_none());
 }
+
+/// The situation `scripts/acceptance/seed-db.mjs` seeds, through the real snapshot.
+#[test]
+#[ignore = "requires a database seeded by scripts/acceptance/seed-db.mjs; run with --ignored"]
+fn debug_snapshot_the_seeded_acceptance_situation() {
+    let path = std::env::var_os("OLYMPUS_TEST_ACCEPTANCE_DB").expect("set OLYMPUS_TEST_ACCEPTANCE_DB");
+    let c = Connection::open(path).unwrap();
+    let ui = snapshot(&c).unwrap();
+    let situation = ui["situations"].as_array().unwrap().iter().find(|s| s["id"] == "acceptance-office-move").expect("the seeded situation");
+    assert_eq!(situation["state"], "active");
+    assert_eq!(situation["localContext"]["workstreams"].as_array().unwrap().len(), 3);
+    assert!(situation["localContext"]["sources"].as_array().unwrap().iter().all(|s| std::path::Path::new(s["path"].as_str().unwrap()).is_file()));
+}

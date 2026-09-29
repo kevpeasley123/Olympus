@@ -583,6 +583,31 @@ mod tests {
         assert!(native.get("importedAt").is_none(), "ordinary rows serialize as before");
     }
 
+    /// A database seeded by `scripts/acceptance/seed-db.mjs`, through the real
+    /// load. Point `OLYMPUS_TEST_ACCEPTANCE_DB` at it and
+    /// `OLYMPUS_TEST_ACCEPTANCE_FIXTURE` at the fixture it was seeded from.
+    #[test]
+    #[ignore = "requires a database seeded by scripts/acceptance/seed-db.mjs; run with --ignored"]
+    fn debug_load_the_seeded_acceptance_database() {
+        let path = std::env::var_os("OLYMPUS_TEST_ACCEPTANCE_DB").expect("set OLYMPUS_TEST_ACCEPTANCE_DB");
+        let dir = std::path::PathBuf::from(std::env::var_os("OLYMPUS_TEST_ACCEPTANCE_FIXTURE").expect("set OLYMPUS_TEST_ACCEPTANCE_FIXTURE"));
+        let state = load_state_from(&Connection::open(path).unwrap()).unwrap();
+
+        let imported = state.conversation.iter().find(|m| m.id == "acceptance-imported-1").expect("the imported row");
+        assert!(imported.imported_at.is_some() && imported.at.is_none());
+        assert_eq!(imported.timestamp, "14:10");
+        let days: std::collections::BTreeSet<&str> = state.conversation.iter().filter_map(|m| m.at.as_deref()).map(|at| &at[..10]).collect();
+        assert!(days.len() >= 3, "conversation spans {days:?}");
+
+        let reply = state.conversation.iter().find(|m| !m.research.is_empty()).expect("a reply with research provenance");
+        let entries = super::super::acceptance::with_profile(&dir, super::super::pantheon::parse_pantheon_from_vault).unwrap();
+        for source in &reply.research {
+            let entry = entries.iter().find(|e| e.source_file == source.source_file).expect("the cited note exists");
+            assert_eq!(source.fingerprint, entry.fingerprint, "the stored fingerprint must read as Unchanged");
+            assert_eq!(source.excerpt, entry.body);
+        }
+    }
+
     #[test]
     fn an_unreadable_side_row_is_skipped_rather_than_failing_the_load() {
         let db = Connection::open_in_memory().unwrap();

@@ -534,6 +534,32 @@ fn complete(app: &AppHandle, request: CompleteRequest) -> Result<DelegationRun, 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The run `scripts/acceptance/seed-db.mjs` seeds, through the real review
+    /// read and the real build command, in its synthetic worktree.
+    #[test]
+    #[ignore = "requires a database seeded by scripts/acceptance/seed-db.mjs; run with --ignored"]
+    fn debug_review_the_seeded_acceptance_run() {
+        let path = std::env::var_os("OLYMPUS_TEST_ACCEPTANCE_DB").expect("set OLYMPUS_TEST_ACCEPTANCE_DB");
+        let db = Db(std::sync::Mutex::new(rusqlite::Connection::open(path).unwrap()));
+        let run_id: String = db.0.lock().unwrap()
+            .query_row("SELECT id FROM delegation_runs WHERE phase='awaiting_review'", [], |r| r.get(0)).unwrap();
+        let details = review(&db, &run_id).unwrap();
+        assert_eq!(details.criteria.len(), 2);
+        let reason = |id: &str| details.available_checks.iter().find(|c| c.id == id).unwrap().unavailable.clone();
+        assert_eq!(reason("frontend-build"), None);
+        assert!(reason("npm-test").is_some_and(|r| r.contains("no test script")));
+        assert!(reason("rust-tests").is_some());
+
+        let run = delegation::load_run(&db, &run_id).unwrap();
+        let workspace = Path::new(&run.workspace);
+        let before = delegation::workspace_hash(workspace, &run.base_commit).unwrap();
+        let output = command_for("frontend-build", workspace, &std::env::temp_dir().join("olympus-acceptance-target"))
+            .unwrap().current_dir(workspace).output().unwrap();
+        assert!(output.status.success());
+        assert!(String::from_utf8_lossy(&output.stdout).contains("acceptance build ok"));
+        assert_eq!(delegation::workspace_hash(workspace, &run.base_commit).unwrap(), before, "the check changes nothing");
+    }
     #[test]
     fn completion_requires_exact_criteria_and_real_or_explicit_manual_evidence() {
         let criteria = vec!["Works".into()];

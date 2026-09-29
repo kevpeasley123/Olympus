@@ -600,7 +600,8 @@ mod tests {
             assert_eq!(find("acceptance-worktree").linked_worktrees.len(), 1);
             assert!(find("acceptance-worktree").linked_worktrees[0].changed_files > 0);
             assert_eq!(find("acceptance-plain").status, "unclassified");
-            assert_eq!(find("acceptance-archive").status, "archived");
+            // A note with no folder renders under its own title.
+            assert_eq!(find("Project Acceptance Archive").status, "archived");
             assert!(response.projects.iter().any(|p| p.note_path.is_some() && p.next_step.is_empty()),
                 "one declared project has no next step");
             assert!(response.projects.iter().all(|p| p.warnings.is_empty()));
@@ -615,6 +616,9 @@ mod tests {
             assert!(research.iter().any(|e| e.source_type.as_deref() == Some("Guide")));
             assert!(research.iter().all(|e| e.why_kept.is_some() && e.source_url.is_some()));
             assert!(research.iter().any(|e| e.body.contains("![[_attachments/sample.pdf]]")));
+            let pdf = super::super::get_vault_path().join("02 - Research/_attachments/sample.pdf");
+            let text = pdf_extract::extract_text(&pdf).expect("the fixture PDF must parse");
+            assert!(text.contains("Olympus acceptance sample attachment"), "{text:?}");
         });
     }
 
