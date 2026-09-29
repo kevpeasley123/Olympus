@@ -960,3 +960,17 @@ fn cache_counts_match_what_removal_and_narrowing_would_delete() {
         assert_eq!(after[key], 0, "{key}");
     }
 }
+/// Every keyring path goes through `entry()`, so refusing there covers sync's
+/// token refresh, connect's save and disconnect's revoke alike.
+#[test]
+fn the_acceptance_profile_never_opens_the_credential_store() {
+    let dir = std::env::temp_dir().join("olympus-acceptance-gmail");
+    crate::commands::acceptance::with_profile(&dir, || {
+        let refused = crate::commands::acceptance::GMAIL_DISABLED.to_string();
+        assert_eq!(auth::WindowsSecrets.get("fixture-account"), Err(refused.clone()));
+        assert_eq!(auth::WindowsSecrets.set("fixture-account", "token"), Err(refused.clone()));
+        assert_eq!(auth::WindowsSecrets.delete("fixture-account"), Err(refused));
+    });
+    // Outside the profile is not exercised here: on Windows it would open the
+    // operator's real Credential Manager.
+}

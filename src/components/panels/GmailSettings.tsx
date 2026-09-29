@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { gmailRemoveCache, gmailAction, gmailCacheCounts, gmailError, gmailHorizon, gmailNative, gmailSearch, gmailStateLabel, gmailStatus, gmailThread, gmailSettingsRequestPending, clearGmailSettingsRequest, countOf, type GmailCacheCounts, type GmailStatus, type MailExcerpt, type MailMessage } from "../../services/gmail";
 import { formatWhen } from "../../services/time";
+import { useAcceptanceProfile } from "../../services/acceptanceProfile";
 import { forgetCommsAccount } from "../../state/viewState";
 import "./communications.css";
 export interface GmailClient { native:()=>boolean; status:typeof gmailStatus; action:typeof gmailAction; horizon:typeof gmailHorizon; search:typeof gmailSearch; thread:typeof gmailThread; removeCache:typeof gmailRemoveCache; counts?:typeof gmailCacheCounts }
@@ -27,6 +28,7 @@ export function GmailSettings({api=client}:{api?:GmailClient}) {
  // Read once for the summary line; the 2 s poll runs only while the section is open.
  useEffect(()=>{if(!api.native())return;let active=true;const refresh=()=>api.status().then(s=>{if(active)setState(s)}).catch(e=>{if(active)setError(gmailError(e))});void refresh();const timer=expanded?window.setInterval(refresh,2000):undefined;return()=>{active=false;window.clearInterval(timer)}},[api,expanded]);
  async function run(action:()=>Promise<unknown>){setPending(true);setError("");try{await action();setState(await api.status())}catch(e){setError(gmailError(e))}finally{setPending(false)}}
+ const acceptance=useAcceptanceProfile();
  const enabled=Boolean(state?.account?.enabled),busy=pending||Boolean(state?.busy);
  const horizon=state?.account?.horizonDays??90;
 
@@ -46,6 +48,7 @@ export function GmailSettings({api=client}:{api?:GmailClient}) {
  return <details ref={root} className="gmail-settings" data-testid="gmail-settings" open={expanded} onToggle={event=>setExpanded(event.currentTarget.open)}><summary>Gmail · read-only source</summary>
  {!api.native()?<p>Connect Gmail in the Olympus desktop app. This browser preview cannot access native credentials or your mailbox.</p>:<>
  <p role="status">{gmailStateLabel(state)}{state?.account?.email&&<> — {state.account.email}</>}</p>
+ {acceptance&&<p className="section-copy"><strong>Disabled in the acceptance profile.</strong> Connect, Sync now and Disconnect are refused and Gmail is never contacted; the account shown is synthetic. Cached rows in the acceptance database stay readable.</p>}
  <p className="section-copy">Connect opens your system browser and requests read-only access to message bodies in Gmail. Relevant cached excerpts are sent to your reasoning provider for communication questions and analysis. Background situation understanding also analyzes changed correspondence, your situation updates and matching Research context using OpenAI. Pause it in Communications at any time. Olympus cannot send or change mail.</p>
  {state&&!state.configured&&<p>Save a Google <strong>Desktop app</strong> OAuth client JSON as <code className="gmail-config-path">{state.configPath}</code>. Setup: <code>docs/GMAIL.md</code>. Do not paste credentials into chat.</p>}
  <div className="gmail-controls">

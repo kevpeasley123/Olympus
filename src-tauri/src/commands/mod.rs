@@ -1,3 +1,4 @@
+pub mod acceptance;
 pub mod delegation_review;
 pub mod approvals;
 pub mod assistant;
@@ -29,8 +30,11 @@ use std::path::PathBuf;
 pub const VAULT_PATH: &str =
     r"C:\Users\kevpe\OneDrive\Desktop\Projects\Obsidian vaults\Olympus Obsidian Vault";
 
+/// The operator's vault, or `<dir>/vault` under the acceptance profile. Every
+/// vault reader and writer resolves through here, so the profile cannot leave
+/// one of them pointed at the real vault.
 pub fn get_vault_path() -> PathBuf {
-    PathBuf::from(VAULT_PATH)
+    acceptance::vault_path().unwrap_or_else(|| PathBuf::from(VAULT_PATH))
 }
 
 pub mod voice;

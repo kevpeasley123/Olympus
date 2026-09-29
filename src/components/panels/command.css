@@ -184,6 +184,25 @@ html .command-console .conversation-bubble:not(:hover):not(:focus-within) .conso
   outline-offset: var(--focus-ring-offset);
 }
 
+/* ---- Acceptance profile ------------------------------------------------- */
+/* Fixed rather than in a header zone: it must stay visible in every mode and
+   at every width, and must not move the mode switcher. */
+.acceptance-profile-label {
+  position: fixed;
+  top: 8px;
+  right: 16px;
+  z-index: 8400;
+  max-width: calc(100vw - 32px);
+  margin: 0;
+  padding: 4px 10px;
+  border: 1px solid #e6b48c;
+  border-radius: 4px;
+  background: #1f1509;
+  color: #f0c9a4;
+  font: var(--weight-medium) var(--text-sm)/var(--leading-tight) var(--font-sans);
+  pointer-events: none;
+}
+
 /* ---- Instrument ---------------------------------------------------------- */
 html .command-instrument__status { font-size: var(--text-sm); color: #a8b6c8; opacity: .9; }
 .command-instrument__scan {

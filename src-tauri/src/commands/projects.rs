@@ -112,8 +112,14 @@ pub async fn scan_tracked_projects(
 }
 
 fn scan_tracked_projects_blocking(
-    request: ProjectsRequest,
+    mut request: ProjectsRequest,
 ) -> Result<ProjectsResponse, String> {
+    // The root comes from the webview's stored settings, which under the
+    // acceptance profile may still hold the real projects path.
+    if let Some(root) = super::acceptance::projects_root() {
+        request.root_path = root.to_string_lossy().into_owned();
+    }
+
     if let Some(cached) = PROJECTS_CACHE
         .lock()
         .map_err(|error| error.to_string())?
@@ -530,6 +536,86 @@ mod tests {
         git_command(&root, &["add", "."]).unwrap();
         git_command(&root, &["commit", "-m", "seed"]).unwrap();
         root
+    }
+
+    /// Under the acceptance profile the webview's stored root is ignored: the
+    /// scan reads `<dir>/projects`, and the synthetic vault beside it is still
+    /// recognised as the vault.
+    #[test]
+    fn the_acceptance_profile_scans_its_own_projects_root() {
+        let dir = std::env::temp_dir().join("olympus-acceptance-scan");
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(dir.join("projects/acceptance-plain")).unwrap();
+        fs::create_dir_all(dir.join("vault/01 - Projects")).unwrap();
+
+        super::super::acceptance::with_profile(&dir, || {
+            let response = scan_tracked_projects_blocking(ProjectsRequest {
+                root_path: "C:/Users/someone/Desktop/Projects".into(),
+                since_session: None,
+            })
+            .expect("the profile root exists even though the requested one does not");
+            let names: Vec<&str> = response.projects.iter().map(|p| p.name.as_str()).collect();
+            assert_eq!(names, ["acceptance-plain"]);
+
+            assert!(is_excluded_directory(&dir.join("vault")));
+            assert!(is_excluded_directory(&dir), "the folder holding the vault is not a project");
+            assert!(!is_excluded_directory(&dir.join("projects/acceptance-plain")));
+        });
+
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    /// The output of `scripts/acceptance/build-fixtures.mjs`, through the real
+    /// scan and the real research parser. Machine-bound: point
+    /// `OLYMPUS_TEST_ACCEPTANCE_FIXTURE` at a directory the script wrote.
+    #[test]
+    #[ignore = "requires a fixture from scripts/acceptance/build-fixtures.mjs; run with --ignored"]
+    fn debug_scan_the_acceptance_fixture() {
+        let dir = PathBuf::from(
+            std::env::var_os("OLYMPUS_TEST_ACCEPTANCE_FIXTURE")
+                .expect("set OLYMPUS_TEST_ACCEPTANCE_FIXTURE to the fixture directory"),
+        );
+        super::super::acceptance::with_profile(&dir, || {
+            let response = scan_tracked_projects_blocking(ProjectsRequest {
+                root_path: String::new(),
+                since_session: None,
+            })
+            .expect("the fixture scan must succeed");
+            for project in &response.projects {
+                eprintln!(
+                    "  {:<24} {:<12} {:<9} {:<6} commits24h={} linked={} next={:?} vision_reviewed={:?} warnings={:?}",
+                    project.name, project.status, project.status_source, project.repo_state,
+                    project.recent_commits.len(), project.linked_worktrees.len(),
+                    project.next_step, project.vision_reviewed_at, project.warnings
+                );
+            }
+            assert!(response.warnings.is_empty(), "folder warnings: {:?}", response.warnings);
+            let find = |name: &str| response.projects.iter().find(|p| p.name == name)
+                .unwrap_or_else(|| panic!("{name} missing"));
+            assert_eq!(find("acceptance-clean").status, "active");
+            assert_eq!(find("acceptance-clean").status_source, "declared");
+            assert_eq!(find("acceptance-dirty").status, "watching");
+            assert_eq!(find("acceptance-history").status, "active");
+            assert!(find("acceptance-history").recent_commits.len() >= 2);
+            assert_eq!(find("acceptance-worktree").linked_worktrees.len(), 1);
+            assert!(find("acceptance-worktree").linked_worktrees[0].changed_files > 0);
+            assert_eq!(find("acceptance-plain").status, "unclassified");
+            assert_eq!(find("acceptance-archive").status, "archived");
+            assert!(response.projects.iter().any(|p| p.note_path.is_some() && p.next_step.is_empty()),
+                "one declared project has no next step");
+            assert!(response.projects.iter().all(|p| p.warnings.is_empty()));
+
+            let research = super::super::pantheon::parse_pantheon_from_vault().unwrap();
+            for entry in &research {
+                eprintln!("  research {:<48} {:<10} {:?} {}", entry.source_file, entry.stance,
+                    entry.source_type, entry.fingerprint);
+            }
+            assert!(research.len() >= 3);
+            assert!(research.iter().any(|e| e.source_type.as_deref() == Some("Paper")));
+            assert!(research.iter().any(|e| e.source_type.as_deref() == Some("Guide")));
+            assert!(research.iter().all(|e| e.why_kept.is_some() && e.source_url.is_some()));
+            assert!(research.iter().any(|e| e.body.contains("![[_attachments/sample.pdf]]")));
+        });
     }
 
     /// The day arc's commit ticks against a repository with a commit created

@@ -573,6 +573,8 @@ fn implementation_prompt(run: &DelegationRun) -> String {
 }
 
 fn spawn_claude(app: AppHandle, run: DelegationRun, stage: Stage) -> Result<(), String> {
+    // The commands refuse first; this is the one place a process is started.
+    super::acceptance::refuse_delegation()?;
     let executable = claude_executable()?;
     let (criteria, approved_plan) = contract(app.state::<Db>().inner(), &run.id)?;
     let evidence_contract = format!(
@@ -1489,6 +1491,7 @@ pub async fn prepare_delegation_run(
     app: AppHandle,
     request: PrepareDelegationRequest,
 ) -> Result<PreparedProposal, String> {
+    super::acceptance::refuse_delegation()?;
     blocking(app, move |app| {
         let db = app.state::<Db>();
         let state = app.state::<ApprovalState>();
@@ -1508,6 +1511,7 @@ pub async fn prepare_delegation_resume(
     app: AppHandle,
     request: RunRequest,
 ) -> Result<PreparedProposal, String> {
+    super::acceptance::refuse_delegation()?;
     blocking(app, move |app| {
         let db = app.state::<Db>();
         let state = app.state::<ApprovalState>();
@@ -1524,6 +1528,7 @@ pub async fn start_delegation_run(
     app: AppHandle,
     request: StartDelegationRequest,
 ) -> Result<DelegationRun, String> {
+    super::acceptance::refuse_delegation()?;
     blocking(app, move |app| start_run(app, request)).await
 }
 
@@ -1617,6 +1622,7 @@ pub async fn resume_delegation_run(
     app: AppHandle,
     request: StartDelegationRequest,
 ) -> Result<DelegationRun, String> {
+    super::acceptance::refuse_delegation()?;
     blocking(app, move |app| resume_run(app, request)).await
 }
 
@@ -1885,6 +1891,35 @@ mod tests {
         assert!(phase_rank("editing") < phase_rank("testing"));
         assert!(phase_rank("testing") < phase_rank("reviewing"));
         assert!(phase_rank("reviewing") < phase_rank("complete"));
+    }
+
+    /// The launch commands take an `AppHandle`, which the suite cannot build,
+    /// so this pins that each one refuses before touching it, and that the one
+    /// process spawn refuses too.
+    #[test]
+    fn launches_refuse_first_under_the_acceptance_profile() {
+        let source = include_str!("delegation.rs");
+        for name in [
+            "pub async fn prepare_delegation_run(",
+            "pub async fn prepare_delegation_resume(",
+            "pub async fn start_delegation_run(",
+            "pub async fn resume_delegation_run(",
+            "fn spawn_claude(",
+        ] {
+            let at = source.find(name).unwrap_or_else(|| panic!("{name} missing"));
+            let body = &source[at..];
+            let first = body[body.find("{\n").unwrap() + 2..]
+                .lines()
+                .map(str::trim)
+                .find(|line| !line.starts_with("//"))
+                .unwrap_or_default();
+            assert_eq!(first, "super::acceptance::refuse_delegation()?;", "{name} must refuse first");
+        }
+        let dir = std::env::temp_dir().join("olympus-acceptance-delegation");
+        super::super::acceptance::with_profile(&dir, || {
+            let refused = super::super::acceptance::refuse_delegation().unwrap_err();
+            assert!(refused.starts_with("Disabled in the acceptance profile"));
+        });
     }
 
     #[test]

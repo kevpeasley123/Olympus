@@ -4,6 +4,7 @@ import type { DashboardMode } from "../../hooks/useDashboardMode";
 import type { TrackedProject } from "../../types";
 import type { MouseEvent } from "react";
 import type { ProjectScanState } from "../../hooks/useDashboardData";
+import { ACCEPTANCE_LABEL, useAcceptanceProfile } from "../../services/acceptanceProfile";
 import "./command.css";
 
 interface HeaderBarProps {
@@ -31,8 +32,12 @@ function skipToConsole(event: MouseEvent<HTMLAnchorElement>) {
  */
 export function HeaderBar({ mode, onSelectMode, projects, projectScan }: HeaderBarProps) {
   const scanned = !projectScan || projectScan.status === "ready" || (projectScan.status === "stale" && projects.length > 0);
+  const acceptance = useAcceptanceProfile();
   return (
     <header className="topbar olympus-header">
+      {/* Persistent in every mode, so an acceptance run cannot be mistaken
+          for the operator's real data. */}
+      {acceptance && <p className="acceptance-profile-label" title={acceptance.dir}>{ACCEPTANCE_LABEL}</p>}
       {/* The first tab stop in every mode: the console sits last in reading
           order, behind the rail, catalog, board, library or mail (review U9). */}
       <a className="skip-to-console" href="#olympus-console-input" onClick={skipToConsole}>Skip to console</a>

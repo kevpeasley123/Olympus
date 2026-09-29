@@ -175,6 +175,7 @@ fn status(app: &tauri::AppHandle) -> Result<Status, String> {
     })
 }
 fn sync_inner(app: &tauri::AppHandle, runtime: &Runtime) -> Result<(), String> {
+    super::acceptance::refuse_gmail()?;
     let db = app.state::<Db>();
     let (account, cached) = {
         let c = db.0.lock().map_err(|_| "gmail_database_unavailable")?;
@@ -252,6 +253,7 @@ fn sync_inner(app: &tauri::AppHandle, runtime: &Runtime) -> Result<(), String> {
 }
 #[tauri::command]
 pub async fn gmail_sync(app: tauri::AppHandle) -> Result<(), String> {
+    super::acceptance::refuse_gmail()?;
     tauri::async_runtime::spawn_blocking(move || {
         let runtime = app.state::<Runtime>();
         let _op = runtime.begin()?;
@@ -262,6 +264,7 @@ pub async fn gmail_sync(app: tauri::AppHandle) -> Result<(), String> {
 }
 #[tauri::command]
 pub async fn gmail_connect(app: tauri::AppHandle) -> Result<(), String> {
+    super::acceptance::refuse_gmail()?;
     tauri::async_runtime::spawn_blocking(move || {
         let runtime = app.state::<Runtime>();
         let _op = runtime.begin()?;
@@ -314,6 +317,8 @@ pub fn gmail_disconnect(
     db: tauri::State<'_, Db>,
     runtime: tauri::State<'_, Runtime>,
 ) -> Result<(), String> {
+    // Revocation is a network call and the credential lives in the keyring.
+    super::acceptance::refuse_gmail()?;
     let _gate = runtime
         .commit
         .lock()

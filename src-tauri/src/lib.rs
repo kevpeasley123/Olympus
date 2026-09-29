@@ -318,8 +318,28 @@ fn load_olympus_env() {
     eprintln!("[Olympus::Env] no .env file found in expected Olympus paths");
 }
 
+/// Settles the process environment before anything reads it. Under the
+/// acceptance profile `.env` is never opened and the provider keys are removed
+/// from this process, so no chat, voice or verification path can reach a paid
+/// provider. The file itself is untouched.
+fn prepare_environment() {
+    let profile = commands::acceptance::acceptance_dir();
+    let plan = commands::acceptance::startup_environment(profile.as_deref());
+    if plan.load_dotenv {
+        load_olympus_env();
+    }
+    // Still single-threaded here: the builder, the runtime and every command
+    // start after this returns.
+    for key in plan.remove {
+        std::env::remove_var(key);
+    }
+    if let Some(dir) = profile {
+        eprintln!("[Olympus::Acceptance] profile {}", dir.display());
+    }
+}
+
 pub fn run() {
-    load_olympus_env();
+    prepare_environment();
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
@@ -337,8 +357,12 @@ pub fn run() {
             app.manage(Db(Mutex::new(connection)));
             app.manage(DelegationProcesses::default());
             app.manage(commands::gmail::Runtime::default());
-            commands::gmail::start_cadence(app.handle().clone());
-            commands::gmail::situations::start_cadence(app.handle().clone());
+            // No background sync or understanding under the acceptance
+            // profile: its Gmail account row is synthetic.
+            if !commands::acceptance::active() {
+                commands::gmail::start_cadence(app.handle().clone());
+                commands::gmail::situations::start_cadence(app.handle().clone());
+            }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -348,6 +372,7 @@ pub fn run() {
             commands::gmail::intelligence::inspection::communication_workflow, commands::gmail::intelligence::inspection::inspect_communication_run,
             commands::gmail::gmail_workspace, commands::gmail::gmail_remove_cache, commands::gmail::gmail_cache_counts, commands::gmail::gmail_status, commands::gmail::gmail_connect, commands::gmail::gmail_cancel, commands::gmail::gmail_disconnect, commands::gmail::gmail_sync, commands::gmail::gmail_set_horizon, commands::gmail::gmail_search, commands::gmail::gmail_thread,
             send_assistant_message,
+            commands::acceptance::acceptance_profile,
             commands::knowledge_audit::start_knowledge_audit,
             commands::research_verification::research_agent_catalog,
             commands::command_agents::command_agent_catalog,

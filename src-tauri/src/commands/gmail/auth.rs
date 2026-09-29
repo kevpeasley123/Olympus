@@ -43,6 +43,9 @@ pub trait Secrets {
 }
 pub struct WindowsSecrets;
 fn entry(account: &str) -> Result<keyring::Entry, String> {
+    // Before the platform check, so the refusal is the same everywhere and the
+    // Credential Manager entry is never opened under the acceptance profile.
+    crate::commands::acceptance::refuse_gmail()?;
     if !cfg!(target_os = "windows") {
         return Err("gmail_secure_store_unsupported".into());
     }
