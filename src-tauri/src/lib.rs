@@ -345,6 +345,10 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(commands::external_link::navigation_guard())
         .setup(|app| {
+            commands::acceptance::check_identifier(
+                commands::acceptance::active(),
+                &app.config().identifier,
+            )?;
             let connection = open_database(app.handle())?;
             commands::knowledge_audit::recover(&connection)?;
             commands::research_verification::recover(&connection)?;

@@ -120,6 +120,24 @@ pub fn projects_root() -> Option<PathBuf> {
     acceptance_dir().map(|dir| dir.join("projects"))
 }
 
+/// The production identifier. Its app data directory holds the real database
+/// and WebView2 profile, so the acceptance profile must never run under it.
+pub const PRODUCTION_IDENTIFIER: &str = "com.projectolympus.commandstation";
+
+/// Refuses to start the acceptance profile under the production identifier.
+/// Without the `--config` override the synthetic vault would be paired with
+/// the real database, whose startup writes need no confirmation.
+pub fn check_identifier(active: bool, identifier: &str) -> Result<(), String> {
+    if active && identifier == PRODUCTION_IDENTIFIER {
+        return Err(format!(
+            "{ENV_VAR} is set but the app identifier is the production one ({PRODUCTION_IDENTIFIER}). \
+             Launch with --config scripts/acceptance/tauri.acceptance.json so the acceptance \
+             profile gets its own database and webview profile."
+        ));
+    }
+    Ok(())
+}
+
 pub fn refuse_gmail() -> Result<(), String> {
     if active() {
         return Err(GMAIL_DISABLED.into());
@@ -151,6 +169,13 @@ pub fn acceptance_profile() -> Option<AcceptanceProfile> {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn the_profile_refuses_the_production_identifier() {
+        assert!(check_identifier(true, PRODUCTION_IDENTIFIER).is_err());
+        assert!(check_identifier(true, "com.projectolympus.acceptance").is_ok());
+        assert!(check_identifier(false, PRODUCTION_IDENTIFIER).is_ok());
+    }
+
     use super::*;
 
     fn cwd() -> PathBuf {

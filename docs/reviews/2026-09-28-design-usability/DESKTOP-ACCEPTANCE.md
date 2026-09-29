@@ -115,6 +115,8 @@ npm run tauri -- dev --config scripts/acceptance/tauri.acceptance.json
 
 If any of these fails, close the app and stop.
 
+Guard (added 2026-09-29): if `OLYMPUS_ACCEPTANCE_DIR` is set but the `--config` override was forgotten, the app refuses to start rather than open the production database. The error names the missing `--config`. That refusal is correct; relaunch with the config.
+
 **Cleanup:**
 ```powershell
 Remove-Item Env:OLYMPUS_ACCEPTANCE_DIR
