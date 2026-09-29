@@ -35,6 +35,8 @@ export interface ProjectViewState {
 export interface ProjectDraft {
   task: string;
   criteria: string[];
+  /** The task Olympus filled in when the draft opened; equal to it is not typed work. */
+  prefill?: string;
 }
 
 export interface ReviewNotesState {
@@ -236,6 +238,14 @@ export function writeViewEntry<K extends RecordSliceKey>(key: K, id: string, upd
   });
 }
 
+/**
+ * A removed mailbox cache takes the account's unsent drafts and selections
+ * with it, so nothing purged reattaches when the account syncs again.
+ */
+export function forgetCommsAccount(accountId: string): void {
+  writeViewEntry("comms", accountId, null, EMPTY_COMMS_ACCOUNT);
+}
+
 /** One entry of a keyed slice, e.g. the draft for one project or the notes for one run. */
 export function useViewEntry<K extends RecordSliceKey>(key: K, id: string, fallback: EntryOf<K>): [EntryOf<K>, (update: Updater<EntryOf<K>> | null) => void] {
   const [record] = useViewSlice(key);
@@ -245,14 +255,34 @@ export function useViewEntry<K extends RecordSliceKey>(key: K, id: string, fallb
 }
 
 /**
+ * A draft holds the operator's work once it differs from what Olympus
+ * prefilled: an opened but untouched draft is not something to strand.
+ */
+export function projectDraftHasWork(draft: ProjectDraft | null | undefined, prefill: string = draft?.prefill ?? ""): boolean {
+  if (!draft) return false;
+  return draft.task.trim() !== prefill.trim() || draft.criteria.some((line) => line.trim());
+}
+
+/**
+ * Review notes describe a run still awaiting review. Once the run has ended
+ * (completed, failed or stopped) there is nothing left to act on, so its
+ * notes are dropped rather than holding the project open.
+ */
+export function pruneEndedReviewNotes(endedRunIds: Iterable<string>): void {
+  const stored = readViewSlice("reviewNotes");
+  for (const runId of endedRunIds) {
+    if (runId in stored) writeViewEntry("reviewNotes", runId, null, EMPTY_REVIEW_NOTES);
+  }
+}
+
+/**
  * True when leaving Project mode would strand typed work for this project: an
  * unsent task or criteria, or review notes not yet acted on. App keeps the
  * project open in that case instead of clearing the filter.
  */
 export function projectHasOpenWork(projectId: string | null): boolean {
   if (!projectId) return false;
-  const draft = readViewSlice("projectDrafts")[projectId];
-  if (draft && (draft.task.trim() || draft.criteria.some((line) => line.trim()))) return true;
+  if (projectDraftHasWork(readViewSlice("projectDrafts")[projectId])) return true;
   return Object.values(readViewSlice("reviewNotes")).some((review) =>
     review.projectId === projectId && (review.reviewed || review.notes.some((note) => note.trim())
       || review.evidence.some(Boolean) || Boolean(review.issues?.trim())));

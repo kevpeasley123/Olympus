@@ -50,11 +50,10 @@ export function AmbientDock({ onRefresh, mode, onCycleMode, voicePreferences, on
       // gate would move the ground beneath the decision it is asking for.
       const modalOpen = isModalOpen();
 
-      // Checked before any typing guard: the default is always suppressed, so
-      // Ctrl+R can never reload the webview mid-draft, even from the console.
-      // Refreshing is safe while typing; it touches no draft.
+      // Checked before any typing guard: refreshing is safe while typing; it
+      // touches no draft. The reload itself is suppressed by
+      // `suppressWebviewReload` in main.tsx, outside this dock's boundary.
       if (SHORTCUTS.refresh.matches(event)) {
-        event.preventDefault();
         if (!modalOpen) handleRefresh();
         return;
       }

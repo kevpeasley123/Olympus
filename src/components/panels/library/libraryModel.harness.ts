@@ -9,6 +9,8 @@ import {
   draftRequest,
   isAutomaticTag,
   isDraftDirty,
+  keptDraftPending,
+  mayKeepDraft,
   locateExcerpt,
   normaliseRenderedForMatch,
   prepareEntries,
@@ -127,6 +129,20 @@ export function runLibraryModelHarness() {
       assert(isDraftDirty(draft, blank), `${key} alone is not detected`);
       assert(changedDraftFields(draft, blank).includes(DRAFT_FIELD_LABELS[key]), `${key} not named in the prompt`);
     }
+  });
+
+  check("a pending kept draft is never replaced by a second one (review M1)", () => {
+    const blank = blankDraft("2026-09-28");
+    const draftA = { ...blank, title: "A", body: "first", keptAt: "2026-09-28T10:00:00Z" };
+    const formB = { ...blank, title: "B", body: "second" };
+    assert(keptDraftPending(draftA, false), "an unanswered kept draft is not pending");
+    assert(!keptDraftPending(draftA, true), "a restored draft still reads as pending");
+    assert(!keptDraftPending(null, false), "no draft reads as pending");
+    assert(!keptDraftPending({ ...blank, keptAt: "2026-09-28T10:00:00Z" }, false), "an empty kept draft reads as pending");
+    assert(!mayKeepDraft(formB, blank, draftA, false), "keep or unmount would overwrite the pending draft A");
+    assert(mayKeepDraft(formB, blank, draftA, true), "an edited restore cannot be kept again");
+    assert(mayKeepDraft(formB, blank, null, false), "a first draft cannot be kept");
+    assert(!mayKeepDraft(blank, blank, null, false), "an untouched form is kept");
   });
 
   check("a retry reuses the attachment already written", () => {

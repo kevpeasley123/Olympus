@@ -12,7 +12,7 @@ use rusqlite::{params, Connection, OptionalExtension};
 use serde::Deserialize;
 use serde_json::{json, Value};
 use std::collections::BTreeMap;
-use std::sync::atomic::{AtomicI64, AtomicU32, Ordering};
+use std::sync::Mutex;
 use tauri::{Manager, State};
 const GRAPH: &str = "communication-situations/v1";
 fn err(e: impl std::fmt::Display) -> String {
@@ -150,11 +150,15 @@ fn snapshot(c: &Connection) -> Result<Value, String> {
             |r| r.get(0),
         )
         .map_err(err)?;
+    let (failures, resume_at) = BACKOFF
+        .lock()
+        .map(|state| state.for_account(&a.id))
+        .unwrap_or((0, 0));
     let understanding = understanding(
         c,
         &a.id,
-        FAILURES.load(Ordering::SeqCst),
-        RESUME_AT.load(Ordering::SeqCst),
+        failures,
+        resume_at,
         chrono::Utc::now().timestamp_millis(),
     )?;
     Ok(
@@ -333,27 +337,50 @@ fn edit(c: &mut Connection, id: &str, action: Edit, value: &str) -> Result<(), S
 }
 // Repeating failures would repeat paid calls. Consecutive failures back off
 // from five minutes to four hours; any success, manual or background, resets.
-// Held in memory only, so a restart retries once.
-static FAILURES: AtomicU32 = AtomicU32::new(0);
-static RESUME_AT: AtomicI64 = AtomicI64::new(0);
+// Held in memory only, so a restart retries once. The account the failures
+// belong to is recorded with them: another account's snapshot reports none.
+#[derive(Debug, Default, PartialEq, Eq)]
+struct Backoff {
+    account: Option<String>,
+    failures: u32,
+    resume_at: i64,
+}
+impl Backoff {
+    /// `(failures, resume_at)` as they apply to `id`: zero unless they are its own.
+    fn for_account(&self, id: &str) -> (u32, i64) {
+        if self.account.as_deref() == Some(id) {
+            (self.failures, self.resume_at)
+        } else {
+            (0, 0)
+        }
+    }
+    fn record(&mut self, account: Option<&str>, result: &Result<(), String>, now_ms: i64) {
+        match result {
+            Ok(()) => *self = Backoff { account: account.map(str::to_string), ..Backoff::default() },
+            Err(e) if e != "gmail_not_connected" && e != "database_busy" => {
+                // A different account starts its own count.
+                let prior = if self.account.as_deref() == account { self.failures } else { 0 };
+                let failures = prior.saturating_add(1);
+                *self = Backoff {
+                    account: account.map(str::to_string),
+                    failures,
+                    resume_at: now_ms + backoff_ms(failures),
+                };
+            }
+            Err(_) => {}
+        }
+    }
+}
+static BACKOFF: Mutex<Backoff> = Mutex::new(Backoff {
+    account: None,
+    failures: 0,
+    resume_at: 0,
+});
 fn backoff_ms(failures: u32) -> i64 {
     (300_000i64 << failures.saturating_sub(1).min(6)).min(14_400_000)
 }
 fn record_outcome(db: &Db, result: &Result<(), String>) {
-    match result {
-        Ok(()) => {
-            FAILURES.store(0, Ordering::SeqCst);
-            RESUME_AT.store(0, Ordering::SeqCst);
-        }
-        Err(e) if e != "gmail_not_connected" && e != "database_busy" => {
-            let failures = FAILURES.fetch_add(1, Ordering::SeqCst) + 1;
-            RESUME_AT.store(
-                chrono::Utc::now().timestamp_millis() + backoff_ms(failures),
-                Ordering::SeqCst,
-            );
-        }
-        Err(_) => {}
-    }
+    let mut processed = None;
     if let Ok(c) = db.0.lock() {
         if let Ok(a) = account(&c) {
             if ensure(&c, &a.id).is_ok() {
@@ -362,7 +389,15 @@ fn record_outcome(db: &Db, result: &Result<(), String>) {
                     params![a.id, result.as_ref().err()],
                 );
             }
+            processed = Some(a.id);
         }
+    }
+    if let Ok(mut state) = BACKOFF.lock() {
+        state.record(
+            processed.as_deref(),
+            result,
+            chrono::Utc::now().timestamp_millis(),
+        );
     }
 }
 pub fn start_cadence(app: tauri::AppHandle) {
@@ -371,7 +406,10 @@ pub fn start_cadence(app: tauri::AppHandle) {
         loop {
             // Unlike the display, this worker remains active when Communications is not selected.
             let db = app.state::<Db>();
-            if chrono::Utc::now().timestamp_millis() >= RESUME_AT.load(Ordering::SeqCst) {
+            // Gated on the last failure whichever account it was: a wait that is
+            // too long costs a delay, one too short repeats paid calls.
+            let resume_at = BACKOFF.lock().map(|state| state.resume_at).unwrap_or(0);
+            if chrono::Utc::now().timestamp_millis() >= resume_at {
                 let result = engine::refresh(&db, false).await;
                 record_outcome(&db, &result);
             }

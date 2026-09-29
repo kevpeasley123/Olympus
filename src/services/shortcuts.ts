@@ -96,3 +96,17 @@ export function isEditableTarget(target: EventTarget | null): boolean {
   }
   return false;
 }
+
+/**
+ * Installed once in main.tsx, outside every error boundary: the webview's own
+ * Ctrl/Cmd+R reload is suppressed even when the region that performs the
+ * refresh (the Status dock) has crashed and unmounted its handler. Capture
+ * phase, so no handler below can run first and stop it.
+ */
+export function suppressWebviewReload(target: Window = window): () => void {
+  const suppress = (event: KeyboardEvent) => {
+    if (SHORTCUTS.refresh.matches(event)) event.preventDefault();
+  };
+  target.addEventListener("keydown", suppress, true);
+  return () => target.removeEventListener("keydown", suppress, true);
+}

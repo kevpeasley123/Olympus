@@ -1,6 +1,6 @@
-import { completionChecklist, reconcileReviewNotes, type ChecklistInput } from "./delegationReview";
+import { completionChecklist, preparedResumeApplies, reconcileReviewNotes, type ChecklistInput } from "./delegationReview";
 import type { CheckEvidence, CheckOption } from "./delegation";
-import { EMPTY_REVIEW_NOTES, projectHasOpenWork, readViewSlice, resetViewState, writeViewEntry } from "../state/viewState";
+import { EMPTY_PROJECT_DRAFT, EMPTY_REVIEW_NOTES, projectHasOpenWork, pruneEndedReviewNotes, readViewSlice, resetViewState, writeViewEntry } from "../state/viewState";
 
 /** Review notes survive refreshes; evidence validity does not outlive its workspace (review U3, U11). */
 export function runDelegationReviewHarness() {
@@ -48,6 +48,36 @@ export function runDelegationReviewHarness() {
   const ready = completionChecklist({ ...base, notes: ["Twenty-plus characters of evidence.", "Also more than twenty characters."], checks: [pass("c9", "h2")], reviewed: true, issues: "  " });
   check(ready.every(item => item.met), "All conditions met enables completion");
   check(completionChecklist({ ...base, notes: ["x".repeat(2001), "Also more than twenty characters."] }).some(item => item.text.includes("too long (2001/2,000)")), "Over-long note is stated");
+
+  // Regression L1: an opened but untouched draft is not typed work.
+  resetViewState();
+  writeViewEntry("projectDrafts", "project-c", { task: "Ship the release notes", criteria: [], prefill: "Ship the release notes" }, EMPTY_PROJECT_DRAFT);
+  check(!projectHasOpenWork("project-c"), "An untouched prefilled task does not hold the project open");
+  writeViewEntry("projectDrafts", "project-c", current => ({ ...current, criteria: ["", "  "] }), EMPTY_PROJECT_DRAFT);
+  check(!projectHasOpenWork("project-c"), "Blank criteria lines are not typed work");
+  writeViewEntry("projectDrafts", "project-c", current => ({ ...current, task: "Ship the release notes and the changelog" }), EMPTY_PROJECT_DRAFT);
+  check(projectHasOpenWork("project-c"), "An edited task holds the project open");
+  writeViewEntry("projectDrafts", "project-c", { task: "Ship the release notes", criteria: ["Notes render"], prefill: "Ship the release notes" }, EMPTY_PROJECT_DRAFT);
+  check(projectHasOpenWork("project-c"), "A typed criterion holds the project open");
+  writeViewEntry("projectDrafts", "project-c", { task: "", criteria: [], prefill: "Ship the release notes" }, EMPTY_PROJECT_DRAFT);
+  check(projectHasOpenWork("project-c"), "Clearing the prefilled task is an edit");
+
+  // Regression L1: notes for an ended run do not pin the project.
+  resetViewState();
+  writeViewEntry("reviewNotes", "run-ended", { ...EMPTY_REVIEW_NOTES, projectId: "project-d", notes: ["Typed before the run was stopped."] }, EMPTY_REVIEW_NOTES);
+  writeViewEntry("reviewNotes", "run-live", { ...EMPTY_REVIEW_NOTES, projectId: "project-e", notes: ["Still under review."] }, EMPTY_REVIEW_NOTES);
+  check(projectHasOpenWork("project-d"), "Notes pin their project before the run ends");
+  pruneEndedReviewNotes(["run-ended", "run-unknown"]);
+  check(!projectHasOpenWork("project-d") && !("run-ended" in readViewSlice("reviewNotes")), "An ended run's notes are dropped and no longer pin the project");
+  check(projectHasOpenWork("project-e"), "A live run's notes are kept");
+
+  // Regression L3: a cached resume approval applies only while its run waits.
+  const listed = [{ id: "run-w", phase: "waiting" }, { id: "run-x", phase: "cancelled" }];
+  check(preparedResumeApplies("run-w", listed, true), "A waiting run keeps its prepared approval");
+  check(!preparedResumeApplies("run-x", listed, true), "A stopped run drops its prepared approval");
+  check(!preparedResumeApplies("run-gone", listed, true), "A run no longer listed drops its prepared approval");
+  check(!preparedResumeApplies("run-w", [{ id: "run-w", phase: "planning" }], true), "A run that resumed drops its prepared approval");
+  check(preparedResumeApplies("run-x", [], false), "Nothing is dropped before the first list");
   resetViewState();
   return { passed };
 }

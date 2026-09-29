@@ -80,6 +80,30 @@ fn background_failures_back_off_to_a_bounded_ceiling() {
     assert_eq!(backoff_ms(u32::MAX), 14_400_000);
 }
 #[test]
+fn backoff_is_reported_only_for_the_account_that_failed() {
+    let mut state = Backoff::default();
+    let failed: Result<(), String> = Err("situation_model_failed".into());
+    state.record(Some("fixture"), &failed, 1_000);
+    state.record(Some("fixture"), &failed, 2_000);
+    assert_eq!(state.for_account("fixture"), (2, 2_000 + backoff_ms(2)));
+    assert_eq!(state.for_account("other"), (0, 0));
+    let db = database();
+    let c = db.0.lock().unwrap();
+    let (failures, resume_at) = state.for_account("other");
+    assert!(understanding(&c, "other", failures, resume_at, 1_500).unwrap()["nextAttemptAt"].is_null());
+    let (failures, resume_at) = state.for_account("fixture");
+    assert!(!understanding(&c, "fixture", failures, resume_at, 2_500).unwrap()["nextAttemptAt"].is_null());
+    // Another account failing starts its own count and releases the first.
+    state.record(Some("other"), &failed, 3_000);
+    assert_eq!(state.for_account("other"), (1, 3_000 + backoff_ms(1)));
+    assert_eq!(state.for_account("fixture"), (0, 0));
+    // Not connected or a busy database is not a failed attempt.
+    state.record(None, &Err("gmail_not_connected".into()), 4_000);
+    assert_eq!(state.for_account("other"), (1, 3_000 + backoff_ms(1)));
+    state.record(Some("other"), &Ok(()), 5_000);
+    assert_eq!(state.for_account("other"), (0, 0));
+}
+#[test]
 fn understanding_reports_last_published_run_and_real_backoff_only() {
     let db = database();
     let c = db.0.lock().unwrap();
