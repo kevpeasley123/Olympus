@@ -1,6 +1,6 @@
-## Continuation — Command Capability Armory and visual review (September 29, 2026, uncommitted)
+## Continuation — Command Capability Armory and visual review (released as 0.21.0, September 30, 2026)
 
-Built from `c432f48` (0.20.0) in a cloud container, overnight, without commits. The owner reviews and decides whether to commit. Design and status: `docs/COMMAND-ARMORY-REDESIGN.md`; tooling: `docs/VISUAL-REVIEW.md`; plan context: `docs/ARMORY-PLAN.md` (approved).
+Built from `c432f48` (0.20.0) in a cloud container overnight, committed as `9ad66b7`, and released in 0.21.0 through "Bring everything current" (see `CLAUDE.md` and `docs/RELEASES.md`). Design and status: `docs/COMMAND-ARMORY-REDESIGN.md`; tooling: `docs/VISUAL-REVIEW.md`; plan context: `docs/ARMORY-PLAN.md` (approved).
 
 What changed:
 - The Command ring shows eight capability domains derived from real Tools (14) and Skills (7), not projects. New read-only commands `command_capabilities` and `command_missions` (`src-tauri/src/commands/capabilities.rs`); no schema change.
@@ -21,7 +21,7 @@ Verified on Linux only, fresh runs:
 **No desktop, WebView2 or Windows run.** Harness screenshots show Mission View relative times ("started 40 min ago") against the real clock, not the fixture clock.
 
 Next:
-1. Review the diff and decide on committing it.
+1. Install 0.21.0 on the PC: the **Update Olympus** desktop icon, or `npm run update`. Its first Windows run is unobserved.
 2. Desktop check on the owner's PC: the manual review list in `docs/COMMAND-ARMORY-REDESIGN.md` §4, with `npm run visual:review` run there too (it uses the installed Edge).
 3. The Armory engine spike (Claude Code subscription driver) in a local session on the PC, per `docs/ARMORY-PLAN.md`.
 
