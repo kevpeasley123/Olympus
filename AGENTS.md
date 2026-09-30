@@ -27,6 +27,11 @@ generated recommendations.
   conflict with the current vision.
 - State which verification level was actually reached.
 
+## "Bring everything current"
+
+The owner's standing release instruction. The procedure and what it authorizes
+are defined in `CLAUDE.md` under that heading; follow it exactly.
+
 ## UI changes
 
 Look at what you changed, don't only compile it. For any change to Command or

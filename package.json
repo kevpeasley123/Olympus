@@ -9,6 +9,7 @@
     "build": "tsc && vite build",
     "preview": "vite preview --host 127.0.0.1",
     "install:local": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/install-olympus-local.ps1",
+    "update": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/update-olympus.ps1",
     "tauri": "tauri",
     "visual:review": "node scripts/visual-review.mjs"
   },

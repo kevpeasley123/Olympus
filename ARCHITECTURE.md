@@ -316,6 +316,7 @@ npm run dev          # Vite dev server (browser)
 npm run tauri dev    # Tauri desktop shell (requires Rust toolchain — https://rustup.rs/)
 npm run build        # Production build
 npm run install:local # Build and update the stable Windows installation
+npm run update       # Fast-forward to origin/master, then install it if newer (the PC half of "Bring everything current")
 ```
 
 The ordinary operator launch target is
