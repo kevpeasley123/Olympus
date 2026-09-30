@@ -2,7 +2,12 @@ import { useEffect, useMemo, useRef } from "react";
 import "@fontsource/jetbrains-mono/500.css";
 import type { CommandLayout } from "../../services/hybridCore";
 import type { OlympusVisualState } from "../../services/ambientMotion";
-export interface HybridFrame { state: OlympusVisualState; voiceLevel: number; running: boolean; hoverProject: string | null; execution?: { projectId: string; operation: number }; constellationMotion?: {yaw:number} }
+/**
+ * Per-frame input. `light` is each capability domain's glow (0..1) from hover,
+ * the agent lens and mission state; `activeDomains` are the domains a recorded
+ * mission step is using right now. Neither rebuilds the scene.
+ */
+export interface HybridFrame { state: OlympusVisualState; voiceLevel: number; running: boolean; light?: Readonly<Record<string, number>>; activeDomains?: readonly string[]; execution?: { operation: number }; constellationMotion?: {yaw:number} }
 interface Props extends HybridFrame { layout: CommandLayout; onReady: (ready: boolean) => void; onError: (reason: string) => void }
 /**
  * Only what mountHybridScene and the material study read. The layout embeds
@@ -13,7 +18,7 @@ function sceneKeyFor(layout: CommandLayout) {
   const end = (p: {x:number; y:number; id?:string}) => p.id ?? `${p.x},${p.y}`;
   return JSON.stringify([
     Math.round(layout.labelScale * 20) / 20,
-    layout.ring.segments.map(s => [s.project.id, s.project.name, s.project.status, s.startAngle, s.endAngle, s.midAngle]),
+    layout.ring.segments.map(s => [s.id, s.label, s.count, s.available, s.startAngle, s.endAngle, s.midAngle]),
     layout.constellation.nodes.map(n => [n.id, n.projectId, n.isProject, n.x, n.y, n.size]),
     layout.constellation.treeEdges.map(e => [end(e.from), end(e.to), e.depth]),
     layout.constellation.crossProjectEdges.map(e => [end(e.from), end(e.to), e.pieces.map(p => [p.from.x, p.from.y, p.to.x, p.to.y])]),

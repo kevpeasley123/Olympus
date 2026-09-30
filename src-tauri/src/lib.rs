@@ -389,6 +389,8 @@ pub fn run() {
             commands::knowledge_audit::start_knowledge_audit,
             commands::research_verification::research_agent_catalog,
             commands::command_agents::command_agent_catalog,
+            commands::capabilities::command_capabilities,
+            commands::capabilities::command_missions,
             commands::research_verification::start_research_verification,
             commands::research_verification::inspect_research_verification,
             commands::research_verification::list_research_verifications,

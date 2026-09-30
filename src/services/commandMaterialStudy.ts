@@ -2,6 +2,7 @@ import * as T from "three";
 import { SVGLoader } from "three/addons/loaders/SVGLoader.js";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 import { INNER_CORE_SCALE, type CommandLayout } from "./hybridCore";
+import { segmentCaption } from "./capabilityRing";
 
 export const ACTIVE_PROJECT = { edgeIntensity:1.15, internalWarmth:.006, tracerDuration:2.8, tracerInterval:7 };
 export const FRONT_GLASS = { opacity:.24, roughness:.10, reflectionGain:2.1, reflectionFloor:.16, grazingGain:1.8 };
@@ -152,7 +153,7 @@ export function buildCommandMaterialStudy(scene:T.Scene,renderer:T.WebGLRenderer
   for(const child of group.children.slice(coreStart))core.add(child);
   core.scale.setScalar(INNER_CORE_SCALE);group.add(core);
   // The selected study section follows the existing map, never an independently arranged scene.
-  const studyIds=new Set(layout.ring.segments.map(segment=>segment.project.id));
+  const studyIds=new Set(layout.ring.segments.map(segment=>segment.id));
   // The chassis and energy channel surround an open gap outside the cassettes.
   const chassis=new T.MeshPhysicalMaterial({color:0x314450,metalness:.82,roughness:.22,envMapIntensity:1.4,clearcoat:.12,clearcoatRoughness:.3});
   const chassisSides=new T.MeshStandardMaterial({color:0x0d1822,metalness:.78,roughness:.22,envMapIntensity:1.05});
@@ -217,15 +218,16 @@ export function buildCommandMaterialStudy(scene:T.Scene,renderer:T.WebGLRenderer
   const atlasScale=2048/440;labelContext.scale(atlasScale,atlasScale);
   labelContext.textAlign='center';labelContext.textBaseline='middle';
   for(const segment of layout.ring.segments){
-    const active=segment.project.status==='active';
-    const fontSize=(active?11.5:10)/Math.max(layout.labelScale,.01);
+    const active=segment.available;
+    const fontSize=10.5/Math.max(layout.labelScale,.01);
     labelContext.font=`500 ${fontSize}px "JetBrains Mono"`;
     const spacing=fontSize*.09,advance=labelContext.measureText('M').width+spacing;
     const capacity=Math.floor(((segment.endAngle-segment.startAngle)*Math.PI*168/180-12)/(fontSize*.62));
-    const original=segment.project.name.toUpperCase();
-    const name=original.length<=capacity?original:original.slice(0,Math.max(0,capacity-1))+'…';
+    const name=segmentCaption(segment,capacity);
     const flipped=segment.midAngle>90&&segment.midAngle<270;
-    labelContext.fillStyle=active?'#f2bc74':'#ddb17a';
+    // Unavailable domains stay legible but recede; availability is not colour-only
+    // (the SVG layer names it in each sector's accessible label).
+    labelContext.fillStyle=active?'#e9bd7c':'#7d8a97';
     Array.from(name).forEach((letter,i)=>{
       const offset=(i-(name.length-1)/2)*advance/168;
       const angle=segment.midAngle*Math.PI/180+(flipped?-offset:offset);
@@ -260,8 +262,9 @@ export function buildCommandMaterialStudy(scene:T.Scene,renderer:T.WebGLRenderer
   diffusionLabel.name='Subsurface lettering diffusion';diffusionLabel.renderOrder=18;
   const panels:{id:string;face:T.MeshPhysicalMaterial;active:boolean;rim:T.LineBasicMaterial;hoverEdge:T.ShaderMaterial;hover:number;labelIndex:number}[]=[];
   for(const segment of layout.ring.segments){
-    if(!studyIds.has(segment.project.id))continue;
-    const {startAngle:a,endAngle:b}=segment,active=segment.project.status==='active';
+    if(!studyIds.has(segment.id))continue;
+    // Every cassette is built cool; light arrives per frame from the armory state.
+    const {startAngle:a,endAngle:b}=segment,active=false;
     // One polished glass volume replaces the stacked rails, ribs and fasteners.
     const glass=new T.MeshPhysicalMaterial({
       color:0x284454,metalness:PROJECT_GLASS.metalness,roughness:PROJECT_GLASS.roughness,
@@ -383,14 +386,14 @@ export function buildCommandMaterialStudy(scene:T.Scene,renderer:T.WebGLRenderer
     });
     const hoverOutline=mesh(new T.ShapeGeometry(annulus(a-1.2,b+1.2,152.2,183.8)),hoverEdge,-.45);
     hoverOutline.renderOrder=21;
-    panels.push({id:segment.project.id,face:glass,active,rim,hoverEdge,hover:0,labelIndex:layout.ring.segments.indexOf(segment)});
+    panels.push({id:segment.id,face:glass,active,rim,hoverEdge,hover:0,labelIndex:layout.ring.segments.indexOf(segment)});
 
   }
   const idleCycle=createIdleCoreCycle();
   let previousTime=0,wasIdle=false,speechAmount=0;
   return {
     studyIds,
-    update(time:number,energy:number,moving:boolean,hover:string|null,idle=false,speaking=false,executing=false,executionProject?:string,operationPulse=0,completing=false,errorAge=-1){
+    update(time:number,energy:number,moving:boolean,light:Readonly<Record<string,number>>,idle=false,speaking=false,executing=false,operationPulse=0,completing=false,errorAge=-1){
       const frameDelta=Math.min(.05,Math.max(0,time-previousTime));
       const target=speaking&&moving?Math.max(0,Math.min(1,energy)):0;
       const response=target>speechAmount?OMEGA_SPEECH.attackSeconds:OMEGA_SPEECH.releaseSeconds;
@@ -422,13 +425,15 @@ export function buildCommandMaterialStudy(scene:T.Scene,renderer:T.WebGLRenderer
       warmLines.opacity=.72+.12*(envelope-1)+energy*.08;
       activeChannels.forEach(material=>{material.uniforms.clock.value=time;material.uniforms.motion.value=moving?1:0;});
       panels.forEach(p=>{
-        const selected=hover===p.id;
-        p.hover=moving?p.hover+((selected?1:0)-p.hover)*(1-Math.exp(-frameDelta/(selected?PROJECT_HOVER.enterSeconds:PROJECT_HOVER.leaveSeconds))):(selected?1:0);
-        p.hoverEdge.uniforms.strength.value=p.hover*PROJECT_HOVER.outlineOpacity;
+        // One light level per domain (hover, lens, mission), eased like the old hover.
+        const target=Math.max(0,Math.min(1,light[p.id]??0));
+        const working=executing&&target>=1;
+        p.hover=moving?p.hover+(target-p.hover)*(1-Math.exp(-frameDelta/(target>p.hover?PROJECT_HOVER.enterSeconds*2:PROJECT_HOVER.leaveSeconds*3))):target;
+        p.hoverEdge.uniforms.strength.value=p.hover*PROJECT_HOVER.outlineOpacity*(working?1+operationPulse*.6:1);
         p.face.emissive.set(0xb87432);p.face.emissiveIntensity=p.hover*PROJECT_HOVER.glassEmission;
         labelHover[p.labelIndex].z=p.hover;
-        p.rim.color.set(error&&p.id===executionProject?0xe57950:p.active?0xe7bb7a:0xa9d5e8);
-        p.rim.opacity=PROJECT_GLASS.rimOpacity+(p.active?PROJECT_GLASS.activeRimBoost*.25:0)+(selected?PROJECT_GLASS.hoverRimBoost:0)+(p.id===executionProject?.10+operationPulse*.10:0);
+        p.rim.color.set(error&&working?0xe57950:p.hover>.05?0xe7bb7a:0xa9d5e8);
+        p.rim.opacity=PROJECT_GLASS.rimOpacity+p.hover*PROJECT_GLASS.hoverRimBoost+(working?.10+operationPulse*.10:0);
       });
     },
     dispose(){labelTexture.dispose();diffusionTexture.dispose();engraving.dispose();contour.dispose();environmentTarget.dispose();scene.environment=null;}

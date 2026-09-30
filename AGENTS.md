@@ -26,3 +26,23 @@ generated recommendations.
 - Pause before product-direction, architecture, or visual-language changes that
   conflict with the current vision.
 - State which verification level was actually reached.
+
+## "Bring everything current"
+
+The owner's standing release instruction. The procedure and what it authorizes
+are defined in `CLAUDE.md` under that heading; follow it exactly.
+
+## UI changes
+
+Look at what you changed, don't only compile it. For any change to Command or
+shared UI:
+
+1. Run the focused tests (`node scripts/test-*.mjs` for what you touched).
+2. Run `npm run visual:review` and read the screenshots it writes to
+   `output/visual-review/latest/` for the affected scenarios and viewports.
+3. Critique them, fix what is wrong, capture again, and look again.
+4. Finish with the full `npm run visual:review` as a regression pass.
+
+Report mechanical results and your own visual judgement separately. A browser
+capture is not a desktop acceptance: the Windows native pass is still required
+for WebView2, Tauri IPC and real data. See `docs/VISUAL-REVIEW.md`.

@@ -1,3 +1,30 @@
+## Continuation — Command Capability Armory and visual review (released as 0.21.0, September 30, 2026)
+
+Built from `c432f48` (0.20.0) in a cloud container overnight, committed as `9ad66b7`, and released in 0.21.0 through "Bring everything current" (see `CLAUDE.md` and `docs/RELEASES.md`). Design and status: `docs/COMMAND-ARMORY-REDESIGN.md`; tooling: `docs/VISUAL-REVIEW.md`; plan context: `docs/ARMORY-PLAN.md` (approved).
+
+What changed:
+- The Command ring shows eight capability domains derived from real Tools (14) and Skills (7), not projects. New read-only commands `command_capabilities` and `command_missions` (`src-tauri/src/commands/capabilities.rs`); no schema change.
+- Agent lens, domain reveal and a capability inspector in the catalog; states Available / In scope / Active / Completed / Unavailable / Requires approval.
+- The chat fills the right column by default (idle suggestions, conversation, Mission View from recorded run events) and compacts to the old command bar on request.
+- One mission drives the working agent rows, the ring light and executing theater, and the Mission View.
+- `npm run visual:review` (Playwright 1.56.1 devDependency) captures 13 scenarios at 1440×960 plus key scenarios at 1920×1080 and 1280×800, checks geometry and text, and runs the harness's functional checks.
+- Armory plan 0b, partly: Claude Code lookup covers `OLYMPUS_CLAUDE_CODE`, `PATH`, `~/.local/bin` and npm; delegated children no longer receive `ANTHROPIC_API_KEY`.
+
+Verified on Linux only, fresh runs:
+- `npm run build` passes (the existing >500 kB chunk warning remains).
+- `cargo test --lib`: 427 passed, 0 failed, 16 ignored.
+- 18 of 18 `scripts/test-*.mjs` pass, including the new `test-capabilities.mjs` (42 checks).
+- `npm run visual:review`: 21 of 21 captures pass the mechanical checks; the Command harness passes 53 functional checks. The screenshots were reviewed by eye and the defects found were fixed.
+- The other browser harnesses pass in `?run`/`?check` mode, except `hybrid-core-harness`: 56 checks pass, then "Voice signature follows changing speech energy" fails. SwiftShader renders about one frame per second here, and that check samples for 1.2 s. With a longer sampling window it passes, and the next fixed-wait voice check fails the same way. Run it on the desktop GPU. Base `c432f48` could not be compared, because its 3D view did not initialize in this container.
+- `git diff --check` is clean.
+
+**No desktop, WebView2 or Windows run.** Harness screenshots show Mission View relative times ("started 40 min ago") against the real clock, not the fixture clock.
+
+Next:
+1. Install 0.21.0 on the PC: the **Update Olympus** desktop icon, or `npm run update`. Its first Windows run is unobserved.
+2. Desktop check on the owner's PC: the manual review list in `docs/COMMAND-ARMORY-REDESIGN.md` §4, with `npm run visual:review` run there too (it uses the installed Edge).
+3. The Armory engine spike (Claude Code subscription driver) in a local session on the PC, per `docs/ARMORY-PLAN.md`.
+
 ## Continuation — acceptance isolation fixed, native pass next (September 29, 2026)
 
 Branch `claude/blissful-lamport-2l4o96`:

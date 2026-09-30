@@ -7,7 +7,6 @@ import type { OlympusVisualState } from "../../services/ambientMotion";
 import { motion } from "motion/react";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
-import type { ActionQueueTask } from "../../hooks/useActionQueue";
 import { useOperatorProfile } from "../../hooks/useOperatorProfile";
 import { useVaultGraph } from "../../hooks/useVaultGraph";
 import { useVaultWrites } from "../../hooks/useVaultWrites";
@@ -18,23 +17,38 @@ import { subscribeToInstrumentEvents } from "../../services/instrumentEvents";
 import type { InstrumentEvent } from "../../services/instrumentEvents";
 import { PROJECT_RING_RADIUS } from "../../services/projectRing";
 import type { TrackedProject } from "../../types";
-import type { ProjectScanState } from "../../hooks/useDashboardData";
 import type { ModelCapability } from "../../services/modelRouting";
 import { routeName } from "../../services/routeLabel";
-import { clockTime, toDate } from "../../services/time";
+import type { ArmoryView, CapabilitySnapshot } from "../../services/capabilities";
 import { DayArc } from "./DayArc";
-import { ProjectRing } from "./ProjectRing";
+import { CapabilityRing } from "./CapabilityRing";
 import "./command.css";
+import "./commandArmory.css";
 
 interface CommandInstrumentProps {
   active?: boolean;
   visualState?: OlympusVisualState;
   voiceLevel?: number;
-  execution?: { projectId: string; operation: number };
+  /** Only the ambient note field's placement; Command draws no project names. */
   projects: TrackedProject[];
-  tasks: ActionQueueTask[];
-  tasksLoading: boolean;
-  tasksError: string | null;
+  /** The armory; null while it is read or when it is unavailable. */
+  capabilities: CapabilitySnapshot | null;
+  capabilitiesError?: string | null;
+  view: ArmoryView | null;
+  /** Per-domain glow for the WebGL ring (0..1). */
+  light: Readonly<Record<string, number>>;
+  /** Domains a recorded mission step is using now; drives the working theater. */
+  activeDomains: readonly string[];
+  /** Increments when a recorded mission step completes: one pulse, never a timer. */
+  missionOperation?: number;
+  working?: boolean;
+  selectedDomain: string | null;
+  selectedCapability: string | null;
+  onHoverDomain: (id: string | null) => void;
+  onSelectDomain: (id: string | null) => void;
+  onSelectCapability: (id: string) => void;
+  /** Browser preview draws synthetic capabilities and says so. */
+  previewLabel?: string | null;
   /** A chat request is in flight. Drives the glyph's thinking state. */
   assistantPending?: boolean;
   /** Response text is arriving. Drives the glyph's speaking state. */
@@ -51,39 +65,14 @@ interface CommandInstrumentProps {
   assistantFellBackFrom?: string | null;
   /** The route of the current or last turn, for a human label (review D3). */
   assistantCapability?: ModelCapability | null;
-  /**
-   * Where the project scan stands (review U1). Absent means ready — harnesses
-   * and fixtures that pass projects directly.
-   */
-  projectScan?: ProjectScanState;
-  onRetryScan?: () => void;
-  onSelectProject: (projectId: string) => void;
-  onOpenNote: (notePath: string) => void;
-}
-
-/**
- * The scan state as the ring's centre readout and the line under the dial.
- * Loading and failure show no project names at all; stale keeps the genuine
- * last result and says how old it is.
- */
-function scanReadout(scan: ProjectScanState | undefined, projectCount: number): { centre: string[]; line: string | null; retry: boolean } {
-  // A genuine empty result says so, as the board and the briefing do; a bare
-  // rim would read as still loading.
-  if (scan?.status === "ready" && projectCount === 0) return { centre: ["NO PROJECTS"], line: "No projects found under the projects root", retry: false };
-  if (!scan || scan.status === "ready") return { centre: [], line: null, retry: false };
-  if (scan.status === "loading") return { centre: ["SCANNING…"], line: "Scanning projects…", retry: false };
-  if (scan.status === "failed") return { centre: ["SCAN FAILED"], line: "Project scan failed", retry: true };
-  const last = toDate(scan.lastSuccessAt);
-  const when = last ? clockTime(last) : "unknown";
-  return { centre: [`STALE · ${when}`], line: `Stale · last scan ${when}`, retry: true };
 }
 
 /**
  * Viewbox is square and fixed; CSS decides how large it actually draws.
  *
  * Radius means distance from active work, outermost first: the day arc, the
- * labelled project ring, each project's notes, then the glyph. The viewbox and
- * omega metrics are intentionally unchanged by the ring replacement.
+ * capability ring, revealed Tools and Skills with the ambient note field, then
+ * the glyph. The viewbox and omega metrics are unchanged from the project ring.
  */
 const SIZE = 440;
 const CENTRE = SIZE / 2;
@@ -106,29 +95,32 @@ const PULSE_MS: Record<InstrumentEvent, number> = {
 const RIPPLE_SECONDS = 1.4;
 
 /**
- * Command mode's whole centre column.
- *
- * No panel, no card, no surface. The omega remains the subject; the project
- * ring makes the surrounding constellation legible without becoming a list.
+ * Command mode's whole centre column: the Ω and the armory Olympus can
+ * assemble. Projects live in Project mode; nothing here is project navigation.
  */
 export function CommandInstrument({
   projects,
-  tasks,
-  tasksLoading,
-  tasksError,
+  capabilities,
+  capabilitiesError = null,
+  view,
+  light,
+  activeDomains,
+  missionOperation = 0,
+  working = false,
+  selectedDomain,
+  selectedCapability,
+  onHoverDomain,
+  onSelectDomain,
+  onSelectCapability,
+  previewLabel = null,
   active = true,
   visualState,
   voiceLevel = 0,
-  execution,
   assistantPending = false,
   assistantProducing = false,
   assistantModel = null,
   assistantFellBackFrom = null,
-  assistantCapability = null,
-  projectScan,
-  onRetryScan,
-  onSelectProject,
-  onOpenNote
+  assistantCapability = null
 }: CommandInstrumentProps) {
   const dialRef = useRef<HTMLDivElement>(null);
   const [pulse, setPulse] = useState<InstrumentEvent | null>(null);
@@ -146,9 +138,9 @@ export function CommandInstrument({
   const [sceneWanted, setSceneWanted] = useState(active);
   useEffect(() => { if (active) setSceneWanted(true); }, [active]);
   const sceneShown = hybridReady && !hybridError;
-  const scan = scanReadout(projectScan, projects.length);
-  const [hoverProject, setHoverProject] = useState<string | null>(null);
-  const layout = useMemo(() => commandLayout(projects, graph, renderScale), [projects, graph, renderScale]);
+  const domains = capabilities?.domains ?? [];
+  const layout = useMemo(() => commandLayout(domains, projects, graph, renderScale), [domains, projects, graph, renderScale]);
+  const readout = capabilities ? undefined : capabilitiesError ? ["ARMORY UNAVAILABLE"] : ["READING ARMORY…"];
 
   const commits = projects.flatMap((project) =>
     (project.recentCommits ?? []).map((commit) => ({ ...commit, project: project.name }))
@@ -176,7 +168,11 @@ export function CommandInstrument({
     const timer = window.setTimeout(() => setCompletionSettled(true), AMBIENT.nodePulse * 1000);
     return () => window.clearTimeout(timer);
   }, [visualState]);
-  const ambientState = visualState === "complete" && completionSettled ? "idle" : visualState ?? glyphState;
+  const execution = useMemo(() => ({ operation: missionOperation }), [missionOperation]);
+  // A recorded mission step animates the instrument only when nothing more
+  // immediate (voice, a reply in flight, an error) owns it.
+  const baseState = visualState ?? (glyphState === "idle" && working ? "executing" : glyphState);
+  const ambientState = baseState === "complete" && completionSettled ? "idle" : baseState;
   const ambient = useAmbientMotion(ambientState, active);
   const instrumentParallax = useSceneParallax(active && ambient.running, "instrument");
 
@@ -193,7 +189,10 @@ export function CommandInstrument({
   // The exact model stays one hover away; the readout carries the route.
   const identityTitle = assistantFellBackFrom ? `${assistantFellBackFrom} → ${assistantModel ?? "?"}` : assistantModel ?? undefined;
 
-  const statusParts = [identity, activity].filter((part): part is string => Boolean(part));
+  // The armory's size, from the projection; nothing renders before it arrives.
+  const [ringDetail, setRingDetail] = useState<string | null>(null);
+  const armory = ringDetail ?? (capabilities ? `${capabilities.agents.length - 1} agents · ${capabilities.tools.length} tools · ${capabilities.skills.length} skills` : null);
+  const statusParts = [identity, activity ?? (working ? "working" : null)].filter((part): part is string => Boolean(part));
 
   useLayoutEffect(() => {
     const dial = dialRef.current;
@@ -245,20 +244,20 @@ export function CommandInstrument({
   return (
     <div className="command-instrument" data-visual-state={ambientState} data-voice-energy={voiceLevel > 0.15 ? "active" : "quiet"}
       data-motion={ambient.running ? "running" : "paused"} data-renderer={sceneShown ? "hybrid" : "svg"} data-scene-ready={sceneShown}
-      data-scan={projectScan?.status ?? "ready"}
+      data-armory={capabilities ? "ready" : capabilitiesError ? "unavailable" : "loading"} data-working={working || undefined}
       style={{ ...ambientVariables, "--ambient-drift": `${2 / renderScale}px` } as CSSProperties}>
       <motion.div className="command-instrument__dial" ref={dialRef} style={instrumentParallax}>
         {/* Unmounted on failure so its GPU resources, listeners and timers go
             with it; Retry mounts a fresh one. */}
         {sceneWanted && !hybridError && <HybridCommandCore key={renderAttempt} layout={layout} state={ambientState} voiceLevel={voiceLevel} execution={execution}
-          running={active && ambient.running} hoverProject={hoverProject}
+          running={active && ambient.running} light={light} activeDomains={activeDomains}
           onReady={setHybridReady} onError={setHybridError} />}
         <svg
           style={{ transform: HYBRID_OVERLAY_TRANSFORM, transformOrigin: "50% 50%" }}
           viewBox={`0 0 ${SIZE} ${SIZE}`}
           className={`command-instrument__svg ${pulse ? `is-pulsing pulse-${pulse}` : ""}`}
           role="group"
-          aria-label="Portfolio instrument"
+          aria-label="Olympus capability instrument"
           data-render-scale={renderScale.toFixed(3)}
         >
           {/* The flat instrument's glyph; the 3D core replaces it once drawn. */}
@@ -274,20 +273,21 @@ export function CommandInstrument({
             renderScale={renderScale}
           />
 
-          <ProjectRing
+          <CapabilityRing
             layout={layout}
-            onHoverProject={setHoverProject}
+            domains={domains}
+            view={view ?? { domains: {}, revealed: [], states: {} }}
             centre={CENTRE}
             radius={PROJECT_RING_RADIUS}
-            projects={projects}
-            graph={graph}
-            ambientNodeEvent={ambient.events.node}
-            tasks={tasks}
-            tasksError={tasksLoading ? "tasks loading" : tasksError}
             renderScale={renderScale}
-            onSelectProject={onSelectProject}
-            onOpenNote={onOpenNote}
-            idleReadout={scan.centre}
+            selectedDomain={selectedDomain}
+            selectedCapability={selectedCapability}
+            working={working}
+            idleReadout={readout}
+            onDetail={setRingDetail}
+            onHoverDomain={onHoverDomain}
+            onSelectDomain={onSelectDomain}
+            onSelectCapability={onSelectCapability}
           />
 
           {(pulse === "vault-write" || pulse === "graph-node" || pulse === "response-start") && ambient.running ? (
@@ -325,17 +325,13 @@ export function CommandInstrument({
           Nothing renders before the first reply of a session. Naming a model
           that has not spoken would be the same invisible wrongness as reading
           the request constant. */}
-      {scan.line && <p className="command-instrument__scan" role="status" data-scan={projectScan?.status}>
-        <span>{scan.line}</span>
-        {scan.retry && onRetryScan && <button type="button" className="ghost-action" disabled={projectScan?.scanning} onClick={onRetryScan}>
-          {projectScan?.scanning ? "Retrying…" : "Retry"}</button>}
-        {projectScan?.error && scan.retry && <span className="command-instrument__scan-detail" title={projectScan.error}>{projectScan.error}</span>}
-      </p>}
+      {previewLabel && <p className="command-instrument__preview" role="note">{previewLabel}</p>}
       {hybridError && <div className="hybrid-status" role="status">
         <span>3D view unavailable · showing the flat instrument.</span>
         <button type="button" className="ghost-action" onClick={() => { setHybridError(null); setHybridReady(false); setRenderAttempt(n => n + 1); }}>Retry 3D view</button>
         <details><summary>Technical detail</summary><span>{hybridError}</span></details>
       </div>}
+      {armory && statusParts.length === 0 && <p className="command-instrument__status command-instrument__armory">{armory}</p>}
       {statusParts.length > 0 ? (
         <p className="command-instrument__status" title={identityTitle}>
           {statusParts.map((part, index) => (

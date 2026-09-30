@@ -27,10 +27,20 @@ import { usePantheon } from "./hooks/usePantheon";
 import { useDashboardData } from "./hooks/useDashboardData";
 import { useDashboardMode } from "./hooks/useDashboardMode";
 import type { DashboardMode } from "./hooks/useDashboardMode";
+import { useCommandArmory } from "./hooks/useCommandArmory";
+import { useCommandView } from "./hooks/useCommandView";
+import { suggestionsFor, type Mission } from "./services/capabilities";
+
+const CHAT_LAYOUT_KEY = "olympus.commandChatLayout";
+/** A per-viewer convenience; storage can be unavailable, and then it is simply not remembered. */
+function readChatLayout(): "compact" | "expanded" {
+  try { return window.localStorage.getItem(CHAT_LAYOUT_KEY) === "compact" ? "compact" : "expanded"; } catch { return "expanded"; }
+}
 
 function App() {
   const [preferencesOpen,setPreferencesOpen]=useState(false);
-  const [commandAgent,setCommandAgent]=useState("olympus");
+  const [chatLayout,setChatLayoutState]=useState<"compact"|"expanded">(readChatLayout);
+  const setChatLayout=useCallback((layout:"compact"|"expanded")=>{setChatLayoutState(layout);try{window.localStorage.setItem(CHAT_LAYOUT_KEY,layout)}catch{/* not remembered */}},[]);
   const [researchInspection,setResearchInspection]=useState<ResearchInspectionTarget|null>(null);
   const {
     settings, settingsReady, updateVoicePreferences,
@@ -61,13 +71,8 @@ function App() {
   const [voiceFilter, setVoiceFilter] = useState<{status:OperationalStatus|"ALL"; revision:number}>({status:"ALL",revision:0});
   const { mode, setMode, cycleMode } = useDashboardMode();
   // Subscribed here, not only inside the panels that display them, so both
-  // scans run in every mode. Without this the instrument's task and pantheon
-  // dots would be permanently dark in Command — the one mode that shows them.
-  const {
-    tasks: actionTasks,
-    loading: actionTasksLoading,
-    error: actionTasksError
-  } = useActionQueue();
+  // scans keep running in every mode and Project mode opens on fresh data.
+  useActionQueue();
   usePantheon();
   /**
    * The project whose detail is open in Project mode. Held in the session view
@@ -93,6 +98,14 @@ function App() {
   const dense = mode === "project";
   const research = mode === "research";
   const command = mode === "command";
+  const armory = useCommandArmory(command);
+  // Command's inspection state. Separate from conversation state by design:
+  // selecting a lens, domain or capability never touches chat or drafts.
+  const commandView = useCommandView(armory.capabilities, armory.missions);
+  const { mission, focus } = commandView;
+  const openMission = useCallback((destination: Mission["destination"]) => {
+    setMode(destination === "research" ? "research" : destination === "communications" ? "communications" : "project");
+  }, []);
 
   // Stable handlers: AmbientDock re-subscribes its global shortcuts whenever
   // these change, and App re-renders on every poll that lands.
@@ -170,7 +183,7 @@ function App() {
     // per component would leave the ones nobody remembered to touch animating.
     <MotionConfig reducedMotion="user">
       <BackgroundLayer />
-      <main className={`app-shell mode-${mode} ${dense ? "focus-mode" : ""}`}>
+      <main className={`app-shell mode-${mode} ${dense ? "focus-mode" : ""}`} data-chat-layout={command ? chatLayout : undefined}>
       {/* Each region has its own error boundary, so one view failing to render
           never unmounts the header, the console or the write gate. The write
           gate sits outside every boundary. */}
@@ -196,7 +209,8 @@ function App() {
             </ErrorBoundary>
           </aside>
 
-          {command&&<ErrorBoundary label="Agent catalog"><CommandAgentCatalog selectedId={commandAgent} onSelect={setCommandAgent}
+          {command&&<ErrorBoundary label="Agent catalog"><CommandAgentCatalog selectedId={commandView.agent} onSelect={commandView.selectAgent}
+            capabilities={armory.capabilities} working={focus.agents} orchestrating={focus.running} selectedCapability={commandView.selectedCapability} onSelectCapability={commandView.setSelectedCapability}
             onResearch={runId=>{setResearchInspection(previous=>({runId,revision:(previous?.revision??0)+1}));setMode("research")}}
             onProjects={()=>selectMode("project")}/></ErrorBoundary>}
 
@@ -214,18 +228,24 @@ function App() {
                   visualState={instrumentState(voice, chatError)}
                   voiceLevel={voice.level}
                   projects={projects}
-                  tasks={actionTasks}
-                  tasksLoading={actionTasksLoading}
-                  tasksError={actionTasksError}
+                  capabilities={armory.capabilities}
+                  capabilitiesError={armory.capabilitiesError}
+                  view={commandView.view}
+                  light={commandView.light}
+                  activeDomains={commandView.activeDomains}
+                  missionOperation={commandView.missionOperation}
+                  working={commandView.working}
+                  selectedDomain={commandView.selectedDomain}
+                  selectedCapability={commandView.selectedCapability}
+                  onHoverDomain={commandView.setHoverDomain}
+                  onSelectDomain={commandView.setSelectedDomain}
+                  onSelectCapability={commandView.setSelectedCapability}
+                  previewLabel={armory.preview ? "Browser preview · synthetic capabilities" : null}
                   assistantPending={chatPending}
                   assistantProducing={chatProducing}
                   assistantModel={chatModel}
                   assistantFellBackFrom={chatFellBackFrom}
                   assistantCapability={chatCapability}
-                  projectScan={projectScan}
-                  onRetryScan={rescanProjects}
-                  onSelectProject={enterProject}
-                  onOpenNote={openNote}
                 />
               </ErrorBoundary>
               </div>}
@@ -282,6 +302,13 @@ function App() {
                   pending={chatPending}
                   error={chatError}
                   briefing={openingBriefing}
+                  layout={command ? chatLayout : "compact"}
+                  onLayoutChange={command ? setChatLayout : undefined}
+                  mission={command ? mission : null}
+                  capabilities={armory.capabilities}
+                  suggestions={suggestionsFor(armory.capabilities)}
+                  onOpenMission={openMission}
+                  onDismissMission={commandView.dismissMission}
                 />
               </ErrorBoundary>
             </FadeInPanel>

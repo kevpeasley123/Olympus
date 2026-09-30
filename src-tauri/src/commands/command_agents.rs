@@ -59,6 +59,12 @@ fn snapshot(
         json!({"observedAt":chrono::Utc::now().to_rfc3339(),"orchestrator":{"id":"olympus","name":"Olympus Core","kind":"orchestrator","version":null,"status":"ACTIVE","tone":"ready","description":"Coordinates workflows, agents, skills and execution.","role":"Coordinates the application's compiled workflows and bounded agents.","capabilities":["Planning","Routing","Fixed graph execution","Bounded agent coordination","Synthesis"],"authority":"Backend-owned routes and existing approval gates. Chat cannot launch agent runs or grant execution consent; writes and Coding execution use their dedicated approval flows.","sourceScope":"Evidence supplied through configured application routes","usedBy":"System-wide orchestration"},"agents":agents}),
     )
 }
+/// The catalog as the desktop would show it with credentials and sources
+/// present, for cross-checks against other projections.
+#[cfg(test)]
+pub(crate) fn snapshot_for_tests(connection: &Connection) -> Value {
+    snapshot(connection, true, true).unwrap()
+}
 #[tauri::command]
 pub fn command_agent_catalog(db: State<Db>) -> Result<Value, String> {
     let key = std::env::var("OPENAI_API_KEY").is_ok_and(|s| !s.trim().is_empty());

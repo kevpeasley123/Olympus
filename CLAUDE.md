@@ -108,6 +108,19 @@ Do not turn the research library into standing prompt instructions. Do not treat
 
 `docs/NEXT-SESSION.md` is the current session handoff and is more specific than this section. `docs/HANDOFF.md` is historical. (`OLYMPUS-BRIEF.md` and `STATE-REVIEW.md` were earlier state documents, deleted on 2026-07-31 — git history has them.)
 
+## "Bring everything current"
+
+The owner's standing instruction, decided 2026-09-30. When he says it (or plainly means it), every step below is already approved; do not ask again. The goal: the next time he opens the desktop app, it runs everything that has been finished.
+
+1. **Push this session's work.** Commit and push finished work on the session's branch. Half-done work stays on its branch and is named in the report.
+2. **Find pending work.** Branches on `origin` that are ahead of `master` and whose last commit is newer than master's latest release commit. Older branches (the July 2026 experiments) are superseded: leave them and do not list them.
+3. **Check each one.** Merge `master` into it and run `npm run build`, `cargo test --lib --manifest-path src-tauri/Cargo.toml`, every `scripts/test-*.mjs`, and `npm run visual:review`. If anything is red, fix it when it is plainly this branch's fault. Otherwise, stop for that branch and report it; never merge red.
+4. **Release.** Bump the minor version in `package.json`, `package-lock.json`, `src-tauri/Cargo.toml`, `src-tauri/Cargo.lock` and `src-tauri/tauri.conf.json`. Add a line to `docs/RELEASES.md`: the version, what it includes, and what is not yet accepted in the desktop app.
+5. **Merge.** Open a pull request into `master` with a merge commit, and merge it. Delete nothing.
+6. **Install.** In a session on the owner's PC, run `npm run update` from the Olympus checkout (`scripts/update-olympus.ps1`). It fast-forwards to `origin/master`, closes the app, builds and installs the MSI, and relaunches. A cloud session cannot reach the PC: finish by telling him to double-click **Update Olympus** on his desktop.
+
+It never authorizes force-pushes, history rewrites, skipped or disabled tests, touching `.env`, credentials, production data or the vault, or widening Gmail permissions. Desktop acceptance is not a gate; the release line records what has not been accepted. Report in three lines: what was released (version, branches), what was held back and why, and what he has to do (usually nothing, or the icon).
+
 ## Conventions
 
 - Match the surrounding code's comment density and idiom. Comments explain constraints the code can't show, not what the next line does.

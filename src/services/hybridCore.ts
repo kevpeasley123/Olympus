@@ -1,11 +1,20 @@
 import { layoutProjectRing, PROJECT_RING_RADIUS } from "./projectRing";
 import { layoutProjectConstellation } from "./projectConstellation";
+import { layoutCapabilityRing } from "./capabilityRing";
+import type { CapabilityDomain } from "./capabilities";
 import type { TrackedProject } from "../types";
 import type { VaultGraphPayload } from "./vaultGraph";
 
-export function commandLayout(projects: TrackedProject[], graph: VaultGraphPayload, scale: number) {
-  const ring = layoutProjectRing(projects, 220, PROJECT_RING_RADIUS, scale);
-  return { ring, constellation: layoutProjectConstellation(graph, ring, 220), labelScale: scale };
+/**
+ * The ring is Olympus's capability domains. The note constellation keeps its
+ * established placement as an ambient star field: it is still seeded by the
+ * project layout, which is computed here and never drawn or labelled, so
+ * Command shows no project names while the field looks as it always has.
+ */
+export function commandLayout(domains: CapabilityDomain[], projects: TrackedProject[], graph: VaultGraphPayload, scale: number) {
+  const ring = layoutCapabilityRing(domains);
+  const anchors = layoutProjectRing(projects, 220, PROJECT_RING_RADIUS, scale);
+  return { ring, constellation: layoutProjectConstellation(graph, anchors, 220), labelScale: scale };
 }
 export type CommandLayout = ReturnType<typeof commandLayout>;
 export const CONSTELLATION_DEPTH = {

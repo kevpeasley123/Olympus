@@ -3,7 +3,7 @@ import { realtimeVoice, voicePreview, useVoiceState } from "../../services/realt
 import { isModalOpen, SHORTCUTS } from "../../services/shortcuts";
 import { ReplyModeToggle } from "./ReplyModeToggle";
 import { Mic, MicOff, Volume2, VolumeX, Square, Keyboard } from "lucide-react";
-import { ChevronRight, NotebookPen, X, History, Settings2, Paperclip } from "lucide-react";
+import { ChevronRight, NotebookPen, X, History, Settings2, Paperclip, Maximize2, Minimize2 } from "lucide-react";
 import type { CSSProperties } from "react";
 import { Fragment, memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
@@ -25,7 +25,10 @@ import { openResearchEntry } from "../../services/navigation";
 import { routeLabel, routeTitle } from "../../services/routeLabel";
 import { formatWhen } from "../../services/time";
 import { isTauriRuntime } from "../../services/launcher";
+import type { CapabilitySnapshot, Mission, Suggestion } from "../../services/capabilities";
+import { MissionView } from "./MissionView";
 import "./command.css";
+import "./commandArmory.css";
 
 // Links leave through the same guarded opener as the library, never by
 // navigating the app window (review F6).
@@ -57,10 +60,24 @@ interface ChatPanelProps {
   error?: string | null;
   /** This launch's opening briefing, until the operator has seen it (review U10). */
   briefing?: { id: string; text: string } | null;
+  /**
+   * `expanded` fills Command's right column: header, conversation or idle
+   * state, Mission View, pinned composer. `compact` is the anchored console.
+   * Only the layout changes; conversation, drafts and voice are the same state.
+   */
+  layout?: "compact" | "expanded";
+  onLayoutChange?: (layout: "compact" | "expanded") => void;
+  mission?: Mission | null;
+  capabilities?: CapabilitySnapshot | null;
+  suggestions?: Suggestion[];
+  onOpenMission?: (destination: Mission["destination"]) => void;
+  onDismissMission?: (id: string) => void;
 }
 function collapse(text: string): string { return text.split(/\s+/).filter(Boolean).join(" "); }
 
-export function ChatPanel({ messages, onSendMessage, onRecordObservation, pending = false, error = null,onOpenPreferences,autoSpeak=false,onAutoSpeakChange,voiceSettingsReady=true,briefing=null }: ChatPanelProps) {
+export function ChatPanel({ messages, onSendMessage, onRecordObservation, pending = false, error = null,onOpenPreferences,autoSpeak=false,onAutoSpeakChange,voiceSettingsReady=true,briefing=null,
+  layout = "compact", onLayoutChange, mission = null, capabilities = null, suggestions = [], onOpenMission, onDismissMission }: ChatPanelProps) {
+  const expanded = layout === "expanded";
   const voice = useVoiceState();
   const microphoneActive=voice.microphoneOn&&(voice.active||voice.connecting);
   const micLive=voice.microphoneOn&&voice.active;
@@ -77,6 +94,8 @@ export function ChatPanel({ messages, onSendMessage, onRecordObservation, pendin
   const [responseReady, setResponseReady] = useState(false);
   const [signal, setSignal] = useState<string | null>(null);
   const waitingForReply = useRef(false);
+  const launchedAt = useRef(Date.now());
+  const [conversationOpened, setConversationOpened] = useState(false);
   const panelRef = useRef<HTMLElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const streamText = useConversationStream();
@@ -103,6 +122,10 @@ export function ChatPanel({ messages, onSendMessage, onRecordObservation, pendin
   const separators = daySeparators(renderedMessages.map(message => "at" in message ? message.at : undefined));
   const lastId = renderedMessages[renderedMessages.length - 1]?.id;
   const quietPlayback = !isTauriRuntime() ? "Not spoken · audio plays in the desktop app" : "Not spoken";
+  // Expanded and nothing said this launch: a calm ready state instead of old
+  // history. History and the briefing stay one click away.
+  const spokenThisLaunch = messages.some(message => !isBriefing(message) && message.at && Date.parse(message.at) >= launchedAt.current - 5_000);
+  const idle = expanded && !conversationOpened && !spokenThisLaunch && !pending && !liveInput && !error;
 
   function showLive(smooth = false) {
     setMode("engaged"); setLiveStart(liveConversationStart(messages)); setResponseReady(false); scroll.latest(smooth);
@@ -110,14 +133,20 @@ export function ChatPanel({ messages, onSendMessage, onRecordObservation, pendin
   function stepBack() {
     if (editingMemory) return;
     if (mode === "transcript") showLive();
-    else { setMode(consoleStepBack(mode)); panelRef.current?.focus(); }
+    else if (!expanded) { setMode(consoleStepBack(mode)); panelRef.current?.focus(); }
   }
   function showHistory() {
+    setConversationOpened(true);
     scroll.preserve(); setHistoryStart(Math.max(0, liveStart - CONSOLE.historyPage)); setMode("transcript");
   }
   useEffect(() => {
     if ((voice.active || voice.connecting) && mode === "dormant") { setMode("engaged"); setLiveStart(liveConversationStart(messages)); }
   }, [voice.active, voice.connecting]);
+  // The expanded workspace is never dormant: it is the conversation's home.
+  useEffect(() => { if (expanded && mode === "dormant") { setMode("engaged"); setLiveStart(liveConversationStart(messages)); } }, [expanded, mode]);
+  // Compacting is a deliberate "get out of the way": back to the command bar.
+  const previousLayout = useRef(layout);
+  useEffect(() => { if (previousLayout.current === "expanded" && layout === "compact" && !editingMemory) setMode("dormant"); previousLayout.current = layout; }, [layout]);
   // Opening the console is how the briefing is read; it is then no longer news.
   useEffect(() => { if (mode !== "dormant" && briefing) setBriefingSeen(briefing.id); }, [mode, briefing]);
   useEffect(() => {
@@ -135,6 +164,7 @@ export function ChatPanel({ messages, onSendMessage, onRecordObservation, pendin
     if (!draft.trim() || pending || !voiceSettingsReady) return;
     waitingForReply.current = true;
     if (briefing) setBriefingSeen(briefing.id);
+    setConversationOpened(true);
     showLive(); onSendMessage(draft, projectContext ?? undefined); setDraft(""); setProjectContext(null);
   }
   useLayoutEffect(() => {
@@ -179,11 +209,11 @@ export function ChatPanel({ messages, onSendMessage, onRecordObservation, pendin
   useEffect(() => {
     const outside = (event: PointerEvent) => {
       if ((event.target as Element)?.closest?.(".modal-backdrop, .ambient-bottom-right")) return;
-      if (!editingMemory && mode === "engaged" && !panelRef.current?.contains(event.target as Node)) setMode("dormant");
+      if (!expanded && !editingMemory && mode === "engaged" && !panelRef.current?.contains(event.target as Node)) setMode("dormant");
     };
     document.addEventListener("pointerdown", outside);
     return () => document.removeEventListener("pointerdown", outside);
-  }, [mode, editingMemory]);
+  }, [mode, editingMemory, expanded]);
 
   const openComposer = useCallback((seed: string) => {
     setMemorySource(null);
@@ -218,13 +248,38 @@ export function ChatPanel({ messages, onSendMessage, onRecordObservation, pendin
 
 
   return (
-    <section ref={panelRef} tabIndex={-1} className="command-console" data-mode={mode} data-signal={signal ?? undefined}
+    <section ref={panelRef} tabIndex={-1} className="command-console" data-mode={mode} data-layout={layout} data-idle={idle || undefined} data-signal={signal ?? undefined}
       aria-label="Olympus Command Console" style={{ "--console-transition": `${CONSOLE.transitionMs}ms`, "--console-signal": `${CONSOLE.signalMs}ms` } as CSSProperties}
       onKeyDown={event => {
         if (event.key === "Escape" && !event.nativeEvent.isComposing && !editingMemory) { event.preventDefault(); event.stopPropagation(); stepBack(); }
       }}>
-      {mode !== "dormant" && <div className="console-aperture">
-        <header className="console-header">
+      {expanded && <header className="console-workspace-header">
+        <span className="console-workspace-mark" aria-hidden="true">Ω</span>
+        <div className="console-workspace-title"><strong>OLYMPUS</strong>
+          <span role="status" className="console-status" data-status={status.toLowerCase().replace(/\s+/g, "-")}>{status.replace(/^OLYMPUS /, "")}</span></div>
+        {(pending || voice.active || voice.connecting) && <ActivityTrace level={voice.active ? voice.level : 0} busy />}
+        <div className="console-header-actions">
+          <button type="button" className="ghost-icon-action" title="Record an observation" aria-label="Record an observation" disabled={recording}
+            onClick={() => { setConversationOpened(true); if (observation === null) openComposer(""); else setObservation(null); }}><NotebookPen size={14} /></button>
+          <button type="button" className="ghost-icon-action" aria-label="Open conversation history" title="Conversation history" onClick={showHistory}><History size={14} /></button>
+          {onLayoutChange && <button type="button" className="ghost-icon-action" aria-label="Compact console" title="Compact console" onClick={() => onLayoutChange("compact")}><Minimize2 size={14} /></button>}
+        </div>
+      </header>}
+      {expanded && mission && <MissionView mission={mission} capabilities={capabilities} onOpen={onOpenMission} onDismiss={onDismissMission} />}
+      {!expanded && mission && <MissionView mission={mission} capabilities={capabilities} compact />}
+      {idle && <div className="console-idle">
+        <p className="console-idle__title">What would you like to work on?</p>
+        {briefing && <button type="button" className="console-idle__briefing" onClick={() => { setConversationOpened(true); showLive(); }}>
+          <span>Opening briefing</span>{firstSentence(briefing.text)}</button>}
+        {suggestions.length > 0 && <div className="console-suggestions" role="list" aria-label="Suggested requests">
+          {suggestions.map(suggestion => <button key={suggestion.id} role="listitem" type="button" className="console-suggestion"
+            title={`Fills the composer · uses ${suggestion.requires.join(", ")}`}
+            onClick={() => { setDraft(suggestion.prompt); inputRef.current?.focus(); }}>{suggestion.label}</button>)}
+        </div>}
+        {messages.length > 0 && <button type="button" className="console-idle__history" onClick={showHistory}>↑ Earlier conversation · {messages.length} messages</button>}
+      </div>}
+      {mode !== "dormant" && !idle && <div className="console-aperture">
+        {!expanded && <header className="console-header">
           <span>{mode === "transcript" ? "TRANSCRIPT" : "LIVE CONVERSATION"}</span>
           <div className="console-header-actions">
             <button type="button" className="ghost-icon-action" title="Record an observation" aria-label="Record an observation" disabled={recording}
@@ -232,7 +287,7 @@ export function ChatPanel({ messages, onSendMessage, onRecordObservation, pendin
             <button type="button" className="ghost-icon-action" aria-label={mode === "transcript" ? "Return to live conversation" : "Minimize console"}
               disabled={editingMemory} onClick={stepBack}><X size={15} /></button>
           </div>
-        </header>
+        </header>}
         <div className="console-history-controls">
           {mode === "engaged" ? <button type="button" onClick={showHistory}>↑ Earlier conversation{liveStart > 0 ? ` · ${liveStart} messages` : ""}</button> :
             <button type="button" onClick={() => showLive(true)}>↓ Return to latest</button>}
@@ -328,7 +383,8 @@ export function ChatPanel({ messages, onSendMessage, onRecordObservation, pendin
           {onAutoSpeakChange&&<ReplyModeToggle autoSpeak={autoSpeak} onChange={onAutoSpeakChange} disabled={!voiceSettingsReady}/>}
           <ModelRouteControl disabled={pending}/>
           {onOpenPreferences&&<button type="button" className="ghost-icon-action" aria-label="Open preferences" title="Open preferences" onClick={onOpenPreferences}><Settings2 size={14}/></button>}
-          <button type="button" className="ghost-icon-action" aria-label="Open conversation history" title="Conversation history" onClick={showHistory}><History size={14} /></button>
+          {!expanded && <button type="button" className="ghost-icon-action" aria-label="Open conversation history" title="Conversation history" onClick={showHistory}><History size={14} /></button>}
+          {!expanded && onLayoutChange && <button type="button" className="ghost-icon-action" aria-label="Expand conversation" title="Expand conversation" onClick={() => onLayoutChange("expanded")}><Maximize2 size={14} /></button>}
         </div>
         {/* Non-modal: one line under the status, and reading it is the operator's
             call. Not a tab stop: focusing the input opens the console on it. */}
@@ -487,4 +543,16 @@ function ResponseText({text, unrestricted = false}:{text:string; unrestricted?:b
   return <><div ref={content} className="console-markdown console-response-preview" data-collapsed={!unrestricted && !expanded || undefined}>
     <ReactMarkdown remarkPlugins={[remarkGfm]} skipHtml components={consoleMarkdownComponents}>{text}</ReactMarkdown>
   </div>{!unrestricted && overflows && <button className="console-expand-response" aria-expanded={expanded} onClick={()=>setExpanded(value=>!value)}>{expanded ? "Show less ↑" : "View full response ↓"}</button>}</>;
+}
+
+/**
+ * A quiet five-bar trace in the workspace header: microphone or speech energy
+ * while voice is live, a slow shimmer while a reply is in flight, flat at rest.
+ * Decorative; the status word beside it carries the meaning.
+ */
+function ActivityTrace({ level, busy }: { level: number; busy: boolean }) {
+  const energy = Math.max(0, Math.min(1, level));
+  return <span className="console-activity" aria-hidden="true" data-busy={busy || undefined}>
+    {[.55, .85, 1, .8, .5].map((weight, index) => <i key={index} style={{ "--bar": `${Math.max(.12, busy ? .25 + energy * weight : .12)}`, "--bar-delay": `${index * 90}ms` } as CSSProperties} />)}
+  </span>;
 }

@@ -1,6 +1,6 @@
 {
   "name": "project-olympus",
-  "version": "0.20.0",
+  "version": "0.21.0",
   "private": true,
   "description": "Local-first AI command station for projects, research, workflows, and Obsidian-backed memory.",
   "type": "module",
@@ -9,7 +9,9 @@
     "build": "tsc && vite build",
     "preview": "vite preview --host 127.0.0.1",
     "install:local": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/install-olympus-local.ps1",
-    "tauri": "tauri"
+    "update": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/update-olympus.ps1",
+    "tauri": "tauri",
+    "visual:review": "node scripts/visual-review.mjs"
   },
   "dependencies": {
     "@fontsource/cinzel": "^5.2.8",
@@ -32,6 +34,7 @@
     "@types/three": "0.185.4",
     "@vitejs/plugin-react": "^6.0.1",
     "esbuild": "^0.28.0",
+    "playwright": "1.56.1",
     "typescript": "^6.0.3",
     "vite": "^8.0.10"
   }
