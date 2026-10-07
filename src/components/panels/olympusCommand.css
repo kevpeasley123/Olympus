@@ -1,6 +1,6 @@
 /* Flagship Command: one hero, a quiet capability index, a companion. */
 html .mode-command:has(.olympus-armory) .main-grid{grid-template-columns:40px 176px minmax(0,1fr) minmax(320px,370px);gap:22px}
-html:has(.olympus-armory) .background-image{filter:saturate(.42) brightness(.60) contrast(1.08)}
+html:has(.olympus-armory) .background-image{filter:saturate(.42) brightness(.78) contrast(1.08)}
 html:has(.olympus-armory) .brand-manifesto{display:none}
 html:has(.olympus-armory) .tools-rail{background:transparent;border-color:#8aabc514}
 html:has(.olympus-armory) .brand-promise{font-size:8px;letter-spacing:.18em;color:#96a8b7}
@@ -96,3 +96,10 @@ html .mode-command:has(.olympus-armory) .command-console *{scrollbar-width:thin;
 .companion-operation>summary:focus-visible{outline:1px solid #d4b17b;outline-offset:3px}
 
 .armory-heading{margin-bottom:24px}
+
+.pantheon-voice{display:flex;align-items:center;justify-content:center;gap:18px;min-height:48px;margin-top:28px;color:#8c9caa;position:relative}
+.pantheon-voice[data-active="true"]{color:#e1b878}
+.pantheon-voice__wave{display:flex;align-items:center;gap:4px;height:36px}
+.pantheon-voice__wave span{width:2px;background:currentColor;border-radius:1px;opacity:.6;transition:height 80ms linear}
+.pantheon-voice__state{position:absolute;top:100%;font:9px var(--font-mono);letter-spacing:.1em;text-transform:uppercase}
+@media(prefers-reduced-motion:reduce){.pantheon-voice__wave span{transition:none;height:2px!important}}

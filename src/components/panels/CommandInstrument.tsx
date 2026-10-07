@@ -1,3 +1,4 @@
+import { Mic } from "lucide-react";
 import { HybridCommandCore } from "./HybridCommandCore";
 import { OrbitalAtmosphere } from "./OrbitalAtmosphere";
 import { commandLayout } from "../../services/hybridCore";
@@ -338,7 +339,11 @@ export function CommandInstrument({
           that has not spoken would be the same invisible wrongness as reading
           the request constant. */}
       {flagship && <div className="pantheon-caption"><h2>Pantheon</h2>{(activity || working) && <span className="pantheon-state">{activity ?? "Working"}</span>}</div>}
-      {flagship && <nav className="pantheon-destinations" aria-label="Command destinations"><button onClick={onProjects}>Projects <span>01</span></button><button onClick={domainActions?.research}>Research <span>02</span></button><button onClick={domainActions?.communications}>Communications <span>03</span></button><button onClick={domainActions?.system}>System <span>04</span></button></nav>}
+      {flagship && <div className="pantheon-voice" role="img" aria-label={ambientState === "speaking" ? "Voice speaking" : ambientState === "listening" ? "Voice listening" : "Voice idle"} data-active={ambientState === "speaking" || ambientState === "listening"}>
+        <Mic size={18} aria-hidden="true"/>
+        <div className="pantheon-voice__wave" aria-hidden="true">{Array.from({length:23},(_,i)=><span key={i} style={{height:2+((ambientState === "speaking" || ambientState === "listening") ? Math.min(1,Math.max(0,voiceLevel))*30*Math.pow(Math.sin((i+1)*Math.PI/24),.7)*(i%3===0?.65:1):0)}}/>)}</div>
+        {(ambientState === "speaking" || ambientState === "listening") && <span className="pantheon-voice__state">{ambientState === "speaking" ? "Speaking" : "Listening"}</span>}
+      </div>}
       {previewLabel && <p className="command-instrument__preview" role="note">{previewLabel}</p>}
       {hybridError && <div className="hybrid-status" role="status">
         <span>3D view unavailable · showing the flat instrument.</span>

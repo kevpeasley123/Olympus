@@ -14,8 +14,7 @@ integrations are retained. No dependency was added.
   links still use existing destinations.
 - `armoryPresentation` derives adapter membership, conservative connection states,
   and live operations. Models/executors are not inflated into plugin counts.
-- `CommandInstrument` uses a flagship presentation variant. Destination controls
-  remain HTML buttons outside WebGL; loss of graphics cannot remove navigation.
+- `CommandInstrument` uses a flagship presentation variant. Navigation stays in the HTML header, with Preferences in the companion controls; loss of graphics cannot remove navigation. A microphone and level-driven wave replace the redundant lower destination row.
   Legacy component harnesses remain useful regression coverage, not the default UI.
 - `useCommandArmory` now surfaces mission-read failures rather than treating the
   last successful snapshot as an unqualified current observation.
@@ -25,7 +24,7 @@ integrations are retained. No dependency was added.
 Reuse Three.js with a real perspective camera, the existing extruded Omega,
 a slightly angled, sharply chamfered open-backed glyph, volumetric seeded dust and
 independently phased/inclined orbiting bodies. Both scene passes share a depth
-buffer. All continuous torus rings are hidden in flagship mode; the flagship omits trajectory traces and pulse rings. Small damped pointer movement affects the camera. The reflective field sphere is hidden; a pure-black tapered backdrop blends into brighter scenery without an illuminated perimeter. Decorative slogans and local-runtime labels are removed from the desktop presentation.
+buffer. The two inner torus rings retain their state-driven orientation, light flow and voice response; the outer reflective shell and trajectory traces remain absent. Small damped pointer movement affects the camera. The reflective field sphere is hidden; a pure-black tapered backdrop blends into brighter scenery without an illuminated perimeter. Decorative slogans and local-runtime labels are removed from the desktop presentation.
 The existing restrained bloom provides light falloff. Motion drives no React
 state on animation frames. Trails and bodies are decorative, not invented agents. The spherical backing was removed after visual feedback; the glyph is larger, its glow restrained, and speech changes light rather than inflating its geometry. A 14-degree yaw exposes the side wall. Flagship orbiters use depth-tested additive light points instead of shaded spheres; orbital speed is 3.2 times the prior rate and the constellation drift is three times faster.
 

@@ -145,7 +145,7 @@ function Harness() {
         onResearch={runId => setDestination({ runId })} onProjects={() => setDestination({ projects: true })}
         capabilities={capabilities} working={command.focus.agents} orchestrating={command.focus.running} selectedCapability={command.selectedCapability} onSelectCapability={command.setSelectedCapability} />}
       <section className="center-stack dashboard-column"><div className="panel-slot panel-slot-instrument">
-        <CommandInstrument flagship={flagship} onProjects={()=>setDestination({projects:true})} projects={projects} capabilities={capabilities} view={command.view} light={command.light} activeDomains={command.activeDomains}
+        <CommandInstrument visualState={params.get("voice")==="speaking"?"speaking":params.get("voice")==="listening"?"listening":undefined} voiceLevel={Number(params.get("level")??0)} flagship={flagship} onProjects={()=>setDestination({projects:true})} projects={projects} capabilities={capabilities} view={command.view} light={command.light} activeDomains={command.activeDomains}
           missionOperation={command.missionOperation} working={command.working} selectedDomain={command.selectedDomain} selectedCapability={command.selectedCapability}
           onHoverDomain={command.setHoverDomain} onSelectDomain={command.setSelectedDomain} onSelectCapability={command.setSelectedCapability} />
       </div></section>

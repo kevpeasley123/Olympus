@@ -54,7 +54,7 @@ export function OlympusArmory({capabilities, missions, error, missionsError, pre
   const status = (role: CommandRole) => operations.some(m=>m.status==="waiting" && m.steps.some(s=>s.agent===role.id)) ? "Waiting" : operations.some(m => m.steps.some(s=>s.agent===role.id && s.state==="active")) ? "Working" : role.status === "AVAILABLE" ? "Ready" : role.status.toLowerCase();
   const openOperation = (m: Mission) => {leave();onDestination(m.destination);};
   return <aside className="olympus-armory" aria-label="Olympus Armory">
-    <div className="armory-heading"><span className="command-eyebrow">OLYMPUS</span><h2>Armory</h2></div>
+    <div className="armory-heading"><h2>Armory</h2></div>
     <div className="armory-index">{categories.map((name,i)=>{const Icon=symbols[name];return <button key={name} onClick={()=>show(name)} aria-haspopup="dialog"><Icon size={16}/><span>{name}</span><strong>{numbers[i] ?? "—"}</strong><ChevronRight size={12}/></button>;})}</div>
     <button className="armory-open" onClick={()=>show("Agents")}>Explore capabilities <ArrowUpRight size={13}/></button>
     {(error||catalogError||missionsError)&&<p className="armory-caution">Some observations are unavailable. <button onClick={()=>{setRevision(n=>n+1);show("Agents")}}>Review</button></p>}

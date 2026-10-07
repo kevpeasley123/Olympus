@@ -35,11 +35,11 @@ for(const [width,height] of [[1440,960],[1920,1080],[1280,800],[900,900]]){
 }
 await page.setViewportSize({width:1440,height:960});
 await page.goto(base);await page.getByRole('button',{name:'Command',exact:true}).click();
-for(const [name,mode] of [['Projects 01','project'],['Research 02','research'],['Communications 03','communications']]){
+for(const [name,mode] of [['Project','project'],['Research','research'],['Communications','communications']]){
  await page.getByRole('button',{name,exact:true}).click();await page.locator(`.mode-${mode}`).waitFor();check(true,`${name} opens its actual destination`);
  await page.getByRole('button',{name:'Command',exact:true}).click();
 }
-await page.getByRole('button',{name:'System 04',exact:true}).click();await page.getByRole('dialog').waitFor();check(true,'System opens Preferences');await page.keyboard.press('Escape');
+await page.getByRole('button',{name:'Open preferences',exact:true}).click();await page.getByRole('dialog').waitFor();check(true,'System opens Preferences');await page.keyboard.press('Escape');
 await page.getByRole('button',{name:'Agents 3',exact:true}).click();await page.keyboard.press('Escape');
 check(await page.getByRole('button',{name:'Agents 3',exact:true}).evaluate(e=>e===document.activeElement),'Armory returns keyboard focus to its trigger');
 for(const scenario of ['idle','mission-research','mission-active','reduced-motion']){
@@ -47,7 +47,7 @@ for(const scenario of ['idle','mission-research','mission-active','reduced-motio
  await page.waitForSelector(`html[data-visual-ready="${scenario}"]`);
  const canvas=page.locator('.hybrid-core canvas');
  check(await canvas.getAttribute('data-projection')==='PerspectiveCamera','Perspective camera '+scenario);
- check(await canvas.getAttribute('data-rings')==='0','No complete orbital rings '+scenario);
+ check(await canvas.getAttribute('data-rings')==='2','Two state-aware inner rings '+scenario);
  if(scenario==='idle'){
   const start=+(await canvas.getAttribute('data-galaxy-time'));const frames=+(await canvas.getAttribute('data-frames'));
   await page.waitForTimeout(2500);const end=+(await canvas.getAttribute('data-galaxy-time'));const endFrames=+(await canvas.getAttribute('data-frames'));
@@ -58,10 +58,18 @@ for(const scenario of ['idle','mission-research','mission-active','reduced-motio
  if(scenario==='reduced-motion'){
   const start=await canvas.getAttribute('data-galaxy-time');await page.waitForTimeout(1400);check(start===await canvas.getAttribute('data-galaxy-time'),'Reduced motion freezes galaxy');
   await page.evaluate(()=>document.querySelector('.hybrid-core canvas').dispatchEvent(new Event('webglcontextlost',{cancelable:true})));
-  await page.getByText('3D view unavailable',{exact:false}).waitFor();check(await page.locator('.pantheon-destinations button').count()===4,'All destinations survive context loss');
+  await page.getByText('3D view unavailable',{exact:false}).waitFor();check(await page.getByRole('group',{name:'Dashboard mode'}).getByRole('button').count()===4,'Header navigation survives context loss');
  }
  if(scenario.startsWith('mission')){const operationButton=page.locator('.armory-index button').filter({hasText:'Operations'});check((await operationButton.innerText()).includes('1'),'Real fixture active-operation count '+scenario);await operationButton.click();await page.getByRole('dialog').waitFor();}
  await page.waitForTimeout(250);await page.screenshot({path:`${out}/${scenario}.png`,fullPage:true});
+}
+for(const [voice,level] of [['speaking',0],['speaking',.8],['listening',.4]]){
+ await page.goto(`${base}/command-agent-harness.html?flagship&scenario=idle&voice=${voice}&level=${level}`);
+ await page.waitForSelector('[data-scene-ready="true"]');
+ check(await page.getByRole('img',{name:`Voice ${voice}`}).isVisible(),`Voice state ${voice} ${level}`);
+ const heights=await page.locator('.pantheon-voice__wave span').evaluateAll(nodes=>nodes.map(n=>n.getBoundingClientRect().height));
+ check(level===0?Math.max(...heights)===2:Math.max(...heights)>10,`Wave reflects actual level ${level}`);
+ await page.screenshot({path:`${out}/voice-${voice}-${level}.png`,fullPage:true});
 }
 check(errors.length===0,'No page errors');
 await writeFile(`${out}/report.json`,JSON.stringify({checks,errors},null,2));console.log(`PASS ${checks.length} flagship checks`);

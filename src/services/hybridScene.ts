@@ -146,7 +146,7 @@ export function mountHybridScene(host: HTMLDivElement, layout: CommandLayout, cu
   const orbital: T.Group[]=[];
   const ringLightMaterials:T.ShaderMaterial[]=[];
   for (let i=0;i<2;i++) {
-    const group=new T.Group();group.position.z=(5+i*2)*INNER_CORE_SCALE;group.scale.setScalar(INNER_CORE_SCALE);scene.add(group);orbital.push(group);
+    const group=new T.Group();group.position.z=(5+i*2)*INNER_CORE_SCALE;group.scale.setScalar(layout.flagship ? 1.05 : INNER_CORE_SCALE);scene.add(group);orbital.push(group);
     for(const [tube,alpha] of [[.20,.68],[.55,.16],[1.0,.085],[1.7,.042],[2.6,.018]]) {
       const material=new T.ShaderMaterial({
         uniforms:{phase:{value:i*2.1},tint:{value:new T.Color(i===0||layout.orbitalCards?0xffcf7a:0xe5efff)},alpha:{value:alpha*(layout.orbitalCards?.48:.42)}},
@@ -170,10 +170,6 @@ export function mountHybridScene(host: HTMLDivElement, layout: CommandLayout, cu
     proxy.position.copy(ring.position);proxy.scale.copy(ring.scale);proxy.renderOrder=-1;
     networkScene.add(proxy);return proxy;
   });
-  if (layout.flagship) {
-    // Keep the Omega open-backed: its own extrusion supplies depth and occlusion.
-    orbital.forEach(o=>o.visible=false); orbitalDepth.forEach(o=>o.visible=false);
-  }
   const voiceUniforms={energy:{value:0},presence:{value:0},phase:{value:0}};
   // Localized speech peaks lift off the intact amber orbital. Sharing its
   // transform makes the trace part of that orbit, rather than another ring.
