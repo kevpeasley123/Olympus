@@ -338,7 +338,7 @@ export function CommandInstrument({
           Nothing renders before the first reply of a session. Naming a model
           that has not spoken would be the same invisible wrongness as reading
           the request constant. */}
-      {flagship && <div className="pantheon-caption"><h2>Pantheon</h2>{(activity || working) && <span className="pantheon-state">{activity ?? "Working"}</span>}</div>}
+      {flagship && <div className="pantheon-caption"><h2>Pantheon</h2>{(activity || working) && ambientState !== "speaking" && ambientState !== "listening" && <span className="pantheon-state">{activity ?? "Working"}</span>}</div>}
       {flagship && <div className="pantheon-voice" role="img" aria-label={ambientState === "speaking" ? "Voice speaking" : ambientState === "listening" ? "Voice listening" : "Voice idle"} data-active={ambientState === "speaking" || ambientState === "listening"}>
         <Mic size={18} aria-hidden="true"/>
         <div className="pantheon-voice__wave" aria-hidden="true">{Array.from({length:23},(_,i)=><span key={i} style={{height:2+((ambientState === "speaking" || ambientState === "listening") ? Math.min(1,Math.max(0,voiceLevel))*30*Math.pow(Math.sin((i+1)*Math.PI/24),.7)*(i%3===0?.65:1):0)}}/>)}</div>
