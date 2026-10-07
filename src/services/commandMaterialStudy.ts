@@ -422,7 +422,7 @@ export function buildCommandMaterialStudy(scene:T.Scene,renderer:T.WebGLRenderer
       radialHalo.scale.setScalar(idle?(moving?OMEGA_IDLE.haloBreathMin+(OMEGA_IDLE.haloBreathMax-OMEGA_IDLE.haloBreathMin)*idleSample!.breath+(idleSample!.pulse/OMEGA_IDLE.primaryStrength)*OMEGA_IDLE.haloExpansion:1):1+(envelope-1)*.15);
       coreLight.intensity=t.localLight*(idle?1+(envelope-1)*OMEGA_IDLE.localLightBoost:envelope)+energy*25;
       const progress=idleSample?.rippleProgress??(heartbeatAge(time)-.95)/1.8;
-      ripple.visible=!error&&!executing&&!completing&&moving&&(idleSample?idleSample.ripple>0:progress>=0&&progress<=1);
+      ripple.visible=!layout.flagship&&!error&&!executing&&!completing&&moving&&(idleSample?idleSample.ripple>0:progress>=0&&progress<=1);
       if(ripple.visible){
         const start=idle?OMEGA_IDLE.rippleStart:t.rippleStart,end=idle?OMEGA_IDLE.rippleEnd:t.rippleEnd;
         ripple.scale.setScalar(start+(end-start)*progress);

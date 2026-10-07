@@ -37,7 +37,7 @@ export function buildPantheonGalaxy(scene: T.Scene, flagship = false) {
     const mesh = new T.Mesh(bodyGeometry, material); mesh.scale.setScalar(i % 5 === 0 ? (flagship ? 2.4 : 2.2) : .65 + random() * .55); group.add(mesh);
     const phase = random() * Math.PI * 2, speed = (.010 + random() * .013) * (i % 3 ? 1 : -1) * (flagship ? 3.2 : 1);
     // Only four short, fading wakes. No closed orbit or connections to cards.
-    const trail = i % 6 === 0 ? new T.Line(new T.BufferGeometry().setAttribute("position", new T.BufferAttribute(new Float32Array(90), 3)), new T.LineBasicMaterial({color: 0x819baa, transparent: true, opacity: flagship ? .2 : .13, depthTest: true, depthWrite: false})) : undefined;
+    const trail = !flagship && i % 6 === 0 ? new T.Line(new T.BufferGeometry().setAttribute("position", new T.BufferAttribute(new Float32Array(90), 3)), new T.LineBasicMaterial({color: 0x819baa, transparent: true, opacity: flagship ? .2 : .13, depthTest: true, depthWrite: false})) : undefined;
     if (trail) group.add(trail);
     return {mesh, radius, tilt, phase, speed, trail};
   });

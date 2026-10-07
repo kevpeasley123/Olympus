@@ -337,9 +337,8 @@ export function CommandInstrument({
           Nothing renders before the first reply of a session. Naming a model
           that has not spoken would be the same invisible wrongness as reading
           the request constant. */}
-      {flagship && <div className="pantheon-caption"><span className="command-eyebrow">THE INTELLIGENCE CORE</span><h2>Pantheon</h2><span className="pantheon-state">{activity ?? (working ? "Working" : "At your command")}</span></div>}
+      {flagship && <div className="pantheon-caption"><h2>Pantheon</h2>{(activity || working) && <span className="pantheon-state">{activity ?? "Working"}</span>}</div>}
       {flagship && <nav className="pantheon-destinations" aria-label="Command destinations"><button onClick={onProjects}>Projects <span>01</span></button><button onClick={domainActions?.research}>Research <span>02</span></button><button onClick={domainActions?.communications}>Communications <span>03</span></button><button onClick={domainActions?.system}>System <span>04</span></button></nav>}
-      <p className="command-orbit-motto">Same questions. A higher orbit.</p>
       {previewLabel && <p className="command-instrument__preview" role="note">{previewLabel}</p>}
       {hybridError && <div className="hybrid-status" role="status">
         <span>3D view unavailable · showing the flat instrument.</span>

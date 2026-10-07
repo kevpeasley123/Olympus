@@ -7,7 +7,7 @@ export const CONSTELLATION_FIELD = {
   outerRadius: 191, atmosphereStart: 72,
 };
 
-export function buildConstellationField(scene: T.Scene, openOrbit = false) {
+export function buildConstellationField(scene: T.Scene, openOrbit = false, flagship = false) {
   const geometry = new T.SphereGeometry(CONSTELLATION_FIELD.radius, 64, 40);
   const uniforms = {
     reflection: {value: CONSTELLATION_FIELD.reflection},
@@ -52,7 +52,7 @@ export function buildConstellationField(scene: T.Scene, openOrbit = false) {
         // Alpha stays exactly 1 through the main portal, then eases to zero
         // across the full outer zone, ending inside the existing rail (r=192).
         float opacity=1.-smoother(${openOrbit ? "65.0" : CONSTELLATION_FIELD.radius.toFixed(1)},${CONSTELLATION_FIELD.outerRadius.toFixed(1)},radius);
-        gl_FragColor=vec4(color,opacity*${openOrbit ? ".96" : "1."});
+        gl_FragColor=vec4(${flagship ? "vec3(0.)" : "color"},opacity*${openOrbit ? ".96" : "1."});
       }`,
   });
   const front = new T.ShaderMaterial({
@@ -83,6 +83,7 @@ export function buildConstellationField(scene: T.Scene, openOrbit = false) {
   enclosure.renderOrder=-2;
   const reflection = new T.Mesh(geometry,front);
   reflection.renderOrder=2;
+  reflection.visible=!flagship;
   volume.add(enclosure,reflection);
   scene.add(volume);
   // Geometry and materials are disposed by the scene's shared cleanup traversal.

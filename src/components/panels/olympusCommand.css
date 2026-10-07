@@ -1,6 +1,6 @@
 /* Flagship Command: one hero, a quiet capability index, a companion. */
 html .mode-command:has(.olympus-armory) .main-grid{grid-template-columns:40px 176px minmax(0,1fr) minmax(320px,370px);gap:22px}
-html:has(.olympus-armory) .background-image{filter:saturate(.42) brightness(.43) contrast(1.08)}
+html:has(.olympus-armory) .background-image{filter:saturate(.42) brightness(.60) contrast(1.08)}
 html:has(.olympus-armory) .brand-manifesto{display:none}
 html:has(.olympus-armory) .tools-rail{background:transparent;border-color:#8aabc514}
 html:has(.olympus-armory) .brand-promise{font-size:8px;letter-spacing:.18em;color:#96a8b7}
@@ -27,7 +27,7 @@ html:has(.olympus-armory) .brand-promise{font-size:8px;letter-spacing:.18em;colo
 html .mode-command:has(.olympus-armory) .panel-slot-instrument{height:100%}
 html .mode-command .command-instrument[data-flagship]{height:100%;min-height:0;position:relative;justify-content:center;gap:0;padding:0 0 24px}
 html .mode-command .command-instrument[data-flagship] .command-instrument__dial{width:min(100cqw,calc(100vh - 290px),780px);height:min(100cqw,calc(100vh - 290px),780px);flex-shrink:0;transform:none;margin-top:-32px}
-.command-instrument[data-flagship] .command-orbital-atmosphere{background:radial-gradient(ellipse,#01040bf0 0%,#01040bc0 45%,#020a1420 65%,transparent 75%)}
+.command-instrument[data-flagship] .command-orbital-atmosphere{background:radial-gradient(ellipse,#000 0%,#000e 25%,#0009 43%,#0004 58%,#0001 70%,transparent 82%)}
 .command-instrument[data-flagship] .command-instrument__fallback-omega{font-size:150px;fill:#e5b776}
 .pantheon-caption{text-align:center;margin-top:-28px;z-index:1;pointer-events:none}.pantheon-caption>.command-eyebrow{font-size:9px;color:#8e9faf;letter-spacing:.26em}.pantheon-caption h2{font:32px/1.2 var(--font-display,"Cinzel",serif);letter-spacing:.2em;font-weight:400;margin:10px 0;color:#e2d6c2}.pantheon-state{font:10px var(--font-mono);color:#ad9d87;letter-spacing:.16em;text-transform:uppercase}
 .pantheon-destinations{display:flex;justify-content:center;flex-wrap:wrap;gap:0;margin:36px 0 0;z-index:2;width:100%}.pantheon-destinations button{background:none;border:0;border-top:1px solid #8eabbd27;border-bottom:1px solid #8eabbd10;padding:16px 13px;text-align:left;color:#acbdcc;font:11px var(--font-sans);cursor:pointer;transition:color .18s,background .18s}.pantheon-destinations button span{display:inline-block;margin-left:14px;color:#6e7a86;font:9px var(--font-mono)}.pantheon-destinations button:hover{color:#f3d4a4;background:#e2b7770b}.pantheon-destinations button:hover span{color:#d8b47b}
@@ -94,3 +94,5 @@ html .mode-command:has(.olympus-armory) .command-console *{scrollbar-width:thin;
 .companion-operation>summary small{float:right;font:9px/2 var(--font-mono);color:#d4b17b;text-transform:uppercase;margin-left:12px}
 .companion-operation>.mission-view{margin:0 0 16px;max-height:320px;overflow:auto}
 .companion-operation>summary:focus-visible{outline:1px solid #d4b17b;outline-offset:3px}
+
+.armory-heading{margin-bottom:24px}

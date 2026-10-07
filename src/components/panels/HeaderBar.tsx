@@ -46,13 +46,12 @@ export function HeaderBar({ mode, onSelectMode, projects, projectScan }: HeaderB
           same sentence would contradict the one-glowing-object rule. */}
       <div className="olympus-header__zone olympus-header__zone--left">
         {mode === "command" || mode === "communications" ? (
-          <div><h1 className="olympus-wordmark">OLYMPUS</h1><p className="brand-promise">Higher intelligence. Real progress.</p></div>
+          <div><h1 className="olympus-wordmark">OLYMPUS</h1></div>
         ) : (
           <OmegaInstrument projects={scanned ? projects : []} />
         )}
       </div>
 
-      {mode === "command" && <p className="brand-manifesto">Discover.<br/>Reason.<br/>Build<br/>Together.</p>}
       <div className="olympus-header__zone olympus-header__zone--center">
         <ModeSwitcher mode={mode} onSelectMode={onSelectMode} />
       </div>
