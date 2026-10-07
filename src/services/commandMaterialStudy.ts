@@ -127,10 +127,12 @@ export function buildCommandMaterialStudy(scene:T.Scene,renderer:T.WebGLRenderer
   const extrude=(shape:T.Shape|T.Shape[],depth:number,bevel=.4,curveSegments=64)=>new T.ExtrudeGeometry(shape,{depth,steps:1,bevelEnabled:true,bevelSize:bevel,bevelThickness:bevel,bevelSegments:6,curveSegments});
   const coreStart=group.children.length;
   const shapes=new SVGLoader().parse(`<svg xmlns="http://www.w3.org/2000/svg"><path d="${OMEGA}"/></svg>`).paths.flatMap(path=>path.toShapes());
-  const body=extrude(shapes,7,.65);body.scale(1,-1,1);body.setIndex(Array.from({length:body.getAttribute('position').count},(_,i)=>i%3===1?i+1:i%3===2?i-1:i));
+  const body=layout.flagship
+    ? new T.ExtrudeGeometry(shapes,{depth:4,steps:1,bevelEnabled:true,bevelSize:.18,bevelThickness:.18,bevelSegments:1,curveSegments:64})
+    : extrude(shapes,7,.65);body.scale(1,-1,1);body.setIndex(Array.from({length:body.getAttribute('position').count},(_,i)=>i%3===1?i+1:i%3===2?i-1:i));
   const face=new T.MeshPhysicalMaterial({color:0x6c3611,metalness:.25,roughness:.36,envMapIntensity:.3,clearcoat:.5,clearcoatRoughness:.14,transmission:0,thickness:2.5,ior:1.48,emissive:0xd87520,emissiveMap:engraving,emissiveIntensity:1.8});
   const side=new T.MeshPhysicalMaterial({color:0x38261b,metalness:.88,roughness:.23,clearcoat:.5});
-  mesh(body,[face,side],3);
+  mesh(body,[face,side],layout.flagship?6:3);
   for(const shape of shapes){
     const points=shape.getPoints(128).map(p=>new T.Vector3(p.x,-p.y,10.75));
     const outline=new T.LineLoop(new T.BufferGeometry().setFromPoints(points),warmLines);group.add(outline);
@@ -151,7 +153,7 @@ export function buildCommandMaterialStudy(scene:T.Scene,renderer:T.WebGLRenderer
   const coreLight=new T.PointLight(0xff8c36,70,150,1);coreLight.position.set(0,0,28);group.add(coreLight);
   const core=new T.Group();
   for(const child of group.children.slice(coreStart))core.add(child);
-  core.scale.setScalar(layout.flagship ? 1.13 : INNER_CORE_SCALE);group.add(core);
+  core.scale.setScalar(layout.flagship ? 1.35 : INNER_CORE_SCALE);group.add(core);
   const housingStart=group.children.length;
   // The selected study section follows the existing map, never an independently arranged scene.
   const studyIds=new Set(layout.ring.segments.map(segment=>segment.id));
@@ -400,7 +402,7 @@ export function buildCommandMaterialStudy(scene:T.Scene,renderer:T.WebGLRenderer
       const target=speaking&&moving?Math.max(0,Math.min(1,energy)):0;
       const response=target>speechAmount?OMEGA_SPEECH.attackSeconds:OMEGA_SPEECH.releaseSeconds;
       speechAmount=moving?speechAmount+(target-speechAmount)*(1-Math.exp(-frameDelta/response)):0;
-      glyph.scale.setScalar(1+OMEGA_SPEECH.scaleGain*speechAmount);
+      glyph.scale.setScalar(1+(layout.flagship?0:OMEGA_SPEECH.scaleGain)*speechAmount);
       const delta=idle&&wasIdle?Math.max(0,time-previousTime):0;
       previousTime=time;wasIdle=idle;
       const idleSample=idle?idleCycle(delta,moving):null;
@@ -412,9 +414,9 @@ export function buildCommandMaterialStudy(scene:T.Scene,renderer:T.WebGLRenderer
       warmLines.color.set(error?0xc91422:0xffa13d);
       haloMaterial.color.set(error?0xd51022:0xffffff);
       const envelope=error?.95-dip:executing?1.12+operationPulse*.10:idleSample?.envelope??coreGlowEnvelope(time,moving),t=MATERIAL_TUNING;
-      face.emissiveIntensity=t.coreEmission*envelope+energy*.5;
-      haloMaterial.opacity=t.haloOpacity*envelope*(layout.orbitalCards?1.3:1)+energy*.12;
-      radialMaterial.uniforms.intensity.value=t.radialHalo*envelope*(idle&&moving?.85+.55*idleSample!.breath:1)+energy*.06;
+      face.emissiveIntensity=t.coreEmission*(layout.flagship?.72:1)*envelope+energy*.5;
+      haloMaterial.opacity=t.haloOpacity*envelope*(layout.flagship?.24:layout.orbitalCards?1.3:1)+energy*.12;
+      radialMaterial.uniforms.intensity.value=t.radialHalo*(layout.flagship?.35:1)*envelope*(idle&&moving?.85+.55*idleSample!.breath:1)+energy*.06;
       radialHalo.scale.setScalar(idle?(moving?OMEGA_IDLE.haloBreathMin+(OMEGA_IDLE.haloBreathMax-OMEGA_IDLE.haloBreathMin)*idleSample!.breath+(idleSample!.pulse/OMEGA_IDLE.primaryStrength)*OMEGA_IDLE.haloExpansion:1):1+(envelope-1)*.15);
       coreLight.intensity=t.localLight*(idle?1+(envelope-1)*OMEGA_IDLE.localLightBoost:envelope)+energy*25;
       const progress=idleSample?.rippleProgress??(heartbeatAge(time)-.95)/1.8;

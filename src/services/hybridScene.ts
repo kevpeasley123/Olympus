@@ -171,11 +171,7 @@ export function mountHybridScene(host: HTMLDivElement, layout: CommandLayout, cu
     networkScene.add(proxy);return proxy;
   });
   if (layout.flagship) {
-    // A real opaque core volume: rear bodies disappear behind it. The glyph
-    // sits ahead of its surface; warm rim light gives the volume a quiet edge.
-    const coreBody = new T.Mesh(new T.SphereGeometry(76, 64, 48), new T.MeshStandardMaterial({color:0x030912,metalness:.55,roughness:.46}));
-    coreBody.position.z=-82; scene.add(coreBody);
-    const rimLight = new T.PointLight(0x779bc9, 600, 310, 1.5); rimLight.position.set(-130,70,10);scene.add(rimLight);
+    // Keep the Omega open-backed: its own extrusion supplies depth and occlusion.
     orbital.forEach(o=>o.visible=false); orbitalDepth.forEach(o=>o.visible=false);
   }
   const voiceUniforms={energy:{value:0},presence:{value:0},phase:{value:0}};

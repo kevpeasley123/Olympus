@@ -23,12 +23,12 @@ integrations are retained. No dependency was added.
 ## Visual / motion approach
 
 Reuse Three.js with a real perspective camera, the existing extruded Omega,
-an opaque depth-writing sphere behind the glyph, volumetric seeded dust and
+a shallow, sharply chamfered open-backed glyph, volumetric seeded dust and
 independently phased/inclined orbiting bodies. Both scene passes share a depth
 buffer. All continuous torus rings are hidden in flagship mode; four sparse
 trajectory traces replace them. Small damped pointer movement affects the camera.
 The existing restrained bloom provides light falloff. Motion drives no React
-state on animation frames. Sphere and trails are decorative, not invented agents.
+state on animation frames. Trails and bodies are decorative, not invented agents. The spherical backing was removed after visual feedback; the glyph is larger, its glow restrained, and speech changes light rather than inflating its geometry.
 
 Pixel ratio stays capped at 2. Existing hidden-tab/mode suspension, reduced-motion
 freeze, lazy scene loading, context-loss SVG fallback and shared geometry/material
