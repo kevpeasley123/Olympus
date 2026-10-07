@@ -43,6 +43,7 @@ export interface ToolDescriptor extends CapabilityBase {
 export interface SkillDescriptor extends CapabilityBase {
   kind: "skill";
   version: number;
+  instructions?: string;
   purpose: string;
   inputs: string;
   output: string;

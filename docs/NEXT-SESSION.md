@@ -1,3 +1,11 @@
+## October 7 - local resource capture and plugin constellation
+
+Command now offers Add resource and Add skill. Pasted text or selected PDF/Markdown/text can become an unevaluated library artifact with original source, locally selected excerpts, reusable guidance and review notes. Custom instructions persist in SQLite and appear in Armory. Eight current plugin adapters project into an accessible blue star cluster with actual availability and detail navigation. See [RESOURCE-INTAKE.md](RESOURCE-INTAKE.md) for plan, limits and follow-up.
+
+AI semantic digestion remains pending explicit user approval: automatic review rejected implementing external transmission of imported text and instructions to OpenAI without specific authorization. No resource model request is implemented. Local outlines are extractive, and selected skills are saved guidance rather than automatically applied analysis.
+
+Verification: production and MSI builds passed; 433 Rust tests passed, 16 ignored; 8 focused resource checks; isolated browser capture/persistence/skill/star checks passed; flagship checks passed 60; final full visual review passed 21 captures and 57 functional checks. Reviewed browser layouts and native Add resource form with real IPC-backed plugin availability. No synthetic resources were written to the real vault. Native preview is the release executable in dev-target; the installed Program Files shortcut remains the earlier version following the previously canceled installation. No push performed.
+
 ## October 7 - flagship Command / Olympus Armory
 
 The owner requested a substantial Command design pass. The default composition

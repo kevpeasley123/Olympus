@@ -1,3 +1,4 @@
+import { ArmoryConstellation } from "./ArmoryConstellation";
 import { Mic } from "lucide-react";
 import { HybridCommandCore } from "./HybridCommandCore";
 import { OrbitalAtmosphere } from "./OrbitalAtmosphere";
@@ -257,6 +258,7 @@ export function CommandInstrument({
       style={{ ...ambientVariables, "--ambient-drift": `${2 / renderScale}px` } as CSSProperties}>
       <motion.div className="command-instrument__dial" ref={dialRef} style={instrumentParallax}>
         <div className="command-orbital-atmosphere" aria-hidden="true"/>
+        {flagship && <ArmoryConstellation capabilities={capabilities??null}/>}
         {/* Unmounted on failure so its GPU resources, listeners and timers go
             with it; Retry mounts a fresh one. */}
         {sceneWanted && !hybridError && <HybridCommandCore key={renderAttempt} layout={{...layout, orbitalCards: true, flagship}} state={ambientState} voiceLevel={voiceLevel} execution={execution}

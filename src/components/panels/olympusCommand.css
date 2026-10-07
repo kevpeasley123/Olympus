@@ -103,3 +103,18 @@ html .mode-command:has(.olympus-armory) .command-console *{scrollbar-width:thin;
 .pantheon-voice__wave span{width:2px;background:currentColor;border-radius:1px;opacity:.6;transition:height 80ms linear}
 .pantheon-voice__state{position:absolute;top:100%;font:9px var(--font-mono);letter-spacing:.1em;text-transform:uppercase}
 @media(prefers-reduced-motion:reduce){.pantheon-voice__wave span{transition:none;height:2px!important}}
+
+.armory-constellation{position:absolute;left:7%;top:12%;width:180px;height:150px;z-index:4;color:#a2d0e3}
+.armory-constellation__label{position:absolute;left:10px;top:-9px;font:10px var(--font-mono);letter-spacing:.09em;color:#9abacc}
+.armory-constellation__label b{font-weight:400;margin-left:8px;color:#d2e5ee}
+.armory-constellation__orbit{position:absolute;inset:0;animation:plugin-cluster-orbit 22s linear infinite}
+.armory-star{position:absolute;display:grid;place-items:center;transform:translate(-50%,-50%);width:28px;height:28px;padding:0;border:0;background:transparent;cursor:pointer;color:inherit;border-radius:50%}
+.armory-star__light{width:4px;height:4px;border-radius:50%;background:#9db6c0;box-shadow:0 0 7px 2px #b4dbea33;opacity:.4}
+.armory-star[data-available="true"] .armory-star__light{background:#ceefff;box-shadow:0 0 8px 2px #84d6ff77;opacity:1}
+.armory-star__name{position:absolute;left:24px;top:0;display:none;white-space:nowrap;background:#07121ef5;border:1px solid #759bab50;border-radius:4px;padding:7px 10px;font:11px var(--font-sans);text-align:left;pointer-events:none}
+.armory-star__name small{display:block;color:#899dab;margin-top:4px}
+.armory-star:hover,.armory-star:focus-visible{outline:1px solid #9bceec99;z-index:5}.armory-star:hover .armory-star__name,.armory-star:focus-visible .armory-star__name{display:block}
+.armory-constellation:focus-within .armory-constellation__orbit,.armory-constellation:hover .armory-constellation__orbit,[data-motion="paused"] .armory-constellation__orbit{animation-play-state:paused}
+@keyframes plugin-cluster-orbit{0%,100%{transform:translate(0,0)}25%{transform:translate(9px,-4px)}50%{transform:translate(16px,4px)}75%{transform:translate(5px,9px)}}
+@media(max-width:1350px){.armory-constellation{left:0;top:6%;width:145px;height:120px}}
+@media(prefers-reduced-motion:reduce){.armory-constellation__orbit{animation:none}}

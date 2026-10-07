@@ -26,6 +26,13 @@ Operations count active/waiting recorded workflows; Gmail sync and monitors are
 not yet covered by that endpoint. Never imply that an empty workflow snapshot
 proves the entire application idle. See `docs/COMMAND-FLAGSHIP.md`.
 
+Resource intake is an explicit write workflow beside Armory inspection: capture
+source documents, review locally selected passages and save unevaluated library
+artifacts. Added skills are reusable instruction documents without execution
+privileges. Plugin stars reflect real adapter counts and open inspection details.
+AI resource analysis requires a separately authorized explicit action; the current
+local outline makes no model request. See `docs/RESOURCE-INTAKE.md`.
+
 ## Opening experience
 
 On launch, Command is the ambient, glanceable state of Olympus. It should be

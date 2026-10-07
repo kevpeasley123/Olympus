@@ -1,3 +1,4 @@
+import { INTAKE_CHANGED, resourceSkills, skillDescriptor } from "../services/resourceIntake";
 import { useEffect, useState } from "react";
 import { capabilityClient, type CapabilityClient, type CapabilitySnapshot, type MissionSnapshot } from "../services/capabilities";
 import fixture from "../services/capabilitiesFixture.json";
@@ -28,14 +29,19 @@ export function useCommandArmory(active: boolean, client: CapabilityClient | nul
   const [missions, setMissions] = useState<MissionSnapshot | null>(preview ? fixture.missions.none as MissionSnapshot : null);
 
   useEffect(() => {
-    if (!client) return;
+    if (!client) {
+      let live=true;
+      const refresh=()=>{void resourceSkills().then(skills=>{if(live)setCapabilities({...fixture.capabilities as CapabilitySnapshot,skills:[...fixture.capabilities.skills as CapabilitySnapshot["skills"],...skills.map(skillDescriptor)]})})};
+      refresh();window.addEventListener(INTAKE_CHANGED,refresh);return()=>{live=false;window.removeEventListener(INTAKE_CHANGED,refresh)};
+    }
     let live = true;
     const read = () => client.capabilities().then(value => { if (live) { setCapabilities(value); setError(null); } })
       .catch(error => { if (live) setError(String(error)); });
     void read();
     const timer = window.setInterval(read, ARMORY_POLL.capabilitiesMs);
     window.addEventListener("focus", read);
-    return () => { live = false; window.clearInterval(timer); window.removeEventListener("focus", read); };
+    window.addEventListener(INTAKE_CHANGED,read);
+    return () => { live = false; window.clearInterval(timer); window.removeEventListener("focus", read);window.removeEventListener(INTAKE_CHANGED,read); };
   }, [client]);
 
   useEffect(() => {

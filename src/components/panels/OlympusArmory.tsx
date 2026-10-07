@@ -1,3 +1,5 @@
+import { ResourceIntake } from "./ResourceIntake";
+import { onArmoryInspection } from "../../services/armoryNavigation";
 import { useEffect, useState, useRef } from "react";
 import { ArrowUpRight, CircleDot, Plug, Sparkles, Activity, X, ChevronRight, ShieldCheck } from "lucide-react";
 import { Modal } from "../Modal";
@@ -26,6 +28,11 @@ export function OlympusArmory({capabilities, missions, error, missionsError, pre
   const [open, setOpen] = useState(false);
   const [agentId, setAgentId] = useState<string | null>(null);
   const [item, setItem] = useState<Capability | null>(null);
+  useEffect(()=>onArmoryInspection(target=>{
+    const actual=[...(capabilities?.tools??[]),...(capabilities?.skills??[])].find(c=>c.id===target.id);
+    if(!actual)return;
+    setCategory(actual.kind==="skill"?"Skills":"Plugins");setAgentId(null);setItem(actual);setOpen(true);
+  }),[capabilities]);
   const loadoutHeading = useRef<HTMLHeadingElement>(null);
   const detailRef = useRef<HTMLElement>(null);
   useEffect(()=>{if(agentId)loadoutHeading.current?.focus();},[agentId]);
@@ -58,6 +65,7 @@ export function OlympusArmory({capabilities, missions, error, missionsError, pre
     <div className="armory-index">{categories.map((name,i)=>{const Icon=symbols[name];return <button key={name} onClick={()=>show(name)} aria-haspopup="dialog"><Icon size={16}/><span>{name}</span><strong>{numbers[i] ?? "—"}</strong><ChevronRight size={12}/></button>;})}</div>
     <button className="armory-open" onClick={()=>show("Agents")}>Explore capabilities <ArrowUpRight size={13}/></button>
     {(error||catalogError||missionsError)&&<p className="armory-caution">Some observations are unavailable. <button onClick={()=>{setRevision(n=>n+1);show("Agents")}}>Review</button></p>}
+    <ResourceIntake/>
     <div className="armory-presence"><span className="command-eyebrow">EXECUTABLE AGENTS</span>{catalog?.agents.map(role=><button key={role.id} onClick={()=>{show("Agents");inspectAgent(role);}} aria-label={`Inspect ${role.name} loadout`} data-selected={selectedAgent===role.id}><i data-status={status(role)}/><span>{role.name.replace(" Agent","")}</span><small>{status(role)}</small></button>)}{!catalog&&<p>Reading catalog...</p>}</div>
     <div className="armory-operation-summary"><span className="command-eyebrow">OPERATIONS</span>{missionsError ? <p>Activity status unavailable</p> : !missions ? <p>Reading activity...</p> : operations.length ? operations.slice(0,2).map(m=><button key={m.id} onClick={()=>show("Operations")}><span className="operation-pulse"/><span>{m.title}<small>{m.status==="waiting"?"Waiting for your review":"In progress"}</small></span></button>) : <p>No active runs reported<span>Workflow telemetry only.</span></p>}</div>
     {preview && <footer>Preview / synthetic state</footer>}
@@ -77,7 +85,7 @@ export function OlympusArmory({capabilities, missions, error, missionsError, pre
       : category==="Plugins" ? <><p className="armory-intro">Connections and local adapters. Model routes and delegated executors remain in agent loadouts.</p><div className="armory-plugin-list">{plugins.map(t=><button key={t.id} onClick={()=>setItem(t)}><span className="plugin-port"><Plug size={18}/></span><span><strong>{t.name}</strong><small>{t.toolKind}</small></span><span className="armory-state">{pluginStatus(t)}</span></button>)}</div>{!capabilities&&<p>Capabilities unavailable.</p>}<p className="armory-footnote">Available is configured readiness, not proof of authentication or a successful live call.</p></>
       : category==="Skills" ? <div className="armory-skill-list">{capabilities?.skills.map((s,i)=><button key={s.id} onClick={()=>setItem(s)}><span className="skill-inscription">{String(i+1).padStart(2,"0")}</span><Sparkles size={16}/><span><strong>{s.name}</strong><small>{s.purpose}</small></span><ChevronRight size={16}/></button>)}{!capabilities&&<p>Skills unavailable.</p>}</div>
       : <div className="armory-operation-list">{!missions?<p>Operation observations unavailable.</p>:operations.length===0?<div className="armory-empty"><Activity size={30}/><h3>All quiet.</h3><p>No active operations in the current runtime snapshot.</p><small>Background sync and scheduled monitors are not reported by this endpoint.</small></div>:operations.map(m=><button key={m.id} onClick={()=>openOperation(m)}><span className="operation-pulse"/><span><strong>{m.title}</strong><small>{m.status==="waiting"?"Awaiting review":m.phase??"Working"}</small><span>{m.steps.filter(s=>s.state==="completed").length} / {m.steps.length} recorded steps</span></span><ArrowUpRight size={16}/></button>)}{missions?.missions.some(m=>m.status==="failed")&&<details><summary>Recent failures</summary>{missions.missions.filter(m=>m.status==="failed").map(m=><button className="loadout-link" key={m.id} onClick={()=>openOperation(m)}>{m.title} <span>Failed</span></button>)}</details>}</div>}
-      {item&&<section ref={detailRef} tabIndex={-1} className="armory-item-detail" aria-label="Capability detail"><button className="armory-close" aria-label="Close capability detail" onClick={()=>setItem(null)}><X size={16}/></button><span className="command-eyebrow">{item.kind==="skill"?"SKILL CONTRACT":"CAPABILITY CONTRACT"}</span><h3>{item.name}</h3>{item.kind==="tool"?<><p>{item.detail}</p><h4>Authority</h4><p>{item.authority}</p><h4>Approval</h4><p>{item.approval==="required"?"Required for every use":item.approval==="writes"?"Required for writes":"No additional approval in this contract"}</p><h4>Supported actions</h4><p>{item.capabilities.join(" / ")}</p></>:<><p>{item.purpose}</p><h4>Input / output</h4><p>{item.inputs}</p><p>{item.output}</p><h4>Effects</h4><p>{item.effects}</p></>}</section>}
+      {item&&<section ref={detailRef} tabIndex={-1} className="armory-item-detail" aria-label="Capability detail"><button className="armory-close" aria-label="Close capability detail" onClick={()=>setItem(null)}><X size={16}/></button><span className="command-eyebrow">{item.kind==="skill"?"SKILL CONTRACT":"CAPABILITY CONTRACT"}</span><h3>{item.name}</h3>{item.kind==="tool"?<><p>{item.detail}</p><h4>Authority</h4><p>{item.authority}</p><h4>Approval</h4><p>{item.approval==="required"?"Required for every use":item.approval==="writes"?"Required for writes":"No additional approval in this contract"}</p><h4>Supported actions</h4><p>{item.capabilities.join(" / ")}</p></>:<><p>{item.purpose}</p><h4>Input / output</h4><p>{item.inputs}</p><p>{item.output}</p><h4>Effects</h4><p>{item.effects}</p>{item.instructions&&<><h4>Instructions</h4><p className="resource-guidance">{item.instructions}</p></>}</>}</section>}
       </div><footer className="armory-dialog-footer"><span>{preview?"Synthetic preview":"Observed runtime state"}</span></footer>
     </Modal>
   </aside>;
