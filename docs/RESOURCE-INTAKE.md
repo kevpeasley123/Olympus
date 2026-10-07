@@ -21,3 +21,9 @@ After the plugin cluster proves useful, map other Armory types into distinct reg
 ## Verification
 
 Focused local-outline tests and isolated browser intake/skill/constellation checks cover persistence, exact source excerpts, keyboard inspection and draft retention. Rust tests cover skill storage and duplicate/size validation. Browser fixture verification and native desktop inspection are separate acceptance levels; see the current handoff for results.
+
+## Vault constellation
+
+The southern field now projects the existing bounded vault graph as small violet stars. Each star shows its note title and folder and opens the note through the backend's existing guarded Obsidian handoff. Scaffolding exclusions and the 120-note graph cap still apply; omitted-note counts are shown. Failed refreshes identify an older snapshot instead of claiming a complete current vault.
+
+Hovering or keyboard-focusing one star subtly brightens the whole corresponding collection. The same treatment applies to plugins. Neither collection enlarges its visible stars. Dense vaults use smaller invisible targets to keep neighboring notes individually reachable. The vault field is stationary for precise selection; the plugin group's existing shared motion pauses on hover/focus.

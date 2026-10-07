@@ -1,3 +1,9 @@
+## October 7 - southern Obsidian constellation (local preview)
+
+Command projects real vault graph notes as small violet stars in the southern field. Hover/focus on one star subtly highlights its collection; the plugin cluster now shares this behavior. Titles and folders appear on interaction; selecting a note uses the existing guarded Obsidian handoff. Visible star sizes stay unchanged. Graph cap/exclusions remain and truncation or stale status is labeled.
+
+Verified: production/native MSI build; focused Armory checks; browser 40/120-note fixtures with group hover, keyboard focus and no size inflation; final visual regression 21 captures and 57 functional checks. Native preview read 46 actual vault notes and the layout was inspected. The installed release remains 0.22.0 from PR #5; this follow-up is only in the newly built preview, not pushed or installed.
+
 ## October 7 - local resource capture and plugin constellation
 
 Command now offers Add resource and Add skill. Pasted text or selected PDF/Markdown/text can become an unevaluated library artifact with original source, locally selected excerpts, reusable guidance and review notes. Custom instructions persist in SQLite and appear in Armory. Eight current plugin adapters project into an accessible blue star cluster with actual availability and detail navigation. See [RESOURCE-INTAKE.md](RESOURCE-INTAKE.md) for plan, limits and follow-up.

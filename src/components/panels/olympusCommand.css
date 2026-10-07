@@ -118,3 +118,23 @@ html .mode-command:has(.olympus-armory) .command-console *{scrollbar-width:thin;
 @keyframes plugin-cluster-orbit{0%,100%{transform:translate(0,0)}25%{transform:translate(9px,-4px)}50%{transform:translate(16px,4px)}75%{transform:translate(5px,9px)}}
 @media(max-width:1350px){.armory-constellation{left:0;top:6%;width:145px;height:120px}}
 @media(prefers-reduced-motion:reduce){.armory-constellation__orbit{animation:none}}
+
+/* Collection feedback is light only: small stars keep their physical size. */
+.armory-star__light{transition:filter .18s,box-shadow .18s,opacity .18s}
+.armory-constellation:has(.armory-star:hover,.armory-star:focus-visible) .armory-star__light{filter:brightness(1.35);box-shadow:0 0 11px 3px #84d6ff88}
+.armory-constellation:has(.armory-star:hover,.armory-star:focus-visible) .armory-constellation__label{color:#d2edff}
+.vault-constellation{position:absolute;left:12%;bottom:8%;width:76%;height:24%;z-index:4;color:#c2b2df;pointer-events:none}
+.vault-constellation__label{position:absolute;bottom:-9px;left:50%;transform:translateX(-50%);white-space:nowrap;font:9px var(--font-mono);letter-spacing:.08em;color:#9385ad;transition:color .18s}
+.vault-constellation__label b{font-weight:400;margin-left:7px}.vault-constellation__label small{font:8px var(--font-mono);letter-spacing:0}
+.vault-constellation__field{position:absolute;inset:0}
+.vault-star{position:absolute;display:grid;place-items:center;transform:translate(-50%,-50%);width:20px;height:20px;padding:0;border:0;border-radius:50%;background:transparent;cursor:pointer;color:inherit;pointer-events:auto}
+.vault-star__light{width:2px;height:2px;border-radius:50%;background:#bba3d6;opacity:.65;box-shadow:0 0 4px 1px #a08bca44;transition:opacity .18s,box-shadow .18s,filter .18s}
+.vault-constellation:has(.vault-star:hover,.vault-star:focus-visible) .vault-star__light{opacity:1;filter:brightness(1.2);box-shadow:0 0 7px 2px #bca4e777}
+.vault-constellation:has(.vault-star:hover,.vault-star:focus-visible) .vault-constellation__label{color:#d6c6ed}
+.vault-star:hover,.vault-star:focus-visible{outline:1px solid #bca4e766;z-index:6}
+.vault-star__name{display:none;position:absolute;bottom:23px;left:50%;transform:translateX(-50%);width:max-content;max-width:190px;background:#0c1020f5;border:1px solid #a58bbc55;border-radius:4px;padding:7px 10px;font:11px/1.5 var(--font-sans);text-align:left;pointer-events:none;overflow-wrap:anywhere}
+.vault-star__name small{display:block;font-size:9px;color:#9b90ac}.vault-star:hover .vault-star__name,.vault-star:focus-visible .vault-star__name{display:block}
+.vault-constellation__message{position:absolute;top:100%;left:0;width:100%;text-align:center;font:10px var(--font-sans);color:#d4bddf}
+@media(prefers-reduced-motion:reduce){.vault-star__light,.armory-star__light{transition:none}}
+
+.vault-constellation[data-dense="true"] .vault-star{width:8px;height:8px}

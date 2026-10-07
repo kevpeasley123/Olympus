@@ -1,3 +1,4 @@
+import { VaultConstellation } from "./VaultConstellation";
 import { ArmoryConstellation } from "./ArmoryConstellation";
 import { Mic } from "lucide-react";
 import { HybridCommandCore } from "./HybridCommandCore";
@@ -138,7 +139,7 @@ export function CommandInstrument({
   const [renderScale, setRenderScale] = useState(1);
   const profile = useOperatorProfile();
   const { writes } = useVaultWrites();
-  const { graph } = useVaultGraph();
+  const { graph, error: vaultGraphError, loading: vaultGraphLoading } = useVaultGraph();
   const [renderAttempt, setRenderAttempt] = useState(0);
   const [hybridReady, setHybridReady] = useState(false);
   const [hybridError, setHybridError] = useState<string | null>(null);
@@ -258,7 +259,7 @@ export function CommandInstrument({
       style={{ ...ambientVariables, "--ambient-drift": `${2 / renderScale}px` } as CSSProperties}>
       <motion.div className="command-instrument__dial" ref={dialRef} style={instrumentParallax}>
         <div className="command-orbital-atmosphere" aria-hidden="true"/>
-        {flagship && <ArmoryConstellation capabilities={capabilities??null}/>}
+        {flagship && <><ArmoryConstellation capabilities={capabilities??null}/><VaultConstellation graph={graph} error={vaultGraphError} loading={vaultGraphLoading}/></>}
         {/* Unmounted on failure so its GPU resources, listeners and timers go
             with it; Retry mounts a fresh one. */}
         {sceneWanted && !hybridError && <HybridCommandCore key={renderAttempt} layout={{...layout, orbitalCards: true, flagship}} state={ambientState} voiceLevel={voiceLevel} execution={execution}

@@ -71,7 +71,7 @@ const projects: TrackedProject[] = ["Olympus", "Pokedex", "Agentic AI", "AI Lear
   nextStep: "", notePath: `project-${i}.md`, warnings: []
 }));
 const graph: VaultGraphPayload = { ...EMPTY_VAULT_GRAPH, nodes: projects.map(p => ({ id: p.notePath!, title: p.name, folder: "Projects", isProject: true, degree: 1, hop: 0 })), edges: [] };
-for (let i = 0; i < 32; i++) { const id = `note-${i}.md`; graph.nodes.push({ id, title: `Synthetic note ${i}`, folder: "Research", isProject: false, degree: 1, hop: 1 }); graph.edges.push({ from: projects[i % projects.length].notePath!, to: id }); }
+for (let i = 0; i < (params.has("dense-vault") ? 112 : 32); i++) { const id = `note-${i}.md`; graph.nodes.push({ id, title: `Synthetic note ${i}`, folder: "Research", isProject: false, degree: 1, hop: 1 }); graph.edges.push({ from: projects[i % projects.length].notePath!, to: id }); }
 mockIPC(command => {
   invoked.push(command);
   if (command === "fetch_vault_graph") return graph;
