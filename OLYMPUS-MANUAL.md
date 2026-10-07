@@ -13,6 +13,19 @@ capable of directing specialized agents inside safe, recoverable boundaries.
 Olympus is not primarily a chat client. Chat and voice are ways to operate a
 system that maintains project truth, memory, decisions, and delegated work.
 
+## Current Command composition - October 7, 2026
+
+The owner's flagship redesign supersedes the permanent Agent Catalog and orbital
+card composition described in historical sections below. Command now presents a
+compact Olympus Armory at left, the perspective Pantheon/Omega as the visual
+center, and a quiet companion console at right. Agents, Plugins, Skills, and
+Operations are separate inspection categories. Agent loadouts expose their actual
+compiled scope and authority; inspection never executes a capability. Plugins
+count source/connection/local adapters, excluding model routes and executors.
+Operations count active/waiting recorded workflows; Gmail sync and monitors are
+not yet covered by that endpoint. Never imply that an empty workflow snapshot
+proves the entire application idle. See `docs/COMMAND-FLAGSHIP.md`.
+
 ## Opening experience
 
 On launch, Command is the ambient, glanceable state of Olympus. It should be

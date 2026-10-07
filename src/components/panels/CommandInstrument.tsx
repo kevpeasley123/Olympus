@@ -28,6 +28,7 @@ import "./commandArmory.css";
 import "./commandReference.css";
 
 interface CommandInstrumentProps {
+  flagship?: boolean;
   onProjects?: () => void;
   domainActions?: Partial<Record<string, () => void>>;
   active?: boolean;
@@ -103,6 +104,7 @@ const RIPPLE_SECONDS = 1.4;
  * assemble. Projects live in Project mode; nothing here is project navigation.
  */
 export function CommandInstrument({
+  flagship = false,
   projects,
   onProjects,
   domainActions,
@@ -248,7 +250,7 @@ export function CommandInstrument({
   }, [active]);
 
   return (
-    <div className="command-instrument" data-visual-state={ambientState} data-voice-energy={voiceLevel > 0.15 ? "active" : "quiet"}
+    <div className="command-instrument" data-flagship={flagship || undefined} data-visual-state={ambientState} data-voice-energy={voiceLevel > 0.15 ? "active" : "quiet"}
       data-motion={ambient.running ? "running" : "paused"} data-renderer={sceneShown ? "hybrid" : "svg"} data-scene-ready={sceneShown}
       data-armory={capabilities ? "ready" : capabilitiesError ? "unavailable" : "loading"} data-working={working || undefined}
       style={{ ...ambientVariables, "--ambient-drift": `${2 / renderScale}px` } as CSSProperties}>
@@ -256,7 +258,7 @@ export function CommandInstrument({
         <div className="command-orbital-atmosphere" aria-hidden="true"/>
         {/* Unmounted on failure so its GPU resources, listeners and timers go
             with it; Retry mounts a fresh one. */}
-        {sceneWanted && !hybridError && <HybridCommandCore key={renderAttempt} layout={{...layout, orbitalCards: true}} state={ambientState} voiceLevel={voiceLevel} execution={execution}
+        {sceneWanted && !hybridError && <HybridCommandCore key={renderAttempt} layout={{...layout, orbitalCards: true, flagship}} state={ambientState} voiceLevel={voiceLevel} execution={execution}
           running={active && ambient.running} light={light} activeDomains={activeDomains}
           onReady={setHybridReady} onError={setHybridError} />}
         <svg
@@ -270,7 +272,7 @@ export function CommandInstrument({
           {/* The flat instrument's glyph; the 3D core replaces it once drawn. */}
           <text x={CENTRE} y={CENTRE + 30} className="command-instrument__fallback-omega" textAnchor="middle" aria-hidden="true">Ω</text>
           <OrbitalAtmosphere />
-          <DayArc
+          {!flagship && <DayArc
             centre={CENTRE}
             radius={DAY_RADIUS}
             now={new Date(now)}
@@ -279,9 +281,9 @@ export function CommandInstrument({
             writes={writes}
             reducedMotion={!ambient.running}
             renderScale={renderScale}
-          />
+          />}
 
-          <CapabilityRing
+          {!flagship && <CapabilityRing
             onProjects={onProjects}
             domainActions={domainActions}
             layout={layout}
@@ -298,7 +300,7 @@ export function CommandInstrument({
             onHoverDomain={onHoverDomain}
             onSelectDomain={onSelectDomain}
             onSelectCapability={onSelectCapability}
-          />
+          />}
 
           {(pulse === "vault-write" || pulse === "graph-node" || pulse === "response-start") && ambient.running ? (
             <motion.circle
@@ -335,6 +337,8 @@ export function CommandInstrument({
           Nothing renders before the first reply of a session. Naming a model
           that has not spoken would be the same invisible wrongness as reading
           the request constant. */}
+      {flagship && <div className="pantheon-caption"><span className="command-eyebrow">THE INTELLIGENCE CORE</span><h2>Pantheon</h2><span className="pantheon-state">{activity ?? (working ? "Working" : "At your command")}</span></div>}
+      {flagship && <nav className="pantheon-destinations" aria-label="Command destinations"><button onClick={onProjects}>Projects <span>01</span></button><button onClick={domainActions?.research}>Research <span>02</span></button><button onClick={domainActions?.communications}>Communications <span>03</span></button><button onClick={domainActions?.system}>System <span>04</span></button></nav>}
       <p className="command-orbit-motto">Same questions. A higher orbit.</p>
       {previewLabel && <p className="command-instrument__preview" role="note">{previewLabel}</p>}
       {hybridError && <div className="hybrid-status" role="status">
@@ -342,7 +346,7 @@ export function CommandInstrument({
         <button type="button" className="ghost-action" onClick={() => { setHybridError(null); setHybridReady(false); setRenderAttempt(n => n + 1); }}>Retry 3D view</button>
         <details><summary>Technical detail</summary><span>{hybridError}</span></details>
       </div>}
-      {armory && statusParts.length === 0 && <p className="command-instrument__status command-instrument__armory">{armory}</p>}
+      {!flagship && armory && statusParts.length === 0 && <p className="command-instrument__status command-instrument__armory">{armory}</p>}
       {statusParts.length > 0 ? (
         <p className="command-instrument__status" title={identityTitle}>
           {statusParts.map((part, index) => (

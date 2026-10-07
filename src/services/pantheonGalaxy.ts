@@ -2,7 +2,7 @@ import * as T from "three";
 
 /** Decorative astronomy, never a representation of agent activity. The shared
  * scene depth buffer lets bodies pass both behind and in front of Omega. */
-export function buildPantheonGalaxy(scene: T.Scene) {
+export function buildPantheonGalaxy(scene: T.Scene, flagship = false) {
   const group = new T.Group(); group.name = "Pantheon galaxy"; scene.add(group);
   let seed = 72431;
   const random = () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 4294967296; };
@@ -26,13 +26,13 @@ export function buildPantheonGalaxy(scene: T.Scene) {
   group.add(new T.Points(dustGeometry, dustMaterial));
   const bodyGeometry = new T.SphereGeometry(1, 12, 10);
   const bodies = Array.from({length: 22}, (_, i) => {
-    const radius = 46 + random() * 117;
+    const radius = (flagship ? 95 : 46) + random() * (flagship ? 76 : 117);
     const tilt = new T.Quaternion().setFromEuler(new T.Euler(random() * Math.PI, random() * Math.PI, random() * Math.PI));
     const material = new T.MeshStandardMaterial({color: i % 3 ? 0x7899b0 : 0xd5ac6b, emissive: i % 3 ? 0x456878 : 0x8c5a23, emissiveIntensity: .5, roughness: .65, metalness: .15});
-    const mesh = new T.Mesh(bodyGeometry, material); mesh.scale.setScalar(i % 5 === 0 ? 2.2 : .65 + random() * .55); group.add(mesh);
+    const mesh = new T.Mesh(bodyGeometry, material); mesh.scale.setScalar(i % 5 === 0 ? (flagship ? 3.8 : 2.2) : .65 + random() * .55); group.add(mesh);
     const phase = random() * Math.PI * 2, speed = (.010 + random() * .013) * (i % 3 ? 1 : -1);
     // Only four short, fading wakes. No closed orbit or connections to cards.
-    const trail = i % 6 === 0 ? new T.Line(new T.BufferGeometry().setAttribute("position", new T.BufferAttribute(new Float32Array(30), 3)), new T.LineBasicMaterial({color: 0x819baa, transparent: true, opacity: .13, depthTest: true, depthWrite: false})) : undefined;
+    const trail = i % 6 === 0 ? new T.Line(new T.BufferGeometry().setAttribute("position", new T.BufferAttribute(new Float32Array(90), 3)), new T.LineBasicMaterial({color: 0x819baa, transparent: true, opacity: flagship ? .2 : .13, depthTest: true, depthWrite: false})) : undefined;
     if (trail) group.add(trail);
     return {mesh, radius, tilt, phase, speed, trail};
   });
@@ -44,8 +44,8 @@ export function buildPantheonGalaxy(scene: T.Scene) {
       body.mesh.position.set(Math.cos(angle) * body.radius, Math.sin(angle) * body.radius, 0).applyQuaternion(body.tilt);
       if (body.trail) {
         const attribute = body.trail.geometry.getAttribute("position") as T.BufferAttribute;
-        for (let j = 0; j < 10; j++) {
-          const a = angle - Math.sign(body.speed) * j * .007;
+        for (let j = 0; j < 30; j++) {
+          const a = angle - Math.sign(body.speed) * j * .012;
           point.set(Math.cos(a) * body.radius, Math.sin(a) * body.radius, 0).applyQuaternion(body.tilt);
           attribute.setXYZ(j, point.x, point.y, point.z);
         }

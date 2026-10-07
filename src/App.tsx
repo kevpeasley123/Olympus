@@ -10,7 +10,7 @@ import { BackgroundLayer } from "./components/BackgroundLayer";
 import { AmbientDock } from "./components/panels/AmbientDock";
 import { ChatPanel } from "./components/panels/ChatPanel";
 import { CommandInstrument } from "./components/panels/CommandInstrument";
-import { CommandAgentCatalog } from "./components/panels/CommandAgentCatalog";
+import { OlympusArmory } from "./components/panels/OlympusArmory";
 import type { ResearchInspectionTarget } from "./services/commandAgents";
 import { HeaderBar } from "./components/panels/HeaderBar";
 import { LibraryPanel } from "./components/panels/LibraryPanel";
@@ -209,10 +209,10 @@ function App() {
             </ErrorBoundary>
           </aside>
 
-          {command&&<ErrorBoundary label="Agent catalog"><CommandAgentCatalog selectedId={commandView.agent} onSelect={commandView.selectAgent}
-            capabilities={armory.capabilities} working={focus.agents} orchestrating={focus.running} selectedCapability={commandView.selectedCapability} onSelectCapability={commandView.setSelectedCapability}
-            onResearch={runId=>{setResearchInspection(previous=>({runId,revision:(previous?.revision??0)+1}));setMode("research")}}
-            onProjects={()=>selectMode("project")}/></ErrorBoundary>}
+          {command&&<ErrorBoundary label="Armory"><OlympusArmory capabilities={armory.capabilities} missions={armory.missions}
+            error={armory.capabilitiesError} missionsError={armory.missionsError} preview={armory.preview} selectedAgent={commandView.agent}
+            onSelectAgent={commandView.selectAgent} onDestination={destination=>selectMode(destination)}
+            onInspectResearch={runId=>{setResearchInspection(previous=>({runId,revision:(previous?.revision??0)+1}));setMode("research");}}/></ErrorBoundary>}
 
           <section className="center-stack dashboard-column">
             {/* Research mode gives the whole column to the library. The other
@@ -224,6 +224,7 @@ function App() {
             {<div className="panel-slot panel-slot-instrument" hidden={!command}>
               <ErrorBoundary label="Command view">
                 <CommandInstrument
+                  flagship
                   onProjects={()=>selectMode("project")}
                   domainActions={{system:()=>setPreferencesOpen(true),research:()=>selectMode("research"),communications:()=>selectMode("communications")}}
                   active={command}
@@ -294,6 +295,7 @@ function App() {
             <FadeInPanel index={8} className="panel-slot panel-slot-chat">
               <ErrorBoundary label="Command console">
                 <ChatPanel
+                  companion={command}
                   onOpenPreferences={()=>setPreferencesOpen(true)}
                   autoSpeak={settings.autoSpeak}
                   onAutoSpeakChange={autoSpeak=>updateVoicePreferences({autoSpeak})}
@@ -309,7 +311,7 @@ function App() {
                   onLayoutChange={command ? setChatLayout : undefined}
                   mission={command ? mission : null}
                   capabilities={armory.capabilities}
-                  suggestions={suggestionsFor(armory.capabilities)}
+                  suggestions={suggestionsFor(armory.capabilities).slice(0, 3)}
                   onOpenMission={openMission}
                   onDismissMission={commandView.dismissMission}
                 />

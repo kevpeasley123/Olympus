@@ -1,3 +1,20 @@
+## October 7 - flagship Command / Olympus Armory
+
+The owner requested a substantial Command design pass. The default composition
+now has a compact Armory, a perspective Omega/Pantheon and a quieter companion.
+The old catalog is no longer permanently mounted in App. Agent loadouts retain
+real authority, workflows and research history. Plugins are eight source/local
+adapters in the fixture, not fourteen tools relabelled as integrations.
+See `COMMAND-FLAGSHIP.md` for architecture, semantics and remaining telemetry gaps.
+
+Validation: production build and all 19 scripts/test-*.mjs passed. Existing
+Command review: 21 captures, 57 functional checks. New flagship review covers
+four sizes, modal/focus/routes, recorded operations, real perspective with front
+and rear bodies, reduced motion and context-loss navigation. Browser rendering
+measured around 59-62 fps on this machine in a 2.5-second sample, 50 draw calls;
+this is not a cross-device performance guarantee. Native install verification is
+reported in the chat after packaging. No new dependencies or backend authority.
+
 ## October 7 — bounded assistant and visual integration (local, not released)
 
 Existing October 7 visual work is retained around a revised central Pantheon:

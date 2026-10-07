@@ -151,7 +151,7 @@ export function buildCommandMaterialStudy(scene:T.Scene,renderer:T.WebGLRenderer
   const coreLight=new T.PointLight(0xff8c36,70,150,1);coreLight.position.set(0,0,28);group.add(coreLight);
   const core=new T.Group();
   for(const child of group.children.slice(coreStart))core.add(child);
-  core.scale.setScalar(INNER_CORE_SCALE);group.add(core);
+  core.scale.setScalar(layout.flagship ? 1.13 : INNER_CORE_SCALE);group.add(core);
   const housingStart=group.children.length;
   // The selected study section follows the existing map, never an independently arranged scene.
   const studyIds=new Set(layout.ring.segments.map(segment=>segment.id));

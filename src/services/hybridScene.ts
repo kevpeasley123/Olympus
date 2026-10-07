@@ -52,7 +52,10 @@ export function mountHybridScene(host: HTMLDivElement, layout: CommandLayout, cu
   renderer.toneMappingExposure = 1.05;
   host.appendChild(canvas);
   const scene = new T.Scene(); // Transparent scene: the live page supplies the environment background.
-  const camera = new T.OrthographicCamera(-220,220,220,-220,1,1000); camera.position.set(HYBRID_CAMERA.x,HYBRID_CAMERA.y,HYBRID_CAMERA.z); camera.lookAt(0,0,0);
+  const camera = layout.flagship ? new T.PerspectiveCamera(43, 1, 1, 1200) : new T.OrthographicCamera(-220,220,220,-220,1,1000);
+  if (layout.flagship) camera.position.set(-85, 40, 560);
+  else camera.position.set(HYBRID_CAMERA.x,HYBRID_CAMERA.y,HYBRID_CAMERA.z);
+  camera.lookAt(0,0,0);
   const pointerTarget=new T.Vector2(),pointer=new T.Vector2();
   const interaction=host.closest('.command-instrument__dial') ?? host.parentElement!;
   const movePointer=(event:Event)=>{
@@ -121,7 +124,7 @@ export function mountHybridScene(host: HTMLDivElement, layout: CommandLayout, cu
   const constellationGroup=new T.Group();
   constellationGroup.name="Real constellation yaw";
   networkScene.add(constellationGroup);
-  const galaxy=layout.orbitalCards?buildPantheonGalaxy(networkScene):undefined;
+  const galaxy=layout.orbitalCards?buildPantheonGalaxy(networkScene, Boolean(layout.flagship)):undefined;
   constellationGroup.visible=!layout.orbitalCards;
   const constellationMotion=current().constellationMotion??{yaw:0};
   networkScene.add(new T.HemisphereLight(0xc5e2ff,0x07121f,.65),light.clone(),warm.clone());
@@ -167,6 +170,14 @@ export function mountHybridScene(host: HTMLDivElement, layout: CommandLayout, cu
     proxy.position.copy(ring.position);proxy.scale.copy(ring.scale);proxy.renderOrder=-1;
     networkScene.add(proxy);return proxy;
   });
+  if (layout.flagship) {
+    // A real opaque core volume: rear bodies disappear behind it. The glyph
+    // sits ahead of its surface; warm rim light gives the volume a quiet edge.
+    const coreBody = new T.Mesh(new T.SphereGeometry(76, 64, 48), new T.MeshStandardMaterial({color:0x030912,metalness:.55,roughness:.46}));
+    coreBody.position.z=-82; scene.add(coreBody);
+    const rimLight = new T.PointLight(0x779bc9, 600, 310, 1.5); rimLight.position.set(-130,70,10);scene.add(rimLight);
+    orbital.forEach(o=>o.visible=false); orbitalDepth.forEach(o=>o.visible=false);
+  }
   const voiceUniforms={energy:{value:0},presence:{value:0},phase:{value:0}};
   // Localized speech peaks lift off the intact amber orbital. Sharing its
   // transform makes the trace part of that orbit, rather than another ring.
@@ -308,6 +319,7 @@ export function mountHybridScene(host: HTMLDivElement, layout: CommandLayout, cu
     else {pointer.set(0,0);pointerTarget.set(0,0);}
     time+=delta;previous=now;
     galaxy?.update(time);
+    if(layout.flagship){camera.position.x=-85+pointer.x*5;camera.position.y=40+pointer.y*4;camera.lookAt(0,0,0);}
     if(HARNESS_ATTRIBUTES&&galaxy){canvas.dataset.galaxyTime=String(time);canvas.dataset.galaxyBodies="22";canvas.dataset.galaxyDust="680";}
     constellationMotion.yaw=advanceConstellationYaw(constellationMotion.yaw,delta,moving);
     constellationGroup.rotation.y=constellationMotion.yaw;
@@ -416,7 +428,9 @@ export function mountHybridScene(host: HTMLDivElement, layout: CommandLayout, cu
     try { if(document.visibilityState==="visible" && host.getBoundingClientRect().width>0 && (moving || signature !== lastSignature)) { renderer.info.reset();composer.render(); renderCount++; lastSignature=signature; } }
     catch { stopped=true; fail("Rendering stopped unexpectedly."); return; }
     if(!announced && renderCount){announced=true;ready();}
-    if(HARNESS_ATTRIBUTES&&now-lastStats>500){lastStats=now;canvas.dataset.constellationYaw=String(constellationMotion.yaw);canvas.dataset.rings=String(orbital.filter(r=>r.visible).length);canvas.dataset.frames=String(renderCount);canvas.dataset.drawCalls=String(renderer.info.render.calls);canvas.dataset.nodes=String(nodes.length);canvas.dataset.parallax=JSON.stringify([pointer.x,pointer.y]);}
+    if(HARNESS_ATTRIBUTES&&(lastStats===0||now-lastStats>500)){lastStats=now;canvas.dataset.constellationYaw=String(constellationMotion.yaw);canvas.dataset.rings=String(orbital.filter(r=>r.visible).length);canvas.dataset.frames=String(renderCount);canvas.dataset.drawCalls=String(renderer.info.render.calls);canvas.dataset.nodes=String(nodes.length);canvas.dataset.parallax=JSON.stringify([pointer.x,pointer.y]);
+      canvas.dataset.projection=camera.type;
+      if(galaxy && layout.flagship){const p=new T.Vector3();const depths=galaxy.group.children.filter(o=>o instanceof T.Mesh).map(o=>o.getWorldPosition(p).z);canvas.dataset.volumeDepth=JSON.stringify({front:depths.filter(z=>z>15).length,rear:depths.filter(z=>z< -82).length});}}
     // One loop; no React updates per frame. Hidden and reduced-motion views render only on changes.
     if(moving)frame=requestAnimationFrame(render);
     else if(!hidden())timer=window.setTimeout(()=>render(performance.now()),250);

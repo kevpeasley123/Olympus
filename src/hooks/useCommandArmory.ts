@@ -12,6 +12,7 @@ export interface CommandArmory {
   missions: MissionSnapshot | null;
   /** Browser preview: synthetic capabilities, labelled as such, and no missions. */
   preview: boolean;
+  missionsError: string | null;
 }
 
 /**
@@ -21,6 +22,7 @@ export interface CommandArmory {
  */
 export function useCommandArmory(active: boolean, client: CapabilityClient | null = isTauriRuntime() ? capabilityClient : null): CommandArmory {
   const preview = client === null;
+  const [missionsError, setMissionsError] = useState<string | null>(null);
   const [capabilities, setCapabilities] = useState<CapabilitySnapshot | null>(preview ? fixture.capabilities as CapabilitySnapshot : null);
   const [capabilitiesError, setError] = useState<string | null>(null);
   const [missions, setMissions] = useState<MissionSnapshot | null>(preview ? fixture.missions.none as MissionSnapshot : null);
@@ -44,9 +46,9 @@ export function useCommandArmory(active: boolean, client: CapabilityClient | nul
       try {
         const value = await client.missions();
         if (!live) return;
-        setMissions(value);
+        setMissions(value); setMissionsError(null);
         if (value.missions.some(mission => mission.status === "running")) delay = ARMORY_POLL.liveMissionMs;
-      } catch { /* The last good snapshot stays; the next poll retries. */ }
+      } catch(error) { if(live)setMissionsError(String(error)); }
       // Hidden Command slows to the idle cadence: nobody is watching the theater.
       if (live) timer = window.setTimeout(read, active ? delay : ARMORY_POLL.idleMissionMs);
     };
@@ -54,5 +56,5 @@ export function useCommandArmory(active: boolean, client: CapabilityClient | nul
     return () => { live = false; window.clearTimeout(timer); };
   }, [client, active]);
 
-  return { capabilities, capabilitiesError, missions, preview };
+  return { capabilities, capabilitiesError, missions, preview, missionsError };
 }

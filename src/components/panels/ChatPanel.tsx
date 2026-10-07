@@ -47,6 +47,7 @@ function firstSentence(text: string): string {
 }
 
 interface ChatPanelProps {
+  companion?: boolean;
   onOpenPreferences?:()=>void;
   autoSpeak?:boolean;
   onAutoSpeakChange?:(enabled:boolean)=>void;
@@ -78,7 +79,7 @@ interface ChatPanelProps {
 }
 function collapse(text: string): string { return text.split(/\s+/).filter(Boolean).join(" "); }
 
-export function ChatPanel({ messages, onSendMessage, onRecordObservation, pending = false, progress = null, onStop, inspectionProjects = [], error = null,onOpenPreferences,autoSpeak=false,onAutoSpeakChange,voiceSettingsReady=true,briefing=null,
+export function ChatPanel({ companion = false, messages, onSendMessage, onRecordObservation, pending = false, progress = null, onStop, inspectionProjects = [], error = null,onOpenPreferences,autoSpeak=false,onAutoSpeakChange,voiceSettingsReady=true,briefing=null,
   layout = "compact", onLayoutChange, mission = null, capabilities = null, suggestions = [], onOpenMission, onDismissMission }: ChatPanelProps) {
   const expanded = layout === "expanded";
   const voice = useVoiceState();
@@ -269,11 +270,11 @@ export function ChatPanel({ messages, onSendMessage, onRecordObservation, pendin
         </div>
       </header>}
       {pending && <div className="console-inspection-status" role="status"><span>{progress ?? "Preparing response…"}</span>{onStop && <button type="button" onClick={onStop}>Stop</button>}</div>}
-      {expanded && mission && <MissionView mission={mission} capabilities={capabilities} onOpen={onOpenMission} onDismiss={onDismissMission} />}
+      {expanded && mission && (companion ? <details className="companion-operation"><summary><span>{mission.title}</span><small>{mission.approval?.required ? "Awaiting approval" : mission.status === "running" ? "Working" : mission.status === "completed" ? "Result ready" : mission.status}</small></summary><MissionView mission={mission} capabilities={capabilities} onOpen={onOpenMission} onDismiss={onDismissMission}/></details> : <MissionView mission={mission} capabilities={capabilities} onOpen={onOpenMission} onDismiss={onDismissMission} />)}
       {!expanded && mission && <MissionView mission={mission} capabilities={capabilities} compact />}
       {idle && <div className="console-idle">
         {inspectionProjects.length > 0 && <details className="console-inspect-project"><summary>Inspect a project (read-only)</summary><label>Project <select aria-label="Inspect a project read-only" defaultValue="" onChange={event => { const name=event.target.value; if(name) { setDraft(`/inspect ${name}: Find one small issue and explain the smallest fix with file evidence.`); setConversationOpened(true); setMode("engaged"); requestAnimationFrame(() => inputRef.current?.focus()); } event.target.value=""; }}><option value="">Choose project…</option>{inspectionProjects.map(name=><option key={name} value={name}>{name}</option>)}</select></label><small>Read-only source review. Uses the selected paid OpenAI API route; at most three file reads plus an answer, within four minutes. Review the request, then Send.</small></details>}
-        <p className="console-idle__title">“What would you like to work on?”</p><span className="console-welcome-rule" aria-hidden="true"/><p className="console-idle__description">I can help you research, plan, analyze, build, or coordinate complex work. Tell me what you’d like to accomplish, and we can work through it together.</p>
+        <p className="console-idle__title">“What would you like to work on?”</p><span className="console-welcome-rule" aria-hidden="true"/><p className="console-idle__description">{companion ? "Bring a question, a project, or a next move. We can work through it together." : "I can help you research, plan, analyze, build, or coordinate complex work. Tell me what you’d like to accomplish, and we can work through it together."}</p>
         {briefing && <button type="button" className="console-idle__briefing" onClick={() => { setConversationOpened(true); showLive(); }}>
           <span>Opening briefing</span>{firstSentence(briefing.text)}</button>}
         {suggestions.length > 0 && <div className="console-suggestions" role="list" aria-label="Suggested requests">
