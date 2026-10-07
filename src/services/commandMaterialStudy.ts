@@ -128,11 +128,11 @@ export function buildCommandMaterialStudy(scene:T.Scene,renderer:T.WebGLRenderer
   const coreStart=group.children.length;
   const shapes=new SVGLoader().parse(`<svg xmlns="http://www.w3.org/2000/svg"><path d="${OMEGA}"/></svg>`).paths.flatMap(path=>path.toShapes());
   const body=layout.flagship
-    ? new T.ExtrudeGeometry(shapes,{depth:4,steps:1,bevelEnabled:true,bevelSize:.18,bevelThickness:.18,bevelSegments:1,curveSegments:64})
+    ? new T.ExtrudeGeometry(shapes,{depth:8,steps:1,bevelEnabled:true,bevelSize:.18,bevelThickness:.18,bevelSegments:1,curveSegments:64})
     : extrude(shapes,7,.65);body.scale(1,-1,1);body.setIndex(Array.from({length:body.getAttribute('position').count},(_,i)=>i%3===1?i+1:i%3===2?i-1:i));
   const face=new T.MeshPhysicalMaterial({color:0x6c3611,metalness:.25,roughness:.36,envMapIntensity:.3,clearcoat:.5,clearcoatRoughness:.14,transmission:0,thickness:2.5,ior:1.48,emissive:0xd87520,emissiveMap:engraving,emissiveIntensity:1.8});
   const side=new T.MeshPhysicalMaterial({color:0x38261b,metalness:.88,roughness:.23,clearcoat:.5});
-  mesh(body,[face,side],layout.flagship?6:3);
+  mesh(body,[face,side],layout.flagship?2:3);
   for(const shape of shapes){
     const points=shape.getPoints(128).map(p=>new T.Vector3(p.x,-p.y,10.75));
     const outline=new T.LineLoop(new T.BufferGeometry().setFromPoints(points),warmLines);group.add(outline);
@@ -153,7 +153,9 @@ export function buildCommandMaterialStudy(scene:T.Scene,renderer:T.WebGLRenderer
   const coreLight=new T.PointLight(0xff8c36,70,150,1);coreLight.position.set(0,0,28);group.add(coreLight);
   const core=new T.Group();
   for(const child of group.children.slice(coreStart))core.add(child);
-  core.scale.setScalar(layout.flagship ? 1.35 : INNER_CORE_SCALE);group.add(core);
+  core.scale.setScalar(layout.flagship ? 1.35 : INNER_CORE_SCALE);
+  if(layout.flagship) core.rotation.set(-.07,.25,-.015);
+  group.add(core);
   const housingStart=group.children.length;
   // The selected study section follows the existing map, never an independently arranged scene.
   const studyIds=new Set(layout.ring.segments.map(segment=>segment.id));
