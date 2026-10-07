@@ -20,7 +20,7 @@ import {
   syncResearchBaseToVault
 } from "../services/obsidian";
 import { recordObservation as recordObservationInVault } from "../services/observations";
-import { createAssistantMessage, requestAssistantReply } from "../services/assistant";
+import { cancelAssistantReply, createAssistantMessage, requestAssistantReply } from "../services/assistant";
 import { planTurnRelease } from "../services/glyphState";
 import { emitInstrumentEvent } from "../services/instrumentEvents";
 import { buildPantheonReply, createUserMessage } from "../services/pantheonChat";
@@ -109,6 +109,15 @@ export function useDashboardData() {
   /** Problems with `01 - Projects` itself, which belong to no single project. */
   const [projectNoteWarnings, setProjectNoteWarnings] = useState<string[]>([]);
   const [chatPending, setChatPending] = useState(false);
+  const [chatProgress, setChatProgress] = useState<string | null>(null);
+  const activeRequest = useRef<string | null>(null);
+  const cancelChat = useCallback(async () => {
+    const id = activeRequest.current; if (!id) return;
+    try {
+      const stopped = await cancelAssistantReply(id);
+      if (activeRequest.current === id) setChatProgress(stopped ? "Stopping…" : "Turn is finishing; waiting for its result…");
+    } catch { if (activeRequest.current === id) setChatProgress("Stop could not reach the backend. Try Stop again."); }
+  }, []);
   const requestInFlight = useRef(false);
   const [chatError, setChatError] = useState<string | null>(null);
   /**
@@ -317,6 +326,8 @@ export function useDashboardData() {
       requestInFlight.current = true;
       setChatModel(null);
       setChatPending(true);
+      activeRequest.current = crypto.randomUUID();
+      setChatProgress(null);
       setChatError(null);
       setChatProducing(false);
       setChatFellBackFrom(null);
@@ -331,6 +342,7 @@ export function useDashboardData() {
           dashboardRef.current.projects,
           (event) => {
             switch (event.kind) {
+              case "progress": setChatProgress(event.message); break;
               case "started":
                 // Latch the model at first paint. Routing noise must not churn
                 // the readout mid-response.
@@ -356,7 +368,7 @@ export function useDashboardData() {
                 break;
             }
           },
-          {capability, voiceDepth, commandBoard: boardRef.current}
+          {requestId: activeRequest.current ?? undefined, capability, voiceDepth, commandBoard: boardRef.current}
         );
         const assistant = createAssistantMessage(reply.content, reply.notice, reply.research);
         assistant.mail = reply.mail;
@@ -379,6 +391,8 @@ export function useDashboardData() {
         setChatError(errorMessage(error));
       } finally {
         requestInFlight.current = false;
+        activeRequest.current = null;
+        setChatProgress(null);
         conversationStream.reset();
         // Both reachable paths clear the indicator: success falls through, an
         // error is caught, and either way this runs. A stuck "thinking" is worse
@@ -490,6 +504,7 @@ export function useDashboardData() {
       projectNoteWarnings,
       chat: dashboardState.conversation,
       chatPending,
+      chatProgress, cancelChat,
       chatError,
       chatModel,
       chatProducing,
@@ -513,6 +528,7 @@ export function useDashboardData() {
       refreshProjects,
       projectNoteWarnings,
       chatPending,
+      chatProgress, cancelChat,
       chatError,
       chatModel,
       chatProducing,

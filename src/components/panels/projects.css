@@ -33,7 +33,7 @@
   flex-direction: column;
   gap: var(--space-8);
   width: 100%;
-  max-width: 1200px;
+  max-width: none;
   margin: 0 auto;
   min-width: 0;
 }
@@ -962,3 +962,7 @@
 .delegation-review .delegation-action:disabled {
   cursor: not-allowed;
 }
+
+/* Reading surfaces use the available workspace; metadata remains legible. */
+.project-command { --text-xs: 12px; --text-micro: 11px; --label: #a4b3c8; --muted: #a4b3c8; }
+.project-command .command-board-notice { white-space: normal; overflow-wrap: anywhere; }

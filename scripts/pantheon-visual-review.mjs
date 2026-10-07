@@ -1,0 +1,14 @@
+import {chromium} from 'playwright';
+import {mkdir,writeFile} from 'node:fs/promises';
+const base=process.argv[2]??'http://127.0.0.1:31425';
+const out='output/galaxy-review';await mkdir(out,{recursive:true});
+const browser=await chromium.launch({channel:'msedge',args:['--use-angle=swiftshader','--enable-unsafe-swiftshader','--ignore-gpu-blocklist']});
+const page=await browser.newPage({viewport:{width:1440,height:960}});
+const errors=[];page.on('pageerror',e=>errors.push(e.message));
+await page.goto(`${base}/command-agent-harness.html?scenario=idle`);await page.waitForSelector('html[data-visual-ready="idle"]');
+const sample=()=>page.evaluate(()=>({time:+document.querySelector('.hybrid-core canvas').dataset.galaxyTime,frames:+document.querySelector('.hybrid-core canvas').dataset.frames,drawCalls:+document.querySelector('.hybrid-core canvas').dataset.drawCalls,cards:[...document.querySelectorAll('.orbit-domain__card')].map(e=>{let r=e.getBoundingClientRect();return [r.x,r.y,r.width,r.height]}),track:getComputedStyle(document.querySelector('.day-arc__track')).stroke,spokes:document.querySelectorAll('.orbit-domain__link').length}));
+const first=await sample();await page.screenshot({path:out+'/galaxy-start.png'});await page.waitForTimeout(8000);const second=await sample();await page.screenshot({path:out+'/galaxy-later.png'});
+if(!(second.time>first.time)||JSON.stringify(first.cards)!==JSON.stringify(second.cards)||second.spokes)throw Error('Motion/card isolation failed');
+await page.goto(`${base}/command-agent-harness.html?scenario=reduced-motion`);await page.waitForSelector('html[data-visual-ready="reduced-motion"]');await page.waitForTimeout(1100);const reduced1=await sample();await page.waitForTimeout(1800);const reduced2=await sample();if(reduced1.time!==reduced2.time||reduced1.frames!==reduced2.frames)throw Error('Reduced motion did not freeze');await page.screenshot({path:out+'/reduced-motion.png'});
+await page.evaluate(()=>document.querySelector('.hybrid-core canvas').dispatchEvent(new Event('webglcontextlost',{cancelable:true})));await page.waitForTimeout(500);const fallback=await page.evaluate(()=>({renderer:document.querySelector('.command-instrument').dataset.renderer,atmosphere:getComputedStyle(document.querySelector('.orbital-atmosphere')).display,cards:document.querySelectorAll('.orbit-domain__card').length}));await page.screenshot({path:out+'/fallback.png'});if(fallback.renderer==='hybrid'||fallback.atmosphere==='none'||fallback.cards<8)throw Error('Fallback missing');
+await writeFile(out+'/report.json',JSON.stringify({first,second,reduced1,reduced2,fallback,errors},null,2));console.log(JSON.stringify({motionSeconds:second.time-first.time,stationaryCards:second.cards.length,drawCalls:second.drawCalls,reducedFrozen:true,fallback,errors}));await browser.close();

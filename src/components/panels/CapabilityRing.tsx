@@ -1,3 +1,5 @@
+import { OrbitalCardSurface } from "./OrbitalCardSurface";
+import { FileText, Settings, Compass, Database, Code2, Brain, Mic, FolderOpen, MessagesSquare } from "lucide-react";
 import type { CSSProperties, KeyboardEvent } from "react";
 import { AMBIENT } from "../../services/ambientMotion";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -17,6 +19,7 @@ import {
  * Selecting anything here is inspection; nothing is invoked.
  */
 interface CapabilityRingProps {
+  onProjects?: () => void;
   layout: CommandLayout;
   domains: CapabilityDomain[];
   view: ArmoryView;
@@ -71,7 +74,7 @@ function domainName(domain: CapabilityDomain | undefined) {
 
 type RingKey = `domain:${string}` | `node:${string}`;
 
-export function CapabilityRing({ layout, domains, view, centre, radius, renderScale, selectedDomain, selectedCapability, working, idleReadout, onDetail,
+export function CapabilityRing({ onProjects, layout, domains, view, centre, radius, renderScale, selectedDomain, selectedCapability, working, idleReadout, onDetail,
   onHoverDomain, onSelectDomain, onSelectCapability }: CapabilityRingProps) {
   const [hovered, setHovered] = useState<string | null>(null);
   const [hoveredNode, setHoveredNode] = useState<Capability | null>(null);
@@ -80,7 +83,7 @@ export function CapabilityRing({ layout, domains, view, centre, radius, renderSc
   const segments = layout.ring.segments;
   const byId = useMemo(() => new Map(domains.map(domain => [domain.id, domain])), [domains]);
   const labelFont = 10.5 / Math.max(renderScale, .01);
-  const nodes = useMemo(() => layoutRevealed(view.revealed, segments, centre, labelFont * .92), [view.revealed, segments, centre, labelFont]);
+  const nodes = useMemo(() => layoutRevealed(view.revealed, segments, centre, labelFont * .92).map((node,index)=>{const x=180+(index%2)*80;const y=95+Math.floor(index/2)*26;return {...node,x,y,labelX:x,labelY:y+12};}), [view.revealed, segments, centre, labelFont]);
   const hoverDomain = (id: string | null) => { setHovered(id); onHoverDomain(id); };
 
   const ids = segments.map(segment => segment.id);
@@ -137,35 +140,36 @@ export function CapabilityRing({ layout, domains, view, centre, radius, renderSc
         style={{ "--node-phase": `${-(index * 3.17)}s`, "--node-drift-duration": `${AMBIENT.nodeDrift + index % 7 * 2}s` } as CSSProperties}>
         <circle cx={node.x} cy={node.y} r={node.size} className="project-ring__node" /></g>)}
     </g>
-    <circle cx={centre} cy={centre} r={radius} fill="none" className="project-ring__track" pointerEvents="none" />
-
     {segments.map(segment => {
       const domain = byId.get(segment.id);
       const state = view.domains[segment.id] ?? "idle";
-      const outer = radius + BAND / 2, inner = radius - BAND / 2;
-      return <g key={segment.id}>
-        <g className="capability-ring__segment project-ring__segment" data-state={state} data-hovered={hovered === segment.id || undefined}
-          data-selected={selectedDomain === segment.id || undefined} pointerEvents="none">
-          <path d={bandPath(segment, centre, outer, inner)} strokeWidth={.8} className="project-ring__segment-fill" />
-          <path d={arcPath(segment, centre, outer - 1)} fill="none" strokeWidth={1.4} className="project-ring__segment-face" />
-          <path d={arcPath(segment, centre, inner + .8)} fill="none" strokeWidth={.9} className="project-ring__segment-shade" />
-          <defs><path id={`capability-name-${segment.id}`} d={namePath(segment, centre, radius)} fill="none" /></defs>
-          <text className="project-ring__window-name capability-ring__name" style={{ fontSize: `${labelFont}px` }}>
-            <textPath href={`#capability-name-${segment.id}`} startOffset="50%" textAnchor="middle" dominantBaseline="middle">
-              {segmentCaption(segment, captionCapacity(segment, radius, renderScale))}</textPath>
-          </text>
-        </g>
-        <path d={arcPath(segment, centre, radius)} fill="none" stroke="transparent" strokeWidth={40} className="project-ring__hit capability-ring__hit"
+      const positions: Record<string,[number,number]> = {system:[220,40],research:[362,120],communications:[362,270],knowledge:[295,385],code:[135,385],files:[70,270],reasoning:[173,325],voice:[267,325]};
+      const descriptions:Record<string,string[]>={system:["System health,","settings and control."],research:["Discover and","connect knowledge."],communications:["Context, teams","and correspondence."],knowledge:["Memory, context","and lasting recall."],code:["Build, run and","iterate safely."],files:["Access and","analyze content."],reasoning:["Plan, reason and","solve complex work."],voice:["Speak and listen","with Olympus."]};
+      const icons:Record<string,typeof Settings>={system:Settings,research:Compass,communications:MessagesSquare,knowledge:Database,code:Code2,files:FolderOpen,reasoning:Brain,voice:Mic};
+      const compact=segment.id==="reasoning"||segment.id==="voice";
+      const [x,y]=positions[segment.id]??[centre,40]; const Icon=icons[segment.id]??Settings;
+      return <g key={segment.id} className="orbit-domain capability-ring__segment" data-state={state} data-selected={selectedDomain===segment.id||undefined}>
+        <g transform={`translate(${x-(compact?43:69)} ${y-(compact?16:29)})`} className="capability-ring__hit orbit-domain__card"
           data-ring-key={`domain:${segment.id}`} data-domain={segment.id} tabIndex={tabKey === `domain:${segment.id}` ? 0 : -1}
-          role="button" aria-pressed={selectedDomain === segment.id} aria-label={`${domainName(domain)} — ${selectedDomain === segment.id ? "hide" : "show"} its Tools and Skills`}
-          onMouseEnter={() => hoverDomain(segment.id)} onMouseLeave={() => hoverDomain(null)}
-          onFocus={() => { setFocusKey(`domain:${segment.id}`); hoverDomain(segment.id); }} onBlur={() => hoverDomain(null)}
-          onClick={() => onSelectDomain(selectedDomain === segment.id ? null : segment.id)}
-          onKeyDown={event => keyDown(event, `domain:${segment.id}`)}>
+          role="button" aria-pressed={selectedDomain===segment.id} aria-label={`${domainName(domain)} — ${selectedDomain===segment.id?"hide":"show"} its Tools and Skills`}
+          onMouseEnter={()=>hoverDomain(segment.id)} onMouseLeave={()=>hoverDomain(null)}
+          onFocus={()=>{setFocusKey(`domain:${segment.id}`);hoverDomain(segment.id)}} onBlur={()=>hoverDomain(null)}
+          onClick={()=>onSelectDomain(selectedDomain===segment.id?null:segment.id)} onKeyDown={event=>keyDown(event,`domain:${segment.id}`)}>
+          <OrbitalCardSurface compact={compact} cool={["system","research","code"].includes(segment.id)} />
+          <Icon x={compact?8:11} y={compact?9:15} width={compact?14:20} height={compact?14:20} className="orbit-domain__icon"/>
+          <circle cx={compact?79:128} cy="8" r="2.5" className="orbit-domain__status"/>
+          <text x={compact?29:44} y={compact?20:18} className="orbit-domain__name capability-ring__name" style={{fontSize: `${(compact?9:segment.id==="communications"?9.5:10.5) / renderScale}px`}}>{domain?.label.toUpperCase()}</text>
+          {(!compact?descriptions[segment.id]??[]:[]).map((line,i)=><text key={line} x="44" y={32+i*9} className="orbit-domain__description" style={{fontSize: `${10 / renderScale}px`}}>{line}</text>)}
           <title>{domainName(domain)}</title>
-        </path>
+        </g>
       </g>;
     })}
+
+    {onProjects&&<g className="orbit-domain" transform="translate(1 91)"><g className="orbit-domain__card" role="button" tabIndex={0} aria-label="Open Project workspace" onClick={onProjects} onKeyDown={e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();onProjects()}}}>
+      <OrbitalCardSurface /><FileText x="11" y="15" width="20" height="20" className="orbit-domain__icon"/>
+      <text x="44" y="18" className="orbit-domain__name" style={{fontSize: `${10.5/renderScale}px`}}>PROJECT</text><text x="44" y="32" className="orbit-domain__description" style={{fontSize: `${10/renderScale}px`}}>Plan, track and</text><text x="44" y="42" className="orbit-domain__description" style={{fontSize: `${10/renderScale}px`}}>deliver work.</text>
+    </g></g>}
+    <g aria-hidden="true" pointerEvents="none" className="orbit-identity" style={{visibility:readout.length?"hidden":"visible"}}><text x="220" y="279" textAnchor="middle">PANTHEON</text><text x="220" y="291" textAnchor="middle" className="orbit-identity__sub">INTELLIGENCE IN ORBIT</text></g>
 
     {nodes.length > 0 && <g className="capability-ring__reveal">
       {nodes.map(node => {

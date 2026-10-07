@@ -196,7 +196,7 @@
 
 /* ---- Lists ---------------------------------------------------------------------- */
 .library-list {
-  max-width: 1100px;
+  max-width: none;
 }
 
 .library-row .pantheon-entry-row-top strong {
@@ -299,7 +299,7 @@
   flex-direction: column;
   gap: var(--space-16);
   min-height: 100%;
-  max-width: 1100px;
+  max-width: none;
   container-type: inline-size;
 }
 
@@ -645,7 +645,7 @@
 /* ---- Inspectors in the Research column ---------------------------------------- */
 .library-view--inspector > .research-verification,
 .library-view--inspector > .knowledge-audit {
-  max-width: 1100px;
+  max-width: none;
   padding: var(--space-16) var(--panel-pad) var(--space-32);
 }
 
@@ -659,3 +659,7 @@
     scroll-behavior: auto !important;
   }
 }
+
+.pantheon-resident { --text-xs: 12px; --label: #a4b3c8; --muted: #a4b3c8; }
+.library-row .pantheon-entry-row-top strong { white-space: normal; overflow-wrap: anywhere; }
+.library-detail .library-reading { max-width: 80ch; }

@@ -36,6 +36,7 @@ export interface AssistantReply {
  * speaking state from it would collapse the two states into one.
  */
 export type AssistantStreamEvent =
+  | { kind: "progress"; message: string }
   | { kind: "started"; model: string }
   | { kind: "delta"; text: string }
   | { kind: "fellBack"; from: string; to: string };
@@ -54,7 +55,7 @@ export async function requestAssistantReply(
   settings: OlympusSettings,
   projects: TrackedProject[],
   onEvent?: (event: AssistantStreamEvent) => void,
-  options?: {capability?: import("./modelRouting").ModelCapability; voiceDepth?: import("./voiceContract").VoiceDepth; commandBoard?: unknown}
+  options?: {requestId?: string; capability?: import("./modelRouting").ModelCapability; voiceDepth?: import("./voiceContract").VoiceDepth; commandBoard?: unknown}
 ): Promise<AssistantReply> {
   if (!isTauriRuntime()) {
     throw new Error(
@@ -74,6 +75,7 @@ export async function requestAssistantReply(
 
   return invoke<AssistantReply>("send_assistant_message", {
     history: turns,
+    requestId: options?.requestId,
     onEvent: channel,
     context: {
       capability: options?.capability,
@@ -121,3 +123,5 @@ export function conversationTurnContent(message: ConversationMessage): string {
   if (message.voice?.kind !== "output") return turnText(message);
   return `${message.content}\n\nSpoken summary: ${message.voice.spokenResponse ?? "Unavailable"}\nPlayback: ${message.voice.playback ?? "unconfirmed"}. An interrupted transcript may contain words not heard.\nAudio transcript: ${message.voice.audioTranscript ?? "Unavailable"}`;
 }
+
+export const cancelAssistantReply = (requestId: string) => invoke<boolean>("cancel_assistant_message", { requestId });

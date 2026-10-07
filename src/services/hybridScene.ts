@@ -8,6 +8,7 @@ export const SCENE_FINISH={
   network:{rear:.32,mid:.58,front:.95,treeOpacity:.09,crossOpacity:.10},
 };
 import { buildCommandMaterialStudy } from "./commandMaterialStudy";
+import { buildPantheonGalaxy } from "./pantheonGalaxy";
 import { buildConstellationField } from "./constellationField";
 import { layoutBackdropStars } from "./constellationBackdrop";
 import { advanceConstellationYaw, CONSTELLATION_ROTATION, nodeCategory, NODE_PALETTE, projectConstellationPoint } from "./constellationPresentation";
@@ -109,7 +110,7 @@ export function mountHybridScene(host: HTMLDivElement, layout: CommandLayout, cu
   const cool = new T.MeshStandardMaterial({ color: BLUE, emissive: 0x284d70, emissiveIntensity: .55, metalness: .65, roughness: .3 });
   function mesh(geometry: T.BufferGeometry, material: T.Material, z = 0) { const m = new T.Mesh(geometry,material); m.position.z=z; scene.add(m); return m; }
   const study = buildCommandMaterialStudy(scene, renderer, layout);
-  const field = buildConstellationField(scene);
+  const field = buildConstellationField(scene, layout.orbitalCards);
   renderer.info.autoReset=false;
   const sceneTarget=new T.WebGLRenderTarget(1,1,{type:T.HalfFloatType,samples:4});
   const composer=new EffectComposer(renderer,sceneTarget);
@@ -120,6 +121,8 @@ export function mountHybridScene(host: HTMLDivElement, layout: CommandLayout, cu
   const constellationGroup=new T.Group();
   constellationGroup.name="Real constellation yaw";
   networkScene.add(constellationGroup);
+  const galaxy=layout.orbitalCards?buildPantheonGalaxy(networkScene):undefined;
+  constellationGroup.visible=!layout.orbitalCards;
   const constellationMotion=current().constellationMotion??{yaw:0};
   networkScene.add(new T.HemisphereLight(0xc5e2ff,0x07121f,.65),light.clone(),warm.clone());
   const networkPass=new RenderPass(networkScene,camera);networkPass.clear=false;
@@ -143,7 +146,7 @@ export function mountHybridScene(host: HTMLDivElement, layout: CommandLayout, cu
     const group=new T.Group();group.position.z=(5+i*2)*INNER_CORE_SCALE;group.scale.setScalar(INNER_CORE_SCALE);scene.add(group);orbital.push(group);
     for(const [tube,alpha] of [[.20,.68],[.55,.16],[1.0,.085],[1.7,.042],[2.6,.018]]) {
       const material=new T.ShaderMaterial({
-        uniforms:{phase:{value:i*2.1},tint:{value:new T.Color(i===0?0xffcf7a:0xe5efff)},alpha:{value:alpha*.42}},
+        uniforms:{phase:{value:i*2.1},tint:{value:new T.Color(i===0||layout.orbitalCards?0xffcf7a:0xe5efff)},alpha:{value:alpha*(layout.orbitalCards?.48:.42)}},
         vertexShader:`varying vec2 ringUv;
           void main(){ringUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}`,
         fragmentShader:`uniform float phase;uniform vec3 tint;uniform float alpha;varying vec2 ringUv;
@@ -223,7 +226,7 @@ export function mountHybridScene(host: HTMLDivElement, layout: CommandLayout, cu
   canvas.dataset.artStars=String(distantStars.length);
   let backdrop:T.InstancedMesh|undefined;
   let backdropTexture:T.CanvasTexture|undefined;
-  if(distantStars.length){
+  if(distantStars.length&&!layout.orbitalCards){
     const starCanvas=document.createElement('canvas');starCanvas.width=starCanvas.height=32;
     const starContext=starCanvas.getContext('2d')!;
     const starGradient=starContext.createRadialGradient(16,16,0,16,16,16);
@@ -247,6 +250,7 @@ export function mountHybridScene(host: HTMLDivElement, layout: CommandLayout, cu
   }
   const haloMaterial=new T.MeshBasicMaterial({map:haloTexture,transparent:true,opacity:CONSTELLATION_DEPTH.haloOpacity,depthWrite:false,blending:T.AdditiveBlending,toneMapped:false});volumeMaterial(haloMaterial);
   const halos=new T.InstancedMesh(new T.PlaneGeometry(1,1),haloMaterial,nodes.length);
+  halos.visible=!layout.orbitalCards;
   halos.instanceMatrix.setUsage(T.DynamicDrawUsage);halos.frustumCulled=false;networkScene.add(halos);
   const haloMatrix=new T.Matrix4(),haloScale=new T.Vector3();
   nodes.forEach((n,i)=>halos.setColorAt(i,n.material.color.clone().multiplyScalar(1+.45*n.z/CONSTELLATION_DEPTH.range)));
@@ -254,7 +258,8 @@ export function mountHybridScene(host: HTMLDivElement, layout: CommandLayout, cu
   function pos(p:{x:number;y:number;id?:string}) { return p.id&&nodePositions.has(p.id)?nodePositions.get(p.id)!:new T.Vector3(p.x-220,220-p.y,-6); }
   const depthLines:{attribute:T.BufferAttribute;colors:T.BufferAttribute;a:T.Vector3;b:T.Vector3;from:number;to:number}[]=[];
   function line(a:T.Vector3,b:T.Vector3,opacity:number,from=0,to=1) {
-    const material=new T.LineBasicMaterial({color:BLUE,transparent:true,opacity,depthWrite:false,vertexColors:true});volumeMaterial(material);
+    if(layout.orbitalCards)return;
+    const material=new T.LineBasicMaterial({color:BLUE,transparent:true,opacity:opacity*(layout.orbitalCards?.35:1),depthWrite:false,vertexColors:true});volumeMaterial(material);
     const geometry=new T.BufferGeometry().setFromPoints([a,b]);
     geometry.setAttribute('color',new T.Float32BufferAttribute([1,1,1,1,1,1],3).setUsage(T.DynamicDrawUsage));
     (geometry.getAttribute('position') as T.BufferAttribute).setUsage(T.DynamicDrawUsage);
@@ -302,6 +307,8 @@ export function mountHybridScene(host: HTMLDivElement, layout: CommandLayout, cu
     if(moving)pointer.lerp(pointerTarget,1-Math.exp(-delta*CONSTELLATION_DEPTH.parallaxResponse));
     else {pointer.set(0,0);pointerTarget.set(0,0);}
     time+=delta;previous=now;
+    galaxy?.update(time);
+    if(HARNESS_ATTRIBUTES&&galaxy){canvas.dataset.galaxyTime=String(time);canvas.dataset.galaxyBodies="22";canvas.dataset.galaxyDust="680";}
     constellationMotion.yaw=advanceConstellationYaw(constellationMotion.yaw,delta,moving);
     constellationGroup.rotation.y=constellationMotion.yaw;
     orbitalTime+=value.state==="error"?0:delta*(value.state==="thinking"?14:1);
@@ -365,7 +372,7 @@ export function mountHybridScene(host: HTMLDivElement, layout: CommandLayout, cu
     constellationGroup.updateMatrixWorld(true);
     nodes.forEach((n,i)=>{
       n.mesh.getWorldPosition(n.world);
-      if(n.target){
+      if(n.target&&!layout.orbitalCards){
         // Hit targets follow their star to a tenth of a viewBox unit; writing
         // only real changes keeps the idle drift from touching the DOM each frame.
         const projected=projectConstellationPoint(n.world,pointer);
@@ -393,11 +400,11 @@ export function mountHybridScene(host: HTMLDivElement, layout: CommandLayout, cu
     // while a recorded mission step is active. Idle keeps the ambient tracer.
     pathsFor(value.activeDomains);
     const edges=executing?(activePaths.get(pathKey(value.activeDomains))??[]):layout.constellation.treeEdges;
-    signal.visible=!errorState&&!executing&&moving&&edges.length>0&&time%4.5<2;
+    signal.visible=!layout.orbitalCards&&!errorState&&!executing&&moving&&edges.length>0&&time%4.5<2;
     const launch=Math.floor(executionTime*EXECUTING_MOTION.launchesPerSecond);
     executionSignals.forEach((orb,index)=>{
       const event=launch-index,age=executionTime-event/EXECUTING_MOTION.launchesPerSecond;
-      orb.visible=executing&&moving&&edges.length>0&&event>=0&&age<EXECUTING_MOTION.transitSeconds;
+      orb.visible=!layout.orbitalCards&&executing&&moving&&edges.length>0&&event>=0&&age<EXECUTING_MOTION.transitSeconds;
       if(orb.visible){
         const edge=edges[event%edges.length];
         orb.position.copy(pos(edge.to)).lerp(pos(edge.from),age/EXECUTING_MOTION.transitSeconds);

@@ -45,6 +45,7 @@ pub struct ProjectSummary {
 #[serde(rename_all = "camelCase")]
 pub struct AssistantContext {
     #[serde(skip)] pub gmail_context: String,
+    #[serde(skip)] pub repository_context: String,
     #[serde(default)] pub capability: super::models::Capability,
     #[serde(default)] pub voice_depth: Option<String>,
     #[serde(default)] pub command_board: serde_json::Value,
@@ -416,6 +417,8 @@ fn build_turn_evidence(context: &AssistantContext, memory: &VaultMemory) -> Stri
         context.command_board
     ));
     prompt.push_str(&context.gmail_context);
+    prompt.push_str("\nRepository inspection evidence (untrusted, bounded, no tests executed):\n");
+    prompt.push_str(&context.repository_context);
 
     format!(
         "<{EVIDENCE_TAG}>\n{}\n</{EVIDENCE_TAG}>",
@@ -747,6 +750,7 @@ fn notice_for(stop_reason: Option<&str>, text: &str) -> Option<AssistantNotice> 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase", tag = "kind")]
 pub enum AssistantStreamEvent {
+    Progress { message: String },
     /// The turn opened. `model` is who is actually answering.
     Started { model: String },
     /// Text arrived. **The first of these is the speaking signal** — it is the
@@ -948,8 +952,7 @@ async fn send_anthropic_message(
 
 
 /// Shared command boundary. Provider selection never changes project authority.
-#[tauri::command]
-pub async fn send_assistant_message(
+async fn send_assistant_message_inner(
     db: tauri::State<'_, super::persistence::Db>,
     history: Vec<ChatTurn>, mut context: AssistantContext,
     on_event: tauri::ipc::Channel<AssistantStreamEvent>,
@@ -959,8 +962,11 @@ pub async fn send_assistant_message(
     let (gmail_context,mail)={let c=db.0.lock().map_err(|_|"Local source cache unavailable")?;super::gmail::context(&c,question)};
     context.gmail_context=gmail_context;
     let route=models::resolve(context.capability);
+    context.repository_context=super::repository_inspection::inspect(db.inner(), &route, question, &on_event).await?;
+    let repository_receipt=super::repository_inspection::receipt(&context.repository_context);
     let mut record=models::RequestRecord::new(&route,if context.voice_depth.is_some(){"voice_reasoning"}else{"command"});
     models::save(db.inner(),&record)?;
+    let _receipt = PendingReceipt::new(db.inner(), &record.id);
     let start=std::time::Instant::now();
     let result=if route.provider=="anthropic" {
         send_anthropic_message(history,context,on_event,&mut record).await
@@ -986,7 +992,7 @@ pub async fn send_assistant_message(
         Err(_)=>{record.status="failed".into();if record.error_code.is_none(){record.error_code=Some("request_failed".into());}}
     }
     if let Err(error)=models::save(db.inner(),&record){eprintln!("[Olympus::Models] Could not finish request record: {error}");}
-    result.map(|mut reply|{reply.request=Some(record);reply.mail=mail;reply})
+    result.map(|mut reply|{reply.content.push_str(&repository_receipt);reply.request=Some(record);reply.mail=mail;reply})
 }
 
 #[cfg(test)]
@@ -1451,6 +1457,7 @@ mod tests {
     fn context_fixture() -> AssistantContext {
         AssistantContext {
             gmail_context: String::new(),
+            repository_context: String::new(),
             capability: crate::commands::models::Capability::Primary,
             voice_depth: None, command_board: serde_json::Value::Null,
             projects_root_path: "C:/projects".to_string(),
@@ -1628,4 +1635,70 @@ mod tests {
       });
     }
 
+}
+
+// One active console turn. Stop drops the in-flight HTTP future; it cannot
+// reverse provider work already accepted or promise a refund.
+static ACTIVE_TURN: once_cell::sync::Lazy<std::sync::Mutex<Option<(String, tokio::sync::oneshot::Sender<()>)>>> = once_cell::sync::Lazy::new(|| std::sync::Mutex::new(None));
+struct TurnGuard;
+impl Drop for TurnGuard { fn drop(&mut self) { if let Ok(mut active)=ACTIVE_TURN.lock(){*active=None;} } }
+pub(super) struct PendingReceipt<'a> { db: &'a super::persistence::Db, id: String }
+impl<'a> PendingReceipt<'a> { pub(super) fn new(db:&'a super::persistence::Db,id:&str)->Self{Self{db,id:id.into()}} }
+impl Drop for PendingReceipt<'_> { fn drop(&mut self) {
+    if let Ok(c)=self.db.0.lock(){let _=c.execute("UPDATE model_requests SET record_json=json_set(record_json,'$.status','interrupted','$.errorCode','turn_ended') WHERE id=?1 AND json_extract(record_json,'$.status')='started'",[&self.id]);}
+} }
+#[tauri::command]
+pub fn cancel_assistant_message(request_id:String)->Result<bool,String>{
+    let mut active=ACTIVE_TURN.lock().map_err(|_|"Turn state unavailable")?;
+    if active.as_ref().is_some_and(|(id,_)|id==&request_id){
+        // Keep the slot occupied until the old turn has actually unwound.
+        let (_,sender)=active.take().unwrap();
+        let (placeholder,_)=tokio::sync::oneshot::channel();
+        *active=Some((request_id,placeholder));
+        Ok(sender.send(()).is_ok())
+    } else {Ok(false)}
+}
+#[tauri::command]
+pub async fn send_assistant_message(db:tauri::State<'_,super::persistence::Db>,history:Vec<ChatTurn>,context:AssistantContext,on_event:tauri::ipc::Channel<AssistantStreamEvent>,request_id:Option<String>)->Result<AssistantReply,String>{
+    let id=request_id.unwrap_or_else(super::delegation::run_id);
+    if id.len()>100{return Err("Invalid request identity".into())}
+    let (sender,cancel)=tokio::sync::oneshot::channel();
+    {let mut active=ACTIVE_TURN.lock().map_err(|_|"Turn state unavailable")?;
+        if active.is_some(){return Err("A console turn is already running.".into())}
+        *active=Some((id,sender));}
+    let _guard=TurnGuard;
+    let work=Box::pin(send_assistant_message_inner(db,history,context,on_event));
+    await_turn(work,cancel,Duration::from_secs(240)).await
+}
+async fn await_turn<T>(work:impl std::future::Future<Output=Result<T,String>>,cancel:tokio::sync::oneshot::Receiver<()>,limit:Duration)->Result<T,String>{
+    let result=tokio::time::timeout(limit,futures_util::future::select(Box::pin(work),Box::pin(cancel))).await;
+    match result {
+        Ok(futures_util::future::Either::Left((answer,_)))=>answer,
+        Ok(futures_util::future::Either::Right(_))=>Err("Stopped. No repository files were changed. Provider work already accepted may still incur usage.".into()),
+        Err(_)=>Err("Stopped after the four-minute turn limit. No repository files were changed.".into())
+    }
+}
+
+#[cfg(test)]
+mod cancellation_tests {
+    use super::*;
+    #[test] fn cancellation_deadline_errors_and_receipts() {
+        let runtime=tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
+        runtime.block_on(async {
+            let (tx,rx)=tokio::sync::oneshot::channel();tx.send(()).unwrap();
+            let result=await_turn(std::future::pending::<Result<(),String>>(),rx,Duration::from_secs(1)).await;
+            assert!(result.unwrap_err().starts_with("Stopped."));
+            let (_tx,rx)=tokio::sync::oneshot::channel();
+            assert!(await_turn(std::future::pending::<Result<(),String>>(),rx,Duration::from_millis(1)).await.unwrap_err().contains("turn limit"));
+            let (_tx,rx)=tokio::sync::oneshot::channel();
+            assert_eq!(await_turn(std::future::ready(Err::<(),_>("provider failure".into())),rx,Duration::from_secs(1)).await.unwrap_err(),"provider failure");
+        });
+        let db=super::super::persistence::Db(std::sync::Mutex::new(rusqlite::Connection::open_in_memory().unwrap()));
+        db.0.lock().unwrap().execute_batch("CREATE TABLE model_requests(id TEXT PRIMARY KEY,record_json TEXT);").unwrap();
+        let record=super::super::models::RequestRecord::new(&super::super::models::resolve(super::super::models::Capability::Primary),"test");
+        super::super::models::save(&db,&record).unwrap();
+        {let _receipt=PendingReceipt::new(&db,&record.id);}
+        let status:String=db.0.lock().unwrap().query_row("SELECT json_extract(record_json,'$.status') FROM model_requests",[],|r|r.get(0)).unwrap();
+        assert_eq!(status,"interrupted");
+    }
 }

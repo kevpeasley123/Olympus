@@ -51,7 +51,7 @@ function App() {
     openingBriefing,
     projectNoteWarnings,
     chat,
-    chatPending,
+    chatPending, chatProgress, cancelChat,
     chatError,
     chatModel,
     chatProducing,
@@ -224,6 +224,7 @@ function App() {
             {<div className="panel-slot panel-slot-instrument" hidden={!command}>
               <ErrorBoundary label="Command view">
                 <CommandInstrument
+                  onProjects={()=>setMode("project")}
                   active={command}
                   visualState={instrumentState(voice, chatError)}
                   voiceLevel={voice.level}
@@ -301,6 +302,7 @@ function App() {
                   onRecordObservation={recordObservation}
                   pending={chatPending}
                   error={chatError}
+              progress={chatProgress} onStop={() => void cancelChat()} inspectionProjects={projects.map(project => project.name)}
                   briefing={openingBriefing}
                   layout={command ? chatLayout : "compact"}
                   onLayoutChange={command ? setChatLayout : undefined}

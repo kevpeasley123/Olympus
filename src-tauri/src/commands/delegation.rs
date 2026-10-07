@@ -1923,7 +1923,7 @@ mod tests {
     /// process spawn refuses too.
     #[test]
     fn launches_refuse_first_under_the_acceptance_profile() {
-        let source = include_str!("delegation.rs");
+        let source = include_str!("delegation.rs").replace("\r\n", "\n");
         for name in [
             "pub async fn prepare_delegation_run(",
             "pub async fn prepare_delegation_resume(",

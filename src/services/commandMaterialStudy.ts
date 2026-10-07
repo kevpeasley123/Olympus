@@ -121,7 +121,7 @@ export function buildCommandMaterialStudy(scene:T.Scene,renderer:T.WebGLRenderer
   const frameMetal=new T.MeshPhysicalMaterial({color:0x1c303f,metalness:.85,roughness:.25,envMapIntensity:.55,clearcoat:.4});
   const dark=new T.MeshStandardMaterial({color:0x070d15,metalness:.7,roughness:.42});
   const lines=new T.LineBasicMaterial({color:0x547891,transparent:true,opacity:MATERIAL_TUNING.structureSecondary});
-  const warmLines=new T.LineBasicMaterial({color:0xffa13d,transparent:true,opacity:.8,toneMapped:false});
+  const warmLines=new T.LineBasicMaterial({color:layout.orbitalCards?0xffd19a:0xffa13d,transparent:true,opacity:.8,toneMapped:false});
   const group=new T.Group();group.name="Command material study";scene.add(group);
   const mesh=(geometry:T.BufferGeometry,material:T.Material|T.Material[],z:number)=>{const m=new T.Mesh(geometry,material);m.position.z=z;group.add(m);return m;};
   const extrude=(shape:T.Shape|T.Shape[],depth:number,bevel=.4,curveSegments=64)=>new T.ExtrudeGeometry(shape,{depth,steps:1,bevelEnabled:true,bevelSize:bevel,bevelThickness:bevel,bevelSegments:6,curveSegments});
@@ -152,6 +152,7 @@ export function buildCommandMaterialStudy(scene:T.Scene,renderer:T.WebGLRenderer
   const core=new T.Group();
   for(const child of group.children.slice(coreStart))core.add(child);
   core.scale.setScalar(INNER_CORE_SCALE);group.add(core);
+  const housingStart=group.children.length;
   // The selected study section follows the existing map, never an independently arranged scene.
   const studyIds=new Set(layout.ring.segments.map(segment=>segment.id));
   // The chassis and energy channel surround an open gap outside the cassettes.
@@ -389,6 +390,7 @@ export function buildCommandMaterialStudy(scene:T.Scene,renderer:T.WebGLRenderer
     panels.push({id:segment.id,face:glass,active,rim,hoverEdge,hover:0,labelIndex:layout.ring.segments.indexOf(segment)});
 
   }
+  if(layout.orbitalCards) for(const child of group.children.slice(housingStart)) child.visible=false;
   const idleCycle=createIdleCoreCycle();
   let previousTime=0,wasIdle=false,speechAmount=0;
   return {
@@ -411,7 +413,7 @@ export function buildCommandMaterialStudy(scene:T.Scene,renderer:T.WebGLRenderer
       haloMaterial.color.set(error?0xd51022:0xffffff);
       const envelope=error?.95-dip:executing?1.12+operationPulse*.10:idleSample?.envelope??coreGlowEnvelope(time,moving),t=MATERIAL_TUNING;
       face.emissiveIntensity=t.coreEmission*envelope+energy*.5;
-      haloMaterial.opacity=t.haloOpacity*envelope+energy*.12;
+      haloMaterial.opacity=t.haloOpacity*envelope*(layout.orbitalCards?1.3:1)+energy*.12;
       radialMaterial.uniforms.intensity.value=t.radialHalo*envelope*(idle&&moving?.85+.55*idleSample!.breath:1)+energy*.06;
       radialHalo.scale.setScalar(idle?(moving?OMEGA_IDLE.haloBreathMin+(OMEGA_IDLE.haloBreathMax-OMEGA_IDLE.haloBreathMin)*idleSample!.breath+(idleSample!.pulse/OMEGA_IDLE.primaryStrength)*OMEGA_IDLE.haloExpansion:1):1+(envelope-1)*.15);
       coreLight.intensity=t.localLight*(idle?1+(envelope-1)*OMEGA_IDLE.localLightBoost:envelope)+energy*25;

@@ -17,7 +17,7 @@ interface Props extends HybridFrame { layout: CommandLayout; onReady: (ready: bo
 function sceneKeyFor(layout: CommandLayout) {
   const end = (p: {x:number; y:number; id?:string}) => p.id ?? `${p.x},${p.y}`;
   return JSON.stringify([
-    Math.round(layout.labelScale * 20) / 20,
+    Math.round(layout.labelScale * 20) / 20, layout.orbitalCards,
     layout.ring.segments.map(s => [s.id, s.label, s.count, s.available, s.startAngle, s.endAngle, s.midAngle]),
     layout.constellation.nodes.map(n => [n.id, n.projectId, n.isProject, n.x, n.y, n.size]),
     layout.constellation.treeEdges.map(e => [end(e.from), end(e.to), e.depth]),

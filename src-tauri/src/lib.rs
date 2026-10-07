@@ -385,6 +385,7 @@ pub fn run() {
             commands::gmail::intelligence::inspection::communication_workflow, commands::gmail::intelligence::inspection::inspect_communication_run,
             commands::gmail::gmail_workspace, commands::gmail::gmail_remove_cache, commands::gmail::gmail_cache_counts, commands::gmail::gmail_status, commands::gmail::gmail_connect, commands::gmail::gmail_cancel, commands::gmail::gmail_disconnect, commands::gmail::gmail_sync, commands::gmail::gmail_set_horizon, commands::gmail::gmail_search, commands::gmail::gmail_thread,
             send_assistant_message,
+            commands::assistant::cancel_assistant_message,
             commands::acceptance::acceptance_profile,
             commands::knowledge_audit::start_knowledge_audit,
             commands::research_verification::research_agent_catalog,

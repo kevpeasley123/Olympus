@@ -16,7 +16,7 @@ export function commandLayout(domains: CapabilityDomain[], projects: TrackedProj
   const anchors = layoutProjectRing(projects, 220, PROJECT_RING_RADIUS, scale);
   return { ring, constellation: layoutProjectConstellation(graph, anchors, 220), labelScale: scale };
 }
-export type CommandLayout = ReturnType<typeof commandLayout>;
+export type CommandLayout = ReturnType<typeof commandLayout> & { orbitalCards?: boolean };
 export const CONSTELLATION_DEPTH = {
   range:34, rearScale:.79, frontScale:1.30,
   rearIntensity:.24, midIntensity:.58, frontIntensity:.95,

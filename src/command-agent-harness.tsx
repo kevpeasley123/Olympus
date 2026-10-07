@@ -1,3 +1,6 @@
+import "@fontsource/cinzel/400.css";
+import "@fontsource/inter/400.css";
+import "@fontsource/inter/500.css";
 /**
  * Command harness: the real Command composition (catalog, capability
  * instrument, chat workspace) over synthetic data, for functional checks
@@ -140,12 +143,12 @@ function Harness() {
         onResearch={runId => setDestination({ runId })} onProjects={() => setDestination({ projects: true })}
         capabilities={capabilities} working={command.focus.agents} orchestrating={command.focus.running} selectedCapability={command.selectedCapability} onSelectCapability={command.setSelectedCapability} />
       <section className="center-stack dashboard-column"><div className="panel-slot panel-slot-instrument">
-        <CommandInstrument projects={projects} capabilities={capabilities} view={command.view} light={command.light} activeDomains={command.activeDomains}
+        <CommandInstrument onProjects={()=>setDestination({projects:true})} projects={projects} capabilities={capabilities} view={command.view} light={command.light} activeDomains={command.activeDomains}
           missionOperation={command.missionOperation} working={command.working} selectedDomain={command.selectedDomain} selectedCapability={command.selectedCapability}
           onHoverDomain={command.setHoverDomain} onSelectDomain={command.setSelectedDomain} onSelectCapability={command.setSelectedCapability} />
       </div></section>
       <section className="right-stack dashboard-column"><div className="panel-slot panel-slot-chat">
-        <ChatPanel messages={messages} autoSpeak={false} onAutoSpeakChange={() => {}} onOpenPreferences={() => {}} onSendMessage={() => { mutations++; }} onRecordObservation={async () => { mutations++; return { tone: "error", message: "Fixture only" }; }}
+        <ChatPanel inspectionProjects={["fixture-repo"]} messages={messages} autoSpeak={false} onAutoSpeakChange={() => {}} onOpenPreferences={() => {}} onSendMessage={() => { mutations++; }} onRecordObservation={async () => { mutations++; return { tone: "error", message: "Fixture only" }; }}
           layout={layout} onLayoutChange={setLayout} mission={command.mission} capabilities={capabilities} suggestions={suggestions}
           onOpenMission={destination => setDestination(destination === "research" ? {} : { projects: true })} onDismissMission={command.dismissMission} />
       </div></section>
@@ -201,6 +204,7 @@ async function checks() {
     check(document.querySelectorAll(".agent-role-row").length === 4, "Only Olympus and three real role fixtures appear");
     check(!query(".command-agent-catalog").textContent?.match(/Research Analyst|Project Architect|Daily Briefing|Obsidian Curator|Strategy General|Project Soldier/), "No documentary candidates enter the operational HUD");
     check(detail().includes("Main orchestrator") && !detail().includes("Full system"), "Olympus has bounded real orchestration authority");
+    check(Boolean(query(".console-inspect-project")), "Read-only project inspection is discoverable in the console");
     // The ring is capability, not projects.
     check(document.querySelectorAll(".capability-ring__hit").length === capabilities.domains.length, "One ring sector per capability domain");
     check(!ringNames().some(name => projects.some(project => name.toUpperCase().includes(project.name.toUpperCase()))), "No project names on the Command ring");
@@ -234,6 +238,14 @@ async function checks() {
     await fixture("six"); check(document.querySelectorAll(".agent-role-row").length === 8 && query(".agent-catalog-list").scrollHeight > query(".agent-catalog-list").clientHeight, "Future executable fixtures scroll vertically without fixed slots");
     await fixture("error"); check(!document.querySelector(".agent-status") && query(".command-agent-catalog").textContent?.includes("Agent catalog could not be read from the local database") && Boolean(query(".agent-catalog-error button")), "Read failure removes stale ready claims");
     await fixture("empty"); click("Olympus Core"); await wait();
+    query<HTMLButtonElement>('.agent-detail-tabs [role="tab"]:nth-child(3)').click(); await wait();
+    check(query('.agent-tab-content').textContent?.includes("Gmail"), "Tools tab exposes actual tool bindings");
+    query<HTMLButtonElement>('.agent-detail-tabs [role="tab"]:nth-child(4)').click(); await wait();
+    check(query('.agent-tab-content').textContent?.includes("Authority"), "Policies tab retains backend authority");
+    query<HTMLButtonElement>('.agent-detail-tabs [role="tab"]:nth-child(1)').click(); await wait();
+    query<SVGElement>('[aria-label="Open Project workspace"]').dispatchEvent(new KeyboardEvent("keydown",{key:"Enter",bubbles:true}));await wait();
+    check(query('.command-fixture-inspector').textContent?.includes("Project destination"), "Project orbital shortcut navigates without executing");
+    click("Return to Command catalog");await wait();
     // Chat: expanded workspace by default in Command, compact on request.
     check(query(".command-console").dataset.layout === "expanded" && query(".console-idle"), "Command opens with the expanded chat workspace in its ready state");
     layoutChecks();
@@ -264,3 +276,17 @@ async function checks() {
   } catch (e) { query("#result").textContent = results.map(r => "PASS " + r).join("\n") + "\nFAIL " + String(e); }
 }
 if (params.has("check")) void checks();
+
+async function inspectionChecks(){
+ await wait(800);
+ try{
+  const menu=document.querySelector<HTMLDetailsElement>(".console-inspect-project")!;menu.open=true;
+  const select=document.querySelector<HTMLSelectElement>('[aria-label="Inspect a project read-only"]')!;
+  select.value="fixture-repo";select.dispatchEvent(new Event("change",{bubbles:true}));await wait();
+  if(!document.querySelector<HTMLTextAreaElement>("#olympus-console-input")!.value.startsWith("/inspect fixture-repo:"))throw Error("Missing scoped draft");
+  if(mutations!==0)throw Error("Selection executed an action");
+  if(document.querySelector('[placeholder="Something Olympus should know about how you work."]'))throw Error("Opened observation writer");
+  document.getElementById("result")!.textContent="PASS scoped draft; no send; no memory writer";
+ }catch(error){document.getElementById("result")!.textContent="FAIL "+String(error);}
+}
+if(params.has("inspect-check"))void inspectionChecks();

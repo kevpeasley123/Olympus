@@ -19,7 +19,7 @@ On launch, Command is the ambient, glanceable state of Olympus. It should be
 readable from across the room: the full omega instrument, the Agent Catalog on
 the left, and the conversation workspace in its own right column (compact on
 request). The instrument is the mode, not an illustration beside another
-interface. The ring shows what Olympus can do — its capability domains, derived
+interface. The orbital capability cards show what Olympus can do — its capability domains, derived
 from real runtime Tools and Skills — not projects (decided 2026-09-29, Command
 Armory redesign). Projects, briefing prose and repository details belong in
 Project mode.
@@ -76,10 +76,10 @@ not commands to repeat an old choice forever.
 ### Command
 
 The ambient command and conversation surface. Its centre column contains the
-full-size omega instrument: the day arc, the capability-domain ring, the linked
+full-size omega instrument: the day arc, the orbital capability cards, the linked
 note constellation (ambient), and central glyph. A lens (the selected agent),
 a selected domain, or a recorded mission reveals individual Tools and Skills
-inside their domain's wedge with an honest state: available, in scope, active,
+within the central inspection field with an honest state: available, in scope, active,
 completed, unavailable, or requires approval. Revealing and inspecting never
 invoke anything. The conversation workspace fills the right column by default
 (idle suggestions, conversation, a Mission View projected from recorded run
@@ -94,8 +94,10 @@ is read-only and never launches agents. Deeper graph/run inspection links to the
 existing Research surface. See `docs/COMMAND-AGENT-CATALOG.md` and
 `docs/COMMAND-ARMORY-REDESIGN.md`.
 
+On October 7, 2026, Kevin approved the supplied visual reference: an open orbital instrument with capability cards, a Project navigation card, and tabbed agent details. This supersedes the earlier segmented-ring visual treatment; capability inspection remains read-only.
+
 Command's defining test is “one instrument, readable across the room.”
-A proposal that adds a card, list, or scroll container to its centre column
+A proposal that adds project-detail cards, a list, or a scroll container to its centre column
 belongs in Project mode. The instrument must not shrink to make room for a panel;
 that inversion turns the mode's primary display into decoration.
 

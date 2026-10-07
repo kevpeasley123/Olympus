@@ -1,3 +1,24 @@
+## October 7 — bounded assistant and visual integration (local, not released)
+
+Existing October 7 visual work is retained around a revised central Pantheon:
+680 seeded dust points and 22 small bodies move through a spherical volume,
+using the same depth buffer as Omega. Two close gold rings remain; broad SVG
+ellipses, card spokes, and the full day-track outline are removed. Actual day
+markers and card keyboard controls remain. Galaxy time follows the existing
+visibility/reduced-motion loop; resources use shared scene disposal. The flat
+SVG fallback retains all controls.
+
+Command now offers a
+reviewable, explicitly scoped repository inspection request, read-only progress,
+and Stop. See [REPOSITORY-INSPECTION.md](REPOSITORY-INSPECTION.md) for the bounded
+JSON workflow, provider costs, scope restrictions, and live-verification gaps.
+Project and Research reading areas use available width, with larger secondary
+labels. Research availability and request failures have separate read-only
+recovery controls. Catalog copy describes available workflows and recorded work.
+No general natural-language auto-execution, subscription engine, Gmail account
+repair, or deployment was added. Historical verification below is not this
+change's test result.
+
 ## Continuation — Command Capability Armory and visual review (released as 0.21.0, September 30, 2026)
 
 Built from `c432f48` (0.20.0) in a cloud container overnight, committed as `9ad66b7`, and released in 0.21.0 through "Bring everything current" (see `CLAUDE.md` and `docs/RELEASES.md`). Design and status: `docs/COMMAND-ARMORY-REDESIGN.md`; tooling: `docs/VISUAL-REVIEW.md`; plan context: `docs/ARMORY-PLAN.md` (approved).

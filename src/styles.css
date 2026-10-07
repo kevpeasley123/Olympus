@@ -5004,3 +5004,8 @@ small {
   overflow-wrap: anywhere;
   font-family: var(--font-mono);
 }
+
+.console-inspection-status { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 14px; background:#111b2b; color:#d7dfeb; font-size:12px; }
+.console-inspect-project { display:grid; gap:8px; color:#d7dfeb; }
+.console-inspect-project small { color:#a4b3c8; font-size:12px; line-height:1.5; }
+.console-inspect-project select { max-width:100%; background:#111b2b; color:#e3eaf3; padding:8px; }

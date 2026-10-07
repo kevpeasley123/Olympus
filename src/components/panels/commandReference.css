@@ -1,0 +1,72 @@
+/* October reference: an open orbital instrument, flanked by two workspaces. */
+.brand-promise,.brand-manifesto{font:9px/1.6 var(--font-mono);letter-spacing:.19em;text-transform:uppercase;color:#98aec2;margin:3px 0 0}
+.brand-manifesto{position:absolute;left:25%;top:18px;letter-spacing:.25em}
+html .mode-command .main-grid{grid-template-columns:44px minmax(0, .29fr) minmax(0,.43fr) minmax(0,.30fr);gap:14px}
+html .mode-command .panel-slot-instrument .command-instrument__dial{width:min(calc(100vh - 235px),100cqw);height:min(calc(100vh - 235px),100cqw);transform:none}
+.orbit-traces{fill:none;stroke:#8faac4;stroke-width:.45;opacity:.45;stroke-dasharray:2 5}
+.orbit-traces ellipse{stroke:#dbad68;stroke-dasharray:none;opacity:.7}
+.orbit-domain{opacity:1!important}
+.orbit-domain__link{stroke:#adc4db;stroke-width:.4;opacity:.24}
+.orbit-domain__card{cursor:pointer;outline:none}
+.orbit-domain__glass{fill:#09131e;fill-opacity:.94;stroke:#b3976c;stroke-width:.75;filter:drop-shadow(0 0 3px #ffc27344)}
+.orbit-domain__icon-disc{fill:#26313b;fill-opacity:.65;stroke:#b3976c;stroke-width:.5}
+.orbit-domain__icon{color:#e8c88f;stroke-width:1.4}
+.orbit-domain__name{fill:#f1f3f6;font:600 7px var(--font-sans)}
+.orbit-domain__description{fill:#b5c5d7;font:6.6px var(--font-sans)}
+.orbit-domain__status{fill:#e9c785;filter:drop-shadow(0 0 3px #ffca75)}
+.orbit-domain[data-state="unavailable"] .orbit-domain__status{fill:#7c8996;filter:none}
+.orbit-domain[data-state="active"] .orbit-domain__glass,.orbit-domain[data-selected] .orbit-domain__glass,.orbit-domain__card:hover .orbit-domain__glass,.orbit-domain__card:focus-visible .orbit-domain__glass{stroke:#ffcc7a;stroke-width:1.5;fill:#182735}
+.orbit-domain:has([data-domain="research"]) .orbit-domain__icon,.orbit-domain:has([data-domain="code"]) .orbit-domain__icon,.orbit-domain:has([data-domain="system"]) .orbit-domain__icon{color:#91baff}
+.command-orbit-motto{font:10px var(--font-mono);text-transform:uppercase;letter-spacing:.2em;color:#d3b184;text-align:center;margin:22px 0 0}
+.command-orbit-motto:before,.command-orbit-motto:after{content:"—";padding:0 14px;color:#8e7654}
+html .command-console[data-layout="expanded"]{border-color:#b1915d88;border-radius:10px;background:linear-gradient(165deg,#09151fec,#040e17ec)}
+html .command-console[data-layout="expanded"] .console-idle{justify-content:center;gap:20px;padding:28px 22px 55px}
+html .console-idle__title{text-align:center;font-size:clamp(18px,1.35vw,24px);line-height:1.4;font-weight:400}
+.console-welcome-rule{width:68px;height:1px;background:linear-gradient(90deg,transparent,#e5b675,transparent);align-self:center;position:relative}
+.console-welcome-rule:after{content:"";position:absolute;left:32px;top:-2px;width:5px;height:5px;border-radius:50%;background:#efc389}
+.console-idle__description{margin:0 0 8px;font:13px/1.7 var(--font-sans);color:#acbdcf;text-align:center}
+html .console-idle__briefing{padding:17px 16px;border-radius:7px;background:linear-gradient(110deg,#6b4d2320,#111c2544)}
+html .command-console[data-layout="expanded"] .console-command-bar{display:flex;flex-direction:column;margin:0 12px 13px;padding:12px;border:1px solid #779bb344;border-radius:9px;background:#07121bd9;min-height:111px;position:relative}
+html .command-console[data-layout="expanded"] .console-status-line{order:2;justify-content:flex-start;margin-top:12px;padding-right:68px}
+html .command-console[data-layout="expanded"] .console-input-row{order:0;padding-bottom:14px}
+html .command-console[data-layout="expanded"] .console-input-row textarea{border:0;min-height:38px}
+html .command-console[data-layout="expanded"] .send-button{position:absolute;right:10px;bottom:10px;border:1px solid #7598b244;border-radius:7px}
+html .command-console[data-layout="expanded"] .voice-mic-button{position:absolute;right:49px;bottom:12px}
+html .console-workspace-header{padding:17px 16px;border-bottom:1px solid #b2a07d25}
+html .console-workspace-title .console-status[data-status="ready"]{color:#5addb0}
+.agent-detail-tabs{display:flex;justify-content:space-between;border-bottom:1px solid #93a6ba33;margin-bottom:9px}
+.agent-detail-tabs button{background:none;border:0;border-bottom:2px solid transparent;color:#a8bacd;font:9px var(--font-mono);text-transform:uppercase;padding:10px 6px;cursor:pointer}
+.agent-detail-tabs button[aria-selected="true"]{color:#eecb90;border-color:#e6b66e}
+html .agent-selected-detail dl[hidden]{display:none}
+html .agent-role-row{min-height:54px;padding:7px 8px}
+html .agent-catalog-list h3{margin:12px 2px 7px}
+html .agent-role-status{gap:5px}
+html .agent-selected-detail dl{font-size:11px;gap:7px 10px}
+html .agent-detail-eyebrow{margin-bottom:8px}
+html .command-agent-catalog{border-radius:10px;border-color:#b1915d99}
+html .command-agent-catalog footer{flex-wrap:wrap}
+.command-agent-catalog footer em{flex-basis:100%;font-size:9px;margin-bottom:2px}
+@media(max-width:1350px){.brand-manifesto{left:28%}.orbit-domain__description{font-size:7px}.orbit-domain__name{font-size:7.1px}.agent-detail-tabs button{font-size:8px;padding:9px 3px}.console-idle__description{font-size:12px}.command-orbit-motto{font-size:8px;letter-spacing:.12em}}
+html .command-instrument[data-renderer="hybrid"] .orbit-domain__name{visibility:visible;letter-spacing:0}
+html .mode-command .panel-slot-instrument .command-instrument__dial{width:min(calc(100vh - 235px),100cqw,670px);height:min(calc(100vh - 235px),100cqw,670px)}
+.orbit-identity{font:7px var(--font-sans);fill:#edf1f7;letter-spacing:.06em}.orbit-identity__sub{font:5.7px var(--font-mono);fill:#a9bac9;letter-spacing:.12em}.orbit-lights{fill:#ffe0a2;filter:drop-shadow(0 0 3px #ffb655)}
+html .command-console[data-layout="expanded"] .console-idle{justify-content:safe center}
+.command-orbital-atmosphere{position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none}
+.orbit-domain__glass{fill-opacity:.97;stroke-width:.7;filter:drop-shadow(0 6px 7px #0009)}
+.orbit-domain__icon{filter:drop-shadow(0 0 3px #e8b55b44)}
+.orbit-domain__link{opacity:.12}
+html .command-agent-catalog,html .command-console[data-layout="expanded"]{box-shadow:inset 0 1px 0 #e8d1a31c,inset 0 0 36px #0005,0 12px 35px #0004;background:linear-gradient(135deg,#0b1722f5,#040e17ec 50%,#09141cee)}
+html .command-agent-catalog{border-top-color:#e2c187a0}
+html .agent-role-row{background:linear-gradient(135deg,#15253350,#07111a70);box-shadow:inset 0 1px 0 #c8e6ff08}
+
+html:has(.mode-command) .background-image{background-image:url("../../assets/olympus-command-tech-valley.png");filter:saturate(.65) brightness(.70) contrast(1.08)}
+
+.command-orbital-atmosphere{background:radial-gradient(ellipse,#010309 0%,#01040afc 44%,#020713ef 58%,#07142370 67%,transparent 74%)}
+
+/* The static SVG is the no-WebGL fallback; the canvas owns galaxy depth. */
+.command-instrument[data-renderer="hybrid"] .orbital-atmosphere{display:none}
+.command-orbital-atmosphere{background:radial-gradient(ellipse,#010309f0 0%,#01040ad0 24%,#02071380 46%,#07142328 62%,transparent 76%)}
+
+.command-instrument .day-arc__track{stroke:transparent}
+.command-instrument .day-arc__quiet{opacity:0}
+.command-instrument .capability-ring__field{display:none}

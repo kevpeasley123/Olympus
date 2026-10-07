@@ -8,3 +8,8 @@
 .rv-actions{display:flex;gap:8px;flex-wrap:wrap}.research-verification details{padding:8px 0}.research-verification summary{cursor:pointer;font-size:13px}.research-verification pre{font-size:11px;white-space:pre-wrap;overflow-wrap:anywhere;max-height:360px;overflow:auto;background:rgba(0,0,0,.12);padding:10px}
 .research-verification blockquote{margin:8px 0;padding:8px 12px;border-left:2px solid rgba(168,200,245,.45);white-space:pre-wrap}.rv-executions{padding-left:24px}.rv-executions>li{padding:12px 0;border-bottom:1px solid rgba(170,185,210,.15)}
 .research-verification [role="alert"]{color:#f3b6a5}.research-verification details:target{outline:2px solid #a8c8f5;outline-offset:4px}
+
+.research-recovery { padding: 14px; border: 1px solid #718099; border-radius: 8px; background: #101827; color: #d7dfeb; }
+.research-recovery p { white-space: normal; overflow-wrap: anywhere; }
+
+.research-inspector { --text-xs: 12px; --label: #a4b3c8; --muted: #a4b3c8; }

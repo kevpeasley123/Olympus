@@ -1,5 +1,6 @@
 import { HybridCommandCore } from "./HybridCommandCore";
-import { commandLayout, HYBRID_OVERLAY_TRANSFORM } from "../../services/hybridCore";
+import { OrbitalAtmosphere } from "./OrbitalAtmosphere";
+import { commandLayout } from "../../services/hybridCore";
 import { useAmbientMotion } from "../../hooks/useAmbientMotion";
 import { useSceneParallax } from "../../hooks/useSceneParallax";
 import { AMBIENT, ambientVariables } from "../../services/ambientMotion";
@@ -24,8 +25,10 @@ import { DayArc } from "./DayArc";
 import { CapabilityRing } from "./CapabilityRing";
 import "./command.css";
 import "./commandArmory.css";
+import "./commandReference.css";
 
 interface CommandInstrumentProps {
+  onProjects?: () => void;
   active?: boolean;
   visualState?: OlympusVisualState;
   voiceLevel?: number;
@@ -100,6 +103,7 @@ const RIPPLE_SECONDS = 1.4;
  */
 export function CommandInstrument({
   projects,
+  onProjects,
   capabilities,
   capabilitiesError = null,
   view,
@@ -247,13 +251,14 @@ export function CommandInstrument({
       data-armory={capabilities ? "ready" : capabilitiesError ? "unavailable" : "loading"} data-working={working || undefined}
       style={{ ...ambientVariables, "--ambient-drift": `${2 / renderScale}px` } as CSSProperties}>
       <motion.div className="command-instrument__dial" ref={dialRef} style={instrumentParallax}>
+        <div className="command-orbital-atmosphere" aria-hidden="true"/>
         {/* Unmounted on failure so its GPU resources, listeners and timers go
             with it; Retry mounts a fresh one. */}
-        {sceneWanted && !hybridError && <HybridCommandCore key={renderAttempt} layout={layout} state={ambientState} voiceLevel={voiceLevel} execution={execution}
+        {sceneWanted && !hybridError && <HybridCommandCore key={renderAttempt} layout={{...layout, orbitalCards: true}} state={ambientState} voiceLevel={voiceLevel} execution={execution}
           running={active && ambient.running} light={light} activeDomains={activeDomains}
           onReady={setHybridReady} onError={setHybridError} />}
         <svg
-          style={{ transform: HYBRID_OVERLAY_TRANSFORM, transformOrigin: "50% 50%" }}
+          style={{ transformOrigin: "50% 50%" }}
           viewBox={`0 0 ${SIZE} ${SIZE}`}
           className={`command-instrument__svg ${pulse ? `is-pulsing pulse-${pulse}` : ""}`}
           role="group"
@@ -262,6 +267,7 @@ export function CommandInstrument({
         >
           {/* The flat instrument's glyph; the 3D core replaces it once drawn. */}
           <text x={CENTRE} y={CENTRE + 30} className="command-instrument__fallback-omega" textAnchor="middle" aria-hidden="true">Ω</text>
+          <OrbitalAtmosphere />
           <DayArc
             centre={CENTRE}
             radius={DAY_RADIUS}
@@ -274,6 +280,7 @@ export function CommandInstrument({
           />
 
           <CapabilityRing
+            onProjects={onProjects}
             layout={layout}
             domains={domains}
             view={view ?? { domains: {}, revealed: [], states: {} }}
@@ -325,6 +332,7 @@ export function CommandInstrument({
           Nothing renders before the first reply of a session. Naming a model
           that has not spoken would be the same invisible wrongness as reading
           the request constant. */}
+      <p className="command-orbit-motto">Same questions. A higher orbit.</p>
       {previewLabel && <p className="command-instrument__preview" role="note">{previewLabel}</p>}
       {hybridError && <div className="hybrid-status" role="status">
         <span>3D view unavailable · showing the flat instrument.</span>
