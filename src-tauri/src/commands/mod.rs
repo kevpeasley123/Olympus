@@ -1,3 +1,4 @@
+pub mod resource_intake;
 pub mod repository_inspection;
 pub mod acceptance;
 pub mod delegation_review;

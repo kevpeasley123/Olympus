@@ -1,0 +1,12 @@
+import {build} from 'esbuild';
+import assert from 'node:assert/strict';
+await build({entryPoints:['src/services/resourceIntake.ts'],bundle:true,format:'esm',platform:'node',outfile:'output/tests/resource-intake.mjs'});
+const {outlineResource,resourceBody}=await import('../output/tests/resource-intake.mjs');
+const source='# Evidence\n\nEvidence from the first experiment remains provisional. Additional evidence should be gathered before committing resources.\n\n# Limitations\n\nThe experiment did not include customers outside the original cohort.';
+const outline=outlineResource(source);
+assert.deepEqual(outline.headings,['Evidence','Limitations']);
+assert(outline.passages.length>0&&outline.passages.every(p=>source.includes(p)));
+assert.throws(()=>outlineResource(' '));assert.throws(()=>outlineResource('a'.repeat(180001)));
+const body=resourceBody(source,outline,{name:'Review',instructions:'Look for gaps'},'My observation');
+assert(body.includes('not an AI summary'));assert(body.endsWith(source));assert(body.includes('Look for gaps'));assert(body.includes('My observation'));
+console.log('PASS 8 resource outline and preservation checks');

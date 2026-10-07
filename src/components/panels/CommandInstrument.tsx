@@ -1,3 +1,5 @@
+import { ArmoryConstellation } from "./ArmoryConstellation";
+import { Mic } from "lucide-react";
 import { HybridCommandCore } from "./HybridCommandCore";
 import { OrbitalAtmosphere } from "./OrbitalAtmosphere";
 import { commandLayout } from "../../services/hybridCore";
@@ -28,7 +30,9 @@ import "./commandArmory.css";
 import "./commandReference.css";
 
 interface CommandInstrumentProps {
+  flagship?: boolean;
   onProjects?: () => void;
+  domainActions?: Partial<Record<string, () => void>>;
   active?: boolean;
   visualState?: OlympusVisualState;
   voiceLevel?: number;
@@ -102,8 +106,10 @@ const RIPPLE_SECONDS = 1.4;
  * assemble. Projects live in Project mode; nothing here is project navigation.
  */
 export function CommandInstrument({
+  flagship = false,
   projects,
   onProjects,
+  domainActions,
   capabilities,
   capabilitiesError = null,
   view,
@@ -246,15 +252,16 @@ export function CommandInstrument({
   }, [active]);
 
   return (
-    <div className="command-instrument" data-visual-state={ambientState} data-voice-energy={voiceLevel > 0.15 ? "active" : "quiet"}
+    <div className="command-instrument" data-flagship={flagship || undefined} data-visual-state={ambientState} data-voice-energy={voiceLevel > 0.15 ? "active" : "quiet"}
       data-motion={ambient.running ? "running" : "paused"} data-renderer={sceneShown ? "hybrid" : "svg"} data-scene-ready={sceneShown}
       data-armory={capabilities ? "ready" : capabilitiesError ? "unavailable" : "loading"} data-working={working || undefined}
       style={{ ...ambientVariables, "--ambient-drift": `${2 / renderScale}px` } as CSSProperties}>
       <motion.div className="command-instrument__dial" ref={dialRef} style={instrumentParallax}>
         <div className="command-orbital-atmosphere" aria-hidden="true"/>
+        {flagship && <ArmoryConstellation capabilities={capabilities??null}/>}
         {/* Unmounted on failure so its GPU resources, listeners and timers go
             with it; Retry mounts a fresh one. */}
-        {sceneWanted && !hybridError && <HybridCommandCore key={renderAttempt} layout={{...layout, orbitalCards: true}} state={ambientState} voiceLevel={voiceLevel} execution={execution}
+        {sceneWanted && !hybridError && <HybridCommandCore key={renderAttempt} layout={{...layout, orbitalCards: true, flagship}} state={ambientState} voiceLevel={voiceLevel} execution={execution}
           running={active && ambient.running} light={light} activeDomains={activeDomains}
           onReady={setHybridReady} onError={setHybridError} />}
         <svg
@@ -268,7 +275,7 @@ export function CommandInstrument({
           {/* The flat instrument's glyph; the 3D core replaces it once drawn. */}
           <text x={CENTRE} y={CENTRE + 30} className="command-instrument__fallback-omega" textAnchor="middle" aria-hidden="true">Ω</text>
           <OrbitalAtmosphere />
-          <DayArc
+          {!flagship && <DayArc
             centre={CENTRE}
             radius={DAY_RADIUS}
             now={new Date(now)}
@@ -277,10 +284,11 @@ export function CommandInstrument({
             writes={writes}
             reducedMotion={!ambient.running}
             renderScale={renderScale}
-          />
+          />}
 
-          <CapabilityRing
+          {!flagship && <CapabilityRing
             onProjects={onProjects}
+            domainActions={domainActions}
             layout={layout}
             domains={domains}
             view={view ?? { domains: {}, revealed: [], states: {} }}
@@ -295,7 +303,7 @@ export function CommandInstrument({
             onHoverDomain={onHoverDomain}
             onSelectDomain={onSelectDomain}
             onSelectCapability={onSelectCapability}
-          />
+          />}
 
           {(pulse === "vault-write" || pulse === "graph-node" || pulse === "response-start") && ambient.running ? (
             <motion.circle
@@ -332,14 +340,19 @@ export function CommandInstrument({
           Nothing renders before the first reply of a session. Naming a model
           that has not spoken would be the same invisible wrongness as reading
           the request constant. */}
-      <p className="command-orbit-motto">Same questions. A higher orbit.</p>
+      {flagship && <div className="pantheon-caption"><h2>Pantheon</h2>{(activity || working) && ambientState !== "speaking" && ambientState !== "listening" && <span className="pantheon-state">{activity ?? "Working"}</span>}</div>}
+      {flagship && <div className="pantheon-voice" role="img" aria-label={ambientState === "speaking" ? "Voice speaking" : ambientState === "listening" ? "Voice listening" : "Voice idle"} data-active={ambientState === "speaking" || ambientState === "listening"}>
+        <Mic size={18} aria-hidden="true"/>
+        <div className="pantheon-voice__wave" aria-hidden="true">{Array.from({length:23},(_,i)=><span key={i} style={{height:2+((ambientState === "speaking" || ambientState === "listening") ? Math.min(1,Math.max(0,voiceLevel))*30*Math.pow(Math.sin((i+1)*Math.PI/24),.7)*(i%3===0?.65:1):0)}}/>)}</div>
+        {(ambientState === "speaking" || ambientState === "listening") && <span className="pantheon-voice__state">{ambientState === "speaking" ? "Speaking" : "Listening"}</span>}
+      </div>}
       {previewLabel && <p className="command-instrument__preview" role="note">{previewLabel}</p>}
       {hybridError && <div className="hybrid-status" role="status">
         <span>3D view unavailable · showing the flat instrument.</span>
         <button type="button" className="ghost-action" onClick={() => { setHybridError(null); setHybridReady(false); setRenderAttempt(n => n + 1); }}>Retry 3D view</button>
         <details><summary>Technical detail</summary><span>{hybridError}</span></details>
       </div>}
-      {armory && statusParts.length === 0 && <p className="command-instrument__status command-instrument__armory">{armory}</p>}
+      {!flagship && armory && statusParts.length === 0 && <p className="command-instrument__status command-instrument__armory">{armory}</p>}
       {statusParts.length > 0 ? (
         <p className="command-instrument__status" title={identityTitle}>
           {statusParts.map((part, index) => (

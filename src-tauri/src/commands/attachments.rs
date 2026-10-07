@@ -366,3 +366,16 @@ mod tests {
         assert!(picked_path(&second, true).is_err());
     }
 }
+
+/// Local extraction: only an operator-picked token, never a webview source path.
+#[tauri::command]
+pub async fn extract_resource_text(token:String)->Result<String,String>{
+ let path=picked_path(&token,false)?;
+ let size=fs::metadata(&path).map_err(|_|"Selected file unavailable")?.len();
+ if size>20_000_000{return Err("Choose a document smaller than 20 MB.".into())}
+ let ext=path.extension().and_then(|e|e.to_str()).unwrap_or("").to_ascii_lowercase();
+ let text=match ext.as_str(){"txt"|"md"=>fs::read_to_string(&path).map_err(|_|"Text documents must use UTF-8.".to_string())?,"pdf"=>tauri::async_runtime::spawn_blocking(move||std::panic::catch_unwind(||pdf_extract::extract_text(&path)).map_err(|_|"PDF extraction failed".to_string())?.map_err(|_|"PDF text could not be extracted".to_string())).await.map_err(|_|"PDF extraction task failed")??,_=>return Err("Choose a PDF, Markdown, or text document.".into())};
+ if text.trim().is_empty(){return Err("No readable text found. Scanned PDFs need OCR; paste their text instead.".into())}
+ if text.len()>180_000{return Err("Document text exceeds 180 KB. Paste a smaller section.".into())}
+ Ok(text)
+}

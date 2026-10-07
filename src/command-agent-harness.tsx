@@ -1,3 +1,4 @@
+import { OlympusArmory } from "./components/panels/OlympusArmory";
 import "@fontsource/cinzel/400.css";
 import "@fontsource/inter/400.css";
 import "@fontsource/inter/500.css";
@@ -115,6 +116,7 @@ const thisLaunch: ConversationMessage[] = [
 ];
 
 function Harness() {
+  const flagship = params.has("flagship");
   const [key, setKey] = useState(0), [destination, setDestination] = useState<null | { runId?: string; projects?: boolean }>(null);
   const [layout, setLayout] = useState<"compact" | "expanded">(scenario === "chat-compact" ? "compact" : "expanded");
   const [catalogReady, setCatalogReady] = useState(false);
@@ -130,7 +132,7 @@ function Harness() {
     if (scenario === "capability-detail") { command.setSelectedDomain("research"); command.setSelectedCapability("claim-verification"); }
   }, []);
   useEffect(() => {
-    const observer = new MutationObserver(() => { if (document.querySelector(".agent-role-row")) { setCatalogReady(true); observer.disconnect(); } });
+    const observer = new MutationObserver(() => { if (document.querySelector(".agent-role-row, .olympus-armory")) { setCatalogReady(true); observer.disconnect(); } });
     observer.observe(document.body, { childList: true, subtree: true });
     return () => observer.disconnect();
   }, []);
@@ -139,17 +141,17 @@ function Harness() {
   return <><BackgroundLayer /><main className="app-shell mode-command" data-chat-layout={layout}><div className="panel-slot panel-slot-header"><HeaderBar mode="command" onSelectMode={() => {}} projects={projects} /></div>
     <div className="dashboard-body"><section className="main-grid">
       <aside className="tools-rail dashboard-column panel-shell surface-chrome" aria-label="Global icon rail">{[Layers, MessageSquare, BookOpen, Network].map((Icon, i) => <span key={i} style={{ padding: "12px 8px", color: "#a9b7c5" }}><Icon size={17} /></span>)}</aside>
-      <CommandAgentCatalog key={key} client={client} available selectedId={command.agent} onSelect={command.selectAgent}
+      {flagship ? <OlympusArmory capabilities={capabilities} missions={missions} preview selectedAgent={command.agent} onSelectAgent={command.selectAgent} onDestination={destination=>setDestination(destination==="project"?{projects:true}:{})}/> : <CommandAgentCatalog key={key} client={client} available selectedId={command.agent} onSelect={command.selectAgent}
         onResearch={runId => setDestination({ runId })} onProjects={() => setDestination({ projects: true })}
-        capabilities={capabilities} working={command.focus.agents} orchestrating={command.focus.running} selectedCapability={command.selectedCapability} onSelectCapability={command.setSelectedCapability} />
+        capabilities={capabilities} working={command.focus.agents} orchestrating={command.focus.running} selectedCapability={command.selectedCapability} onSelectCapability={command.setSelectedCapability} />}
       <section className="center-stack dashboard-column"><div className="panel-slot panel-slot-instrument">
-        <CommandInstrument onProjects={()=>setDestination({projects:true})} projects={projects} capabilities={capabilities} view={command.view} light={command.light} activeDomains={command.activeDomains}
+        <CommandInstrument visualState={params.get("voice")==="speaking"?"speaking":params.get("voice")==="listening"?"listening":undefined} voiceLevel={Number(params.get("level")??0)} flagship={flagship} onProjects={()=>setDestination({projects:true})} projects={projects} capabilities={capabilities} view={command.view} light={command.light} activeDomains={command.activeDomains}
           missionOperation={command.missionOperation} working={command.working} selectedDomain={command.selectedDomain} selectedCapability={command.selectedCapability}
           onHoverDomain={command.setHoverDomain} onSelectDomain={command.setSelectedDomain} onSelectCapability={command.setSelectedCapability} />
       </div></section>
       <section className="right-stack dashboard-column"><div className="panel-slot panel-slot-chat">
-        <ChatPanel inspectionProjects={["fixture-repo"]} messages={messages} autoSpeak={false} onAutoSpeakChange={() => {}} onOpenPreferences={() => {}} onSendMessage={() => { mutations++; }} onRecordObservation={async () => { mutations++; return { tone: "error", message: "Fixture only" }; }}
-          layout={layout} onLayoutChange={setLayout} mission={command.mission} capabilities={capabilities} suggestions={suggestions}
+        <ChatPanel companion={flagship} inspectionProjects={["fixture-repo"]} messages={messages} autoSpeak={false} onAutoSpeakChange={() => {}} onOpenPreferences={() => {}} onSendMessage={() => { mutations++; }} onRecordObservation={async () => { mutations++; return { tone: "error", message: "Fixture only" }; }}
+          layout={layout} onLayoutChange={setLayout} mission={command.mission} capabilities={capabilities} suggestions={flagship?suggestions.slice(0,3):suggestions}
           onOpenMission={destination => setDestination(destination === "research" ? {} : { projects: true })} onDismissMission={command.dismissMission} />
       </div></section>
     </section></div>

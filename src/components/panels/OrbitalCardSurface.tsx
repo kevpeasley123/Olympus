@@ -14,7 +14,9 @@ export function OrbitalCardSurface({compact=false,cool=false}:{compact?:boolean;
       <radialGradient id={`${id}-flare`}><stop stopColor="#fff8e7"/><stop offset=".09" stopColor={rim} stopOpacity=".85"/><stop offset=".3" stopColor={rim} stopOpacity=".2"/><stop offset="1" stopColor={rim} stopOpacity="0"/></radialGradient>
       <filter id={`${id}-soft`} x="-100%" y="-100%" width="300%" height="300%"><feGaussianBlur stdDeviation="2.2"/></filter>
     </defs>
+    <rect width={w} height={h} rx="11" className="orbit-domain__hit-area" fill="transparent" pointerEvents="all"/>
     <rect width={w} height={h} rx="11" className="orbit-domain__glass" style={{fill:paint("glass"),stroke:paint("rim")}}/>
+    <rect width={w} height={h} rx="11" className="orbit-domain__highlight"/>
     <rect x="1.8" y="1.8" width={w-3.6} height={h-3.6} rx="9.5" fill="none" stroke="#b9d7e6" strokeOpacity=".09" strokeWidth=".5"/>
     <path d={`M0 29V12Q0 0 12 0H${compact?34:60}`} fill="none" stroke={rim} strokeWidth="2" opacity=".65" filter={paint("soft")}/>
     <path d={`M.5 26V12Q.5 .5 12 .5H${compact?26:49}`} fill="none" stroke={rim} strokeWidth=".8" opacity=".94"/>

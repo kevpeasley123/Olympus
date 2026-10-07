@@ -1,3 +1,4 @@
+import { INTAKE_CHANGED, resourceSkills, skillDescriptor } from "../services/resourceIntake";
 import { useEffect, useState } from "react";
 import { capabilityClient, type CapabilityClient, type CapabilitySnapshot, type MissionSnapshot } from "../services/capabilities";
 import fixture from "../services/capabilitiesFixture.json";
@@ -12,6 +13,7 @@ export interface CommandArmory {
   missions: MissionSnapshot | null;
   /** Browser preview: synthetic capabilities, labelled as such, and no missions. */
   preview: boolean;
+  missionsError: string | null;
 }
 
 /**
@@ -21,19 +23,25 @@ export interface CommandArmory {
  */
 export function useCommandArmory(active: boolean, client: CapabilityClient | null = isTauriRuntime() ? capabilityClient : null): CommandArmory {
   const preview = client === null;
+  const [missionsError, setMissionsError] = useState<string | null>(null);
   const [capabilities, setCapabilities] = useState<CapabilitySnapshot | null>(preview ? fixture.capabilities as CapabilitySnapshot : null);
   const [capabilitiesError, setError] = useState<string | null>(null);
   const [missions, setMissions] = useState<MissionSnapshot | null>(preview ? fixture.missions.none as MissionSnapshot : null);
 
   useEffect(() => {
-    if (!client) return;
+    if (!client) {
+      let live=true;
+      const refresh=()=>{void resourceSkills().then(skills=>{if(live)setCapabilities({...fixture.capabilities as CapabilitySnapshot,skills:[...fixture.capabilities.skills as CapabilitySnapshot["skills"],...skills.map(skillDescriptor)]})})};
+      refresh();window.addEventListener(INTAKE_CHANGED,refresh);return()=>{live=false;window.removeEventListener(INTAKE_CHANGED,refresh)};
+    }
     let live = true;
     const read = () => client.capabilities().then(value => { if (live) { setCapabilities(value); setError(null); } })
       .catch(error => { if (live) setError(String(error)); });
     void read();
     const timer = window.setInterval(read, ARMORY_POLL.capabilitiesMs);
     window.addEventListener("focus", read);
-    return () => { live = false; window.clearInterval(timer); window.removeEventListener("focus", read); };
+    window.addEventListener(INTAKE_CHANGED,read);
+    return () => { live = false; window.clearInterval(timer); window.removeEventListener("focus", read);window.removeEventListener(INTAKE_CHANGED,read); };
   }, [client]);
 
   useEffect(() => {
@@ -44,9 +52,9 @@ export function useCommandArmory(active: boolean, client: CapabilityClient | nul
       try {
         const value = await client.missions();
         if (!live) return;
-        setMissions(value);
+        setMissions(value); setMissionsError(null);
         if (value.missions.some(mission => mission.status === "running")) delay = ARMORY_POLL.liveMissionMs;
-      } catch { /* The last good snapshot stays; the next poll retries. */ }
+      } catch(error) { if(live)setMissionsError(String(error)); }
       // Hidden Command slows to the idle cadence: nobody is watching the theater.
       if (live) timer = window.setTimeout(read, active ? delay : ARMORY_POLL.idleMissionMs);
     };
@@ -54,5 +62,5 @@ export function useCommandArmory(active: boolean, client: CapabilityClient | nul
     return () => { live = false; window.clearTimeout(timer); };
   }, [client, active]);
 
-  return { capabilities, capabilitiesError, missions, preview };
+  return { capabilities, capabilitiesError, missions, preview, missionsError };
 }

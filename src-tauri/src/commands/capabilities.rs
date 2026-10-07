@@ -259,6 +259,7 @@ fn skills(connection: &Connection) -> Vec<Value> {
             "usedBy":if id=="research-retrieval" {json!(["olympus",research_agents::RESEARCH])} else {json!([agent])},
             "workflows":["Research Verification v1"],"usage":usage,"usageUnit":if id=="research-retrieval" {"research verification runs"} else {"agent executions"}}));
     }
+    if let Ok(custom)=super::resource_intake::read_skills(connection){for s in custom{skills.push(json!({"id":s.id,"version":1,"kind":"skill","name":s.name,"domain":"research","purpose":"User-authored resource analysis instructions","instructions":s.instructions,"inputs":"An explicitly selected resource","output":"Reusable analysis guidance","effects":"Instructions only; no execution or tool authority","allowedTools":[],"usedBy":["olympus"],"workflows":["Resource review"],"usage":null,"usageUnit":null}));}}
     skills
 }
 

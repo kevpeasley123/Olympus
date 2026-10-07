@@ -305,3 +305,8 @@ CREATE TABLE IF NOT EXISTS communication_situation_drafts (
  thread_id TEXT NOT NULL, payload_json TEXT NOT NULL, revision INTEGER NOT NULL DEFAULT 1,
  updated_at TEXT NOT NULL, PRIMARY KEY(account_id,id)
 );
+
+CREATE TABLE IF NOT EXISTS resource_skills (
+ id TEXT PRIMARY KEY, name TEXT NOT NULL COLLATE NOCASE UNIQUE,
+ instructions TEXT NOT NULL, created_at TEXT NOT NULL
+);
