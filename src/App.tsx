@@ -224,7 +224,8 @@ function App() {
             {<div className="panel-slot panel-slot-instrument" hidden={!command}>
               <ErrorBoundary label="Command view">
                 <CommandInstrument
-                  onProjects={()=>setMode("project")}
+                  onProjects={()=>selectMode("project")}
+                  domainActions={{system:()=>setPreferencesOpen(true),research:()=>selectMode("research"),communications:()=>selectMode("communications")}}
                   active={command}
                   visualState={instrumentState(voice, chatError)}
                   voiceLevel={voice.level}

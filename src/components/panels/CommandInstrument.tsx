@@ -29,6 +29,7 @@ import "./commandReference.css";
 
 interface CommandInstrumentProps {
   onProjects?: () => void;
+  domainActions?: Partial<Record<string, () => void>>;
   active?: boolean;
   visualState?: OlympusVisualState;
   voiceLevel?: number;
@@ -104,6 +105,7 @@ const RIPPLE_SECONDS = 1.4;
 export function CommandInstrument({
   projects,
   onProjects,
+  domainActions,
   capabilities,
   capabilitiesError = null,
   view,
@@ -281,6 +283,7 @@ export function CommandInstrument({
 
           <CapabilityRing
             onProjects={onProjects}
+            domainActions={domainActions}
             layout={layout}
             domains={domains}
             view={view ?? { domains: {}, revealed: [], states: {} }}

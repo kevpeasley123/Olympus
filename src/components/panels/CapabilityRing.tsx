@@ -20,6 +20,7 @@ import {
  */
 interface CapabilityRingProps {
   onProjects?: () => void;
+  domainActions?: Partial<Record<string, () => void>>;
   layout: CommandLayout;
   domains: CapabilityDomain[];
   view: ArmoryView;
@@ -74,7 +75,7 @@ function domainName(domain: CapabilityDomain | undefined) {
 
 type RingKey = `domain:${string}` | `node:${string}`;
 
-export function CapabilityRing({ onProjects, layout, domains, view, centre, radius, renderScale, selectedDomain, selectedCapability, working, idleReadout, onDetail,
+export function CapabilityRing({ onProjects, domainActions, layout, domains, view, centre, radius, renderScale, selectedDomain, selectedCapability, working, idleReadout, onDetail,
   onHoverDomain, onSelectDomain, onSelectCapability }: CapabilityRingProps) {
   const [hovered, setHovered] = useState<string | null>(null);
   const [hoveredNode, setHoveredNode] = useState<Capability | null>(null);
@@ -94,6 +95,11 @@ export function CapabilityRing({ onProjects, layout, domains, view, centre, radi
     setFocusKey(next);
     [...(group.current?.querySelectorAll<SVGElement>("[data-ring-key]") ?? [])].find(element => element.dataset.ringKey === next)?.focus();
   }
+  function activateDomain(id: string) {
+    const navigate = domainActions?.[id];
+    if (navigate) navigate();
+    else onSelectDomain(selectedDomain === id ? null : id);
+  }
   function keyDown(event: KeyboardEvent<SVGElement>, key: RingKey) {
     const step = (list: string[], id: string, delta: number) => list[(list.indexOf(id) + delta + list.length) % list.length];
     let next: RingKey | null = null;
@@ -104,7 +110,7 @@ export function CapabilityRing({ onProjects, layout, domains, view, centre, radi
       else if (event.key === "Home") next = `domain:${ids[0]}`;
       else if (event.key === "End") next = `domain:${ids[ids.length - 1]}`;
       else if (event.key === "ArrowDown") { const first = nodes.find(node => node.item.domain === id); next = first ? `node:${first.item.id}` : null; }
-      else if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onSelectDomain(selectedDomain === id ? null : id); return; }
+      else if (event.key === "Enter" || event.key === " ") { event.preventDefault(); activateDomain(id); return; }
       else if (event.key === "Escape" && selectedDomain) { event.preventDefault(); event.stopPropagation(); onSelectDomain(null); return; }
       else return;
     } else {
@@ -151,10 +157,10 @@ export function CapabilityRing({ onProjects, layout, domains, view, centre, radi
       return <g key={segment.id} className="orbit-domain capability-ring__segment" data-state={state} data-selected={selectedDomain===segment.id||undefined}>
         <g transform={`translate(${x-(compact?43:69)} ${y-(compact?16:29)})`} className="capability-ring__hit orbit-domain__card"
           data-ring-key={`domain:${segment.id}`} data-domain={segment.id} tabIndex={tabKey === `domain:${segment.id}` ? 0 : -1}
-          role="button" aria-pressed={selectedDomain===segment.id} aria-label={`${domainName(domain)} — ${selectedDomain===segment.id?"hide":"show"} its Tools and Skills`}
+          role="button" aria-pressed={domainActions?.[segment.id] ? undefined : selectedDomain===segment.id} aria-label={domainActions?.[segment.id] ? `Open ${domain?.label ?? segment.id}` : `${domainName(domain)} — ${selectedDomain===segment.id?"hide":"show"} its Tools and Skills`}
           onMouseEnter={()=>hoverDomain(segment.id)} onMouseLeave={()=>hoverDomain(null)}
           onFocus={()=>{setFocusKey(`domain:${segment.id}`);hoverDomain(segment.id)}} onBlur={()=>hoverDomain(null)}
-          onClick={()=>onSelectDomain(selectedDomain===segment.id?null:segment.id)} onKeyDown={event=>keyDown(event,`domain:${segment.id}`)}>
+          onClick={()=>activateDomain(segment.id)} onKeyDown={event=>keyDown(event,`domain:${segment.id}`)}>
           <OrbitalCardSurface compact={compact} cool={["system","research","code"].includes(segment.id)} />
           <Icon x={compact?8:11} y={compact?9:15} width={compact?14:20} height={compact?14:20} className="orbit-domain__icon"/>
           <circle cx={compact?79:128} cy="8" r="2.5" className="orbit-domain__status"/>
