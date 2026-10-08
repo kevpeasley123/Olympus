@@ -137,13 +137,7 @@ export function buildCommandMaterialStudy(scene:T.Scene,renderer:T.WebGLRenderer
   const face=new T.MeshPhysicalMaterial({color:0x6c3611,metalness:.25,roughness:.36,envMapIntensity:.3,clearcoat:.5,clearcoatRoughness:.14,transmission:0,thickness:2.5,ior:1.48,emissive:0xd87520,emissiveMap:engraving,emissiveIntensity:1.8});
   const side=new T.MeshPhysicalMaterial({color:layout.flagship?0xb8792a:0x38261b,metalness:.88,roughness:.2,envMapIntensity:1.1,clearcoat:.65});
   const electricity={clock:{value:0},power:{value:1}};
-  if(layout.flagship){
-    face.metalness=.52;face.roughness=.26;face.envMapIntensity=.7;
-    face.onBeforeCompile=shader=>{
-      shader.uniforms.omegaClock=electricity.clock;shader.uniforms.omegaPower=electricity.power;
-      shader.vertexShader='varying vec2 omegaSurface;\n'+shader.vertexShader;
-      shader.vertexShader=shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nomegaSurface=position.xy;');
-      shader.fragmentShader=`varying vec2 omegaSurface;uniform float omegaClock,omegaPower;
+  const lightningShader=`varying vec2 omegaSurface;uniform float omegaClock,omegaPower;
 float omegaNoise(float p){float i=floor(p);return mix(fract(sin(i*127.1)*43758.5453),fract(sin((i+1.)*127.1)*43758.5453),fract(p))-.5;}
 float omegaStroke(vec2 p,float seed,float reach){
 float jag=omegaNoise(p.x*.65+seed)*1.6+omegaNoise(p.x*1.9+seed)*.5;
@@ -173,7 +167,32 @@ vec2 omegaHash(vec2 p){return fract(sin(vec2(dot(p,vec2(127.1,311.7)),dot(p,vec2
 float omegaFracture(vec2 p){vec2 cell=floor(p),f=fract(p);float first=9.,second=9.;
 for(int y=-1;y<=1;y++)for(int x=-1;x<=1;x++){vec2 g=vec2(float(x),float(y));vec2 q=g+omegaHash(cell+g)-f;float d=dot(q,q);if(d<first){second=first;first=d;}else second=min(second,d);}
 return 1.-smoothstep(.008,.045,second-first);}
-`+shader.fragmentShader;
+
+float omegaEscape(vec2 p){
+float event=floor(omegaClock/3.4),age=mod(omegaClock,3.4);
+if(mod(event,4.)!=0.)return 0.;
+float place=mod(event*5.+2.,7.);vec2 origin;
+if(place<1.)origin=vec2(-38.,8.);
+else if(place<2.)origin=vec2(38.,9.);
+else if(place<3.)origin=vec2(-18.,43.);
+else if(place<4.)origin=vec2(20.,41.);
+else if(place<5.)origin=vec2(-42.,-44.);
+else if(place<6.)origin=vec2(42.,-44.);
+else origin=vec2(-30.,-16.);
+vec2 outward=normalize(origin);vec2 v=p-origin;
+vec2 q=vec2(dot(v,outward),dot(v,vec2(-outward.y,outward.x)));
+float reach=32.*smoothstep(0.,.18,age);
+float envelope=smoothstep(0.,.09,age)*(1.-smoothstep(.20,1.25,age));
+return omegaStroke(q,event*17.+91.,reach)*envelope;
+}
+`;
+  if(layout.flagship){
+    face.metalness=.52;face.roughness=.26;face.envMapIntensity=.7;
+    face.onBeforeCompile=shader=>{
+      shader.uniforms.omegaClock=electricity.clock;shader.uniforms.omegaPower=electricity.power;
+      shader.vertexShader='varying vec2 omegaSurface;\n'+shader.vertexShader;
+      shader.vertexShader=shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nomegaSurface=position.xy;');
+      shader.fragmentShader=lightningShader+shader.fragmentShader;
       shader.fragmentShader=shader.fragmentShader.replace('#include <emissivemap_fragment>',`#include <emissivemap_fragment>
 float current=omegaBurst(omegaSurface);
 float fracture=omegaFracture(omegaSurface*.12);
@@ -182,6 +201,17 @@ totalEmissiveRadiance+=vec3(1.,.27,.035)*(current*2.1+fracture*.055)*omegaPower;
     };
   }
   mesh(body,[face,side],layout.flagship?2:3).name="Omega solid";
+  if(layout.flagship){
+    // A shared-clock discharge plane lets every fourth burst cross the glyph edge.
+    const escaping=new T.ShaderMaterial({
+      uniforms:{omegaClock:electricity.clock,omegaPower:electricity.power},
+      transparent:true,depthWrite:false,depthTest:true,blending:T.AdditiveBlending,toneMapped:false,
+      vertexShader:`varying vec2 omegaSurface;void main(){omegaSurface=position.xy;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
+      fragmentShader:lightningShader+`void main(){float bolt=omegaEscape(omegaSurface);gl_FragColor=vec4(vec3(1.,.38,.07)*omegaPower,clamp(bolt*.85,0.,1.));}`,
+    });
+    mesh(new T.PlaneGeometry(180,180),escaping,11.05).name='Omega escaping lightning';
+  }
+
   for(const shape of shapes){
     const points=shape.getPoints(128).map(p=>new T.Vector3(p.x,-p.y,10.75));
     const outline=new T.LineLoop(new T.BufferGeometry().setFromPoints(points),warmLines);group.add(outline);

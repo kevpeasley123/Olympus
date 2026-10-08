@@ -113,8 +113,8 @@ html .mode-command .command-instrument[data-flagship] .command-instrument__dial{
 .agent-emblem-mark{position:relative;display:inline-flex;align-items:center;justify-content:center}
 .agent-emblem-spark{display:none;pointer-events:none}
 .agent-architecture-star[data-active="true"]::before{content:"";position:absolute;inset:-3px;border:1px solid #e8bb6170;border-radius:50%;box-shadow:0 0 10px #e8bb6145,inset 0 0 5px #e8bb6125;pointer-events:none;animation:agent-halo-breathe 4.8s ease-in-out infinite}
-.agent-architecture-star[data-active="true"] .agent-emblem-spark{display:block;position:absolute;inset:0;opacity:0;stroke-dasharray:1.5 23;stroke-dashoffset:7;stroke-width:1.8;animation:agent-symbol-spark 9.7s linear infinite;filter:drop-shadow(0 0 1px #ffcf79)}
-.agent-architecture-star[data-active="true"] .agent-emblem-spark-secondary{stroke-dasharray:1 31;animation-duration:13.1s;animation-delay:4.3s}
+.agent-architecture-star[data-active="true"] .agent-emblem-spark{display:block;position:absolute;inset:0;opacity:0;stroke-dasharray:1.5 23;stroke-dashoffset:7;stroke-width:1.8;animation:agent-symbol-spark 4.85s linear infinite;filter:drop-shadow(0 0 1px #ffcf79)}
+.agent-architecture-star[data-active="true"] .agent-emblem-spark-secondary{stroke-dasharray:1 31;animation-duration:6.55s;animation-delay:2.15s}
 @keyframes agent-halo-breathe{0%,100%{opacity:.2;transform:scale(.96)}50%{opacity:.8;transform:scale(1.12)}}
 @keyframes agent-symbol-spark{0%,76%{opacity:0;stroke-dashoffset:7}78%{opacity:.95;stroke-dashoffset:5}82%{opacity:.35;stroke-dashoffset:1}88%,100%{opacity:0;stroke-dashoffset:0}}
 .agents-constellation[data-motion-paused="true"] .agent-architecture-star::before,.agents-constellation[data-motion-paused="true"] .agent-emblem-spark{animation-play-state:paused}
