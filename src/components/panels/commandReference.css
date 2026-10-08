@@ -81,3 +81,10 @@ html:has(.mode-command) .background-image{background-image:url("../../assets/oly
 @media(prefers-reduced-motion:reduce){.orbit-domain__highlight{transition:none}}
 
 .command-instrument .orbit-domain__card:focus-visible{outline:none}
+
+/* Relight the same mountain texture through a landscape mask. Matching cover
+   coordinates keep the light attached to the canyon at every aspect ratio. */
+html:has(.mode-command) .background-image::after{content:"";position:absolute;inset:0;background:inherit;pointer-events:none;mix-blend-mode:screen;filter:sepia(.65) saturate(1.65) brightness(5);mask:url("../../assets/canyon-light-mask.svg") center/cover no-repeat;opacity:var(--omega-canyon-light,.10);will-change:opacity}
+.console-workspace-mark{background:linear-gradient(135deg,#9c6124 4%,#ffe9a5 30%,#fff9df 42%,#d59b45 54%,#ffe3a0 72%,#aa681e);background-clip:text;-webkit-background-clip:text;color:transparent!important;filter:drop-shadow(0 0 5px #e9bc6055) drop-shadow(0 1px 1px #000);text-shadow:none!important}
+.agent-emblem-mark[data-agent-emblem="olympus"]{color:#ffdf8b;filter:drop-shadow(0 0 3px #fff2c575) drop-shadow(0 0 8px #eab34355)}
+.agent-emblem-mark[data-agent-emblem="olympus"] svg{fill:#edbc5540;stroke:#ffe9a9;stroke-width:1.5}

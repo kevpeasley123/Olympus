@@ -5,7 +5,7 @@ import { missionOrbit, missionTelemetry } from './pantheonMissions';
 /** Real spheres and their progress arcs share Omega's camera and depth buffer. */
 export function buildMissionScene(scene:T.Scene, host:HTMLElement, camera:T.Camera) {
   const root=new T.Group();root.name='Active mission planets';scene.add(root);
-  const sphere=new T.SphereGeometry(5.1,48,32);
+  const sphere=new T.SphereGeometry(6.2,48,32);
   const records=new Map<string,{group:T.Group;path:T.LineLoop;body:T.Mesh;halo:T.Line;material:T.MeshStandardMaterial;atmosphere:T.ShaderMaterial;orbit:ReturnType<typeof missionOrbit>;tilt:T.Quaternion;elapsed:number;target:HTMLElement|null;progress:number|null}>();
   const projection=new T.Vector3(), direction=new T.Vector3(), ray=new T.Raycaster();
   function disposeRecord(record:ReturnType<typeof records.get>) {if(!record)return;root.remove(record.group,record.path);record.path.geometry.dispose();(record.path.material as T.Material).dispose();record.material.dispose();record.atmosphere.dispose();record.halo.geometry.dispose();(record.halo.material as T.Material).dispose();}
@@ -19,7 +19,7 @@ export function buildMissionScene(scene:T.Scene, host:HTMLElement, camera:T.Came
         const orbit=missionOrbit(mission.id),group=new T.Group();group.name=mission.id;
         // Spread simultaneous arrivals without moving existing missions on refresh.
         orbit.phase=2.5+records.size*2.399963-orbit.rotation+(orbit.phase% .3);
-        const material=new T.MeshStandardMaterial({color,metalness:.12,roughness:.72,emissive:color,emissiveIntensity:.07});
+        const material=new T.MeshStandardMaterial({color,metalness:.18,roughness:.48,emissive:color,emissiveIntensity:.07});
         material.onBeforeCompile=shader=>{
           shader.vertexShader='varying vec3 terrain;\n'+shader.vertexShader;
           shader.vertexShader=shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nterrain=position;');
@@ -34,12 +34,12 @@ float continental=terrainFbm(p*3.6+vec3(2.,7.,1.));
 float detail=terrainFbm(p*19.);
 float clouds=smoothstep(.53,.72,terrainFbm(p*7.+vec3(continental*3.)));
 float warm=step(diffuseColor.b,diffuseColor.r);
-vec3 ocean=vec3(.018,.075,.15),land=mix(vec3(.07,.17,.20),vec3(.28,.38,.35),detail);
+vec3 ocean=mix(vec3(.008,.025,.11),vec3(.018,.22,.46),detail),land=mix(vec3(.045,.14,.13),vec3(.42,.48,.30),detail);
 vec3 terrestrial=mix(ocean,land,smoothstep(.48,.57,continental));
-float bands=.5+.5*sin(p.y*29.+continental*15.+detail*3.);
-vec3 mineral=mix(vec3(.12,.052,.023),vec3(.64,.36,.12),bands*.6+detail*.4);
+float bands=.5+.5*sin(p.y*34.+continental*22.+detail*5.);
+vec3 mineral=mix(vec3(.07,.021,.008),vec3(.92,.57,.19),bands*.6+detail*.4);
 vec3 surface=mix(terrestrial,mineral,warm);
-surface=mix(surface,vec3(.78,.84,.86),clouds*mix(.72,.18,warm));
+surface=mix(surface,vec3(.94,.97,1.),clouds*mix(.9,.26,warm));
 float pole=smoothstep(.88,.99,abs(p.y)+continental*.055);
 surface=mix(surface,vec3(.75,.82,.85),pole*(1.-warm)*.8);
 diffuseColor.rgb=surface*(.83+detail*.3);
@@ -55,7 +55,7 @@ diffuseColor.rgb=surface*(.83+detail*.3);
       }
       if(!record.target?.isConnected)record.target=Array.from(host.closest('.command-instrument__dial')?.querySelectorAll<HTMLElement>('[data-mission-id]')??[]).find(t=>t.dataset.missionId===mission.id)??null;
       record.atmosphere.uniforms.tint.value.setHex(color);record.material.color.setHex(color);record.material.emissive.setHex(color);
-      record.material.emissiveIntensity=selected && selected!==mission.id ? .025 : .10;
+      record.material.emissiveIntensity=selected && selected!==mission.id ? .012 : .035;
       if(record.progress!==telemetry.progress || !record.halo.geometry.getAttribute('position')){
         record.progress=telemetry.progress;record.halo.geometry.dispose();
         const points=Array.from({length:65},(_,i)=>{const a=-Math.PI/2+i/64*Math.PI*2*(telemetry.progress??0);return new T.Vector3(Math.cos(a)*6.5,Math.sin(a)*6.5,0)});
@@ -79,7 +79,7 @@ diffuseColor.rgb=surface*(.83+detail*.3);
         direction.copy(record.group.position).sub(camera.position);const distance=direction.length();ray.set(camera.position,direction.normalize());
         const omega=scene.getObjectByName('Omega solid');
         const hit=omega?ray.intersectObject(omega,false)[0]:undefined;
-        const hidden=Boolean(hit&&hit.distance<distance-5.1);
+        const hidden=Boolean(hit&&hit.distance<distance-6.2);
         record.target.dataset.occluded=String(hidden);
         record.target.style.setProperty('--planet-scale',String(Math.max(.65,Math.min(1.3,560/distance))));
       }

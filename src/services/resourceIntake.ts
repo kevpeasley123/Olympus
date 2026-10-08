@@ -3,6 +3,7 @@ import { isTauriRuntime } from "./launcher";
 import type { SkillDescriptor } from "./capabilities";
 export interface ResourceSkill{id:string;name:string;instructions:string;createdAt:string}
 export interface ResourceOutline{passages:string[];headings:string[];wordCount:number}
+export const MAX_SKILL_INSTRUCTION_BYTES=128*1024;
 export const INTAKE_CHANGED="olympus-intake-changed";
 const SKILLS="olympus.preview.resource-skills.v1",RESOURCES="olympus.preview.resources.v1";
 export interface SavedResource{id:string;title:string;body:string;sourceFile:string;createdAt:string;sourceUrl?:string}
@@ -10,10 +11,10 @@ export function readPreview<T>(key:string):T[]{try{return JSON.parse(localStorag
 export const previewResources=()=>readPreview<SavedResource>(RESOURCES);
 export async function resourceSkills():Promise<ResourceSkill[]>{return isTauriRuntime()?invoke("resource_skills"):readPreview(SKILLS)}
 export async function saveResourceSkill(name:string,instructions:string):Promise<ResourceSkill>{
- if(!name.trim()||!instructions.trim()||new TextEncoder().encode(name).length>160||new TextEncoder().encode(instructions).length>20000)throw Error("Enter a name and instructions (maximum 20 KB).");
+ if(!name.trim()||!instructions.trim()||new TextEncoder().encode(name).length>160||new TextEncoder().encode(instructions).length>MAX_SKILL_INSTRUCTION_BYTES)throw Error("Provide a name (up to 160 UTF-8 bytes) and instructions (up to 128 KiB / 131,072 UTF-8 bytes).");
  let skill:ResourceSkill;
  if(isTauriRuntime())skill=await invoke("add_resource_skill",{name,instructions});
- else{const all=await resourceSkills();if(all.length>=100)throw Error("Skill limit reached.");if(all.some(s=>s.name.toLowerCase()===name.trim().toLowerCase()))throw Error("A skill with this name already exists.");skill={id:`resource-skill-${crypto.randomUUID()}`,name:name.trim(),instructions:instructions.trim(),createdAt:new Date().toISOString()};localStorage.setItem(SKILLS,JSON.stringify([skill,...all]));}
+ else{const all=await resourceSkills();if(all.length>=100)throw Error("Skill limit reached.");if(all.some(s=>s.name.toLowerCase()===name.trim().toLowerCase()))throw Error("A skill with this name already exists.");skill={id:`resource-skill-${crypto.randomUUID()}`,name:name.trim(),instructions,createdAt:new Date().toISOString()};localStorage.setItem(SKILLS,JSON.stringify([skill,...all]));}
  window.dispatchEvent(new Event(INTAKE_CHANGED));return skill;
 }
 export function skillDescriptor(s:ResourceSkill):SkillDescriptor{return {id:s.id,name:s.name,kind:"skill",version:1,instructions:s.instructions,domain:"research",purpose:"User-authored resource analysis instructions",inputs:"An explicitly selected resource",output:"Reusable analysis guidance",effects:"Instructions only; no execution or tool authority",allowedTools:[],usedBy:["olympus"],workflows:["Resource review"],usage:null,usageUnit:null}}

@@ -1,3 +1,4 @@
+import { architectureOrbits } from "./architectureOrbits";
 import * as T from "three";
 import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
@@ -115,6 +116,8 @@ export function mountHybridScene(host: HTMLDivElement, layout: CommandLayout, cu
   const cool = new T.MeshStandardMaterial({ color: BLUE, emissive: 0x284d70, emissiveIntensity: .55, metalness: .65, roughness: .3 });
   function mesh(geometry: T.BufferGeometry, material: T.Material, z = 0) { const m = new T.Mesh(geometry,material); m.position.z=z; scene.add(m); return m; }
   const study = buildCommandMaterialStudy(scene, renderer, layout);
+  const canyonBackground=layout.flagship?document.querySelector<HTMLElement>(".background-image"):null;
+  const architecture=layout.flagship?architectureOrbits(host,camera,scene):undefined;
   const missionScene = layout.flagship ? buildMissionScene(scene, host, camera) : undefined;
   const field = buildConstellationField(scene, layout.orbitalCards, layout.flagship);
   renderer.info.autoReset=false;
@@ -149,7 +152,7 @@ export function mountHybridScene(host: HTMLDivElement, layout: CommandLayout, cu
   const orbital: T.Group[]=[];
   const ringLightMaterials:T.ShaderMaterial[]=[];
   for (let i=0;i<2;i++) {
-    const group=new T.Group();group.position.z=(5+i*2)*INNER_CORE_SCALE;group.scale.setScalar(layout.flagship ? 1.05 : INNER_CORE_SCALE);scene.add(group);orbital.push(group);
+    const group=new T.Group();group.position.z=(5+i*2)*INNER_CORE_SCALE;group.scale.setScalar(layout.flagship ? 1.05 : INNER_CORE_SCALE);scene.add(group);group.visible=!layout.flagship;orbital.push(group);
     for(const [tube,alpha] of [[.20,.68],[.55,.16],[1.0,.085],[1.7,.042],[2.6,.018]]) {
       const material=new T.ShaderMaterial({
         uniforms:{phase:{value:i*2.1},tint:{value:new T.Color(i===0||layout.orbitalCards?0xffcf7a:0xe5efff)},alpha:{value:alpha*(layout.flagship?.46:layout.orbitalCards?.48:.42)}},
@@ -171,7 +174,7 @@ export function mountHybridScene(host: HTMLDivElement, layout: CommandLayout, cu
   const orbitalDepth=orbital.map(ring=>{
     const proxy=new T.Mesh((ring.children[0] as T.Mesh).geometry,orbitalDepthMaterial);
     proxy.position.copy(ring.position);proxy.scale.copy(ring.scale);proxy.renderOrder=-1;
-    networkScene.add(proxy);return proxy;
+    proxy.visible=!layout.flagship;networkScene.add(proxy);return proxy;
   });
   const voiceUniforms={energy:{value:0},presence:{value:0},phase:{value:0}};
   // Localized speech peaks lift off the intact amber orbital. Sharing its
@@ -316,6 +319,7 @@ export function mountHybridScene(host: HTMLDivElement, layout: CommandLayout, cu
     galaxy?.update(time);
     if(layout.flagship){camera.position.x=-85+pointer.x*5;camera.position.y=40+pointer.y*4;camera.lookAt(0,layout.flagship ? -24 : 0,0);}
     scene.updateMatrixWorld(true);camera.updateMatrixWorld(true);
+    architecture?.update(time,moving);
     const missionCount=missionScene?.update(value.missions??[],value.selectedMission??null,delta)??0;
     if(HARNESS_ATTRIBUTES&&galaxy){canvas.dataset.galaxyTime=String(time);canvas.dataset.galaxyYaw=String(galaxy.group.rotation.y);canvas.dataset.galaxyBodies=String(missionCount);canvas.dataset.missionPlanets=String(missionCount);canvas.dataset.galaxyDust="680";}
     constellationMotion.yaw=advanceConstellationYaw(constellationMotion.yaw,delta,moving);
@@ -350,7 +354,7 @@ export function mountHybridScene(host: HTMLDivElement, layout: CommandLayout, cu
     listeningWaves.forEach((wave,index)=>{
       const completing=value.state==="complete"&&completionAge<1.6;
       const age=listeningTime%LISTENING_RINGS.waveInterval,progress=completing?completionAge/1.6:age/LISTENING_RINGS.waveDuration;
-      wave.mesh.visible=moving&&(completing?index===1:listening&&transition===1&&progress<1);
+      wave.mesh.visible=!layout.flagship&&moving&&(completing?index===1:listening&&transition===1&&progress<1);
       if(wave.mesh.visible){
         wave.mesh.scale.setScalar(wave.radius+LISTENING_RINGS.waveTravel*progress);
         wave.material.opacity=LISTENING_RINGS.waveOpacity*Math.sin(Math.PI*progress)**2;
@@ -375,8 +379,12 @@ export function mountHybridScene(host: HTMLDivElement, layout: CommandLayout, cu
     canvas.dataset.voiceSignatureEnergy=String(voiceUniforms.energy.value);}
     glow.emissiveIntensity=.23+(moving?Math.sin(time*.8)*.06:0)+energy*.55;
     const light=value.light??{};
-    study.update(time, energy, moving, light, value.state==="idle", value.state==="speaking", executing, operationPulse, value.state==="complete", errorState?errorAge:-1);
+    const illumination=study.update(time, energy, moving, light, value.state==="idle", value.state==="speaking", executing, operationPulse, value.state==="complete", errorState?errorAge:-1);
     glow.color.set(value.state==="error"?0xe57854:ORANGE);
+    // Linear response: no clipping, easing or separate clock to flatten/delay a pulse.
+    const canyonLight=.08+(illumination-.82)*.62;
+    if(canyonBackground)canyonBackground.style.setProperty('--omega-canyon-light',String(canyonLight));
+    if(HARNESS_ATTRIBUTES){canvas.dataset.omegaRadiance=String(illumination);canvas.dataset.canyonLight=String(canyonLight);}
     frames.forEach(f=>{f.material.emissiveIntensity=.2+(light[f.id]??0)*.9;});
     nodes.forEach((n,i)=>{n.mesh.position.z=n.z+(moving?Math.sin(time*Math.PI*2/n.period+i*2.4)*CONSTELLATION_DEPTH.driftAmount:0);n.material.emissiveIntensity=n.base+(moving?Math.sin(time*.35+i)*.07:0);});
     constellationGroup.updateMatrixWorld(true);
@@ -440,7 +448,8 @@ export function mountHybridScene(host: HTMLDivElement, layout: CommandLayout, cu
     interaction.removeEventListener('pointermove',movePointer);interaction.removeEventListener('pointerleave',resetPointer);window.removeEventListener('blur',resetPointer);if(frame!==undefined)cancelAnimationFrame(frame);if(timer!==undefined)clearTimeout(timer);observer.disconnect();document.removeEventListener("visibilitychange",wake);canvas.removeEventListener("webglcontextlost",lost);
     const geometries=new Set<T.BufferGeometry>(),materials=new Set<T.Material>();
     for(const root of [scene,networkScene])root.traverse(o=>{const drawable=o as T.Mesh;if(drawable.geometry)geometries.add(drawable.geometry);if(drawable.material)(Array.isArray(drawable.material)?drawable.material:[drawable.material]).forEach(m=>materials.add(m));});
-    missionScene?.dispose();
+    canyonBackground?.style.removeProperty('--omega-canyon-light');
+    architecture?.dispose();missionScene?.dispose();
     halos.dispose();backdrop?.dispose();haloTexture.dispose();backdropTexture?.dispose();
     geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose()); structural.dispose();cool.dispose();glow.dispose();study.dispose();bloomPass.dispose();outputPass.dispose();composer.dispose();renderer.dispose();renderer.forceContextLoss();canvas.remove();
   };

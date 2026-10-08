@@ -169,3 +169,17 @@ html .mode-command:has(.olympus-armory) .main-grid{grid-template-columns:40px 28
 .agent-emblem-mark{display:grid;place-items:center}.armory-roster-emblem{box-shadow:inset 0 0 12px #bb8c3810,0 0 0 3px #bc914006}
 .armory-roster-row:hover .armory-roster-emblem,.armory-roster-row:focus-visible .armory-roster-emblem{color:#ffe1a3;border-color:#eac479;box-shadow:inset 0 0 14px #e0b05417,0 0 12px #d5a64015}
 @media(max-height:850px){.olympus-armory .armory-roster-row{min-height:79px}.olympus-armory .armory-roster-status{top:11px}}
+/* Compact mythic roster keeps the orchestrator and specialist identities visible. */
+.olympus-armory .armory-roster-row{min-height:68px;padding:7px 0}
+.olympus-armory .armory-roster-copy>span{margin:3px 0}
+.olympus-armory .armory-roster-status{top:9px}
+@media(max-height:850px){.olympus-armory .armory-roster-row{min-height:63px;padding:5px 0}.olympus-armory .armory-roster-copy small{font-size:8px}}
+
+.armory-roster-row[data-inspecting="true"]{background:linear-gradient(90deg,#d5a64018,#d5a64004);box-shadow:inset 2px 0 #eac479;border-radius:4px}
+.armory-roster-row[data-inspecting="true"] .armory-roster-emblem{color:#ffe1a3;border-color:#eac479;box-shadow:inset 0 0 14px #e0b05417,0 0 12px #d5a64035}
+.armory-roster-row[data-inspecting="true"] .armory-roster-copy strong{color:#ffe1a3}
+
+/* Polished gold catches a narrow warm highlight against the dark medallion. */
+.armory-roster-emblem,.agent-celestial{border:1px solid transparent;background:linear-gradient(145deg,#152029,#030b11 62%) padding-box,linear-gradient(135deg,#8c581f,#ffe9b0 28%,#bb8134 46%,#6b431b 60%,#f5cc78 82%,#9b6426) border-box;box-shadow:inset 0 1px 2px #fff0c021,inset 0 -2px 3px #0009,0 1px 3px #0008}
+.armory-roster-emblem .agent-emblem-mark{filter:drop-shadow(0 1px 1px #000) drop-shadow(0 0 4px #e9b65830)}
+.armory-deploy{border-color:#d4a44e;box-shadow:inset 0 1px 0 #ffe9a834,inset 0 -1px 0 #5a360c66}

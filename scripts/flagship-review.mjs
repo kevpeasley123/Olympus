@@ -18,16 +18,16 @@ for(const [width,height] of [[1440,960],[1920,1080],[1280,800],[900,900]]){
  if(width>=1280){check(geometry.c.right<=geometry.chat.left+1,'Hero and chat do not overlap '+width);check(geometry.bar.bottom<=height-25,'Composer fits short viewport '+width);}
  check(geometry.scroll<=width+1,'No horizontal overflow '+width);
  await page.screenshot({path:`${out}/command-${width}.png`,fullPage:true});
- await page.getByRole('button',{name:'Agents 3',exact:true}).click();
+ await page.getByRole('button',{name:'Agents 5',exact:true}).click();
  const dialog=page.getByRole('dialog',{name:'Olympus Armory'});
- await dialog.waitFor();await dialog.getByRole('button',{name:/Research Agent Finds/}).click();
+ await dialog.waitFor();await dialog.getByRole('button',{name:/Athena Research/}).click();
  check(await dialog.getByText('Scoped Pantheon Research excerpts only',{exact:true}).isVisible(),'Real agent scope '+width);
  check(await page.evaluate(()=>document.activeElement?.tagName==='H3'),'Focus follows loadout '+width);
  await dialog.getByRole('button',{name:'Pantheon library Available',exact:true}).click();
  check(await dialog.getByLabel('Capability detail',{exact:true}).isVisible(),'Capability contract opens '+width);
  await page.keyboard.press('Escape');check(await dialog.count()===0,'Escape closes Armory '+width);
  if(width===1440){
-  for(const [name,file] of [['Agents 3','agents'],['Plugins 8','plugins'],['Skills 7','skills'],['Operations 0','operations']]){
+  for(const [name,file] of [['Agents 5','agents'],['Plugins 8','plugins'],['Skills 7','skills'],['Operations 0','operations']]){
    await page.getByRole('button',{name,exact:true}).click();await page.waitForTimeout(250);await page.screenshot({path:`${out}/${file}.png`,fullPage:true});
    await page.getByRole('button',{name:'Close Armory',exact:true}).click();
   }
@@ -40,8 +40,8 @@ for(const [name,mode] of [['Project','project'],['Research','research'],['Commun
  await page.getByRole('button',{name:'Command',exact:true}).click();
 }
 await page.getByRole('button',{name:'Open preferences',exact:true}).click();await page.getByRole('dialog').waitFor();check(true,'System opens Preferences');await page.keyboard.press('Escape');
-await page.getByRole('button',{name:'Agents 3',exact:true}).click();await page.keyboard.press('Escape');
-check(await page.getByRole('button',{name:'Agents 3',exact:true}).evaluate(e=>e===document.activeElement),'Armory returns keyboard focus to its trigger');
+await page.getByRole('button',{name:'Agents 5',exact:true}).click();await page.keyboard.press('Escape');
+check(await page.getByRole('button',{name:'Agents 5',exact:true}).evaluate(e=>e===document.activeElement),'Armory returns keyboard focus to its trigger');
 for(const scenario of ['idle','mission-research','mission-active','reduced-motion']){
  await page.goto(`${base}/command-agent-harness.html?flagship&scenario=${scenario}`);
  await page.waitForSelector(`html[data-visual-ready="${scenario}"]`);

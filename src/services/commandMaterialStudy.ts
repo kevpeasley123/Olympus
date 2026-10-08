@@ -101,7 +101,7 @@ function engravedTexture(fractured = false) {
   }
   if(fractured){
     c.fillStyle="#34302a";c.fillRect(0,0,1024,1024);
-    for(let i=0;i<160;i++){let x=random()*1024,y=random()*1024;c.beginPath();c.moveTo(x,y);for(let j=0;j<5;j++){x+=(random()-.45)*60;y+=(random()-.4)*50;c.lineTo(x,y);}c.lineWidth=.5+random()*1.5;c.strokeStyle=i%5===0?"#a2906c":"#625344";c.stroke();}
+    for(let i=0;i<700;i++){c.fillStyle=i%5===0?"#403930":"#302b26";c.fillRect(random()*1024,random()*1024,1+random()*3,1);}
   }
   const texture=new T.CanvasTexture(canvas);texture.wrapS=texture.wrapT=T.RepeatWrapping;
   texture.repeat.set(1/128,1/128);texture.offset.set(.5,.5);texture.colorSpace=T.SRGBColorSpace;
@@ -135,7 +135,52 @@ export function buildCommandMaterialStudy(scene:T.Scene,renderer:T.WebGLRenderer
     ? new T.ExtrudeGeometry(shapes,{depth:8,steps:1,bevelEnabled:true,bevelSize:.65,bevelThickness:.8,bevelSegments:4,curveSegments:64})
     : extrude(shapes,7,.65);body.scale(1,-1,1);body.setIndex(Array.from({length:body.getAttribute('position').count},(_,i)=>i%3===1?i+1:i%3===2?i-1:i));
   const face=new T.MeshPhysicalMaterial({color:0x6c3611,metalness:.25,roughness:.36,envMapIntensity:.3,clearcoat:.5,clearcoatRoughness:.14,transmission:0,thickness:2.5,ior:1.48,emissive:0xd87520,emissiveMap:engraving,emissiveIntensity:1.8});
-  const side=new T.MeshPhysicalMaterial({color:0x38261b,metalness:.88,roughness:.23,clearcoat:.5});
+  const side=new T.MeshPhysicalMaterial({color:layout.flagship?0xb8792a:0x38261b,metalness:.88,roughness:.2,envMapIntensity:1.1,clearcoat:.65});
+  const electricity={clock:{value:0},power:{value:1}};
+  if(layout.flagship){
+    face.metalness=.52;face.roughness=.26;face.envMapIntensity=.7;
+    face.onBeforeCompile=shader=>{
+      shader.uniforms.omegaClock=electricity.clock;shader.uniforms.omegaPower=electricity.power;
+      shader.vertexShader='varying vec2 omegaSurface;\n'+shader.vertexShader;
+      shader.vertexShader=shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nomegaSurface=position.xy;');
+      shader.fragmentShader=`varying vec2 omegaSurface;uniform float omegaClock,omegaPower;
+float omegaNoise(float p){float i=floor(p);return mix(fract(sin(i*127.1)*43758.5453),fract(sin((i+1.)*127.1)*43758.5453),fract(p))-.5;}
+float omegaStroke(vec2 p,float seed,float reach){
+float jag=omegaNoise(p.x*.65+seed)*1.6+omegaNoise(p.x*1.9+seed)*.5;
+float d=abs(p.y-jag);
+return ((1.-smoothstep(.08,.32,d))+(1.-smoothstep(.32,.9,d))*.15)*smoothstep(-.4,.4,p.x)*(1.-smoothstep(reach-2.,reach,p.x));
+}
+float omegaBurst(vec2 p){
+float event=floor(omegaClock/3.4),age=mod(omegaClock,3.4);
+float envelope=smoothstep(0.,.09,age)*(1.-smoothstep(.20,1.25,age));
+// Alternate shoulders, crown and feet; each discharge stays at its birthplace.
+float place=mod(event*5.+2.,7.);vec2 origin;float direction;
+if(place<1.){origin=vec2(-38.,8.);direction=1.3;}
+else if(place<2.){origin=vec2(38.,9.);direction=1.9;}
+else if(place<3.){origin=vec2(-18.,43.);direction=.15;}
+else if(place<4.){origin=vec2(20.,41.);direction=2.9;}
+else if(place<5.){origin=vec2(-42.,-44.);direction=.05;}
+else if(place<6.){origin=vec2(42.,-44.);direction=3.1;}
+else{origin=vec2(-30.,-16.);direction=-1.1;}
+direction+=omegaNoise(event+71.)*.45;
+vec2 v=p-origin;float c=cos(direction),s=sin(direction);vec2 q=vec2(c*v.x+s*v.y,-s*v.x+c*v.y);
+float reach=24.*smoothstep(0.,.14,age),seed=event*17.;
+float bolt=omegaStroke(q,seed,reach);
+vec2 fork=q-vec2(8.,0.);bolt+=omegaStroke(vec2(fork.x*.84+fork.y*.54,-fork.x*.54+fork.y*.84),seed+3.,reach*.60)*.65;
+return bolt*envelope;
+}
+vec2 omegaHash(vec2 p){return fract(sin(vec2(dot(p,vec2(127.1,311.7)),dot(p,vec2(269.5,183.3))))*43758.5453);}
+float omegaFracture(vec2 p){vec2 cell=floor(p),f=fract(p);float first=9.,second=9.;
+for(int y=-1;y<=1;y++)for(int x=-1;x<=1;x++){vec2 g=vec2(float(x),float(y));vec2 q=g+omegaHash(cell+g)-f;float d=dot(q,q);if(d<first){second=first;first=d;}else second=min(second,d);}
+return 1.-smoothstep(.008,.045,second-first);}
+`+shader.fragmentShader;
+      shader.fragmentShader=shader.fragmentShader.replace('#include <emissivemap_fragment>',`#include <emissivemap_fragment>
+float current=omegaBurst(omegaSurface);
+float fracture=omegaFracture(omegaSurface*.12);
+totalEmissiveRadiance+=vec3(1.,.27,.035)*(current*2.1+fracture*.055)*omegaPower;
+`);
+    };
+  }
   mesh(body,[face,side],layout.flagship?2:3).name="Omega solid";
   for(const shape of shapes){
     const points=shape.getPoints(128).map(p=>new T.Vector3(p.x,-p.y,10.75));
@@ -419,12 +464,21 @@ export function buildCommandMaterialStudy(scene:T.Scene,renderer:T.WebGLRenderer
       radialMaterial.uniforms.tint.value.set(1,error?.008:.25,error?.018:.035);
       warmLines.color.set(error?0xc91422:0xffa13d);
       haloMaterial.color.set(error?0xd51022:0xffffff);
-      const envelope=error?.95-dip:executing?1.12+operationPulse*.10:idleSample?.envelope??coreGlowEnvelope(time,moving),t=MATERIAL_TUNING;
-      face.emissiveIntensity=t.coreEmission*envelope+energy*.5;
-      haloMaterial.opacity=t.haloOpacity*envelope*(layout.flagship?.55:layout.orbitalCards?1.3:1)+energy*.12;
-      radialMaterial.uniforms.intensity.value=t.radialHalo*(layout.flagship?.35:1)*envelope*(idle&&moving?.85+.55*idleSample!.breath:1)+energy*.06;
-      radialHalo.scale.setScalar(idle?(moving?OMEGA_IDLE.haloBreathMin+(OMEGA_IDLE.haloBreathMax-OMEGA_IDLE.haloBreathMin)*idleSample!.breath+(idleSample!.pulse/OMEGA_IDLE.primaryStrength)*OMEGA_IDLE.haloExpansion:1):1+(envelope-1)*.15);
-      coreLight.intensity=t.localLight*(idle?1+(envelope-1)*OMEGA_IDLE.localLightBoost:envelope)+energy*25;
+      const legacyEnvelope=error?.95-dip:executing?1.06+(moving?(.5-.5*Math.cos(time*Math.PI*2/5.3))*.10:.05)+operationPulse*.10:idleSample?.envelope??coreGlowEnvelope(time,moving),t=MATERIAL_TUNING;
+      // A visible, slow breath survives tone mapping in the distant flagship view.
+      const flagshipBreath=.5-.5*Math.cos(time*Math.PI*2/5.6);
+      const envelope=layout.flagship&&!error
+        ? (moving?.82+.95*flagshipBreath+(idleSample?.pulse??0)+operationPulse*.10:1)
+        : legacyEnvelope;
+      // Preserve environmental illumination; amplify only the glyph breath peak.
+      const radiance=envelope+energy*.5/t.coreEmission;
+      const glyphRadiance=radiance+(layout.flagship&&moving&&!error?.475*flagshipBreath:0);
+      face.emissiveIntensity=t.coreEmission*glyphRadiance;
+      electricity.clock.value=time;electricity.power.value=radiance;
+      haloMaterial.opacity=layout.flagship?t.haloOpacity*.55*glyphRadiance:t.haloOpacity*envelope*(layout.orbitalCards?1.3:1)+energy*.12;
+      radialMaterial.uniforms.intensity.value=layout.flagship?t.radialHalo*.35*radiance:t.radialHalo*envelope*(idle&&moving?.85+.55*idleSample!.breath:1)+energy*.06;
+      radialHalo.scale.setScalar(layout.flagship?1+(radiance-1)*.6:idle?(moving?OMEGA_IDLE.haloBreathMin+(OMEGA_IDLE.haloBreathMax-OMEGA_IDLE.haloBreathMin)*idleSample!.breath+(idleSample!.pulse/OMEGA_IDLE.primaryStrength)*OMEGA_IDLE.haloExpansion:1):1+(envelope-1)*.15);
+      coreLight.intensity=layout.flagship?t.localLight*radiance:t.localLight*(idle?1+(envelope-1)*OMEGA_IDLE.localLightBoost:envelope)+energy*25;
       const progress=idleSample?.rippleProgress??(heartbeatAge(time)-.95)/1.8;
       ripple.visible=!layout.flagship&&!error&&!executing&&!completing&&moving&&(idleSample?idleSample.ripple>0:progress>=0&&progress<=1);
       if(ripple.visible){
@@ -445,6 +499,7 @@ export function buildCommandMaterialStudy(scene:T.Scene,renderer:T.WebGLRenderer
         p.rim.color.set(error&&working?0xe57950:p.hover>.05?0xe7bb7a:0xa9d5e8);
         p.rim.opacity=PROJECT_GLASS.rimOpacity+p.hover*PROJECT_GLASS.hoverRimBoost+(working?.10+operationPulse*.10:0);
       });
+      return radiance;
     },
     dispose(){labelTexture.dispose();diffusionTexture.dispose();engraving.dispose();contour.dispose();environmentTarget.dispose();scene.environment=null;}
   };
