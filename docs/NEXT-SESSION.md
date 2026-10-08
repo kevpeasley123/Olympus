@@ -1,3 +1,27 @@
+## October 7 - 0.24.0 release
+
+Releases the canyon altar visual pass and linked mission inspection from
+codex/olympus-sanctuary-detail. Planet progress arcs and outer orbit guides are
+hidden; inner rings remain. Directory and planet hover/focus highlight both
+representations and pause the inspected orbit without changing selection.
+Native real-data acceptance remains pending; the release workflow installs 0.24.0.
+
+## October 7 - canyon altar and interactive mission orbits (local preview)
+
+Current branch: codex/olympus-sanctuary-detail. Installed release remains 0.23.0.
+Command uses the generated olympus-altar-v5.png environment; provenance is in
+OLYMPUS-ALTAR-ART.md. Omega is framed farther into the canyon, with architecture
+clusters clear of the foreground altar. Skills and Obsidian links appear on star
+hover/keyboard focus only. Inner rings rotate again; 680 ambient stars complete
+a full rotation every 120 seconds. Mission planets orbit every 180-269 seconds,
+pause individually on hover or keyboard focus, and resume without a phase reset.
+Reduced motion and hidden-page suspension remain. All mission counts and workflow
+state still come from the existing sources; browser fixtures are synthetic.
+
+Verified: build, 15 mission unit checks, 111 browser mission checks, dedicated
+orbit/hover/focus/resume checks and architecture interaction/clearance checks.
+Native acceptance of these preview changes is pending. No new release installed.
+
 ## October 7 - 0.23.0 mission Pantheon and reference Armory
 
 Command now renders planets only for recorded running/waiting missions; zero

@@ -20,5 +20,5 @@ export function missionTelemetry(mission: Mission) {
 export function missionOrbit(id: string) {
   let hash = 2166136261;
   for (const c of id) hash = Math.imul(hash ^ c.charCodeAt(0), 16777619) >>> 0;
-  return { radius: 139 + hash % 28, phase: (hash % 6283) / 1000, inclination: .52 + (hash % 70) / 100, rotation: (hash % 314) / 100, period: 260 + hash % 160 };
+  return { radius: 139 + hash % 28, phase: (hash % 6283) / 1000, inclination: .52 + (hash % 70) / 100, rotation: (hash % 314) / 100, period: 180 + hash % 90 };
 }

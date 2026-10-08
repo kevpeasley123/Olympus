@@ -59,7 +59,7 @@ html .command-agent-catalog,html .command-console[data-layout="expanded"]{box-sh
 html .command-agent-catalog{border-top-color:#e2c187a0}
 html .agent-role-row{background:linear-gradient(135deg,#15253350,#07111a70);box-shadow:inset 0 1px 0 #c8e6ff08}
 
-html:has(.mode-command) .background-image{background-image:url("../../assets/olympus-command-tech-valley.png");filter:saturate(.65) brightness(.70) contrast(1.08)}
+html:has(.mode-command) .background-image{background-image:url("../../assets/olympus-altar-v5.png");filter:saturate(.82) brightness(.76) contrast(1.06)}
 
 .command-orbital-atmosphere{background:radial-gradient(ellipse,#010309 0%,#01040afc 44%,#020713ef 58%,#07142370 67%,transparent 74%)}
 

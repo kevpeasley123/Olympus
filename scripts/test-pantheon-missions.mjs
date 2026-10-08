@@ -19,5 +19,5 @@ assert.equal(missionTelemetry({...make('a','waiting'),steps:[{state:'failed'}]})
 const t=missionTelemetry({...make('a','running'),steps:[{state:'completed'},{state:'active'},{state:'pending'},{state:'skipped'},{state:'not-run'}]});
 assert.equal(t.progress,1/3);assert.equal(t.progressLabel,'1/3 steps');
 assert.deepEqual(missionOrbit('a'),missionOrbit('a'));assert.notDeepEqual(missionOrbit('a'),missionOrbit('b'));
-assert(missionOrbit('a').period>=260);
+assert(missionOrbit('a').period>=180 && missionOrbit('a').period<270);
 console.log('PASS 15 mission lifecycle, telemetry and stable-orbit checks');
