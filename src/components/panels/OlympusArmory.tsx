@@ -30,7 +30,7 @@ export function OlympusArmory({capabilities, missions, error, missionsError, pre
     const emblems=armoryRef.current?.querySelectorAll<HTMLElement>('.armory-roster-emblem');
     if(!emblems)return;
     const visible=new Set<Element>();
-    const refresh=()=>emblems.forEach(el=>{el.dataset.shinePaused=String(document.hidden||!visible.has(el));});
+    const refresh=()=>emblems.forEach(el=>{const paused=String(document.hidden||!visible.has(el));el.dataset.shinePaused=paused;const row=el.closest<HTMLElement>(".armory-roster-row");if(row)row.dataset.motionPaused=paused;});
     const observer=new IntersectionObserver(entries=>{entries.forEach(e=>{if(e.isIntersecting)visible.add(e.target);else visible.delete(e.target);});refresh();});
     emblems.forEach(el=>observer.observe(el));document.addEventListener('visibilitychange',refresh);refresh();
     return()=>{observer.disconnect();document.removeEventListener('visibilitychange',refresh);};
@@ -96,6 +96,7 @@ export function OlympusArmory({capabilities, missions, error, missionsError, pre
       <span className="command-eyebrow">AGENTS</span>
       <nav className="armory-agent-filters" aria-label="Agent state filter">{(["All","Active","Idle"] as const).map(filter=><button key={filter} aria-pressed={agentFilter===filter} onClick={()=>setAgentFilter(filter)}>{filter} <b>{catalog?filterCounts[filter]:"—"}</b></button>)}</nav>
       <div className="armory-roster">{visibleAgents?.map(role=>{const state=status(role);return <button className="armory-roster-row" {...highlight.bind(role.id)} key={role.id} onClick={()=>{show("Agents");inspectAgent(role);}} aria-label={"Inspect "+role.name+" loadout"} data-selected={selectedAgent===role.id} data-status={state}>
+        {state==="Working"&&<svg className="armory-working-sparks" viewBox="0 0 240 68" preserveAspectRatio="none" aria-hidden="true"><path d="M8 6 23 6 28 3 34 9 41 5 58 6 64 3 73 6 91 6 M34 9 38 14 45 12"/><path d="M149 61 162 62 169 58 177 65 184 60 197 62 205 58 220 61 234 60 M184 60 180 54 174 55"/></svg>}
         <span className="armory-roster-emblem"><AgentEmblem id={role.id} size={23}/></span>
         <span className="armory-roster-copy"><strong>{role.name}</strong><span>{role.description}</span><small>{state==="Ready"?"Ready for assignment":state==="Working"?"Assigned to active work":state==="Waiting"?"Waiting on mission checkpoint":role.kind==="orchestrator"?"Primary · always pinned":role.status==="PLACEHOLDER"?"Planned role · not executable":role.status==="UNPROVEN"?"Execution not yet verified":"Currently unavailable"}</small></span>
         <span className="armory-roster-status">{state==="Ready"?"Idle":state==="Working"?"Active":state}</span>
