@@ -1,3 +1,21 @@
+## Next priority — Armory expansion and approval-gated Monid — October 7, 2026
+
+Kevin wants the next session to focus on a deployable arsenal of specialized tools in both Olympus Armory and Codex. Start with Monid discovery/integration, including scraping, content extraction, news, and generative video/enhancement capabilities where the current catalog actually supports them. This is a requested next-session direction, not evidence that those endpoints are available or connected today.
+
+**Owner policy: ask before every Monid tool execution and before spending anything.** Tool discovery, setup, or a previous approval does not grant blanket execution authority. Show a concrete proposal: provider/tool, purpose and expected output, exact scope/inputs and external data transmission, current price/estimate and uncertainty, maximum spend or bounded quantity, expected runtime, and relevant existing-tool alternatives. Wait for explicit approval bound to that proposal. Changed inputs, additional runs/retries, or higher cost require fresh approval. Never treat unknown pricing as free or silently top up balance. If the provider cannot enforce a proposed cost cap, disclose that and do not promise a hard cap; resolve pricing/limits before proceeding.
+
+Implementation sequence:
+1. Audit the existing Armory catalog, plugin adapters, mission approval flow, Codex Monid skill/CLI configuration, and credential storage. Read the installed Monid skill and current CLI help; verify catalog/schema/pricing rather than assuming capabilities. Do not print keys or put them in browser state, fixtures, logs, or Git.
+2. Add discovery and inspection first. Distinguish catalog availability, configured connection, verified readiness, unavailable tools, and synthetic preview fixtures. Prefer existing dedicated connectors when they already cover the task. Do not bulk install or enable every endpoint.
+3. Design an Armory tool detail and preflight approval card, including clear Approve/Cancel actions and the scope/cost information above. Plan a small curated starter set from verified capabilities. Codex should present the equivalent review before invoking Monid.
+4. Enforce approvals at the backend execution boundary, not only through UI text or prompting. Keep credentials and paid calls server-side. Bind one-use approval to exact tool/input/cost scope; guard duplicate submission, retries, expired approval, changed pricing, and cancellation. Use the same controlled execution entry point from Olympus and Codex where feasible; document any bypass limitations honestly.
+5. Record run provenance, approval, estimated/actual costs when supplied, status, output, and failure in the appropriate persistent store. Connect real execution state to agents/missions; a catalog entry or visual animation must never imply work was executed. Do not invent progress or verified readiness.
+6. Test discovery/inspection and synthetic approval flows without spending. Test denial, missing credentials, unknown cost, changed inputs, duplicate execution and provider failure. A real paid/provider acceptance run needs a separate, concrete user approval.
+
+Current status: installed local Monid skill was read for this handoff; CLI/auth/catalog/prices and live execution are NOT verified in this session. No Monid tool was invoked, no installation or credentials were changed, and no funds were spent. User prefers development mode, with progress saved in Git; do not package/install unless requested.
+
+Latest visual refinements: 24-second rim-only gold gleam; canyon illumination tapered by screen-space distance from Omega; working Armory cards have a teal perimeter pulse and fine, broken traveling lightning with occasional branches. These are presentation changes, not new execution authority. Recent refinements are committed locally; verify remote status before claiming backup.
+
 ## Development workflow — October 7, 2026
 
 Kevin prefers development mode over repeated desktop installations. Save completed changes in Git; do not package/install unless requested. The browser Command harness remains synthetic. Use `npm run tauri dev` for the real backend and persisted data.
