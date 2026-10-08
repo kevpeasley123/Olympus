@@ -52,8 +52,8 @@ for(const scenario of ['idle','mission-research','mission-active','reduced-motio
   const start=+(await canvas.getAttribute('data-galaxy-time'));const frames=+(await canvas.getAttribute('data-frames'));
   await page.waitForTimeout(2500);const end=+(await canvas.getAttribute('data-galaxy-time'));const endFrames=+(await canvas.getAttribute('data-frames'));
   check(end>start,'Galaxy advances with animation frames');
-  const volume=JSON.parse(await canvas.getAttribute('data-volume-depth'));check(volume.front>0&&volume.rear>0,'Bodies occupy foreground and rear volume');
-  console.log(JSON.stringify({framesOver2_5Seconds:endFrames-frames,drawCalls:await canvas.getAttribute('data-draw-calls'),volume}));
+  check(await canvas.getAttribute('data-mission-planets')==='0','No planets without active missions');
+  console.log(JSON.stringify({framesOver2_5Seconds:endFrames-frames,drawCalls:await canvas.getAttribute('data-draw-calls')}));
  }
  if(scenario==='reduced-motion'){
   const start=await canvas.getAttribute('data-galaxy-time');await page.waitForTimeout(1400);check(start===await canvas.getAttribute('data-galaxy-time'),'Reduced motion freezes galaxy');

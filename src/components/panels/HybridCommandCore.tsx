@@ -1,3 +1,4 @@
+import type { Mission } from "../../services/capabilities";
 import { useEffect, useMemo, useRef } from "react";
 import "@fontsource/jetbrains-mono/500.css";
 import type { CommandLayout } from "../../services/hybridCore";
@@ -7,7 +8,7 @@ import type { OlympusVisualState } from "../../services/ambientMotion";
  * the agent lens and mission state; `activeDomains` are the domains a recorded
  * mission step is using right now. Neither rebuilds the scene.
  */
-export interface HybridFrame { state: OlympusVisualState; voiceLevel: number; running: boolean; light?: Readonly<Record<string, number>>; activeDomains?: readonly string[]; execution?: { operation: number }; constellationMotion?: {yaw:number} }
+export interface HybridFrame { missions?: readonly Mission[]; selectedMission?: string | null; state: OlympusVisualState; voiceLevel: number; running: boolean; light?: Readonly<Record<string, number>>; activeDomains?: readonly string[]; execution?: { operation: number }; constellationMotion?: {yaw:number} }
 interface Props extends HybridFrame { layout: CommandLayout; onReady: (ready: boolean) => void; onError: (reason: string) => void }
 /**
  * Only what mountHybridScene and the material study read. The layout embeds

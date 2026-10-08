@@ -1,3 +1,20 @@
+## October 7 - 0.23.0 mission Pantheon and reference Armory
+
+Command now renders planets only for recorded running/waiting missions; zero
+missions means zero planets. Shared selection opens mission context in the right
+panel. Step progress is factual; workflow deadlines are not supplied. Plugins,
+Skills and Obsidian persist as architecture independently of activity. The
+Armory has a contained panel, counted filters, unique agent emblems carried into
+loadouts, and the existing workflow chooser. Orbits are quieter, use actual 3D
+geometry and share Omega's depth buffer. No backend authority was added.
+See COMMAND-MISSION-PANTHEON.md for sources, safeguards and remaining gaps.
+
+Verified before release: production build; all 21 test scripts; 433 Rust tests
+passed, 16 intentionally ignored; 111 mission-browser checks, 60 flagship checks,
+and Armory filter/emblem/skill-intake interactions. Browser fixtures are synthetic;
+native real-data mission lifecycle acceptance remains unverified. The release
+entry records that limit; installation is managed by the release chat.
+
 ## October 7 - southern Obsidian constellation (local preview)
 
 Command projects real vault graph notes as small violet stars in the southern field. Hover/focus on one star subtly highlights its collection; the plugin cluster now shares this behavior. Titles and folders appear on interaction; selecting a note uses the existing guarded Obsidian handoff. Visible star sizes stay unchanged. Graph cap/exclusions remain and truncation or stale status is labeled.

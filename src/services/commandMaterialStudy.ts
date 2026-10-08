@@ -87,7 +87,7 @@ function annulus(start:number,end:number,inner:number,outer:number) {
   for(let i=steps;i>=0;i--){const p=polar(start+(end-start)*i/steps,inner);shape.lineTo(p.x,p.y);}
   shape.closePath();return shape;
 }
-function engravedTexture() {
+function engravedTexture(fractured = false) {
   const canvas=document.createElement("canvas");canvas.width=canvas.height=1024;
   const c=canvas.getContext("2d")!;c.fillStyle="#191919";c.fillRect(0,0,1024,1024);
   let seed=713;const random=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};
@@ -98,6 +98,10 @@ function engravedTexture() {
     c.strokeStyle=i%9===0?"#dedede":"#717171";c.lineWidth=i%9===0?1.2:.6;
     c.beginPath();c.moveTo(x,y);c.lineTo(x+w,y);c.lineTo(x+w+h,y+h);c.lineTo(x+w+h+random()*15,y+h);c.stroke();
     if(i%5===0){c.fillStyle="#989898";c.fillRect(x,y,2,2);}
+  }
+  if(fractured){
+    c.fillStyle="#34302a";c.fillRect(0,0,1024,1024);
+    for(let i=0;i<160;i++){let x=random()*1024,y=random()*1024;c.beginPath();c.moveTo(x,y);for(let j=0;j<5;j++){x+=(random()-.45)*60;y+=(random()-.4)*50;c.lineTo(x,y);}c.lineWidth=.5+random()*1.5;c.strokeStyle=i%5===0?"#a2906c":"#625344";c.stroke();}
   }
   const texture=new T.CanvasTexture(canvas);texture.wrapS=texture.wrapT=T.RepeatWrapping;
   texture.repeat.set(1/128,1/128);texture.offset.set(.5,.5);texture.colorSpace=T.SRGBColorSpace;
@@ -117,7 +121,7 @@ export function buildCommandMaterialStudy(scene:T.Scene,renderer:T.WebGLRenderer
   const environment=new RoomEnvironment(), pmrem=new T.PMREMGenerator(renderer);
   const environmentTarget=pmrem.fromScene(environment,.04);scene.environment=environmentTarget.texture;scene.environmentIntensity=.48;
   environment.dispose();pmrem.dispose();
-  const engraving=engravedTexture(), contour=contourTexture();
+  const engraving=engravedTexture(Boolean(layout.flagship)), contour=contourTexture();
   const frameMetal=new T.MeshPhysicalMaterial({color:0x1c303f,metalness:.85,roughness:.25,envMapIntensity:.55,clearcoat:.4});
   const dark=new T.MeshStandardMaterial({color:0x070d15,metalness:.7,roughness:.42});
   const lines=new T.LineBasicMaterial({color:0x547891,transparent:true,opacity:MATERIAL_TUNING.structureSecondary});
@@ -128,11 +132,11 @@ export function buildCommandMaterialStudy(scene:T.Scene,renderer:T.WebGLRenderer
   const coreStart=group.children.length;
   const shapes=new SVGLoader().parse(`<svg xmlns="http://www.w3.org/2000/svg"><path d="${OMEGA}"/></svg>`).paths.flatMap(path=>path.toShapes());
   const body=layout.flagship
-    ? new T.ExtrudeGeometry(shapes,{depth:8,steps:1,bevelEnabled:true,bevelSize:.18,bevelThickness:.18,bevelSegments:1,curveSegments:64})
+    ? new T.ExtrudeGeometry(shapes,{depth:8,steps:1,bevelEnabled:true,bevelSize:.65,bevelThickness:.8,bevelSegments:4,curveSegments:64})
     : extrude(shapes,7,.65);body.scale(1,-1,1);body.setIndex(Array.from({length:body.getAttribute('position').count},(_,i)=>i%3===1?i+1:i%3===2?i-1:i));
   const face=new T.MeshPhysicalMaterial({color:0x6c3611,metalness:.25,roughness:.36,envMapIntensity:.3,clearcoat:.5,clearcoatRoughness:.14,transmission:0,thickness:2.5,ior:1.48,emissive:0xd87520,emissiveMap:engraving,emissiveIntensity:1.8});
   const side=new T.MeshPhysicalMaterial({color:0x38261b,metalness:.88,roughness:.23,clearcoat:.5});
-  mesh(body,[face,side],layout.flagship?2:3);
+  mesh(body,[face,side],layout.flagship?2:3).name="Omega solid";
   for(const shape of shapes){
     const points=shape.getPoints(128).map(p=>new T.Vector3(p.x,-p.y,10.75));
     const outline=new T.LineLoop(new T.BufferGeometry().setFromPoints(points),warmLines);group.add(outline);
@@ -153,7 +157,7 @@ export function buildCommandMaterialStudy(scene:T.Scene,renderer:T.WebGLRenderer
   const coreLight=new T.PointLight(0xff8c36,70,150,1);coreLight.position.set(0,0,28);group.add(coreLight);
   const core=new T.Group();
   for(const child of group.children.slice(coreStart))core.add(child);
-  core.scale.setScalar(layout.flagship ? 1.35 : INNER_CORE_SCALE);
+  core.scale.setScalar(layout.flagship ? 1.66 : INNER_CORE_SCALE);
   if(layout.flagship) core.rotation.set(-.07,.25,-.015);
   group.add(core);
   const housingStart=group.children.length;
@@ -416,8 +420,8 @@ export function buildCommandMaterialStudy(scene:T.Scene,renderer:T.WebGLRenderer
       warmLines.color.set(error?0xc91422:0xffa13d);
       haloMaterial.color.set(error?0xd51022:0xffffff);
       const envelope=error?.95-dip:executing?1.12+operationPulse*.10:idleSample?.envelope??coreGlowEnvelope(time,moving),t=MATERIAL_TUNING;
-      face.emissiveIntensity=t.coreEmission*(layout.flagship?.72:1)*envelope+energy*.5;
-      haloMaterial.opacity=t.haloOpacity*envelope*(layout.flagship?.24:layout.orbitalCards?1.3:1)+energy*.12;
+      face.emissiveIntensity=t.coreEmission*envelope+energy*.5;
+      haloMaterial.opacity=t.haloOpacity*envelope*(layout.flagship?.55:layout.orbitalCards?1.3:1)+energy*.12;
       radialMaterial.uniforms.intensity.value=t.radialHalo*(layout.flagship?.35:1)*envelope*(idle&&moving?.85+.55*idleSample!.breath:1)+energy*.06;
       radialHalo.scale.setScalar(idle?(moving?OMEGA_IDLE.haloBreathMin+(OMEGA_IDLE.haloBreathMax-OMEGA_IDLE.haloBreathMin)*idleSample!.breath+(idleSample!.pulse/OMEGA_IDLE.primaryStrength)*OMEGA_IDLE.haloExpansion:1):1+(envelope-1)*.15);
       coreLight.intensity=t.localLight*(idle?1+(envelope-1)*OMEGA_IDLE.localLightBoost:envelope)+energy*25;

@@ -1,0 +1,55 @@
+.mission-targets{position:absolute;inset:0;pointer-events:none;z-index:5}
+.mission-planet-target{position:absolute;width:32px;height:32px;transform:translate(-50%,-50%);border:0;background:transparent;color:#cfe7f4;padding:0;border-radius:50%;pointer-events:auto;cursor:pointer;--mission-color:#72c7df}
+[data-tone="amber"]{--mission-color:#e8bd74}[data-tone="warning"]{--mission-color:#c48477}
+.mission-planet-target:focus-visible{outline:1px solid #edcc8c;outline-offset:5px}
+.mission-planet-target[data-occluded="true"]{opacity:0;pointer-events:none}
+.mission-planet-target[data-occluded="true"]:focus-visible{opacity:1}
+.mission-planet-label{position:absolute;left:29px;top:10px;width:145px;text-align:left;text-shadow:0 2px 5px #000,0 0 12px #000;transition:opacity .25s}
+.mission-planet-target[data-side="left"] .mission-planet-label{left:auto;right:29px;text-align:right}
+.mission-planet-label strong{display:block;font:12px/1.4 var(--font-sans);font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mission-planet-label small{display:block;font:8px/1.7 var(--font-mono);text-transform:uppercase;color:var(--mission-color)}
+.mission-planet-label i{display:inline-block;width:4px;height:4px;margin-right:5px;background:var(--mission-color);border-radius:50%}
+.mission-targets[data-selected="true"] .mission-planet-target[aria-pressed="false"] .mission-planet-label{opacity:.45}
+.mission-planet-target[aria-pressed="true"] .mission-planet-label strong{color:#fff4dd}
+.mission-fallback-body{display:none;width:17px;height:17px;border-radius:50%;background:radial-gradient(circle at 25% 25%,#fff0be,#4a87aa 25%,#081525 65%);box-shadow:0 0 0 1px #d1b886,0 0 9px #80c9ff44;margin:auto}
+[data-fallback="true"] .mission-fallback-body{display:block}
+.active-mission-list{order:2;margin:0 18px 12px;padding:16px 0 4px;border-top:1px solid #829cad24;overflow:auto;min-height:64px;max-height:44%;flex-shrink:1;scrollbar-width:thin}
+.active-mission-list h3{display:flex;justify-content:space-between;margin:0 0 12px;font:13px var(--font-display,"Cinzel",serif);letter-spacing:.18em;color:#ddd9cc}
+.active-mission-list h3>span{font:10px var(--font-mono);letter-spacing:0;color:#98b7c8}
+.active-mission-card{display:flex;align-items:center;gap:13px;width:100%;text-align:left;padding:12px 10px;margin:8px 0;background:#020c1388;border:1px solid #6c92a52b;border-radius:6px;color:#dde5e8;cursor:pointer;--mission-color:#72c7df}
+.active-mission-card[aria-pressed="true"]{border-color:#d2b17488;background:#142027aa}
+.active-mission-card>span:last-child{flex:1;min-width:0}.active-mission-card strong{display:block;font:12px/1.5 var(--font-sans)}
+.active-mission-card small{font:8px/1.8 var(--font-mono);text-transform:uppercase;color:var(--mission-color)}
+.mission-card-orb{flex-shrink:0;width:29px;height:29px;border:1px solid #c4a16c88;border-radius:50%;background:radial-gradient(ellipse at 28% 22%,#e8e1bb,#5e97b3 22%,#102432 50%,#03090e 70%);box-shadow:0 0 0 5px #6eacc015}
+[data-tone="amber"] .mission-card-orb{background:radial-gradient(ellipse at 28% 22%,#fff3bb,#b48143 22%,#3d271b 50%,#090705 70%)}
+.mission-current-step{display:block;font:10px/1.6 var(--font-sans);color:#8faec0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mission-step-progress{display:block;height:3px;background:#42505a55;margin-top:9px;border-radius:2px;overflow:hidden}.mission-step-progress>span{display:block;height:100%;background:var(--mission-color)}
+.active-mission-card em{display:block;font:9px/1.8 var(--font-mono);color:#819baa;margin-top:3px}
+.mission-data-note{font:10px/1.5 var(--font-sans);color:#8499a7;margin:8px 0}
+.selected-mission-context>h4{font:14px var(--font-display);color:#e1cfae;margin-bottom:8px}.selected-mission-context .mission-view{margin:0;font-size:11px}
+.command-console>.console-workspace-header{order:0}.command-console>.console-idle{order:1}.command-console>.console-command-bar{order:4}.command-console>.console-stage{order:1}
+html .mode-command:has(.olympus-armory) .console-idle{padding:26px 24px 16px;flex:1;min-height:0;overflow:auto;gap:16px}
+html .mode-command:has(.olympus-armory) .command-console[data-layout="expanded"]{background:linear-gradient(150deg,#020c13f5,#020b12ed)}
+.skills-constellation{position:absolute;right:7%;top:22%;width:130px;height:105px;z-index:4;color:#b3c9d6}
+.skills-constellation svg{position:absolute;inset:0;width:100%;height:100%;fill:none;stroke:#adc5d0;stroke-width:.5;opacity:.18;pointer-events:none}
+.architecture-label{position:absolute;top:-12px;right:5px;font:8px var(--font-mono);text-transform:uppercase;letter-spacing:.27em;color:#9eafb9;white-space:nowrap}
+.architecture-label b{font-weight:400;letter-spacing:0;color:#85939c}
+.command-instrument[data-flagship] .armory-constellation{left:25%;top:12%;width:125px;height:100px}
+.command-instrument[data-flagship] .armory-constellation__label{text-transform:uppercase;letter-spacing:.22em;font-size:8px;color:#a5b5bf}
+.command-instrument[data-flagship] .armory-star__light{width:3px;height:3px;box-shadow:0 0 6px #bfe5ff66}
+.command-instrument[data-flagship] .vault-constellation{left:17%;bottom:6%;width:29%;height:18%}
+.command-instrument[data-flagship] .vault-constellation__label{font-size:8px;text-transform:uppercase;letter-spacing:.21em;bottom:-10px}
+.pantheon-motto{display:block;font:8px var(--font-sans);text-transform:uppercase;letter-spacing:.38em;color:#b7b4a6}
+.pantheon-state{display:block;margin-top:10px;font-size:8px}
+.command-console>.console-aperture{order:1}
+.armory-agent-filters{display:flex;gap:3px;margin:12px 0 4px}.armory-presence .armory-agent-filters button{display:block;width:auto;font-size:9px;padding:6px 8px;border:1px solid #7995a12b;border-radius:4px;color:#9eb0bb}.armory-presence .armory-agent-filters button[aria-pressed="true"]{background:#9cbac318;color:#ebdfc3}
+.armory-heading p{font-size:8px;text-transform:uppercase;letter-spacing:.13em;margin:10px 0 0;color:#9db6c6}
+.architecture-lines{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;stroke:#a7c7d6;stroke-width:.4;opacity:.22;fill:none}
+.vault-constellation .architecture-lines{opacity:.1;stroke-width:.25}
+.skills-constellation .armory-star__light{opacity:.8}
+.active-mission-list{display:flex;flex-direction:column}.active-mission-list>h3{flex-shrink:0;order:0}.active-mission-card{flex-shrink:0;order:2}.selected-mission-context{order:1;flex-shrink:0}.active-mission-list>.mission-data-note{order:1}
+.pantheon-caption:after{content:"";display:block;height:1px;width:64px;background:#bb924e;margin:18px auto 0}
+.pantheon-voice:not([data-active="true"]){opacity:.22;min-height:24px;margin-top:12px}
+html .mode-command .command-instrument[data-flagship] .command-instrument__dial{width:min(100cqw,calc(100vh - 275px),850px);height:min(100cqw,calc(100vh - 275px),850px)}
+@media(max-width:1350px){.mission-planet-label{width:108px}.mission-planet-label strong{font-size:10px}.mission-planet-label small{font-size:7px}.skills-constellation{width:95px;height:90px;right:4%}.command-instrument[data-flagship] .armory-constellation{left:19%;width:100px}.pantheon-motto{letter-spacing:.2em;font-size:7px}.active-mission-list{margin-inline:12px}}
+@media(prefers-reduced-motion:reduce){.mission-planet-label{transition:none}}
