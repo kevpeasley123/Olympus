@@ -192,12 +192,12 @@ html .mode-command:has(.olympus-armory) .tools-rail{display:none}
 
 /* A brief metallic reflection, with a long quiet interval and staggered phases. */
 .armory-roster-emblem{position:relative;overflow:hidden;isolation:isolate}
-.armory-roster-emblem::after{content:"";position:absolute;inset:-20% auto -20% 0;width:45%;pointer-events:none;background:linear-gradient(90deg,transparent,#fff1c64d,transparent);transform:translateX(-180%) skewX(-22deg);opacity:0;animation:armory-gold-glint 24s ease-in-out infinite;animation-delay:var(--agent-shine-delay,0s);z-index:1}
+.armory-roster-emblem::after{content:"";position:absolute;inset:-1px;border-radius:50%;padding:1px;pointer-events:none;background:conic-gradient(from 0deg,transparent 0deg,#fff1c699 35deg,transparent 70deg);mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);mask-composite:exclude;transform:rotate(-70deg);opacity:0;animation:armory-gold-glint 24s ease-in-out infinite;animation-delay:var(--agent-shine-delay,0s);z-index:1}
 .armory-roster-row[data-agent-id="olympus"]{--agent-shine-delay:-1.3s}
 .armory-roster-row[data-agent-id="coding-delegate"]{--agent-shine-delay:-5.9s}
 .armory-roster-row[data-agent-id="research"]{--agent-shine-delay:-3.7s}
 .armory-roster-row[data-agent-id="dionysus"]{--agent-shine-delay:-7.4s}
 .armory-roster-row[data-agent-id="verification"]{--agent-shine-delay:-.2s}
-@keyframes armory-gold-glint{0%,95.5%{transform:translateX(-180%) skewX(-22deg);opacity:0}96.15%{opacity:.65}98.6%{opacity:.65}99.5%,100%{transform:translateX(340%) skewX(-22deg);opacity:0}}
+@keyframes armory-gold-glint{0%,95.5%{transform:rotate(-70deg);opacity:0}96.15%{opacity:.65}98.6%{opacity:.65}99.5%,100%{transform:rotate(140deg);opacity:0}}
 .armory-roster-emblem[data-shine-paused="true"]::after{animation-play-state:paused}
 @media(prefers-reduced-motion:reduce){.armory-roster-emblem::after{animation:none;display:none}}
