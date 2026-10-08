@@ -20,12 +20,13 @@ export function buildPantheonGalaxy(scene: T.Scene) {
   dustGeometry.setAttribute("color", new T.BufferAttribute(colors, 3));
   const dustMaterial = new T.ShaderMaterial({
     vertexColors: true, transparent: true, depthTest: true, depthWrite: false,
-    vertexShader: `varying vec3 tint; void main(){ tint=color; vec4 p=modelViewMatrix*vec4(position,1.); gl_Position=projectionMatrix*p; gl_PointSize=clamp(2.4+(550.+p.z)*.012,1.2,4.5); }`,
-    fragmentShader: `varying vec3 tint; void main(){float r=length(gl_PointCoord-.5)*2.; float a=1.-smoothstep(.05,1.,r); gl_FragColor=vec4(tint,a*.75);}`,
+    vertexShader: `varying vec3 tint; void main(){ tint=color; vec4 p=modelViewMatrix*vec4(position,1.); gl_Position=projectionMatrix*p; gl_PointSize=clamp(2.4*700./max(200.,-p.z),1.6,4.0); }`,
+    fragmentShader: `varying vec3 tint; void main(){float r=length(gl_PointCoord-.5)*2.; float a=1.-smoothstep(.05,1.,r); gl_FragColor=vec4(tint,a*.85);}`,
   });
   group.add(new T.Points(dustGeometry, dustMaterial));
   function update(time: number) {
-    group.rotation.set(.08, time * .0015, -.12);
+    // A full revolution every two minutes keeps the abyss visibly alive.
+    group.rotation.set(.08, time * Math.PI * 2 / 120, -.12);
   }
   update(0);
   return {update, group}; // Shared scene traversal owns GPU resource disposal.

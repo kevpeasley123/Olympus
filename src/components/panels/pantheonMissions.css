@@ -53,3 +53,28 @@ html .mode-command:has(.olympus-armory) .command-console[data-layout="expanded"]
 html .mode-command .command-instrument[data-flagship] .command-instrument__dial{width:min(100cqw,calc(100vh - 275px),850px);height:min(100cqw,calc(100vh - 275px),850px)}
 @media(max-width:1350px){.mission-planet-label{width:108px}.mission-planet-label strong{font-size:10px}.mission-planet-label small{font-size:7px}.skills-constellation{width:95px;height:90px;right:4%}.command-instrument[data-flagship] .armory-constellation{left:19%;width:100px}.pantheon-motto{letter-spacing:.2em;font-size:7px}.active-mission-list{margin-inline:12px}}
 @media(prefers-reduced-motion:reduce){.mission-planet-label{transition:none}}
+
+/* The architecture belongs to the distant canyon field, clear of the foreground dais. */
+.command-instrument[data-flagship] .skills-constellation{right:18%;top:25%;width:100px;height:86px}
+.command-instrument[data-flagship] .vault-constellation{left:28%;bottom:25%;width:25%;height:14%}
+.skills-constellation svg,.vault-constellation .architecture-lines{opacity:0;transition:opacity .18s ease}
+.skills-constellation:has(.armory-star:hover,.armory-star:focus-visible) svg{opacity:.3}
+.vault-constellation:has(.vault-star:hover,.vault-star:focus-visible) .architecture-lines{opacity:.25}
+@media(max-width:1350px){.command-instrument[data-flagship] .skills-constellation{right:15%;width:80px;height:72px}}
+@media(prefers-reduced-motion:reduce){.skills-constellation svg,.vault-constellation .architecture-lines{transition:none}}
+
+/* Inspection reticle stays outside the planet surface and does not intercept input. */
+.mission-planet-target::after{content:"";position:absolute;inset:2px;border:1px solid var(--mission-color);border-radius:50%;pointer-events:none;opacity:0;transform:scale(.88);box-shadow:0 0 10px color-mix(in srgb,var(--mission-color) 25%,transparent),inset 0 0 6px color-mix(in srgb,var(--mission-color) 12%,transparent);transition:opacity .16s ease,transform .16s ease}
+.mission-planet-target:is(:hover,[data-inspecting="true"])::after,.mission-planet-target:focus-visible::after{opacity:.85;transform:scale(1)}
+.mission-planet-target:is(:hover,[data-inspecting="true"]) .mission-planet-label strong,.mission-planet-target:focus-visible .mission-planet-label strong{color:#fff3da}
+.mission-planet-target:is(:hover,[data-inspecting="true"]) .mission-planet-label,.mission-planet-target:focus-visible .mission-planet-label{background:#061019dc;border-radius:4px;box-shadow:0 0 0 5px #061019dc,0 0 0 6px #aec5d524;opacity:1!important}
+@media(prefers-reduced-motion:reduce){.mission-planet-target::after{transition:none}}
+
+/* Directory feedback uses the same status color as the corresponding planet. */
+.active-mission-card{transition:transform .16s ease,border-color .16s ease,background-color .16s ease,box-shadow .16s ease}
+.active-mission-card:is(:hover,[data-inspecting="true"]),.active-mission-card:focus-visible{transform:translateY(-2px);border-color:color-mix(in srgb,var(--mission-color) 65%,transparent);background-color:#102330;box-shadow:inset 3px 0 0 var(--mission-color),0 5px 14px #0005,0 0 12px color-mix(in srgb,var(--mission-color) 10%,transparent);outline:none}
+.active-mission-card:is(:hover,[data-inspecting="true"]) strong,.active-mission-card:focus-visible strong{color:#fff4dd}
+.active-mission-card .mission-card-orb{transition:box-shadow .16s ease,filter .16s ease}
+.active-mission-card:is(:hover,[data-inspecting="true"]) .mission-card-orb,.active-mission-card:focus-visible .mission-card-orb{filter:brightness(1.15);box-shadow:0 0 0 4px color-mix(in srgb,var(--mission-color) 16%,transparent),0 0 15px color-mix(in srgb,var(--mission-color) 25%,transparent)}
+.active-mission-card:active{transform:translateY(0)}
+@media(prefers-reduced-motion:reduce){.active-mission-card,.active-mission-card .mission-card-orb{transition:none}.active-mission-card:is(:hover,[data-inspecting="true"]),.active-mission-card:focus-visible{transform:none}}
