@@ -260,6 +260,8 @@ export function ChatPanel({ companion = false, messages, onSendMessage, onRecord
   }
 
 
+  const inspectionControl = inspectionProjects.length > 0 && <details className="console-inspect-project"><summary>Inspect a project (read-only)</summary><label>Project <select aria-label="Inspect a project read-only" defaultValue="" onChange={event => { const name=event.target.value; if(name) { setDraft(`/inspect ${name}: Find one small issue and explain the smallest fix with file evidence.`); setConversationOpened(true); setMode("engaged"); requestAnimationFrame(() => inputRef.current?.focus()); } event.target.value=""; }}><option value="">Choose project…</option>{inspectionProjects.map(name=><option key={name} value={name}>{name}</option>)}</select></label><small>Read-only source review. Uses the selected paid OpenAI API route; at most three file reads plus an answer, within four minutes. Review the request, then Send.</small></details>;
+
   return (
     <section ref={panelRef} tabIndex={-1} className="command-console" data-mode={mode} data-layout={layout} data-idle={idle || undefined} data-signal={signal ?? undefined}
       aria-label="Olympus Command Console" style={{ "--console-transition": `${CONSOLE.transitionMs}ms`, "--console-signal": `${CONSOLE.signalMs}ms` } as CSSProperties}
@@ -284,8 +286,8 @@ export function ChatPanel({ companion = false, messages, onSendMessage, onRecord
       {expanded && mission && !companion && <MissionView mission={mission} capabilities={capabilities} onOpen={onOpenMission} onDismiss={onDismissMission} />}
       {!expanded && mission && <MissionView mission={mission} capabilities={capabilities} compact />}
       {idle && <div className="console-idle" data-command-brief={companion || undefined}>
-        {companion && <CommandBrief missions={activeMissions} selected={selectedMissionId} onSelect={onSelectMission} onOpen={onOpenMission} error={missionsError} loading={missionsLoading}/> }
-        {inspectionProjects.length > 0 && <details className="console-inspect-project"><summary>Inspect a project (read-only)</summary><label>Project <select aria-label="Inspect a project read-only" defaultValue="" onChange={event => { const name=event.target.value; if(name) { setDraft(`/inspect ${name}: Find one small issue and explain the smallest fix with file evidence.`); setConversationOpened(true); setMode("engaged"); requestAnimationFrame(() => inputRef.current?.focus()); } event.target.value=""; }}><option value="">Choose project…</option>{inspectionProjects.map(name=><option key={name} value={name}>{name}</option>)}</select></label><small>Read-only source review. Uses the selected paid OpenAI API route; at most three file reads plus an answer, within four minutes. Review the request, then Send.</small></details>}
+        {companion && <CommandBrief missions={activeMissions} error={missionsError} loading={missionsLoading}/> }
+        {!companion && inspectionControl}
         {!companion && <><p className="console-idle__title">“What would you like to work on?”</p><span className="console-welcome-rule" aria-hidden="true"/>{!companion && <p className="console-idle__description">I can help you research, plan, analyze, build, or coordinate complex work. Tell me what you’d like to accomplish, and we can work through it together.</p>}
         {briefing && <button type="button" className="console-idle__briefing" onClick={() => { setConversationOpened(true); showLive(); }}>
           <span>Opening briefing</span>{firstSentence(briefing.text)}</button>}
@@ -295,7 +297,7 @@ export function ChatPanel({ companion = false, messages, onSendMessage, onRecord
             onClick={() => { setDraft(suggestion.prompt); inputRef.current?.focus(); }}>{suggestion.label}</button>)}
         </div>}
         </>}
-        {messages.length > 0 && <button type="button" className="console-idle__history" onClick={showHistory}>↑ Earlier conversation · {messages.length} messages</button>}
+        {!companion && messages.length > 0 && <button type="button" className="console-idle__history" onClick={showHistory}>↑ Earlier conversation · {messages.length} messages</button>}
       </div>}
       {mode !== "dormant" && !idle && <div className="console-aperture">
         {!expanded && <header className="console-header">
@@ -396,6 +398,7 @@ export function ChatPanel({ companion = false, messages, onSendMessage, onRecord
         </div>
       </div>}
       <div className="console-command-bar">
+        {companion && inspectionControl}
         <div className="console-status-line"><span className="console-omega" aria-hidden="true">Ω</span>
           <span role="status" className="console-status" data-status={status.toLowerCase().replace(/\s+/g, "-")}>{status}</span>
           {micLive && <span className="console-mic-live" title="The microphone is capturing audio for OpenAI transcription. Stop voice to end.">MIC LIVE</span>}
