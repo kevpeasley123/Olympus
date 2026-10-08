@@ -1,20 +1,12 @@
-
-.command-brief{display:flex;flex-direction:column;gap:7px;text-align:left}
-.command-brief h3{font:12px var(--font-display,serif);letter-spacing:.14em;color:#e4d5b9;margin:0 0 5px;font-weight:400;text-transform:uppercase}
-.command-brief-summary{font:13px/1.5 var(--font-sans);color:#e7edf0;margin:0}
+.command-brief{display:flex;flex-direction:column;gap:4px;text-align:left}
+.command-brief h3{font:12px var(--font-display,serif);letter-spacing:.14em;color:#e4d5b9;margin:0 0 7px;font-weight:400;text-transform:uppercase}
+.command-brief-summary{font:500 13px/1.5 var(--font-sans);color:#e7edf0;margin:0 0 2px}
 .command-brief-line{font:12px/1.5 var(--font-sans);color:#cfdae1;margin:0}.command-brief-line span{color:#adc2ce}
-.command-brief-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:6px 0 3px}
-.command-brief-metrics>div{display:flex;flex-direction:column-reverse;justify-content:flex-end;padding:9px 9px 8px;border:1px solid #b3c3cb24;border-radius:5px;background:#030b121c}
-.command-brief-metrics dt{font:9px/1.3 var(--font-sans);color:#bacdd7;margin-top:3px}.command-brief-metrics dd{font:23px/1 var(--font-display,serif);color:#efc580;margin:0}.command-brief-metrics>div:last-child dd{color:#8cd2e3}
-.command-next-actions{margin-top:8px;display:grid;gap:6px}
-.command-next-actions button{display:flex;align-items:center;gap:9px;width:100%;text-align:left;border:1px solid #9bb2c326;border-radius:5px;background:#020a111f;color:#d7bc86;padding:9px;cursor:pointer}
-.command-next-actions button>span{flex:1;min-width:0}.command-next-actions strong{display:block;font:11px/1.4 var(--font-sans);font-weight:500;color:#e0e8ed}.command-next-actions small{display:block;font:9px/1.4 var(--font-sans);color:#a7c0cf;margin-top:2px}
-.command-next-actions button:hover,.command-next-actions button:focus-visible{background:#bd955219;border-color:#d2ad6c80;outline:1px solid #d2ad6c60;outline-offset:1px}
-html .mode-command:has(.olympus-armory) .console-idle[data-command-brief]{justify-content:flex-start;padding:17px 18px 12px;gap:10px;flex:0 1 auto;max-height:46%;min-height:100px}
-html .mode-command:has(.olympus-armory) .console-idle[data-command-brief] .console-inspect-project{order:2;font-size:10px;margin:0}
-html .mode-command:has(.olympus-armory) .console-idle[data-command-brief] .console-idle__history{font-size:9px;margin:0}
-html .mode-command:has(.olympus-armory) .console-workspace-header{padding:17px 18px}
-html .mode-command:has(.olympus-armory) .active-mission-list{flex:1 1 180px;max-height:44%}
+html .mode-command:has(.olympus-armory) .console-idle[data-command-brief]{justify-content:flex-start;padding:15px 18px 16px;gap:0;flex:0 0 auto;max-height:none;min-height:0}
+html .mode-command:has(.olympus-armory) .console-workspace-header{padding:13px 18px}
+html .mode-command:has(.olympus-armory) .command-console[data-idle] .active-mission-list{flex:1 1 0;max-height:none;min-height:145px;padding-top:14px}
+html .mode-command:has(.olympus-armory) .console-command-bar .console-inspect-project{order:0;margin:0 0 6px;font-size:9px;text-align:left}
+html .mode-command:has(.olympus-armory) .console-command-bar .console-inspect-project[open]{max-height:140px;overflow:auto}
 /* Surface colors transition; text remains fully opaque and blur stays fixed. */
 html .mode-command:has(.olympus-armory) :is(.olympus-armory,.command-console[data-layout="expanded"]){background:rgba(3,12,19,.64);border-color:#9db7c52b;backdrop-filter:blur(2px);box-shadow:inset 0 1px 0 #e8d1a312,0 8px 24px #0002;transition:background-color 240ms ease,border-color 240ms ease,box-shadow 240ms ease}
 html .mode-command:has(.olympus-armory) .olympus-armory::before{display:none}
@@ -23,23 +15,8 @@ html .mode-command:has(.olympus-armory) :is(.armory-index,.active-mission-card,.
 html .mode-command:has(.olympus-armory) .olympus-armory .armory-roster-copy{text-shadow:0 1px 3px #000c}
 @media(hover:none){html .mode-command:has(.olympus-armory) :is(.olympus-armory,.command-console[data-layout="expanded"]){background:rgba(3,12,19,.85)}}
 @media(prefers-reduced-motion:reduce){html .mode-command:has(.olympus-armory) :is(.olympus-armory,.command-console[data-layout="expanded"]){transition:none}}
-@media(max-height:850px){.command-brief-line{font-size:11px}.command-brief-metrics{margin:3px 0}.command-next-actions{margin-top:4px}.command-next-actions button{padding:7px}.command-next-actions button:nth-of-type(3){display:none}}
-
-.command-brief-summary{font-weight:500}.command-brief-line{font-weight:400}
-.command-next-actions button:nth-of-type(3){display:none}
-html .mode-command:has(.olympus-armory) .console-idle[data-command-brief]{max-height:none;flex:0 1 auto}
-html .mode-command:has(.olympus-armory) .active-mission-list{min-height:145px}
-@media(max-height:950px){
- .command-brief{gap:5px}.command-brief-line{display:none}
- .command-brief-metrics>div{padding:7px 8px}.command-brief-metrics dd{font-size:21px}
- .command-next-actions{margin-top:4px;gap:5px}.command-next-actions button{padding:7px 8px}
- html .mode-command:has(.olympus-armory) .console-idle[data-command-brief]{padding:13px 18px 10px;gap:6px;flex:0 0 auto;min-height:0}
- html .mode-command:has(.olympus-armory) .console-idle[data-command-brief] .console-inspect-project{display:block;font-size:9px}
- html .mode-command:has(.olympus-armory) .console-idle[data-command-brief] .console-idle__history{display:none}
-}
-@media(min-height:1050px){.command-next-actions button:nth-of-type(3){display:flex}}
 
 @media(max-height:850px){
- .command-brief-metrics>div{flex-direction:row-reverse;align-items:center;justify-content:flex-end;gap:7px;padding:7px}.command-brief-metrics dt{margin:0;font-size:8px}.command-brief-metrics dd{font-size:20px}
- .command-next-actions small{display:none}.command-next-actions button{min-height:32px}
+ .command-brief{gap:3px}.command-brief-line{font-size:11px}
+ html .mode-command:has(.olympus-armory) .console-idle[data-command-brief]{padding:12px 18px 13px}
 }

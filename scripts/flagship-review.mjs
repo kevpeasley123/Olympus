@@ -27,7 +27,7 @@ for(const [width,height] of [[1440,960],[1920,1080],[1280,800],[900,900]]){
  check(await dialog.getByLabel('Capability detail',{exact:true}).isVisible(),'Capability contract opens '+width);
  await page.keyboard.press('Escape');check(await dialog.count()===0,'Escape closes Armory '+width);
  if(width===1440){
-  for(const [name,file] of [['Agents 5','agents'],['Plugins 8','plugins'],['Skills 7','skills'],['Operations 0','operations']]){
+  for(const [name,file] of [['Agents 5','agents'],['Plugins 8','plugins'],['Skills 7','skills']]){
    await page.getByRole('button',{name,exact:true}).click();await page.waitForTimeout(250);await page.screenshot({path:`${out}/${file}.png`,fullPage:true});
    await page.getByRole('button',{name:'Close Armory',exact:true}).click();
   }
@@ -60,7 +60,6 @@ for(const scenario of ['idle','mission-research','mission-active','reduced-motio
   await page.evaluate(()=>document.querySelector('.hybrid-core canvas').dispatchEvent(new Event('webglcontextlost',{cancelable:true})));
   await page.getByText('3D view unavailable',{exact:false}).waitFor();check(await page.getByRole('group',{name:'Dashboard mode'}).getByRole('button').count()===4,'Header navigation survives context loss');
  }
- if(scenario.startsWith('mission')){const operationButton=page.locator('.armory-index button').filter({hasText:'Operations'});check((await operationButton.innerText()).includes('1'),'Real fixture active-operation count '+scenario);await operationButton.click();await page.getByRole('dialog').waitFor();}
  await page.waitForTimeout(250);await page.screenshot({path:`${out}/${scenario}.png`,fullPage:true});
 }
 for(const [voice,level] of [['speaking',0],['speaking',.8],['listening',.4]]){

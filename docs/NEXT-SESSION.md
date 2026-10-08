@@ -1,3 +1,9 @@
+## Development workflow — October 7, 2026
+
+Kevin prefers development mode over repeated desktop installations. Save completed changes in Git; do not package/install unless requested. The browser Command harness remains synthetic. Use `npm run tauri dev` for the real backend and persisted data.
+
+Latest Command refinements simplify Mission Brief, remove metric/actions widgets and the unused left rail/Operations entry, keep agents stationary in a slightly lower-right nest with active halo/sparks, and place voice feedback below PANTHEON. Build, focused browser checks and 21 visual scenarios/57 functional checks passed during implementation.
+
 # Release 0.25.0 — October 7, 2026
 
 Includes the Pantheon agent identities, active-agent flight, shared inspection, mission detail toggle, compact Command Brief, atmospheric panels, metallic materials and pulsing canyon light. Only glyph peak brightness was increased in the final lighting pass; environmental timing and intensity are unchanged. Inner rings are hidden in flagship mode. Dionysus is a presentation placeholder, not an executor. Backend agent identities and mission authority are preserved.

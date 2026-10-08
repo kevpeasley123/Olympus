@@ -117,7 +117,7 @@ export function mountHybridScene(host: HTMLDivElement, layout: CommandLayout, cu
   function mesh(geometry: T.BufferGeometry, material: T.Material, z = 0) { const m = new T.Mesh(geometry,material); m.position.z=z; scene.add(m); return m; }
   const study = buildCommandMaterialStudy(scene, renderer, layout);
   const canyonBackground=layout.flagship?document.querySelector<HTMLElement>(".background-image"):null;
-  const architecture=layout.flagship?architectureOrbits(host,camera,scene):undefined;
+  const architecture=layout.flagship?architectureOrbits(host,camera):undefined;
   const missionScene = layout.flagship ? buildMissionScene(scene, host, camera) : undefined;
   const field = buildConstellationField(scene, layout.orbitalCards, layout.flagship);
   renderer.info.autoReset=false;
@@ -319,7 +319,7 @@ export function mountHybridScene(host: HTMLDivElement, layout: CommandLayout, cu
     galaxy?.update(time);
     if(layout.flagship){camera.position.x=-85+pointer.x*5;camera.position.y=40+pointer.y*4;camera.lookAt(0,layout.flagship ? -24 : 0,0);}
     scene.updateMatrixWorld(true);camera.updateMatrixWorld(true);
-    architecture?.update(time,moving);
+    architecture?.update(time);
     const missionCount=missionScene?.update(value.missions??[],value.selectedMission??null,delta)??0;
     if(HARNESS_ATTRIBUTES&&galaxy){canvas.dataset.galaxyTime=String(time);canvas.dataset.galaxyYaw=String(galaxy.group.rotation.y);canvas.dataset.galaxyBodies=String(missionCount);canvas.dataset.missionPlanets=String(missionCount);canvas.dataset.galaxyDust="680";}
     constellationMotion.yaw=advanceConstellationYaw(constellationMotion.yaw,delta,moving);
