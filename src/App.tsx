@@ -224,6 +224,7 @@ function App() {
             {<div className="panel-slot panel-slot-instrument" hidden={!command}>
               <ErrorBoundary label="Command view">
                 <CommandInstrument
+                  missions={commandView.liveMissions} selectedMission={commandView.selectedMissionId} onSelectMission={commandView.selectMission}
                   flagship
                   onProjects={()=>selectMode("project")}
                   domainActions={{system:()=>setPreferencesOpen(true),research:()=>selectMode("research"),communications:()=>selectMode("communications")}}
@@ -309,6 +310,7 @@ function App() {
                   briefing={openingBriefing}
                   layout={command ? chatLayout : "compact"}
                   onLayoutChange={command ? setChatLayout : undefined}
+                  activeMissions={command ? commandView.liveMissions : []} selectedMissionId={commandView.selectedMissionId} onSelectMission={commandView.selectMission} missionsError={armory.missionsError} missionsLoading={!armory.missions}
                   mission={command ? mission : null}
                   capabilities={armory.capabilities}
                   suggestions={suggestionsFor(armory.capabilities).slice(0, 3)}

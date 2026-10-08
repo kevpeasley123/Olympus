@@ -1,3 +1,7 @@
+import { MissionTargets } from "./PantheonMissions";
+import { SkillsConstellation } from "./SkillsConstellation";
+import type { Mission } from "../../services/capabilities";
+import "./pantheonMissions.css";
 import { VaultConstellation } from "./VaultConstellation";
 import { ArmoryConstellation } from "./ArmoryConstellation";
 import { Mic } from "lucide-react";
@@ -31,6 +35,9 @@ import "./commandArmory.css";
 import "./commandReference.css";
 
 interface CommandInstrumentProps {
+  missions?: Mission[];
+  selectedMission?: string | null;
+  onSelectMission?: (id:string)=>void;
   flagship?: boolean;
   onProjects?: () => void;
   domainActions?: Partial<Record<string, () => void>>;
@@ -107,6 +114,7 @@ const RIPPLE_SECONDS = 1.4;
  * assemble. Projects live in Project mode; nothing here is project navigation.
  */
 export function CommandInstrument({
+  missions = [], selectedMission = null, onSelectMission,
   flagship = false,
   projects,
   onProjects,
@@ -259,11 +267,12 @@ export function CommandInstrument({
       style={{ ...ambientVariables, "--ambient-drift": `${2 / renderScale}px` } as CSSProperties}>
       <motion.div className="command-instrument__dial" ref={dialRef} style={instrumentParallax}>
         <div className="command-orbital-atmosphere" aria-hidden="true"/>
-        {flagship && <><ArmoryConstellation capabilities={capabilities??null}/><VaultConstellation graph={graph} error={vaultGraphError} loading={vaultGraphLoading}/></>}
+        {flagship && <><ArmoryConstellation capabilities={capabilities??null}/><SkillsConstellation capabilities={capabilities}/><VaultConstellation graph={graph} error={vaultGraphError} loading={vaultGraphLoading}/></>}
+        {flagship && <MissionTargets missions={missions} selected={selectedMission} onSelect={onSelectMission} fallback={!sceneShown}/>}
         {/* Unmounted on failure so its GPU resources, listeners and timers go
             with it; Retry mounts a fresh one. */}
         {sceneWanted && !hybridError && <HybridCommandCore key={renderAttempt} layout={{...layout, orbitalCards: true, flagship}} state={ambientState} voiceLevel={voiceLevel} execution={execution}
-          running={active && ambient.running} light={light} activeDomains={activeDomains}
+          missions={missions} selectedMission={selectedMission} running={active && ambient.running} light={light} activeDomains={activeDomains}
           onReady={setHybridReady} onError={setHybridError} />}
         <svg
           style={{ transformOrigin: "50% 50%" }}
@@ -341,7 +350,7 @@ export function CommandInstrument({
           Nothing renders before the first reply of a session. Naming a model
           that has not spoken would be the same invisible wrongness as reading
           the request constant. */}
-      {flagship && <div className="pantheon-caption"><h2>Pantheon</h2>{(activity || working) && ambientState !== "speaking" && ambientState !== "listening" && <span className="pantheon-state">{activity ?? "Working"}</span>}</div>}
+      {flagship && <div className="pantheon-caption"><h2>Pantheon</h2><span className="pantheon-motto">Intelligence for a brighter tomorrow</span>{(activity || working) && ambientState !== "speaking" && ambientState !== "listening" && <span className="pantheon-state">{activity ?? "Working"}</span>}</div>}
       {flagship && <div className="pantheon-voice" role="img" aria-label={ambientState === "speaking" ? "Voice speaking" : ambientState === "listening" ? "Voice listening" : "Voice idle"} data-active={ambientState === "speaking" || ambientState === "listening"}>
         <Mic size={18} aria-hidden="true"/>
         <div className="pantheon-voice__wave" aria-hidden="true">{Array.from({length:23},(_,i)=><span key={i} style={{height:2+((ambientState === "speaking" || ambientState === "listening") ? Math.min(1,Math.max(0,voiceLevel))*30*Math.pow(Math.sin((i+1)*Math.PI/24),.7)*(i%3===0?.65:1):0)}}/>)}</div>

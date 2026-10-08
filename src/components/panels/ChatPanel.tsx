@@ -26,6 +26,7 @@ import { routeLabel, routeTitle } from "../../services/routeLabel";
 import { formatWhen } from "../../services/time";
 import { isTauriRuntime } from "../../services/launcher";
 import type { CapabilitySnapshot, Mission, Suggestion } from "../../services/capabilities";
+import { ActiveMissionList } from "./PantheonMissions";
 import { MissionView } from "./MissionView";
 import "./command.css";
 import "./commandArmory.css";
@@ -71,6 +72,11 @@ interface ChatPanelProps {
    */
   layout?: "compact" | "expanded";
   onLayoutChange?: (layout: "compact" | "expanded") => void;
+  activeMissions?: Mission[];
+  selectedMissionId?: string | null;
+  onSelectMission?: (id:string)=>void;
+  missionsError?: string | null;
+  missionsLoading?: boolean;
   mission?: Mission | null;
   capabilities?: CapabilitySnapshot | null;
   suggestions?: Suggestion[];
@@ -80,6 +86,7 @@ interface ChatPanelProps {
 function collapse(text: string): string { return text.split(/\s+/).filter(Boolean).join(" "); }
 
 export function ChatPanel({ companion = false, messages, onSendMessage, onRecordObservation, pending = false, progress = null, onStop, inspectionProjects = [], error = null,onOpenPreferences,autoSpeak=false,onAutoSpeakChange,voiceSettingsReady=true,briefing=null,
+  activeMissions = [], selectedMissionId = null, onSelectMission, missionsError = null, missionsLoading = false,
   layout = "compact", onLayoutChange, mission = null, capabilities = null, suggestions = [], onOpenMission, onDismissMission }: ChatPanelProps) {
   const expanded = layout === "expanded";
   const voice = useVoiceState();
@@ -270,7 +277,8 @@ export function ChatPanel({ companion = false, messages, onSendMessage, onRecord
         </div>
       </header>}
       {pending && <div className="console-inspection-status" role="status"><span>{progress ?? "Preparing response…"}</span>{onStop && <button type="button" onClick={onStop}>Stop</button>}</div>}
-      {expanded && mission && (companion ? <details className="companion-operation"><summary><span>{mission.title}</span><small>{mission.approval?.required ? "Awaiting approval" : mission.status === "running" ? "Working" : mission.status === "completed" ? "Result ready" : mission.status}</small></summary><MissionView mission={mission} capabilities={capabilities} onOpen={onOpenMission} onDismiss={onDismissMission}/></details> : <MissionView mission={mission} capabilities={capabilities} onOpen={onOpenMission} onDismiss={onDismissMission} />)}
+      {expanded && companion && <ActiveMissionList missions={activeMissions} selected={selectedMissionId} onSelect={onSelectMission} capabilities={capabilities} onOpen={onOpenMission} error={missionsError} loading={missionsLoading}/>}
+      {expanded && mission && !companion && <MissionView mission={mission} capabilities={capabilities} onOpen={onOpenMission} onDismiss={onDismissMission} />}
       {!expanded && mission && <MissionView mission={mission} capabilities={capabilities} compact />}
       {idle && <div className="console-idle">
         {inspectionProjects.length > 0 && <details className="console-inspect-project"><summary>Inspect a project (read-only)</summary><label>Project <select aria-label="Inspect a project read-only" defaultValue="" onChange={event => { const name=event.target.value; if(name) { setDraft(`/inspect ${name}: Find one small issue and explain the smallest fix with file evidence.`); setConversationOpened(true); setMode("engaged"); requestAnimationFrame(() => inputRef.current?.focus()); } event.target.value=""; }}><option value="">Choose project…</option>{inspectionProjects.map(name=><option key={name} value={name}>{name}</option>)}</select></label><small>Read-only source review. Uses the selected paid OpenAI API route; at most three file reads plus an answer, within four minutes. Review the request, then Send.</small></details>}

@@ -120,7 +120,7 @@ function Harness() {
   const [key, setKey] = useState(0), [destination, setDestination] = useState<null | { runId?: string; projects?: boolean }>(null);
   const [layout, setLayout] = useState<"compact" | "expanded">(scenario === "chat-compact" ? "compact" : "expanded");
   const [catalogReady, setCatalogReady] = useState(false);
-  const missions = missionFor[scenario];
+  const missions = params.get("missions") === "2" ? {observedAt:missionSets.researchActive.observedAt, missions:[...missionSets.researchActive.missions.filter(m=>m.status==="running"), ...missionSets.mailActive.missions.filter(m=>m.status==="running").map(m=>({...m,status:"waiting" as const,approval:{required:true,detail:"Synthetic approval checkpoint"}}))]} : missionFor[scenario];
   const command = useCommandView(capabilities, missions, fixtureNow);
   const messages = scenario === "chat-expanded" ? [...history, ...thisLaunch] : history;
   const suggestions = useMemo(() => suggestionsFor(capabilities), []);
@@ -145,13 +145,13 @@ function Harness() {
         onResearch={runId => setDestination({ runId })} onProjects={() => setDestination({ projects: true })}
         capabilities={capabilities} working={command.focus.agents} orchestrating={command.focus.running} selectedCapability={command.selectedCapability} onSelectCapability={command.setSelectedCapability} />}
       <section className="center-stack dashboard-column"><div className="panel-slot panel-slot-instrument">
-        <CommandInstrument visualState={params.get("voice")==="speaking"?"speaking":params.get("voice")==="listening"?"listening":undefined} voiceLevel={Number(params.get("level")??0)} flagship={flagship} onProjects={()=>setDestination({projects:true})} projects={projects} capabilities={capabilities} view={command.view} light={command.light} activeDomains={command.activeDomains}
+        <CommandInstrument missions={command.liveMissions} selectedMission={command.selectedMissionId} onSelectMission={command.selectMission} visualState={params.get("voice")==="speaking"?"speaking":params.get("voice")==="listening"?"listening":undefined} voiceLevel={Number(params.get("level")??0)} flagship={flagship} onProjects={()=>setDestination({projects:true})} projects={projects} capabilities={capabilities} view={command.view} light={command.light} activeDomains={command.activeDomains}
           missionOperation={command.missionOperation} working={command.working} selectedDomain={command.selectedDomain} selectedCapability={command.selectedCapability}
           onHoverDomain={command.setHoverDomain} onSelectDomain={command.setSelectedDomain} onSelectCapability={command.setSelectedCapability} />
       </div></section>
       <section className="right-stack dashboard-column"><div className="panel-slot panel-slot-chat">
         <ChatPanel companion={flagship} inspectionProjects={["fixture-repo"]} messages={messages} autoSpeak={false} onAutoSpeakChange={() => {}} onOpenPreferences={() => {}} onSendMessage={() => { mutations++; }} onRecordObservation={async () => { mutations++; return { tone: "error", message: "Fixture only" }; }}
-          layout={layout} onLayoutChange={setLayout} mission={command.mission} capabilities={capabilities} suggestions={flagship?suggestions.slice(0,3):suggestions}
+          activeMissions={command.liveMissions} selectedMissionId={command.selectedMissionId} onSelectMission={command.selectMission} layout={layout} onLayoutChange={setLayout} mission={command.mission} capabilities={capabilities} suggestions={flagship?suggestions.slice(0,3):suggestions}
           onOpenMission={destination => setDestination(destination === "research" ? {} : { projects: true })} onDismissMission={command.dismissMission} />
       </div></section>
     </section></div>

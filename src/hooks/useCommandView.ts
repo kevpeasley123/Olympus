@@ -1,3 +1,4 @@
+import { activeMissions } from "../services/pantheonMissions";
 import { useCallback, useMemo, useState } from "react";
 import {
   armoryView, currentMission, domainLight, missionFocus,
@@ -16,7 +17,10 @@ export function useCommandView(capabilities: CapabilitySnapshot | null, missions
   const [selectedDomain, setSelectedDomain] = useState<string | null>(null);
   const [selectedCapability, setSelectedCapability] = useState<string | null>(null);
   const [dismissed, setDismissed] = useState<ReadonlySet<string>>(() => new Set());
-  const mission = currentMission(missions, now, dismissed);
+  const [selectedMission, selectMission] = useState<string | null>(null);
+  const liveMissions = useMemo(() => activeMissions(missions), [missions]);
+  const selectedMissionId = liveMissions.some(m => m.id === selectedMission) ? selectedMission : null;
+  const mission = liveMissions.find(m => m.id === selectedMissionId) ?? currentMission(missions, now, dismissed);
   const focus = useMemo(() => missionFocus(mission), [mission]);
   const view = useMemo(() => capabilities ? armoryView(capabilities, { agentId: agent, hoverDomain, selectedDomain, focus }) : null,
     [capabilities, agent, hoverDomain, selectedDomain, focus]);
@@ -26,7 +30,7 @@ export function useCommandView(capabilities: CapabilitySnapshot | null, missions
   const dismissMission = useCallback((id: string) => setDismissed(previous => new Set(previous).add(id)), []);
   return {
     agent, selectAgent, hoverDomain, setHoverDomain, selectedDomain, setSelectedDomain, selectedCapability, setSelectedCapability,
-    mission, focus, view, light, activeDomains, dismissMission,
+    mission, liveMissions, selectedMissionId, selectMission, focus, view, light, activeDomains, dismissMission,
     missionOperation: mission ? mission.steps.filter(step => step.state === "completed").length : 0,
     working: focus.running && focus.capabilities.size > 0
   };

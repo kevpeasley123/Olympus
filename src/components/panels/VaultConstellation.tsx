@@ -8,6 +8,7 @@ export function VaultConstellation({ graph, error, loading }: {
 }) {
   const [message, setMessage] = useState("");
   const nodes = [...graph.nodes].sort((a, b) => a.id.localeCompare(b.id));
+  const positions=new Map(nodes.map((n,i)=>{const a=i*2.399963,r=Math.sqrt((i+.5)/Math.max(1,nodes.length));return [n.id,{x:50+Math.cos(a)*r*46,y:50+Math.sin(a)*r*39}]}));
   async function open(id: string) {
     try {
       const result = await openVaultNote(id);
@@ -20,7 +21,7 @@ export function VaultConstellation({ graph, error, loading }: {
       {error && <small> · {nodes.length ? "last snapshot" : "unavailable"}</small>}
       {!error && !nodes.length && <small> · {loading ? "loading" : "no notes in graph"}</small>}
     </span>
-    <div className="vault-constellation__field">{nodes.map((node, i) => {
+    <div className="vault-constellation__field"><svg className="architecture-lines" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">{graph.edges.slice(0,60).map((edge,i)=>{const a=positions.get(edge.from),b=positions.get(edge.to);return a&&b?<line key={i} x1={a.x} y1={a.y} x2={b.x} y2={b.y}/>:null})}</svg>{nodes.map((node, i) => {
       const angle = i * 2.399963;
       const radius = Math.sqrt((i + .5) / Math.max(1, nodes.length));
       return <button key={node.id} className="vault-star" style={{ left: `${50 + Math.cos(angle) * radius * 46}%`, top: `${50 + Math.sin(angle) * radius * 39}%` }}

@@ -8,6 +8,7 @@ export const SCENE_FINISH={
   network:{rear:.32,mid:.58,front:.95,treeOpacity:.09,crossOpacity:.10},
 };
 import { buildCommandMaterialStudy } from "./commandMaterialStudy";
+import { buildMissionScene } from "./pantheonMissionScene";
 import { buildPantheonGalaxy } from "./pantheonGalaxy";
 import { buildConstellationField } from "./constellationField";
 import { layoutBackdropStars } from "./constellationBackdrop";
@@ -113,6 +114,7 @@ export function mountHybridScene(host: HTMLDivElement, layout: CommandLayout, cu
   const cool = new T.MeshStandardMaterial({ color: BLUE, emissive: 0x284d70, emissiveIntensity: .55, metalness: .65, roughness: .3 });
   function mesh(geometry: T.BufferGeometry, material: T.Material, z = 0) { const m = new T.Mesh(geometry,material); m.position.z=z; scene.add(m); return m; }
   const study = buildCommandMaterialStudy(scene, renderer, layout);
+  const missionScene = layout.flagship ? buildMissionScene(scene, host, camera) : undefined;
   const field = buildConstellationField(scene, layout.orbitalCards, layout.flagship);
   renderer.info.autoReset=false;
   const sceneTarget=new T.WebGLRenderTarget(1,1,{type:T.HalfFloatType,samples:4});
@@ -124,7 +126,7 @@ export function mountHybridScene(host: HTMLDivElement, layout: CommandLayout, cu
   const constellationGroup=new T.Group();
   constellationGroup.name="Real constellation yaw";
   networkScene.add(constellationGroup);
-  const galaxy=layout.orbitalCards?buildPantheonGalaxy(networkScene, Boolean(layout.flagship)):undefined;
+  const galaxy=layout.orbitalCards?buildPantheonGalaxy(networkScene):undefined;
   constellationGroup.visible=!layout.orbitalCards;
   const constellationMotion=current().constellationMotion??{yaw:0};
   networkScene.add(new T.HemisphereLight(0xc5e2ff,0x07121f,.65),light.clone(),warm.clone());
@@ -149,7 +151,7 @@ export function mountHybridScene(host: HTMLDivElement, layout: CommandLayout, cu
     const group=new T.Group();group.position.z=(5+i*2)*INNER_CORE_SCALE;group.scale.setScalar(layout.flagship ? 1.05 : INNER_CORE_SCALE);scene.add(group);orbital.push(group);
     for(const [tube,alpha] of [[.20,.68],[.55,.16],[1.0,.085],[1.7,.042],[2.6,.018]]) {
       const material=new T.ShaderMaterial({
-        uniforms:{phase:{value:i*2.1},tint:{value:new T.Color(i===0||layout.orbitalCards?0xffcf7a:0xe5efff)},alpha:{value:alpha*(layout.orbitalCards?.48:.42)}},
+        uniforms:{phase:{value:i*2.1},tint:{value:new T.Color(i===0||layout.orbitalCards?0xffcf7a:0xe5efff)},alpha:{value:alpha*(layout.flagship?.18:layout.orbitalCards?.48:.42)}},
         vertexShader:`varying vec2 ringUv;
           void main(){ringUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}`,
         fragmentShader:`uniform float phase;uniform vec3 tint;uniform float alpha;varying vec2 ringUv;
@@ -161,7 +163,7 @@ export function mountHybridScene(host: HTMLDivElement, layout: CommandLayout, cu
         transparent:true,blending:T.AdditiveBlending,depthWrite:false,toneMapped:false,
       });
       ringLightMaterials.push(material);
-      group.add(new T.Mesh(new T.TorusGeometry(84+i*10,tube,8,192),material));
+      group.add(new T.Mesh(new T.TorusGeometry(84+i*10,tube*(layout.flagship?.62:1),8,192),material));
     }
   }
   const orbitalDepthMaterial=new T.MeshBasicMaterial({colorWrite:false,depthWrite:true,depthTest:true});
@@ -312,7 +314,9 @@ export function mountHybridScene(host: HTMLDivElement, layout: CommandLayout, cu
     time+=delta;previous=now;
     galaxy?.update(time);
     if(layout.flagship){camera.position.x=-85+pointer.x*5;camera.position.y=40+pointer.y*4;camera.lookAt(0,0,0);}
-    if(HARNESS_ATTRIBUTES&&galaxy){canvas.dataset.galaxyTime=String(time);canvas.dataset.galaxyBodies="22";canvas.dataset.galaxyDust="680";}
+    scene.updateMatrixWorld(true);camera.updateMatrixWorld(true);
+    const missionCount=missionScene?.update(value.missions??[],value.selectedMission??null,delta)??0;
+    if(HARNESS_ATTRIBUTES&&galaxy){canvas.dataset.galaxyTime=String(time);canvas.dataset.galaxyBodies=String(missionCount);canvas.dataset.missionPlanets=String(missionCount);canvas.dataset.galaxyDust="680";}
     constellationMotion.yaw=advanceConstellationYaw(constellationMotion.yaw,delta,moving);
     constellationGroup.rotation.y=constellationMotion.yaw;
     orbitalTime+=value.state==="error"?0:delta*(value.state==="thinking"?14:1);
@@ -335,9 +339,10 @@ export function mountHybridScene(host: HTMLDivElement, layout: CommandLayout, cu
     const ease=transition*transition*(3-2*transition);
     orbital.forEach((ring,i)=>{
       idleOrientation.setFromEuler(idleEuler.set(orbitalTime*(i%2?-.22:.28)+i*.8,orbitalTime*.16+i*.65,i*.9));
-      if(executing)idleOrientation.setFromEuler(idleEuler.set(.32+i*.22+orbitalTime*.28*EXECUTING_MOTION.rotationSpeed,.28+i*.18+orbitalTime*.16*EXECUTING_MOTION.rotationSpeed,orbitalTime*.20+i*Math.PI));
+      if(executing && !layout.flagship)idleOrientation.setFromEuler(idleEuler.set(.32+i*.22+orbitalTime*.28*EXECUTING_MOTION.rotationSpeed,.28+i*.18+orbitalTime*.16*EXECUTING_MOTION.rotationSpeed,orbitalTime*.20+i*Math.PI));
+      if(layout.flagship)idleOrientation.setFromEuler(idleEuler.set(i===0?1.32:.22,i===0?.15:1.32,i===0?.12:-.22));
       if(errorState)idleOrientation.setFromEuler(idleEuler.set(i===0?.55:-.48,i===0?-.65:.65,i*.7));
-      ring.quaternion.copy(transitionStarts[i]).slerp(listening?camera.quaternion:idleOrientation,ease);
+      ring.quaternion.copy(transitionStarts[i]).slerp(listening?camera.quaternion:idleOrientation,layout.flagship && !listening ? 1 : ease);
       orbitalDepth[i].quaternion.copy(ring.quaternion);
     });
     if(listening&&transition===1)listeningTime+=delta;
@@ -416,13 +421,13 @@ export function mountHybridScene(host: HTMLDivElement, layout: CommandLayout, cu
     });
     if(HARNESS_ATTRIBUTES)canvas.dataset.executionSignals=String(executionSignals.filter(orb=>orb.visible).length);
     if(signal.visible){const e=edges[Math.floor(time/4.5)%edges.length];signal.position.copy(pos(executing?e.to:e.from)).lerp(pos(executing?e.from:e.to),(time%4.5)/2);}
-    const signature = `${value.state}/${moving?value.voiceLevel:0}/${JSON.stringify(light)}/${canvas.width}/${canvas.height}/${value.running}`;
+    const signature = `${value.state}/${moving?value.voiceLevel:0}/${JSON.stringify(light)}/${canvas.width}/${canvas.height}/${value.running}/${moving ? "" : JSON.stringify(value.missions)}/${value.selectedMission}`;
     try { if(document.visibilityState==="visible" && host.getBoundingClientRect().width>0 && (moving || signature !== lastSignature)) { renderer.info.reset();composer.render(); renderCount++; lastSignature=signature; } }
     catch { stopped=true; fail("Rendering stopped unexpectedly."); return; }
     if(!announced && renderCount){announced=true;ready();}
     if(HARNESS_ATTRIBUTES&&(lastStats===0||now-lastStats>500)){lastStats=now;canvas.dataset.constellationYaw=String(constellationMotion.yaw);canvas.dataset.rings=String(orbital.filter(r=>r.visible).length);canvas.dataset.frames=String(renderCount);canvas.dataset.drawCalls=String(renderer.info.render.calls);canvas.dataset.nodes=String(nodes.length);canvas.dataset.parallax=JSON.stringify([pointer.x,pointer.y]);
       canvas.dataset.projection=camera.type;
-      if(galaxy && layout.flagship){const p=new T.Vector3();const depths=galaxy.group.children.filter(o=>o instanceof T.Mesh).map(o=>o.getWorldPosition(p).z);canvas.dataset.volumeDepth=JSON.stringify({front:depths.filter(z=>z>15).length,rear:depths.filter(z=>z< -82).length});}}
+      }
     // One loop; no React updates per frame. Hidden and reduced-motion views render only on changes.
     if(moving)frame=requestAnimationFrame(render);
     else if(!hidden())timer=window.setTimeout(()=>render(performance.now()),250);
@@ -434,6 +439,7 @@ export function mountHybridScene(host: HTMLDivElement, layout: CommandLayout, cu
     interaction.removeEventListener('pointermove',movePointer);interaction.removeEventListener('pointerleave',resetPointer);window.removeEventListener('blur',resetPointer);if(frame!==undefined)cancelAnimationFrame(frame);if(timer!==undefined)clearTimeout(timer);observer.disconnect();document.removeEventListener("visibilitychange",wake);canvas.removeEventListener("webglcontextlost",lost);
     const geometries=new Set<T.BufferGeometry>(),materials=new Set<T.Material>();
     for(const root of [scene,networkScene])root.traverse(o=>{const drawable=o as T.Mesh;if(drawable.geometry)geometries.add(drawable.geometry);if(drawable.material)(Array.isArray(drawable.material)?drawable.material:[drawable.material]).forEach(m=>materials.add(m));});
+    missionScene?.dispose();
     halos.dispose();backdrop?.dispose();haloTexture.dispose();backdropTexture?.dispose();
     geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose()); structural.dispose();cool.dispose();glow.dispose();study.dispose();bloomPass.dispose();outputPass.dispose();composer.dispose();renderer.dispose();renderer.forceContextLoss();canvas.remove();
   };
