@@ -25,6 +25,16 @@ interface Props {
 }
 export function OlympusArmory({capabilities, missions, error, missionsError, preview, selectedAgent, onSelectAgent, onDestination, onInspectResearch}: Props) {
   const highlight=useAgentHighlight();
+  const armoryRef=useRef<HTMLElement>(null);
+  useEffect(()=>{
+    const emblems=armoryRef.current?.querySelectorAll<HTMLElement>('.armory-roster-emblem');
+    if(!emblems)return;
+    const visible=new Set<Element>();
+    const refresh=()=>emblems.forEach(el=>{el.dataset.shinePaused=String(document.hidden||!visible.has(el));});
+    const observer=new IntersectionObserver(entries=>{entries.forEach(e=>{if(e.isIntersecting)visible.add(e.target);else visible.delete(e.target);});refresh();});
+    emblems.forEach(el=>observer.observe(el));document.addEventListener('visibilitychange',refresh);refresh();
+    return()=>{observer.disconnect();document.removeEventListener('visibilitychange',refresh);};
+  });
   const [catalog, setCatalog] = useState<CommandCatalog | null>(preview ? fixture.empty as CommandCatalog : null);
   const [catalogError, setCatalogError] = useState("");
   const [revision, setRevision] = useState(0);
@@ -76,7 +86,7 @@ export function OlympusArmory({capabilities, missions, error, missionsError, pre
   const filterCounts={All:roles.length,Active:roles.filter(activeAgent).length??0,Idle:roles.filter(role=>status(role)==="Ready").length??0};
   const visibleAgents=roles.filter(role=>role.kind==="orchestrator"||agentFilter==="All"||(agentFilter==="Active"?activeAgent(role):status(role)==="Ready"));
   const openOperation = (m: Mission) => {leave();onDestination(m.destination);};
-  return <aside className="olympus-armory" aria-label="Olympus Armory">
+  return <aside ref={armoryRef} className="olympus-armory" aria-label="Olympus Armory">
     <div className="armory-heading"><h2>Armory</h2><p>Capabilities at your command</p></div>
     <div className="armory-index">{categories.map((name,i)=>{const Icon=symbols[name];return <button key={name} onClick={()=>show(name)} aria-haspopup="dialog"><Icon size={16}/><span>{name}</span><strong>{numbers[i] ?? "—"}</strong><ChevronRight size={12}/></button>;})}</div>
 
