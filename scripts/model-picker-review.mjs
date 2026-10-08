@@ -1,0 +1,58 @@
+import {chromium} from 'playwright';
+import {mkdir,writeFile} from 'node:fs/promises';
+import assert from 'node:assert/strict';
+const base=process.argv[2]??'http://127.0.0.1:31430';
+const out='output/model-picker-review';await mkdir(out,{recursive:true});
+const b=await chromium.launch({channel:'msedge'});const checks=[],errors=[];
+const check=(v,label)=>{assert(v,label);checks.push(label);};
+try{
+ const p=await b.newPage({viewport:{width:900,height:800}});p.on('pageerror',e=>errors.push(e.message));
+ await p.goto(base+'/model-routing-harness.html');
+ const trigger=p.getByRole('button',{name:/Choose model/});await trigger.filter({hasText:'Primary fixture'}).waitFor();
+ check(await p.getByRole('dialog',{name:'Choose a model'}).count()===0,'Closed by default');
+ await trigger.click();let dialog=p.getByRole('dialog',{name:'Choose a model'});await dialog.waitFor();
+ check(await dialog.getByRole('radio',{name:/Future model fixture/}).count()===1,'Backend supplied future model label');
+ check(await dialog.getByRole('radio',{name:/Claude/}).isDisabled(),'Unavailable model disabled with reason');
+ check((await dialog.innerText()).includes('Provider not configured'),'Unavailable reason visible');
+ await p.keyboard.press('ArrowDown');check((await p.locator(':focus').innerText()).includes('Future model fixture'),'Arrow navigation');
+ await p.keyboard.press('Enter');check(await dialog.count()===0,'Selection closes picker');check(await trigger.evaluate(e=>e===document.activeElement),'Selection restores trigger focus');
+ check((await trigger.innerText()).includes('Next answer'),'Scope visible on trigger');
+ check(await p.evaluate(()=>window.pickerTest.consume())==='DEEP_REASONING','Selected route consumed');
+ check(await p.evaluate(()=>window.pickerTest.consume())==='PRIMARY','Next answer resets');
+ await trigger.click();await dialog.getByRole('radio',{name:'This chat',exact:true}).click();await dialog.getByRole('radio',{name:/Future model fixture/}).click();
+ check(await p.evaluate(()=>window.pickerTest.consume())==='DEEP_REASONING','Chat selection used');
+ check(await p.evaluate(()=>window.pickerTest.consume())==='DEEP_REASONING','Chat selection retained');
+ check((await trigger.innerText()).includes('This chat'),'Persistent scope shown');
+ check(await p.evaluate(()=>window.pickerTest.saved.some(x=>x.scope==='chat'&&x.capability==='DEEP_REASONING')),'Chat scope saved via IPC');
+ const running=await p.evaluate(()=>window.pickerTest.consume());
+ await trigger.click();await dialog.getByRole('radio',{name:/Primary fixture/}).click();check(running==='DEEP_REASONING','Captured request stays unchanged');
+ await trigger.click();await p.keyboard.press('Escape');check(await dialog.count()===0&&await trigger.evaluate(e=>e===document.activeElement),'Escape closes and restores focus');
+ await trigger.click();await trigger.click();check(await dialog.count()===0,'Trigger toggles closed');
+ await trigger.click();await p.locator('#outside').click();check(await dialog.count()===0,'Outside click dismisses');
+ await trigger.click();await dialog.getByRole('radio',{name:'Next answer',exact:true}).click();await p.keyboard.press('Escape');
+ await p.evaluate(()=>window.pickerTest.failSave(true));await trigger.click();await dialog.getByRole('radio',{name:/Future model fixture/}).click();await dialog.getByRole('alert').waitFor();check((await trigger.innerText()).includes('Primary fixture'),'Failed save keeps previous model');
+ await p.evaluate(()=>window.pickerTest.failSave(false));await p.keyboard.press('Escape');
+ check(await p.getByText('Answered by actual-fixture-snapshot',{exact:true}).count()===1,'Actual model attribution');
+ check(await p.getByText('Requested requested-fixture · unconfirmed',{exact:true}).count()===1,'Unconfirmed model visibly labelled');
+ await p.getByText('Answered by actual-fixture-snapshot',{exact:true}).click();check(await p.getByText('fixture-provider',{exact:true}).first().isVisible(),'Attribution details');
+ await p.evaluate(()=>window.pickerTest.select('CLAUDE_COMPARISON','chat'));
+ check(await p.evaluate(()=>{try{window.pickerTest.consume();return false;}catch{return true;}}),'Unavailable selection blocks dispatch without substitution');
+ await p.evaluate(()=>window.pickerTest.reset());
+ await p.goto(base+'/model-routing-harness.html?restore');await trigger.filter({hasText:'Future model fixture'}).waitFor();check(await p.evaluate(()=>window.pickerTest.consume())==='DEEP_REASONING'&&await p.evaluate(()=>window.pickerTest.consume())==='DEEP_REASONING','Persisted chat selection restored');
+ await p.goto(base+'/model-routing-harness.html?default');await trigger.filter({hasText:'Future model fixture'}).waitFor();await p.evaluate(()=>window.pickerTest.select('PRIMARY','next'));check(await p.evaluate(()=>window.pickerTest.consume())==='PRIMARY'&&await p.evaluate(()=>window.pickerTest.consume())==='DEEP_REASONING','Reset uses backend configured default');
+ for(const [width,height] of [[1440,960],[1920,1080],[1280,800],[900,900],[390,700]]){
+  await p.setViewportSize({width,height});
+  await p.goto(base+'/command-agent-harness.html?flagship&scenario=mission-research&missions=2');
+  await p.waitForSelector('html[data-visual-ready]');
+  const t=p.getByRole('button',{name:/Choose model/});await t.scrollIntoViewIfNeeded();
+  check(await p.getByRole('dialog',{name:'Choose a model'}).count()===0,'Command closed by default '+width);
+  const before=await p.locator('.console-command-bar').boundingBox();
+  await t.click();const d=p.getByRole('dialog',{name:'Choose a model'});await d.waitFor();await p.waitForTimeout(150);
+  check(await d.getByRole('radiogroup',{name:'Models',exact:true}).getByRole('radio').count()===3,'Complete preview catalog '+width);check(await d.getByRole('radio',{name:/Sol/}).isEnabled(),'Available preview model '+width);const r=await d.boundingBox();check(r.x>=0&&r.y>=0&&r.x+r.width<=width+1&&r.y+r.height<=height+1,'Picker fits viewport '+width);
+  check(await d.evaluate(e=>e.parentElement===document.body),'Overlay escapes panel clipping '+width);
+  const after=await p.locator('.console-command-bar').boundingBox();check(Math.abs(before.y-after.y)<1&&Math.abs(before.height-after.height)<1,'No composer layout shift '+width);
+  const ink=await d.getByRole('radio',{name:/Sol/}).evaluate(e=>{const r=e.getBoundingClientRect();return document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)?.closest('[role="radio"]')===e;});check(ink,'Options unobscured '+width);
+  await p.screenshot({path:`${out}/open-${width}.png`});await p.keyboard.press('Escape');await p.screenshot({path:`${out}/closed-${width}.png`});
+ }
+ check(errors.length===0,'No browser errors');await writeFile(`${out}/report.json`,JSON.stringify({checks,errors},null,2));console.log(`PASS ${checks.length} picker behavior and layout checks`);
+}finally{await b.close();}

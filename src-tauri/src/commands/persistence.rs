@@ -471,6 +471,7 @@ fn store_messages_as(connection: &mut Connection, messages: Vec<ConversationMess
 #[tauri::command]
 pub fn clear_conversation(db: State<Db>) -> Result<(), String> {
     let connection = locked(&db)?;
+    connection.execute("DELETE FROM settings WHERE key='conversationModelSelection'", []).map_err(|e|e.to_string())?;
     connection.execute("DELETE FROM conversation_model", []).map_err(|e|e.to_string())?;
     connection.execute("DELETE FROM conversation_voice", []).map_err(|e| e.to_string())?;
     connection.execute("DELETE FROM conversation_mail", []).map_err(|_|"Mail provenance removal failed")?;

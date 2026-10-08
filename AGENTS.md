@@ -34,6 +34,15 @@ are defined in `CLAUDE.md` under that heading; follow it exactly.
 
 ## UI changes
 
+Before implementing interface motion, search the installed Kinetics skill indexes
+and reuse a matching pattern when appropriate. The three skills are
+`interaction-and-input-skills`, `feedback-and-state-skills`, and
+`surface-and-motion-skills`; each has `references/pattern-index.json` with pattern
+names, purposes, synonyms, and reference paths. Read only matching references.
+For example, Border Beam is in Surface and Motion Skills. Preserve existing
+design and real state semantics; consult these skills even when the request does
+not explicitly name them. If they are unavailable, say so and use project primitives.
+
 Look at what you changed, don't only compile it. For any change to Command or
 shared UI:
 

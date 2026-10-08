@@ -1,3 +1,4 @@
+import {resetModelSelection} from "./modelRouting";
 import { normalizeVoicePreferences, readVoicePreferences } from "./voicePreferences";
 import { invoke } from "@tauri-apps/api/core";
 import { desktopInitialState, isSeedMessage, seedState } from "../data/seed";
@@ -121,6 +122,7 @@ export async function resetState(): Promise<OlympusState> {
     }
   }
 
+  resetModelSelection();
   const initial = initialDashboardState();
   await persistPreferences(initial);
   return initial;

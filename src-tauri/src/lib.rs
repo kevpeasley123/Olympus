@@ -401,6 +401,7 @@ pub fn run() {
             commands::knowledge_audit::list_knowledge_audits,
             commands::knowledge_audit::inspect_knowledge_audit,
             commands::models::model_routes,
+            commands::models::save_model_selection,
             commands::models::model_diagnostics,
             commands::models::record_voice_request,
             create_voice_session,

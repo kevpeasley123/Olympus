@@ -1,0 +1,2 @@
+# Preserve the exact imported document bytes used by the reviewed skill catalog.
+scripts/fixtures/kinetics/*.md -text

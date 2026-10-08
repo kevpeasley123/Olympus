@@ -62,9 +62,75 @@ pub fn resolve(capability: Capability) -> Route {
         },
     }
 }
+/// Picker metadata is separate from execution routing. Availability means configured,
+/// not a promise that provider credits or the remote service are healthy.
+fn picker_route(capability: Capability, configured: bool) -> Value {
+    let route = resolve(capability);
+    let (label, description, provider_label) = match capability {
+        Capability::Primary => ("Sol", "Everyday reasoning", "OpenAI"),
+        Capability::DeepReasoning => ("Astra", "Deeper analysis", "OpenAI"),
+        Capability::ClaudeComparison => ("Claude", "Another perspective", "Anthropic"),
+    };
+    let mut value = serde_json::to_value(&route).expect("serializable route");
+    value["label"] = json!(label);
+    value["description"] = json!(description);
+    value["providerLabel"] = json!(provider_label);
+    value["available"] = json!(configured);
+    value["unavailableReason"] = if configured { Value::Null } else { json!(format!("{provider_label} is not configured in this desktop app.")) };
+    value
+}
+fn configured(capability: Capability) -> bool {
+    let key = if capability == Capability::ClaudeComparison { "ANTHROPIC_API_KEY" } else { "OPENAI_API_KEY" };
+    std::env::var(key).is_ok_and(|value| !value.trim().is_empty())
+}
+const SELECTION_KEY: &str = "conversationModelSelection";
 #[tauri::command]
-pub fn model_routes() -> Value {
-    json!({"routes":[resolve(Capability::Primary),resolve(Capability::DeepReasoning),resolve(Capability::ClaudeComparison)],"realtime":REALTIME_MODEL,"transcription":TRANSCRIPTION_MODEL,"coding":CODING_MODEL})
+pub fn model_routes(db: State<Db>) -> Result<Value, String> {
+    let connection = db.0.lock().map_err(|_| "Model catalog unavailable")?;
+    let saved = connection.query_row("SELECT value FROM settings WHERE key=?1", [SELECTION_KEY], |row| row.get::<_,String>(0));
+    let selection = match saved {
+        Ok(text) => serde_json::from_str::<Value>(&text).map_err(|_| "Saved model selection is invalid")?,
+        Err(rusqlite::Error::QueryReturnedNoRows) => Value::Null,
+        Err(_) => return Err("Saved model selection unavailable".into()),
+    };
+    Ok(json!({"routes":[picker_route(Capability::Primary,configured(Capability::Primary)),picker_route(Capability::DeepReasoning,configured(Capability::DeepReasoning)),picker_route(Capability::ClaudeComparison,configured(Capability::ClaudeComparison))],"defaultCapability":"PRIMARY","selection":selection,"realtime":REALTIME_MODEL,"transcription":TRANSCRIPTION_MODEL,"coding":CODING_MODEL}))
+}
+fn store_selection(connection: &rusqlite::Connection, capability: Capability, scope: &str) -> Result<(), String> {
+    match scope {
+        "chat" => { connection.execute("INSERT INTO settings(key,value) VALUES (?1,?2) ON CONFLICT(key) DO UPDATE SET value=excluded.value",params![SELECTION_KEY,json!({"capability":capability,"scope":"chat"}).to_string()]).map_err(|_| "Could not save model selection")?; },
+        "next" => { connection.execute("DELETE FROM settings WHERE key=?1",[SELECTION_KEY]).map_err(|_| "Could not save model selection")?; },
+        _ => return Err("Unknown selection scope".into()),
+    }
+    Ok(())
+}
+#[tauri::command]
+pub fn save_model_selection(db: State<Db>, capability: Capability, scope: String) -> Result<(), String> {
+    if !configured(capability) { return Err("This model is not configured. Choose an available model.".into()); }
+    let connection = db.0.lock().map_err(|_| "Model selection unavailable")?;
+    store_selection(&connection,capability,&scope)
+}
+#[cfg(test)]
+mod picker_tests {
+    use super::*;
+    #[test] fn catalog_reports_unavailability_without_substitution() {
+        for cap in [Capability::Primary,Capability::DeepReasoning,Capability::ClaudeComparison] {
+            let yes=picker_route(cap,true);let no=picker_route(cap,false);
+            assert_eq!(yes["model"],no["model"]);
+            assert_eq!(yes["available"],true);assert_eq!(no["available"],false);
+            assert!(no["unavailableReason"].as_str().unwrap().contains("not configured"));
+            assert!(!yes["description"].as_str().unwrap().is_empty());
+        }
+    }
+    #[test] fn chat_selection_is_saved_and_next_answer_removes_it() {
+        let db=rusqlite::Connection::open_in_memory().unwrap();
+        db.execute_batch(include_str!("../../schema.sql")).unwrap();
+        store_selection(&db,Capability::DeepReasoning,"chat").unwrap();
+        let text:String=db.query_row("SELECT value FROM settings WHERE key=?1",[SELECTION_KEY],|r|r.get(0)).unwrap();
+        assert_eq!(serde_json::from_str::<Value>(&text).unwrap()["capability"],"DEEP_REASONING");
+        assert!(store_selection(&db,Capability::Primary,"forever").is_err());
+        store_selection(&db,Capability::Primary,"next").unwrap();
+        assert_eq!(db.query_row("SELECT count(*) FROM settings WHERE key=?1",[SELECTION_KEY],|r|r.get::<_,i64>(0)).unwrap(),0);
+    }
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

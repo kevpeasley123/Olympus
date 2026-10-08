@@ -1,53 +1,103 @@
-import {useEffect,useState,useRef,useId} from "react";
-import {loadModelCatalog,loadModelDiagnostics,selectNextModel,useNextModel,type ModelCatalog,type ModelCapability,type ModelRequest} from "../../services/modelRouting";
+import {useEffect,useLayoutEffect,useState,useRef,useId} from "react";
+import {createPortal} from "react-dom";
+import {loadModelCatalog,loadModelDiagnostics,saveModelSelection,useModelSelection,type ModelCatalog,type ModelCapability,type ModelScope,type ModelRequest} from "../../services/modelRouting";
 import {isTauriRuntime} from "../../services/launcher";
 import {routeLabel} from "../../services/routeLabel";
 import {formatWhen} from "../../services/time";
 import "./command.css";
+import "./modelPicker.css";
 const ms=(value:number|null)=>value===null?"—":value<1000?`${value} ms`:`${(value/1000).toFixed(1)} s`;
 const statusLabel=(row:ModelRequest)=>row.errorCode?`${row.status} · ${row.errorCode}`:row.status;
-const routeNames:Record<ModelCapability,string>={PRIMARY:"SOL",DEEP_REASONING:"ASTRA",CLAUDE_COMPARISON:"CLAUDE"};
-const routeDescriptions:Record<ModelCapability,string>={PRIMARY:"Default reasoning",DEEP_REASONING:"Deep reasoning",CLAUDE_COMPARISON:"Explicit comparison"};
 export function ModelRouteControl({disabled=false}:{disabled?:boolean}) {
-  const [catalog,setCatalog]=useState<ModelCatalog|null>(null),[open,setOpen]=useState(false);
-  const next=useNextModel(),root=useRef<HTMLDivElement>(null),trigger=useRef<HTMLButtonElement>(null),menuId=useId();
-  const desktop=isTauriRuntime();
-  useEffect(()=>{if(desktop)void loadModelCatalog().then(setCatalog).catch(()=>{});},[desktop]);
-  const routes:ModelCapability[]=catalog?catalog.routes.map(route=>route.capability):desktop?[]:["PRIMARY","DEEP_REASONING","CLAUDE_COMPARISON"];
-  const unavailable=disabled||!routes.length;
-  useEffect(()=>{if(unavailable)setOpen(false);},[unavailable]);
-  useEffect(()=>{
-    if(!open)return;
-    root.current?.querySelector<HTMLButtonElement>('[aria-checked="true"]')?.focus();
-    const outside=(event:PointerEvent)=>{if(!root.current?.contains(event.target as Node))setOpen(false);};
-    document.addEventListener('pointerdown',outside);
-    return ()=>document.removeEventListener('pointerdown',outside);
-  },[open]);
-  const label=routeNames[next]??next;
-  return <div className="model-route-control" ref={root} onKeyDown={event=>{
-    if(event.key==='Escape'&&open){event.preventDefault();event.stopPropagation();setOpen(false);trigger.current?.focus();}
-    if(open&&['ArrowDown','ArrowUp','Home','End'].includes(event.key)){
-      event.preventDefault();event.stopPropagation();
-      const items=Array.from(root.current?.querySelectorAll<HTMLButtonElement>('[role="menuitemradio"]')??[]);
-      const index=items.indexOf(document.activeElement as HTMLButtonElement);
-      const target=event.key==='Home'?0:event.key==='End'?items.length-1:(index+(event.key==='ArrowDown'?1:-1)+items.length)%items.length;
-      items[target]?.focus();
-    }
-    if(event.key==='Tab')setOpen(false);
+ const [catalog,setCatalog]=useState<ModelCatalog|null>(null),[open,setOpen]=useState(false),[error,setError]=useState<string|null>(null),[saving,setSaving]=useState(false);
+ const selection=useModelSelection(),trigger=useRef<HTMLButtonElement>(null),panel=useRef<HTMLDivElement>(null),id=useId();
+ const returnFocus=useRef(false),scopeFocus=useRef<HTMLButtonElement|null>(null);
+ const [position,setPosition]=useState({left:8,top:8,width:320,maxHeight:400});
+ const desktop=isTauriRuntime();
+ const refresh=()=>loadModelCatalog().then(value=>{setCatalog(value);setError(null);}).catch(()=>setError("Model catalog unavailable. Try again."));
+ useEffect(()=>{void refresh();},[]);
+ useEffect(()=>{if(disabled)setOpen(false);},[disabled]);
+ const current=catalog?.routes.find(r=>r.capability===selection.capability);
+ const defaultName=catalog?.routes.find(r=>r.capability===catalog.defaultCapability)?.label??"the configured default";
+ const suffix=!catalog?"Loading":!current?.available?"Unavailable":selection.scope==="chat"?"This chat":selection.capability===catalog.defaultCapability?"Default":"Next answer";
+ const close=(focus=false)=>{returnFocus.current=focus;setOpen(false);};
+ useLayoutEffect(()=>{if(!saving){if(!open&&returnFocus.current){returnFocus.current=false;trigger.current?.focus();}else if(open&&scopeFocus.current){scopeFocus.current.focus();scopeFocus.current=null;}}},[open,saving]);
+ useLayoutEffect(()=>{
+  if(!open)return;
+  const place=()=>{
+   const anchor=trigger.current?.getBoundingClientRect();if(!anchor)return;
+   const composer=trigger.current?.closest('.console-command-bar')?.getBoundingClientRect()??anchor;
+   const vv=window.visualViewport,leftEdge=vv?.offsetLeft??0,topEdge=vv?.offsetTop??0;
+   const w=vv?.width??innerWidth,h=vv?.height??innerHeight;
+   const width=Math.min(360,Math.max(280,composer.width-16),w-16);
+   const left=Math.max(leftEdge+8,Math.min(composer.right-width,leftEdge+w-width-8));
+   const above=anchor.top-topEdge-18,below=topEdge+h-anchor.bottom-18;
+   const useAbove=above>=Math.min(350,below);
+   const maxHeight=Math.max(80,useAbove?above:below);
+   const height=Math.min(panel.current?.scrollHeight??400,maxHeight);
+   setPosition({left,top:useAbove?Math.max(topEdge+8,anchor.top-height-10):anchor.bottom+10,width,maxHeight});
+  };
+  place();const observer=new ResizeObserver(place);if(panel.current)observer.observe(panel.current);
+  window.addEventListener('resize',place);window.addEventListener('scroll',place,true);
+  window.visualViewport?.addEventListener('resize',place);window.visualViewport?.addEventListener('scroll',place);
+  return()=>{observer.disconnect();window.removeEventListener('resize',place);window.removeEventListener('scroll',place,true);window.visualViewport?.removeEventListener('resize',place);window.visualViewport?.removeEventListener('scroll',place);};
+ },[open,catalog,error]);
+ useEffect(()=>{
+  if(!open)return;
+  (panel.current?.querySelector<HTMLButtonElement>('[role="radio"][aria-checked="true"]:not(:disabled)')??panel.current?.querySelector<HTMLButtonElement>('button:not(:disabled)'))?.focus();
+  const outside=(e:PointerEvent)=>{if(!panel.current?.contains(e.target as Node)&&!trigger.current?.contains(e.target as Node))close();};
+  const focusOutside=(e:FocusEvent)=>{if(!panel.current?.contains(e.target as Node)&&!trigger.current?.contains(e.target as Node))close();};
+  document.addEventListener('pointerdown',outside);document.addEventListener('focusin',focusOutside);
+  return()=>{document.removeEventListener('pointerdown',outside);document.removeEventListener('focusin',focusOutside);};
+ },[open]);
+ async function choose(capability:ModelCapability,scope:ModelScope,finish:boolean){
+  if(!finish)scopeFocus.current=document.activeElement as HTMLButtonElement;
+  setSaving(true);setError(null);
+  try{await saveModelSelection(capability,scope);if(finish)close(true);}
+  catch(e){setError(e instanceof Error?e.message:String(e));}
+  finally{setSaving(false);}
+ }
+ return <div className="model-route-control">
+  <button ref={trigger} type="button" className="model-route-trigger" aria-label={`Choose model: ${current?.label??selection.capability} · ${suffix}`} aria-haspopup="dialog" aria-expanded={open} aria-controls={open?id:undefined} disabled={disabled||saving}
+   onClick={()=>{if(open)close(true);else{setOpen(true);void refresh();}}}>
+   <span>{current?.label??(error?"Models":"Model")}</span><span className="model-choice-scope"> · {suffix}</span><span aria-hidden="true"> ▾</span>
+  </button>
+  {open&&createPortal(<div ref={panel} id={id} role="dialog" aria-modal="false" aria-label="Choose a model" className="olympus-model-picker" style={position} onKeyDown={e=>{
+   if(e.key==='Escape'){e.preventDefault();e.stopPropagation();close(true);}
+   const group=(e.target as HTMLElement).closest('[role="radiogroup"]');
+   if(group&&['ArrowDown','ArrowUp','ArrowRight','ArrowLeft','Home','End'].includes(e.key)){
+    e.preventDefault();const items=Array.from(group.querySelectorAll<HTMLButtonElement>('button:not(:disabled)'));const index=items.indexOf(document.activeElement as HTMLButtonElement);
+    const next=e.key==='Home'?0:e.key==='End'?items.length-1:(index+(['ArrowDown','ArrowRight'].includes(e.key)?1:-1)+items.length)%items.length;
+    items[next]?.focus();
+   }
+   if(e.key==='Tab'){
+    const items=Array.from(panel.current?.querySelectorAll<HTMLButtonElement>('button:not(:disabled)')??[]);
+    if((e.shiftKey&&document.activeElement===items[0])||(!e.shiftKey&&document.activeElement===items[items.length-1])){e.preventDefault();close(true);}
+   }
   }}>
-    <button ref={trigger} type="button" className="model-route-trigger" aria-label={`Reasoning for next answer: ${label}`} aria-haspopup="menu" aria-expanded={open} aria-controls={menuId} disabled={unavailable}
-      title={desktop?`Reasoning for the next request: ${label}. Resets to Sol after submission.`:'Reasoning selection preview; requests run in the desktop app.'}
-      onClick={()=>setOpen(value=>!value)} onKeyDown={event=>{if(!open&&['ArrowDown','ArrowUp'].includes(event.key)){event.preventDefault();setOpen(true);}}}>
-      <span className="model-route-prefix">MODEL · </span>{label}<span aria-hidden="true"> ▾</span>
-    </button>
-    {open&&<div id={menuId} className="model-route-menu" role="menu" aria-label="Reasoning for next answer">
-      {routes.map(capability=><button type="button" role="menuitemradio" aria-checked={next===capability} key={capability} onClick={()=>{selectNextModel(capability);setOpen(false);trigger.current?.focus();}}>
-        <strong>{routeNames[capability]??capability}</strong><small>{routeDescriptions[capability]??'Reasoning'}</small>
-      </button>)}
-      <p>{desktop?'Applies to one request, then returns to Sol.':'Browser preview · reasoning runs in the desktop app.'}</p>
-    </div>}
-  </div>;
+   <header><h3>Choose a model</h3><button type="button" className="model-picker-close" aria-label="Close model picker" onClick={()=>close(true)}>×</button></header>
+   <div role="radiogroup" aria-label="Models" className="model-picker-options">
+    {catalog?.routes.map(route=><button type="button" role="radio" aria-checked={selection.capability===route.capability} disabled={!route.available||saving} key={route.capability} title={route.model} onClick={()=>void choose(route.capability,selection.scope,true)}>
+     <span className="model-picker-copy"><strong>{route.label}</strong><small>{route.description}</small>{!route.available&&<small className="model-unavailable">Unavailable · {route.unavailableReason}</small>}</span>
+     <span className="model-provider">{route.providerLabel}</span><span className="model-check" aria-hidden="true">{selection.capability===route.capability?'✓':''}</span>
+    </button>)}
+   </div>
+   <div className="model-picker-scope" role="radiogroup" aria-label="Applies to"><span>Applies to</span><div>
+    {([['next','Next answer'],['chat','This chat']] as const).map(([scope,label])=><button key={scope} type="button" role="radio" aria-checked={selection.scope===scope} disabled={saving||!current?.available} onClick={()=>void choose(selection.capability,scope,false)}>{label}</button>)}
+   </div></div>
+   <p>{selection.scope==='next'?`Returns to ${defaultName} after this answer.`:'Stays selected for this conversation until you change it.'}</p>
+   {!desktop&&<p className="model-preview-note">Browser preview · models run in the desktop app.</p>}
+   {error&&<div role="alert" className="model-picker-error">{error}<button type="button" onClick={()=>void refresh()}>Retry</button></div>}
+  </div>,document.body)}
+ </div>;
 }
+export function ModelAttribution({request}:{request:ModelRequest}){
+ const confirmed=request.actualModel;
+ return <details className="model-attribution"><summary>{confirmed?`Answered by ${confirmed}`:`Requested ${request.requestedModel} · unconfirmed`}</summary>
+  <dl><dt>Provider</dt><dd>{request.provider}</dd><dt>Requested</dt><dd>{request.requestedModel}</dd><dt>Actual model</dt><dd>{confirmed??'Unconfirmed — provider did not report a model'}</dd><dt>Reasoning</dt><dd>{request.reasoningEffort??'Not reported'}</dd><dt>Status</dt><dd>{request.status}</dd><dt>Request</dt><dd>{request.id}</dd>{request.fallbackFrom&&<><dt>Fallback from</dt><dd>{request.fallbackFrom}</dd></>}</dl>
+ </details>;
+}
+
 /**
  * Request diagnostics as a table (review D4): the columns answer "what ran,
  * how, and how fast"; each row's full record stays one disclosure away.

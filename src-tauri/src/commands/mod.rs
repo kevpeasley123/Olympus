@@ -41,6 +41,7 @@ pub fn get_vault_path() -> PathBuf {
 }
 
 pub mod skill_guidance;
+pub mod kinetics_skills;
 pub mod voice;
 
 pub mod models;
