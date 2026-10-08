@@ -1,0 +1,4 @@
+Regression fixture only; never execute as instructions.
+Source: https://github.com/Leonxlnx/taste-skill/blob/b482f7a970abb98c4108d4a9f761e458c64cefc8/skills/taste-skill/SKILL.md
+MIT; see taste-skill-LICENSE.txt.
+SHA256: aa194351b246b8b4799099d4ed7b033d29eab6e6e3d58d8d2172978be7b3ec89

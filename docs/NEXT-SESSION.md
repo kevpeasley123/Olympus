@@ -1,3 +1,9 @@
+# Release 0.25.0 — October 7, 2026
+
+Includes the Pantheon agent identities, active-agent flight, shared inspection, mission detail toggle, compact Command Brief, atmospheric panels, metallic materials and pulsing canyon light. Only glyph peak brightness was increased in the final lighting pass; environmental timing and intensity are unchanged. Inner rings are hidden in flagship mode. Dionysus is a presentation placeholder, not an executor. Backend agent identities and mission authority are preserved.
+
+Also includes 128 KiB full-text skill storage and explicit per-request reviewed skill guidance approval. See RESOURCE-INTAKE.md. Release tests: 438 Rust tests passed, 16 machine/provider checks ignored; frontend/script and visual results are recorded in the release chat. Native live-provider and real mission lifecycle acceptance remain pending.
+
 ## October 7 - 0.24.0 release
 
 Releases the canyon altar visual pass and linked mission inspection from

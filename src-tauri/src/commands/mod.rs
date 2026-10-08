@@ -40,6 +40,7 @@ pub fn get_vault_path() -> PathBuf {
     acceptance::vault_path().unwrap_or_else(|| PathBuf::from(VAULT_PATH))
 }
 
+pub mod skill_guidance;
 pub mod voice;
 
 pub mod models;

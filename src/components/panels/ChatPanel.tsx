@@ -1,3 +1,5 @@
+import {CommandBrief} from "./CommandBrief";
+import {SkillApproval} from "./SkillApproval";
 import {ModelRouteControl} from "./ModelSettings";
 import { realtimeVoice, voicePreview, useVoiceState } from "../../services/realtimeVoice";
 import { isModalOpen, SHORTCUTS } from "../../services/shortcuts";
@@ -264,6 +266,7 @@ export function ChatPanel({ companion = false, messages, onSendMessage, onRecord
       onKeyDown={event => {
         if (event.key === "Escape" && !event.nativeEvent.isComposing && !editingMemory) { event.preventDefault(); event.stopPropagation(); stepBack(); }
       }}>
+      <SkillApproval/>
       {expanded && <header className="console-workspace-header">
         <span className="console-workspace-mark" aria-hidden="true">Ω</span>
         <div className="console-workspace-title"><strong>OLYMPUS</strong>
@@ -280,9 +283,10 @@ export function ChatPanel({ companion = false, messages, onSendMessage, onRecord
       {expanded && companion && <ActiveMissionList missions={activeMissions} selected={selectedMissionId} onSelect={onSelectMission} capabilities={capabilities} onOpen={onOpenMission} error={missionsError} loading={missionsLoading}/>}
       {expanded && mission && !companion && <MissionView mission={mission} capabilities={capabilities} onOpen={onOpenMission} onDismiss={onDismissMission} />}
       {!expanded && mission && <MissionView mission={mission} capabilities={capabilities} compact />}
-      {idle && <div className="console-idle">
+      {idle && <div className="console-idle" data-command-brief={companion || undefined}>
+        {companion && <CommandBrief missions={activeMissions} selected={selectedMissionId} onSelect={onSelectMission} onOpen={onOpenMission} error={missionsError} loading={missionsLoading}/> }
         {inspectionProjects.length > 0 && <details className="console-inspect-project"><summary>Inspect a project (read-only)</summary><label>Project <select aria-label="Inspect a project read-only" defaultValue="" onChange={event => { const name=event.target.value; if(name) { setDraft(`/inspect ${name}: Find one small issue and explain the smallest fix with file evidence.`); setConversationOpened(true); setMode("engaged"); requestAnimationFrame(() => inputRef.current?.focus()); } event.target.value=""; }}><option value="">Choose project…</option>{inspectionProjects.map(name=><option key={name} value={name}>{name}</option>)}</select></label><small>Read-only source review. Uses the selected paid OpenAI API route; at most three file reads plus an answer, within four minutes. Review the request, then Send.</small></details>}
-        <p className="console-idle__title">“What would you like to work on?”</p><span className="console-welcome-rule" aria-hidden="true"/>{!companion && <p className="console-idle__description">I can help you research, plan, analyze, build, or coordinate complex work. Tell me what you’d like to accomplish, and we can work through it together.</p>}
+        {!companion && <><p className="console-idle__title">“What would you like to work on?”</p><span className="console-welcome-rule" aria-hidden="true"/>{!companion && <p className="console-idle__description">I can help you research, plan, analyze, build, or coordinate complex work. Tell me what you’d like to accomplish, and we can work through it together.</p>}
         {briefing && <button type="button" className="console-idle__briefing" onClick={() => { setConversationOpened(true); showLive(); }}>
           <span>Opening briefing</span>{firstSentence(briefing.text)}</button>}
         {suggestions.length > 0 && <div className="console-suggestions" role="list" aria-label="Suggested requests">
@@ -290,6 +294,7 @@ export function ChatPanel({ companion = false, messages, onSendMessage, onRecord
             title={`Fills the composer · uses ${suggestion.requires.join(", ")}`}
             onClick={() => { setDraft(suggestion.prompt); inputRef.current?.focus(); }}>{suggestion.label}</button>)}
         </div>}
+        </>}
         {messages.length > 0 && <button type="button" className="console-idle__history" onClick={showHistory}>↑ Earlier conversation · {messages.length} messages</button>}
       </div>}
       {mode !== "dormant" && !idle && <div className="console-aperture">

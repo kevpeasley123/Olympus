@@ -47,7 +47,7 @@ html .mode-command:has(.olympus-armory) .command-console[data-layout="expanded"]
 .architecture-lines{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;stroke:#a7c7d6;stroke-width:.4;opacity:.22;fill:none}
 .vault-constellation .architecture-lines{opacity:.1;stroke-width:.25}
 .skills-constellation .armory-star__light{opacity:.8}
-.active-mission-list{display:flex;flex-direction:column}.active-mission-list>h3{flex-shrink:0;order:0}.active-mission-card{flex-shrink:0;order:2}.selected-mission-context{order:1;flex-shrink:0}.active-mission-list>.mission-data-note{order:1}
+.active-mission-list{display:flex;flex-direction:column}.active-mission-list>h3{flex-shrink:0;order:0}.active-mission-card{flex-shrink:0;order:3}.active-mission-card[aria-expanded="true"]{order:1}.selected-mission-context{order:2;flex-shrink:0}.active-mission-list>.mission-data-note{order:1}
 .pantheon-caption:after{content:"";display:block;height:1px;width:64px;background:#bb924e;margin:18px auto 0}
 .pantheon-voice:not([data-active="true"]){opacity:.22;min-height:24px;margin-top:12px}
 html .mode-command .command-instrument[data-flagship] .command-instrument__dial{width:min(100cqw,calc(100vh - 275px),850px);height:min(100cqw,calc(100vh - 275px),850px)}
@@ -78,3 +78,32 @@ html .mode-command .command-instrument[data-flagship] .command-instrument__dial{
 .active-mission-card:is(:hover,[data-inspecting="true"]) .mission-card-orb,.active-mission-card:focus-visible .mission-card-orb{filter:brightness(1.15);box-shadow:0 0 0 4px color-mix(in srgb,var(--mission-color) 16%,transparent),0 0 15px color-mix(in srgb,var(--mission-color) 25%,transparent)}
 .active-mission-card:active{transform:translateY(0)}
 @media(prefers-reduced-motion:reduce){.active-mission-card,.active-mission-card .mission-card-orb{transition:none}.active-mission-card:is(:hover,[data-inspecting="true"]),.active-mission-card:focus-visible{transform:none}}
+
+/* Agent architecture is permanent and inspection-only, separate from mission planets. */
+.agents-constellation{position:absolute;right:17%;top:58%;width:128px;height:105px;z-index:4;color:#d7bd89}
+.agent-architecture-star{position:absolute;transform:translate(-50%,-50%);display:grid;place-items:center;width:26px;height:26px;padding:0;border:1px solid transparent;border-radius:50%;background:transparent;color:#d5b77d;cursor:pointer}
+.agent-architecture-star .agent-emblem-mark{opacity:.7;filter:drop-shadow(0 0 3px #e8bb6144)}
+.agent-architecture-star[data-placeholder="true"]{color:#9a92b2}
+.agent-architecture-star:hover,.agent-architecture-star:focus-visible{outline:none;border-color:#d5b77d80;background:#08131bea}
+.agent-architecture-star:hover .agent-emblem-mark,.agent-architecture-star:focus-visible .agent-emblem-mark{opacity:1}
+.agent-architecture-name{display:none;position:absolute;top:29px;left:50%;transform:translateX(-50%);width:max-content;max-width:180px;padding:6px 9px;border:1px solid #d5b77d44;border-radius:4px;background:#071019f5;color:#eee0c3;font:11px var(--font-sans);pointer-events:none}
+.agent-architecture-name small{display:block;font-size:9px;color:#9bb4c3;margin-top:4px}
+.agent-architecture-star:hover,.agent-architecture-star:focus-visible{z-index:6}
+.agent-architecture-star:hover .agent-architecture-name,.agent-architecture-star:focus-visible .agent-architecture-name{display:block}
+.agent-architecture-lines{position:absolute;inset:0;width:100%;height:100%;stroke:#d5b77d;stroke-width:.4;opacity:0;pointer-events:none;transition:opacity .18s}
+.agents-constellation:has(.agent-architecture-star:hover,.agent-architecture-star:focus-visible) .agent-architecture-lines{opacity:.25}
+@media(max-width:1350px){.agents-constellation{right:14%;top:57%;width:100px;height:90px}}
+@media(prefers-reduced-motion:reduce){.agent-architecture-lines{transition:none}}
+
+.agent-architecture-star[data-inspecting="true"]{outline:none;border-color:#eac479;background:#08131bea;box-shadow:0 0 14px #d5a64045;z-index:6}
+.agent-architecture-star[data-inspecting="true"] .agent-emblem-mark{opacity:1;filter:drop-shadow(0 0 5px #e8bb6190)}
+.agent-architecture-star[data-inspecting="true"] .agent-architecture-name{display:block}
+
+.agent-architecture-star[data-orbiting="true"]{color:#ffe1a3;background:#101820b8;box-shadow:0 0 12px #e8bb6130}
+.agent-architecture-star[data-orbiting="true"] .agent-emblem-mark{opacity:1;filter:drop-shadow(0 0 4px #e8bb6190)}
+
+.mission-card-orb{width:38px;height:38px;background:#020810 url("../../assets/mission-ocean.svg") center/110% no-repeat;border-color:#92c9ec66;box-shadow:0 0 0 4px #4a98c010,0 0 12px #3b9fce18}
+[data-tone="amber"] .mission-card-orb{background:#090603 url("../../assets/mission-amber.svg") center/110% no-repeat;border-color:#ecc77966}
+
+.command-instrument[data-flagship] .pantheon-caption{transform:translateY(-58px)}
+@media(max-height:850px){.command-instrument[data-flagship] .pantheon-caption{transform:translateY(-46px)}}

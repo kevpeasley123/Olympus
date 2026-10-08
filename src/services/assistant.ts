@@ -1,3 +1,4 @@
+import {requestSkillReview,cancelSkillReview} from "./skillRecommendations";
 import { Channel, invoke } from "@tauri-apps/api/core";
 import { isTauriRuntime } from "./launcher";
 import { briefingTurnContent, isBriefing, modelHistory } from "./conversationHistory";
@@ -73,11 +74,15 @@ export async function requestAssistantReply(
   const channel = new Channel<AssistantStreamEvent>();
   if (onEvent) channel.onmessage = onEvent;
 
+  const requestId=options?.requestId??crypto.randomUUID();
+  const task=[...turns].reverse().find(t=>t.role==="user")?.content??"";
+  const skillApprovalId=await requestSkillReview(task,options?.capability??"PRIMARY",requestId);
   return invoke<AssistantReply>("send_assistant_message", {
     history: turns,
-    requestId: options?.requestId,
+    requestId,
     onEvent: channel,
     context: {
+      skillApprovalId,
       capability: options?.capability,
       voiceDepth: options?.voiceDepth,
       commandBoard: options?.commandBoard,
@@ -124,4 +129,4 @@ export function conversationTurnContent(message: ConversationMessage): string {
   return `${message.content}\n\nSpoken summary: ${message.voice.spokenResponse ?? "Unavailable"}\nPlayback: ${message.voice.playback ?? "unconfirmed"}. An interrupted transcript may contain words not heard.\nAudio transcript: ${message.voice.audioTranscript ?? "Unavailable"}`;
 }
 
-export const cancelAssistantReply = (requestId: string) => invoke<boolean>("cancel_assistant_message", { requestId });
+export const cancelAssistantReply = (requestId: string) => cancelSkillReview(requestId)?Promise.resolve(true):invoke<boolean>("cancel_assistant_message", { requestId });

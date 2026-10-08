@@ -17,7 +17,8 @@ export function useCommandView(capabilities: CapabilitySnapshot | null, missions
   const [selectedDomain, setSelectedDomain] = useState<string | null>(null);
   const [selectedCapability, setSelectedCapability] = useState<string | null>(null);
   const [dismissed, setDismissed] = useState<ReadonlySet<string>>(() => new Set());
-  const [selectedMission, selectMission] = useState<string | null>(null);
+  const [selectedMission, setSelectedMission] = useState<string | null>(null);
+  const selectMission = useCallback((id: string | null) => setSelectedMission(previous => previous === id ? null : id), []);
   const liveMissions = useMemo(() => activeMissions(missions), [missions]);
   const selectedMissionId = liveMissions.some(m => m.id === selectedMission) ? selectedMission : null;
   const mission = liveMissions.find(m => m.id === selectedMissionId) ?? currentMission(missions, now, dismissed);

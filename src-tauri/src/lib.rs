@@ -379,6 +379,7 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            commands::skill_guidance::recommend_resource_skills,
             commands::resource_intake::resource_skills, commands::resource_intake::add_resource_skill, commands::attachments::extract_resource_text,
             commands::gmail::situations::documents::situation_document_status, commands::gmail::situations::documents::situation_document_open,
             commands::gmail::situations::situation_snapshot, commands::gmail::situations::engine::situation_refresh, commands::gmail::situations::situation_set_background, commands::gmail::situations::situation_update, commands::gmail::situations::situation_edit, commands::gmail::situations::drafts::situation_draft, commands::gmail::situations::drafts::situation_save_draft,

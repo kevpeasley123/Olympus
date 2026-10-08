@@ -25,7 +25,18 @@ try{
     await page.locator('.mission-planet-target').first().focus();await page.keyboard.press('Enter');
     check(await page.locator('.active-mission-card').first().getAttribute('aria-pressed')==='true','Planet selects corresponding panel card');
     check(await page.locator('.selected-mission-context').isVisible(),'Mission context opens');
+    const selectedCard=await page.locator('.active-mission-card[aria-expanded="true"]').boundingBox();
+    const detail=await page.locator('.selected-mission-context').boundingBox();
+    check(selectedCard.y+selectedCard.height<=detail.y+1,'Selected card remains above its details for collapse');
     await page.screenshot({path:`${out}/selected-${width}.png`});
+    await page.locator('.active-mission-card').first().click();
+    check(await page.locator('.selected-mission-context').count()===0,'Click selected card collapses details');
+    check(await page.locator('.active-mission-card[aria-expanded="true"]').count()===0,'Collapsed state is accessible');
+    check(await page.locator('.mission-planet-target[aria-pressed="true"]').count()===0,'Collapse clears planet selection');
+    await page.locator('.active-mission-card').first().press('Enter');
+    check(await page.locator('.selected-mission-context').isVisible(),'Keyboard reopens details');
+    await page.locator('.mission-planet-target').first().focus();await page.keyboard.press('Enter');
+    check(await page.locator('.selected-mission-context').count()===0,'Selected planet toggles details closed');
    }
    const fit=await page.evaluate(()=>({overflow:document.documentElement.scrollWidth>innerWidth,composer:document.querySelector('.console-command-bar').getBoundingClientRect().bottom<=innerHeight}));
    check(!fit.overflow&&fit.composer,`${width} layout and composer fit`);
