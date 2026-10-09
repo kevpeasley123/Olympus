@@ -55,3 +55,6 @@ shared UI:
 Report mechanical results and your own visual judgement separately. A browser
 capture is not a desktop acceptance: the Windows native pass is still required
 for WebView2, Tauri IPC and real data. See `docs/VISUAL-REVIEW.md`.
+
+## Shared project memory
+Follow the vault's `09 - System/Vault Maintenance Protocol.md` for meaningful milestones and handoffs. Local vault: `C:/Users/kevpe/OneDrive/Desktop/Projects/Obsidian vaults/Olympus Obsidian Vault`. Capture independent session records, reconcile current summaries from fresh evidence, and distinguish intent from runtime authority. The local `olympus-memory` skill provides a compare-and-write helper. Missing coverage and inaccessible vaults must be reported; do not claim all sessions have contributed.
