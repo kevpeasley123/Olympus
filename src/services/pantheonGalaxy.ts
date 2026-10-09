@@ -21,14 +21,17 @@ export function buildPantheonGalaxy(scene: T.Scene) {
     const larger = (i * 197) % count < count * .3;
     variation.set([larger ? 1.3 : 1, random() * Math.PI * 2, .65 + random() * .45], i * 3);
   }
+  // Brightness is independent of size: both cohorts contain small and large stars.
+  const glow = Float32Array.from({length: count}, (_, i) => (i * 137 + 53) % count < count / 2 ? 1.18 : 1);
   const dustGeometry = new T.BufferGeometry();
+  dustGeometry.setAttribute("glow", new T.BufferAttribute(glow, 1));
   dustGeometry.setAttribute("variation", new T.BufferAttribute(variation, 3));
   dustGeometry.setAttribute("position", new T.BufferAttribute(positions, 3));
   dustGeometry.setAttribute("color", new T.BufferAttribute(colors, 3));
   const dustMaterial = new T.ShaderMaterial({
     uniforms: { time: { value: 0 } },
     vertexColors: true, transparent: true, depthTest: true, depthWrite: false,
-    vertexShader: `attribute vec3 variation; uniform float time; varying vec3 tint; varying float shimmer; void main(){ tint=color; float phase=variation.y; shimmer=variation.x>1. ? .92+.08*sin(time*variation.z+phase)*sin(time*variation.z*.43+phase*1.7) : 1.; vec4 p=modelViewMatrix*vec4(position,1.); gl_Position=projectionMatrix*p; gl_PointSize=clamp(2.4*700./max(200.,-p.z),1.6,4.0)*variation.x; }`,
+    vertexShader: `attribute vec3 variation; attribute float glow; uniform float time; varying vec3 tint; varying float shimmer; void main(){ tint=color*glow; float phase=variation.y; shimmer=variation.x>1. ? .92+.08*sin(time*variation.z+phase)*sin(time*variation.z*.43+phase*1.7) : 1.; vec4 p=modelViewMatrix*vec4(position,1.); gl_Position=projectionMatrix*p; gl_PointSize=clamp(2.4*700./max(200.,-p.z),1.6,4.0)*variation.x; }`,
     fragmentShader: `varying vec3 tint; varying float shimmer; void main(){float r=length(gl_PointCoord-.5)*2.; float a=1.-smoothstep(.05,1.,r); gl_FragColor=vec4(tint,a*.85*shimmer);}`,
   });
   group.add(new T.Points(dustGeometry, dustMaterial));
