@@ -15,16 +15,25 @@ export function buildPantheonGalaxy(scene: T.Scene) {
     color.set(i % 7 === 0 ? 0xe7bf78 : 0x8cb7d1).multiplyScalar((.25 + random() * .65) * (1 - .65 * Math.pow(radius / 181, 4)));
     colors.set([color.r, color.g, color.b], i * 3);
   }
+  // A fixed permutation distributes exactly 30% without changing the seeded star positions.
+  const variation = new Float32Array(count * 3);
+  for (let i = 0; i < count; i++) {
+    const larger = (i * 197) % count < count * .3;
+    variation.set([larger ? 1.3 : 1, random() * Math.PI * 2, .65 + random() * .45], i * 3);
+  }
   const dustGeometry = new T.BufferGeometry();
+  dustGeometry.setAttribute("variation", new T.BufferAttribute(variation, 3));
   dustGeometry.setAttribute("position", new T.BufferAttribute(positions, 3));
   dustGeometry.setAttribute("color", new T.BufferAttribute(colors, 3));
   const dustMaterial = new T.ShaderMaterial({
+    uniforms: { time: { value: 0 } },
     vertexColors: true, transparent: true, depthTest: true, depthWrite: false,
-    vertexShader: `varying vec3 tint; void main(){ tint=color; vec4 p=modelViewMatrix*vec4(position,1.); gl_Position=projectionMatrix*p; gl_PointSize=clamp(2.4*700./max(200.,-p.z),1.6,4.0); }`,
-    fragmentShader: `varying vec3 tint; void main(){float r=length(gl_PointCoord-.5)*2.; float a=1.-smoothstep(.05,1.,r); gl_FragColor=vec4(tint,a*.85);}`,
+    vertexShader: `attribute vec3 variation; uniform float time; varying vec3 tint; varying float shimmer; void main(){ tint=color; float phase=variation.y; shimmer=variation.x>1. ? .92+.08*sin(time*variation.z+phase)*sin(time*variation.z*.43+phase*1.7) : 1.; vec4 p=modelViewMatrix*vec4(position,1.); gl_Position=projectionMatrix*p; gl_PointSize=clamp(2.4*700./max(200.,-p.z),1.6,4.0)*variation.x; }`,
+    fragmentShader: `varying vec3 tint; varying float shimmer; void main(){float r=length(gl_PointCoord-.5)*2.; float a=1.-smoothstep(.05,1.,r); gl_FragColor=vec4(tint,a*.85*shimmer);}`,
   });
   group.add(new T.Points(dustGeometry, dustMaterial));
   function update(time: number) {
+    dustMaterial.uniforms.time.value = time;
     // A full revolution every two minutes keeps the abyss visibly alive.
     group.rotation.set(.08, time * Math.PI * 2 / 120, -.12);
   }
