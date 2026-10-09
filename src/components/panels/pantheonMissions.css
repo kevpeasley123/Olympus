@@ -2,8 +2,12 @@
 .mission-planet-target{position:absolute;width:32px;height:32px;transform:translate(-50%,-50%);border:0;background:transparent;color:#cfe7f4;padding:0;border-radius:50%;pointer-events:auto;cursor:pointer;--mission-color:#72c7df}
 [data-tone="amber"]{--mission-color:#e8bd74}[data-tone="warning"]{--mission-color:#c48477}
 .mission-planet-target:focus-visible{outline:1px solid #edcc8c;outline-offset:5px}
-.mission-planet-target[data-occluded="true"]{opacity:0;pointer-events:none}
-.mission-planet-target[data-occluded="true"]:focus-visible{opacity:1}
+/* Occlusion hides the planet affordance, never its tracking label. */
+.mission-planet-target[data-occluded="true"]{pointer-events:none}
+.mission-planet-target[data-occluded="true"] .mission-planet-label{pointer-events:auto}
+.mission-planet-target[data-occluded="true"]::after{visibility:hidden}
+.mission-planet-target[data-occluded="true"]:focus-visible{outline:none}
+.mission-planet-target[data-occluded="true"]:focus-visible .mission-planet-label{outline:1px solid #edcc8c;outline-offset:5px;border-radius:4px}
 .mission-planet-label{position:absolute;left:29px;top:10px;width:145px;text-align:left;text-shadow:0 2px 5px #000,0 0 12px #000;transition:opacity .25s}
 .mission-planet-target[data-side="left"] .mission-planet-label{left:auto;right:29px;text-align:right}
 .mission-planet-label strong{display:block;font:12px/1.4 var(--font-sans);font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
