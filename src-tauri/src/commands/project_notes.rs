@@ -296,6 +296,10 @@ pub(crate) fn parse_project_note(
     for alias in aliases(&yaml) {
         push_key(&mut keys, &alias);
     }
+    // Additive identity migration; legacy title/folder aliases remain valid.
+    for field in ["project_id", "repository"] {
+        if let Some(value)=yaml.get(field).and_then(|v|v.as_str()){push_key(&mut keys,value);}
+    }
 
     Some((
         ProjectNote {

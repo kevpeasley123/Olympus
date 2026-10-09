@@ -23,6 +23,7 @@ pub mod project_notes;
 pub mod projects;
 pub mod tasks;
 pub mod vault_context;
+pub mod memory;
 pub mod vault_git;
 pub mod vault_graph;
 pub mod vault_write;

@@ -28,6 +28,7 @@ chrono = { version = "0.4", default-features = true, features = ["clock"] }
 dotenvy = "0.15"
 urlencoding = "2"
 walkdir = "2"
+notify = "8.2"
 pdf-extract = "0.7"
 rfd = "0.14"
 base64 = "0.22"

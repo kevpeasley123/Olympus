@@ -83,6 +83,11 @@ export async function requestAssistantReply(
     onEvent: channel,
     context: {
       skillApprovalId,
+      // Only this conversation's operator words and explicit project attachment
+      // establish recall scope. Source-body text cannot name the active project.
+      memoryQuestion: [...history].reverse().find(message => message.role === "user")?.content,
+      memoryRecentQuestions: history.filter(message => message.role === "user").slice(-5, -1).map(message => `${message.content.slice(0, 2500)}${message.attachment?.kind === "project-snapshot" ? ` Project: ${message.attachment.label}` : ""}`),
+      activeProject: history[history.length-1]?.attachment?.kind === "project-snapshot" ? history[history.length-1]?.attachment?.label : undefined,
       capability: options?.capability,
       voiceDepth: options?.voiceDepth,
       commandBoard: options?.commandBoard,

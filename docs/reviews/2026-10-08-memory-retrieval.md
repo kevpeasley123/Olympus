@@ -1,8 +1,8 @@
 # Durable memory retrieval review
 
-Date: October 8, 2026. Status: proposed architecture, not implemented or accepted.
+Date: October 8, 2026. Review snapshot: originally proposed architecture. Kevin subsequently approved proceeding ("Proceed with these changes"). The development retrieval slice is now implemented; see [implementation, bounds and verification gaps](../MEMORY-RETRIEVAL.md). Findings below describe the original inspection, not the final implementation. Native desktop/live-provider acceptance remains outstanding.
 
-Kevin requested a careful reassessment of the earlier selective-retrieval plan so that memory remains useful as the library grows and changes. That request authorizes this review; it does not establish approval of every recommendation below.
+Kevin requested a careful reassessment of the earlier selective-retrieval plan so that memory remains useful as the library grows and changes. Approval to implement does not establish runtime execution authority or authorize paid acceptance runs.
 
 The earlier plan correctly favored relevant project context, decisions and session evidence over loading the whole vault. It was incomplete about identity, indexing, corrections, compatibility, coverage and recovery. Build those foundations before enabling general automatic session recall. Retain a small first release, but make it a vertical slice of the durable design.
 

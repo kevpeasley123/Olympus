@@ -368,6 +368,9 @@ pub fn run() {
             app.manage(commands::approvals::ApprovalState::new(session_id));
             connection.execute("UPDATE model_requests SET record_json=json_set(record_json,'$.status','interrupted','$.errorCode','application_restarted') WHERE json_extract(record_json,'$.status')='started'", [])?;
             app.manage(Db(Mutex::new(connection)));
+            app.manage(commands::memory::MemoryService::start(
+                commands::get_vault_path(), app.path().app_local_data_dir()?.join("memory-index.sqlite"),
+            ));
             app.manage(DelegationProcesses::default());
             app.manage(commands::gmail::Runtime::default());
             // No background sync or understanding under the acceptance
@@ -388,6 +391,8 @@ pub fn run() {
             commands::gmail::gmail_workspace, commands::gmail::gmail_remove_cache, commands::gmail::gmail_cache_counts, commands::gmail::gmail_status, commands::gmail::gmail_connect, commands::gmail::gmail_cancel, commands::gmail::gmail_disconnect, commands::gmail::gmail_sync, commands::gmail::gmail_set_horizon, commands::gmail::gmail_search, commands::gmail::gmail_thread,
             send_assistant_message,
             commands::assistant::cancel_assistant_message,
+            commands::memory::memory_status, commands::memory::memory_preview,
+            commands::memory::memory_rebuild, commands::memory::memory_request_evidence,
             commands::acceptance::acceptance_profile,
             commands::knowledge_audit::start_knowledge_audit,
             commands::research_verification::research_agent_catalog,

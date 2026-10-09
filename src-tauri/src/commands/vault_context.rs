@@ -54,6 +54,7 @@ pub struct VaultMemory {
     /// One line per research entry — titles and metadata, never bodies.
     pub pantheon_index: String,
     pub research: Vec<super::research_retrieval::ResearchExcerpt>,
+    pub recall: Option<super::memory::Packet>,
 }
 
 /// Reads the vault from disk. Blocking; call it from a blocking context.
@@ -64,7 +65,14 @@ pub fn load_vault_memory() -> VaultMemory {
         decision_history: load_decision_history(&vault),
         pantheon_index: load_pantheon_index(),
         research: Vec::new(),
+        recall: None,
     }
+}
+
+/// Indexed requests keep only the bounded trusted configuration notes. Historical
+/// decisions and library material arrive through the quoted evidence packet.
+pub fn load_stable_memory() -> VaultMemory {
+    VaultMemory { stable: format!("{}\n### Compiled Olympus skills (availability is not execution permission)\nManual local Communications analysis only. These are executable v1 contracts; vault templates are distinct.\n{}",load_stable_notes(&get_vault_path()),super::gmail::communication_skills::inventory()), ..VaultMemory::default() }
 }
 
 pub fn load_vault_memory_for_query(question: &str) -> VaultMemory {

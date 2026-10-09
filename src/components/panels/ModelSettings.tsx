@@ -1,5 +1,6 @@
 import {useEffect,useLayoutEffect,useState,useRef,useId} from "react";
 import {createPortal} from "react-dom";
+import {MemoryEvidence} from "./MemoryEvidence";
 import {loadModelCatalog,loadModelDiagnostics,saveModelSelection,useModelSelection,type ModelCatalog,type ModelCapability,type ModelScope,type ModelRequest} from "../../services/modelRouting";
 import {isTauriRuntime} from "../../services/launcher";
 import {routeLabel} from "../../services/routeLabel";
@@ -92,9 +93,11 @@ export function ModelRouteControl({disabled=false}:{disabled?:boolean}) {
  </div>;
 }
 export function ModelAttribution({request}:{request:ModelRequest}){
+ const [open,setOpen]=useState(false);
  const confirmed=request.actualModel;
- return <details className="model-attribution"><summary>{confirmed?`Answered by ${confirmed}`:`Requested ${request.requestedModel} · unconfirmed`}</summary>
+ return <details className="model-attribution" onToggle={event=>setOpen(event.currentTarget.open)}><summary>{confirmed?`Answered by ${confirmed}`:`Requested ${request.requestedModel} · unconfirmed`}</summary>
   <dl><dt>Provider</dt><dd>{request.provider}</dd><dt>Requested</dt><dd>{request.requestedModel}</dd><dt>Actual model</dt><dd>{confirmed??'Unconfirmed — provider did not report a model'}</dd><dt>Reasoning</dt><dd>{request.reasoningEffort??'Not reported'}</dd><dt>Status</dt><dd>{request.status}</dd><dt>Request</dt><dd>{request.id}</dd>{request.fallbackFrom&&<><dt>Fallback from</dt><dd>{request.fallbackFrom}</dd></>}</dl>
+ {open&&<MemoryEvidence requestId={request.id}/>}
  </details>;
 }
 

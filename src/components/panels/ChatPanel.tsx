@@ -337,8 +337,9 @@ export function ChatPanel({ companion = false, messages, onSendMessage, onRecord
         <div ref={scroll.viewportRef} className="console-viewport" role="log" aria-label={mode === "transcript" ? "Conversation transcript" : "Recent conversation"}
           aria-live="off" tabIndex={0} onScroll={()=>{if(!conversationPanel||conversationOpened)scroll.onScroll();}}
           onWheel={event => { if (event.deltaY < 0) scroll.interrupt(); }}
+          onClickCapture={event => { if ((event.target as HTMLElement).closest("summary")) scroll.interrupt(); }}
           onTouchStart={scroll.interrupt}
-          onKeyDown={event => { if (["ArrowUp", "PageUp", "Home"].includes(event.key)) scroll.interrupt(); }}>
+          onKeyDown={event => { if (["ArrowUp", "PageUp", "Home"].includes(event.key) || (["Enter", " "].includes(event.key) && (event.target as HTMLElement).closest("summary"))) scroll.interrupt(); }}>
           <div ref={scroll.contentRef} className="console-messages">
             {mode === "transcript" && historyStart > 0 && <button type="button" className="console-load-history"
               onClick={() => { scroll.preserve(); setHistoryStart(Math.max(0, historyStart - CONSOLE.historyPage)); }}>

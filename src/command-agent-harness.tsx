@@ -1,3 +1,4 @@
+import {memoryFixture} from "./services/memoryFixture";
 import modelPickerFixture from "./services/modelCatalogFixture.json";
 import { OlympusArmory } from "./components/panels/OlympusArmory";
 import "@fontsource/cinzel/400.css";
@@ -78,6 +79,7 @@ mockIPC(command => {
   if (command === "fetch_vault_graph") return graph;
   if (command === "fetch_recent_vault_writes") return [];
   if (command === "fetch_operator_profile") return null;
+  if (command === "memory_request_evidence") return structuredClone(memoryFixture);
   if (command === "model_routes") return modelPickerFixture;
   if (command === "save_model_selection") return null;
   throw Error(`Unexpected fixture IPC: ${command}`);
@@ -132,6 +134,8 @@ function Harness() {
     return()=>window.removeEventListener("fixture:conversation-reply",receive);
   },[]);
   const messages = [...(scenario === "chat-expanded" ? [...history, ...thisLaunch] : history),...extraMessages];
+  if(params.has("memory-evidence"))messages.push({id:"memory-response",role:"assistant",timestamp:"Now",content:"The conversation layout separates discussion from mission oversight. See response details for the prepared memory evidence.",request:{id:"fixture-memory-request",provider:"fixture",requestedModel:"requested-fixture",actualModel:"actual-fixture",capability:"PRIMARY",purpose:"command",reasoningEffort:"medium",requestedAt:new Date().toISOString(),latencyMs:30,firstTokenMs:10,status:"completed",fallbackFrom:null,escalationReason:null,usage:null,errorCode:null}});
+
   const suggestions = useMemo(() => suggestionsFor(capabilities), []);
   useEffect(() => {
     if (scenario === "agent-research") command.selectAgent("research");

@@ -147,6 +147,11 @@ CREATE TABLE IF NOT EXISTS processing_logs (
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS request_memory (
+  request_id TEXT PRIMARY KEY REFERENCES model_requests(id),
+  packet_json TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS conversation_research (
   message_id TEXT PRIMARY KEY,
   sources_json TEXT NOT NULL
