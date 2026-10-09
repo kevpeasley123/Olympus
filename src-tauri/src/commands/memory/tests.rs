@@ -585,7 +585,9 @@ fn both_concurrent_reports_remain_evidence_and_portfolio_is_bounded() {
 #[ignore = "Read-only real-vault recall diagnostic; derived index is created in a temporary directory"]
 fn real_vault_index_recall() {
     let mut f = Fixture::new();
-    let real = super::super::get_vault_path();
+    let real = std::env::var_os("OLYMPUS_MEMORY_RESTORE_VAULT")
+        .map(PathBuf::from)
+        .unwrap_or_else(super::super::get_vault_path);
     // A separate cache owner prevents accidentally reusing a fixture or real app index.
     let mut db = index::open(&f.root.join("real-readonly.sqlite"), &real).unwrap();
     let status = index::reconcile(&mut db, &real, true, &HashSet::new(), false).unwrap();
