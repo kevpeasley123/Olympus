@@ -58,3 +58,6 @@ for WebView2, Tauri IPC and real data. See `docs/VISUAL-REVIEW.md`.
 
 ## Shared project memory
 Follow the vault's `09 - System/Vault Maintenance Protocol.md` for meaningful milestones and handoffs. Local vault: `C:/Users/kevpe/OneDrive/Desktop/Projects/Obsidian vaults/Olympus Obsidian Vault`. Capture independent session records, reconcile current summaries from fresh evidence, and distinguish intent from runtime authority. The local `olympus-memory` skill provides a compare-and-write helper. Missing coverage and inaccessible vaults must be reported; do not claim all sessions have contributed.
+
+## Superpowers pilot boundaries — approved October 8, 2026
+Use Superpowers for substantial engineering when installed; cosmetic refinements and simple label edits keep the existing lightweight workflow and do not need a new design approval. Preserve the Olympus memory protocol and existing execution authority. Every Monid execution/spend still requires a separately scoped approval. Collection inspection is not skill assignment or permission to execute. Do not claim a Codex plugin is installed from an Olympus catalog entry. Do not enable the optional visual companion or its telemetry as part of catalog inspection.
