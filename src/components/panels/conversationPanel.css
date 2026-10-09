@@ -47,3 +47,5 @@ html .mode-command .command-console[data-conversation-panel] .console-input-row 
 html .mode-command .command-console[data-conversation-panel] .console-input-row textarea:focus{border-color:#f2c66f;box-shadow:0 0 0 1px #eac16b55}
 html .mode-command .command-console[data-conversation-panel] .console-input-row textarea::placeholder{color:#92a5b2;opacity:1}
 html .mode-command .command-console[data-conversation-panel] .console-status-line{margin-top:9px;margin-bottom:0}
+
+.console-restore{display:inline-flex;align-items:center;gap:6px;min-height:30px;white-space:nowrap;color:#edc577}

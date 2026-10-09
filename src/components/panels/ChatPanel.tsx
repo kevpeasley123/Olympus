@@ -283,16 +283,16 @@ export function ChatPanel({ companion = false, messages, onSendMessage, onRecord
         if (event.key === "Escape" && !event.nativeEvent.isComposing && !editingMemory) { event.preventDefault(); event.stopPropagation(); stepBack(); }
       }}>
       <SkillApproval/>
-      {expanded && <header className="console-workspace-header">
+      {(expanded || onLayoutChange) && <header className="console-workspace-header">
         <span className="console-workspace-mark" aria-hidden="true">Ω</span>
         <div className="console-workspace-title"><strong>OLYMPUS</strong>
           <span role="status" className="console-status" data-status={status.toLowerCase().replace(/\s+/g, "-")}>{status.replace(/^OLYMPUS /, "")}</span></div>
         {(pending || voice.active || voice.connecting) && <ActivityTrace level={voice.active ? voice.level : 0} busy />}
         <div className="console-header-actions">
-          <button type="button" className="ghost-icon-action" title="Record an observation" aria-label="Record an observation" disabled={recording}
+          {expanded && <><button type="button" className="ghost-icon-action" title="Record an observation" aria-label="Record an observation" disabled={recording}
             onClick={() => { setConversationOpened(true); if (observation === null) openComposer(""); else setObservation(null); }}><NotebookPen size={14} /></button>
-          <button type="button" className="ghost-icon-action" aria-label="Open conversation history" title="Conversation history" onClick={showHistory}><History size={14} /></button>
-          {onLayoutChange && <button type="button" className="ghost-icon-action" aria-label="Compact console" title="Compact console" onClick={() => onLayoutChange("compact")}><Minimize2 size={14} /></button>}
+          <button type="button" className="ghost-icon-action" aria-label="Open conversation history" title="Conversation history" onClick={showHistory}><History size={14} /></button></>}
+          {onLayoutChange && <button type="button" className={expanded ? "ghost-icon-action" : "ghost-action console-restore"} aria-label={expanded ? "Compact console" : "Expand conversation"} title={expanded ? "Compact console" : "Expand conversation"} onClick={() => { onLayoutChange(expanded ? "compact" : "expanded"); requestAnimationFrame(() => panelRef.current?.querySelector<HTMLButtonElement>(".console-header-actions button:last-child")?.focus()); }}>{expanded ? <Minimize2 size={14} /> : <><Maximize2 size={14} /> Expand</>}</button>}
         </div>
       </header>}
       {conversationPanel && <>
@@ -427,7 +427,7 @@ export function ChatPanel({ companion = false, messages, onSendMessage, onRecord
           <ModelRouteControl disabled={pending}/>
           {onOpenPreferences&&<button type="button" className="ghost-icon-action" aria-label="Open preferences" title="Open preferences" onClick={onOpenPreferences}><Settings2 size={14}/></button>}
           {!expanded && <button type="button" className="ghost-icon-action" aria-label="Open conversation history" title="Conversation history" onClick={showHistory}><History size={14} /></button>}
-          {!expanded && onLayoutChange && <button type="button" className="ghost-icon-action" aria-label="Expand conversation" title="Expand conversation" onClick={() => onLayoutChange("expanded")}><Maximize2 size={14} /></button>}
+
         </div>
         {/* Non-modal: one line under the status, and reading it is the operator's
             call. Not a tab stop: focusing the input opens the console on it. */}
