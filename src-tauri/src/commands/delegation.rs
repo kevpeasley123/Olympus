@@ -619,6 +619,18 @@ fn spawn_claude(app: AppHandle, run: DelegationRun, stage: Stage) -> Result<(), 
             approved_plan
         ),
     };
+    let guidance = guidance_scope();
+    // Persist the exact prepared payload before launching; failure prevents execution.
+    // This records delivery intent, never a claim that the model followed it.
+    {
+        let db = app.state::<Db>();
+        let connection = db.0.lock().map_err(|e| e.to_string())?;
+        connection.execute(
+            "INSERT INTO delegation_events(run_id,phase,milestone) VALUES(?1,'guidance_prepared',?2)",
+            params![run.id, format!("{}\n{}", if stage == Stage::Plan { "Planning" } else { "Implementation" }, guidance)],
+        ).map_err(|e| format!("Could not persist guidance evidence: {e}"))?;
+    }
+    let prompt = format!("{prompt}\n\nReviewed engineering guidance:\n{guidance}");
     let mut command = claude_command(&executable, &run, stage, prompt);
     allowed_environment(&mut command);
 
@@ -1399,15 +1411,21 @@ fn resume_subject(db: &Db, id: &str) -> Result<Subject, String> {
     })
 }
 
+// Olympus-authored adaptation, pinned and included in every approval subject.
+const HEPHAESTUS_GUIDANCE: &str = include_str!("hephaestus-guidance.txt");
+fn guidance_scope() -> String {
+    format!("Superpowers pilot v1; guidance-sha256={:x}\n{}", Sha256::digest(HEPHAESTUS_GUIDANCE.as_bytes()), HEPHAESTUS_GUIDANCE)
+}
+
 const LAUNCH_LIMITS: &str =
     "no settings, hooks or MCP servers; $5 budget per launch, not per run; 45-minute launch limit";
 
 fn plan_scope() -> String {
-    format!("plan-v2: {PLAN_TOOLS}; no edits; {LAUNCH_LIMITS}")
+    format!("plan-v3: {PLAN_TOOLS}; no edits; {LAUNCH_LIMITS}\n{}", guidance_scope())
 }
 
 fn implementation_scope() -> String {
-    format!("implement-v2: {IMPLEMENTATION_TOOLS}; {LAUNCH_LIMITS}; no commit/push/merge")
+    format!("implement-v3: {IMPLEMENTATION_TOOLS}; {LAUNCH_LIMITS}; no commit/push/merge\n{}", guidance_scope())
 }
 
 /// A proposal as the review surface receives it. The approval binds `subject` alone;
@@ -2245,5 +2263,17 @@ mod process_boundary_tests {
         assert_eq!(candidates[3], PathBuf::from("C:/Users/kev").join(".local").join("bin").join(name));
         assert!(candidates[4].ends_with(PathBuf::from("npm/node_modules/@anthropic-ai/claude-code/bin").join(name)));
         assert!(claude_candidates(|_| None).is_empty());
+    }
+}
+
+#[cfg(test)]
+mod hephaestus_guidance_tests {
+    use super::*;
+    #[test]
+    fn approval_scope_binds_reviewed_hephaestus_guidance() {
+        assert!(plan_scope().contains("Superpowers"));
+        assert!(implementation_scope().contains("guidance-sha256="));
+        assert!(permitted_actions(&plan_scope()).is_some());
+        assert!(permitted_actions(&(plan_scope()+" changed")).is_none());
     }
 }

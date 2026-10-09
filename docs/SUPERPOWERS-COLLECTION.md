@@ -17,3 +17,13 @@ Backend-bound assignment, skill-use events, mission highlighting/history, automa
 Production build and scripts/skill-collection-review.mjs; Armory interaction regression. Collection tests exercise star inspection, six expandable summaries, pinned source links, Hephaestus reference, unchanged mission count and widths 1672/1280. Browser fixtures do not prove native backend execution.
 
 Final regression: 21/21 visual scenarios and 57 functional checks passed.
+
+
+## Hephaestus execution pilot (2026-10-08)
+The native project-delegation adapter now supplies a small Olympus-authored adaptation of the pinned Superpowers source. This is not the upstream plugin loaded into Claude Code. The exact compiled instructions live in `src-tauri/src/commands/hephaestus-guidance.txt`.
+
+Planning and implementation approval subjects include the entire guidance and SHA-256. Exact scope comparison rejects stale or changed scopes. Instructions are appended to the provider prompt, and a `guidance_prepared` event is persisted before process launch; a failed event write prevents launch. That event records preparation, not successful launch or model compliance. Existing process and result records provide subsequent evidence. Historical runs are not assigned fabricated skill usage.
+
+The native Armory binds `hephaestus-engineering@1` to coding-delegate (Hephaestus). Browser fixtures retain their own unconnected state. The provider remains the existing Claude Code driver with separate approvals, fixed commands, isolated worktree, $5 per launch and 45-minute limit. No automatic commit, push, merge, deployment, Monid invocation or memory promotion is added. Zeus/chat still cannot grant execution approval; use Project delegation.
+
+Live-provider acceptance remains pending an operator-approved task. No provider launch was performed to verify this integration. Automatic memory lineage and automated independent review remain future work.

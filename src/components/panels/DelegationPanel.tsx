@@ -432,6 +432,7 @@ function ApprovalSubject({ proposal, busy, onApprove, onCancel }: {
       {subject.plan ? <><dt>Plan</dt><dd><pre>{subject.plan}</pre></dd></> : null}
       <dt>Workspace</dt><dd className="tabular-data">{subject.workspace}</dd>
     </dl>
+    {subject.scope.includes("guidance-sha256=") && <p className="delegation-prepare__reason">Hephaestus will receive Superpowers pilot v1 guidance for planning, debugging, testing and evidence-based review. Review the full instructions in the exact scope below. This does not load external plugins or expand tool permissions.</p>}
     {sentence && <details className="delegation-approval__scope"><summary>Exact scope text</summary><code>{subject.scope}</code></details>}
     <p className="delegation-prepare__reason">Approval covers exactly this task, base and scope in this desktop session. Any change needs a fresh review.</p>
     <div className="delegation-actions">
