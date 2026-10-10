@@ -181,10 +181,10 @@ function attentionItems(project: TrackedProject, now: Date): string[] {
   return items.slice(0, 3);
 }
 
-export type AttentionSource = "Vault note" | "Git" | "Run record";
+export type AttentionSource = "Vault note" | "Git" | "Run record" | "Organizer";
 
 export interface AttentionItem {
-  kind: "vision" | "uncommitted" | "worktree" | "review";
+  kind: "vision" | "uncommitted" | "worktree" | "review" | "organizer";
   text: string;
   source: AttentionSource;
 }

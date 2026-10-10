@@ -1,3 +1,4 @@
+import type {OrganizerOverview} from "./organizer";
 import { buildProjectCommandBoard, initialTask, operationalStatusLabels, prepareBlocker, sortCommandProjects } from "./projectCommandBoard";
 import type { TrackedProject } from "../types";
 import type { DelegationRun } from "./delegation";
@@ -22,6 +23,15 @@ export function runProjectCommandBoardHarness() {
   check(get(project,[run,{...run,id:"review",phase:"awaiting_review"}]).operatorDecisions.length === 1, "Concurrent review is not hidden by active run");
   check(sortCommandProjects([get(),get(project,[run]),get(project,[{...run,phase:"waiting"}])],"priority")[0].operationalStatus === "NEEDS_YOU", "Attention sorts first");
   check(project.nextStep === "Approve a task" && get().recommendationSource === "deterministic", "Projection preserves recorded intent");
+
+  const item={task:{id:"ot",projectId:"p",title:"Deliver the artifact",intent:"committed",state:"open",priority:"normal",position:0},displayStatus:"Planned",needsAttention:false} as OrganizerOverview;
+  const projected=(rows:OrganizerOverview[],rs:DelegationRun[]=[],available=true)=>buildProjectCommandBoard([project],[],rs,undefined,undefined,{rows,available})[0];
+  check(projected([item]).nextMove==="Organizer: Deliver the artifact","Organizer commitment becomes the named next action");
+  check(projected([item],[{...run,phase:"waiting"}]).nextMove?.startsWith("Review plan")===true,"checkpoint outranks Organizer");
+  check(projected([{...item,task:{...item.task,intent:"proposed"}}]).nextMove===project.nextStep,"suggestion does not replace vault commitment");
+  check(projected([{...item,task:{...item.task,state:"completed"}}]).operationalStatus!=="COMPLETE","completed tasks never archive project");
+  check(projected([item]).attention.some(a=>a.source==="Vault note"&&a.text.includes(project.nextStep)),"conflicting vault action remains visible");
+  check(projected([],[],false).attention.some(a=>a.text.includes("unavailable")),"unavailable Organizer is not empty success");
 
   // D6: archived reads ARCHIVED; the data value other surfaces use is unchanged.
   check(operationalStatusLabels.COMPLETE === "ARCHIVED" && get({...project,status:"archived"}).operationalStatus === "COMPLETE", "Archive displays as ARCHIVED, stays COMPLETE in data");
