@@ -33,6 +33,6 @@ Automated checks cover persistence/reopen, stale revisions, validation, priority
 
 Commands: `cargo test --manifest-path src-tauri/Cargo.toml --lib`, `node scripts/test-organizer.mjs`, `node scripts/test-project-board.mjs`, `npm run build`, and `npm run visual:review`.
 
-Native Windows/WebView2 acceptance, process-crash fault injection at each launch boundary, and an older-binary downgrade run remain release gates. The isolated acceptance profile intentionally forbids live delegation. Do not disable that guard or interpret implementation approval as approval for a paid agent run. This branch is not an installed release.
+Native Windows/WebView2 acceptance, process-crash fault injection at each launch boundary, and an older-binary downgrade run remain unverified acceptance checks. The owner explicitly requested packaging 0.26.0 for local tryout; the standing release procedure records these gaps without blocking that installation. The isolated acceptance profile intentionally forbids live delegation. Do not disable that guard or interpret implementation approval as approval for a paid agent run. See `docs/RELEASES.md` for the packaged release and its acceptance limits.
 
 Deferred scope: cloud execution, schedules, scoped conversations, live task steering, other executors, automatic Research archival and memory promotion.
