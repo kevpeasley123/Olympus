@@ -33,6 +33,7 @@ export function TaskEditor({ projectId, task, onSave, onCancel, busy }: {
    <button type="button" aria-label={`Remove step ${n + 1}`} onClick={() => change("steps", input.steps.filter((_, i) => i !== n))}>Remove</button>
   </div>)}<button type="button" disabled={input.steps.length >= 30} onClick={() => change("steps", [...input.steps, { id: "", text: "", done: false }])}>Add step</button></fieldset>
   <label>Source references — HTTPS URLs or vault-relative paths, one per line<textarea rows={2} value={input.sources.map(s => s.reference).join("\n")} onChange={e => change("sources", e.target.value.split("\n").map(reference => input.sources.find(s => s.reference === reference) ?? { kind: reference.startsWith("https://") ? "url" : "vault", reference, capturedText: null, sha256: null, line: null }))}/></label>
+  <p className="organizer-muted">Saving a new vault reference captures its file fingerprint and up to 8,000 characters of source text. Existing captures are preserved when you edit a task.</p>
   <label>Intent<select value={input.intent} onChange={e => change("intent", e.target.value as TaskInput["intent"])}><option value="committed">My planned task</option><option value="proposed">Suggestion to consider</option></select></label>
   <p className="organizer-muted">Saving a task records your plan. Execution still requires its own review.</p>
   <button className="organizer-primary" type="submit" disabled={busy}>{busy ? "Saving…" : "Save task"}</button>

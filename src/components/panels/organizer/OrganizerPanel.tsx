@@ -53,6 +53,6 @@ export function OrganizerPanel({ projectId, blocker }: {
     {task!.state === "open" && task!.intent === "committed" && <div className="organizer-launch"><button className="organizer-primary" disabled={busy || !canPrepareTask(task!, delegation.data, blocker)} onClick={() => void act(async () => setProposal(await prepareTask(task!)))}>Review delegation scope</button><small>{blocker ?? "The existing coding agent will plan first, then wait for implementation approval."}</small></div>}
    </> : selected ? <p role="status">Loading task…</p> : rows.length > 0 ? <p className="organizer-muted">Select a task to inspect its plan and results.</p> : null}</div>
   </div>
-  {proposal && <ApprovalSubject proposal={proposal} busy={busy ? "organizer" : null} onCancel={() => void act(async () => { await cancelDelegationProposal(proposal.id); setProposal(null); })} onApprove={() => void act(async () => { const p = proposal; setProposal(null); await startDelegationRun(p.id); })}/>}
+  {proposal && <div className="delegation-panel"><ApprovalSubject proposal={proposal} busy={busy ? "organizer" : null} onCancel={() => void act(async () => { await cancelDelegationProposal(proposal.id); setProposal(null); })} onApprove={() => void act(async () => { const p = proposal; setProposal(null); await startDelegationRun(p.id); })}/></div>}
  </section>;
 }

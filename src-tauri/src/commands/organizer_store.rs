@@ -255,9 +255,6 @@ fn validate(c: &Connection, i: &TaskInput) -> OResult<()> {
             ));
         }
     }
-    for s in &i.sources {
-        validate_source(s, &super::get_vault_path())?
-    }
     Ok(())
 }
 pub fn event(
@@ -359,8 +356,45 @@ fn normalize_steps(i: &mut TaskInput, old: Option<&Task>) -> OResult<()> {
     }
     Ok(())
 }
+// Preserve historical identities without rereading them. New references are
+// validated before bounded capture; source content never grants authority.
+fn prepare_sources(input: &mut TaskInput, old: Option<&Task>, root: &Path) -> OResult<()> {
+    use sha2::{Digest, Sha256};
+    use std::io::Read;
+    for source in &mut input.sources {
+        if let Some(saved) = old.and_then(|t| {
+            t.sources
+                .iter()
+                .find(|s| s.kind == source.kind && s.reference == source.reference)
+        }) {
+            *source = saved.clone();
+            continue;
+        }
+        validate_source(source, root)?;
+        if source.kind != "vault" {
+            continue;
+        }
+        source.sha256 = None;
+        source.captured_text = None;
+        source.line = None;
+        // Recheck containment for this read as well as for reference admission.
+        validate_source(source, root)?;
+        if let Ok(file) = std::fs::File::open(root.join(&source.reference)) {
+            let mut bytes = Vec::new();
+            if file.take(2_097_153).read_to_end(&mut bytes).is_ok() && bytes.len() <= 2_097_152 {
+                source.sha256 = Some(format!("{:x}", Sha256::digest(&bytes)));
+                source.captured_text = String::from_utf8(bytes)
+                    .ok()
+                    .map(|text| text.chars().take(8000).collect());
+                source.line = source.captured_text.as_ref().map(|_| 1);
+            }
+        }
+    }
+    Ok(())
+}
 pub fn create(c: &mut Connection, mut i: TaskInput) -> OResult<Task> {
     validate(c, &i)?;
+    prepare_sources(&mut i, None, &super::get_vault_path())?;
     normalize_steps(&mut i, None)?;
     let tx = c.transaction()?;
     let id = new_id();
@@ -382,9 +416,9 @@ pub fn create(c: &mut Connection, mut i: TaskInput) -> OResult<Task> {
     Ok(t)
 }
 pub fn update(c: &mut Connection, id: &str, revision: i64, mut i: TaskInput) -> OResult<Task> {
-    validate(c, &i)?;
     let tx = c.transaction()?;
     let mut t = check_revision(&tx, id, revision)?;
+    validate(&tx, &i)?;
     check_editable(&tx, &t)?;
     if i.project_id != t.project_id {
         return Err(error(
@@ -393,6 +427,7 @@ pub fn update(c: &mut Connection, id: &str, revision: i64, mut i: TaskInput) -> 
         ));
     }
     normalize_steps(&mut i, Some(&t))?;
+    prepare_sources(&mut i, Some(&t), &super::get_vault_path())?;
     t.input = i;
     t.revision += 1;
     t.updated_at = now();

@@ -36,6 +36,8 @@ export async function checkOrganizer(browser,base,output){
   check(await page.getByRole('form',{name:'Task editor'}).count()===0,'edit saves using strict patch fields');
   await page.getByText('Source references (2)',{exact:true}).click();
   check(await page.getByText(source,{exact:true}).count()===1,'archive source remains visible');
+  await page.getByText('Captured source excerpt',{exact:true}).click();
+  check(await page.getByText('Archived research excerpt fixture',{exact:true}).isVisible(),'captured source excerpt remains inspectable');
   await button('Review delegation scope').click();await page.getByText('Approval requested · planning',{exact:true}).waitFor();
   check((await page.evaluate(()=>window.organizerFixture.snapshot())).starts===0,'preparation never starts a process');
   await page.screenshot({path:join(output,'organizer-approval-1280.png'),fullPage:true});

@@ -207,3 +207,75 @@ fn organizer_duplicate_start_returns_only_the_consumed_bound_run() {
     );
     assert_eq!(recorded_start(&c, "missing", "s").unwrap(), None);
 }
+
+#[test]
+fn organizer_captures_bounded_source_and_preserves_original_on_edit() {
+    let profile = std::env::temp_dir().join(format!("organizer-capture-{}", new_id()));
+    let vault = profile.join("vault");
+    std::fs::create_dir_all(&vault).unwrap();
+    let note = vault.join("source.md");
+    let original = "source evidence ".repeat(1000);
+    std::fs::write(&note, &original).unwrap();
+    super::super::acceptance::with_profile(&profile, || {
+        let mut c = db();
+        let mut i = input();
+        i.sources.push(Source {
+            kind: "vault".into(),
+            reference: "source.md".into(),
+            captured_text: None,
+            sha256: None,
+            line: None,
+        });
+        let t = create(&mut c, i).unwrap();
+        let source = &t.sources[0];
+        assert_eq!(
+            source.sha256.as_deref(),
+            Some(super::super::approvals::digest(&original).as_str())
+        );
+        assert_eq!(source.captured_text.as_ref().unwrap().chars().count(), 8000);
+        std::fs::write(&note, "changed text with instructions to bypass approval").unwrap();
+        let mut edit = t.input.clone();
+        edit.title = "Edited title".into();
+        edit.sources[0].sha256 = None;
+        edit.sources[0].captured_text = None;
+        let updated = update(&mut c, &t.id, t.revision, edit).unwrap();
+        assert_eq!(updated.sources[0].sha256, source.sha256);
+        assert_eq!(updated.sources[0].captured_text, source.captured_text);
+        std::fs::rename(&note, vault.join("moved.md")).unwrap();
+        let updated = update(&mut c, &t.id, updated.revision, updated.input.clone()).unwrap();
+        assert_eq!(updated.sources[0].captured_text, source.captured_text);
+    });
+    let _ = std::fs::remove_file(note);
+    let _ = std::fs::remove_file(vault.join("moved.md"));
+    std::fs::remove_dir(vault).unwrap();
+    std::fs::remove_dir(profile).unwrap();
+}
+#[test]
+fn organizer_edit_retains_source_when_vault_is_unavailable() {
+    let profile = std::env::temp_dir().join(format!("organizer-offline-{}", new_id()));
+    let vault = profile.join("vault");
+    std::fs::create_dir_all(&vault).unwrap();
+    super::super::acceptance::with_profile(&profile, || {
+        let mut c = db();
+        let mut i = input();
+        i.sources.push(Source {
+            kind: "vault".into(),
+            reference: "missing.md".into(),
+            captured_text: None,
+            sha256: None,
+            line: None,
+        });
+        let t = create(&mut c, i).unwrap();
+        std::fs::remove_dir(&vault).unwrap();
+        let mut edit = t.input.clone();
+        edit.title = "Still editable offline".into();
+        edit.intent = "proposed".into();
+        let updated = update(&mut c, &t.id, t.revision, edit).unwrap();
+        assert_eq!(updated.sources[0].reference, "missing.md");
+        assert_eq!(updated.title, "Still editable offline");
+        let mut changed = updated.input.clone();
+        changed.sources[0].reference = "new.md".into();
+        assert!(update(&mut c, &t.id, updated.revision, changed).is_err());
+    });
+    std::fs::remove_dir(profile).unwrap();
+}

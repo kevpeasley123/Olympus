@@ -31,11 +31,12 @@ function respond(command: string, args: unknown) {
         return runs;
     if (command === "create_organizer_task") {
         const t = { ...request as unknown as TaskInput, id: `t${tasks.length}`, revision: 1, position: tasks.length, state: "open" as const, createdAt: date, updatedAt: date };
+        t.sources=t.sources.map(s=>s.kind==="vault"?{...s,capturedText:"Archived research excerpt fixture",sha256:"a".repeat(64),line:1}:s);
         tasks.push(t);
         return t;
     }
     if (command === "fetch_organizer_task")
-        return { task, runs, resultHealth: { result: "Current workspace matches the recorded review" }, runIds: runs.map(r => r.id), displayStatus: state(task), sourceHealth: task.sources.map(() => "Available; original revision unknown"), events: [], results: runs.some(r => ["complete", "awaiting_review"].includes(r.phase)) ? [{ id: "result", taskId: task.id, runId: "r", summary: "Implementation and verification evidence preserved.", workspaceHash: "hash", manifest: { workspace: "C:/fixture/run", changedFiles: ["workflow.ts"], taskSnapshot: task }, reviewState: task.state === "completed" ? "accepted" : "pending", createdAt: date, acceptedAt: null }] : [] } satisfies OrganizerDetail;
+        return { task, runs, resultHealth: { result: "Current workspace matches the recorded review" }, runIds: runs.map(r => r.id), displayStatus: state(task), sourceHealth: task.sources.map(s => s.kind==="url"?"External reference (not revalidated)":s.sha256?"Captured revision matches":"Available; original revision unknown"), events: [], results: runs.some(r => ["complete", "awaiting_review"].includes(r.phase)) ? [{ id: "result", taskId: task.id, runId: "r", summary: "Implementation and verification evidence preserved.", workspaceHash: "hash", manifest: { workspace: "C:/fixture/run", changedFiles: ["workflow.ts"], taskSnapshot: task }, reviewState: task.state === "completed" ? "accepted" : "pending", createdAt: date, acceptedAt: null }] : [] } satisfies OrganizerDetail;
     if (command === "update_organizer_task") {
         if (conflict) {
             conflict = false;
