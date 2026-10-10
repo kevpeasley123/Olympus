@@ -15,8 +15,8 @@ export function VaultConstellation({ graph, error, loading }: {
       setMessage(result === "unsupported" ? "Open notes from the desktop app." : "");
     } catch { setMessage("Could not open this note in Obsidian."); }
   }
-  return <div className="vault-constellation" data-dense={nodes.length > 60} role="group" aria-label={`Obsidian constellation: ${nodes.length} notes${error ? ", refresh unavailable" : ""}`}>
-    <span className="vault-constellation__label">Obsidian <b>{nodes.length}</b>
+  return <div className="vault-constellation" data-dense={nodes.length > 60} role="group" aria-label={`Obsidian Memory constellation: ${nodes.length} notes${error ? ", refresh unavailable" : ""}`}>
+    <span className="vault-constellation__label">Obsidian Memory <b>{nodes.length}</b>
       {graph.dropped > 0 && <small> · {graph.dropped} more outside this view</small>}
       {error && <small> · {nodes.length ? "last snapshot" : "unavailable"}</small>}
       {!error && !nodes.length && <small> · {loading ? "loading" : "no notes in graph"}</small>}

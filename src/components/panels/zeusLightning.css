@@ -1,0 +1,46 @@
+/* Zeus: small electrical channels, not a circular badge or mission status. */
+.zeus-lightning{position:absolute;left:50%;top:50%;width:38px;height:38px;transform:translate(-50%,-50%);overflow:visible;pointer-events:none;stroke-linecap:round;stroke-linejoin:round;z-index:1}
+.zeus-lightning__orbit{transform-origin:22px 22px;animation:zeus-charge-orbit 19s linear infinite}
+/* Each channel owns its flash clock; detuned periods avoid a shared blink. */
+.zeus-lightning__channel{opacity:0;stroke-dasharray:42 58;animation:zeus-charge-travel var(--travel,5.8s) linear infinite,zeus-charge-flash var(--flash,4.7s) linear infinite;animation-delay:var(--travel-delay,0s),var(--flash-delay,-.9s)}
+.zeus-lightning__channel--1{--travel:6.7s;--travel-delay:-2.9s;--flash:6.13s;--flash-delay:-3.2s;stroke-dasharray:31 69}
+.zeus-lightning__channel--2{--travel:5.3s;--travel-delay:-1.7s;--flash:7.31s;--flash-delay:-5.8s;stroke-dasharray:36 64}
+.zeus-lightning__glow{stroke:#e9ad42;stroke-width:2;opacity:.66;filter:drop-shadow(0 0 1.5px #f6b949)}
+.zeus-lightning__core{stroke:#fff1bd;stroke-width:.75;opacity:.95}
+.zeus-lightning__forks{stroke:#f4c96c;stroke-width:.65;stroke-dasharray:none;opacity:.3;animation:zeus-charge-breathe 4.7s ease-in-out infinite}
+@keyframes zeus-charge-orbit{to{transform:rotate(360deg)}}
+@keyframes zeus-charge-travel{from{stroke-dashoffset:0}to{stroke-dashoffset:-100}}
+@keyframes zeus-charge-breathe{0%,100%{opacity:.12}45%{opacity:.6}70%{opacity:.25}}
+/* Quick strikes with short decays and long, fully dark gaps. The bolt stays lit. */
+@keyframes zeus-charge-flash{
+  0%,7%,15%,42%,50%,76%,86%,100%{opacity:0}
+  8%,11%,43%,46%,77%,81%{opacity:1}
+  12%{opacity:.45}47%{opacity:.35}82%{opacity:.55}
+}
+
+/* Specificity keeps the old active/inspection halo from returning on hover. */
+.agents-constellation .agent-architecture-star[data-agent-id="olympus"]{border-color:transparent;background:transparent;box-shadow:none}
+.agents-constellation .agent-architecture-star[data-agent-id="olympus"]::before{content:none;animation:none}
+.agents-constellation .agent-architecture-star[data-agent-id="olympus"] .agent-emblem-spark{display:none}
+.agents-constellation .agent-architecture-star[data-agent-id="olympus"]:focus-visible{outline:1px solid #f0d296;outline-offset:7px;border-radius:4px}
+.agents-constellation .agent-architecture-star[data-agent-id="olympus"] .agent-emblem-mark{opacity:1;filter:drop-shadow(0 0 2px #efbc6266)}
+
+.olympus-armory .armory-roster-row[data-agent-id="olympus"] .armory-roster-emblem{overflow:visible;border-color:transparent;background:transparent;box-shadow:none}
+.olympus-armory .armory-roster-row[data-agent-id="olympus"] .armory-roster-emblem::after{content:none;animation:none}
+.armory-roster-emblem .zeus-lightning{width:47px;height:47px}
+.armory-roster-emblem .zeus-lightning__orbit{animation-direction:reverse;animation-duration:23s}
+.armory-roster-emblem .zeus-lightning__channel--0{--flash:5.37s;--flash-delay:-2.1s}
+.armory-roster-emblem .zeus-lightning__channel--1{--flash:6.71s;--flash-delay:-4.6s}
+.armory-roster-emblem .zeus-lightning__channel--2{--flash:7.93s;--flash-delay:-1.4s}
+.armory-roster-emblem .zeus-lightning__glow{stroke-width:1.6;opacity:.55}
+.armory-roster-emblem .zeus-lightning__core{stroke-width:.65}
+
+.agents-constellation[data-motion-paused="true"] .zeus-lightning *,
+.armory-roster-row[data-motion-paused="true"] .zeus-lightning *{animation-play-state:paused}
+@media(prefers-reduced-motion:reduce){
+  .zeus-lightning *{animation:none!important}
+  .zeus-lightning__channel{opacity:.65}
+  .zeus-lightning__channel--1{stroke-dashoffset:-44}
+  .zeus-lightning__channel--2{stroke-dashoffset:-71}
+  .zeus-lightning__forks{opacity:.25}
+}

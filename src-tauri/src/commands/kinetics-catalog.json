@@ -1,0 +1,3129 @@
+[
+  {
+    "name": "Interaction and Input Skills",
+    "hash": "28857f2dae728a0a2cffc9293772a06b3b20bef4ede7c2289ac2bdb5123d23c9",
+    "version": "017498f8ae0e728ce7461852070d22601dd0a46e",
+    "source": "https://kinetics.colorion.co/#library",
+    "patterns": [
+      {
+        "id": "01",
+        "name": "Card Resize",
+        "description": "Height spring with no JS layout thrash",
+        "aliases": [
+          "expand",
+          "collapse",
+          "expandable",
+          "grow",
+          "height",
+          "reveal",
+          "details",
+          "disclosure",
+          "tap",
+          "panel",
+          "show more",
+          "read more"
+        ],
+        "reference": "references/01-card-resize.md"
+      },
+      {
+        "id": "02",
+        "name": "Magnetic Button",
+        "description": "Cursor pulls the button toward it inside a dead zone",
+        "aliases": [
+          "magnet",
+          "hover",
+          "attract",
+          "pull",
+          "cursor",
+          "sticky",
+          "cta",
+          "playful",
+          "pointer",
+          "proximity",
+          "gravity",
+          "follow"
+        ],
+        "reference": "references/02-magnetic-button.md"
+      },
+      {
+        "id": "03",
+        "name": "Number Counter",
+        "description": "Digit bumps and overshoots on every increment",
+        "aliases": [
+          "count",
+          "increment",
+          "digits",
+          "numeric",
+          "stats",
+          "dollar amount",
+          "price",
+          "currency",
+          "money",
+          "tally",
+          "score",
+          "metric",
+          "total",
+          "likes"
+        ],
+        "reference": "references/03-number-counter.md"
+      },
+      {
+        "id": "04",
+        "name": "Toast Overshoot",
+        "description": "Slides past rest position before settling",
+        "aliases": [
+          "notification",
+          "alert",
+          "message",
+          "snackbar",
+          "popup",
+          "banner",
+          "feedback",
+          "confirmation",
+          "slide in",
+          "bounce",
+          "spring",
+          "status"
+        ],
+        "reference": "references/04-toast-overshoot.md"
+      },
+      {
+        "id": "05",
+        "name": "Tab Pill Glide",
+        "description": "Indicator measures target width before moving",
+        "aliases": [
+          "tabs",
+          "navigation",
+          "segmented control",
+          "indicator",
+          "switcher",
+          "menu",
+          "filter",
+          "active state",
+          "slide",
+          "nav",
+          "pill",
+          "underline"
+        ],
+        "reference": "references/05-tab-pill-glide.md"
+      },
+      {
+        "id": "06",
+        "name": "Accordion Spring",
+        "description": "Max-height transition with rotating chevron",
+        "aliases": [
+          "faq",
+          "collapse",
+          "expand",
+          "disclosure",
+          "dropdown",
+          "details",
+          "chevron",
+          "list",
+          "menu",
+          "show hide",
+          "toggle",
+          "section"
+        ],
+        "reference": "references/06-accordion-spring.md"
+      },
+      {
+        "id": "07",
+        "name": "Drag to Dismiss",
+        "description": "Pointer-tracked drag, snaps back or flies off past threshold",
+        "aliases": [
+          "swipe",
+          "delete",
+          "remove",
+          "gesture",
+          "flick",
+          "card",
+          "mobile",
+          "touch",
+          "throw",
+          "discard",
+          "snap back",
+          "tinder"
+        ],
+        "reference": "references/07-drag-to-dismiss.md"
+      },
+      {
+        "id": "08",
+        "name": "Ripple Feedback",
+        "description": "Radial fade-out anchored to the exact click point",
+        "aliases": [
+          "click",
+          "tap",
+          "material",
+          "touch",
+          "wave",
+          "button press",
+          "feedback",
+          "radial",
+          "splash",
+          "android",
+          "pulse",
+          "press"
+        ],
+        "reference": "references/08-ripple-feedback.md"
+      },
+      {
+        "id": "09",
+        "name": "Hold to Confirm",
+        "description": "Press and hold; a ring fills, release early to cancel",
+        "aliases": [
+          "long press",
+          "destructive",
+          "delete confirmation",
+          "safety",
+          "dangerous action",
+          "press and hold",
+          "ring",
+          "timer",
+          "guard",
+          "verify",
+          "deliberate",
+          "confirm"
+        ],
+        "reference": "references/09-hold-to-confirm.md"
+      },
+      {
+        "id": "10",
+        "name": "Rubber-band Slider",
+        "description": "Drag past either end and it stretches, then springs back",
+        "aliases": [
+          "range",
+          "slider",
+          "volume",
+          "brightness",
+          "scrub",
+          "overscroll",
+          "elastic",
+          "stretch",
+          "drag",
+          "ios",
+          "input",
+          "bounds"
+        ],
+        "reference": "references/10-rubber-band-slider.md"
+      },
+      {
+        "id": "11",
+        "name": "Like Burst",
+        "description": "Toggles, pops the heart, and emits a radial particle ring",
+        "aliases": [
+          "heart",
+          "favorite",
+          "love",
+          "reaction",
+          "social",
+          "twitter",
+          "instagram",
+          "particles",
+          "celebrate",
+          "upvote",
+          "save",
+          "emoji"
+        ],
+        "reference": "references/11-like-burst.md"
+      },
+      {
+        "id": "12",
+        "name": "Cursor Trail",
+        "description": "A chain of dots chases the pointer with eased lag",
+        "aliases": [
+          "mouse",
+          "pointer",
+          "follow",
+          "dots",
+          "playful",
+          "decoration",
+          "chase",
+          "lag",
+          "comet",
+          "wake",
+          "ambient",
+          "fun"
+        ],
+        "reference": "references/12-cursor-trail.md"
+      },
+      {
+        "id": "13",
+        "name": "Push Button",
+        "description": "A tactile depress with a real bottom edge — pure CSS",
+        "aliases": [
+          "3d button",
+          "press",
+          "tactile",
+          "depth",
+          "keyboard",
+          "mechanical",
+          "click",
+          "physical",
+          "skeuomorphic",
+          "shadow",
+          "depress",
+          "arcade"
+        ],
+        "reference": "references/13-push-button.md"
+      },
+      {
+        "id": "14",
+        "name": "Star Rating",
+        "description": "Hover previews a value, click locks it with a pop",
+        "aliases": [
+          "review",
+          "feedback",
+          "score",
+          "rank",
+          "stars",
+          "rate",
+          "evaluation",
+          "survey",
+          "product",
+          "five star",
+          "hover preview",
+          "vote"
+        ],
+        "reference": "references/14-star-rating.md"
+      },
+      {
+        "id": "15",
+        "name": "Floating Label",
+        "description": "Placeholder lifts into a label on focus — pure CSS",
+        "aliases": [
+          "form",
+          "input",
+          "text field",
+          "placeholder",
+          "label",
+          "material design",
+          "email",
+          "phone number",
+          "telephone",
+          "name field",
+          "date",
+          "birthday",
+          "address",
+          "signup",
+          "login",
+          "register",
+          "focus",
+          "entry"
+        ],
+        "reference": "references/15-floating-label.md"
+      },
+      {
+        "id": "16",
+        "name": "Copy Button",
+        "description": "Icon crossfades to a check and the label swaps, then reverts",
+        "aliases": [
+          "clipboard",
+          "copy paste",
+          "code",
+          "snippet",
+          "share",
+          "duplicate",
+          "check",
+          "confirmation",
+          "api key",
+          "token",
+          "url",
+          "success"
+        ],
+        "reference": "references/16-copy-button.md"
+      },
+      {
+        "id": "17",
+        "name": "Quantity Stepper",
+        "description": "Value pops on each change; clamps at zero",
+        "aliases": [
+          "cart",
+          "ecommerce",
+          "plus minus",
+          "amount",
+          "count",
+          "checkout",
+          "increment",
+          "decrement",
+          "spinner",
+          "number input",
+          "order",
+          "items"
+        ],
+        "reference": "references/17-quantity-stepper.md"
+      },
+      {
+        "id": "18",
+        "name": "Choice Chips",
+        "description": "Toggle filters that pop as they switch on and off",
+        "aliases": [
+          "filter",
+          "tags",
+          "multi select",
+          "options",
+          "categories",
+          "toggle",
+          "pills",
+          "facets",
+          "preferences",
+          "selection",
+          "chips",
+          "checkbox"
+        ],
+        "reference": "references/18-choice-chips.md"
+      },
+      {
+        "id": "19",
+        "name": "PIN Input",
+        "description": "Each digit pops and auto-advances to the next box",
+        "aliases": [
+          "otp",
+          "one time password",
+          "verification code",
+          "2fa",
+          "mfa",
+          "security code",
+          "credit card",
+          "card number",
+          "cvv",
+          "ssn",
+          "social security",
+          "passcode",
+          "digits",
+          "sms code",
+          "authentication",
+          "phone verification",
+          "numeric",
+          "segmented input"
+        ],
+        "reference": "references/19-pin-input.md"
+      },
+      {
+        "id": "20",
+        "name": "Password Meter",
+        "description": "Segments fill and shift color as strength climbs",
+        "aliases": [
+          "strength",
+          "security",
+          "signup",
+          "validation",
+          "form",
+          "gauge",
+          "indicator",
+          "weak strong",
+          "register",
+          "account",
+          "requirements",
+          "secret"
+        ],
+        "reference": "references/20-password-meter.md"
+      },
+      {
+        "id": "21",
+        "name": "Pointer Tooltip",
+        "description": "Label trails the cursor with eased follow",
+        "aliases": [
+          "hover",
+          "hint",
+          "label",
+          "cursor follow",
+          "info",
+          "help",
+          "popover",
+          "caption",
+          "context",
+          "mouse",
+          "floating",
+          "tip"
+        ],
+        "reference": "references/21-pointer-tooltip.md"
+      },
+      {
+        "id": "22",
+        "name": "Swipe to Reveal",
+        "description": "Drag an item horizontally to expose action buttons",
+        "aliases": [
+          "actions",
+          "delete",
+          "archive",
+          "mobile",
+          "list item",
+          "gesture",
+          "email",
+          "ios",
+          "hidden buttons",
+          "slide",
+          "mail app",
+          "drag"
+        ],
+        "reference": "references/22-swipe-to-reveal.md"
+      },
+      {
+        "id": "23",
+        "name": "Rotary Knob",
+        "description": "Drag in a circle to set a value; snaps to detents on release",
+        "aliases": [
+          "dial",
+          "volume",
+          "control",
+          "audio",
+          "synth",
+          "angle",
+          "rotate",
+          "circular",
+          "detent",
+          "tuner",
+          "settings",
+          "temperature",
+          "time",
+          "clock"
+        ],
+        "reference": "references/23-rotary-knob.md"
+      },
+      {
+        "id": "24",
+        "name": "Reorderable List",
+        "description": "Drag items up and down; others shift to make room",
+        "aliases": [
+          "drag and drop",
+          "sort",
+          "rank",
+          "todo",
+          "playlist",
+          "kanban",
+          "order",
+          "rearrange",
+          "priority",
+          "dnd",
+          "shuffle",
+          "move"
+        ],
+        "reference": "references/24-reorderable-list.md"
+      },
+      {
+        "id": "25",
+        "name": "Expanding Search",
+        "description": "Field grows on hover or focus, glide easing",
+        "aliases": [
+          "search bar",
+          "find",
+          "magnifier",
+          "filter",
+          "lookup",
+          "query",
+          "grow",
+          "navbar",
+          "toolbar",
+          "input",
+          "discover",
+          "spotlight"
+        ],
+        "reference": "references/25-expanding-search.md"
+      },
+      {
+        "id": "26",
+        "name": "Squish Button",
+        "description": "Compresses on press, springs back on release",
+        "aliases": [
+          "press",
+          "scale",
+          "tactile",
+          "bounce",
+          "spring",
+          "tap",
+          "feedback",
+          "jelly",
+          "playful",
+          "cta",
+          "click",
+          "squeeze"
+        ],
+        "reference": "references/26-squish-button.md"
+      },
+      {
+        "id": "27",
+        "name": "Toggle Pills",
+        "description": "Selected pill pops with a spring scale",
+        "aliases": [
+          "switch",
+          "options",
+          "selector",
+          "segmented",
+          "single select",
+          "mode",
+          "filter",
+          "choice",
+          "radio",
+          "tabs",
+          "on off",
+          "setting"
+        ],
+        "reference": "references/27-toggle-pills.md"
+      },
+      {
+        "id": "28",
+        "name": "Value Scrubber",
+        "description": "Drag horizontally to scrub the number",
+        "aliases": [
+          "number input",
+          "drag",
+          "slider",
+          "numeric",
+          "dollar amount",
+          "price",
+          "currency",
+          "budget",
+          "money",
+          "date",
+          "year",
+          "age",
+          "scrub",
+          "fine tune",
+          "figma",
+          "timeline"
+        ],
+        "reference": "references/28-value-scrubber.md"
+      },
+      {
+        "id": "29",
+        "name": "Speed-Dial FAB",
+        "description": "Actions fan out on a staggered spring",
+        "aliases": [
+          "floating action button",
+          "menu",
+          "actions",
+          "fan out",
+          "material",
+          "mobile",
+          "quick actions",
+          "plus button",
+          "radial menu",
+          "compose",
+          "shortcut",
+          "expand"
+        ],
+        "reference": "references/29-speed-dial-fab.md"
+      },
+      {
+        "id": "30",
+        "name": "Swatch Picker",
+        "description": "Selected colour springs up with a check",
+        "aliases": [
+          "color picker",
+          "palette",
+          "theme",
+          "customize",
+          "swatches",
+          "design",
+          "variant",
+          "product options",
+          "chooser",
+          "paint",
+          "style",
+          "color"
+        ],
+        "reference": "references/30-swatch-picker.md"
+      },
+      {
+        "id": "31",
+        "name": "Slide to Unlock",
+        "description": "Drag past the latch or it springs back",
+        "aliases": [
+          "swipe",
+          "confirm",
+          "iphone",
+          "lock screen",
+          "drag",
+          "commitment",
+          "payment confirm",
+          "latch",
+          "security",
+          "gesture",
+          "slider",
+          "unlock"
+        ],
+        "reference": "references/31-slide-to-unlock.md"
+      },
+      {
+        "id": "32",
+        "name": "Tag Input",
+        "description": "Enter pops a chip in; × pops it out",
+        "aliases": [
+          "chips",
+          "tokens",
+          "keywords",
+          "labels",
+          "categories",
+          "multi value",
+          "email recipients",
+          "skills",
+          "autocomplete",
+          "form",
+          "enter",
+          "taxonomy"
+        ],
+        "reference": "references/32-tag-input.md"
+      },
+      {
+        "id": "33",
+        "name": "Keycap Press",
+        "description": "Mechanical keycap depresses on its shadow",
+        "aliases": [
+          "keyboard",
+          "key",
+          "shortcut",
+          "mechanical",
+          "typing",
+          "hotkey",
+          "kbd",
+          "press",
+          "tactile",
+          "cherry",
+          "input",
+          "hint"
+        ],
+        "reference": "references/33-keycap-press.md"
+      },
+      {
+        "id": "34",
+        "name": "Orbital Action Menu",
+        "description": "Actions escape a magnetic centre on hover",
+        "aliases": [
+          "radial menu",
+          "context menu",
+          "hover",
+          "satellite",
+          "actions",
+          "circular",
+          "fan",
+          "escape",
+          "magnetic",
+          "quick actions",
+          "pie menu",
+          "orbit"
+        ],
+        "reference": "references/34-orbital-action-menu.md"
+      },
+      {
+        "id": "35",
+        "name": "Contextual Dock",
+        "description": "Nearby controls swell in a soft focus field",
+        "aliases": [
+          "dock",
+          "macos",
+          "magnify",
+          "toolbar",
+          "icons",
+          "hover",
+          "fisheye",
+          "taskbar",
+          "launcher",
+          "apps",
+          "zoom",
+          "proximity"
+        ],
+        "reference": "references/35-contextual-dock.md"
+      },
+      {
+        "id": "36",
+        "name": "Inertial Dial",
+        "description": "A weighted needle catches up after the ring turns",
+        "aliases": [
+          "dial",
+          "lag",
+          "needle",
+          "gauge",
+          "weighted",
+          "physics",
+          "rotation",
+          "meter",
+          "analog",
+          "speedometer",
+          "drag",
+          "momentum"
+        ],
+        "reference": "references/36-inertial-dial.md"
+      },
+      {
+        "id": "37",
+        "name": "Elastic Lasso",
+        "description": "Drag a selection field across the constellation",
+        "aliases": [
+          "selection",
+          "marquee",
+          "drag select",
+          "multi select",
+          "box select",
+          "canvas",
+          "desktop",
+          "files",
+          "area",
+          "rubber band",
+          "group",
+          "click drag"
+        ],
+        "reference": "references/37-elastic-lasso.md"
+      },
+      {
+        "id": "38",
+        "name": "Hover Intent Gate",
+        "description": "A deliberate hover quietly unlocks the action",
+        "aliases": [
+          "hover delay",
+          "intent",
+          "deliberate",
+          "unlock",
+          "guard",
+          "accidental",
+          "menu",
+          "dropdown",
+          "dwell",
+          "patience",
+          "timer",
+          "gate"
+        ],
+        "reference": "references/38-hover-intent-gate.md"
+      },
+      {
+        "id": "39",
+        "name": "Gesture Chord",
+        "description": "Tap the keys in sequence to arm a shortcut",
+        "aliases": [
+          "keyboard shortcut",
+          "sequence",
+          "combo",
+          "hotkey",
+          "konami",
+          "chord",
+          "arm",
+          "two step",
+          "command",
+          "cheat code",
+          "secret",
+          "trigger"
+        ],
+        "reference": "references/39-gesture-chord.md"
+      },
+      {
+        "id": "40",
+        "name": "Liquid Glass Press",
+        "description": "Frosted glass liquefies under a specular press",
+        "aliases": [
+          "liquid glass",
+          "frosted",
+          "glassmorphism",
+          "specular",
+          "apple glass",
+          "refraction",
+          "backdrop filter",
+          "cta",
+          "press",
+          "blur",
+          "translucent",
+          "modern"
+        ],
+        "reference": "references/40-liquid-glass-press.md"
+      },
+      {
+        "id": "41",
+        "name": "Bento Expand",
+        "description": "Hover focuses one tile; the rest quietly recede",
+        "aliases": [
+          "bento",
+          "grid",
+          "dashboard",
+          "tiles",
+          "hover focus",
+          "editorial layout",
+          "cards",
+          "asymmetric",
+          "recede",
+          "spotlight",
+          "layout",
+          "apple"
+        ],
+        "reference": "references/41-bento-expand.md"
+      },
+      {
+        "id": "42",
+        "name": "Snap Rail",
+        "description": "A soft selection pill springs to the hovered option",
+        "aliases": [
+          "segmented control",
+          "pill",
+          "snap",
+          "day week month",
+          "filter",
+          "toggle group",
+          "magnetic",
+          "selection",
+          "tabs",
+          "spring",
+          "options",
+          "range"
+        ],
+        "reference": "references/42-snap-rail.md"
+      },
+      {
+        "id": "43",
+        "name": "Kinetic XY Pad",
+        "description": "A two-axis puck trails the pointer, then springs home",
+        "aliases": [
+          "xy pad",
+          "two axis",
+          "pointer",
+          "drag",
+          "joystick",
+          "coordinates",
+          "position",
+          "spring home",
+          "puck",
+          "spatial input",
+          "control surface",
+          "touch"
+        ],
+        "reference": "references/43-kinetic-xy-pad.md"
+      },
+      {
+        "id": "44",
+        "name": "Command Palette Bloom",
+        "description": "A compact trigger unfolds into a staggered action lens",
+        "aliases": [
+          "command palette",
+          "actions",
+          "keyboard",
+          "shortcut",
+          "menu",
+          "stagger",
+          "clip reveal",
+          "launcher",
+          "spotlight",
+          "cmd k",
+          "quick access",
+          "popover"
+        ],
+        "reference": "references/44-command-palette-bloom.md"
+      },
+      {
+        "id": "45",
+        "name": "Momentum Picker",
+        "description": "Wheel input rolls a weighted selector into its next detent",
+        "aliases": [
+          "wheel",
+          "picker",
+          "detent",
+          "vertical select",
+          "weighted",
+          "snap",
+          "density",
+          "scroll",
+          "options",
+          "dial",
+          "input",
+          "cylindrical"
+        ],
+        "reference": "references/45-momentum-picker.md"
+      },
+      {
+        "id": "46",
+        "name": "Prompt Composer",
+        "description": "An AI input grows with the thought, then commits to a run",
+        "aliases": [
+          "ai",
+          "chat input",
+          "textarea",
+          "autogrow",
+          "auto resize",
+          "prompt",
+          "send button",
+          "chatbot",
+          "llm",
+          "message box",
+          "compose",
+          "assistant",
+          "submit",
+          "focus glow",
+          "copilot"
+        ],
+        "reference": "references/46-prompt-composer.md"
+      },
+      {
+        "id": "47",
+        "name": "Filmstrip Scrubber",
+        "description": "A playhead snaps to the frame nearest the pointer",
+        "aliases": [
+          "video",
+          "timeline",
+          "scrub",
+          "playhead",
+          "frames",
+          "seek",
+          "preview",
+          "editor",
+          "media player",
+          "trim",
+          "thumbnails",
+          "timecode",
+          "drag",
+          "audio"
+        ],
+        "reference": "references/47-filmstrip-scrubber.md"
+      },
+      {
+        "id": "48",
+        "name": "Drag Stack Collect",
+        "description": "Loose items gather into a fanned pile under the pointer",
+        "aliases": [
+          "drag and drop",
+          "multi select",
+          "files",
+          "finder",
+          "gather",
+          "pile",
+          "stack",
+          "batch",
+          "move items",
+          "collect",
+          "fan",
+          "desktop",
+          "upload",
+          "bulk action"
+        ],
+        "reference": "references/48-drag-stack-collect.md"
+      },
+      {
+        "id": "49",
+        "name": "Focus Relay",
+        "description": "A shared focus ring leaps between fields with a spring morph",
+        "aliases": [
+          "focus ring",
+          "shared outline",
+          "morph",
+          "leap",
+          "form fields",
+          "input focus",
+          "relay",
+          "linear",
+          "apple focus",
+          "keyboard",
+          "active field",
+          "outline"
+        ],
+        "reference": "references/49-focus-relay.md"
+      },
+      {
+        "id": "50",
+        "name": "Hold to Talk",
+        "description": "A live waveform blooms while you hold, then commits on release",
+        "aliases": [
+          "voice",
+          "microphone",
+          "waveform",
+          "hold",
+          "record",
+          "audio",
+          "speech",
+          "whisper",
+          "voice note",
+          "press and hold",
+          "talk",
+          "dictation",
+          "capture"
+        ],
+        "reference": "references/50-hold-to-talk.md"
+      },
+      {
+        "id": "51",
+        "name": "Lattice Snap",
+        "description": "A tile follows the pointer, then springs onto the nearest cell",
+        "aliases": [
+          "grid",
+          "snap",
+          "magnet",
+          "tile",
+          "drag",
+          "cells",
+          "lattice",
+          "align",
+          "figma",
+          "board",
+          "drop",
+          "spring snap"
+        ],
+        "reference": "references/51-lattice-snap.md"
+      }
+    ]
+  },
+  {
+    "name": "Feedback and State Skills",
+    "hash": "46c5c1bbbd9eb28b8a391a55b607a0587b0ed1dc6ec8c119feaee3bb6f97f7de",
+    "version": "017498f8ae0e728ce7461852070d22601dd0a46e",
+    "source": "https://kinetics.colorion.co/#library",
+    "patterns": [
+      {
+        "id": "01",
+        "name": "Scramble Reveal",
+        "description": "Cycles random glyphs before settling left-to-right",
+        "aliases": [
+          "text effect",
+          "decode",
+          "matrix",
+          "hacker",
+          "glyphs",
+          "randomize",
+          "terminal",
+          "reveal",
+          "cipher",
+          "decrypt",
+          "headline",
+          "typing"
+        ],
+        "reference": "references/01-scramble-reveal.md"
+      },
+      {
+        "id": "02",
+        "name": "Momentum Marquee",
+        "description": "Infinite scroll that pauses smoothly on hover",
+        "aliases": [
+          "ticker",
+          "scroll",
+          "infinite",
+          "logos",
+          "news",
+          "banner",
+          "carousel",
+          "loop",
+          "pause on hover",
+          "brands",
+          "strip",
+          "headline"
+        ],
+        "reference": "references/02-momentum-marquee.md"
+      },
+      {
+        "id": "03",
+        "name": "Stagger Entrance",
+        "description": "List items rise in sequence on scroll into view",
+        "aliases": [
+          "scroll reveal",
+          "list animation",
+          "cascade",
+          "sequence",
+          "entrance",
+          "fade up",
+          "on scroll",
+          "intersection observer",
+          "items",
+          "waterfall",
+          "delay",
+          "appear"
+        ],
+        "reference": "references/03-stagger-entrance.md"
+      },
+      {
+        "id": "04",
+        "name": "Icon Morph Swap",
+        "description": "Outgoing icon blurs and rotates out, incoming settles in",
+        "aliases": [
+          "icon transition",
+          "toggle icon",
+          "crossfade",
+          "swap",
+          "menu to x",
+          "play pause",
+          "state change",
+          "rotate",
+          "blur",
+          "morph",
+          "replace",
+          "switch"
+        ],
+        "reference": "references/04-icon-morph-swap.md"
+      },
+      {
+        "id": "05",
+        "name": "Underline Draw",
+        "description": "Scale-transform underline, draws left to right on hover",
+        "aliases": [
+          "link hover",
+          "underline",
+          "nav",
+          "text decoration",
+          "draw",
+          "left to right",
+          "menu item",
+          "anchor",
+          "highlight",
+          "scale",
+          "hover effect",
+          "line"
+        ],
+        "reference": "references/05-underline-draw.md"
+      },
+      {
+        "id": "06",
+        "name": "Elastic Progress",
+        "description": "Bar overshoots target width slightly before settling",
+        "aliases": [
+          "progress bar",
+          "loading",
+          "upload",
+          "percent",
+          "overshoot",
+          "download",
+          "completion",
+          "meter",
+          "bar",
+          "status",
+          "bounce",
+          "fill"
+        ],
+        "reference": "references/06-elastic-progress.md"
+      },
+      {
+        "id": "07",
+        "name": "Delayed Tooltip",
+        "description": "Appears after a pause, disappears instantly on exit",
+        "aliases": [
+          "tooltip delay",
+          "hover",
+          "hint",
+          "help",
+          "dwell",
+          "patience",
+          "info",
+          "popover",
+          "wait",
+          "ux",
+          "label",
+          "show"
+        ],
+        "reference": "references/07-delayed-tooltip.md"
+      },
+      {
+        "id": "08",
+        "name": "Switch Spring",
+        "description": "Knob overshoots its track position on toggle",
+        "aliases": [
+          "toggle",
+          "on off",
+          "setting",
+          "checkbox",
+          "ios switch",
+          "preferences",
+          "enable disable",
+          "knob",
+          "boolean",
+          "dark mode",
+          "flip",
+          "control"
+        ],
+        "reference": "references/08-switch-spring.md"
+      },
+      {
+        "id": "09",
+        "name": "Checkbox Draw",
+        "description": "The tick is drawn with an animated SVG stroke",
+        "aliases": [
+          "check",
+          "tick",
+          "todo",
+          "task",
+          "complete",
+          "svg stroke",
+          "form",
+          "done",
+          "animated check",
+          "list",
+          "selection",
+          "mark"
+        ],
+        "reference": "references/09-checkbox-draw.md"
+      },
+      {
+        "id": "10",
+        "name": "Typewriter",
+        "description": "Types and deletes through a list with a blinking caret",
+        "aliases": [
+          "typing",
+          "text animation",
+          "hero",
+          "headline",
+          "terminal",
+          "caret",
+          "cursor",
+          "rotating words",
+          "delete",
+          "cycle",
+          "prompt",
+          "intro"
+        ],
+        "reference": "references/10-typewriter.md"
+      },
+      {
+        "id": "11",
+        "name": "Odometer Count-up",
+        "description": "Eases from zero to its target when scrolled into view",
+        "aliases": [
+          "statistics",
+          "counters",
+          "numbers",
+          "stats section",
+          "metrics",
+          "kpi",
+          "dashboard",
+          "revenue",
+          "dollar amount",
+          "currency",
+          "money",
+          "users count",
+          "scroll trigger",
+          "landing page",
+          "count up"
+        ],
+        "reference": "references/11-odometer-count-up.md"
+      },
+      {
+        "id": "12",
+        "name": "Status Pill",
+        "description": "Morphs idle → loading → success with icon and colour",
+        "aliases": [
+          "state",
+          "badge",
+          "loading success",
+          "async",
+          "submit",
+          "morphing",
+          "indicator",
+          "chip",
+          "label",
+          "progress",
+          "workflow",
+          "transition"
+        ],
+        "reference": "references/12-status-pill.md"
+      },
+      {
+        "id": "13",
+        "name": "Pulse Badge",
+        "description": "A notification dot emits expanding rings forever — pure CSS",
+        "aliases": [
+          "notification dot",
+          "alert",
+          "new",
+          "unread",
+          "attention",
+          "ping",
+          "ring",
+          "indicator",
+          "live",
+          "online",
+          "presence",
+          "radar"
+        ],
+        "reference": "references/13-pulse-badge.md"
+      },
+      {
+        "id": "14",
+        "name": "Success Check",
+        "description": "Ring and tick draw themselves on, then undraw on toggle",
+        "aliases": [
+          "checkmark",
+          "done",
+          "complete",
+          "confirmation",
+          "order placed",
+          "payment success",
+          "tick",
+          "circle",
+          "celebrate",
+          "form submitted",
+          "svg",
+          "draw"
+        ],
+        "reference": "references/14-success-check.md"
+      },
+      {
+        "id": "15",
+        "name": "Segment Loader",
+        "description": "Stepped bars fill one after another on each run",
+        "aliases": [
+          "loading",
+          "steps",
+          "progress",
+          "bars",
+          "sequence",
+          "boot",
+          "loading bar",
+          "stepped",
+          "blocks",
+          "fill",
+          "wait",
+          "chunks"
+        ],
+        "reference": "references/15-segment-loader.md"
+      },
+      {
+        "id": "16",
+        "name": "Orbit Spinner",
+        "description": "A dual-arc ring rotates on a tight infinite loop — pure CSS",
+        "aliases": [
+          "loading spinner",
+          "loader",
+          "wait",
+          "busy",
+          "fetch",
+          "circular",
+          "ring",
+          "activity indicator",
+          "async",
+          "buffering",
+          "processing",
+          "infinite"
+        ],
+        "reference": "references/16-orbit-spinner.md"
+      },
+      {
+        "id": "17",
+        "name": "Progress Ring",
+        "description": "Circular stroke eases to a new value on each run",
+        "aliases": [
+          "circular progress",
+          "donut",
+          "percent",
+          "goal",
+          "fitness",
+          "activity ring",
+          "dashboard",
+          "kpi",
+          "completion",
+          "radial",
+          "gauge",
+          "tracker"
+        ],
+        "reference": "references/17-progress-ring.md"
+      },
+      {
+        "id": "18",
+        "name": "Notification Slide-in",
+        "description": "Banner drops from the top edge and settles with a spring",
+        "aliases": [
+          "banner",
+          "alert",
+          "toast",
+          "message",
+          "drop down",
+          "announcement",
+          "push notification",
+          "top bar",
+          "in app",
+          "spring",
+          "notify",
+          "slide"
+        ],
+        "reference": "references/18-notification-slide-in.md"
+      },
+      {
+        "id": "19",
+        "name": "Step Progress",
+        "description": "Connector fills and the next node pops active",
+        "aliases": [
+          "wizard",
+          "stepper",
+          "checkout steps",
+          "onboarding",
+          "multi step form",
+          "progress",
+          "milestones",
+          "flow",
+          "stages",
+          "breadcrumb",
+          "sequence",
+          "journey"
+        ],
+        "reference": "references/19-step-progress.md"
+      },
+      {
+        "id": "20",
+        "name": "Undo Snackbar",
+        "description": "Timed bar drains while you can still undo",
+        "aliases": [
+          "undo",
+          "snackbar",
+          "toast",
+          "deleted",
+          "restore",
+          "timer",
+          "grace period",
+          "action",
+          "dismiss",
+          "revert",
+          "gmail",
+          "countdown"
+        ],
+        "reference": "references/20-undo-snackbar.md"
+      },
+      {
+        "id": "21",
+        "name": "Submit States",
+        "description": "Label to bouncing dots to a settled checkmark",
+        "aliases": [
+          "button states",
+          "loading button",
+          "form submit",
+          "async button",
+          "spinner",
+          "dots",
+          "success",
+          "save",
+          "pending",
+          "cta",
+          "feedback",
+          "transition"
+        ],
+        "reference": "references/21-submit-states.md"
+      },
+      {
+        "id": "22",
+        "name": "Countdown Ring",
+        "description": "Drains a circular ring as the seconds tick down",
+        "aliases": [
+          "timer",
+          "countdown",
+          "seconds",
+          "deadline",
+          "otp expiry",
+          "pomodoro",
+          "ring",
+          "clock",
+          "expire",
+          "urgency",
+          "time left",
+          "date"
+        ],
+        "reference": "references/22-countdown-ring.md"
+      },
+      {
+        "id": "23",
+        "name": "Skeleton to Content",
+        "description": "Shimmering placeholder resolves into real content on click",
+        "aliases": [
+          "skeleton",
+          "loading state",
+          "placeholder",
+          "shimmer",
+          "content loaded",
+          "lazy",
+          "fetch",
+          "cards",
+          "perceived performance",
+          "ghost",
+          "resolve",
+          "swap"
+        ],
+        "reference": "references/23-skeleton-to-content.md"
+      },
+      {
+        "id": "24",
+        "name": "Toast Stack",
+        "description": "Multiple toasts stack upward and auto-dismiss in sequence",
+        "aliases": [
+          "toasts",
+          "notifications",
+          "stack",
+          "queue",
+          "multiple",
+          "auto dismiss",
+          "messages",
+          "alerts",
+          "pile",
+          "sequence",
+          "corner",
+          "system"
+        ],
+        "reference": "references/24-toast-stack.md"
+      },
+      {
+        "id": "25",
+        "name": "Indeterminate Bar",
+        "description": "Looping sweep for unknown-length work",
+        "aliases": [
+          "loading",
+          "unknown progress",
+          "sweep",
+          "bar",
+          "busy",
+          "waiting",
+          "fetch",
+          "indefinite",
+          "scanner",
+          "activity",
+          "stripe",
+          "processing"
+        ],
+        "reference": "references/25-indeterminate-bar.md"
+      },
+      {
+        "id": "26",
+        "name": "Pulse Badge",
+        "description": "Expanding ring draws the eye to new state",
+        "aliases": [
+          "notification dot",
+          "alert",
+          "new",
+          "unread",
+          "attention",
+          "ping",
+          "ring",
+          "indicator",
+          "live",
+          "online",
+          "presence",
+          "radar"
+        ],
+        "reference": "references/26-pulse-badge.md"
+      },
+      {
+        "id": "27",
+        "name": "Shimmer Skeleton",
+        "description": "Sweeping highlight over placeholder lines",
+        "aliases": [
+          "skeleton",
+          "placeholder",
+          "loading",
+          "shimmer",
+          "ghost",
+          "content loading",
+          "lines",
+          "sweep",
+          "lazy",
+          "wait",
+          "gray boxes",
+          "perceived performance"
+        ],
+        "reference": "references/27-shimmer-skeleton.md"
+      },
+      {
+        "id": "28",
+        "name": "Typing Indicator",
+        "description": "Three dots bounce in sequence, chat-style",
+        "aliases": [
+          "chat",
+          "messaging",
+          "dots",
+          "someone typing",
+          "conversation",
+          "bubble",
+          "whatsapp",
+          "imessage",
+          "live",
+          "presence",
+          "waiting",
+          "reply"
+        ],
+        "reference": "references/28-typing-indicator.md"
+      },
+      {
+        "id": "29",
+        "name": "Heartbeat Monitor",
+        "description": "Glowing dot traces an EKG along the path",
+        "aliases": [
+          "ekg",
+          "pulse",
+          "health",
+          "vitals",
+          "medical",
+          "heartbeat",
+          "monitor",
+          "line",
+          "trace",
+          "cardio",
+          "fitness",
+          "alive"
+        ],
+        "reference": "references/29-heartbeat-monitor.md"
+      },
+      {
+        "id": "30",
+        "name": "Battery Charge",
+        "description": "Fill climbs as the bolt pulses",
+        "aliases": [
+          "charging",
+          "battery",
+          "power",
+          "energy",
+          "fill",
+          "level",
+          "bolt",
+          "device",
+          "status",
+          "indicator",
+          "percent",
+          "juice"
+        ],
+        "reference": "references/30-battery-charge.md"
+      },
+      {
+        "id": "31",
+        "name": "Signal Bars",
+        "description": "Bars light up in sequence while connecting",
+        "aliases": [
+          "wifi",
+          "connection",
+          "signal strength",
+          "network",
+          "connectivity",
+          "bars",
+          "cellular",
+          "reception",
+          "online",
+          "status",
+          "connecting",
+          "phone signal"
+        ],
+        "reference": "references/31-signal-bars.md"
+      },
+      {
+        "id": "32",
+        "name": "Badge Counter",
+        "description": "Count springs on every add",
+        "aliases": [
+          "notification count",
+          "unread",
+          "cart count",
+          "badge",
+          "number",
+          "inbox",
+          "increment",
+          "bubble",
+          "red dot",
+          "counter",
+          "items",
+          "alerts"
+        ],
+        "reference": "references/32-badge-counter.md"
+      },
+      {
+        "id": "33",
+        "name": "Bookmark Toggle",
+        "description": "Ribbon fills and drops in on save",
+        "aliases": [
+          "save",
+          "bookmark",
+          "favorite",
+          "ribbon",
+          "read later",
+          "collection",
+          "toggle",
+          "library",
+          "saved items",
+          "flag",
+          "pin",
+          "archive"
+        ],
+        "reference": "references/33-bookmark-toggle.md"
+      },
+      {
+        "id": "34",
+        "name": "Packet Trace",
+        "description": "Data pulses choose a route through a tiny network",
+        "aliases": [
+          "network",
+          "data flow",
+          "routing",
+          "pulse",
+          "nodes",
+          "graph",
+          "packets",
+          "infrastructure",
+          "topology",
+          "transfer",
+          "path",
+          "animation"
+        ],
+        "reference": "references/34-packet-trace.md"
+      },
+      {
+        "id": "35",
+        "name": "Phase Lock",
+        "description": "Three independent signals resolve into sync",
+        "aliases": [
+          "sync",
+          "synchronize",
+          "signals",
+          "waves",
+          "alignment",
+          "harmony",
+          "converge",
+          "oscillate",
+          "resolve",
+          "lock",
+          "rhythm",
+          "tune"
+        ],
+        "reference": "references/35-phase-lock.md"
+      },
+      {
+        "id": "36",
+        "name": "Checksum Bloom",
+        "description": "A verification string resolves from noise to trust",
+        "aliases": [
+          "hash",
+          "verification",
+          "integrity",
+          "trust",
+          "security",
+          "resolve",
+          "noise",
+          "crypto",
+          "validate",
+          "fingerprint",
+          "confirm",
+          "checksum"
+        ],
+        "reference": "references/36-checksum-bloom.md"
+      },
+      {
+        "id": "37",
+        "name": "Echo Receipt",
+        "description": "Acknowledgement ripples through three trust layers",
+        "aliases": [
+          "read receipt",
+          "delivered",
+          "acknowledgement",
+          "sent",
+          "checkmarks",
+          "whatsapp ticks",
+          "message status",
+          "confirmation",
+          "layers",
+          "ripple",
+          "trust",
+          "receipt"
+        ],
+        "reference": "references/37-echo-receipt.md"
+      },
+      {
+        "id": "38",
+        "name": "State Diff",
+        "description": "The old value yields as the new state commits",
+        "aliases": [
+          "diff",
+          "git",
+          "version",
+          "change",
+          "before after",
+          "old new",
+          "compare",
+          "commit",
+          "update",
+          "replace",
+          "transition",
+          "values"
+        ],
+        "reference": "references/38-state-diff.md"
+      },
+      {
+        "id": "39",
+        "name": "Signal Braille",
+        "description": "A tactile dot matrix encodes live system phases",
+        "aliases": [
+          "dots",
+          "matrix",
+          "status grid",
+          "phases",
+          "system state",
+          "encode",
+          "tactile",
+          "cells",
+          "blink",
+          "pattern",
+          "telemetry",
+          "indicator"
+        ],
+        "reference": "references/39-signal-braille.md"
+      },
+      {
+        "id": "40",
+        "name": "Token Stream",
+        "description": "Tokens cascade in like a live model response",
+        "aliases": [
+          "ai",
+          "llm",
+          "streaming",
+          "tokens",
+          "generative",
+          "chatgpt",
+          "response",
+          "type out",
+          "cascade",
+          "chips",
+          "model output",
+          "agent"
+        ],
+        "reference": "references/40-token-stream.md"
+      },
+      {
+        "id": "41",
+        "name": "Presence Stack",
+        "description": "Avatars fan out with a live online pulse",
+        "aliases": [
+          "avatars",
+          "online",
+          "collaborators",
+          "multiplayer",
+          "live",
+          "presence",
+          "stack",
+          "ping",
+          "users",
+          "team",
+          "status",
+          "realtime"
+        ],
+        "reference": "references/41-presence-stack.md"
+      },
+      {
+        "id": "42",
+        "name": "Confidence Settle",
+        "description": "A score overshoots, then settles on the true value",
+        "aliases": [
+          "confidence",
+          "score",
+          "ai certainty",
+          "meter",
+          "overshoot",
+          "settle",
+          "percentage",
+          "ranking",
+          "probability",
+          "gauge",
+          "metric",
+          "trust"
+        ],
+        "reference": "references/42-confidence-settle.md"
+      },
+      {
+        "id": "43",
+        "name": "Optimistic Rollback",
+        "description": "An instant local update gracefully retracts after rejection",
+        "aliases": [
+          "optimistic ui",
+          "rollback",
+          "server rejection",
+          "local first",
+          "toggle",
+          "syncing",
+          "restore",
+          "failure",
+          "revert",
+          "async state",
+          "latency",
+          "settings"
+        ],
+        "reference": "references/43-optimistic-rollback.md"
+      },
+      {
+        "id": "44",
+        "name": "Reconciliation Merge",
+        "description": "Competing values converge into one authoritative state",
+        "aliases": [
+          "reconcile",
+          "local first",
+          "edge",
+          "conflict",
+          "merge",
+          "authoritative state",
+          "sync",
+          "offline data",
+          "values",
+          "resolution",
+          "distributed",
+          "database"
+        ],
+        "reference": "references/44-reconciliation-merge.md"
+      },
+      {
+        "id": "45",
+        "name": "Activity Ledger",
+        "description": "Fresh events arrive sharply while older entries compact",
+        "aliases": [
+          "activity",
+          "events",
+          "ledger",
+          "timeline",
+          "live updates",
+          "audit trail",
+          "freshness",
+          "compacting",
+          "event log",
+          "stream",
+          "realtime",
+          "history"
+        ],
+        "reference": "references/45-activity-ledger.md"
+      },
+      {
+        "id": "46",
+        "name": "Agent Handoff",
+        "description": "One agent hands the live context to the next along a trace",
+        "aliases": [
+          "agent",
+          "ai",
+          "multi agent",
+          "handoff",
+          "orchestration",
+          "pipeline",
+          "workflow",
+          "delegate",
+          "context transfer",
+          "llm",
+          "node graph",
+          "baton",
+          "trace",
+          "automation"
+        ],
+        "reference": "references/46-agent-handoff.md"
+      },
+      {
+        "id": "47",
+        "name": "Rate Limit Cooldown",
+        "description": "A token bucket empties fast, then refills on a slow drip",
+        "aliases": [
+          "rate limit",
+          "throttle",
+          "429",
+          "quota",
+          "api limit",
+          "token bucket",
+          "cooldown",
+          "backoff",
+          "credits",
+          "usage",
+          "retry after",
+          "budget",
+          "requests",
+          "capacity"
+        ],
+        "reference": "references/47-rate-limit-cooldown.md"
+      },
+      {
+        "id": "48",
+        "name": "Vector Recall",
+        "description": "Nearest embeddings drift in as a query ring sweeps the space",
+        "aliases": [
+          "vector search",
+          "embedding",
+          "semantic search",
+          "rag",
+          "similarity",
+          "cosine",
+          "nearest neighbor",
+          "top k",
+          "retrieval",
+          "ai search",
+          "match",
+          "index",
+          "knn",
+          "query"
+        ],
+        "reference": "references/48-vector-recall.md"
+      },
+      {
+        "id": "49",
+        "name": "Stale While Revalidate",
+        "description": "The old value ghosts as the fresh one springs into place",
+        "aliases": [
+          "swr",
+          "cache",
+          "stale",
+          "revalidate",
+          "fresh",
+          "react query",
+          "tanstack",
+          "next.js",
+          "local first",
+          "ghost value",
+          "fetch",
+          "http cache"
+        ],
+        "reference": "references/49-stale-while-revalidate.md"
+      },
+      {
+        "id": "50",
+        "name": "Circuit Breaker",
+        "description": "A physical arm throws closed, open, then half-open to probe",
+        "aliases": [
+          "resilience",
+          "fault",
+          "trip",
+          "open closed",
+          "half open",
+          "probe",
+          "failure",
+          "hystrix",
+          "retry",
+          "outage",
+          "switch",
+          "protect"
+        ],
+        "reference": "references/50-circuit-breaker.md"
+      },
+      {
+        "id": "51",
+        "name": "Trace Flame",
+        "description": "A request paints as stacked spans filling left to right",
+        "aliases": [
+          "flamegraph",
+          "distributed trace",
+          "spans",
+          "observability",
+          "opentelemetry",
+          "jaeger",
+          "waterfall",
+          "latency",
+          "request",
+          "profiling",
+          "apm",
+          "timing"
+        ],
+        "reference": "references/51-trace-flame.md"
+      }
+    ]
+  },
+  {
+    "name": "Surface and Motion Skills",
+    "hash": "ccf5e3d9eaff412c4afb2f45b14344645f163598700b3b5991f966f93d624c74",
+    "version": "017498f8ae0e728ce7461852070d22601dd0a46e",
+    "source": "https://kinetics.colorion.co/#library",
+    "patterns": [
+      {
+        "id": "01",
+        "name": "Error Shake",
+        "description": "Decaying horizontal oscillation, retriggerable",
+        "aliases": [
+          "validation error",
+          "wrong password",
+          "invalid input",
+          "form error",
+          "shake",
+          "wiggle",
+          "reject",
+          "deny",
+          "headshake",
+          "login failed",
+          "feedback",
+          "email"
+        ],
+        "reference": "references/01-error-shake.md"
+      },
+      {
+        "id": "02",
+        "name": "Confetti Burst",
+        "description": "Radially-distributed particles with randomized arc and spin",
+        "aliases": [
+          "celebration",
+          "party",
+          "success",
+          "achievement",
+          "reward",
+          "particles",
+          "congratulations",
+          "winner",
+          "complete",
+          "milestone",
+          "fun",
+          "burst"
+        ],
+        "reference": "references/02-confetti-burst.md"
+      },
+      {
+        "id": "03",
+        "name": "Parallax Tilt",
+        "description": "3D rotation tracks pointer position, glow follows beneath",
+        "aliases": [
+          "3d card",
+          "tilt",
+          "hover",
+          "perspective",
+          "glare",
+          "product card",
+          "depth",
+          "mouse tracking",
+          "rotate",
+          "showcase",
+          "interactive",
+          "glow"
+        ],
+        "reference": "references/03-parallax-tilt.md"
+      },
+      {
+        "id": "04",
+        "name": "Wave Loader",
+        "description": "Three dots in a phase-offset vertical bounce",
+        "aliases": [
+          "loading dots",
+          "bounce",
+          "loader",
+          "wait",
+          "three dots",
+          "pulse",
+          "wave",
+          "busy",
+          "typing",
+          "indicator",
+          "sequence",
+          "rhythm"
+        ],
+        "reference": "references/04-wave-loader.md"
+      },
+      {
+        "id": "05",
+        "name": "Skeleton Sweep",
+        "description": "Gradient position animates across a fixed-size placeholder",
+        "aliases": [
+          "skeleton",
+          "placeholder",
+          "shimmer",
+          "loading",
+          "gradient",
+          "ghost",
+          "sweep",
+          "content",
+          "lazy",
+          "perceived performance",
+          "gray",
+          "lines"
+        ],
+        "reference": "references/05-skeleton-sweep.md"
+      },
+      {
+        "id": "06",
+        "name": "Page Peel",
+        "description": "Top card rotates around its left edge like a page turning",
+        "aliases": [
+          "page turn",
+          "book",
+          "flip",
+          "peel",
+          "paper",
+          "magazine",
+          "reveal",
+          "corner",
+          "rotate",
+          "reading",
+          "sheet",
+          "transition"
+        ],
+        "reference": "references/06-page-peel.md"
+      },
+      {
+        "id": "07",
+        "name": "Cursor Spotlight",
+        "description": "Radial glow follows the pointer across a contained surface",
+        "aliases": [
+          "spotlight",
+          "flashlight",
+          "hover glow",
+          "radial",
+          "mouse follow",
+          "reveal",
+          "dark",
+          "torch",
+          "highlight",
+          "gradient",
+          "interactive",
+          "beam"
+        ],
+        "reference": "references/07-cursor-spotlight.md"
+      },
+      {
+        "id": "08",
+        "name": "Flip Card",
+        "description": "Two faces share a 3D space and rotate on click",
+        "aliases": [
+          "card flip",
+          "two sided",
+          "reveal back",
+          "3d rotate",
+          "memory game",
+          "pricing",
+          "profile",
+          "front back",
+          "mirror",
+          "playing card",
+          "turn",
+          "perspective"
+        ],
+        "reference": "references/08-flip-card.md"
+      },
+      {
+        "id": "09",
+        "name": "Glitch Text",
+        "description": "RGB-split copies clip and jitter on hover — pure CSS",
+        "aliases": [
+          "glitch",
+          "rgb split",
+          "distortion",
+          "cyberpunk",
+          "vhs",
+          "error",
+          "hacker",
+          "noise",
+          "jitter",
+          "retro",
+          "chromatic",
+          "digital"
+        ],
+        "reference": "references/09-glitch-text.md"
+      },
+      {
+        "id": "10",
+        "name": "Border Beam",
+        "description": "A light sweeps the border via a masked conic gradient",
+        "aliases": [
+          "border animation",
+          "glowing border",
+          "light sweep",
+          "conic",
+          "running light",
+          "highlight",
+          "frame",
+          "tracer",
+          "neon edge",
+          "card accent",
+          "orbit",
+          "premium"
+        ],
+        "reference": "references/10-border-beam.md"
+      },
+      {
+        "id": "11",
+        "name": "Aurora Drift",
+        "description": "Soft blurred colour fields drift and rotate forever",
+        "aliases": [
+          "gradient background",
+          "ambient",
+          "blur",
+          "northern lights",
+          "mesh gradient",
+          "hero background",
+          "soft",
+          "dreamy",
+          "color fields",
+          "atmosphere",
+          "calm",
+          "backdrop"
+        ],
+        "reference": "references/11-aurora-drift.md"
+      },
+      {
+        "id": "12",
+        "name": "Shine Sweep",
+        "description": "A diagonal light streak sweeps across on hover — pure CSS",
+        "aliases": [
+          "shine",
+          "gloss",
+          "highlight",
+          "sweep",
+          "button hover",
+          "metallic",
+          "streak",
+          "polish",
+          "glimmer",
+          "cta",
+          "attention",
+          "light"
+        ],
+        "reference": "references/12-shine-sweep.md"
+      },
+      {
+        "id": "13",
+        "name": "Breathing Orb",
+        "description": "A glowing orb scales and softens on an endless breath — pure CSS",
+        "aliases": [
+          "breathe",
+          "meditation",
+          "calm",
+          "orb",
+          "pulse",
+          "glow",
+          "ambient",
+          "sphere",
+          "zen",
+          "relax",
+          "rhythm",
+          "mindfulness"
+        ],
+        "reference": "references/13-breathing-orb.md"
+      },
+      {
+        "id": "14",
+        "name": "Float Bob",
+        "description": "A card hovers and bobs with a shadow that breathes beneath — pure CSS",
+        "aliases": [
+          "float",
+          "hover",
+          "levitate",
+          "bob",
+          "idle",
+          "shadow",
+          "drift",
+          "gentle",
+          "card",
+          "ambient",
+          "buoyant",
+          "suspended"
+        ],
+        "reference": "references/14-float-bob.md"
+      },
+      {
+        "id": "15",
+        "name": "Liquid Blob",
+        "description": "An organic shape endlessly morphs its border-radius — pure CSS",
+        "aliases": [
+          "blob",
+          "organic",
+          "morph",
+          "border radius",
+          "lava lamp",
+          "fluid",
+          "shape",
+          "amoeba",
+          "background element",
+          "abstract",
+          "gooey",
+          "living"
+        ],
+        "reference": "references/15-liquid-blob.md"
+      },
+      {
+        "id": "16",
+        "name": "Gradient Shimmer Text",
+        "description": "A light band flows through clipped gradient text — pure CSS",
+        "aliases": [
+          "text gradient",
+          "shimmer",
+          "heading",
+          "metallic text",
+          "flowing",
+          "clip text",
+          "headline",
+          "premium",
+          "gold",
+          "sheen",
+          "sparkle",
+          "brand"
+        ],
+        "reference": "references/16-gradient-shimmer-text.md"
+      },
+      {
+        "id": "17",
+        "name": "Neon Glow Pulse",
+        "description": "Text and outline breathe a soft neon halo — pure CSS",
+        "aliases": [
+          "neon",
+          "glow",
+          "sign",
+          "cyberpunk",
+          "halo",
+          "pulse",
+          "night",
+          "bar sign",
+          "retro",
+          "luminous",
+          "text glow",
+          "electric"
+        ],
+        "reference": "references/17-neon-glow-pulse.md"
+      },
+      {
+        "id": "18",
+        "name": "Equalizer Bars",
+        "description": "Phase-offset bars pump like an audio meter — pure CSS",
+        "aliases": [
+          "audio",
+          "music",
+          "equalizer",
+          "visualizer",
+          "sound",
+          "bars",
+          "playing",
+          "spotify",
+          "volume",
+          "spectrum",
+          "dj",
+          "beat"
+        ],
+        "reference": "references/18-equalizer-bars.md"
+      },
+      {
+        "id": "19",
+        "name": "Radar Pulse",
+        "description": "Concentric rings expand and fade like sonar",
+        "aliases": [
+          "radar",
+          "sonar",
+          "ping",
+          "scanning",
+          "location",
+          "map marker",
+          "expanding rings",
+          "detect",
+          "sweep",
+          "live location",
+          "beacon",
+          "gps"
+        ],
+        "reference": "references/19-radar-pulse.md"
+      },
+      {
+        "id": "20",
+        "name": "Newton's Cradle",
+        "description": "End pendulums trade momentum across the row",
+        "aliases": [
+          "pendulum",
+          "physics",
+          "momentum",
+          "balls",
+          "desk toy",
+          "swing",
+          "collision",
+          "energy",
+          "classic",
+          "loader",
+          "kinetic",
+          "balance"
+        ],
+        "reference": "references/20-newton-s-cradle.md"
+      },
+      {
+        "id": "21",
+        "name": "Bouncing Ball",
+        "description": "Squash-and-stretch drop with a reactive shadow",
+        "aliases": [
+          "bounce",
+          "gravity",
+          "squash stretch",
+          "ball",
+          "drop",
+          "physics",
+          "cartoon",
+          "animation principle",
+          "shadow",
+          "elastic",
+          "playful",
+          "fall"
+        ],
+        "reference": "references/21-bouncing-ball.md"
+      },
+      {
+        "id": "22",
+        "name": "Marquee Reveal",
+        "description": "Cards scroll horizontally, pausing on hover — pure CSS",
+        "aliases": [
+          "carousel",
+          "scroll",
+          "cards",
+          "horizontal",
+          "showcase",
+          "testimonials",
+          "gallery",
+          "loop",
+          "auto scroll",
+          "pause",
+          "strip",
+          "slider"
+        ],
+        "reference": "references/22-marquee-reveal.md"
+      },
+      {
+        "id": "23",
+        "name": "Gradient Border Morph",
+        "description": "A rotating conic gradient creates a living border — pure CSS",
+        "aliases": [
+          "animated border",
+          "conic gradient",
+          "rotating",
+          "frame",
+          "living border",
+          "colorful",
+          "card",
+          "highlight",
+          "rainbow",
+          "spin",
+          "outline",
+          "accent"
+        ],
+        "reference": "references/23-gradient-border-morph.md"
+      },
+      {
+        "id": "24",
+        "name": "Text Split Reveal",
+        "description": "Each letter springs up in sequence on hover — pure CSS",
+        "aliases": [
+          "letters",
+          "stagger",
+          "character animation",
+          "hover text",
+          "split text",
+          "wave",
+          "typography",
+          "spring letters",
+          "playful",
+          "heading",
+          "bounce",
+          "title"
+        ],
+        "reference": "references/24-text-split-reveal.md"
+      },
+      {
+        "id": "25",
+        "name": "Hover Lift",
+        "description": "Surface rises with a soft cast shadow",
+        "aliases": [
+          "elevation",
+          "raise",
+          "shadow",
+          "card hover",
+          "lift",
+          "float",
+          "material",
+          "depth",
+          "affordance",
+          "interactive",
+          "tile",
+          "subtle"
+        ],
+        "reference": "references/25-hover-lift.md"
+      },
+      {
+        "id": "26",
+        "name": "Sheen Sweep",
+        "description": "Specular highlight glides across on hover",
+        "aliases": [
+          "sheen",
+          "specular",
+          "gloss",
+          "highlight",
+          "hover",
+          "light pass",
+          "metal",
+          "reflective",
+          "polish",
+          "shine",
+          "glass",
+          "streak"
+        ],
+        "reference": "references/26-sheen-sweep.md"
+      },
+      {
+        "id": "27",
+        "name": "Clip Wipe",
+        "description": "Overlay unmasks left-to-right with clip-path",
+        "aliases": [
+          "reveal",
+          "wipe",
+          "clip path",
+          "transition",
+          "unmask",
+          "curtain",
+          "slide reveal",
+          "image reveal",
+          "overlay",
+          "left to right",
+          "disclosure",
+          "swipe"
+        ],
+        "reference": "references/27-clip-wipe.md"
+      },
+      {
+        "id": "28",
+        "name": "3D Cube Rotate",
+        "description": "Click to roll a face in with depth",
+        "aliases": [
+          "cube",
+          "3d",
+          "rotate",
+          "faces",
+          "transition",
+          "perspective",
+          "box",
+          "roll",
+          "dice",
+          "panel switch",
+          "depth",
+          "spatial"
+        ],
+        "reference": "references/28-3d-cube-rotate.md"
+      },
+      {
+        "id": "29",
+        "name": "Jelly Wobble",
+        "description": "Squash-and-stretch settle on hover",
+        "aliases": [
+          "jelly",
+          "wobble",
+          "squash",
+          "elastic",
+          "gelatin",
+          "playful",
+          "hover",
+          "bounce",
+          "cartoon",
+          "springy",
+          "soft body",
+          "fun"
+        ],
+        "reference": "references/29-jelly-wobble.md"
+      },
+      {
+        "id": "30",
+        "name": "Folding Doors",
+        "description": "Two panels swing open in 3D on hover",
+        "aliases": [
+          "fold",
+          "doors",
+          "open",
+          "3d panels",
+          "saloon",
+          "hinge",
+          "reveal",
+          "gates",
+          "swing",
+          "entrance",
+          "unfold",
+          "split"
+        ],
+        "reference": "references/30-folding-doors.md"
+      },
+      {
+        "id": "31",
+        "name": "Before / After",
+        "description": "Drag the handle to wipe between layers",
+        "aliases": [
+          "comparison",
+          "slider",
+          "image compare",
+          "split view",
+          "wipe",
+          "handle",
+          "drag",
+          "photo editing",
+          "difference",
+          "versus",
+          "reveal",
+          "juxtapose"
+        ],
+        "reference": "references/31-before-after.md"
+      },
+      {
+        "id": "32",
+        "name": "Depth Stack",
+        "description": "Layered cards fan apart on hover",
+        "aliases": [
+          "stack",
+          "layers",
+          "cards fan",
+          "deck",
+          "spread",
+          "pile",
+          "z axis",
+          "hover fan",
+          "sheets",
+          "parallax layers",
+          "unstack",
+          "shuffle"
+        ],
+        "reference": "references/32-depth-stack.md"
+      },
+      {
+        "id": "33",
+        "name": "Text Wave",
+        "description": "A crest of motion travels across the letters",
+        "aliases": [
+          "wave text",
+          "letters",
+          "ripple",
+          "undulate",
+          "crest",
+          "typography",
+          "motion",
+          "baseline",
+          "bounce",
+          "sequence",
+          "water",
+          "flow"
+        ],
+        "reference": "references/33-text-wave.md"
+      },
+      {
+        "id": "34",
+        "name": "Caustic Glass",
+        "description": "Shifting light pools refract beneath frosted glass",
+        "aliases": [
+          "glass",
+          "frosted",
+          "glassmorphism",
+          "refraction",
+          "light",
+          "blur",
+          "translucent",
+          "water light",
+          "pool",
+          "backdrop filter",
+          "crystal",
+          "luxury"
+        ],
+        "reference": "references/34-caustic-glass.md"
+      },
+      {
+        "id": "35",
+        "name": "Chromatic Split",
+        "description": "Type separates into prismatic channels, then snaps back",
+        "aliases": [
+          "chromatic aberration",
+          "rgb",
+          "prism",
+          "split",
+          "lens",
+          "distortion",
+          "hover",
+          "spectral",
+          "fringe",
+          "photography",
+          "glitch",
+          "color channels"
+        ],
+        "reference": "references/35-chromatic-split.md"
+      },
+      {
+        "id": "36",
+        "name": "Warp Grid",
+        "description": "A planar field bends inward around its focal point",
+        "aliases": [
+          "grid",
+          "warp",
+          "bend",
+          "distortion",
+          "field",
+          "mesh",
+          "gravity well",
+          "curve",
+          "plane",
+          "space",
+          "vortex",
+          "fabric"
+        ],
+        "reference": "references/36-warp-grid.md"
+      },
+      {
+        "id": "37",
+        "name": "Moiré Lens",
+        "description": "Counter-rotating line fields create impossible depth",
+        "aliases": [
+          "moire",
+          "interference",
+          "pattern",
+          "optical illusion",
+          "lines",
+          "depth illusion",
+          "hypnotic",
+          "spin",
+          "op art",
+          "texture",
+          "rings",
+          "trippy"
+        ],
+        "reference": "references/37-moir-lens.md"
+      },
+      {
+        "id": "38",
+        "name": "Polarized Foil",
+        "description": "A muted spectrum appears only at grazing angles",
+        "aliases": [
+          "foil",
+          "holographic",
+          "iridescent",
+          "spectrum",
+          "angle",
+          "shimmer",
+          "card finish",
+          "metallic",
+          "rainbow",
+          "premium",
+          "trading card",
+          "gloss"
+        ],
+        "reference": "references/38-polarized-foil.md"
+      },
+      {
+        "id": "39",
+        "name": "Metaball Bridge",
+        "description": "Two particles trade mass through a liquid neck",
+        "aliases": [
+          "metaball",
+          "gooey",
+          "liquid",
+          "merge",
+          "blob",
+          "fluid",
+          "particles",
+          "connect",
+          "droplet",
+          "organic",
+          "surface tension",
+          "lava lamp"
+        ],
+        "reference": "references/39-metaball-bridge.md"
+      },
+      {
+        "id": "40",
+        "name": "Variable Weight",
+        "description": "Type densifies from thin to black on hover",
+        "aliases": [
+          "variable font",
+          "font weight",
+          "typography",
+          "morph",
+          "letter spacing",
+          "display type",
+          "hover text",
+          "headline",
+          "kinetic type",
+          "weight axis",
+          "editorial",
+          "type"
+        ],
+        "reference": "references/40-variable-weight.md"
+      },
+      {
+        "id": "41",
+        "name": "Specular Orbit",
+        "description": "A soft highlight circles a brushed dark surface",
+        "aliases": [
+          "specular",
+          "highlight",
+          "product surface",
+          "light orbit",
+          "premium",
+          "brushed metal",
+          "sheen",
+          "3d light",
+          "material",
+          "showcase",
+          "reflection",
+          "glow"
+        ],
+        "reference": "references/41-specular-orbit.md"
+      },
+      {
+        "id": "42",
+        "name": "Noise Dissolve",
+        "description": "Film grain peels back to uncover a colour field",
+        "aliases": [
+          "noise",
+          "film grain",
+          "dissolve",
+          "reveal",
+          "texture",
+          "grain",
+          "hover reveal",
+          "glitch grain",
+          "turbulence",
+          "overlay",
+          "transition",
+          "cinematic"
+        ],
+        "reference": "references/42-noise-dissolve.md"
+      },
+      {
+        "id": "43",
+        "name": "Dither Bloom",
+        "description": "A low-bit dot field grows into a soft spectral bloom",
+        "aliases": [
+          "dither",
+          "ordered dots",
+          "pixel",
+          "low bit",
+          "halftone",
+          "bloom",
+          "retro modern",
+          "mask",
+          "dot matrix",
+          "spectral",
+          "stepped",
+          "shader"
+        ],
+        "reference": "references/43-dither-bloom.md"
+      },
+      {
+        "id": "44",
+        "name": "Ferrofluid Crown",
+        "description": "A magnetic core raises a ring of liquid-metal spikes",
+        "aliases": [
+          "ferrofluid",
+          "magnetic",
+          "liquid metal",
+          "spikes",
+          "field",
+          "crown",
+          "fluid simulation",
+          "chrome",
+          "black liquid",
+          "magnetism",
+          "core",
+          "material"
+        ],
+        "reference": "references/44-ferrofluid-crown.md"
+      },
+      {
+        "id": "45",
+        "name": "Lenticular Shift",
+        "description": "Micro-ridges swap one word for another as the angle changes",
+        "aliases": [
+          "lenticular",
+          "ridges",
+          "angle",
+          "interleave",
+          "word swap",
+          "optical",
+          "type",
+          "hover",
+          "parallax print",
+          "mask stripes",
+          "matter motion",
+          "perspective"
+        ],
+        "reference": "references/45-lenticular-shift.md"
+      },
+      {
+        "id": "46",
+        "name": "Volumetric Shaft",
+        "description": "Light rakes through a slot and pools in drifting dust",
+        "aliases": [
+          "god rays",
+          "volumetric",
+          "light shaft",
+          "sunbeam",
+          "atmosphere",
+          "dust",
+          "haze",
+          "cinematic",
+          "window light",
+          "glow",
+          "ambience",
+          "hero background",
+          "fog",
+          "rays"
+        ],
+        "reference": "references/46-volumetric-shaft.md"
+      },
+      {
+        "id": "47",
+        "name": "Letterpress Emboss",
+        "description": "Type sits in the paper and reads by the light angle alone",
+        "aliases": [
+          "letterpress",
+          "emboss",
+          "deboss",
+          "paper",
+          "print",
+          "tactile",
+          "stamped",
+          "relief",
+          "skeuomorphic",
+          "texture",
+          "engraved",
+          "typography",
+          "craft",
+          "physical"
+        ],
+        "reference": "references/47-letterpress-emboss.md"
+      },
+      {
+        "id": "48",
+        "name": "Rack Focus",
+        "description": "Depth of field pulls between two planes, bokeh blooming",
+        "aliases": [
+          "depth of field",
+          "focus pull",
+          "rack focus",
+          "bokeh",
+          "blur",
+          "cinematic",
+          "camera",
+          "lens",
+          "layers",
+          "foreground background",
+          "film",
+          "aperture",
+          "defocus",
+          "photography"
+        ],
+        "reference": "references/48-rack-focus.md"
+      },
+      {
+        "id": "49",
+        "name": "E-ink Refresh",
+        "description": "A full inverse flash, then the type settles into the paper",
+        "aliases": [
+          "eink",
+          "e-ink",
+          "electrophoretic",
+          "kindle",
+          "paper",
+          "flash",
+          "ghosting",
+          "remarkable",
+          "daylight",
+          "reader",
+          "inverse",
+          "settle"
+        ],
+        "reference": "references/49-e-ink-refresh.md"
+      },
+      {
+        "id": "50",
+        "name": "Anamorphic Flare",
+        "description": "A point source rakes the frame and blooms horizontal streaks",
+        "aliases": [
+          "anamorphic",
+          "lens flare",
+          "cinematic",
+          "streak",
+          "jj abrams",
+          "horizontal flare",
+          "film",
+          "optics",
+          "highlight",
+          "widescreen",
+          "artifact",
+          "bloom"
+        ],
+        "reference": "references/50-anamorphic-flare.md"
+      },
+      {
+        "id": "51",
+        "name": "LiDAR Sweep",
+        "description": "A scan plane lights a point field into a depth map",
+        "aliases": [
+          "lidar",
+          "point cloud",
+          "depth map",
+          "scan",
+          "apple roomplan",
+          "mesh",
+          "spatial",
+          "3d scan",
+          "plane",
+          "terrain",
+          "sensor",
+          "mapping"
+        ],
+        "reference": "references/51-lidar-sweep.md"
+      }
+    ]
+  }
+]

@@ -239,7 +239,7 @@ export function DelegationPanel({ project, blocker }: DelegationPanelProps) {
           {visibleRuns.map((run) => {
             const approval = prepared?.resuming && prepared.proposal.subject.runId === run.id ? prepared.proposal : null;
             const reviewing = reviewOpen(run.id) && ["awaiting_review", "testing"].includes(run.phase);
-            return <article key={run.id} className={`delegation-run phase-${run.phase}`}>
+            return <article id={`delegation-run-${run.id}`} key={run.id} className={`delegation-run phase-${run.phase}`}>
               <div className="delegation-run__head">
                 <div>
                   <span className="delegation-run__project">{run.projectName}</span>
@@ -401,7 +401,7 @@ function permittedSentence(proposal: ApprovalProposal): string | null {
   return `${reach}${commands}.${excluded} Loads no settings files, hooks or MCP servers. $${permitted.budgetUsd} budget and ${permitted.launchLimitMinutes}-minute limit per launch, not per run.`;
 }
 
-function ApprovalSubject({ proposal, busy, onApprove, onCancel }: {
+export function ApprovalSubject({ proposal, busy, onApprove, onCancel }: {
   proposal: ApprovalProposal; busy: string | null; onApprove: () => void; onCancel: () => void;
 }) {
   const remaining = useCountdown(proposal.expiresAt);
@@ -432,6 +432,7 @@ function ApprovalSubject({ proposal, busy, onApprove, onCancel }: {
       {subject.plan ? <><dt>Plan</dt><dd><pre>{subject.plan}</pre></dd></> : null}
       <dt>Workspace</dt><dd className="tabular-data">{subject.workspace}</dd>
     </dl>
+    {subject.scope.includes("guidance-sha256=") && <p className="delegation-prepare__reason">Hephaestus will receive Superpowers pilot v1 guidance for planning, debugging, testing and evidence-based review. Review the full instructions in the exact scope below. This does not load external plugins or expand tool permissions.</p>}
     {sentence && <details className="delegation-approval__scope"><summary>Exact scope text</summary><code>{subject.scope}</code></details>}
     <p className="delegation-prepare__reason">Approval covers exactly this task, base and scope in this desktop session. Any change needs a fresh review.</p>
     <div className="delegation-actions">

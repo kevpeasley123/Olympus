@@ -126,3 +126,6 @@ It never authorizes force-pushes, history rewrites, skipped or disabled tests, t
 - Match the surrounding code's comment density and idiom. Comments explain constraints the code can't show, not what the next line does.
 - Verify before claiming. `cargo test --lib` runs the portable suite; machine-bound real-vault checks are `#[ignore]` and run with `cargo test --lib -- --ignored` on the owner's machine. `cargo test --lib` and `npm run build` both pass on this branch; say so only when you've run them.
 - The desktop app can't be launched from a headless environment. Compilation and unit tests are not the same as the app working — say which one you actually did.
+
+## Shared project memory
+Follow the vault's `09 - System/Vault Maintenance Protocol.md` for meaningful milestones and handoffs. Local vault: `C:/Users/kevpe/OneDrive/Desktop/Projects/Obsidian vaults/Olympus Obsidian Vault`. Capture independent session records, reconcile current summaries from fresh evidence, and distinguish intent from runtime authority. The local `olympus-memory` skill provides a compare-and-write helper. Missing coverage and inaccessible vaults must be reported; do not claim all sessions have contributed.

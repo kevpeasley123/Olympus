@@ -1,0 +1,8 @@
+Hephaestus engineering guidance v1
+Olympus-authored adaptation of obra/superpowers at 8ca22dba9a94f28898bbce59f2537ff4d87c747d.
+This bounded guidance does not load the upstream plugin, grant tools, or override the approved task and execution restrictions.
+Planning: inspect relevant code and repository instructions, identify the problem and acceptance criteria, then return a concise plan with verification and material decisions. Stop for implementation approval. Use a lightweight process for cosmetic work.
+Debugging: reproduce the failure, collect evidence, identify a root-cause hypothesis and test it before changing code. Avoid speculative fixes.
+Implementation: for behavior changes, establish a meaningful failing regression check, make the smallest coherent fix, then run relevant approved checks. Do not create tests that merely mirror trivial cosmetic edits. If a needed command is unavailable, report the limitation; do not bypass the allowlist.
+Review: inspect the final diff for regressions, scope creep and preservation of existing work. Report actual checks and outcomes, unresolved risks and changed files. Never claim success from intended or unexecuted tests.
+Completion: return evidence for operator review. Do not commit, push, merge, deploy, call Monid, install tools, spend outside the approved launch, or promote memory automatically. Stop on material ambiguity. No subagent or external-service authority is added.

@@ -286,8 +286,12 @@ fn active_run_for_project(db: &Db, project_id: &str) -> Result<Option<String>, S
         .map_err(|error| error.to_string())
 }
 
+#[cfg(test)]
 fn insert_run(db: &Db, run: &DelegationRun) -> Result<(), String> {
     let connection = db.0.lock().map_err(|error| error.to_string())?;
+    insert_run_connection(&connection,run)
+}
+fn insert_run_connection(connection:&rusqlite::Connection,run:&DelegationRun)->Result<(),String>{
     connection
         .execute(
             "INSERT INTO delegation_runs \
@@ -619,6 +623,18 @@ fn spawn_claude(app: AppHandle, run: DelegationRun, stage: Stage) -> Result<(), 
             approved_plan
         ),
     };
+    let guidance = guidance_scope();
+    // Persist the exact prepared payload before launching; failure prevents execution.
+    // This records delivery intent, never a claim that the model followed it.
+    {
+        let db = app.state::<Db>();
+        let connection = db.0.lock().map_err(|e| e.to_string())?;
+        connection.execute(
+            "INSERT INTO delegation_events(run_id,phase,milestone) VALUES(?1,'guidance_prepared',?2)",
+            params![run.id, format!("{}\n{}", if stage == Stage::Plan { "Planning" } else { "Implementation" }, guidance)],
+        ).map_err(|e| format!("Could not persist guidance evidence: {e}"))?;
+    }
+    let prompt = format!("{prompt}\n\nReviewed engineering guidance:\n{guidance}");
     let mut command = claude_command(&executable, &run, stage, prompt);
     allowed_environment(&mut command);
 
@@ -1289,7 +1305,7 @@ pub(crate) fn contract(db: &Db, id: &str) -> Result<(Vec<String>, String), Strin
     ))
 }
 
-fn planning_subject(
+pub(crate) fn planning_subject(
     app: &AppHandle,
     db: &Db,
     request: &PrepareDelegationRequest,
@@ -1344,6 +1360,8 @@ fn planning_subject(
 }
 
 fn resume_subject(db: &Db, id: &str) -> Result<Subject, String> {
+    {let c=db.0.lock().map_err(|e|e.to_string())?;super::organizer_store::validate_linked_run(&c,id).map_err(|e|e.message)?;}
+
     let run = load_run(db, id)?;
     if run.phase != "waiting" {
         return Err("Only a waiting run can be reviewed for resumption.".into());
@@ -1399,15 +1417,21 @@ fn resume_subject(db: &Db, id: &str) -> Result<Subject, String> {
     })
 }
 
+// Olympus-authored adaptation, pinned and included in every approval subject.
+const HEPHAESTUS_GUIDANCE: &str = include_str!("hephaestus-guidance.txt");
+fn guidance_scope() -> String {
+    format!("Superpowers pilot v1; guidance-sha256={:x}\n{}", Sha256::digest(HEPHAESTUS_GUIDANCE.as_bytes()), HEPHAESTUS_GUIDANCE)
+}
+
 const LAUNCH_LIMITS: &str =
     "no settings, hooks or MCP servers; $5 budget per launch, not per run; 45-minute launch limit";
 
 fn plan_scope() -> String {
-    format!("plan-v2: {PLAN_TOOLS}; no edits; {LAUNCH_LIMITS}")
+    format!("plan-v3: {PLAN_TOOLS}; no edits; {LAUNCH_LIMITS}\n{}", guidance_scope())
 }
 
 fn implementation_scope() -> String {
-    format!("implement-v2: {IMPLEMENTATION_TOOLS}; {LAUNCH_LIMITS}; no commit/push/merge")
+    format!("implement-v3: {IMPLEMENTATION_TOOLS}; {LAUNCH_LIMITS}; no commit/push/merge\n{}", guidance_scope())
 }
 
 /// A proposal as the review surface receives it. The approval binds `subject` alone;
@@ -1489,7 +1513,7 @@ fn branch_at(repository: &Path, base_commit: &str) -> Option<String> {
         .filter(|branch| !branch.is_empty() && branch != "HEAD")
 }
 
-fn present(proposal: Proposal) -> PreparedProposal {
+pub(crate) fn present(proposal: Proposal) -> PreparedProposal {
     let base_branch = branch_at(
         Path::new(&proposal.subject.repository),
         &proposal.subject.base_commit,
@@ -1561,6 +1585,8 @@ fn start_run(app: &AppHandle, request: StartDelegationRequest) -> Result<Delegat
     let db = app.state::<Db>();
     let state = app.state::<ApprovalState>();
     let _transition = state.execution.lock().map_err(|e| e.to_string())?;
+    let recorded={let c=db.0.lock().map_err(|e|e.to_string())?;super::organizer_store::recorded_start(&c,&request.proposal_id,&state.session_id).map_err(|e|e.message)?};
+    if let Some(id)=recorded{return load_run(db.inner(),&id)}
     let proposal = state.get(&request.proposal_id)?;
     if proposal.subject.stage != "plan" || !proposal.subject.plan.is_empty() {
         return Err("This is not a planning proposal.".into());
@@ -1575,21 +1601,17 @@ fn start_run(app: &AppHandle, request: StartDelegationRequest) -> Result<Delegat
         },
         &proposal.subject.run_id,
     )?;
-    {
-        let mut connection = db.0.lock().map_err(|e| e.to_string())?;
-        state.consume(&mut connection, &request.proposal_id, &subject)?;
-    }
     let run = DelegationRun {
         id: subject.run_id.clone(),
-        project_id: subject.project_id,
-        project_name: subject.project_name,
-        task: subject.task,
-        driver: subject.driver,
-        model: subject.model,
+        project_id: subject.project_id.clone(),
+        project_name: subject.project_name.clone(),
+        task: subject.task.clone(),
+        driver: subject.driver.clone(),
+        model: subject.model.clone(),
         phase: "preparing".into(),
-        workspace: subject.workspace,
+        workspace: subject.workspace.clone(),
         branch: format!("olympus/run-{}", &subject.run_id[..8]),
-        base_commit: subject.base_commit,
+        base_commit: subject.base_commit.clone(),
         agent_session_id: subject.run_id.clone(),
         process_id: None,
         milestone: "Approval consumed; preparing isolated workspace".into(),
@@ -1601,19 +1623,17 @@ fn start_run(app: &AppHandle, request: StartDelegationRequest) -> Result<Delegat
         started_at: String::new(),
         updated_at: String::new(),
     };
-    // Record the attempted run before filesystem/process preparation. Consent remains consumed on failure.
-    insert_run(db.inner(), &run)?;
+    // Approval, attempted run, contract and Organizer binding share one transaction.
+    {
+        let mut connection=db.0.lock().map_err(|e|e.to_string())?;
+        super::organizer_store::validate_binding(&connection,&request.proposal_id,&subject.run_id).map_err(|e|e.message)?;
+        state.consume_with(&mut connection,&request.proposal_id,&subject,|tx|{
+            insert_run_connection(tx,&run)?;
+            tx.execute("INSERT INTO delegation_contracts(run_id,criteria_json) VALUES(?1,?2)",params![run.id,serde_json::to_string(&subject.criteria).map_err(|e|e.to_string())?]).map_err(|e|e.to_string())?;
+            super::organizer_store::link_started_run(tx,&request.proposal_id,&run.id).map_err(|e|e.message)
+        })?;
+    }
     let preparation = (|| -> Result<(), String> {
-        db.0.lock()
-            .map_err(|e| e.to_string())?
-            .execute(
-                "INSERT INTO delegation_contracts(run_id,criteria_json) VALUES (?1,?2)",
-                params![
-                    run.id,
-                    serde_json::to_string(&subject.criteria).map_err(|e| e.to_string())?
-                ],
-            )
-            .map_err(|e| e.to_string())?;
         fs::create_dir_all(
             Path::new(&run.workspace)
                 .parent()
@@ -1742,7 +1762,21 @@ pub async fn list_delegation_runs(app: AppHandle) -> Result<Vec<DelegationRun>, 
     blocking(app, list_runs).await
 }
 
-fn list_runs(app: &AppHandle) -> Result<Vec<DelegationRun>, String> {
+pub(crate) fn stored_runs(connection:&rusqlite::Connection)->Result<Vec<DelegationRun>,String>{
+    let mut query = connection
+        .prepare(&format!("{RUN_SELECT} WHERE phase NOT IN ('complete','failed','cancelled') OR id IN (SELECT run_id FROM organizer_run_links) OR id IN (SELECT id FROM delegation_runs ORDER BY started_at DESC LIMIT 20) ORDER BY started_at DESC"))
+        .map_err(|error| error.to_string())?;
+    let runs = query
+        .query_map([], row_to_run)
+        .map_err(|error| error.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|error| error.to_string())?;
+    drop(query);
+
+    Ok(runs)
+}
+
+pub(crate) fn list_runs(app: &AppHandle) -> Result<Vec<DelegationRun>, String> {
     let db = app.state::<Db>();
     let state = app.state::<ApprovalState>();
     let _transition = state.execution.lock().map_err(|e| e.to_string())?;
@@ -1755,15 +1789,7 @@ fn list_runs(app: &AppHandle) -> Result<Vec<DelegationRun>, String> {
         .cloned()
         .collect();
     let connection = db.0.lock().map_err(|error| error.to_string())?;
-    let mut query = connection
-        .prepare(&format!("{RUN_SELECT} ORDER BY started_at DESC LIMIT 20"))
-        .map_err(|error| error.to_string())?;
-    let mut runs = query
-        .query_map([], row_to_run)
-        .map_err(|error| error.to_string())?
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(|error| error.to_string())?;
-    drop(query);
+    let mut runs=stored_runs(&connection)?;
 
     for run in &mut runs {
         if matches!(
@@ -2245,5 +2271,17 @@ mod process_boundary_tests {
         assert_eq!(candidates[3], PathBuf::from("C:/Users/kev").join(".local").join("bin").join(name));
         assert!(candidates[4].ends_with(PathBuf::from("npm/node_modules/@anthropic-ai/claude-code/bin").join(name)));
         assert!(claude_candidates(|_| None).is_empty());
+    }
+}
+
+#[cfg(test)]
+mod hephaestus_guidance_tests {
+    use super::*;
+    #[test]
+    fn approval_scope_binds_reviewed_hephaestus_guidance() {
+        assert!(plan_scope().contains("Superpowers"));
+        assert!(implementation_scope().contains("guidance-sha256="));
+        assert!(permitted_actions(&plan_scope()).is_some());
+        assert!(permitted_actions(&(plan_scope()+" changed")).is_none());
     }
 }

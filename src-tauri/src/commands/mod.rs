@@ -1,4 +1,7 @@
 pub mod resource_intake;
+pub mod organizer_store;
+pub mod organizer;
+pub mod organizer_lifecycle;
 pub mod repository_inspection;
 pub mod acceptance;
 pub mod delegation_review;
@@ -23,6 +26,7 @@ pub mod project_notes;
 pub mod projects;
 pub mod tasks;
 pub mod vault_context;
+pub mod memory;
 pub mod vault_git;
 pub mod vault_graph;
 pub mod vault_write;
@@ -41,6 +45,7 @@ pub fn get_vault_path() -> PathBuf {
 }
 
 pub mod skill_guidance;
+pub mod kinetics_skills;
 pub mod voice;
 
 pub mod models;

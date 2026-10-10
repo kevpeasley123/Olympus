@@ -1,3 +1,4 @@
+import {useOrganizer} from "../../hooks/useOrganizer";
 import { GitBranch, ListChecks, RefreshCw } from "lucide-react";
 import type { ProjectStatus, SessionBoundary, TrackedProject } from "../../types";
 import { formatPath } from "../../utils/formatPath";
@@ -18,6 +19,7 @@ import { isTauriRuntime } from "../../services/launcher";
 import { clockTime, dayLabel, formatWhen, toDate } from "../../services/time";
 import { readViewSlice, writeViewSlice } from "../../state/viewState";
 import { DelegationPanel } from "./DelegationPanel";
+import { OrganizerPanel } from "./organizer/OrganizerPanel";
 import "./projects.css";
 
 interface ProjectsPanelProps {
@@ -121,9 +123,10 @@ export function ProjectsPanel({
   const [sort, setSort] = useState<"priority" | "recent" | "name">("priority");
   const { tasks, error: tasksError, loading: tasksLoading, lastSuccessAt: tasksAt } = useActionQueue();
   const { data: runs, error: runsError, loading: runsLoading, lastSuccessAt: runsAt } = useDelegationRuns();
+  const organizer=useOrganizer();
   const tasksAvailable = !tasksError && !tasksLoading, runsAvailable = !runsError && !runsLoading;
-  const rows = useMemo(() => buildProjectCommandBoard(allProjects, tasks, runs, { tasks: tasksAvailable, runs: runsAvailable }),
-    [allProjects, tasks, runs, tasksAvailable, runsAvailable]);
+  const rows = useMemo(() => buildProjectCommandBoard(allProjects, tasks, runs, { tasks: tasksAvailable, runs: runsAvailable },undefined,demoData?undefined:{rows:organizer.data,available:!organizer.error&&organizer.lastSuccessAt!==null}),
+    [allProjects, tasks, runs, tasksAvailable, runsAvailable,organizer.data,organizer.error,organizer.lastSuccessAt,demoData]);
   const selected = rows.find(row => row.project.id === projectFilter);
   const visible = sortCommandProjects(rows.filter(row => filter === "ALL" || row.operationalStatus === filter), sort);
   const { perProject, unattributed } = attributeTasks(allProjects, tasks);
@@ -344,6 +347,7 @@ function ProjectDetail({ row, runs, tasks, sessionBoundary, onOpenNote }: {
       <div className="command-board-actions"><button className="ghost-action" onClick={() => reviewProjectContext([row])}>Review with Olympus</button></div>
     </section>
 
+    <OrganizerPanel key={project.id} projectId={project.id} blocker={blocker} />
     {project.path ? <DelegationPanel project={project} blocker={blocker} /> : null}
 
     <section className="command-project-detail">

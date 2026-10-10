@@ -3,6 +3,34 @@
 -- same `REFERENCES` the desktop does. Existing rows are not re-validated.
 PRAGMA foreign_keys = ON;
 
+CREATE TABLE IF NOT EXISTS organizer_tasks (
+ id TEXT PRIMARY KEY, project_id TEXT NOT NULL REFERENCES projects(id), revision INTEGER NOT NULL,
+ title TEXT NOT NULL, objective TEXT NOT NULL, criteria_json TEXT NOT NULL, steps_json TEXT NOT NULL,
+ priority TEXT NOT NULL, priority_reason TEXT NOT NULL, position INTEGER NOT NULL, due_date TEXT,
+ intent TEXT NOT NULL, state TEXT NOT NULL DEFAULT 'open', created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS organizer_sources (
+ id TEXT PRIMARY KEY, task_id TEXT NOT NULL REFERENCES organizer_tasks(id), source_json TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS organizer_proposal_links (
+ proposal_id TEXT PRIMARY KEY, task_id TEXT NOT NULL REFERENCES organizer_tasks(id), task_revision INTEGER NOT NULL,
+ run_id TEXT NOT NULL, created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS organizer_run_links (
+ run_id TEXT PRIMARY KEY REFERENCES delegation_runs(id), task_id TEXT NOT NULL REFERENCES organizer_tasks(id),
+ task_revision INTEGER NOT NULL, contract_snapshot_json TEXT NOT NULL, linked_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS organizer_results (
+ id TEXT PRIMARY KEY, run_id TEXT NOT NULL UNIQUE REFERENCES delegation_runs(id), task_id TEXT NOT NULL REFERENCES organizer_tasks(id),
+ summary TEXT NOT NULL, workspace_hash TEXT NOT NULL, manifest_json TEXT NOT NULL, review_state TEXT NOT NULL,
+ created_at TEXT NOT NULL, accepted_at TEXT
+);
+CREATE TABLE IF NOT EXISTS organizer_events (
+ sequence INTEGER PRIMARY KEY AUTOINCREMENT, task_id TEXT NOT NULL REFERENCES organizer_tasks(id), kind TEXT NOT NULL,
+ payload_json TEXT NOT NULL, created_at TEXT NOT NULL, acknowledgement_at TEXT, dedupe_key TEXT UNIQUE
+);
+CREATE INDEX IF NOT EXISTS organizer_project ON organizer_tasks(project_id,priority,position);
+
 CREATE TABLE IF NOT EXISTS settings (
   key TEXT PRIMARY KEY,
   value TEXT NOT NULL,
@@ -145,6 +173,11 @@ CREATE TABLE IF NOT EXISTS processing_logs (
   message TEXT NOT NULL,
   payload_json TEXT NOT NULL DEFAULT '{}',
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS request_memory (
+  request_id TEXT PRIMARY KEY REFERENCES model_requests(id),
+  packet_json TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS conversation_research (

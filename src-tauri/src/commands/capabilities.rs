@@ -259,6 +259,12 @@ fn skills(connection: &Connection) -> Vec<Value> {
             "usedBy":if id=="research-retrieval" {json!(["olympus",research_agents::RESEARCH])} else {json!([agent])},
             "workflows":["Research Verification v1"],"usage":usage,"usageUnit":if id=="research-retrieval" {"research verification runs"} else {"agent executions"}}));
     }
+    skills.push(json!({"id":"hephaestus-engineering","version":1,"kind":"skill","name":"Hephaestus Engineering - Superpowers pilot","domain":"code",
+        "purpose":"Reviewed planning, root-cause debugging, regression checks and evidence-based review",
+        "inputs":"Operator-approved task, criteria and implementation plan","output":"Plan or code changes with verification evidence",
+        "effects":"Approved isolated-worktree changes only; no commit, push, merge, deployment or automatic memory writes",
+        "allowedTools":["claude-code","git"],"usedBy":["coding-delegate"],"workflows":["Project delegation"],
+        "usage":Value::Null,"usageUnit":null}));
     if let Ok(custom)=super::resource_intake::read_skills(connection){for s in custom{skills.push(json!({"id":s.id,"version":1,"kind":"skill","name":s.name,"domain":"research","purpose":"User-authored resource analysis instructions","instructions":s.instructions,"inputs":"An explicitly selected resource","output":"Reusable analysis guidance","effects":"Instructions only; no execution or tool authority","allowedTools":[],"usedBy":["olympus"],"workflows":["Resource review"],"usage":null,"usageUnit":null}));}}
     skills
 }
@@ -277,8 +283,8 @@ fn agents(tools: &[Value], skills: &[Value]) -> Vec<Value> {
             "note":"Receives parent-selected Pantheon excerpts; the agent itself holds no tools, web or write authority."}),
         json!({"id":research_agents::VERIFY,"tools":["pantheon","model-primary"],"skills":skill_ids(&mut verification),
             "note":"Judges claims against the parent's evidence packet only."}),
-        json!({"id":"coding-delegate","tools":["claude-code","git"],"skills":[],
-            "note":"No versioned skill bindings; bounded to the approved project, stage and worktree."}),
+        json!({"id":"coding-delegate","tools":["claude-code","git"],"skills":["hephaestus-engineering"],
+            "note":"Superpowers-derived pilot guidance v1; exact instructions bound to approval. Guidance preparation is recorded, not proof of compliance."}),
     ]
 }
 
@@ -522,7 +528,7 @@ mod tests {
         let before = c.total_changes();
         let view = snapshot(&c, &env());
         assert_eq!(c.total_changes(), before, "the projection is read-only");
-        assert_eq!(ids(&view["skills"]), ["communication-assess", "project-relevance", "situation-discovery", "situation-briefing", "research-retrieval", "evidence-synthesis", "claim-verification"]);
+        assert_eq!(ids(&view["skills"]), ["communication-assess", "project-relevance", "situation-discovery", "situation-briefing", "research-retrieval", "evidence-synthesis", "claim-verification", "hephaestus-engineering"]);
         assert_eq!(ids(&view["tools"]), ["gmail", "pantheon", "vault", "obsidian", "git", "claude-code", "model-primary", "model-deep", "model-claude", "realtime-voice", "transcription", "file-attachments", "quick-apps", "browser"]);
         // Every item names a real domain, and counts are derived from items.
         let domains = ids(&view["domains"]);
@@ -534,7 +540,7 @@ mod tests {
         }
         // Skill versions come from the contracts, not from copy.
         let versions: Vec<u64> = view["skills"].as_array().unwrap().iter().map(|s| s["version"].as_u64().unwrap()).collect();
-        assert_eq!(versions, [2, 2, 1, 1, 1, 1, 1]);
+        assert_eq!(versions, [2, 2, 1, 1, 1, 1, 1, 1]);
     }
 
     #[test]
@@ -566,7 +572,7 @@ mod tests {
         let agent = |id: &str| view["agents"].as_array().unwrap().iter().find(|a| a["id"] == id).unwrap().clone();
         assert_eq!(agent("research")["skills"], json!(["research-retrieval", "evidence-synthesis"]));
         assert_eq!(agent("verification")["skills"], json!(["claim-verification"]));
-        assert_eq!(agent("coding-delegate")["skills"], json!([]));
+        assert_eq!(agent("coding-delegate")["skills"], json!(["hephaestus-engineering"]));
         assert_eq!(agent("coding-delegate")["tools"], json!(["claude-code", "git"]));
         assert_eq!(agent("olympus")["tools"].as_array().unwrap().len(), view["tools"].as_array().unwrap().len());
         let catalog = super::super::command_agents::snapshot_for_tests(&c);

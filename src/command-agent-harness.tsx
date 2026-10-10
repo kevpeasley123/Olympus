@@ -1,3 +1,5 @@
+import {memoryFixture} from "./services/memoryFixture";
+import modelPickerFixture from "./services/modelCatalogFixture.json";
 import { OlympusArmory } from "./components/panels/OlympusArmory";
 import "@fontsource/cinzel/400.css";
 import "@fontsource/inter/400.css";
@@ -77,7 +79,9 @@ mockIPC(command => {
   if (command === "fetch_vault_graph") return graph;
   if (command === "fetch_recent_vault_writes") return [];
   if (command === "fetch_operator_profile") return null;
-  if (command === "model_routes") return { routes: [{ capability: "PRIMARY", provider: "openai", model: "fixture-only", label: "Sol", effort: "medium" }], realtime: "fixture", transcription: "fixture", coding: "fixture" };
+  if (command === "memory_request_evidence") return structuredClone(memoryFixture);
+  if (command === "model_routes") return modelPickerFixture;
+  if (command === "save_model_selection") return null;
   throw Error(`Unexpected fixture IPC: ${command}`);
 });
 const client: CommandCatalogClient = { read: async () => {
@@ -122,7 +126,16 @@ function Harness() {
   const [catalogReady, setCatalogReady] = useState(false);
   const missions = params.get("missions") === "2" ? {observedAt:missionSets.researchActive.observedAt, missions:[...missionSets.researchActive.missions.filter(m=>m.status==="running"), ...missionSets.mailActive.missions.filter(m=>m.status==="running").map(m=>({...m,status:"waiting" as const,approval:{required:true,detail:"Synthetic approval checkpoint"}}))]} : missionFor[scenario];
   const command = useCommandView(capabilities, missions, fixtureNow);
-  const messages = scenario === "chat-expanded" ? [...history, ...thisLaunch] : history;
+  const [extraMessages,setExtraMessages]=useState<ConversationMessage[]>([]);
+  useEffect(()=>{
+    if(!params.has("conversation-test"))return;
+    const receive=()=>setExtraMessages(items=>[...items,{id:`incoming-${items.length}`,role:"assistant",at:new Date().toISOString(),timestamp:"Now",content:"Synthetic new response for scroll verification."}]);
+    window.addEventListener("fixture:conversation-reply",receive);
+    return()=>window.removeEventListener("fixture:conversation-reply",receive);
+  },[]);
+  const messages = [...(scenario === "chat-expanded" ? [...history, ...thisLaunch] : history),...extraMessages];
+  if(params.has("memory-evidence"))messages.push({id:"memory-response",role:"assistant",timestamp:"Now",content:"The conversation layout separates discussion from mission oversight. See response details for the prepared memory evidence.",request:{id:"fixture-memory-request",provider:"fixture",requestedModel:"requested-fixture",actualModel:"actual-fixture",capability:"PRIMARY",purpose:"command",reasoningEffort:"medium",requestedAt:new Date().toISOString(),latencyMs:30,firstTokenMs:10,status:"completed",fallbackFrom:null,escalationReason:null,usage:null,errorCode:null}});
+
   const suggestions = useMemo(() => suggestionsFor(capabilities), []);
   useEffect(() => {
     if (scenario === "agent-research") command.selectAgent("research");

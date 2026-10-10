@@ -1,0 +1,7 @@
+.memory-evidence { border-top:1px solid rgba(148,175,192,.2); margin-top:10px; padding-top:8px; font-size:11px; line-height:1.5; overflow-wrap:anywhere; }
+.command-console .conversation-bubble .model-attribution .memory-evidence p { margin:6px 0; font-size:11px; line-height:1.5; font-weight:400; }
+.memory-evidence details { margin:8px 0; }
+.memory-evidence summary { color:#d3bd88; cursor:pointer; }
+.memory-evidence blockquote { margin:8px 0; padding:6px 10px; border-left:2px solid #648597; white-space:pre-wrap; color:#dbe5eb; }
+.memory-evidence ul { padding-left:16px; }
+.memory-evidence code { font-size:10px; }

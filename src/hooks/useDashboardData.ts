@@ -294,6 +294,11 @@ export function useDashboardData() {
       conversationStream.reset();
       emitInstrumentEvent("command-received");
 
+      let capability: import("../services/modelRouting").ModelCapability = "PRIMARY";
+      if (isTauriRuntime()) {
+        try { capability=consumeNextModel(); }
+        catch(error) { setChatError(errorMessage(error)); return; }
+      }
       const user = createUserMessage(trimmed);
       // Output modality is independent of input modality: a typed request may
       // ask for a spoken answer, but only a transcription has a voice input ID.
@@ -321,7 +326,6 @@ export function useDashboardData() {
         return;
       }
 
-      const capability=consumeNextModel();
       setChatCapability(capability);
       requestInFlight.current = true;
       setChatModel(null);

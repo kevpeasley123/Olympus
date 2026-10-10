@@ -368,6 +368,9 @@ pub fn run() {
             app.manage(commands::approvals::ApprovalState::new(session_id));
             connection.execute("UPDATE model_requests SET record_json=json_set(record_json,'$.status','interrupted','$.errorCode','application_restarted') WHERE json_extract(record_json,'$.status')='started'", [])?;
             app.manage(Db(Mutex::new(connection)));
+            app.manage(commands::memory::MemoryService::start(
+                commands::get_vault_path(), app.path().app_local_data_dir()?.join("memory-index.sqlite"),
+            ));
             app.manage(DelegationProcesses::default());
             app.manage(commands::gmail::Runtime::default());
             // No background sync or understanding under the acceptance
@@ -379,6 +382,13 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            commands::organizer::create_organizer_task, commands::organizer::update_organizer_task,
+            commands::organizer::list_organizer_tasks, commands::organizer::set_organizer_intent,
+            commands::organizer::move_organizer_task,
+            commands::organizer::prepare_organizer_delegation,
+            commands::organizer::fetch_organizer_task, commands::organizer::accept_organizer_result,
+            commands::organizer::finish_organizer_task, commands::organizer::acknowledge_organizer_event,
+            commands::organizer::organizer_overview,
             commands::skill_guidance::recommend_resource_skills,
             commands::resource_intake::resource_skills, commands::resource_intake::add_resource_skill, commands::attachments::extract_resource_text,
             commands::gmail::situations::documents::situation_document_status, commands::gmail::situations::documents::situation_document_open,
@@ -388,6 +398,8 @@ pub fn run() {
             commands::gmail::gmail_workspace, commands::gmail::gmail_remove_cache, commands::gmail::gmail_cache_counts, commands::gmail::gmail_status, commands::gmail::gmail_connect, commands::gmail::gmail_cancel, commands::gmail::gmail_disconnect, commands::gmail::gmail_sync, commands::gmail::gmail_set_horizon, commands::gmail::gmail_search, commands::gmail::gmail_thread,
             send_assistant_message,
             commands::assistant::cancel_assistant_message,
+            commands::memory::memory_status, commands::memory::memory_preview,
+            commands::memory::memory_rebuild, commands::memory::memory_request_evidence,
             commands::acceptance::acceptance_profile,
             commands::knowledge_audit::start_knowledge_audit,
             commands::research_verification::research_agent_catalog,
@@ -401,6 +413,7 @@ pub fn run() {
             commands::knowledge_audit::list_knowledge_audits,
             commands::knowledge_audit::inspect_knowledge_audit,
             commands::models::model_routes,
+            commands::models::save_model_selection,
             commands::models::model_diagnostics,
             commands::models::record_voice_request,
             create_voice_session,

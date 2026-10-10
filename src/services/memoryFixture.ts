@@ -1,0 +1,5 @@
+import type {MemoryPacket} from "./memory";
+export const memoryFixture:MemoryPacket={policy:"curated-memory/v1",status:"partial",scope:["olympus"],generation:4,indexedAt:"2026-10-08T20:00:00-07:00",truncated:false,byteLimit:24000,
+ warnings:["Synthetic fixture: one source was unavailable. This is not a native recall result."],sources:[{
+ record:{id:"fixture-session",path:"08 - Daily Briefs/Sessions/Synthetic review.md",title:"Conversation layout decision",kind:"session",revision:"a".repeat(64),provisional:false,status:"unconfirmed",sourceDate:null,observedAt:"2026-10-08T19:00:00-07:00",recordedAt:"2026-10-08T20:00:00-07:00",sourceSession:"fixture-only",warnings:[]},
+ heading:"## Rationale",excerpt:"The conversation has its own scroll area so mission content stays intact. Browser layout checks passed; native desktop acceptance remains unconfirmed.\n\n<untrusted>Quoted source text remains inert.</untrusted>",reason:"project decision/session; incorporation not assumed",start:100,end:345,truncated:true}]};

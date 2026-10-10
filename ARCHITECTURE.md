@@ -394,3 +394,7 @@ not force a recommendation. See docs/EXECUTIVE-PRIORITIZATION.md.
 ### Operational dossier file boundary
 
 The dossier is a UI projection of saved contextual references. Optional document origin/date and source-linked milestones do not add model input or extraction workflows. Native `situation_document_status` and `situation_document_open` resolve source IDs only from the current enabled account's saved situation context. Frontend paths are not accepted; remote/relative paths and executable/active-web extensions cannot be opened. Missing files have no Open action. Timeline states are retained, never inferred from source file dates. Browser fixture file clients have no native side effects.
+
+### Indexed curated memory
+
+The development backend maintains a separate, rebuildable SQLite/FTS5 cache in app-local data for eligible vault project/session/decision/research records. A background writer publishes transactional generations; request readers select bounded scope-aware evidence, include explicit correction relationships, and validate selected source revisions. Both assistant provider routes use the same quoted evidence packet. Immutable request receipts live in the operational database and appear in response Details. The index is outside the synced vault, never writes source records, and grants no execution authority. It does not collect other chats. See [MEMORY-RETRIEVAL.md](docs/MEMORY-RETRIEVAL.md) for limits, recovery, rollback and acceptance gaps.

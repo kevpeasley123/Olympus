@@ -1,31 +1,23 @@
 import {mockIPC} from "@tauri-apps/api/mocks";
 import {createRoot} from "react-dom/client";
-import {ModelRouteControl,ModelDiagnostics} from "./components/panels/ModelSettings";
-import {consumeNextModel} from "./services/modelRouting";
+import {ModelRouteControl,ModelDiagnostics,ModelAttribution} from "./components/panels/ModelSettings";
+import {consumeNextModel,selectNextModel,loadModelCatalog,resetModelSelection,saveModelSelection,type ModelCatalog,type ModelRequest} from "./services/modelRouting";
+import fixture from "./services/modelCatalogFixture.json";
 import "./styles.css";
-mockIPC(command=>{
- if(command==="model_routes")return {routes:[{capability:"PRIMARY",label:"Primary fixture",model:"primary-fixture",provider:"openai",effort:"medium"},{capability:"DEEP_REASONING",label:"Deep fixture",model:"deep-fixture",provider:"openai",effort:"high"},{capability:"CLAUDE_COMPARISON",label:"Comparison fixture",model:"comparison-fixture",provider:"anthropic",effort:"medium"}],realtime:"voice-fixture",transcription:"transcribe-fixture",coding:"coding-fixture"};
- if(command==="model_diagnostics")return [{id:"fixture-record",provider:"openai",requestedModel:"primary-fixture",actualModel:"actual-fixture-snapshot",capability:"PRIMARY",purpose:"command",status:"completed",latencyMs:123,usage:{input_tokens:20,output_tokens:10}}];
+let failSave=false;
+const catalog:ModelCatalog=JSON.parse(JSON.stringify(fixture));
+catalog.routes[0].label="Primary fixture";
+catalog.routes[1].label="Future model fixture";
+catalog.routes[2].available=false;catalog.routes[2].unavailableReason="Provider not configured";
+if(new URLSearchParams(location.search).has("restore"))catalog.selection={capability:"DEEP_REASONING",scope:"chat"};
+if(new URLSearchParams(location.search).has("default"))catalog.defaultCapability="DEEP_REASONING";
+const saved:Array<unknown>=[];
+mockIPC((command,args)=>{
+ if(command==="model_routes")return catalog;
+ if(command==="save_model_selection"){if(failSave)throw Error('Cannot save fixture');saved.push(args);return null;}
+ if(command==="model_diagnostics")return [record];
  throw Error(`Unexpected command ${command}`);
 });
-createRoot(document.getElementById("root")!).render(<main className="settings-panel" style={{margin:40,maxWidth:440}}><output id="result">Waiting</output><ModelRouteControl/><ModelDiagnostics/></main>);
-const wait=()=>new Promise(r=>setTimeout(r,600));
-async function run(){
- await wait();
- const trigger=document.querySelector<HTMLButtonElement>('[aria-haspopup="menu"]')!;
- trigger.click();await wait();
- const options=[...document.querySelectorAll<HTMLButtonElement>('[role="menuitemradio"]')];
- if(options.length!==3)throw Error("Backend catalog not rendered");
- if(!options[0].textContent?.includes("SOL")||!options[1].textContent?.includes("ASTRA"))throw Error("Friendly route names missing");
- options[1].click();await wait();
- if(!trigger.textContent?.includes("ASTRA")||document.querySelector('[role="menu"]'))throw Error("Selection not reflected or menu stayed open");
- if(consumeNextModel()!=="DEEP_REASONING"||consumeNextModel()!=="PRIMARY")throw Error("Escalation not one-shot");
- await wait();if(!trigger.textContent?.includes("SOL"))throw Error("UI did not reset");
- trigger.click();await wait();
- document.querySelector<HTMLElement>('[role="menuitemradio"]')!.dispatchEvent(new KeyboardEvent("keydown",{key:"Escape",bubbles:true}));
- await wait();if(document.querySelector('[role="menu"]')||document.activeElement!==trigger)throw Error("Escape did not close menu and restore focus");
- document.querySelector<HTMLDetailsElement>('.model-diagnostics')!.open=true;await wait();
- if(!document.body.textContent?.includes("actual-fixture-snapshot"))throw Error("Actual model missing");
- document.getElementById("result")!.textContent="PASS: backend catalog, friendly names, one-shot selection, UI reset, Escape focus and actual-model diagnostics";
-}
-void run().catch(e=>{document.getElementById("result")!.textContent=`FAIL: ${e}`;});
+const record:ModelRequest={id:"fixture-record",provider:"fixture-provider",requestedModel:"requested-fixture",actualModel:"actual-fixture-snapshot",capability:"PRIMARY",purpose:"command",status:"completed",latencyMs:123,firstTokenMs:30,requestedAt:new Date().toISOString(),reasoningEffort:"medium",fallbackFrom:null,escalationReason:null,usage:null,errorCode:null};
+createRoot(document.getElementById("root")!).render(<main style={{position:'fixed',right:8,bottom:8,width:'min(330px, calc(100vw - 16px))',overflow:'hidden',background:'#09151f',padding:12,boxSizing:'border-box'}}><output id="result">Ready</output><ModelAttribution request={record}/><ModelAttribution request={{...record,id:'unknown',actualModel:null}}/><ModelRouteControl/><button id="outside">Outside control</button><ModelDiagnostics/></main>);
+Object.assign(window,{pickerTest:{consume:consumeNextModel,select:selectNextModel,reset:resetModelSelection,save:saveModelSelection,refresh:loadModelCatalog,saved,failSave:(v:boolean)=>{failSave=v;}}});

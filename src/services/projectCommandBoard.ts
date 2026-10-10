@@ -1,3 +1,4 @@
+import {nextOrganizerTask,type OrganizerOverview} from "./organizer";
 import type { TrackedProject } from "../types";
 import type { ActionQueueTask } from "../hooks/useActionQueue";
 import type { DelegationRun } from "./delegation";
@@ -53,7 +54,7 @@ const openPhases = [...activePhases, "waiting", "awaiting_review"];
 const time = (value: string) => Number.isFinite(Date.parse(value)) ? Date.parse(value) : 0;
 
 /** Read-only projection: no task text parsing, intent promotion, or approval writes. */
-export function buildProjectCommandBoard(projects: TrackedProject[], tasks: ActionQueueTask[], runs: DelegationRun[], available = { tasks: true, runs: true }, now: Date = new Date()): ProjectCommandState[] {
+export function buildProjectCommandBoard(projects: TrackedProject[], tasks: ActionQueueTask[], runs: DelegationRun[], available = { tasks: true, runs: true }, now: Date = new Date(), organizer?:{rows:OrganizerOverview[];available:boolean}): ProjectCommandState[] {
   const attributed = attributeTasks(projects, tasks.filter(task => !task.completed)).perProject;
   return projects.map(project => {
     const projectRuns = available.runs ? runs.filter(run => run.projectId === project.id).sort((a,b) => time(b.updatedAt)-time(a.updatedAt)) : [];
@@ -88,11 +89,23 @@ export function buildProjectCommandBoard(projects: TrackedProject[], tasks: Acti
       operationalStatus = "MONITORING"; currentState = "Declared watchlist. No active delegation or operator checkpoint is recorded.";
       nextMoveOwner = action ? null : "NONE"; olympusRecommendation = "Keep on the watchlist unless priorities change; review any recorded next action before activation.";
     }
+    const attention=projectAttention(project,projectRuns,now);
+    const next=organizer?.available?nextOrganizerTask(organizer.rows,project.id):undefined;
+    if(organizer&&!organizer.available)attention.push({kind:"organizer",source:"Organizer",text:"Organizer records unavailable; its next task cannot be confirmed."});
+    if(next){
+      if(action&&action!==next.task.title)attention.push({kind:"organizer",source:"Vault note",text:`Recorded next step: ${action}`});
+      if(available.runs&&!decisions.length&&!running&&operationalStatus!=="COMPLETE"&&operationalStatus!=="MONITORING"){
+        nextMove=`Organizer: ${next.task.title}`;nextMoveOwner="OPERATOR";
+        currentState=`Organizer task ${next.displayStatus.toLowerCase()}; execution requires explicit approval.`;
+        olympusRecommendation="Inspect the task, its sources and acceptance criteria before preparing delegation.";recommendationGeneric=false;
+      }
+    }
+    if(organizer?.available)for(const row of organizer.rows.filter(r=>r.task.projectId===project.id&&r.needsAttention))attention.push({kind:"organizer",source:"Organizer",text:`${row.task.title}: ${row.displayStatus}. Inspect task activity.`});
     const latest = [project.lastCommitAt ? {at: project.lastCommitAt, source: "Git commit"} : null, ...projectRuns.map(run => ({at:run.updatedAt,source:"Delegation update"}))].filter((item): item is {at:string;source:string} => !!item && time(item.at)>0).sort((a,b)=>time(b.at)-time(a.at))[0] ?? null;
     return {
       project, operationalStatus, currentState, nextMove, nextMoveOwner, nextAction: action, blockers: null, operatorDecisions: decisions,
       olympusRecommendation, recommendationGeneric, recommendationSource: "deterministic",
-      attention: projectAttention(project, projectRuns, now),
+      attention,
       openRun: projectRuns.find(run => openPhases.includes(run.phase)) ?? null,
       openTaskCount: available.tasks ? (attributed.get(project.id)?.length ?? 0) : null, lastMeaningfulChange: latest
     };

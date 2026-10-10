@@ -1,0 +1,9 @@
+{
+  "defaultCapability":"PRIMARY", "selection":null,
+  "routes":[
+    {"capability":"PRIMARY","provider":"openai","providerLabel":"OpenAI","model":"preview-sol","effort":"medium","label":"Sol","description":"Everyday reasoning","available":true,"unavailableReason":null},
+    {"capability":"DEEP_REASONING","provider":"openai","providerLabel":"OpenAI","model":"preview-astra","effort":"high","label":"Astra","description":"Deeper analysis","available":true,"unavailableReason":null},
+    {"capability":"CLAUDE_COMPARISON","provider":"anthropic","providerLabel":"Anthropic","model":"preview-claude","effort":"medium","label":"Claude","description":"Another perspective","available":true,"unavailableReason":null}
+  ],
+  "realtime":"preview-voice","transcription":"preview-transcription","coding":"preview-coding"
+}

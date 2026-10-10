@@ -1,0 +1,51 @@
+/* Dedicated conversation view inside the existing companion column. */
+.command-console[data-conversation-panel] .conversation-view-switch{display:flex;flex:0 0 auto;border-block:1px solid #718a9c2b;order:1}
+.conversation-view-switch button{flex:1;padding:12px 8px;border:0;border-bottom:2px solid transparent;background:none;color:#a9bfce;font:12px var(--font-sans);cursor:pointer}
+.conversation-view-switch button[aria-pressed="true"]{color:#f3e0b9;border-bottom-color:#d9b46b}
+.conversation-view-switch button:focus-visible{outline:2px solid #e8c377;outline-offset:-3px}
+.command-console[data-conversation-panel] .console-workspace-header{order:0;flex-shrink:0}
+.command-console[data-conversation-panel] .console-inspection-status{order:3;flex-shrink:0}
+html .mode-command .command-console[data-conversation-panel] .console-idle{order:3}
+html .mode-command .command-console[data-conversation-panel]>.active-mission-list{order:4;flex:1 1 0;min-height:0}
+html .mode-command .command-console[data-conversation-panel] .console-aperture{order:4;flex:1 1 0;height:0;min-height:0;max-height:none;margin:0;border:0;background:transparent;box-shadow:none;animation:none}
+html .mode-command .command-console[data-conversation-panel] .console-aperture[hidden],.command-console[data-conversation-panel] .console-history-controls[hidden]{display:none}
+html .mode-command .command-console[data-conversation-panel] .console-command-bar{order:5;flex:0 0 auto;margin:0 12px 12px;min-height:0}
+.command-console[data-conversation-panel] .console-viewport{flex:1 1 0;min-height:0;mask-image:none}
+.command-console[data-conversation-panel] .console-messages{padding:8px 16px 18px;gap:18px}
+.command-console[data-conversation-panel] .conversation-bubble{max-width:100%;width:100%;box-sizing:border-box}
+.command-console[data-conversation-panel] .conversation-bubble.assistant{border:0;border-radius:0;background:transparent;box-shadow:none;padding:8px 0}
+.command-console[data-conversation-panel] .conversation-bubble.user{background:#162633;border:1px solid #66859944;border-radius:5px;padding:12px}
+.command-console[data-conversation-panel] .console-markdown,.command-console[data-conversation-panel] .console-command-text{font:13px/1.7 var(--font-sans);color:#e2e9ed;overflow-wrap:anywhere}
+.command-console[data-conversation-panel] .console-message-label{margin-bottom:8px}
+.command-console[data-conversation-panel] .console-tools:empty{display:none}
+.command-console[data-conversation-panel] .console-tools:has(.observation-composer),.command-console[data-conversation-panel] .console-tools:has(.memory-promotion){max-height:45%;overflow:auto}
+.command-console[data-conversation-panel] .console-latest{flex-shrink:0}
+
+/* Match the approved compact reading treatment, overriding legacy bubble rules. */
+html .mode-command .command-console[data-conversation-panel] .console-messages{padding:6px 8px 12px;gap:0}
+html .mode-command .command-console[data-conversation-panel] .conversation-bubble,
+html .mode-command .command-console[data-conversation-panel] .conversation-bubble.user{width:100%;max-width:100%;margin:12px 0 0;align-self:stretch}
+html .mode-command .command-console[data-conversation-panel] .conversation-bubble.assistant{padding:6px 8px;border:0;background:none}
+html .mode-command .command-console[data-conversation-panel] .conversation-bubble.user{padding:9px 10px;background:linear-gradient(125deg,#142634,#111e2a);border:1px solid #506b8059;border-radius:5px}
+html .mode-command .command-console[data-conversation-panel] .conversation-bubble .console-markdown,
+html .mode-command .command-console[data-conversation-panel] .conversation-bubble .console-markdown p,
+html .mode-command .command-console[data-conversation-panel] .conversation-bubble .console-markdown li,
+html .mode-command .command-console[data-conversation-panel] .conversation-bubble .console-command-text{font:400 12px/1.5 var(--font-sans);letter-spacing:0;color:#e0e8ed}
+html .mode-command .command-console[data-conversation-panel] .console-markdown p{margin:0 0 8px}
+html .mode-command .command-console[data-conversation-panel] .console-markdown p:last-child{margin-bottom:0}
+html .mode-command .command-console[data-conversation-panel] .conversation-bubble .console-message-label{justify-content:flex-start;font:500 9px/1.4 var(--font-mono);letter-spacing:.12em;margin:0 0 7px;padding-right:94px}
+html .mode-command .command-console[data-conversation-panel] .console-message-label .console-omega{font-size:16px}
+html .mode-command .command-console[data-conversation-panel] .console-modality{display:none}
+html .mode-command .command-console[data-conversation-panel] .conversation-bubble .console-message-meta{position:absolute;right:10px;top:9px;font:400 9px/1.4 var(--font-sans);color:#839bae}
+html .mode-command .command-console[data-conversation-panel] .conversation-bubble-footer{border:0;padding:0;margin-top:5px;min-height:0}
+html .mode-command .command-console[data-conversation-panel] .conversation-bubble .observation-seed{font-size:9px}
+html .mode-command .command-console[data-conversation-panel] .model-attribution{font:10px/1.4 var(--font-sans);margin:6px 0 0;color:#93abba}
+html .mode-command .command-console[data-conversation-panel] .console-day-separator{margin:12px 0 6px;font-size:9px}
+html .mode-command .command-console[data-conversation-panel] .console-command-bar{padding:8px;margin:0 7px 8px;border:0;border-top:1px solid #526c7c33;border-radius:0;background:#06111bed}
+html .mode-command .command-console[data-conversation-panel] .console-input-row{padding-bottom:0}
+html .mode-command .command-console[data-conversation-panel] .console-input-row textarea{box-sizing:border-box;width:100%;min-height:43px;height:43px;border:1px solid #d6aa55;border-radius:4px;background:#07121a;padding:10px 9px;font:400 12px/1.5 var(--font-sans);color:#e4ecf1;box-shadow:0 0 0 1px #d6aa5510;outline:none}
+html .mode-command .command-console[data-conversation-panel] .console-input-row textarea:focus{border-color:#f2c66f;box-shadow:0 0 0 1px #eac16b55}
+html .mode-command .command-console[data-conversation-panel] .console-input-row textarea::placeholder{color:#92a5b2;opacity:1}
+html .mode-command .command-console[data-conversation-panel] .console-status-line{margin-top:9px;margin-bottom:0}
+
+.console-restore{display:inline-flex;align-items:center;gap:6px;min-height:30px;white-space:nowrap;color:#edc577}

@@ -1,6 +1,6 @@
 import {CommandBrief} from "./CommandBrief";
 import {SkillApproval} from "./SkillApproval";
-import {ModelRouteControl} from "./ModelSettings";
+import {ModelRouteControl,ModelAttribution} from "./ModelSettings";
 import { realtimeVoice, voicePreview, useVoiceState } from "../../services/realtimeVoice";
 import { isModalOpen, SHORTCUTS } from "../../services/shortcuts";
 import { ReplyModeToggle } from "./ReplyModeToggle";
@@ -24,7 +24,6 @@ import { daySeparators, importedTimeLabel, isBriefing } from "../../services/con
 import { describeVoiceFailure } from "../../services/voiceFailure";
 import { openExternalLink } from "../../services/externalLink";
 import { openResearchEntry } from "../../services/navigation";
-import { routeLabel, routeTitle } from "../../services/routeLabel";
 import { formatWhen } from "../../services/time";
 import { isTauriRuntime } from "../../services/launcher";
 import type { CapabilitySnapshot, Mission, Suggestion } from "../../services/capabilities";
@@ -32,6 +31,7 @@ import { ActiveMissionList } from "./PantheonMissions";
 import { MissionView } from "./MissionView";
 import "./command.css";
 import "./commandArmory.css";
+import "./conversationPanel.css";
 
 // Links leave through the same guarded opener as the library, never by
 // navigating the app window (review F6).
@@ -91,6 +91,7 @@ export function ChatPanel({ companion = false, messages, onSendMessage, onRecord
   activeMissions = [], selectedMissionId = null, onSelectMission, missionsError = null, missionsLoading = false,
   layout = "compact", onLayoutChange, mission = null, capabilities = null, suggestions = [], onOpenMission, onDismissMission }: ChatPanelProps) {
   const expanded = layout === "expanded";
+  const conversationPanel = companion && expanded;
   const voice = useVoiceState();
   const microphoneActive=voice.microphoneOn&&(voice.active||voice.connecting);
   const micLive=voice.microphoneOn&&voice.active;
@@ -112,9 +113,20 @@ export function ChatPanel({ companion = false, messages, onSendMessage, onRecord
   const panelRef = useRef<HTMLElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const streamText = useConversationStream();
-  const scroll = useConversationScroll(mode !== "dormant");
+  const scroll = useConversationScroll(mode !== "dormant" && (!conversationPanel || conversationOpened));
+  const savedReading = useRef({top:0,following:true});
+  function showOverview() {
+    if(!conversationOpened)return;
+    savedReading.current={top:scroll.viewportRef.current?.scrollTop??0,following:scroll.following.current};
+    setConversationOpened(false);
+  }
+  useLayoutEffect(()=>{
+    if(!conversationPanel||!conversationOpened)return;
+    if(savedReading.current.following)scroll.latest();
+    else {scroll.interrupt();if(scroll.viewportRef.current)scroll.viewportRef.current.scrollTop=savedReading.current.top;}
+  },[conversationPanel,conversationOpened]);
   const editingMemory = memorySource !== null || observation !== null;
-  const visibleMessages = mode === "transcript" ? messages.slice(historyStart) : messages.slice(liveStart);
+  const visibleMessages = conversationPanel ? messages.slice(historyStart) : mode === "transcript" ? messages.slice(historyStart) : messages.slice(liveStart);
   const liveInput = voice.active && voice.captionsEnabled && voice.inputMessageId && !messages.some(message => message.id === voice.inputMessageId)
     ? {id:voice.inputMessageId,role:"user" as const,content:voice.inputText || "Listening…",timestamp:"",voice:{kind:"input" as const}} : null;
   const renderedMessages = liveInput ? [...visibleMessages,liveInput] : visibleMessages;
@@ -138,21 +150,23 @@ export function ChatPanel({ companion = false, messages, onSendMessage, onRecord
   // Expanded and nothing said this launch: a calm ready state instead of old
   // history. History and the briefing stay one click away.
   const spokenThisLaunch = messages.some(message => !isBriefing(message) && message.at && Date.parse(message.at) >= launchedAt.current - 5_000);
-  const idle = expanded && !conversationOpened && !spokenThisLaunch && !pending && !liveInput && !error;
+  const idle = conversationPanel ? !conversationOpened : expanded && !conversationOpened && !spokenThisLaunch && !pending && !liveInput && !error;
 
   function showLive(smooth = false) {
+    if(conversationPanel){savedReading.current.following=true;setConversationOpened(true);}
     setMode("engaged"); setLiveStart(liveConversationStart(messages)); setResponseReady(false); scroll.latest(smooth);
   }
   function stepBack() {
-    if (editingMemory) return;
+    if (editingMemory || conversationPanel) return;
     if (mode === "transcript") showLive();
     else if (!expanded) { setMode(consoleStepBack(mode)); panelRef.current?.focus(); }
   }
   function showHistory() {
     setConversationOpened(true);
-    scroll.preserve(); setHistoryStart(Math.max(0, liveStart - CONSOLE.historyPage)); setMode("transcript");
+    scroll.preserve(); if(!conversationPanel)setHistoryStart(Math.max(0, liveStart - CONSOLE.historyPage)); setMode("transcript");
   }
   useEffect(() => {
+    if (voice.active || voice.connecting) setConversationOpened(true);
     if ((voice.active || voice.connecting) && mode === "dormant") { setMode("engaged"); setLiveStart(liveConversationStart(messages)); }
   }, [voice.active, voice.connecting]);
   // The expanded workspace is never dormant: it is the conversation's home.
@@ -260,32 +274,41 @@ export function ChatPanel({ companion = false, messages, onSendMessage, onRecord
   }
 
 
+  const inspectionControl = inspectionProjects.length > 0 && <details className="console-inspect-project"><summary>Inspect a project (read-only)</summary><label>Project <select aria-label="Inspect a project read-only" defaultValue="" onChange={event => { const name=event.target.value; if(name) { setDraft(`/inspect ${name}: Find one small issue and explain the smallest fix with file evidence.`); setConversationOpened(true); setMode("engaged"); requestAnimationFrame(() => inputRef.current?.focus()); } event.target.value=""; }}><option value="">Choose project…</option>{inspectionProjects.map(name=><option key={name} value={name}>{name}</option>)}</select></label><small>Read-only source review. Uses the selected paid OpenAI API route; at most three file reads plus an answer, within four minutes. Review the request, then Send.</small></details>;
+
   return (
-    <section ref={panelRef} tabIndex={-1} className="command-console" data-mode={mode} data-layout={layout} data-idle={idle || undefined} data-signal={signal ?? undefined}
+    <section ref={panelRef} tabIndex={-1} className="command-console" data-mode={mode} data-layout={layout} data-conversation-panel={conversationPanel || undefined} data-panel-view={conversationPanel ? (conversationOpened?"conversation":"overview") : undefined} data-idle={idle || undefined} data-signal={signal ?? undefined}
       aria-label="Olympus Command Console" style={{ "--console-transition": `${CONSOLE.transitionMs}ms`, "--console-signal": `${CONSOLE.signalMs}ms` } as CSSProperties}
       onKeyDown={event => {
         if (event.key === "Escape" && !event.nativeEvent.isComposing && !editingMemory) { event.preventDefault(); event.stopPropagation(); stepBack(); }
       }}>
       <SkillApproval/>
-      {expanded && <header className="console-workspace-header">
+      {(expanded || onLayoutChange) && <header className="console-workspace-header">
         <span className="console-workspace-mark" aria-hidden="true">Ω</span>
         <div className="console-workspace-title"><strong>OLYMPUS</strong>
           <span role="status" className="console-status" data-status={status.toLowerCase().replace(/\s+/g, "-")}>{status.replace(/^OLYMPUS /, "")}</span></div>
         {(pending || voice.active || voice.connecting) && <ActivityTrace level={voice.active ? voice.level : 0} busy />}
         <div className="console-header-actions">
-          <button type="button" className="ghost-icon-action" title="Record an observation" aria-label="Record an observation" disabled={recording}
+          {expanded && <><button type="button" className="ghost-icon-action" title="Record an observation" aria-label="Record an observation" disabled={recording}
             onClick={() => { setConversationOpened(true); if (observation === null) openComposer(""); else setObservation(null); }}><NotebookPen size={14} /></button>
-          <button type="button" className="ghost-icon-action" aria-label="Open conversation history" title="Conversation history" onClick={showHistory}><History size={14} /></button>
-          {onLayoutChange && <button type="button" className="ghost-icon-action" aria-label="Compact console" title="Compact console" onClick={() => onLayoutChange("compact")}><Minimize2 size={14} /></button>}
+          <button type="button" className="ghost-icon-action" aria-label="Open conversation history" title="Conversation history" onClick={showHistory}><History size={14} /></button></>}
+          {onLayoutChange && <button type="button" className={expanded ? "ghost-icon-action" : "ghost-action console-restore"} aria-label={expanded ? "Compact console" : "Expand conversation"} title={expanded ? "Compact console" : "Expand conversation"} onClick={() => { onLayoutChange(expanded ? "compact" : "expanded"); requestAnimationFrame(() => panelRef.current?.querySelector<HTMLButtonElement>(".console-header-actions button:last-child")?.focus()); }}>{expanded ? <Minimize2 size={14} /> : <><Maximize2 size={14} /> Expand</>}</button>}
         </div>
       </header>}
+      {conversationPanel && <>
+        <div className="conversation-view-switch" role="group" aria-label="Olympus panel view">
+          <button type="button" aria-pressed={!conversationOpened} disabled={editingMemory} onClick={showOverview}>Overview</button>
+          <button type="button" aria-pressed={conversationOpened} onClick={()=>setConversationOpened(true)}>Conversation</button>
+        </div>
+
+      </>}
       {pending && <div className="console-inspection-status" role="status"><span>{progress ?? "Preparing response…"}</span>{onStop && <button type="button" onClick={onStop}>Stop</button>}</div>}
-      {expanded && companion && <ActiveMissionList missions={activeMissions} selected={selectedMissionId} onSelect={onSelectMission} capabilities={capabilities} onOpen={onOpenMission} error={missionsError} loading={missionsLoading}/>}
+      {expanded && companion && !conversationOpened && <ActiveMissionList missions={activeMissions} selected={selectedMissionId} onSelect={onSelectMission} capabilities={capabilities} onOpen={onOpenMission} error={missionsError} loading={missionsLoading}/>}
       {expanded && mission && !companion && <MissionView mission={mission} capabilities={capabilities} onOpen={onOpenMission} onDismiss={onDismissMission} />}
       {!expanded && mission && <MissionView mission={mission} capabilities={capabilities} compact />}
       {idle && <div className="console-idle" data-command-brief={companion || undefined}>
-        {companion && <CommandBrief missions={activeMissions} selected={selectedMissionId} onSelect={onSelectMission} onOpen={onOpenMission} error={missionsError} loading={missionsLoading}/> }
-        {inspectionProjects.length > 0 && <details className="console-inspect-project"><summary>Inspect a project (read-only)</summary><label>Project <select aria-label="Inspect a project read-only" defaultValue="" onChange={event => { const name=event.target.value; if(name) { setDraft(`/inspect ${name}: Find one small issue and explain the smallest fix with file evidence.`); setConversationOpened(true); setMode("engaged"); requestAnimationFrame(() => inputRef.current?.focus()); } event.target.value=""; }}><option value="">Choose project…</option>{inspectionProjects.map(name=><option key={name} value={name}>{name}</option>)}</select></label><small>Read-only source review. Uses the selected paid OpenAI API route; at most three file reads plus an answer, within four minutes. Review the request, then Send.</small></details>}
+        {companion && <CommandBrief missions={activeMissions} error={missionsError} loading={missionsLoading}/> }
+        {!companion && inspectionControl}
         {!companion && <><p className="console-idle__title">“What would you like to work on?”</p><span className="console-welcome-rule" aria-hidden="true"/>{!companion && <p className="console-idle__description">I can help you research, plan, analyze, build, or coordinate complex work. Tell me what you’d like to accomplish, and we can work through it together.</p>}
         {briefing && <button type="button" className="console-idle__briefing" onClick={() => { setConversationOpened(true); showLive(); }}>
           <span>Opening briefing</span>{firstSentence(briefing.text)}</button>}
@@ -295,9 +318,9 @@ export function ChatPanel({ companion = false, messages, onSendMessage, onRecord
             onClick={() => { setDraft(suggestion.prompt); inputRef.current?.focus(); }}>{suggestion.label}</button>)}
         </div>}
         </>}
-        {messages.length > 0 && <button type="button" className="console-idle__history" onClick={showHistory}>↑ Earlier conversation · {messages.length} messages</button>}
+        {!companion && messages.length > 0 && <button type="button" className="console-idle__history" onClick={showHistory}>↑ Earlier conversation · {messages.length} messages</button>}
       </div>}
-      {mode !== "dormant" && !idle && <div className="console-aperture">
+      {((conversationPanel) || (mode !== "dormant" && !idle)) && <div className="console-aperture" hidden={conversationPanel && !conversationOpened}>
         {!expanded && <header className="console-header">
           <span>{mode === "transcript" ? "TRANSCRIPT" : "LIVE CONVERSATION"}</span>
           <div className="console-header-actions">
@@ -307,24 +330,25 @@ export function ChatPanel({ companion = false, messages, onSendMessage, onRecord
               disabled={editingMemory} onClick={stepBack}><X size={15} /></button>
           </div>
         </header>}
-        <div className="console-history-controls">
+        <div className="console-history-controls" hidden={conversationPanel}>
           {mode === "engaged" ? <button type="button" onClick={showHistory}>↑ Earlier conversation{liveStart > 0 ? ` · ${liveStart} messages` : ""}</button> :
             <button type="button" onClick={() => showLive(true)}>↓ Return to latest</button>}
         </div>
         <div ref={scroll.viewportRef} className="console-viewport" role="log" aria-label={mode === "transcript" ? "Conversation transcript" : "Recent conversation"}
-          aria-live="off" tabIndex={0} onScroll={scroll.onScroll}
+          aria-live="off" tabIndex={0} onScroll={()=>{if(!conversationPanel||conversationOpened)scroll.onScroll();}}
           onWheel={event => { if (event.deltaY < 0) scroll.interrupt(); }}
+          onClickCapture={event => { if ((event.target as HTMLElement).closest("summary")) scroll.interrupt(); }}
           onTouchStart={scroll.interrupt}
-          onKeyDown={event => { if (["ArrowUp", "PageUp", "Home"].includes(event.key)) scroll.interrupt(); }}>
+          onKeyDown={event => { if (["ArrowUp", "PageUp", "Home"].includes(event.key) || (["Enter", " "].includes(event.key) && (event.target as HTMLElement).closest("summary"))) scroll.interrupt(); }}>
           <div ref={scroll.contentRef} className="console-messages">
             {mode === "transcript" && historyStart > 0 && <button type="button" className="console-load-history"
               onClick={() => { scroll.preserve(); setHistoryStart(Math.max(0, historyStart - CONSOLE.historyPage)); }}>
               ↑ Load earlier · {historyStart} messages</button>}
             {renderedMessages.map((message,index) => <Fragment key={message.id}>
               {separators[index] && <p className="console-day-separator" role="separator" aria-label={separators[index]!}><span>{separators[index]}</span></p>}
-              <ConversationBubble message={message}
+              <ConversationBubble message={message} readingView={conversationPanel}
               sameSpeaker={index > 0 && !separators[index] && renderedMessages[index-1].role === message.role} live={message === liveInput}
-              latest={message.id === lastId && !pending} textReplies={!autoSpeak} quietPlayback={quietPlayback}
+              latest={conversationPanel || (message.id === lastId && !pending)} textReplies={!autoSpeak} quietPlayback={quietPlayback}
               speaking={voice.phase === "SPEAKING" && voice.outputMessageId === message.id}
               onNoteThis={noteMessage} onSaveMemory={saveMessage} /></Fragment>)}
             {pending && <article className="conversation-bubble assistant console-stream" data-message-id="stream">
@@ -335,7 +359,7 @@ export function ChatPanel({ companion = false, messages, onSendMessage, onRecord
             {renderedMessages.length === 0 && !pending && <p className="console-empty">The console is ready for your command.</p>}
           </div>
         </div>
-        {!scroll.isFollowing && <button type="button" className="console-latest" onClick={() => scroll.latest(true)}>↓ Latest</button>}
+        {!scroll.isFollowing && <button type="button" className="console-latest" onClick={() => scroll.latest(true)}>{conversationPanel?"↓ Latest reply":"↓ Latest"}</button>}
         <div className="console-tools">
       {memorySource && <MemoryPromotion key={memorySource.id} message={memorySource} onClose={() => setMemorySource(null)} />}
 
@@ -396,6 +420,7 @@ export function ChatPanel({ companion = false, messages, onSendMessage, onRecord
         </div>
       </div>}
       <div className="console-command-bar">
+        {companion && !conversationOpened && inspectionControl}
         <div className="console-status-line"><span className="console-omega" aria-hidden="true">Ω</span>
           <span role="status" className="console-status" data-status={status.toLowerCase().replace(/\s+/g, "-")}>{status}</span>
           {micLive && <span className="console-mic-live" title="The microphone is capturing audio for OpenAI transcription. Stop voice to end.">MIC LIVE</span>}
@@ -403,7 +428,7 @@ export function ChatPanel({ companion = false, messages, onSendMessage, onRecord
           <ModelRouteControl disabled={pending}/>
           {onOpenPreferences&&<button type="button" className="ghost-icon-action" aria-label="Open preferences" title="Open preferences" onClick={onOpenPreferences}><Settings2 size={14}/></button>}
           {!expanded && <button type="button" className="ghost-icon-action" aria-label="Open conversation history" title="Conversation history" onClick={showHistory}><History size={14} /></button>}
-          {!expanded && onLayoutChange && <button type="button" className="ghost-icon-action" aria-label="Expand conversation" title="Expand conversation" onClick={() => onLayoutChange("expanded")}><Maximize2 size={14} /></button>}
+
         </div>
         {/* Non-modal: one line under the status, and reading it is the operator's
             call. Not a tab stop: focusing the input opens the console on it. */}
@@ -426,7 +451,7 @@ export function ChatPanel({ companion = false, messages, onSendMessage, onRecord
         {projectContext && <details className="console-project-context"><summary>Attached: {attachmentTitle(projectContext)}</summary><pre>{projectContext.context}</pre><button className="ghost-action" onClick={() => setProjectContext(null)}>Remove context</button></details>}
         <div className="console-input-row">
           <textarea ref={inputRef} id="olympus-console-input" aria-label="Command to Olympus" rows={1} placeholder="Ask Olympus anything…" value={draft}
-            onFocus={() => { if (mode === "dormant") showLive(); }} onChange={event => setDraft(event.target.value)}
+            onFocus={() => { if(conversationPanel)setConversationOpened(true); if (mode === "dormant") showLive(); }} onChange={event => setDraft(event.target.value)}
             onKeyDown={event => { if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); submit(); } }} />
           <button type="button" className="voice-mic-button" aria-label={microphoneActive ? "Stop voice and microphone" : "Start voice conversation"} aria-pressed={microphoneActive} data-live={micLive || undefined} title={microphoneActive ? "Microphone live · Ctrl+Shift+M to stop" : "Microphone · Ctrl+Shift+M"} onClick={() => { if (microphoneActive) realtimeVoice.stop(); else { voicePreview.stop(); realtimeVoice.stop(); void realtimeVoice.start(); } }}>{microphoneActive ? <MicOff size={16}/> : <Mic size={16}/>}</button>
           <button type="button" className="send-button" aria-label="Send command" onClick={submit} disabled={!draft.trim() || pending || !voiceSettingsReady}><ChevronRight size={18} /></button>
@@ -447,10 +472,10 @@ const PLAYBACK_LABEL: Record<string, string> = {
 const ConversationBubble = memo(function ConversationBubble({
   message,
   onNoteThis,
-  onSaveMemory, sameSpeaker = false, live = false, speaking = false, latest = false, textReplies = false, quietPlayback = "Not spoken"
+  onSaveMemory, readingView = false, sameSpeaker = false, live = false, speaking = false, latest = false, textReplies = false, quietPlayback = "Not spoken"
 }: {
   message: ConversationMessage;
-  sameSpeaker?: boolean; live?: boolean; speaking?: boolean;
+  sameSpeaker?: boolean; live?: boolean; speaking?: boolean; readingView?: boolean;
   /** The newest settled message stays open: it is what the operator is reading. */
   latest?: boolean;
   textReplies?: boolean;
@@ -517,11 +542,12 @@ const ConversationBubble = memo(function ConversationBubble({
             onClick={() => openResearchEntry({ sourceFile: source.sourceFile, excerpt: source.excerpt, fingerprint: source.fingerprint })}>Open in library</button>
         </div>)}
       </details>}
+      {!live && message.role === "assistant" && message.request && <ModelAttribution request={message.request}/>}
       {!live && <div className="conversation-bubble-footer">
         <small className="tabular-data console-message-meta">
           {message.importedAt ? <time dateTime={message.importedAt} title={`Imported from browser storage ${formatWhen(message.importedAt, { withDate: true })}`}>{importedTimeLabel(message)}</time>
-            : message.at ? <time dateTime={message.at} title={formatWhen(message.at, { withDate: true })}>{formatWhen(message.at)}</time> : message.timestamp}
-          {message.request && <span className="message-model" title={routeTitle(message.request)}> · {routeLabel(message.request)}</span>}
+            : message.at ? <time dateTime={message.at} title={formatWhen(message.at, { withDate: true })}>{readingView ? new Date(message.at).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit",hour12:false}) : formatWhen(message.at)}</time> : message.timestamp}
+
         </small>
         <span className="console-quiet-actions">
           {message.role !== "system" && <button type="button" className="observation-seed" onClick={() => onSaveMemory(message)}>Save memory</button>}
