@@ -3,6 +3,7 @@ import {onSuperpowersInspection} from "../../services/skillCollections";
 import {publishAgentConstellation,onConstellationAgent,useAgentHighlight,publishWorkingAgents} from "../../services/agentConstellation";
 import { pantheonAgents } from "../../services/pantheonAgents";
 import { AgentEmblem } from "./AgentEmblem";
+import { ZeusLightning } from "./ZeusLightning";
 import { ResourceIntake } from "./ResourceIntake";
 import { onArmoryInspection } from "../../services/armoryNavigation";
 import { useEffect, useState, useRef } from "react";
@@ -101,7 +102,7 @@ export function OlympusArmory({capabilities, missions, error, missionsError, pre
       <nav className="armory-agent-filters" aria-label="Agent state filter">{(["All","Active","Idle"] as const).map(filter=><button key={filter} aria-pressed={agentFilter===filter} onClick={()=>setAgentFilter(filter)}>{filter} <b>{catalog?filterCounts[filter]:"—"}</b></button>)}</nav>
       <div className="armory-roster">{visibleAgents?.map(role=>{const state=status(role);return <button className="armory-roster-row" {...highlight.bind(role.id)} key={role.id} onClick={()=>{show("Agents");inspectAgent(role);}} aria-label={"Inspect "+role.name+" loadout"} data-selected={selectedAgent===role.id} data-status={state}>
         {state==="Working"&&<svg className="armory-working-sparks" viewBox="0 0 240 68" preserveAspectRatio="none" aria-hidden="true"><path pathLength="100" d="M12 4 26 3 23 6 40 2 36 5 56 4 66 6 63 2 85 5 102 3 98 6 121 2 117 5 143 4 153 6 150 2 174 5 192 3 187 6 213 4 235 4 232 14 236 11 231 25 235 21 232 36 236 32 232 48 235 58"/><path pathLength="100" d="M229 63 214 65 218 61 195 64 180 62 185 65 162 61 166 64 146 63 136 65 140 61 117 64 97 62 102 65 79 61 83 64 62 63 46 65 51 61 27 64 5 63 8 53 4 56 9 42 5 46 8 31 4 35 8 19 5 9"/><path className="armory-spark-branch" d="M36 5 42 9 47 7 55 10 M153 6 159 9 165 7 M232 36 226 40 228 44"/><path className="armory-spark-branch" d="M180 62 173 58 166 60 160 57 M79 61 73 58 66 60 M8 31 12 35 10 40"/></svg>}
-        <span className="armory-roster-emblem"><AgentEmblem id={role.id} size={23}/></span>
+        <span className="armory-roster-emblem">{role.id==='olympus'&&<ZeusLightning/>}<AgentEmblem id={role.id} size={23}/></span>
         <span className="armory-roster-copy"><strong>{role.name}</strong><span>{role.description}</span><small>{state==="Ready"?"Ready for assignment":state==="Working"?"Assigned to active work":state==="Waiting"?"Waiting on mission checkpoint":role.kind==="orchestrator"?"Primary · always pinned":role.status==="PLACEHOLDER"?"Planned role · not executable":role.status==="UNPROVEN"?"Execution not yet verified":"Currently unavailable"}</small></span>
         <span className="armory-roster-status">{state==="Ready"?"Idle":state==="Working"?"Active":state}</span>
       </button>})}</div>

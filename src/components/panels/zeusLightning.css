@@ -1,0 +1,35 @@
+/* Zeus: small electrical channels, not a circular badge or mission status. */
+.zeus-lightning{position:absolute;left:50%;top:50%;width:38px;height:38px;transform:translate(-50%,-50%);overflow:visible;pointer-events:none;stroke-linecap:round;stroke-linejoin:round;z-index:1}
+.zeus-lightning__orbit{transform-origin:22px 22px;animation:zeus-charge-orbit 19s linear infinite}
+.zeus-lightning__channel{stroke-dasharray:42 58;animation:zeus-charge-travel 5.8s linear infinite}
+.zeus-lightning__channel--1{animation-duration:6.7s;animation-delay:-2.9s;stroke-dasharray:31 69}
+.zeus-lightning__channel--2{animation-duration:5.3s;animation-delay:-1.7s;stroke-dasharray:36 64}
+.zeus-lightning__glow{stroke:#e9ad42;stroke-width:2;opacity:.66;filter:drop-shadow(0 0 1.5px #f6b949)}
+.zeus-lightning__core{stroke:#fff1bd;stroke-width:.75;opacity:.95}
+.zeus-lightning__forks{stroke:#f4c96c;stroke-width:.65;opacity:.3;animation:zeus-charge-breathe 4.7s ease-in-out infinite}
+@keyframes zeus-charge-orbit{to{transform:rotate(360deg)}}
+@keyframes zeus-charge-travel{from{stroke-dashoffset:0}to{stroke-dashoffset:-100}}
+@keyframes zeus-charge-breathe{0%,100%{opacity:.12}45%{opacity:.6}70%{opacity:.25}}
+
+/* Specificity keeps the old active/inspection halo from returning on hover. */
+.agents-constellation .agent-architecture-star[data-agent-id="olympus"]{border-color:transparent;background:transparent;box-shadow:none}
+.agents-constellation .agent-architecture-star[data-agent-id="olympus"]::before{content:none;animation:none}
+.agents-constellation .agent-architecture-star[data-agent-id="olympus"] .agent-emblem-spark{display:none}
+.agents-constellation .agent-architecture-star[data-agent-id="olympus"]:focus-visible{outline:1px solid #f0d296;outline-offset:7px;border-radius:4px}
+.agents-constellation .agent-architecture-star[data-agent-id="olympus"] .agent-emblem-mark{opacity:1;filter:drop-shadow(0 0 2px #efbc6266)}
+
+.olympus-armory .armory-roster-row[data-agent-id="olympus"] .armory-roster-emblem{overflow:visible;border-color:transparent;background:transparent;box-shadow:none}
+.olympus-armory .armory-roster-row[data-agent-id="olympus"] .armory-roster-emblem::after{content:none;animation:none}
+.armory-roster-emblem .zeus-lightning{width:47px;height:47px}
+.armory-roster-emblem .zeus-lightning__orbit{animation-direction:reverse;animation-duration:23s}
+.armory-roster-emblem .zeus-lightning__glow{stroke-width:1.6;opacity:.55}
+.armory-roster-emblem .zeus-lightning__core{stroke-width:.65}
+
+.agents-constellation[data-motion-paused="true"] .zeus-lightning *,
+.armory-roster-row[data-motion-paused="true"] .zeus-lightning *{animation-play-state:paused}
+@media(prefers-reduced-motion:reduce){
+  .zeus-lightning *{animation:none!important}
+  .zeus-lightning__channel--1{stroke-dashoffset:-44}
+  .zeus-lightning__channel--2{stroke-dashoffset:-71}
+  .zeus-lightning__forks{opacity:.25}
+}
