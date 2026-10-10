@@ -55,3 +55,4 @@ pub mod gmail;
 
 pub mod workflow;
 pub mod project_relevance;
+pub mod elevenlabs;

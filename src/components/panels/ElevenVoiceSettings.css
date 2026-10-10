@@ -1,0 +1,6 @@
+.eleven-voice-settings { border:1px solid var(--border-subtle, #273d48); border-radius:8px; padding:12px; margin:10px 0; background:rgba(6,17,25,.55); }
+.eleven-voice-actions { display:flex; flex-wrap:wrap; gap:8px; margin:8px 0; }
+.eleven-voice-settings .voice-setting-row { gap:12px; flex-wrap:wrap; }
+.voice-settings .eleven-voice-settings .voice-setting-row input { min-width:0; width:260px; max-width:100%; height:34px; padding:7px 9px; color:#e0e7ec; background:#0c1b25; border:1px solid #344c5b; border-radius:4px; font:inherit; }
+.eleven-voice-settings input:focus-visible { outline:1px solid #e3b34f; outline-offset:2px; }
+.eleven-voice-settings .voice-preview-status { overflow-wrap:anywhere; }

@@ -1,6 +1,8 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { CURATED_VOICES, OLYMPUS_VOICES, VOICE_PREVIEW_PHRASE, type VoicePreferences } from "../../services/voicePreferences";
 import { realtimeVoice, voicePreview } from "../../services/realtimeVoice";
+import {ElevenVoiceSettings} from "./ElevenVoiceSettings";
+import "./ElevenVoiceSettings.css";
 
 /**
  * `replyControls` off drops Auto Speak and Opening Briefing: Preferences shows
@@ -22,6 +24,8 @@ export function VoiceSettings({preferences,onChange,ready=true,replyControls=tru
   }
   return <fieldset className="voice-settings" disabled={!ready}>
     <legend>VOICE</legend>
+    <label className="voice-setting-row">Speech provider<select aria-label="Speech provider" value={preferences.speechProvider} onChange={e=>change({speechProvider:e.target.value as VoicePreferences["speechProvider"]})}><option value="openai">OpenAI</option><option value="elevenlabs">ElevenLabs</option></select></label>
+    {preferences.speechProvider==="elevenlabs"?<ElevenVoiceSettings preferences={preferences} onChange={change} busy={busy} onStop={()=>voicePreview.stop()} onPreview={()=>{setPreviewing("ElevenLabs");void voicePreview.startPreview(preferences);}}/>:<>
     <details className="voice-lab"><summary className="voice-lab-title">Voice lab · preview and choose a voice</summary>
     <div className="voice-catalog">{OLYMPUS_VOICES.map(voice=><div key={voice} data-selected={preferences.selectedVoice===voice}>
       <div className="voice-lab-identity"><strong>{voice.toUpperCase()}</strong>
@@ -35,10 +39,11 @@ export function VoiceSettings({preferences,onChange,ready=true,replyControls=tru
     <p className="voice-settings-hint">Isolated API audio audition. The live microphone pauses during previews and resumes afterward. The sample counts are fictional, not a project status report.</p>
     <details className="voice-preview-sample"><summary>Preview phrase</summary><p>{VOICE_PREVIEW_PHRASE}</p></details>
     </details>
+    </>}
     <p className="voice-preview-status" role="status">{preview.error || (busy ? `${preview.connecting ? "Connecting" : "Previewing"} ${previewing}…` : "")}</p>
-    <label className="voice-setting-row">Speaking Style<select aria-label="Speaking Style" value={preferences.speechStyle} onChange={event=>change({speechStyle:event.target.value as VoicePreferences["speechStyle"]})}>
+    {preferences.speechProvider==="openai"&&<label className="voice-setting-row">Speaking Style<select aria-label="Speaking Style" value={preferences.speechStyle} onChange={event=>change({speechStyle:event.target.value as VoicePreferences["speechStyle"]})}>
       <option value="measured">Measured</option><option value="conversational">Conversational</option><option value="concise">Concise</option>
-    </select></label>
+    </select></label>}
     <label className="voice-setting-row">Response Depth<select aria-label="Response Depth" value={preferences.responseDepth} onChange={event=>change({responseDepth:event.target.value as VoicePreferences["responseDepth"]})}>
       <option value="brief">Brief</option><option value="standard">Standard</option><option value="detailed">Detailed</option>
     </select></label>
