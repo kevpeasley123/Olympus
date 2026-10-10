@@ -111,7 +111,7 @@ pub async fn scan_tracked_projects(
         .map_err(|error| format!("Project scan task panicked: {error}"))?
 }
 
-fn scan_tracked_projects_blocking(
+pub(crate) fn scan_tracked_projects_blocking(
     mut request: ProjectsRequest,
 ) -> Result<ProjectsResponse, String> {
     // The root comes from the webview's stored settings, which under the

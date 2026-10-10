@@ -286,8 +286,12 @@ fn active_run_for_project(db: &Db, project_id: &str) -> Result<Option<String>, S
         .map_err(|error| error.to_string())
 }
 
+#[cfg(test)]
 fn insert_run(db: &Db, run: &DelegationRun) -> Result<(), String> {
     let connection = db.0.lock().map_err(|error| error.to_string())?;
+    insert_run_connection(&connection,run)
+}
+fn insert_run_connection(connection:&rusqlite::Connection,run:&DelegationRun)->Result<(),String>{
     connection
         .execute(
             "INSERT INTO delegation_runs \
@@ -1301,7 +1305,7 @@ pub(crate) fn contract(db: &Db, id: &str) -> Result<(Vec<String>, String), Strin
     ))
 }
 
-fn planning_subject(
+pub(crate) fn planning_subject(
     app: &AppHandle,
     db: &Db,
     request: &PrepareDelegationRequest,
@@ -1356,6 +1360,8 @@ fn planning_subject(
 }
 
 fn resume_subject(db: &Db, id: &str) -> Result<Subject, String> {
+    {let c=db.0.lock().map_err(|e|e.to_string())?;super::organizer_store::validate_linked_run(&c,id).map_err(|e|e.message)?;}
+
     let run = load_run(db, id)?;
     if run.phase != "waiting" {
         return Err("Only a waiting run can be reviewed for resumption.".into());
@@ -1507,7 +1513,7 @@ fn branch_at(repository: &Path, base_commit: &str) -> Option<String> {
         .filter(|branch| !branch.is_empty() && branch != "HEAD")
 }
 
-fn present(proposal: Proposal) -> PreparedProposal {
+pub(crate) fn present(proposal: Proposal) -> PreparedProposal {
     let base_branch = branch_at(
         Path::new(&proposal.subject.repository),
         &proposal.subject.base_commit,
@@ -1579,6 +1585,8 @@ fn start_run(app: &AppHandle, request: StartDelegationRequest) -> Result<Delegat
     let db = app.state::<Db>();
     let state = app.state::<ApprovalState>();
     let _transition = state.execution.lock().map_err(|e| e.to_string())?;
+    let recorded={let c=db.0.lock().map_err(|e|e.to_string())?;super::organizer_store::recorded_start(&c,&request.proposal_id,&state.session_id).map_err(|e|e.message)?};
+    if let Some(id)=recorded{return load_run(db.inner(),&id)}
     let proposal = state.get(&request.proposal_id)?;
     if proposal.subject.stage != "plan" || !proposal.subject.plan.is_empty() {
         return Err("This is not a planning proposal.".into());
@@ -1593,21 +1601,17 @@ fn start_run(app: &AppHandle, request: StartDelegationRequest) -> Result<Delegat
         },
         &proposal.subject.run_id,
     )?;
-    {
-        let mut connection = db.0.lock().map_err(|e| e.to_string())?;
-        state.consume(&mut connection, &request.proposal_id, &subject)?;
-    }
     let run = DelegationRun {
         id: subject.run_id.clone(),
-        project_id: subject.project_id,
-        project_name: subject.project_name,
-        task: subject.task,
-        driver: subject.driver,
-        model: subject.model,
+        project_id: subject.project_id.clone(),
+        project_name: subject.project_name.clone(),
+        task: subject.task.clone(),
+        driver: subject.driver.clone(),
+        model: subject.model.clone(),
         phase: "preparing".into(),
-        workspace: subject.workspace,
+        workspace: subject.workspace.clone(),
         branch: format!("olympus/run-{}", &subject.run_id[..8]),
-        base_commit: subject.base_commit,
+        base_commit: subject.base_commit.clone(),
         agent_session_id: subject.run_id.clone(),
         process_id: None,
         milestone: "Approval consumed; preparing isolated workspace".into(),
@@ -1619,19 +1623,17 @@ fn start_run(app: &AppHandle, request: StartDelegationRequest) -> Result<Delegat
         started_at: String::new(),
         updated_at: String::new(),
     };
-    // Record the attempted run before filesystem/process preparation. Consent remains consumed on failure.
-    insert_run(db.inner(), &run)?;
+    // Approval, attempted run, contract and Organizer binding share one transaction.
+    {
+        let mut connection=db.0.lock().map_err(|e|e.to_string())?;
+        super::organizer_store::validate_binding(&connection,&request.proposal_id,&subject.run_id).map_err(|e|e.message)?;
+        state.consume_with(&mut connection,&request.proposal_id,&subject,|tx|{
+            insert_run_connection(tx,&run)?;
+            tx.execute("INSERT INTO delegation_contracts(run_id,criteria_json) VALUES(?1,?2)",params![run.id,serde_json::to_string(&subject.criteria).map_err(|e|e.to_string())?]).map_err(|e|e.to_string())?;
+            super::organizer_store::link_started_run(tx,&request.proposal_id,&run.id).map_err(|e|e.message)
+        })?;
+    }
     let preparation = (|| -> Result<(), String> {
-        db.0.lock()
-            .map_err(|e| e.to_string())?
-            .execute(
-                "INSERT INTO delegation_contracts(run_id,criteria_json) VALUES (?1,?2)",
-                params![
-                    run.id,
-                    serde_json::to_string(&subject.criteria).map_err(|e| e.to_string())?
-                ],
-            )
-            .map_err(|e| e.to_string())?;
         fs::create_dir_all(
             Path::new(&run.workspace)
                 .parent()
@@ -1760,7 +1762,21 @@ pub async fn list_delegation_runs(app: AppHandle) -> Result<Vec<DelegationRun>, 
     blocking(app, list_runs).await
 }
 
-fn list_runs(app: &AppHandle) -> Result<Vec<DelegationRun>, String> {
+pub(crate) fn stored_runs(connection:&rusqlite::Connection)->Result<Vec<DelegationRun>,String>{
+    let mut query = connection
+        .prepare(&format!("{RUN_SELECT} WHERE phase NOT IN ('complete','failed','cancelled') OR id IN (SELECT run_id FROM organizer_run_links) OR id IN (SELECT id FROM delegation_runs ORDER BY started_at DESC LIMIT 20) ORDER BY started_at DESC"))
+        .map_err(|error| error.to_string())?;
+    let runs = query
+        .query_map([], row_to_run)
+        .map_err(|error| error.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|error| error.to_string())?;
+    drop(query);
+
+    Ok(runs)
+}
+
+pub(crate) fn list_runs(app: &AppHandle) -> Result<Vec<DelegationRun>, String> {
     let db = app.state::<Db>();
     let state = app.state::<ApprovalState>();
     let _transition = state.execution.lock().map_err(|e| e.to_string())?;
@@ -1773,15 +1789,7 @@ fn list_runs(app: &AppHandle) -> Result<Vec<DelegationRun>, String> {
         .cloned()
         .collect();
     let connection = db.0.lock().map_err(|error| error.to_string())?;
-    let mut query = connection
-        .prepare(&format!("{RUN_SELECT} ORDER BY started_at DESC LIMIT 20"))
-        .map_err(|error| error.to_string())?;
-    let mut runs = query
-        .query_map([], row_to_run)
-        .map_err(|error| error.to_string())?
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(|error| error.to_string())?;
-    drop(query);
+    let mut runs=stored_runs(&connection)?;
 
     for run in &mut runs {
         if matches!(

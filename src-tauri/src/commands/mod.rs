@@ -1,4 +1,7 @@
 pub mod resource_intake;
+pub mod organizer_store;
+pub mod organizer;
+pub mod organizer_lifecycle;
 pub mod repository_inspection;
 pub mod acceptance;
 pub mod delegation_review;
