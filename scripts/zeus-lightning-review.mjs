@@ -18,15 +18,16 @@ try {
  await page.waitForTimeout(450);
  assert.notEqual(await channel.evaluate(e=>getComputedStyle(e).strokeDashoffset),initial);
  // Observe both actual timelines: each must flash visibly and go fully dark.
- const ranges=await page.locator('.zeus-lightning__orbit').evaluateAll(async elements=>{
-  const ranges=elements.map(()=>({min:1,max:0}));
+ const ranges=await page.locator('.zeus-lightning__channel').evaluateAll(async elements=>{
+  const ranges=elements.map(()=>({min:1,max:0,states:[]}));
   for(let sample=0;sample<66;sample++){
-   elements.forEach((el,i)=>{const opacity=Number(getComputedStyle(el).opacity);ranges[i].min=Math.min(ranges[i].min,opacity);ranges[i].max=Math.max(ranges[i].max,opacity);});
+   elements.forEach((el,i)=>{const opacity=Number(getComputedStyle(el).opacity);ranges[i].min=Math.min(ranges[i].min,opacity);ranges[i].max=Math.max(ranges[i].max,opacity);ranges[i].states.push(opacity>.5);});
    await new Promise(resolve=>setTimeout(resolve,100));
   }
   return ranges;
  });
- assert(ranges.every(range=>range.min===0&&range.max>.9),'Both lightning effects need visible strikes and fully dark gaps');
+ assert(ranges.length===6&&ranges.every(range=>range.min===0&&range.max>.9),'All six channels need visible strikes and fully dark gaps');
+ for(const offset of [0,3]) assert(new Set(ranges.slice(offset,offset+3).map(r=>JSON.stringify(r.states))).size===3,'The three sections must flash independently');
  for(const width of [1280,1920]){
   await page.setViewportSize({width,height:900});await page.waitForTimeout(350);
   assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
@@ -34,15 +35,15 @@ try {
  }
  for(let frame=0;frame<3;frame++){
   await page.waitForFunction(bright=>{
-   const orbit=document.querySelector('.agent-architecture-star[data-agent-id="olympus"] .zeus-lightning__orbit');
+   const orbit=document.querySelector('.agent-architecture-star[data-agent-id="olympus"] .zeus-lightning__channel');
    const opacity=Number(getComputedStyle(orbit).opacity);
    return bright?opacity>.95:opacity===0;
   },frame!==1);
   // Freeze the observed flash phase just for a sharp review capture.
-  await star.locator('.zeus-lightning__orbit').evaluate(el=>el.getAnimations().filter(a=>a.animationName==='zeus-charge-flash').forEach(a=>a.pause()));
+  await channel.evaluate(el=>el.getAnimations().filter(a=>a.animationName==='zeus-charge-flash').forEach(a=>a.pause()));
   const a=await star.boundingBox();
   await page.screenshot({path:`${output}/arcs-${frame}.png`,clip:{x:a.x-15,y:a.y-15,width:a.width+30,height:a.height+30},scale:'css'});
-  await star.locator('.zeus-lightning__orbit').evaluate(el=>el.getAnimations().filter(a=>a.animationName==='zeus-charge-flash').forEach(a=>a.play()));
+  await channel.evaluate(el=>el.getAnimations().filter(a=>a.animationName==='zeus-charge-flash').forEach(a=>a.play()));
  }
  await card.screenshot({path:`${output}/card.png`});
  await star.focus();
@@ -57,5 +58,5 @@ try {
  await page.emulateMedia({reducedMotion:'no-preference'});
  await page.locator('.agents-constellation').evaluate(el=>el.dataset.motionPaused='true');
  assert.equal(await channel.evaluate(e=>getComputedStyle(e).animationPlayState),'paused');
- console.log('PASS: moving arcs flash and go dark in both locations; no Zeus halo; viewport fit; linked keyboard focus/inspection; reduced motion and paused-state styling.');
+ console.log('PASS: all three arcs flash independently in both locations; no Zeus halo; viewport fit; linked keyboard focus/inspection; reduced motion and paused-state styling.');
 } finally {await browser.close();}
