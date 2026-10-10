@@ -1,6 +1,6 @@
 /* Zeus: small electrical channels, not a circular badge or mission status. */
 .zeus-lightning{position:absolute;left:50%;top:50%;width:38px;height:38px;transform:translate(-50%,-50%);overflow:visible;pointer-events:none;stroke-linecap:round;stroke-linejoin:round;z-index:1}
-.zeus-lightning__orbit{transform-origin:22px 22px;animation:zeus-charge-orbit 19s linear infinite}
+.zeus-lightning__orbit{transform-origin:22px 22px;opacity:0;animation:zeus-charge-orbit 19s linear infinite,zeus-charge-flash 5.6s linear infinite}
 .zeus-lightning__channel{stroke-dasharray:42 58;animation:zeus-charge-travel 5.8s linear infinite}
 .zeus-lightning__channel--1{animation-duration:6.7s;animation-delay:-2.9s;stroke-dasharray:31 69}
 .zeus-lightning__channel--2{animation-duration:5.3s;animation-delay:-1.7s;stroke-dasharray:36 64}
@@ -10,6 +10,12 @@
 @keyframes zeus-charge-orbit{to{transform:rotate(360deg)}}
 @keyframes zeus-charge-travel{from{stroke-dashoffset:0}to{stroke-dashoffset:-100}}
 @keyframes zeus-charge-breathe{0%,100%{opacity:.12}45%{opacity:.6}70%{opacity:.25}}
+/* Quick strikes with short decays and long, fully dark gaps. The bolt stays lit. */
+@keyframes zeus-charge-flash{
+  0%,7%,15%,42%,50%,76%,86%,100%{opacity:0}
+  8%,11%,43%,46%,77%,81%{opacity:1}
+  12%{opacity:.45}47%{opacity:.35}82%{opacity:.55}
+}
 
 /* Specificity keeps the old active/inspection halo from returning on hover. */
 .agents-constellation .agent-architecture-star[data-agent-id="olympus"]{border-color:transparent;background:transparent;box-shadow:none}
@@ -21,7 +27,7 @@
 .olympus-armory .armory-roster-row[data-agent-id="olympus"] .armory-roster-emblem{overflow:visible;border-color:transparent;background:transparent;box-shadow:none}
 .olympus-armory .armory-roster-row[data-agent-id="olympus"] .armory-roster-emblem::after{content:none;animation:none}
 .armory-roster-emblem .zeus-lightning{width:47px;height:47px}
-.armory-roster-emblem .zeus-lightning__orbit{animation-direction:reverse;animation-duration:23s}
+.armory-roster-emblem .zeus-lightning__orbit{animation-direction:reverse,normal;animation-duration:23s,6.4s;animation-delay:0s,-2s}
 .armory-roster-emblem .zeus-lightning__glow{stroke-width:1.6;opacity:.55}
 .armory-roster-emblem .zeus-lightning__core{stroke-width:.65}
 
@@ -29,6 +35,7 @@
 .armory-roster-row[data-motion-paused="true"] .zeus-lightning *{animation-play-state:paused}
 @media(prefers-reduced-motion:reduce){
   .zeus-lightning *{animation:none!important}
+  .zeus-lightning__orbit{opacity:.65}
   .zeus-lightning__channel--1{stroke-dashoffset:-44}
   .zeus-lightning__channel--2{stroke-dashoffset:-71}
   .zeus-lightning__forks{opacity:.25}
