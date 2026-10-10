@@ -46,6 +46,10 @@ pub struct ApprovalState {
 }
 
 impl ApprovalState {
+    pub fn consume_with(&self, connection:&mut Connection,id:&str,actual:&Subject,persist:impl FnOnce(&Connection)->Result<(),String>)->Result<String,String>{
+        let proposal=self.pending.lock().map_err(|e|e.to_string())?.remove(id).ok_or_else(||"No pending operator review exists for this request.".to_string())?;
+        record_approval_with(connection,&proposal,&self.session_id,actual,chrono::Utc::now().timestamp(),persist)?;Ok(proposal.id)
+    }
     pub fn new(session_id: String) -> Self {
         Self {
             session_id,
@@ -84,21 +88,7 @@ impl ApprovalState {
         id: &str,
         actual: &Subject,
     ) -> Result<String, String> {
-        // Remove before validation. Failed or replayed requests require fresh review.
-        let proposal = self
-            .pending
-            .lock()
-            .map_err(|e| e.to_string())?
-            .remove(id)
-            .ok_or_else(|| "No pending operator review exists for this request.".to_string())?;
-        record_approval(
-            connection,
-            &proposal,
-            &self.session_id,
-            actual,
-            chrono::Utc::now().timestamp(),
-        )?;
-        Ok(proposal.id)
+        self.consume_with(connection,id,actual,|_|Ok(()))
     }
 
     pub fn revoke_run(&self, connection: &Connection, run_id: &str) -> Result<(), String> {
@@ -118,6 +108,12 @@ fn record_approval(
     actual: &Subject,
     now: i64,
 ) -> Result<(), String> {
+    record_approval_with(connection,proposal,session,actual,now,|_|Ok(()))
+}
+fn record_approval_with(
+    connection: &mut Connection, proposal:&Proposal, session:&str, actual:&Subject, now:i64,
+    persist:impl FnOnce(&Connection)->Result<(),String>,
+)->Result<(),String>{
     if proposal.session_id != session || proposal.expires_at <= now || proposal.subject != *actual {
         return Err("The task, plan, scope, workspace, or desktop session changed, or the review expired. Prepare a fresh review.".into());
     }
@@ -141,6 +137,7 @@ fn record_approval(
             params![proposal.id, actual.run_id, actual.stage],
         )
         .map_err(|e| e.to_string())?;
+    persist(&transaction)?;
     transaction.commit().map_err(|e| e.to_string())
 }
 
@@ -160,6 +157,15 @@ pub fn cancel_delegation_proposal(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn organizer_approval_rolls_back_when_link_persistence_fails() {
+        let mut c=db();let state=ApprovalState::new("session".into());let s=subject();
+        state.prepare("p".into(),s.clone()).unwrap();
+        assert!(state.consume_with(&mut c,"p",&s,|_|Err("simulated crash before run link".into())).is_err());
+        let count:i64=c.query_row("SELECT COUNT(*) FROM operator_approvals",[],|r|r.get(0)).unwrap();
+        assert_eq!(count,0,"approval and run link must be one transaction");
+        assert!(state.get("p").is_err(),"failed persistence still requires a fresh review");
+    }
     fn subject() -> Subject {
         Subject {
             project_id: "olympus".into(),

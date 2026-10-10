@@ -382,6 +382,13 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            commands::organizer::create_organizer_task, commands::organizer::update_organizer_task,
+            commands::organizer::list_organizer_tasks, commands::organizer::set_organizer_intent,
+            commands::organizer::move_organizer_task,
+            commands::organizer::prepare_organizer_delegation,
+            commands::organizer::fetch_organizer_task, commands::organizer::accept_organizer_result,
+            commands::organizer::finish_organizer_task, commands::organizer::acknowledge_organizer_event,
+            commands::organizer::organizer_overview,
             commands::skill_guidance::recommend_resource_skills,
             commands::resource_intake::resource_skills, commands::resource_intake::add_resource_skill, commands::attachments::extract_resource_text,
             commands::gmail::situations::documents::situation_document_status, commands::gmail::situations::documents::situation_document_open,
