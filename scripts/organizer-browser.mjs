@@ -1,0 +1,62 @@
+import {mkdir} from 'node:fs/promises';
+import {join} from 'node:path';
+import assert from 'node:assert/strict';
+
+export async function checkOrganizer(browser,base,output){
+ await mkdir(output,{recursive:true});
+ const page=await browser.newPage({viewport:{width:1280,height:900}});
+ const errors=[];page.on('pageerror',e=>errors.push(e.message));
+ let passed=0;
+ const check=(condition,message)=>{assert.ok(condition,message);passed++};
+ const button=name=>page.getByRole('button',{name,exact:true});
+ const source='02 - Research/2026-10-10 How always-on agents work - Lee Robinson.md';
+ try{
+  await page.goto(base+'/organizer-harness.html');
+  await page.getByText('No Organizer tasks yet.',{exact:false}).waitFor();
+  await button('New task').click();
+  await page.getByLabel('Title',{exact:true}).fill('Archive-grounded workflow');
+  await page.getByLabel('Objective',{exact:true}).fill('Deliver a recoverable result with explicit review');
+  await page.getByLabel('Acceptance criteria',{exact:false}).fill('Evidence remains linked to the original research');
+  const sources=page.getByLabel('Source references',{exact:false});
+  await sources.fill(source);await sources.press('End');await sources.press('Enter');await sources.pressSequentially('https://x.com/leerob/status/2108650243365736855/video/1');
+  check((await sources.inputValue()).includes('\nhttps:'),'can type multiple sources');
+  await page.getByLabel('Intent',{exact:false}).selectOption('proposed');
+  await button('Add step').click();await page.getByLabel('Step 1',{exact:true}).fill('Preserve the archived reference');
+  await button('Switch project view').click();await button('Switch project view').click();await button('New task').click();
+  check(await page.getByLabel('Title',{exact:true}).inputValue()==='Archive-grounded workflow','draft survives navigation');
+  await button('Save task').click();await button('Adopt as my task').waitFor();
+  check(await button('Review delegation scope').count()===0,'suggestions cannot launch');
+  await button('Adopt as my task').click();await button('Review delegation scope').waitFor();
+  await button('Edit task').click();await page.getByLabel('Title',{exact:true}).fill('Retained operator draft');
+  await page.evaluate(()=>window.organizerFixture.conflict());await button('Save task').click();
+  await page.getByRole('alert').filter({hasText:'Newer revision'}).waitFor();
+  check(await page.getByLabel('Title',{exact:true}).inputValue()==='Retained operator draft','conflict preserves local input');
+  await button('Discard draft and load latest').click();await page.getByLabel('Title',{exact:true}).fill('Archive-grounded workflow');await button('Save task').click();
+  await button('Edit task').waitFor();
+  check(await page.getByRole('form',{name:'Task editor'}).count()===0,'edit saves using strict patch fields');
+  await page.getByText('Source references (2)',{exact:true}).click();
+  check(await page.getByText(source,{exact:true}).count()===1,'archive source remains visible');
+  await button('Review delegation scope').click();await page.getByText('Approval requested · planning',{exact:true}).waitFor();
+  check((await page.evaluate(()=>window.organizerFixture.snapshot())).starts===0,'preparation never starts a process');
+  await page.screenshot({path:join(output,'organizer-approval-1280.png'),fullPage:true});
+  await page.getByRole('button',{name:/Approve.*start|Approve.*planning/i}).click();
+  await page.locator('.organizer-status').filter({hasText:'Needs you'}).waitFor();
+  check((await page.evaluate(()=>window.organizerFixture.snapshot())).starts===1,'one explicit start');
+  await page.evaluate(()=>window.organizerFixture.phase('awaiting_review'));
+  const accept=button('Accept reviewed result and complete task');await accept.waitFor();
+  check(await accept.isDisabled(),'unreviewed result cannot complete task');
+  await page.evaluate(()=>window.organizerFixture.phase('complete'));await accept.click();
+  await page.locator('.organizer-status').filter({hasText:'Completed'}).waitFor();
+  check((await page.evaluate(()=>window.organizerFixture.snapshot())).tasks[0].state==='completed','explicit acceptance completes task');
+  await page.screenshot({path:join(output,'organizer-result-1280.png'),fullPage:true});
+  await page.setViewportSize({width:760,height:900});
+  await page.screenshot({path:join(output,'organizer-result-760.png'),fullPage:true});
+  check(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'narrow layout has no horizontal overflow');
+  await page.evaluate(()=>window.organizerFixture.unavailable());await page.getByRole('alert').waitFor();
+  check(await button('New task').isDisabled(),'unavailable connection disables creation');
+  await page.screenshot({path:join(output,'organizer-unavailable-760.png'),fullPage:true});
+  check(errors.length===0,`browser errors: ${errors.join('; ')}`);
+  console.log(`PASS ${passed} Organizer browser workflow checks`);
+  return passed;
+ }catch(e){await page.screenshot({path:join(output,"organizer-failure.png"),fullPage:true});console.error(errors);throw e}finally{await page.close()}
+}

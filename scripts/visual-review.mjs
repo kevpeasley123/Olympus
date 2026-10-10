@@ -15,6 +15,7 @@
 //
 // Output: output/visual-review/latest/ (ignored by git): <scenario>@<w>x<h>.png,
 // report.json, report.md. Exit code 1 when a mechanical assertion fails.
+import {checkOrganizer} from "./organizer-browser.mjs";
 import { spawn } from "node:child_process";
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:net";
@@ -191,9 +192,10 @@ async function main() {
       const name = `${scenario}@${width}x${height}`;
       const started = Date.now();
       try {
-        await page.goto(`${preview.base}${HARNESS}?scenario=${scenario}`);
+        await page.goto(`${preview.base}${HARNESS}?scenario=${scenario}`, {timeout:90000});
         await page.waitForSelector(`html[data-visual-ready="${scenario}"]`, { timeout: 90_000 });
         const inspection = await page.evaluate(inspectPage, { scenario, tolerance: 1 });
+        if(inspection.failures.length||errors.length)console.error(inspection.failures,errors);
         for (const error of errors) inspection.failures.push({ id: "console-error", detail: error.slice(0, 300) });
         const file = `${name}.png`;
         await page.screenshot({ path: join(OUTPUT, file) });
@@ -212,6 +214,7 @@ async function main() {
       functional = { passed: (text.match(/^PASS /gm) ?? []).length, failed: /FAIL/.test(text), text };
       process.stdout.write(`${functional.failed ? "FAIL" : "ok  "} functional checks: ${functional.passed} passed\n`);
     }
+    if (!flag("no-checks")) await checkOrganizer(browser,preview.base,join(OUTPUT,"organizer"));
   } finally { await browser.close(); preview.stop(); }
 
   const failed = results.filter(result => result.failures.length);

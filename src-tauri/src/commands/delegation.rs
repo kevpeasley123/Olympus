@@ -286,6 +286,7 @@ fn active_run_for_project(db: &Db, project_id: &str) -> Result<Option<String>, S
         .map_err(|error| error.to_string())
 }
 
+#[cfg(test)]
 fn insert_run(db: &Db, run: &DelegationRun) -> Result<(), String> {
     let connection = db.0.lock().map_err(|error| error.to_string())?;
     insert_run_connection(&connection,run)
@@ -1584,6 +1585,8 @@ fn start_run(app: &AppHandle, request: StartDelegationRequest) -> Result<Delegat
     let db = app.state::<Db>();
     let state = app.state::<ApprovalState>();
     let _transition = state.execution.lock().map_err(|e| e.to_string())?;
+    let recorded={let c=db.0.lock().map_err(|e|e.to_string())?;super::organizer_store::recorded_start(&c,&request.proposal_id,&state.session_id).map_err(|e|e.message)?};
+    if let Some(id)=recorded{return load_run(db.inner(),&id)}
     let proposal = state.get(&request.proposal_id)?;
     if proposal.subject.stage != "plan" || !proposal.subject.plan.is_empty() {
         return Err("This is not a planning proposal.".into());
@@ -1759,6 +1762,20 @@ pub async fn list_delegation_runs(app: AppHandle) -> Result<Vec<DelegationRun>, 
     blocking(app, list_runs).await
 }
 
+pub(crate) fn stored_runs(connection:&rusqlite::Connection)->Result<Vec<DelegationRun>,String>{
+    let mut query = connection
+        .prepare(&format!("{RUN_SELECT} WHERE phase NOT IN ('complete','failed','cancelled') OR id IN (SELECT run_id FROM organizer_run_links) OR id IN (SELECT id FROM delegation_runs ORDER BY started_at DESC LIMIT 20) ORDER BY started_at DESC"))
+        .map_err(|error| error.to_string())?;
+    let runs = query
+        .query_map([], row_to_run)
+        .map_err(|error| error.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|error| error.to_string())?;
+    drop(query);
+
+    Ok(runs)
+}
+
 pub(crate) fn list_runs(app: &AppHandle) -> Result<Vec<DelegationRun>, String> {
     let db = app.state::<Db>();
     let state = app.state::<ApprovalState>();
@@ -1772,15 +1789,7 @@ pub(crate) fn list_runs(app: &AppHandle) -> Result<Vec<DelegationRun>, String> {
         .cloned()
         .collect();
     let connection = db.0.lock().map_err(|error| error.to_string())?;
-    let mut query = connection
-        .prepare(&format!("{RUN_SELECT} WHERE phase NOT IN ('complete','failed','cancelled') OR id IN (SELECT id FROM delegation_runs ORDER BY started_at DESC LIMIT 20) ORDER BY started_at DESC"))
-        .map_err(|error| error.to_string())?;
-    let mut runs = query
-        .query_map([], row_to_run)
-        .map_err(|error| error.to_string())?
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(|error| error.to_string())?;
-    drop(query);
+    let mut runs=stored_runs(&connection)?;
 
     for run in &mut runs {
         if matches!(

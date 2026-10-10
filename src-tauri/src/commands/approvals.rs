@@ -101,6 +101,7 @@ impl ApprovalState {
     }
 }
 
+#[cfg(test)]
 fn record_approval(
     connection: &mut Connection,
     proposal: &Proposal,
