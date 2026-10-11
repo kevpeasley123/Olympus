@@ -281,14 +281,16 @@ pub fn authorize(
         .to_string();
     Ok((access, refresh))
 }
-// messages.get costs 5 quota units: four workers sharing a 100 ms slot stay
-// at a fifth of Gmail's per-user rate while fitting 2,000 reads in the budget.
+// Google quotas updated May 2026: messages.get costs 20 units; user limit 6000/min.
+// Shared 250 ms spacing budgets 4800 units/min (20% headroom), 2000 reads in 500s.
+// https://developers.google.com/workspace/gmail/api/reference/quota
 const FETCH_WORKERS: usize = 4;
-const REQUEST_SPACING: Duration = Duration::from_millis(100);
+const REQUEST_SPACING: Duration = Duration::from_millis(250);
 struct Session {
     token: String,
     expires: Instant,
     next_request: Instant,
+    spacing: Duration,
 }
 pub struct GmailHttp<'a> {
     pub account: String,
@@ -308,6 +310,7 @@ impl<'a> GmailHttp<'a> {
                 token: String::new(),
                 expires: Instant::now(),
                 next_request: Instant::now(),
+                spacing: REQUEST_SPACING,
             }),
         })
     }
@@ -325,6 +328,7 @@ impl<'a> GmailHttp<'a> {
     // Every worker waits for its own slot, so Retry-After pauses them all.
     fn hold(&self, delay: Duration) -> Result<(), ApiError> {
         let mut session = self.session()?;
+        session.spacing = (session.spacing * 2).min(Duration::from_secs(1));
         session.next_request = session.next_request.max(Instant::now() + delay);
         Ok(())
     }
@@ -407,17 +411,20 @@ impl GmailHttp<'_> {
             if self.runtime.cancel.load(Ordering::SeqCst) {
                 return Err(ApiError::Other("gmail_cancelled".into()));
             }
-            let (token, wait) = {
-                let mut session = self.session()?;
-                if session.token.is_empty() || Instant::now() >= session.expires {
-                    self.refresh(&mut session)?
-                }
-                let now = Instant::now();
-                let slot = session.next_request.max(now);
-                session.next_request = slot + REQUEST_SPACING;
-                (session.token.clone(), slot - now)
+            // Claim only at send time. A cooldown must also pause workers already waiting.
+            let token = loop {
+                let wait={
+                    let mut session=self.session()?;
+                    if session.token.is_empty() || Instant::now()>=session.expires {self.refresh(&mut session)?;}
+                    let now=Instant::now();
+                    if now>=session.next_request {
+                        session.next_request=now+session.spacing;
+                        break session.token.clone();
+                    }
+                    session.next_request-now
+                };
+                pause(self.runtime,wait)?;
             };
-            pause(self.runtime, wait)?;
             let response = self
                 .client
                 .get(format!(
@@ -448,8 +455,9 @@ impl GmailHttp<'_> {
                 return Err(ApiError::NotFound);
             }
             if status == 429 || status >= 500 {
+                eprintln!("[Olympus::Gmail] HTTP {} route={} retry_after={:?}",status,if path.starts_with("messages/"){ "message" }else{path},retry_after);
                 if attempt < 2 {
-                    self.hold(retry_delay(attempt, retry_after)?)?;
+                    self.hold(retry_delay(attempt, retry_after)?.max(Duration::from_secs(if status==429 {60}else{5})))?;
                     continue;
                 }
                 return Err(ApiError::Other(
@@ -470,13 +478,13 @@ impl GmailHttp<'_> {
                 let code = if bytes.len() <= 32768 {
                     serde_json::from_slice::<Value>(&bytes)
                         .ok()
-                        .map(|v| forbidden_code(&v))
+                        .map(|v| { let code=forbidden_code(&v); eprintln!("[Olympus::Gmail] HTTP 403 route={} code={} retry_after={:?}",if path.starts_with("messages/"){"message"}else{path},code,retry_after); for d in v["error"]["details"].as_array().into_iter().flatten(){ for key in ["quota_limit","quota_limit_value","quota_metric"]{if let Some(value)=d["metadata"][key].as_str(){let safe:String=value.chars().filter(|c|c.is_ascii_alphanumeric()||"._-/".contains(*c)).take(160).collect();eprintln!("[Olympus::Gmail] {key}={safe}");}} } code })
                         .unwrap_or("gmail_access_or_quota_denied")
                 } else {
                     "gmail_access_or_quota_denied"
                 };
                 if code == "gmail_rate_limited" && attempt < 2 {
-                    self.hold(retry_delay(attempt, retry_after)?)?;
+                    self.hold(retry_delay(attempt, retry_after)?.max(Duration::from_secs(60)))?;
                     continue;
                 }
                 return Err(ApiError::Other(code.into()));
@@ -611,4 +619,21 @@ pub(super) fn retry_delay(attempt: u32, retry_after: Option<u64>) -> Result<Dura
         return Err(ApiError::Other("gmail_rate_limited".into()));
     }
     Ok(Duration::from_secs(seconds))
+}
+
+#[cfg(test)]
+mod quota_pacing_tests {
+ use super::*;
+ #[test]fn cooldown_is_shared_and_adaptive_pacing_is_capped(){
+  let runtime=Runtime::default();let api=GmailHttp::new("fixture".into(),ClientConfig{client_id:"fixture".into(),client_secret:String::new()},&runtime).unwrap();
+  let before=Instant::now();api.hold(Duration::from_secs(60)).unwrap();
+  let first=api.session().unwrap().next_request;assert!(first>=before+Duration::from_secs(60));assert_eq!(api.session().unwrap().spacing,Duration::from_millis(500));
+  for _ in 0..4{api.hold(Duration::from_secs(1)).unwrap();}
+  let s=api.session().unwrap();assert!(s.next_request>=first);assert_eq!(s.spacing,Duration::from_secs(1));
+ }
+ #[test]fn message_reads_leave_headroom_under_current_google_quota(){
+  let per_minute=60000/REQUEST_SPACING.as_millis();
+  assert!(per_minute*20<=4800,"Leave at least 20% of the 6000-unit user quota free");
+  assert!(REQUEST_SPACING.as_millis()*2000<=540000,"Fit bounded initial import in its ten-minute budget");
+ }
 }

@@ -21,10 +21,12 @@ export interface Situation {id:string;title:string;state:string;stale:boolean;up
 export interface LocalDraft {id:string;situationId:string;threadId:string;revision:number;to:string[];subject:string;body:string;stale?:boolean}
 /** Understanding freshness from the backend; `nextAttemptAt` is set only while background attempts back off. */
 export interface SituationUnderstanding {lastSuccessAt:string|null;lastAttemptAt:string|null;failures:number;nextAttemptAt:string|null}
-export interface SituationSnapshot {accountId:string;backgroundError?:string|null;enabled:boolean;horizonDays:number;situations:Situation[];observations:Observation[];updates:{id:string;situationId:string;text:string;at:string}[];drafts:LocalDraft[];run:null|{status:string;phase:string;error?:string;finishedAt?:string;startedAt?:string};understanding?:SituationUnderstanding;revision?:string}
+export interface EmailAttention {threadId:string;signature:string;subject:string;timestamp:number;suggestion:{title:string;why:string;action:string;deadline:string;messageId:string;quote:string}}
+export interface SituationSnapshot {attention?:EmailAttention[];accountId:string;backgroundError?:string|null;enabled:boolean;horizonDays:number;situations:Situation[];observations:Observation[];updates:{id:string;situationId:string;text:string;at:string}[];drafts:LocalDraft[];run:null|{status:string;phase:string;error?:string;finishedAt?:string;startedAt?:string};understanding?:SituationUnderstanding;revision?:string}
 /** A poll that already holds the current revision gets this instead of the whole snapshot. */
 export interface UnchangedSnapshot {unchanged:true;revision:string}
 export const isUnchangedSnapshot=(value:SituationSnapshot|UnchangedSnapshot):value is UnchangedSnapshot=>'unchanged' in value&&value.unchanged===true;
+export const emailAttentionDecide=(accountId:string,threadId:string,signature:string,action:"dismissed"|"handled"|"snoozed")=>invoke<void>("email_attention_decide",{accountId,threadId,signature,action});
 export const situationsClient={
  snapshot:(since?:string)=>invoke<SituationSnapshot|UnchangedSnapshot>('situation_snapshot',since?{since}:{}),
  refresh:()=>invoke<void>('situation_refresh'),

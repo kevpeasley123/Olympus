@@ -122,6 +122,7 @@ pub fn collect(
         return Err(ApiError::Other("gmail_scope_limit_reduce_horizon".into()));
     }
     let ids = ids.into_iter().collect::<Vec<_>>();
+    eprintln!("[Olympus::Gmail] bounded import messages={}",ids.len());
     if !ids.iter().all(|id| super::provider_id(id)) {
         return Err(ApiError::Other("gmail_invalid_provider_id".into()));
     }
@@ -129,7 +130,7 @@ pub fn collect(
     let mut skipped = 0;
     let mut text_bytes = 0usize;
     for chunk in ids.chunks(40) {
-        if start.elapsed() > Duration::from_secs(600) {
+        if start.elapsed() > Duration::from_secs(1800) {
             return Err(ApiError::Other("gmail_sync_budget_reduce_horizon".into()));
         }
         let paths = chunk

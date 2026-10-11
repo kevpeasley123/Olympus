@@ -1,0 +1,11 @@
+.email-attention{margin-top:14px;padding-top:14px;border-top:1px solid #9db7c52b;max-height:310px;overflow:auto;scrollbar-width:thin}
+.email-attention h4{margin:0 0 9px;font:500 10px var(--font-sans);text-transform:uppercase;letter-spacing:.1em;color:#d9bc81}
+.email-attention p{margin:5px 0;font:11px/1.6 var(--font-sans);color:#afc1ce}
+.email-attention-card{margin:8px 0;padding:11px;border:1px solid #344754;border-radius:7px;background:#0a1922}
+.email-attention-card>strong{font:500 12px/1.5 var(--font-sans);color:#e1e8ef}
+.email-attention .email-attention-action{color:#d4dee5}.email-attention small{font:10px/1.5 var(--font-sans);color:#94aabb}
+.email-attention-actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}
+.email-attention-actions button{font:10px var(--font-sans);padding:6px 7px;min-height:28px;border:1px solid #354b58;border-radius:4px;background:transparent;color:#c8d6df;cursor:pointer}
+.email-attention-actions button:first-child{color:#e7c67e;border-color:#856c41}.email-attention-actions button:disabled{opacity:.5;cursor:wait}
+.email-attention-source{border-top:1px solid #354b58;margin-top:10px;padding-top:10px;font-size:11px;overflow-wrap:anywhere}
+.email-attention-source blockquote{margin:7px 0;padding-left:8px;border-left:2px solid #c6a567;color:#c5d2dc}

@@ -1,6 +1,6 @@
 use super::super::situation_contract as contract;
 use super::*;
-use crate::commands::{models, pantheon, research_retrieval, responses};
+use crate::commands::{pantheon, research_retrieval};
 use std::collections::BTreeSet;
 
 fn phase(c: &Connection, id: &str, name: &str, detail: Value) -> Result<(), String> {
@@ -151,15 +151,7 @@ async fn infer(
     schema: Value,
     purpose: &str,
 ) -> Result<(String, Value), String> {
-    if input.to_string().len() > 220_000 {
-        return Err("situation_model_input_budget".into());
-    }
-    let route = models::resolve(models::Capability::Primary);
-    let mut r = models::RequestRecord::new(&route, purpose);
-    models::save(db, &r)?;
-    let answer = responses::structured(&route, instructions, input, schema, &mut r).await;
-    models::save(db, &r)?;
-    answer.map(|a| (a, json!(r)))
+    super::analysis_provider::infer(db,instructions,input,schema,purpose).await
 }
 #[tauri::command]
 pub async fn situation_refresh(app: tauri::AppHandle) -> Result<(), String> {
@@ -238,7 +230,7 @@ where
             .filter(|(id, s)| {
                 !observations
                     .iter()
-                    .any(|o| o["threadId"] == **id && o["signature"] == s.0)
+                    .any(|o| o["threadId"] == **id && o["signature"] == s.0 && o["attentionVersion"] == 1)
             })
             .collect::<Vec<_>>();
         changed.sort_by(|a, b| b.1 .1.cmp(&a.1 .1).then_with(|| a.0.cmp(b.0)));
@@ -270,7 +262,7 @@ where
             return Ok(());
         }
         let id = crate::commands::delegation::run_id();
-        let run = json!({"id":id,"accountId":a.id,"graph":GRAPH,"status":"running","phase":"Reading changed correspondence","startedAt":now(),"finishedAt":null,"durationMs":null,"days":a.horizon_days,"items":[],"definition":[{"id":"snapshot","effect":"local_read"},{"id":"discover","after":["snapshot"],"contract":"situation-discovery@1","effect":"model_read"},{"id":"brief","after":["discover"],"contract":"situation-briefing@1","effect":"model_read"},{"id":"validate","after":["brief"],"effect":"local_read"},{"id":"publish","after":["validate"],"effect":"generated_local_write"}],"skills":["situation-discovery@1","situation-briefing@1"],"error":null,"stale":false,"model":models::PRIMARY_MODEL});
+        let run = json!({"id":id,"accountId":a.id,"graph":GRAPH,"status":"running","phase":"Reading changed correspondence","startedAt":now(),"finishedAt":null,"durationMs":null,"days":a.horizon_days,"items":[],"definition":[{"id":"snapshot","effect":"local_read"},{"id":"discover","after":["snapshot"],"contract":"situation-discovery@1","effect":"model_read"},{"id":"brief","after":["discover"],"contract":"situation-briefing@1","effect":"model_read"},{"id":"validate","after":["brief"],"effect":"local_read"},{"id":"publish","after":["validate"],"effect":"generated_local_write"}],"skills":["situation-discovery@1","situation-briefing@1"],"error":null,"stale":false,"model":super::analysis_provider::route().ok().map(|r|r.1),"provider":std::env::var("OLYMPUS_EMAIL_ANALYSIS_PROVIDER").unwrap_or_else(|_|"openai".into())});
         c.execute(
             "INSERT INTO communication_runs VALUES(?1,?2,?3,'running',?4)",
             params![id, a.id, a.horizon_days, run.to_string()],
@@ -339,6 +331,8 @@ where
                     }
                 }else{record["situationId"]=Value::Null;}
                 record["signature"]=json!(signatures.get(&tid).ok_or("source_disappeared")?.0);
+                record["attentionVersion"]=json!(1);
+                if let Some(old)=observations.iter().find(|o|o["threadId"]==tid&&o["signature"]==record["signature"]){record["attentionDecision"]=old["attentionDecision"].clone();}
                 record["evidenceRefs"]=json!(t["messages"].as_array().unwrap().iter().map(|m|json!({"messageId":m["id"],"threadId":tid,"fingerprint":m["fingerprint"],"timestamp":m["timestamp"]})).collect::<Vec<_>>());
                 record["subject"]=t["messages"].as_array().unwrap().last().unwrap()["subject"].clone();
                 record["timestamp"]=t["messages"].as_array().unwrap().last().unwrap()["timestamp"].clone();record["updatedAt"]=json!(now());
@@ -365,7 +359,7 @@ where
         let mut c=db.0.lock().map_err(|_|"database_busy")?;guard(&c,&a,rev,&signatures)?;
         let tx=c.transaction().map_err(err)?;
         for s in new_situations{tx.execute("INSERT INTO communication_situations(account_id,id,title,updated_at) VALUES(?1,?2,?3,?4)",params![a.id,s["id"].as_str(),s["title"].as_str(),now()]).map_err(err)?;}
-        for o in fresh{tx.execute("INSERT INTO communication_situation_sources VALUES(?1,?2,?3,?4,?5,?6) ON CONFLICT(account_id,thread_id) DO UPDATE SET signature=excluded.signature,situation_id=excluded.situation_id,payload_json=excluded.payload_json,updated_at=excluded.updated_at",params![a.id,o["threadId"].as_str(),o["signature"].as_str(),o["situationId"].as_str(),o.to_string(),now()]).map_err(err)?;}
+        for o in fresh{tx.execute("INSERT INTO communication_situation_sources VALUES(?1,?2,?3,?4,?5,?6) ON CONFLICT(account_id,thread_id) DO UPDATE SET signature=excluded.signature,situation_id=excluded.situation_id,payload_json=json_set(excluded.payload_json,'$.attentionDecision',CASE WHEN communication_situation_sources.signature=excluded.signature THEN json_extract(communication_situation_sources.payload_json,'$.attentionDecision') ELSE NULL END),updated_at=excluded.updated_at",params![a.id,o["threadId"].as_str(),o["signature"].as_str(),o["situationId"].as_str(),o.to_string(),now()]).map_err(err)?;}
         for (b,context) in briefings.into_iter().zip(contexts){let mut payload=json!(b);payload["contextRevision"]=json!(rev);payload["researchSignature"]=json!(stamp);payload["sourceSignatures"]=source_signatures(&observations,&context["id"],&signatures);payload["research"]=context["research"].clone();
             tx.execute("UPDATE communication_situations SET briefing_json=?3,updated_at=?4 WHERE account_id=?1 AND id=?2",params![a.id,b.situation_id,payload.to_string(),now()]).map_err(err)?;}
         phase(&tx,&id,"Situation map updated",json!({"changedThreads":threads.len(),"newRelationshipsAreGenerated":true}))?;tx.commit().map_err(err)?;Ok(())
