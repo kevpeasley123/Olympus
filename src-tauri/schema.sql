@@ -229,6 +229,7 @@ CREATE TABLE IF NOT EXISTS conversation_voice (message_id TEXT PRIMARY KEY, meta
 
 -- Request provenance is independent of chat contents and never stores prompts.
 CREATE TABLE IF NOT EXISTS model_requests (id TEXT PRIMARY KEY, record_json TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS model_requests_voice_session ON model_requests(json_extract(record_json, '$.voiceSessionId'));
 CREATE TABLE IF NOT EXISTS conversation_model (message_id TEXT PRIMARY KEY, request_id TEXT NOT NULL);
 
 -- Generated operational reports. No approval, commitment, or memory authority.

@@ -1,0 +1,16 @@
+import {build} from 'esbuild';
+import {mkdir} from 'node:fs/promises';
+import assert from 'node:assert/strict';
+await mkdir('output/tests',{recursive:true});
+await build({entryPoints:['src/services/voiceControl.ts'],bundle:true,platform:'node',format:'esm',outfile:'output/tests/voiceControl.mjs'});
+const {voiceControlState}=await import('../output/tests/voiceControl.mjs');
+const base={phase:'IDLE',active:false,connecting:false,microphoneOn:false,microphoneCapturing:false,muted:false};
+assert.equal(voiceControlState(base).label,'Voice off');
+assert.equal(voiceControlState({...base,connecting:true,microphoneOn:true}).label,'Connecting…');
+assert.equal(voiceControlState({...base,active:true,microphoneOn:true,microphoneCapturing:true}).label,'Listening · Mic on');
+assert.equal(voiceControlState({...base,active:true,microphoneOn:true,microphoneCapturing:false,phase:'SPEAKING'}).label,'Speaking · Mic paused');
+assert.equal(voiceControlState({...base,active:true,phase:'SPEAKING'}).label,'Speaking · Mic off');
+assert.equal(voiceControlState({...base,phase:'ERROR',error:'Denied'}).label,'Voice unavailable · Mic off');
+assert.equal(voiceControlState({...base,active:true,phase:'SPEAKING'}).on,false);
+assert.equal(voiceControlState({...base,active:true,microphoneOn:true,microphoneCapturing:true,phase:'PROCESSING'}).label,'Thinking · Mic on');
+console.log('PASS 8 truthful voice-control state checks');

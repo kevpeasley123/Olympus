@@ -4,6 +4,9 @@ export const OLYMPUS_VOICES = config.voices;
 export const CURATED_VOICES = config.curatedVoices;
 export const VOICE_PREVIEW_PHRASE = config.previewPhrase;
 export interface VoicePreferences {
+  speechProvider:"openai"|"elevenlabs";
+  elevenVoiceId:string;
+  elevenModelId:string;
   selectedVoice:string;
   speechStyle:"measured"|"conversational"|"concise";
   responseDepth:"brief"|"standard"|"detailed";
@@ -13,7 +16,7 @@ export interface VoicePreferences {
   /** Speak a short project briefing once each time Olympus opens. */
   briefOnOpen:boolean;
 }
-export const DEFAULT_VOICE_PREFERENCES = config.defaults as VoicePreferences;
+export const DEFAULT_VOICE_PREFERENCES:VoicePreferences = {...config.defaults as Omit<VoicePreferences,"speechProvider"|"elevenVoiceId"|"elevenModelId">,speechProvider:"openai",elevenVoiceId:"NOpBlnGInO9m6vDvFkFC",elevenModelId:"eleven_v4"};
 export function normalizeVoicePreferences(value:unknown):VoicePreferences {
   const raw = value && typeof value === "object" ? value as Partial<VoicePreferences> : {};
   return {
@@ -24,6 +27,9 @@ export function normalizeVoicePreferences(value:unknown):VoicePreferences {
     captionsEnabled:typeof raw.captionsEnabled === "boolean" ? raw.captionsEnabled : DEFAULT_VOICE_PREFERENCES.captionsEnabled,
     bargeInEnabled:typeof raw.bargeInEnabled === "boolean" ? raw.bargeInEnabled : DEFAULT_VOICE_PREFERENCES.bargeInEnabled,
     briefOnOpen:typeof raw.briefOnOpen === "boolean" ? raw.briefOnOpen : DEFAULT_VOICE_PREFERENCES.briefOnOpen,
+    speechProvider:raw.speechProvider==="elevenlabs"?"elevenlabs":"openai",
+    elevenVoiceId:typeof raw.elevenVoiceId==="string"&&/^[\w-]{1,128}$/.test(raw.elevenVoiceId)?raw.elevenVoiceId:DEFAULT_VOICE_PREFERENCES.elevenVoiceId,
+    elevenModelId:typeof raw.elevenModelId==="string"&&/^[\w-]{1,128}$/.test(raw.elevenModelId)?raw.elevenModelId:DEFAULT_VOICE_PREFERENCES.elevenModelId,
   };
 }
 export function voiceBehavior(preferences:VoicePreferences) { return `${config.behavior} ${config.styles[preferences.speechStyle]}`; }

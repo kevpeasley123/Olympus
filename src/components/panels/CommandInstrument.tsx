@@ -5,7 +5,8 @@ import type { Mission } from "../../services/capabilities";
 import "./pantheonMissions.css";
 import { VaultConstellation } from "./VaultConstellation";
 import { ArmoryConstellation } from "./ArmoryConstellation";
-import { Mic } from "lucide-react";
+import { VoiceConversationControl } from "./VoiceConversationControl";
+import type {VoiceSnapshot} from "../../services/realtimeVoice";
 import { HybridCommandCore } from "./HybridCommandCore";
 import { OrbitalAtmosphere } from "./OrbitalAtmosphere";
 import { commandLayout } from "../../services/hybridCore";
@@ -45,6 +46,9 @@ interface CommandInstrumentProps {
   active?: boolean;
   visualState?: OlympusVisualState;
   voiceLevel?: number;
+  voiceSnapshot?:VoiceSnapshot;
+  onVoiceToggle?:()=>void;
+  voiceReady?:boolean;
   /** Only the ambient note field's placement; Command draws no project names. */
   projects: TrackedProject[];
   /** The armory; null while it is read or when it is unavailable. */
@@ -136,6 +140,7 @@ export function CommandInstrument({
   active = true,
   visualState,
   voiceLevel = 0,
+  voiceSnapshot, onVoiceToggle, voiceReady=false,
   assistantPending = false,
   assistantProducing = false,
   assistantModel = null,
@@ -352,11 +357,8 @@ export function CommandInstrument({
           that has not spoken would be the same invisible wrongness as reading
           the request constant. */}
       {flagship && <div className="pantheon-caption"><h2>Pantheon</h2>
-      <div className="pantheon-voice" role="img" aria-label={ambientState === "speaking" ? "Voice speaking" : ambientState === "listening" ? "Voice listening" : "Voice idle"} data-active={ambientState === "speaking" || ambientState === "listening"}>
-        <Mic size={18} aria-hidden="true"/>
-        <div className="pantheon-voice__wave" aria-hidden="true">{Array.from({length:23},(_,i)=><span key={i} style={{height:2+((ambientState === "speaking" || ambientState === "listening") ? Math.min(1,Math.max(0,voiceLevel))*30*Math.pow(Math.sin((i+1)*Math.PI/24),.7)*(i%3===0?.65:1):0)}}/>)}</div>
-        {(ambientState === "speaking" || ambientState === "listening") && <span className="pantheon-voice__state">{ambientState === "speaking" ? "Speaking" : "Listening"}</span>}
-      </div></div>}
+      <VoiceConversationControl voice={voiceSnapshot} onToggle={onVoiceToggle} ready={voiceReady}/>
+      </div>}
       {!flagship && previewLabel && <p className="command-instrument__preview" role="note">{previewLabel}</p>}
       {hybridError && <div className="hybrid-status" role="status">
         <span>3D view unavailable · showing the flat instrument.</span>

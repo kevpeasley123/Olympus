@@ -55,5 +55,7 @@ export function runCommandVoiceHarness() {
   check(microphone.microphone && microphone.headline.startsWith("Microphone unavailable"), "Microphone failures are named as such");
   check(describeVoiceFailure("Voice needs OPENAI_API_KEY in the Olympus project .env.").headline.includes("no OpenAI API key"), "Missing key");
   check(describeVoiceFailure("Something new").headline === "Audio unavailable. Replies stay in text.", "Unknown failures stay calm and general");
+  check(describeVoiceFailure("Microphone transcription needs OPENAI_API_KEY").headline.includes("ElevenLabs speech tests still work"), "Transcription key is separate from ElevenLabs speech");
+  check(describeVoiceFailure("ElevenLabs reached an account or rate limit").headline.includes("ElevenLabs"), "Provider errors are not mislabeled OpenAI");
   return { passed };
 }
