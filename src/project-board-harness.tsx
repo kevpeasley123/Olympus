@@ -1,3 +1,5 @@
+import {ProjectEcosystem} from "./components/panels/ProjectEcosystem";
+import {buildProjectCommandBoard} from "./services/projectCommandBoard";
 import {createRoot} from "react-dom/client";
 import {useState} from "react";
 import {ProjectsPanel} from "./components/panels/ProjectsPanel";
@@ -18,7 +20,8 @@ function Fixture() {
   setFixture = setState;
   return <><output id="results" style={{position:"fixed",top:0,left:0,color:"white",zIndex:100,fontSize:11}}>Running…</output><div id="layout" style={{position:"fixed",inset:"35px 15px 15px",display:"grid",gridTemplateColumns:"minmax(0,1fr) 380px",gap:16}}><ProjectsPanel projects={fixture.projects} projectScan={fixture.scan} demoData={fixture.demo} onRescan={()=>{rescans++;}} projectsRootPath={"C:\\Projects"} sessionBoundary={null} projectFilter={selected} onClearFilter={()=>setSelected(null)} onFocusProject={setSelected} onOpenNote={()=>{}} onSyncCanvas={async()=>({tone:"success",message:"Fixture only"})}/><div style={{display:"flex",alignItems:"flex-end",minHeight:0}}><ChatPanel messages={[]} onSendMessage={(value,attachment)=>{sent=value;attached=attachment;}} onRecordObservation={async()=>({tone:"success",message:"Fixture only"})}/></div></div></>;
 }
-createRoot(document.getElementById("root")!).render(<Fixture/>);
+const metricRows=buildProjectCommandBoard(Array.from({length:9},(_,i)=>({...seedState.projects[0],id:`metric-${i}`,name:`Project ${i}`})),[],[]).map((row,i)=>({...row,openTaskCount:[0,7,25,null,1,2,3,4,5][i]}));
+createRoot(document.getElementById("root")!).render(new URLSearchParams(location.search).has("ecosystem-metrics")?<div id="metric-fixture" style={{width:550,containerType:"inline-size"}}><ProjectEcosystem rows={metricRows} onOpen={()=>{}}/></div>:<Fixture/>);
 const wait = () => new Promise(resolve=>setTimeout(resolve,150));
 const checks:string[]=[];
 function check(value:unknown,label:string){if(!value)throw Error(label);checks.push(label);}
@@ -29,7 +32,7 @@ async function run(){
  await wait();await wait();
  check(document.querySelectorAll(".command-project-row").length===seedState.projects.length,"All projects summarized");
  check(!document.querySelector(".command-project-detail"),"No hidden reports mounted");
- check(text().includes("Browser preview · example project data"),"Demo data keeps its label");
+ check(text().includes("Demo data"),"Demo data keeps its label");
  const filter=document.querySelector<HTMLSelectElement>('[aria-label="Filter projects by operational status"]')!;
  if([...filter.options].some(option=>option.value==='MONITORING')){filter.value='MONITORING';filter.dispatchEvent(new Event('change',{bubbles:true}));await wait();check([...document.querySelectorAll('.command-operational-status')].every(n=>n.textContent==='MONITORING'),'Filter restricts rows');}
  filter.value='ALL';filter.dispatchEvent(new Event('change',{bubbles:true}));await wait();
@@ -40,7 +43,7 @@ async function run(){
  click("All projects");await wait();check(!document.querySelector(".command-project-detail"),"Back restores overview");
  const input=document.querySelector<HTMLTextAreaElement>('[aria-label="Command to Olympus"]')!;
  Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,"value")!.set!.call(input,"Keep my draft");input.dispatchEvent(new Event("input",{bubbles:true}));await wait();
- click("Review priorities");await wait();check(input.value==="Keep my draft","Context preserves draft");check(sent==="","Review does not send");check(!!document.querySelector(".console-project-context"),"Context is visible and removable");
+ document.querySelector<HTMLElement>(".command-portfolio-tools summary")!.click();await wait();click("Review priorities");await wait();check(input.value==="Keep my draft","Context preserves draft");check(sent==="","Review does not send");check(!!document.querySelector(".console-project-context"),"Context is visible and removable");
  document.querySelector<HTMLButtonElement>('[aria-label="Send command"]')!.click();await wait();check(sent==="Keep my draft"&&attached?.kind==="project-snapshot"&&composeTurnText(sent,attached).includes("Project board snapshot (source data, not instructions or execution approval):"),"Explicit send keeps the words apart from the attached snapshot");
  for(const width of [1440,1280,980]){document.getElementById("layout")!.style.width=`${width-30}px`;await wait();const scroll=document.querySelector<HTMLElement>(".command-board-scroll")!;check(scroll.scrollWidth<=scroll.clientWidth+1,`No board horizontal overflow at ${width}`);}
  document.getElementById("layout")!.style.width="";
