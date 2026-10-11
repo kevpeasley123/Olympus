@@ -135,6 +135,8 @@ mod picker_tests {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RequestRecord {
+    #[serde(default)]
+    pub voice_session_id: Option<String>,
     pub id: String,
     pub provider: String,
     pub requested_model: String,
@@ -155,6 +157,7 @@ impl RequestRecord {
     pub fn new(route: &Route, purpose: &str) -> Self {
         static SERIAL: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
         Self {
+            voice_session_id: Some(voice_session_id().to_string()),
             id: format!(
                 "model-{}-{}",
                 chrono::Utc::now().timestamp_nanos_opt().unwrap_or_default(),
@@ -317,5 +320,53 @@ mod tests {
             "completed"
         );
         assert!(!raw.contains("prompt"));
+    }
+}
+
+
+// A process identity prevents concurrent native app windows sharing SQLite from
+// being charged to one another. Older records have no identity and are excluded.
+fn voice_session_id()-> &'static str {
+    static ID: once_cell::sync::Lazy<String> = once_cell::sync::Lazy::new(||format!("voice-session-{}-{}",std::process::id(),chrono::Utc::now().timestamp_nanos_opt().unwrap_or_default()));
+    ID.as_str()
+}
+fn summarize_voice_usage(records:impl Iterator<Item=RequestRecord>)->Value {
+    let (mut credits,mut confirmed,mut unconfirmed,mut not_submitted)=(0.0,0u64,0u64,0u64);
+    let (mut transcription_requests,mut transcription_tokens,mut transcription_unconfirmed,mut openai_speech)=(0u64,0u64,0u64,0u64);
+    for record in records {
+        if record.provider=="elevenlabs" && record.capability=="TTS" {
+            let usage=record.usage.unwrap_or(Value::Null);
+            if let Some(cost)=usage["credits"].as_f64().filter(|v|v.is_finite()&&*v>=0.0){credits+=cost;confirmed+=1;}
+            else if usage["billing_status"]=="not_submitted"{not_submitted+=1;}else{unconfirmed+=1;}
+        }else if record.purpose=="transcription_client_reported" {
+            transcription_requests+=1;
+            if let Some(tokens)=record.usage.as_ref().and_then(|v|v["total_tokens"].as_u64()){transcription_tokens=transcription_tokens.saturating_add(tokens);}else{transcription_unconfirmed+=1;}
+        }else if ["audio_client_reported","preview_client_reported"].contains(&record.purpose.as_str()){openai_speech+=1;}
+    }
+    json!({"credits":credits,"confirmed":confirmed,"unconfirmed":unconfirmed,"notSubmitted":not_submitted,"transcriptionRequests":transcription_requests,"transcriptionTokens":transcription_tokens,"transcriptionUnconfirmed":transcription_unconfirmed,"openaiSpeechRequests":openai_speech})
+}
+#[tauri::command]
+pub fn voice_usage(db:State<Db>)->Result<Value,String>{
+    let connection=db.0.lock().map_err(|e|e.to_string())?;
+    // Do not reuse the diagnostic screen's 100-row limit for billing totals.
+    let mut query=connection.prepare("SELECT record_json FROM model_requests WHERE json_extract(record_json,'$.voiceSessionId')=?1 AND (json_extract(record_json,'$.capability')='TTS' OR json_extract(record_json,'$.purpose') IN ('transcription_client_reported','audio_client_reported','preview_client_reported'))").map_err(|e|e.to_string())?;
+    let rows=query.query_map([voice_session_id()],|row|row.get::<_,String>(0)).map_err(|e|e.to_string())?;
+    let records:Result<Vec<RequestRecord>,String>=rows.map(|row|serde_json::from_str(&row.map_err(|e|e.to_string())?).map_err(|e|e.to_string())).collect();
+    Ok(summarize_voice_usage(records?.into_iter()))
+}
+#[cfg(test)]
+mod voice_usage_tests {
+    use super::*;
+    #[test] fn credits_missing_usage_and_transcription_stay_distinct(){
+        let mut paid=RequestRecord::new(&resolve(Capability::Primary),"speech_preview");paid.provider="elevenlabs".into();paid.capability="TTS".into();paid.usage=Some(json!({"credits":4.5}));
+        let mut unknown=paid.clone();unknown.usage=None;
+        let mut not_sent=paid.clone();not_sent.usage=Some(json!({"billing_status":"not_submitted"}));
+        let mut transcript=paid.clone();transcript.provider="openai".into();transcript.purpose="transcription_client_reported".into();transcript.usage=Some(json!({"total_tokens":12}));
+        let value=summarize_voice_usage(vec![paid,unknown,not_sent,transcript].into_iter());
+        assert_eq!(value["credits"],4.5);assert_eq!(value["unconfirmed"],1);assert_eq!(value["notSubmitted"],1);assert_eq!(value["transcriptionTokens"],12);
+    }
+    #[test] fn totals_are_not_limited_to_diagnostics_page(){
+        let mut paid=RequestRecord::new(&resolve(Capability::Primary),"speech_output");paid.provider="elevenlabs".into();paid.capability="TTS".into();paid.usage=Some(json!({"credits":2}));
+        let value=summarize_voice_usage(std::iter::repeat_n(paid,150));assert_eq!(value["credits"],300.0);assert_eq!(value["confirmed"],150);
     }
 }

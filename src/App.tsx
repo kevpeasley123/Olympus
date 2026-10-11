@@ -68,6 +68,17 @@ function App() {
     demoData
   } = useDashboardData();
   const voice = useVoiceState();
+  function toggleVoiceConversation(){
+    if(!settingsReady)return;
+    const current=realtimeVoice.getSnapshot();
+    if(current.microphoneOn&&(current.active||current.connecting)){realtimeVoice.stop();return;}
+    voicePreview.stop();realtimeVoice.stop();
+    if(realtimeVoice.getSnapshot().muted)realtimeVoice.mute();
+    updateVoicePreferences({autoSpeak:true});
+    void realtimeVoice.applyPreferences({...settings,autoSpeak:true});
+    void realtimeVoice.start();
+  }
+
   const [voiceFilter, setVoiceFilter] = useState<{status:OperationalStatus|"ALL"; revision:number}>({status:"ALL",revision:0});
   const { mode, setMode, cycleMode } = useDashboardMode();
   // Subscribed here, not only inside the panels that display them, so both
@@ -231,6 +242,7 @@ function App() {
                   active={command}
                   visualState={instrumentState(voice, chatError)}
                   voiceLevel={voice.level}
+                  voiceSnapshot={voice} onVoiceToggle={toggleVoiceConversation} voiceReady={settingsReady}
                   projects={projects}
                   capabilities={armory.capabilities}
                   capabilitiesError={armory.capabilitiesError}
@@ -297,6 +309,7 @@ function App() {
               <ErrorBoundary label="Command console">
                 <ChatPanel
                   companion={command}
+                  onVoiceConversationToggle={command?toggleVoiceConversation:undefined}
                   onOpenPreferences={()=>setPreferencesOpen(true)}
                   autoSpeak={settings.autoSpeak}
                   onAutoSpeakChange={autoSpeak=>updateVoicePreferences({autoSpeak})}

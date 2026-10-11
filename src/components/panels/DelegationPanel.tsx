@@ -359,7 +359,7 @@ function OutcomeLabel({ run }: { run: DelegationRun }) {
 }
 
 /** The recorded plan, read without preparing an approval or starting its timer (review U11). */
-function PlanDisclosure({ run }: { run: DelegationRun }) {
+export function PlanDisclosure({ run }: { run: DelegationRun }) {
   const [details, setDetails] = useState<ReviewDetails | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -401,8 +401,8 @@ function permittedSentence(proposal: ApprovalProposal): string | null {
   return `${reach}${commands}.${excluded} Loads no settings files, hooks or MCP servers. $${permitted.budgetUsd} budget and ${permitted.launchLimitMinutes}-minute limit per launch, not per run.`;
 }
 
-export function ApprovalSubject({ proposal, busy, onApprove, onCancel }: {
-  proposal: ApprovalProposal; busy: string | null; onApprove: () => void; onCancel: () => void;
+export function ApprovalSubject({ proposal, busy, onApprove, onCancel, compact = false }: {
+  proposal: ApprovalProposal; busy: string | null; onApprove: () => void; onCancel: () => void; compact?: boolean;
 }) {
   const remaining = useCountdown(proposal.expiresAt);
   const expired = remaining <= 0;
@@ -422,16 +422,16 @@ export function ApprovalSubject({ proposal, busy, onApprove, onCancel }: {
     </div>
     <dl className="delegation-subject">
       <dt>Project</dt><dd>{subject.projectName}</dd>
-      <dt>Repository</dt><dd className="tabular-data">{subject.repository}</dd>
-      <dt>Base</dt><dd className="tabular-data"><abbr title={subject.baseCommit}>{branch ? `${branch} @ ` : ""}{subject.baseCommit.slice(0, 7)}</abbr></dd>
+      {!compact && <><dt>Repository</dt><dd className="tabular-data">{subject.repository}</dd><dt>Base</dt><dd className="tabular-data"><abbr title={subject.baseCommit}>{branch ? `${branch} @ ` : ""}{subject.baseCommit.slice(0, 7)}</abbr></dd></>}
       <dt>Stage</dt><dd>{stage}</dd>
       <dt>Driver</dt><dd>{subject.driver} · {subject.model}</dd>
       <dt>Permitted actions</dt><dd>{sentence ?? <><span>Scope not recognised by this build; exact text:</span> <code>{subject.scope}</code></>}</dd>
       <dt>Task</dt><dd><pre>{subject.task}</pre></dd>
       <dt>Criteria</dt><dd><ol>{subject.criteria.map((criterion, i) => <li key={i}>{criterion}</li>)}</ol></dd>
       {subject.plan ? <><dt>Plan</dt><dd><pre>{subject.plan}</pre></dd></> : null}
-      <dt>Workspace</dt><dd className="tabular-data">{subject.workspace}</dd>
+      {!compact && <><dt>Workspace</dt><dd className="tabular-data">{subject.workspace}</dd></>}
     </dl>
+    {compact && <details><summary>Repository and workspace</summary><p>{subject.repository}</p><p>Base: {branch ? `${branch} @ ` : ""}{subject.baseCommit}</p><p>{subject.workspace}</p></details>}
     {subject.scope.includes("guidance-sha256=") && <p className="delegation-prepare__reason">Hephaestus will receive Superpowers pilot v1 guidance for planning, debugging, testing and evidence-based review. Review the full instructions in the exact scope below. This does not load external plugins or expand tool permissions.</p>}
     {sentence && <details className="delegation-approval__scope"><summary>Exact scope text</summary><code>{subject.scope}</code></details>}
     <p className="delegation-prepare__reason">Approval covers exactly this task, base and scope in this desktop session. Any change needs a fresh review.</p>

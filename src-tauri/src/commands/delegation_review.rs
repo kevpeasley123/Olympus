@@ -72,6 +72,7 @@ pub struct ReviewDetails {
     pub available_checks: Vec<CheckOption>,
     /// When the operator's review was recorded; `None` until the run is completed.
     pub reviewed_at: Option<String>,
+    pub recorded_evidence: Vec<CriterionEvidence>,
 }
 
 #[derive(Serialize)]
@@ -143,6 +144,12 @@ fn review(db: &Db, run_id: &str) -> Result<ReviewDetails, String> {
         )
         .optional()
         .map_err(|e| e.to_string())?;
+    let recorded_evidence = connection.query_row(
+        "SELECT criteria_evidence_json FROM delegation_reviews WHERE run_id=?1", [run_id],
+        |r| r.get::<_, String>(0),
+    ).optional().map_err(|e| e.to_string())?
+        .map(|raw| serde_json::from_str::<Vec<CriterionEvidence>>(&raw))
+        .transpose().map_err(|e| e.to_string())?.unwrap_or_default();
     Ok(ReviewDetails {
         criteria,
         plan,
@@ -150,6 +157,7 @@ fn review(db: &Db, run_id: &str) -> Result<ReviewDetails, String> {
         approvals,
         available_checks,
         reviewed_at,
+        recorded_evidence,
     })
 }
 
@@ -700,6 +708,9 @@ mod tests {
         assert_eq!(delegation::load_run(&db, "run").unwrap().phase, "waiting");
 
         db.0.lock().unwrap().execute("INSERT INTO delegation_reviews(run_id,session_id,criteria_evidence_json,workspace_hash,reviewed_at) VALUES ('run','s','[]','h','2026-09-28T10:00:00Z')",[]).unwrap();
+        db.0.lock().unwrap().execute("UPDATE delegation_reviews SET criteria_evidence_json=?1 WHERE run_id='run'", [r#"[{"criterion":"Works","note":"I inspected the preserved result","checkId":null}]"#]).unwrap();
+        let saved = serde_json::to_value(review(&db, "run").unwrap()).unwrap();
+        assert_eq!(saved["recordedEvidence"][0]["note"], "I inspected the preserved result");
         assert_eq!(
             review(&db, "run").unwrap().reviewed_at.as_deref(),
             Some("2026-09-28T10:00:00Z")

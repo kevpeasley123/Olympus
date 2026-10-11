@@ -2,8 +2,12 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { realpathSync } from "node:fs";
 import { resolve } from "node:path";
+import { createHash } from "node:crypto";
 
 export default defineConfig({
+  // Linked worktrees may share node_modules but must not invalidate each
+  // other's dependency optimizer cache while their preview servers run.
+  cacheDir: resolve("node_modules", `.vite-${createHash("sha256").update(resolve(".")).digest("hex").slice(0, 12)}`),
   plugins: [react()],
   clearScreen: false,
   server: {

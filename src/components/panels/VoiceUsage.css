@@ -1,0 +1,17 @@
+.voice-usage{font:10px/1.5 var(--font-ui,sans-serif);color:#a5b7c4;position:relative;pointer-events:auto;text-align:left;max-width:100%}
+.voice-conversation>.voice-usage{flex-basis:100%;text-align:center}
+.voice-usage>summary{cursor:pointer;list-style:none;padding:4px 8px;border-radius:4px}
+.voice-usage>summary:hover{color:#e3bd7c;background:#11222c}
+.voice-usage>summary:focus-visible{outline:2px solid #dfb66b;outline-offset:2px}
+.voice-usage__details{padding:14px;border:1px solid #40515c;border-radius:8px;background:#08151e;color:#c9d5de;font-size:11px;line-height:1.5;text-align:left;overflow:auto;max-height:280px;box-shadow:0 10px 35px #0008}
+.voice-conversation .voice-usage__details{position:absolute;bottom:100%;left:50%;transform:translateX(-50%);width:min(330px,80vw);z-index:20}
+.voice-usage__details input{display:block;width:100%;box-sizing:border-box;background:#10222d;color:#e4edf3;border:1px solid #405561;border-radius:4px;padding:7px;margin-top:5px}
+.voice-usage__details p{margin:8px 0}
+.eleven-lab{border-top:1px solid #30444f;margin-top:16px;padding-top:12px}
+.eleven-lab summary{cursor:pointer;color:#dfbd83;font-size:12px;margin-bottom:10px}
+.eleven-lab label{display:block;font-size:12px}
+.eleven-lab textarea{width:100%;box-sizing:border-box;resize:vertical;padding:10px;margin:6px 0;background:#091923;color:#dbe7ef;border:1px solid #aa8748;border-radius:5px;font:12px/1.5 var(--font-ui,sans-serif)}
+.eleven-lab textarea:focus-visible{outline:2px solid #e3ba76;outline-offset:2px}
+.eleven-lab small{color:#a4b9c8;font-size:10px}
+.eleven-lab textarea{min-height:70px}
+.eleven-voice-settings .voice-usage__details{max-height:none;box-shadow:none}

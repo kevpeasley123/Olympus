@@ -89,6 +89,7 @@ pub fn bind_proposal(c: &Connection, proposal: &str, run: &str, t: &Task) -> ORe
             "Adopt this task before preparing delegation.",
         ));
     }
+    if t.criteria.is_empty() { return Err(error("validation", "Describe a successful result before starting work.")); }
     c.execute("INSERT INTO organizer_proposal_links(proposal_id,task_id,task_revision,run_id,created_at) VALUES(?1,?2,?3,?4,?5)",params![proposal,t.id,t.revision,run,now()])?;
     Ok(())
 }
@@ -226,7 +227,7 @@ fn validate(c: &Connection, i: &TaskInput) -> OResult<()> {
     length(&i.title, 1, 160, "Title")?;
     length(&i.objective, 1, 8000, "Objective")?;
     length(&i.priority_reason, 0, 2000, "Priority reason")?;
-    if !(1..=12).contains(&i.criteria.len()) || i.steps.len() > 30 || i.sources.len() > 20 {
+    if i.criteria.len() > 12 || i.steps.len() > 30 || i.sources.len() > 20 {
         return Err(error(
             "validation",
             "Use 1–12 criteria, at most 30 steps and 20 sources.",

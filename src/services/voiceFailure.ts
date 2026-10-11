@@ -20,6 +20,8 @@ const TEXT_STAYS = "Replies stay in text.";
 export function describeVoiceFailure(error: string): VoiceFailureReading {
   const detail = error.trim();
   const reading = (headline: string, microphone = false): VoiceFailureReading => ({ headline, detail, microphone });
+  if (/Microphone transcription needs OPENAI_API_KEY/.test(detail)) return reading("Microphone needs an OpenAI API key. ElevenLabs speech tests still work in Voice Lab.",true);
+  if (/ElevenLabs/i.test(detail)) return reading(`ElevenLabs speech unavailable. ${TEXT_STAYS}`);
   if (/insufficient_quota|credit_balance_exhausted|quota|credits are exhausted/i.test(detail)) {
     return reading(`Audio unavailable — OpenAI quota exceeded. ${TEXT_STAYS}`);
   }

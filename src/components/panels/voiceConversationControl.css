@@ -1,0 +1,16 @@
+.pantheon-caption .pantheon-voice.voice-conversation{opacity:1;margin-top:8px;min-height:44px;gap:12px;flex-wrap:wrap;color:#a7b8c5}
+.voice-conversation__toggle{pointer-events:auto;display:inline-flex;align-items:center;gap:9px;min-height:38px;padding:8px 12px;border:1px solid #42545e;border-radius:24px;background:rgba(6,17,23,.92);color:#c4d0d8;font:11px var(--font-ui, sans-serif);cursor:pointer;transition:background .18s ease,border-color .18s ease}
+.voice-conversation__toggle:hover{background:#14252e;border-color:#8c9fa9}
+.voice-conversation__toggle:focus-visible{outline:2px solid #e1b878;outline-offset:4px}
+.voice-conversation__toggle:disabled{cursor:not-allowed;opacity:.65}
+.voice-conversation[data-tone="live"] .voice-conversation__toggle{color:#9be8da;border-color:#428f82;background:#092a29}
+.voice-conversation[data-tone="connecting"] .voice-conversation__toggle,.voice-conversation[data-tone="error"] .voice-conversation__toggle{color:#e1b878;border-color:#8f6e35}
+.voice-conversation__switch{width:26px;height:15px;border-radius:12px;background:#3f505b;padding:2px;box-sizing:border-box;flex:none}
+.voice-conversation__switch>span{display:block;width:11px;height:11px;border-radius:50%;background:#c1ccd3;transition:transform .18s ease}
+.voice-conversation__toggle[aria-checked="true"] .voice-conversation__switch{background:#367e71}
+.voice-conversation__toggle[aria-checked="true"] .voice-conversation__switch>span{transform:translateX(11px);background:#c7fff0}
+.voice-conversation .pantheon-voice__wave{color:#73c5b8;gap:3px;height:30px}
+.console-spoken-replies{display:inline-flex;align-items:center;gap:5px;min-height:28px;padding:4px 7px;border:1px solid #42545e;border-radius:4px;background:#0b1720;color:#b9c8d2;font:10px var(--font-ui,sans-serif);white-space:nowrap;cursor:pointer}
+.console-spoken-replies[aria-checked="true"]{border-color:#9a7741;color:#e1b878}
+.console-spoken-replies:focus-visible{outline:2px solid #e1b878;outline-offset:2px}
+@media(prefers-reduced-motion:reduce){.voice-conversation__toggle,.voice-conversation__switch>span{transition:none}}

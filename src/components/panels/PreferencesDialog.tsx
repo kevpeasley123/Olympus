@@ -1,3 +1,4 @@
+import "./PreferencesDialog.css";
 import { Power, X } from "lucide-react";
 import { useState } from "react";
 import { Modal } from "../Modal";
@@ -35,8 +36,9 @@ export function PreferencesDialog({ open, onClose, preferences, onPreferences, s
       placement="below-header" className="preferences-dialog" initialFocus='.preferences-section [aria-pressed="true"]:not(:disabled)'>
       <div className="panel-header compact preferences-dialog__header">
         <div>
-          <p className="eyebrow">Preferences</p>
+          <p className="eyebrow">Settings</p>
           <h2 id="preferences-title">Olympus Preferences</h2>
+          <p className="preferences-subtitle">Voice, replies, and connected services.</p>
         </div>
         <button className="ghost-icon-action" type="button" aria-label="Close preferences" title="Close preferences (Esc)" onClick={onClose}>
           <X size={18} aria-hidden="true" />
@@ -46,7 +48,7 @@ export function PreferencesDialog({ open, onClose, preferences, onPreferences, s
       <section className="preferences-section" aria-labelledby="preferences-replies">
         <h3 id="preferences-replies" className="preferences-section__title">Replies &amp; briefing</h3>
         <div className="voice-setting-row">
-          <span>Replies</span>
+          <span>Spoken replies</span>
           <ReplyModeToggle autoSpeak={preferences.autoSpeak} disabled={!settingsReady}
             onChange={autoSpeak => onPreferences({ autoSpeak })} />
         </div>
@@ -56,9 +58,7 @@ export function PreferencesDialog({ open, onClose, preferences, onPreferences, s
             onChange={event => onPreferences({ briefOnOpen: event.target.checked })} />
         </label>
         <p className="voice-settings-hint">
-          Voice speaks a short summary of each reply and keeps the written answer; typed messages never turn the
-          microphone on. Opening Briefing shows a short project briefing once when Olympus opens, and speaks it
-          when replies are set to Voice.
+          Read typed replies aloud without turning on the microphone. Opening Briefing adds a short summary when Olympus starts.
         </p>
       </section>
 

@@ -348,7 +348,7 @@ function ProjectDetail({ row, runs, tasks, sessionBoundary, onOpenNote }: {
     </section>
 
     <OrganizerPanel key={project.id} projectId={project.id} blocker={blocker} />
-    {project.path ? <DelegationPanel project={project} blocker={blocker} /> : null}
+    {project.path ? <details className="command-project-detail"><summary>Other coding runs</summary><DelegationPanel project={project} blocker={blocker} /></details> : null}
 
     <section className="command-project-detail">
       <h3>Project intent</h3>
