@@ -30,12 +30,12 @@ async function run(){
  check(document.querySelectorAll(".command-project-row").length===seedState.projects.length,"All projects summarized");
  check(!document.querySelector(".command-project-detail"),"No hidden reports mounted");
  check(text().includes("Browser preview · example project data"),"Demo data keeps its label");
- const monitoring=[...document.querySelectorAll<HTMLButtonElement>(".command-board-filters button")].find(b=>b.textContent?.startsWith("MONITORING"));
- if(monitoring){monitoring.click();await wait();check([...document.querySelectorAll(".command-operational-status")].every(n=>n.textContent==="MONITORING"),"Filter restricts rows");}
- click("ALL");await wait();
+ const filter=document.querySelector<HTMLSelectElement>('[aria-label="Filter projects by operational status"]')!;
+ if([...filter.options].some(option=>option.value==='MONITORING')){filter.value='MONITORING';filter.dispatchEvent(new Event('change',{bubbles:true}));await wait();check([...document.querySelectorAll('.command-operational-status')].every(n=>n.textContent==='MONITORING'),'Filter restricts rows');}
+ filter.value='ALL';filter.dispatchEvent(new Event('change',{bubbles:true}));await wait();
  check(![...document.querySelectorAll(".command-operational-status")].some(n=>n.textContent==="COMPLETE"),"Archived projects never read COMPLETE");
- const open=document.querySelector<HTMLButtonElement>(".command-project-row footer .ghost-action")!;
- check(open.textContent===`Open ${open.closest("article")?.getAttribute("aria-label")} →`,"Open has the project in its accessible name");
+ const open=document.querySelector<HTMLButtonElement>(".command-project-row .command-project-action")!;
+ check(open.textContent===`Continue project ${open.closest("article")?.getAttribute("aria-label")} ↗`,"Continue has the project in its accessible name");
  open.click();await wait();check(!!document.querySelector(".command-project-detail"),"Open mounts detail");
  click("All projects");await wait();check(!document.querySelector(".command-project-detail"),"Back restores overview");
  const input=document.querySelector<HTMLTextAreaElement>('[aria-label="Command to Olympus"]')!;

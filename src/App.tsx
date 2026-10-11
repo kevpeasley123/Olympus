@@ -294,11 +294,7 @@ function App() {
                     />
                   </ErrorBoundary>
                 </FadeInPanel>
-                <FadeInPanel index={7} className="panel-slot panel-slot-library">
-                  <ErrorBoundary label="Pantheon strip">
-                    <LibraryPanel onViewDatabase={syncResearchBase} projects={projects} />
-                  </ErrorBoundary>
-                </FadeInPanel>
+
               </>
             )}
           </section>

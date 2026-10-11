@@ -44,10 +44,12 @@ from real runtime Tools and Skills — not projects (decided 2026-09-29, Command
 Armory redesign). Projects, briefing prose and repository details belong in
 Project mode.
 
-Project mode opens the Project Command Board: compact operational status,
-operator checkpoints, next move and owner, and clearly labelled deterministic
-recommendations. Detailed vision, recent work, tasks and delegation controls belong
-behind Open Project. Unknown state stays explicit; recorded intent does not imply
+Project mode opens a purpose-first portfolio: distinct project cards with a name,
+recorded vision, Olympus recommendation and one action to continue or review work.
+Operational diagnostics and source tools sit behind disclosures; pending reviews
+remain visible. The project workspace leads with vision and Organizer tasks,
+with repository facts and vault navigation in background details.
+Unknown state stays explicit in details; recorded intent does not imply
 readiness, approval or execution. Review with Olympus supplies context to the existing
 Command Console and waits for the operator to send. See PROJECT-COMMAND-BOARD.md.
 

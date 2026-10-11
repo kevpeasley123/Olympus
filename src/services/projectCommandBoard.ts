@@ -38,7 +38,7 @@ export interface ProjectCommandState {
   blockers: string[] | null;
   operatorDecisions: OperatorDecision[];
   olympusRecommendation: string;
-  /** True when the advice is the same for every row in this state; rows omit it. */
+  /** True when the advice is the same for every row in this state. */
   recommendationGeneric: boolean;
   recommendationSource: "deterministic";
   /** Source-labelled observations. They never change the status above. */
