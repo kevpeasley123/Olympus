@@ -1,5 +1,7 @@
 import {useEffect,useRef,useState} from "react";
 import {nativeVoiceCommand} from "../../services/elevenSpeech";
+import {ElevenVoiceLab} from "./ElevenVoiceLab";
+import {VoiceUsage} from "./VoiceUsage";
 import {isTauriRuntime} from "../../services/launcher";
 import type {VoicePreferences} from "../../services/voicePreferences";
 
@@ -28,6 +30,8 @@ export function ElevenVoiceSettings({preferences,onChange,onPreview,onStop,busy}
       <button type="button" className="ghost-action" disabled={!native||!configured||working||changed} onClick={busy?onStop:onPreview}>{busy?"Stop preview":"Preview voice"}</button>
     </div>
     <p className="voice-settings-hint">English · Preview and spoken replies use ElevenLabs credits. Connection check generates no audio. Microphone transcription continues through OpenAI. No automatic voice substitution.</p>
+    <ElevenVoiceLab voiceId={preferences.elevenVoiceId} modelId={preferences.elevenModelId} enabled={native&&configured&&!working&&!changed&&!busy}/>
+    <VoiceUsage expanded/>
     <p className="voice-preview-status" role="status">{working?"Working…":status}</p>
   </div>;
 }

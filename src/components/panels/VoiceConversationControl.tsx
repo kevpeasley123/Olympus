@@ -1,3 +1,4 @@
+import {VoiceUsage} from './VoiceUsage';
 import {Mic,MicOff} from 'lucide-react';
 import type {VoiceSnapshot} from '../../services/realtimeVoice';
 import {voiceControlState} from '../../services/voiceControl';
@@ -12,5 +13,6 @@ export function VoiceConversationControl({voice,onToggle,ready=false}:{voice?:Vo
       <span className="voice-conversation__switch" aria-hidden="true"><span/></span>
     </button>
     <div className="pantheon-voice__wave" aria-hidden="true">{Array.from({length:23},(_,i)=><span key={i} style={{height:2+Math.min(1,Math.max(0,energy))*26*Math.pow(Math.sin((i+1)*Math.PI/24),.7)}}/>)}</div>
+    <VoiceUsage/>
   </div>;
 }

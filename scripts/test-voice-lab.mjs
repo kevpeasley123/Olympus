@@ -1,0 +1,16 @@
+import {build} from 'esbuild';
+import assert from 'node:assert/strict';
+await build({entryPoints:['src/services/voiceLab.ts'],bundle:true,platform:'node',format:'esm',outfile:'output/tests/voiceLab.mjs'});
+const {VoiceLab,validLabText}=await import('../output/tests/voiceLab.mjs');
+assert(validLabText('Olympus, tell me something useful.'));
+assert(!validLabText('one two three four five six'));
+assert(!validLabText('x'.repeat(201)));
+let requests=0,plays=0,cancels=0,resolve;
+const audio={play:async()=>{plays++;},pause(){},removeAttribute(){},load(){},onended:null,onerror:null,src:''};
+const lab=new VoiceLab({synthesize:()=>{requests++;return new Promise(r=>resolve=r);},cancel:async()=>{cancels++;},audio:()=>audio,url:()=> 'blob:fixture',revoke:()=>{}});
+const settings={voiceId:'voice',modelId:'eleven_v4',text:'Olympus, tell me something useful.'};
+const first=lab.generate(settings);await lab.generate(settings);assert.equal(requests,1,'No duplicate generation');
+resolve({audioBase64:'AA=='});await first;assert.equal(plays,1);lab.stop();await lab.replay();assert.equal(requests,1,'Replay never synthesizes');assert.equal(plays,2);
+lab.stop();const late=lab.generate(settings);lab.stop();resolve({audioBase64:'AA=='});await late;assert.equal(plays,2,'Cancelled late result never plays');assert(cancels>=1);
+lab.dispose();assert.equal(lab.getSnapshot().canReplay,false);
+console.log('PASS Voice Lab validation, deduplication, cached replay and cancellation');

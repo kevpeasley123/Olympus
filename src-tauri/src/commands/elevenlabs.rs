@@ -146,24 +146,37 @@ pub async fn elevenlabs_check(voice_id:String,model_id:String)->Result<Connectio
 #[derive(Serialize)]
 #[serde(rename_all="camelCase")]
 pub struct SpeechAudio { audio_base64:String }
+fn generation_credits(headers:&reqwest::header::HeaderMap)->Option<f64>{
+    headers.get("character-cost")?.to_str().ok()?.parse::<f64>().ok().filter(|v|v.is_finite()&&*v>=0.0)
+}
+fn validate_lab(text:&str)->Result<(),String>{if text.trim().is_empty()||text.split_whitespace().count()>5||text.chars().count()>200{Err("Voice Lab supports one to five words, up to 200 characters.".into())}else{Ok(())}}
 #[tauri::command]
 pub fn elevenlabs_cancel(request_id:String)->Result<(),String>{
     guard()?;if !identifier(&request_id){return Err("Invalid speech request ID.".into());}
     JOBS.lock().map_err(|_|"Speech cancellation is unavailable.".to_string())?.cancel(&request_id);Ok(())
 }
 #[tauri::command]
-pub async fn elevenlabs_synthesize(db:tauri::State<'_,Db>,request_id:String,voice_id:String,model_id:String,text:String,preview:bool)->Result<SpeechAudio,String>{
+pub async fn elevenlabs_synthesize(db:tauri::State<'_,Db>,request_id:String,voice_id:String,model_id:String,text:String,preview:bool,lab:Option<bool>)->Result<SpeechAudio,String>{
     guard()?;validate(&request_id,&voice_id,&model_id,&text)?;
+    if lab.unwrap_or(false){validate_lab(&text)?;}
     let cancelled=JOBS.lock().map_err(|_|"Speech is unavailable.".to_string())?.register(&request_id)?;
     let started=Instant::now();
     let mut record=models::RequestRecord::new(&models::resolve(models::Capability::Primary),if preview{"speech_preview"}else{"speech_output"});
     record.provider="elevenlabs".into();record.requested_model=model_id.clone();record.capability="TTS".into();record.reasoning_effort=None;
+    record.usage=Some(json!({"billing_status":"not_submitted","input_characters":text.chars().count()}));
     let result=async {
         models::save(&db,&record)?;
         let speech=async {
             let secret=key()?;let client=client()?;
             let (path,payload)=speech_request(&text,&model_id,&voice_id);
-            let response=request(&client,reqwest::Method::POST,&path,&secret)?.json(&payload).send().await.map_err(|_|"ElevenLabs connection failed or timed out. No automatic retry was made.".to_string())?;
+            let pending=request(&client,reqwest::Method::POST,&path,&secret)?.json(&payload);
+            record.usage=Some(json!({"billing_status":"unconfirmed","input_characters":text.chars().count()}));
+            models::save(&db,&record)?;
+            let response=pending.send().await.map_err(|_|"ElevenLabs connection failed or timed out. No automatic retry was made.".to_string())?;
+            if let Some(credits)=generation_credits(response.headers()){
+                record.usage=Some(json!({"billing_status":"confirmed","credits":credits,"input_characters":text.chars().count()}));
+                models::save(&db,&record)?;
+            }
             let data=body(response,MAX_AUDIO).await?;
             if data.is_empty(){return Err("ElevenLabs returned no audio.".into());}
             Ok(SpeechAudio{audio_base64:base64::engine::general_purpose::STANDARD.encode(data)})
@@ -252,4 +265,11 @@ mod tests {
             let error=result.unwrap_err();assert!(error.contains(expected));assert!(!error.contains("private-data"));worker.join().unwrap();
         }
     }
+}
+
+#[cfg(test)]
+mod lab_tests {
+    use super::*;
+    #[test] fn lab_bounds_are_enforced_before_network(){assert!(validate_lab("Olympus, tell me something useful.").is_ok());assert!(validate_lab("one two three four five six").is_err());assert!(validate_lab(&"x".repeat(201)).is_err());assert!(validate_lab(" ").is_err());}
+    #[test] fn only_valid_reported_credits_are_accepted(){let mut headers=reqwest::header::HeaderMap::new();assert_eq!(generation_credits(&headers),None);for invalid in ["NaN","-1","infinity","invalid"] {headers.insert("character-cost",invalid.parse().unwrap());assert_eq!(generation_credits(&headers),None);}headers.insert("character-cost","12.5".parse().unwrap());assert_eq!(generation_credits(&headers),Some(12.5));}
 }

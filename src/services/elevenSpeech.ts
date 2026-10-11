@@ -1,7 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { isTauriRuntime } from "./launcher";
 
-export interface ElevenRequest {requestId:string;voiceId:string;modelId:string;text:string;preview:boolean}
+export interface ElevenRequest {requestId:string;voiceId:string;modelId:string;text:string;preview:boolean;lab?:boolean}
 export interface ElevenAudio {audioBase64:string}
 export function nativeVoiceCommand<T>(command:string,args?:Record<string,unknown>):Promise<T>{
   if(!isTauriRuntime())return Promise.reject(Error("ElevenLabs connects in the Olympus desktop app. This browser preview cannot use your API key."));

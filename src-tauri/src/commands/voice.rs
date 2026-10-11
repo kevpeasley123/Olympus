@@ -313,7 +313,7 @@ pub struct ClientSecret { value: String, expires_at: u64 }
 async fn create_voice_session_inner(settings:Option<VoiceSettings>, preview:Option<bool>) -> Result<ClientSecret, String> {
     let settings=settings.unwrap_or_default(); settings.validate()?;
     let key = std::env::var("OPENAI_API_KEY").ok().filter(|v| !v.trim().is_empty())
-        .ok_or("Voice needs OPENAI_API_KEY in the Olympus project .env. Add it and restart Olympus. Text remains available.")?;
+        .ok_or(if preview.unwrap_or(false){"OpenAI speech needs OPENAI_API_KEY. ElevenLabs speech previews use the separately saved ElevenLabs key."}else{"Microphone transcription needs OPENAI_API_KEY in the Olympus project .env. ElevenLabs speech previews do not need this key. Add an OpenAI key and restart to use the microphone."})?;
     let client = reqwest::Client::builder().timeout(Duration::from_secs(20)).build().map_err(|_| "Could not initialize voice networking.")?;
     let response = client.post("https://api.openai.com/v1/realtime/client_secrets")
         .bearer_auth(key.trim()).json(&session_config(&settings,preview.unwrap_or(false))).send().await.map_err(|_| "Could not connect to OpenAI voice. Check your connection and try again.")?;
