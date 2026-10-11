@@ -1,8 +1,9 @@
+const base=process.argv[2]??"http://127.0.0.1:31420";
 import {chromium} from 'playwright';import assert from 'node:assert/strict';import {mkdir} from 'node:fs/promises';
 await mkdir('output/preferences-review',{recursive:true});const browser=await chromium.launch({channel:'msedge'});let checks=0;const check=(value,label)=>{assert(value,label);checks++;};
 try{const page=await browser.newPage();
 for(const [width,height] of [[1440,960],[1280,800]]){
- await page.setViewportSize({width,height});await page.goto('http://127.0.0.1:31420/');await page.getByRole('button',{name:'Command',exact:true}).click();
+ await page.setViewportSize({width,height});await page.goto(base+'/');await page.getByRole('button',{name:'Command',exact:true}).click();
  check(await page.getByRole('switch',{name:'Spoken replies',exact:true}).count()===0,'Composer pill removed');
  const opener=page.getByRole('button',{name:'Open preferences',exact:true});await opener.click();const dialog=page.getByRole('dialog',{name:'Olympus Preferences',exact:true});await dialog.waitFor();
  await page.getByLabel('Speech provider',{exact:true}).selectOption('elevenlabs');
