@@ -58,7 +58,7 @@ async function run(){
  check(document.querySelectorAll(".command-project-row").length===seedState.projects.length,"Stale: genuine rows kept");
  check(text().includes("Last successful scan 5 min ago")&&text().includes("Latest refresh failed: git timed out"),"Stale: banner names last success and reason");
  setFixture({scan:READY,projects:[],demo:false});await wait();
- check(text().includes("No projects found")&&text().includes("C:\\Projects")&&text().includes("01 - Projects")&&text().includes("projectsRootPath"),"Empty: says where it looked and where the setting lives");
+ check(text().includes("No projects on your dashboard yet")&&text().includes("Add a folder, repository, or idea")&&text().includes("C:\\Projects")&&text().includes("01 - Projects"),"Empty: offers add and restore with discovery sources behind details");
  setFixture({scan:{...READY,lastSuccessAt:new Date(Date.now()-40_000).toISOString()},projects:seedState.projects,demo:false});await wait();
  check(/Projects scanned just now/.test(text()),"Freshness line shows the scan time");
  document.getElementById("results")!.textContent=`PASS ${checks.length}: ${checks.join(" · ")}`;

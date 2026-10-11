@@ -18,9 +18,10 @@ pub struct LinkRequest {
 
 pub fn scan(app: &AppHandle, request: ProjectsRequest) -> Result<ProjectsResponse, String> {
     let db = app.state::<Db>();
-    let members = {
-        let c = db.0.lock().map_err(|e| e.to_string())?;
-        store::list(&c)?
+    let (members, recovery_warnings) = {
+        let mut c = db.0.lock().map_err(|e| e.to_string())?;
+        let warnings = super::project_intake::recover_briefs(&mut c)?;
+        (store::list(&c)?, warnings)
     };
     let revisions = members
         .iter()
@@ -32,6 +33,7 @@ pub fn scan(app: &AppHandle, request: ProjectsRequest) -> Result<ProjectsRespons
         projects: vec![],
         warnings: vec![e],
     });
+    response.warnings.extend(recovery_warnings);
     let db = app.state::<Db>();
     let mut c = db.0.lock().map_err(|e| e.to_string())?;
     let initialized: bool = c
@@ -77,7 +79,9 @@ pub fn scan(app: &AppHandle, request: ProjectsRequest) -> Result<ProjectsRespons
 }
 #[tauri::command]
 pub fn project_members(db: tauri::State<Db>) -> Result<Vec<store::Member>, String> {
-    store::list(&*db.0.lock().map_err(|e| e.to_string())?)
+    let mut c = db.0.lock().map_err(|e| e.to_string())?;
+    super::project_intake::recover_briefs(&mut c)?;
+    store::list(&c)
 }
 #[tauri::command]
 pub async fn link_project(app: AppHandle, request: LinkRequest) -> Result<store::Member, String> {

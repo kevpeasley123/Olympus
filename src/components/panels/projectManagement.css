@@ -1,0 +1,38 @@
+.project-add-dialog{width:min(600px,calc(100vw - 32px))}
+.project-brief-disclosure>summary{padding:14px 0;color:#bbc8d6;cursor:pointer;font-size:13px}.project-brief-disclosure{margin-bottom:12px}
+.project-entry button,.project-brief button,.project-membership-list button,.project-removal-feedback button,.project-row-options button{border:1px solid #354556;border-radius:5px;background:#15222f;color:#dce5ee;font:inherit;font-size:12px;line-height:1.4;padding:9px 13px;cursor:pointer}
+.project-entry button:hover,.project-brief button:hover,.project-membership-list button:hover,.project-row-options button:hover{border-color:#b08b51;background:#1d2b38}
+.project-entry button:disabled,.project-brief button:disabled,.project-row-options button:disabled{opacity:.5;cursor:default}
+.project-entry button:focus-visible,.project-brief button:focus-visible,.project-row-options summary:focus-visible{outline:2px solid #dfb76d;outline-offset:3px}
+.project-entry .command-project-action,.project-brief .command-project-action{background:#c4a46b;color:#0b121b;border-color:#c4a46b;font-weight:600;padding:11px 16px}
+.project-entry fieldset{border:0;margin:0;padding:0;min-width:0}
+.project-entry legend{font-size:12px;color:var(--text-muted,#a0adbb);margin-bottom:10px}
+.project-source-choices{display:flex;gap:8px;margin-bottom:22px}
+.project-source-choices button{flex:1;padding:12px 10px}
+.project-source-choices button[aria-pressed=true]{border-color:#c99a52;background:#c99a5218;color:#efc986}
+.project-entry label,.project-questions label{display:grid;gap:8px;font-size:13px;font-weight:600;margin-bottom:18px}
+.project-entry input,.project-questions textarea{width:100%;min-width:0;padding:11px 12px;border:1px solid #34404e;border-radius:5px;background:#0b131d;color:#e8edf3;font:inherit;font-weight:400;box-sizing:border-box}
+.project-questions textarea{resize:vertical;line-height:1.6;min-height:0}
+.project-questions{display:grid;grid-template-columns:1fr 1fr;gap:0 18px}.project-questions label:first-child{grid-column:1/-1}
+.project-input-row{display:flex;gap:8px;min-width:0}.project-input-row input{flex:1}
+.project-help{font-size:12px;color:#a2afbe;line-height:1.65;margin:8px 0 16px}
+.project-form-actions{display:flex;justify-content:flex-end;flex-wrap:wrap;gap:10px;margin-top:18px}
+.project-form-error{color:#edb2a3;line-height:1.6}
+.project-management-bar{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin:0 0 18px}
+.project-management-bar details{max-width:100%}.project-management-bar summary{font-size:12px;color:#a2afbe;cursor:pointer}
+.project-membership-list{padding:12px;display:grid;gap:10px;border:1px solid #34404e;margin-top:10px;max-height:230px;overflow:auto}
+.project-membership-list>div{display:flex;align-items:center;justify-content:space-between;gap:18px}
+.project-removal-feedback{padding:12px 16px;background:#14242d;border-left:2px solid #c99a52;margin-bottom:18px;font-size:13px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.project-brief{border:1px solid #34404e;background:#101b27;border-radius:8px;padding:24px;margin:0 0 22px}
+.project-brief-heading{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:10px}
+.project-brief h3{font-size:19px;margin:8px 0;color:#e8edf3}.project-brief .command-board-kicker{font-size:10px}
+.project-found{border-left:2px solid #b69861;padding:10px 16px;margin:14px 0 20px;background:#c4a46b08;font-size:13px;line-height:1.7}.project-found summary{cursor:pointer;color:#d6bb89}.project-found .project-help{overflow-wrap:anywhere}
+.project-evidence{border-top:1px solid #34404e;margin-top:22px;padding-top:18px}
+.project-evidence summary{cursor:pointer;font-size:13px;color:#c4cfda}
+.project-evidence pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:300px;overflow:auto;font-size:11px;line-height:1.6;background:#0b131d;padding:14px;border-radius:5px}
+.project-source-path{overflow-wrap:anywhere;font-size:12px;color:#b9c5d1}
+.project-assessment-action{margin-top:22px}.project-assessment-action .project-help{margin-bottom:0}
+.project-row-options{margin-left:auto;position:relative}.project-row-options summary{font-size:12px;cursor:pointer;color:#a2afbe;list-style:none;padding:8px}
+.project-row-options[open]{z-index:2}.project-row-options>div{position:absolute;right:0;top:32px;min-width:190px;padding:8px;background:#15212d;border:1px solid #46515e;box-shadow:0 8px 24px #0008;border-radius:6px}
+.project-row-options button{width:100%;text-align:left;padding:10px}.project-row-options p{font-size:11px;line-height:1.6;padding:0 8px;color:#a2afbe}
+@media(max-width:650px){.project-brief{padding:18px}.project-brief-heading{align-items:flex-start;flex-direction:column}.project-source-choices{flex-wrap:wrap}.project-questions{grid-template-columns:1fr}}

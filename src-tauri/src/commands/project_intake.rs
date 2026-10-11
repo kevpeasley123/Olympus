@@ -275,6 +275,130 @@ pub fn compose_brief(
     ));
     Ok(text)
 }
+#[derive(Clone)]
+struct PendingBrief {
+    id: String,
+    note: String,
+    before: Option<String>,
+    after: String,
+    purpose: String,
+    date: String,
+}
+fn pending_briefs(c: &rusqlite::Connection) -> Result<Vec<PendingBrief>, String> {
+    let mut q=c.prepare("SELECT project_id,note_path,before_text,after_text,purpose,reviewed_at FROM project_brief_writes").map_err(|e|e.to_string())?;
+    let rows = q
+        .query_map([], |r| {
+            Ok(PendingBrief {
+                id: r.get(0)?,
+                note: r.get(1)?,
+                before: r.get(2)?,
+                after: r.get(3)?,
+                purpose: r.get(4)?,
+                date: r.get(5)?,
+            })
+        })
+        .map_err(|e| e.to_string())?;
+    rows.collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())
+}
+fn stage_brief(
+    c: &rusqlite::Connection,
+    id: &str,
+    note: &str,
+    before: Option<&str>,
+    after: &str,
+    purpose: &str,
+    date: &str,
+) -> Result<(), String> {
+    if store::owner(c, &format!("note:{note}"))?.is_some_and(|owner| owner != id) {
+        return Err("This note belongs to a different project. Link the correct project before confirming a brief.".into());
+    }
+    c.execute("INSERT INTO project_brief_writes(project_id,note_path,before_text,after_text,purpose,reviewed_at) VALUES(?1,?2,?3,?4,?5,?6)",rusqlite::params![id,note,before,after,purpose,date]).map_err(|e|format!("Could not reserve the reviewed brief. Reload the project before retrying: {e}"))?;
+    Ok(())
+}
+fn bind_brief(
+    c: &mut rusqlite::Connection,
+    pending: &PendingBrief,
+    confirmed: bool,
+) -> Result<store::Member, String> {
+    let tx = c.transaction().map_err(|e| e.to_string())?;
+    let mut member = store::get(&tx, &pending.id)?;
+    if store::owner(&tx, &format!("note:{}", pending.note))?
+        .is_some_and(|owner| owner != pending.id)
+    {
+        return Err(
+            "The saved note is linked to another project; its recovery record was retained.".into(),
+        );
+    }
+    member.project.note_path = Some(pending.note.clone());
+    if confirmed {
+        member.project.vision = pending.purpose.clone();
+        member.project.vision_reviewed_at = Some(pending.date.clone());
+    }
+    tx.execute(
+        "UPDATE project_members SET payload=?2,revision=revision+1 WHERE id=?1",
+        rusqlite::params![
+            pending.id,
+            serde_json::to_string(&member.project).map_err(|e| e.to_string())?
+        ],
+    )
+    .map_err(|e| e.to_string())?;
+    tx.execute("INSERT OR IGNORE INTO project_links(source_key,project_id,kind,location) VALUES(?1,?2,'note',?3)",rusqlite::params![format!("note:{}",pending.note),pending.id,pending.note]).map_err(|e|e.to_string())?;
+    tx.execute(
+        "DELETE FROM project_brief_writes WHERE project_id=?1",
+        [&pending.id],
+    )
+    .map_err(|e| e.to_string())?;
+    member = store::get(&tx, &pending.id)?;
+    tx.commit().map_err(|e| e.to_string())?;
+    Ok(member)
+}
+fn publish_brief(
+    c: &mut rusqlite::Connection,
+    id: &str,
+    actual: &str,
+) -> Result<Option<store::Member>, String> {
+    let Some(pending) = pending_briefs(c)?.into_iter().find(|p| p.id == id) else {
+        return Ok(None);
+    };
+    if pending.after != actual {
+        return Err("The saved note changed. Its reviewed write was not republished.".into());
+    }
+    bind_brief(c, &pending, true).map(Some)
+}
+/// Finish a previously approved write only if its exact bytes reached disk.
+/// No recovery path writes a file or replays an approval.
+pub(crate) fn recover_briefs(c: &mut rusqlite::Connection) -> Result<Vec<String>, String> {
+    let mut warnings = vec![];
+    for pending in pending_briefs(c)? {
+        let target = super::vault_write::resolve_vault_path(Path::new(&pending.note))
+            .map_err(|e| e.to_string());
+        let actual = target.and_then(|p| super::vault_write::read_existing(&p));
+        match actual {
+            Ok(Some(ref text)) if text == &pending.after => {
+                publish_brief(c, &pending.id, text)?;
+                super::projects::clear_cache();
+            }
+            Ok(ref text) if text == &pending.before => {
+                c.execute(
+                    "DELETE FROM project_brief_writes WHERE project_id=?1",
+                    [&pending.id],
+                )
+                .map_err(|e| e.to_string())?;
+            }
+            Ok(Some(_)) => {
+                bind_brief(c, &pending, false)?;
+                warnings.push(format!("{} changed after its brief review. The project link was recovered; review the current note before confirming new intent.",pending.note));
+            }
+            Ok(None) => {
+                bind_brief(c, &pending, false)?;
+                warnings.push(format!("{} is missing. Its project link was retained; a new brief requires a fresh review.",pending.note));
+            }
+            Err(e) => warnings.push(format!("Brief recovery pending for {}: {e}", pending.note)),
+        }
+    }
+    Ok(warnings)
+}
 #[tauri::command]
 pub async fn confirm_project_brief(
     app: AppHandle,
@@ -284,7 +408,8 @@ pub async fn confirm_project_brief(
     use super::{vault_write as vw, write_confirm};
     let member = {
         let db = app.state::<Db>();
-        let c = db.0.lock().map_err(|e| e.to_string())?;
+        let mut c = db.0.lock().map_err(|e| e.to_string())?;
+        recover_briefs(&mut c)?;
         store::get(&c, &id)?
     };
     if member.revision != revision || member.visibility != "visible" {
@@ -331,23 +456,23 @@ pub async fn confirm_project_brief(
         return Err("Vault moved while the brief was being reviewed.".into());
     }
     let db = app.state::<Db>();
-    let c = db.0.lock().map_err(|e| e.to_string())?;
+    let mut c = db.0.lock().map_err(|e| e.to_string())?;
     let current = store::get(&c, &id)?;
     if current.revision != revision || current.visibility != "visible" {
         return Err("The project changed during review. Its brief was not written.".into());
     }
     validate_local_sources(&current)?;
+    stage_brief(
+        &c,
+        &id,
+        &relative,
+        before.as_deref(),
+        &after,
+        purpose,
+        &chrono::Utc::now().format("%Y-%m-%d").to_string(),
+    )?;
     vw::replace_if_unchanged(&target, before.as_deref(), &after)?;
-    let mut p = current.project;
-    p.vision = purpose.to_string();
-    p.note_path = Some(relative.clone());
-    p.vision_reviewed_at = Some(chrono::Utc::now().format("%Y-%m-%d").to_string());
-    c.execute(
-        "UPDATE project_members SET payload=?2,revision=revision+1 WHERE id=?1",
-        rusqlite::params![id, serde_json::to_string(&p).map_err(|e| e.to_string())?],
-    )
-    .map_err(|e| format!("The brief was saved in {relative}, but dashboard refresh failed: {e}"))?;
-    c.execute("INSERT OR IGNORE INTO project_links(source_key,project_id,kind,location) VALUES(?1,?2,'note',?3)",rusqlite::params![format!("note:{relative}"),id,relative]).map_err(|e|e.to_string())?;
+    publish_brief(&mut c,&id,&after).map_err(|e|format!("The brief was saved in {relative}. Its recovery record is retained; reload to finish updating the dashboard: {e}"))?;
     drop(c);
     super::projects::clear_cache();
     super::persistence::log_vault_write(db.inner(), &relative, "confirm_project_brief");
@@ -357,6 +482,53 @@ pub async fn confirm_project_brief(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn approved_brief_recovers_after_either_registry_statement_fails() {
+        for table in ["project_members", "project_links"] {
+            let mut c = rusqlite::Connection::open_in_memory().unwrap();
+            c.execute_batch(include_str!("../../schema.sql")).unwrap();
+            let m = store::add(&mut c, "idea", "", "Example", None).unwrap();
+            let id = &m.project.id;
+            let note = format!("01 - Projects/Linked {id}.md");
+            let after = compose_brief(None, "Example", id, "Confirmed purpose", "Limits").unwrap();
+            stage_brief(
+                &c,
+                id,
+                &note,
+                None,
+                &after,
+                "Confirmed purpose",
+                "2026-10-11",
+            )
+            .unwrap();
+            let event = if table == "project_members" {
+                "UPDATE"
+            } else {
+                "INSERT"
+            };
+            c.execute_batch(&format!("CREATE TRIGGER injected BEFORE {event} ON {table} BEGIN SELECT RAISE(FAIL,'injected failure'); END;")).unwrap();
+            assert!(publish_brief(&mut c, id, &after).is_err());
+            assert_eq!(
+                store::owner(&c, &format!("note:{note}"))
+                    .unwrap()
+                    .as_deref(),
+                Some(id.as_str()),
+                "Durable receipt keeps note identity after disk succeeds"
+            );
+            assert!(
+                store::get(&c, id).unwrap().project.note_path.is_none(),
+                "Registry publication rolls back as one transaction"
+            );
+            c.execute_batch("DROP TRIGGER injected;").unwrap();
+            let recovered = publish_brief(&mut c, id, &after).unwrap().unwrap();
+            assert_eq!(recovered.project.vision, "Confirmed purpose");
+            assert_eq!(recovered.project.note_path.as_deref(), Some(note.as_str()));
+            assert!(
+                publish_brief(&mut c, id, &after).unwrap().is_none(),
+                "Recovery is idempotent and never appends another brief"
+            );
+        }
+    }
     #[test]
     fn intake_reads_only_allowlisted_small_text() {
         let root = std::env::temp_dir().join(super::super::organizer_store::new_id());

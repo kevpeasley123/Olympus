@@ -63,7 +63,7 @@ async function startPreview() {
   const given = option("url")[0];
   if (given) { await waitFor(given + HARNESS); return { base: given.replace(/\/$/, ""), stop: () => {} }; }
   const port = await freePort();
-  const child = spawn(process.execPath, [join(ROOT, "node_modules", "vite", "bin", "vite.js"), "--host", "127.0.0.1", "--port", String(port), "--strictPort"], { cwd: ROOT, stdio: ["ignore", "pipe", "pipe"] });
+  const child = spawn(process.execPath, [join(ROOT, "node_modules", "vite", "bin", "vite.js"), "--host", "127.0.0.1", "--port", String(port), "--strictPort"], { cwd: ROOT, env:{...process.env,OLYMPUS_VISUAL_REVIEW:"1"}, stdio: ["ignore", "pipe", "pipe"] });
   let log = ""; child.stdout.on("data", d => { log += d; }); child.stderr.on("data", d => { log += d; });
   const base = `http://127.0.0.1:${port}`;
   try { await waitFor(base + HARNESS); } catch (error) { child.kill(); throw Error(`${error.message}\n${log}`); }

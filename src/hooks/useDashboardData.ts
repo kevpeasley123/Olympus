@@ -14,6 +14,7 @@ import type { VoiceDepth, VoiceAnswer, VoiceMessageMetadata } from "../services/
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { conversationStream } from "../services/conversationStream";
 import { fetchProjects } from "../services/liveData";
+import {applyProjectMember,subscribeProjectMembers} from "../services/projectMembership";
 import { isTauriRuntime } from "../services/launcher";
 import {
   syncProjectsCanvasToVault,
@@ -210,6 +211,12 @@ export function useDashboardData() {
   // Scans are not coalesced, so a slow scan of an old root can settle after a
   // newer one. Only the latest request may write.
   const projectScanSeq = useRef(0);
+  useEffect(()=>subscribeProjectMembers(member=>{
+    // The backend mutation succeeded. Publish it even if the following scan fails.
+    projectScanSeq.current++;
+    setDashboardState(current=>({...current,projects:applyProjectMember(current.projects,member)}));
+    setProjectScan(current=>({...current,scanning:false}));
+  }),[]);
   const refreshProjects = useCallback(async () => {
     if (DEMO_DATA) return;
     const request = ++projectScanSeq.current;

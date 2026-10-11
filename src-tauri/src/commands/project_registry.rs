@@ -176,14 +176,29 @@ pub fn get(c: &Connection, id: &str) -> Result<Member> {
         .find(|m| m.project.id == id)
         .ok_or("Project no longer available.".into())
 }
-fn owner(c: &Connection, key: &str) -> Result<Option<String>> {
-    c.query_row(
-        "SELECT project_id FROM project_links WHERE source_key=?1",
-        [key],
-        |r| r.get(0),
-    )
-    .optional()
-    .map_err(err)
+pub(crate) fn owner(c: &Connection, key: &str) -> Result<Option<String>> {
+    let found = c
+        .query_row(
+            "SELECT project_id FROM project_links WHERE source_key=?1",
+            [key],
+            |r| r.get(0),
+        )
+        .optional()
+        .map_err(err)?;
+    if found.is_some() {
+        return Ok(found);
+    }
+    if let Some(note) = key.strip_prefix("note:") {
+        return c
+            .query_row(
+                "SELECT project_id FROM project_brief_writes WHERE note_path=?1",
+                [note],
+                |r| r.get(0),
+            )
+            .optional()
+            .map_err(err);
+    }
+    Ok(None)
 }
 fn insert(c: &Connection, p: &Project, visibility: &str) -> Result<()> {
     c.execute(
@@ -214,15 +229,71 @@ pub fn reconcile_guarded(
             |r| r.get(0),
         )
         .map_err(err)?;
+    // Existing tracked checkouts may already own independent work. A shared Git
+    // directory cannot merge those legacy identities during portfolio migration.
+    if !initialized {
+        let mut common_paths: std::collections::HashMap<String, std::collections::HashSet<String>> =
+            std::collections::HashMap::new();
+        for p in &projects {
+            if !p.path.is_empty() {
+                let key = folder_key(&p.path);
+                if key.starts_with("git-common:") {
+                    common_paths
+                        .entry(key)
+                        .or_default()
+                        .insert(path_key(&p.path));
+                }
+            }
+        }
+        for (key, paths) in common_paths {
+            if paths.len() > 1 {
+                tx.execute(
+                    "INSERT OR IGNORE INTO project_identity_conflicts(source_key) VALUES(?1)",
+                    [key],
+                )
+                .map_err(err)?;
+            }
+        }
+    }
     for mut p in projects {
-        let aliases = keys(&p);
+        let mut aliases = vec![];
+        for alias in keys(&p) {
+            let conflict = tx
+                .query_row(
+                    "SELECT EXISTS(SELECT 1 FROM project_identity_conflicts WHERE source_key=?1)",
+                    [&alias.0],
+                    |r| r.get::<_, bool>(0),
+                )
+                .map_err(err)?;
+            if !conflict {
+                aliases.push(alias)
+            }
+        }
+        aliases.sort_by_key(|(key, _)| if key.starts_with("folder:") { 0 } else { 1 });
         let mut existing = None;
         for (key, link) in &aliases {
             if let Some(id) = owner(&tx, key)? {
-                let m = get(&tx, &id)?;
-                if link.kind != "note" || p.path.is_empty() || m.project.path.is_empty() {
+                if link.kind != "note" || p.path.is_empty() {
                     existing = Some(id);
                     break;
+                }
+            }
+        }
+        // A scanner's name-based note join is not evidence of project identity.
+        if !p.path.is_empty() {
+            if let Some(note) = p.note_path.clone() {
+                if let Some(id) = owner(&tx, &format!("note:{note}"))? {
+                    if existing.as_ref() != Some(&id) {
+                        p.note_path = None;
+                        p.vision.clear();
+                        p.vision_reviewed_at = None;
+                        p.next_step.clear();
+                        p.status = "unclassified".into();
+                        p.status_source = "inferred".into();
+                        p.promoted = None;
+                        p.warnings.push("A matching project note belongs to another project. Confirm a separate brief for this folder.".into());
+                        aliases.retain(|(_, link)| link.kind != "note");
+                    }
                 }
             }
         }
@@ -233,6 +304,12 @@ pub fn reconcile_guarded(
             }
             p.id = id;
             p.name = member.project.name.clone();
+            if !p.path.is_empty()
+                && !member.project.path.is_empty()
+                && path_key(&p.path) != path_key(&member.project.path)
+            {
+                p = member.project.clone();
+            }
             // A note-only observation updates intent without erasing its linked checkout.
             if p.path.is_empty() && !member.project.path.is_empty() {
                 let observed = p.clone();
@@ -292,7 +369,7 @@ pub fn add(
     name: &str,
     target: Option<&str>,
 ) -> Result<Member> {
-    let (key, source, default_name) = match kind {
+    let (mut key, source, default_name) = match kind {
         "folder" => {
             let p = std::fs::canonicalize(location.trim())
                 .map_err(|_| "Choose an existing local folder.".to_string())?;
@@ -335,6 +412,21 @@ pub fn add(
         return Err("Give the project a name (up to 160 bytes, on one line).".into());
     }
     let tx = c.transaction().map_err(err)?;
+    if kind == "folder"
+        && tx
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM project_identity_conflicts WHERE source_key=?1)",
+                [&key],
+                |r| r.get::<_, bool>(0),
+            )
+            .map_err(err)?
+    {
+        let exact = path_key(&source.as_ref().unwrap().location);
+        if target.is_none() && owner(&tx, &exact)?.is_none() {
+            return Err("This repository has multiple tracked projects. Open the intended project and choose Link another source.".into());
+        }
+        key = exact;
+    }
     let existing = owner(&tx, &key)?.or(if kind == "folder" {
         owner(&tx, &path_key(&source.as_ref().unwrap().location))?
     } else {
@@ -422,6 +514,79 @@ pub fn save_intake(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn identity_storage_failure_does_not_readopt_removed_projects() {
+        let mut c = db();
+        let m = add(&mut c, "idea", "", "Example", None).unwrap();
+        visibility(&mut c, &m.project.id, "removed").unwrap();
+        c.execute_batch("DROP TABLE project_identity_conflicts;")
+            .unwrap();
+        assert!(reconcile(&mut c, vec![m.project], true).is_err());
+        assert!(list(&c).unwrap().iter().all(|m| m.visibility == "removed"));
+    }
+    #[test]
+    fn migration_keeps_legacy_worktree_identities() {
+        let root = std::env::temp_dir().join(super::super::organizer_store::new_id());
+        let repo = root.join("repo");
+        let work = root.join("work");
+        std::fs::create_dir_all(&repo).unwrap();
+        super::super::projects::git_command(&repo, &["init"]).unwrap();
+        super::super::projects::git_command(
+            &repo,
+            &[
+                "-c",
+                "user.name=Test",
+                "-c",
+                "user.email=test@example.invalid",
+                "commit",
+                "--allow-empty",
+                "-m",
+                "fixture",
+            ],
+        )
+        .unwrap();
+        super::super::projects::git_command(
+            &repo,
+            &["worktree", "add", "-b", "linked", work.to_str().unwrap()],
+        )
+        .unwrap();
+        let mut a = blank("legacy-a", "A");
+        a.path = repo.to_string_lossy().into();
+        let mut b = blank("legacy-b", "B");
+        b.path = work.to_string_lossy().into();
+        let mut c = db();
+        let out = reconcile_guarded(
+            &mut c,
+            vec![a.clone(), b.clone()],
+            true,
+            Some(&std::collections::HashMap::new()),
+        )
+        .unwrap();
+        assert_eq!(out.len(), 2, "Both legacy IDs remain accessible");
+        assert!(out.iter().any(|p| p.id == "legacy-b"));
+        assert_eq!(reconcile(&mut c, vec![a, b], true).unwrap().len(), 2);
+        super::super::projects::git_command(
+            &repo,
+            &["worktree", "remove", "--force", work.to_str().unwrap()],
+        )
+        .unwrap();
+        std::fs::remove_dir_all(root).unwrap();
+    }
+    #[test]
+    fn name_matched_note_does_not_adopt_a_new_folder() {
+        let mut c = db();
+        let mut note = blank("legacy-note", "Same");
+        note.note_path = Some("01 - Projects/Same.md".into());
+        reconcile(&mut c, vec![note.clone()], true).unwrap();
+        let mut folder = note;
+        folder.id = "new-folder".into();
+        folder.path = "C:/unrelated-new-folder".into();
+        reconcile(&mut c, vec![folder], true).unwrap();
+        let members = list(&c).unwrap();
+        assert_eq!(members.len(), 2);
+        assert!(get(&c, "legacy-note").unwrap().project.path.is_empty());
+        assert!(get(&c, "new-folder").unwrap().project.note_path.is_none());
+    }
     fn db() -> Connection {
         let c = Connection::open_in_memory().unwrap();
         c.execute_batch(include_str!("../../schema.sql")).unwrap();

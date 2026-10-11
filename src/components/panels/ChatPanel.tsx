@@ -215,11 +215,11 @@ export function ChatPanel({ companion = false, onVoiceConversationToggle, messag
   }, []);
   useEffect(() => {
     const focusConsole = (event?: Event) => {
-      const detail = (event as CustomEvent<{label:string;context:string;prompt:string;heading?:string;kind?:string}> | undefined)?.detail;
+      const detail = (event as CustomEvent<{label:string;context:string;prompt:string;heading?:string;kind?:string;projectId?:string}> | undefined)?.detail;
       if (detail && typeof detail.context === "string" && typeof detail.label === "string") {
         // Communications attaches a thread reference under its own heading.
         const kind = detail.kind === "gmail-thread" ? "gmail-thread" : "project-snapshot";
-        setProjectContext({kind,label:detail.label,context:detail.context,heading:typeof detail.heading === "string" ? detail.heading : "Project board snapshot"});
+        setProjectContext({kind,label:detail.label,context:detail.context,heading:typeof detail.heading === "string" ? detail.heading : "Project board snapshot",projectId:typeof detail.projectId==="string"?detail.projectId:undefined});
         setDraft(current => current.trim() ? current : detail.prompt || "Review this project with me.");
         setMode("engaged");
       }
