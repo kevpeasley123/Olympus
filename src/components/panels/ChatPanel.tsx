@@ -51,6 +51,7 @@ function firstSentence(text: string): string {
 
 interface ChatPanelProps {
   companion?: boolean;
+  onVoiceConversationToggle?:()=>void;
   onOpenPreferences?:()=>void;
   autoSpeak?:boolean;
   onAutoSpeakChange?:(enabled:boolean)=>void;
@@ -87,14 +88,14 @@ interface ChatPanelProps {
 }
 function collapse(text: string): string { return text.split(/\s+/).filter(Boolean).join(" "); }
 
-export function ChatPanel({ companion = false, messages, onSendMessage, onRecordObservation, pending = false, progress = null, onStop, inspectionProjects = [], error = null,onOpenPreferences,autoSpeak=false,onAutoSpeakChange,voiceSettingsReady=true,briefing=null,
+export function ChatPanel({ companion = false, onVoiceConversationToggle, messages, onSendMessage, onRecordObservation, pending = false, progress = null, onStop, inspectionProjects = [], error = null,onOpenPreferences,autoSpeak=false,onAutoSpeakChange,voiceSettingsReady=true,briefing=null,
   activeMissions = [], selectedMissionId = null, onSelectMission, missionsError = null, missionsLoading = false,
   layout = "compact", onLayoutChange, mission = null, capabilities = null, suggestions = [], onOpenMission, onDismissMission }: ChatPanelProps) {
   const expanded = layout === "expanded";
   const conversationPanel = companion && expanded;
   const voice = useVoiceState();
   const microphoneActive=voice.microphoneOn&&(voice.active||voice.connecting);
-  const micLive=voice.microphoneOn&&voice.active;
+  const micLive=voice.microphoneOn&&voice.active&&voice.microphoneCapturing===true;
   const [briefingSeen, setBriefingSeen] = useState<string | null>(null);
   const [mode, setMode] = useState<ConsoleMode>("dormant");
   const [draft, setDraft] = useState("");
@@ -181,12 +182,14 @@ export function ChatPanel({ companion = false, messages, onSendMessage, onRecord
       if (SHORTCUTS.microphone.matches(event)) {
         if (isModalOpen()) return;
         event.preventDefault();
+        if(!voiceSettingsReady)return;
+        if(onVoiceConversationToggle){onVoiceConversationToggle();return;}
         const state=realtimeVoice.getSnapshot();
         if (state.microphoneOn&&(state.active||state.connecting)) realtimeVoice.stop(); else { voicePreview.stop(); realtimeVoice.stop(); void realtimeVoice.start(); }
       }
     };
     window.addEventListener("keydown",shortcut);return () => window.removeEventListener("keydown",shortcut);
-  }, []);
+  }, [onVoiceConversationToggle,voiceSettingsReady]);
   function submit() {
     if (!draft.trim() || pending || !voiceSettingsReady) return;
     waitingForReply.current = true;
@@ -424,7 +427,7 @@ export function ChatPanel({ companion = false, messages, onSendMessage, onRecord
         <div className="console-status-line"><span className="console-omega" aria-hidden="true">Ω</span>
           <span role="status" className="console-status" data-status={status.toLowerCase().replace(/\s+/g, "-")}>{status}</span>
           {micLive && <span className="console-mic-live" title="The microphone is capturing audio for OpenAI transcription. Stop voice to end.">MIC LIVE</span>}
-          {onAutoSpeakChange&&<ReplyModeToggle autoSpeak={autoSpeak} onChange={onAutoSpeakChange} disabled={!voiceSettingsReady}/>}
+          {onAutoSpeakChange&&<ReplyModeToggle compact={companion} autoSpeak={autoSpeak} onChange={onAutoSpeakChange} disabled={!voiceSettingsReady}/>}
           <ModelRouteControl disabled={pending}/>
           {onOpenPreferences&&<button type="button" className="ghost-icon-action" aria-label="Open preferences" title="Open preferences" onClick={onOpenPreferences}><Settings2 size={14}/></button>}
           {!expanded && <button type="button" className="ghost-icon-action" aria-label="Open conversation history" title="Conversation history" onClick={showHistory}><History size={14} /></button>}
@@ -453,7 +456,7 @@ export function ChatPanel({ companion = false, messages, onSendMessage, onRecord
           <textarea ref={inputRef} id="olympus-console-input" aria-label="Command to Olympus" rows={1} placeholder="Ask Olympus anything…" value={draft}
             onFocus={() => { if(conversationPanel)setConversationOpened(true); if (mode === "dormant") showLive(); }} onChange={event => setDraft(event.target.value)}
             onKeyDown={event => { if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); submit(); } }} />
-          <button type="button" className="voice-mic-button" aria-label={microphoneActive ? "Stop voice and microphone" : "Start voice conversation"} aria-pressed={microphoneActive} data-live={micLive || undefined} title={microphoneActive ? "Microphone live · Ctrl+Shift+M to stop" : "Microphone · Ctrl+Shift+M"} onClick={() => { if (microphoneActive) realtimeVoice.stop(); else { voicePreview.stop(); realtimeVoice.stop(); void realtimeVoice.start(); } }}>{microphoneActive ? <MicOff size={16}/> : <Mic size={16}/>}</button>
+          {!companion&&<button type="button" className="voice-mic-button" aria-label={microphoneActive ? "Stop voice and microphone" : "Start voice conversation"} aria-pressed={microphoneActive} data-live={micLive || undefined} title={microphoneActive ? "Microphone live · Ctrl+Shift+M to stop" : "Microphone · Ctrl+Shift+M"} onClick={() => { if (microphoneActive) realtimeVoice.stop(); else { voicePreview.stop(); realtimeVoice.stop(); void realtimeVoice.start(); } }}>{microphoneActive ? <MicOff size={16}/> : <Mic size={16}/>}</button>}
           <button type="button" className="send-button" aria-label="Send command" onClick={submit} disabled={!draft.trim() || pending || !voiceSettingsReady}><ChevronRight size={18} /></button>
         </div>
       </div>
