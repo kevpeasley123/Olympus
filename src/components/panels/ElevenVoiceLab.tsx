@@ -8,7 +8,7 @@ export function ElevenVoiceLab({voiceId,modelId,enabled}:{voiceId:string;modelId
   useEffect(()=>{lab.dispose();},[lab,voiceId,modelId,enabled]);
   const busy=state.phase==='generating'||state.phase==='playing';
   function silence(){voicePreview.stop();realtimeVoice.stop();}
-  return <details className="voice-lab eleven-lab" open>
+  return <details className="voice-lab eleven-lab">
     <summary>Voice Lab · short speech tests</summary>
     <p className="voice-settings-hint">ElevenLabs only · microphone off · no OpenAI key needed.</p>
     <label>Test script<textarea aria-label="Voice Lab test script" value={text} maxLength={200} rows={2} onChange={event=>{lab.dispose();setText(event.target.value);}}/></label>

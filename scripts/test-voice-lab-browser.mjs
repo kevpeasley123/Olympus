@@ -19,6 +19,7 @@ try{
   }};
  });
  await page.goto('http://127.0.0.1:31420/voice-lab-harness.html');
+ await page.getByText('Voice Lab · short speech tests',{exact:true}).click();
  const generate=page.getByRole('button',{name:'Generate',exact:true});await generate.waitFor();
  await generate.click();assert.equal(await page.evaluate(()=>window.labRequests.length),1);
  assert.equal(await page.evaluate(()=>window.labRequests[0].lab),true);
@@ -26,6 +27,7 @@ try{
  await page.getByRole('button',{name:'Stop',exact:true}).click();
  await page.getByLabel('Voice Lab test script').fill('one two three four five six');assert(await generate.isDisabled());assert(await page.getByRole('button',{name:'Replay',exact:true}).isDisabled());
  await page.getByLabel('Voice Lab test script').fill('Olympus, tell me something useful.');
+ await page.getByText('Voice session · 42 credits + unconfirmed',{exact:true}).click();
  await page.getByLabel('USD per 1000 voice credits').fill('1');assert(await page.getByText('Estimated ElevenLabs value:',{exact:false}).innerText().then(s=>s.includes('$0.0420')));
  assert(await page.getByText('Voice session · 42 credits + unconfirmed',{exact:true}).isVisible());
  await page.screenshot({path:'output/voice-lab-review/lab.png',fullPage:true});

@@ -1,0 +1,40 @@
+/* Preferences is a single aligned settings surface, not a stack of mini panels. */
+.modal-dialog.preferences-dialog{width:min(580px,calc(100vw - 32px));padding:0 28px 24px;background:#09131d;border:1px solid #34434f;border-radius:12px;scrollbar-width:thin;scrollbar-color:#425565 transparent}
+.modal-dialog.preferences-dialog .preferences-dialog__header{position:sticky;top:0;z-index:3;margin:0 -28px 4px;padding:24px 28px 20px;background:#09131d;border-bottom:1px solid #283945;align-items:center}
+.modal-dialog.preferences-dialog .preferences-dialog__header h2{font:500 20px/1.3 var(--font-ui,sans-serif);letter-spacing:-.3px;color:#edf1f4;margin:5px 0}
+.modal-dialog.preferences-dialog .preferences-dialog__header .eyebrow{font-size:10px;letter-spacing:.16em;color:#c9aa70;margin:0}
+.modal-dialog.preferences-dialog .preferences-subtitle{font-size:12px;line-height:1.5;color:#95a9b9;margin:0}
+.modal-dialog.preferences-dialog .preferences-section{padding:22px 0;border-bottom:1px solid #263742}
+.modal-dialog.preferences-dialog .preferences-section__title,.modal-dialog.preferences-dialog .voice-settings legend{font:500 10px/1.5 var(--font-ui,sans-serif);letter-spacing:.13em;text-transform:uppercase;color:#d2b47e;margin:0 0 12px;padding:0}
+.modal-dialog.preferences-dialog .voice-setting-row{display:grid;grid-template-columns:145px minmax(0,1fr);gap:20px;align-items:center;min-height:50px;padding:9px 0;border-bottom:0;color:#cbd5de;font:12px/1.5 var(--font-ui,sans-serif)}
+.modal-dialog.preferences-dialog .voice-setting-row select,.modal-dialog.preferences-dialog .voice-setting-row input:not([type="checkbox"]){width:100%;max-width:none;min-width:0;height:38px;padding:8px 11px;box-sizing:border-box;background:#10212d;border:1px solid #344d5b;border-radius:6px;color:#e1e8ef;font:12px/1.4 var(--font-ui,sans-serif)}
+.modal-dialog.preferences-dialog .voice-setting-row input[type="checkbox"]{justify-self:end;width:17px;height:17px;margin:0;accent-color:#d4ae68}
+.modal-dialog.preferences-dialog .voice-setting-row .console-reply-mode{justify-self:end}
+.modal-dialog.preferences-dialog .voice-settings-hint{font:11px/1.65 var(--font-ui,sans-serif);color:#94aabb;margin:10px 0 0;max-width:62ch}
+.modal-dialog.preferences-dialog .eleven-voice-settings{padding:0;margin:10px 0 20px;border:0;border-radius:0;background:none}
+.modal-dialog.preferences-dialog .eleven-voice-settings>.voice-settings-hint:first-child{padding:10px 12px;border:1px solid #29463f;border-radius:6px;background:#0b201f;color:#a8cbbf;margin-bottom:12px}
+.modal-dialog.preferences-dialog .ghost-action{min-height:34px;padding:7px 12px;border-radius:6px;font:500 11px/1.4 var(--font-ui,sans-serif)}
+.modal-dialog.preferences-dialog .ghost-icon-action{width:32px;height:32px;flex:none;border-radius:7px}
+.modal-dialog.preferences-dialog .eleven-voice-actions{gap:8px;margin:12px 0}
+.modal-dialog.preferences-dialog .voice-connection,.modal-dialog.preferences-dialog .eleven-lab,.modal-dialog.preferences-dialog .eleven-voice-settings>.voice-usage{border:1px solid #2a414f;border-radius:8px;background:#0c1b25;margin:12px 0;padding:0;overflow:hidden}
+.modal-dialog.preferences-dialog .voice-connection>summary,.modal-dialog.preferences-dialog .eleven-lab>summary,.modal-dialog.preferences-dialog .eleven-voice-settings>.voice-usage>summary{padding:13px 14px;margin:0;color:#d3dfe8;font:500 12px/1.4 var(--font-ui,sans-serif);cursor:pointer;list-style:revert;text-align:left}
+.modal-dialog.preferences-dialog .voice-connection[open],.modal-dialog.preferences-dialog .eleven-lab[open],.modal-dialog.preferences-dialog .eleven-voice-settings>.voice-usage[open]{padding:0 14px 14px}
+.modal-dialog.preferences-dialog .voice-connection[open]>summary,.modal-dialog.preferences-dialog .eleven-lab[open]>summary,.modal-dialog.preferences-dialog .eleven-voice-settings>.voice-usage[open]>summary{margin:0 -14px 10px;border-bottom:1px solid #263c49}
+.modal-dialog.preferences-dialog .eleven-lab textarea{min-height:76px;margin:8px 0;font:12px/1.6 var(--font-ui,sans-serif);border-color:#806c46;background:#0a1822}
+.modal-dialog.preferences-dialog .eleven-lab .eleven-voice-actions button:first-child{border-color:#8e7548;color:#ead1a0;background:#29251b}
+.modal-dialog.preferences-dialog .voice-preview-status:empty{display:none}
+.modal-dialog.preferences-dialog .voice-preview-status{font:11px/1.5 var(--font-ui,sans-serif);margin:12px 0 0;color:#d5b577}
+.modal-dialog.preferences-dialog .voice-usage__details{border:0;background:none;padding:0;border-radius:0;font:11px/1.6 var(--font-ui,sans-serif);max-height:none}
+.modal-dialog.preferences-dialog .voice-usage__details>strong{display:none}
+.modal-dialog.preferences-dialog .voice-usage__details label{display:block;padding-top:12px;margin-top:12px;border-top:1px solid #2a3e4a;color:#cbd8e1}
+.modal-dialog.preferences-dialog .voice-usage__details input{height:38px;margin-top:8px;font:12px var(--font-ui,sans-serif)}
+.modal-dialog.preferences-dialog .preferences-restart{padding-bottom:0}
+@media(max-width:600px){.modal-dialog.preferences-dialog{padding:0 18px 18px}.modal-dialog.preferences-dialog .preferences-dialog__header{margin:0 -18px 4px;padding:20px 18px}.modal-dialog.preferences-dialog .voice-setting-row{grid-template-columns:115px minmax(0,1fr);gap:12px}}
+@media(max-width:390px){.modal-dialog.preferences-dialog .voice-setting-row{grid-template-columns:minmax(0,1fr);gap:6px}.modal-dialog.preferences-dialog .voice-setting-row:has(input[type="checkbox"]){grid-template-columns:1fr auto}}
+
+.modal-dialog.preferences-dialog .eleven-voice-settings>.voice-settings-hint:first-child{max-width:none}
+
+.modal-dialog.preferences-dialog{backdrop-filter:none;isolation:isolate}
+.modal-dialog.preferences-dialog .preferences-dialog__header{transform:translateZ(0)}
+
+.modal-dialog.preferences-dialog .eleven-voice-settings>.voice-settings-hint:first-child:not([data-connected="true"]){border-color:#344552;background:#0e1b25;color:#a7bac9}

@@ -16,12 +16,14 @@ export function ElevenVoiceSettings({preferences,onChange,onPreview,onStop,busy}
   const valid=/^[\w-]{1,128}$/.test(voice)&&/^[\w-]{1,128}$/.test(model);
   const changed=voice!==preferences.elevenVoiceId||model!==preferences.elevenModelId;
   return <div className="eleven-voice-settings">
-    <p className="voice-settings-hint">{native?(configured?"API key saved in Windows Credential Manager.":"Connect your ElevenLabs API key to use this voice."):"Connect ElevenLabs in the native Olympus desktop app. This browser is a visual preview."}</p>
+    <p className="voice-settings-hint" data-connected={native&&configured}>{native?(configured?"API key saved securely on this device.":"Connect your ElevenLabs API key to use this voice."):"Connect ElevenLabs in the native Olympus desktop app. This browser is a visual preview."}</p>
+    <details className="voice-connection"><summary>Manage API connection</summary>
     <div className="eleven-voice-actions">
       <button type="button" className="ghost-action" disabled={!native||working} onClick={()=>void run(async()=>{const saved=await nativeVoiceCommand<boolean>("elevenlabs_connect");if(saved){setConfigured(true);setStatus("Key saved. Check connection before previewing.");}else setStatus("Key entry cancelled.");})}>{configured?"Replace API key":"Connect API key"}</button>
       {configured&&<button type="button" className="ghost-action" disabled={working} onClick={()=>void run(async()=>{await nativeVoiceCommand("elevenlabs_disconnect");setConfigured(false);setStatus("API key removed from this computer.");})}>Remove key</button>}
     </div>
-    <p className="voice-settings-hint">The Windows dialog asks for a password: paste your API key there. Leave the user name unchanged.</p>
+    <p className="voice-settings-hint">Paste the key into the Windows password field. Leave the user name unchanged.</p>
+    </details>
     <label className="voice-setting-row">Voice ID<input aria-label="ElevenLabs voice ID" value={voice} maxLength={128} spellCheck={false} onChange={e=>setVoice(e.target.value)}/></label>
     <label className="voice-setting-row">Speech model<input aria-label="ElevenLabs speech model" value={model} maxLength={128} spellCheck={false} onChange={e=>setModel(e.target.value)}/></label>
     <div className="eleven-voice-actions">
@@ -29,9 +31,9 @@ export function ElevenVoiceSettings({preferences,onChange,onPreview,onStop,busy}
       <button type="button" className="ghost-action" disabled={!native||!configured||working||changed} onClick={()=>void run(async()=>{const result=await nativeVoiceCommand<{voiceName:string;modelName:string}>("elevenlabs_check",{voiceId:preferences.elevenVoiceId,modelId:preferences.elevenModelId});setStatus(`Available: ${result.voiceName} · ${result.modelName}. No speech generated.`);})}>Check connection</button>
       <button type="button" className="ghost-action" disabled={!native||!configured||working||changed} onClick={busy?onStop:onPreview}>{busy?"Stop preview":"Preview voice"}</button>
     </div>
-    <p className="voice-settings-hint">English · Preview and spoken replies use ElevenLabs credits. Connection check generates no audio. Microphone transcription continues through OpenAI. No automatic voice substitution.</p>
+    <p className="voice-settings-hint">Speech uses ElevenLabs credits. The microphone uses OpenAI. Check connection generates no audio.</p>
     <ElevenVoiceLab voiceId={preferences.elevenVoiceId} modelId={preferences.elevenModelId} enabled={native&&configured&&!working&&!changed&&!busy}/>
-    <VoiceUsage expanded/>
+    <VoiceUsage/>
     <p className="voice-preview-status" role="status">{working?"Working…":status}</p>
   </div>;
 }
