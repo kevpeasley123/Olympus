@@ -1,3 +1,4 @@
+const base=process.argv[2]??"http://127.0.0.1:31420";
 import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
 import {mkdir} from 'node:fs/promises';
@@ -18,7 +19,7 @@ try{
    throw Error('Unexpected native call '+command);
   }};
  });
- await page.goto('http://127.0.0.1:31420/voice-lab-harness.html');
+ await page.goto(base+'/voice-lab-harness.html');
  await page.getByText('Voice Lab · short speech tests',{exact:true}).click();
  const generate=page.getByRole('button',{name:'Generate',exact:true});await generate.waitFor();
  await generate.click();assert.equal(await page.evaluate(()=>window.labRequests.length),1);

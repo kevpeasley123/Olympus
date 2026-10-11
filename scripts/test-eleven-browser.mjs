@@ -14,7 +14,9 @@ try{
   check(await dialog.getByLabel('ElevenLabs voice ID').inputValue()==='NOpBlnGInO9m6vDvFkFC','Chosen voice visible');
   check(await dialog.getByLabel('ElevenLabs speech model').inputValue()==='eleven_v4','Explicit model visible');
   check((await dialog.getByLabel('ElevenLabs voice ID').boundingBox()).width>=240,'Voice ID field has room to read the full ID');
+  await dialog.getByText('Manage API connection',{exact:true}).click();
   check(await dialog.getByRole('button',{name:'Connect API key',exact:true}).isDisabled(),'Browser cannot access credentials');
+  await dialog.getByText('Manage API connection',{exact:true}).click();
   check(await dialog.getByRole('button',{name:'Preview voice',exact:true}).isDisabled(),'Browser cannot spend speech credits');
   await dialog.getByLabel('ElevenLabs voice ID').fill('ChangedVoice123');await dialog.getByRole('button',{name:'Save voice settings'}).click();
   await page.reload();await page.getByRole('button',{name:'Open preferences',exact:true}).click();

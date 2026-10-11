@@ -559,11 +559,28 @@ mod tests {
                     Err(e) => panic!("mock server connection: {e}"),
                 }
             };
+            // Windows accepted sockets inherit the listener's nonblocking mode.
+            socket.set_nonblocking(false).unwrap();
             socket
                 .set_read_timeout(Some(std::time::Duration::from_secs(5)))
                 .unwrap();
             let mut buffer = [0; 8192];
-            let _ = socket.read(&mut buffer);
+            // Headers and body can arrive separately. Closing with unread
+            // request bytes can reset the socket before the client sees 401.
+            let mut request = Vec::new();
+            loop {
+                let received = socket.read(&mut buffer).unwrap();
+                assert!(received > 0, "mock request ended before its body");
+                request.extend_from_slice(&buffer[..received]);
+                if let Some(end) = request.windows(4).position(|bytes| bytes == b"\r\n\r\n") {
+                    let headers = std::str::from_utf8(&request[..end]).unwrap();
+                    let length: usize = headers.lines().find_map(|line| {
+                        line.to_ascii_lowercase().strip_prefix("content-length:")
+                            .map(|value| value.trim().parse().unwrap())
+                    }).expect("mock request has content length");
+                    if request.len() >= end + 4 + length { break; }
+                }
+            }
             let body = r#"{"error":{"code":"invalid_api_key"}}"#;
             write!(socket,"HTTP/1.1 401 Unauthorized\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",body.len(),body).unwrap();
         });
@@ -583,7 +600,8 @@ mod tests {
             Some("fixture-not-a-key"),
         ));
         server.join().unwrap();
-        assert!(result.err().unwrap().contains("HTTP 401"));
+        let error = result.err().unwrap();
+        assert!(error.contains("HTTP 401"), "unexpected fixture error: {error}");
         assert_eq!(record.status, "failed");
         assert_eq!(record.error_code.as_deref(), Some("http_401"));
         assert!(record.fallback_from.is_none());
