@@ -110,6 +110,8 @@ export interface ConversationMessage {
 export type TurnScope = "gmail-workspace";
 
 export interface TurnAttachment {
+  /** Assessment context is limited to this stable project identity. */
+  projectId?: string;
   kind: "gmail-thread" | "project-snapshot";
   /** Operator-facing name: "Gmail thread · <subject>", or the project. */
   label: string;

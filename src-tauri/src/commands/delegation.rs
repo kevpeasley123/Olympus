@@ -153,6 +153,19 @@ fn configured_projects_root(db: &Db) -> Result<PathBuf, String> {
 }
 
 fn resolve_project(db: &Db, requested_id: &str) -> Result<(String, PathBuf), String> {
+    {
+        let connection=db.0.lock().map_err(|e|e.to_string())?;
+        if let Ok(member)=super::project_registry::get(&connection,requested_id) {
+            if member.visibility!="visible" {return Err("Restore this project before preparing work.".into())}
+            if member.project.path.is_empty(){return Err("Link a local Git folder before preparing coding work.".into())}
+            let path=PathBuf::from(&member.project.path).canonicalize().map_err(|_|"The linked project folder is unavailable.".to_string())?;
+            drop(connection);
+            git(&path,&["rev-parse","--is-inside-work-tree"]).map_err(|_|"The linked folder is not a Git repository.".to_string())?;
+            return Ok((member.project.name,path))
+        }
+        let initialized:bool=connection.query_row("SELECT initialized FROM project_membership_state WHERE id=1",[],|r|r.get(0)).map_err(|e|e.to_string())?;
+        if initialized{return Err("Add this project to the dashboard before preparing work.".into())}
+    }
     let root = configured_projects_root(db)?;
 
     for entry in fs::read_dir(&root).map_err(|error| error.to_string())? {

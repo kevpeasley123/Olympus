@@ -11,6 +11,9 @@ export default defineConfig({
   plugins: [react()],
   clearScreen: false,
   server: {
+    // Capture runs do not edit sources. Avoid unrelated HMR socket failures
+    // during repeated browser contexts on busy Windows development machines.
+    hmr: process.env.OLYMPUS_VISUAL_REVIEW === "1" ? false : undefined,
     port: 31420,
     strictPort: true,
     fs: {

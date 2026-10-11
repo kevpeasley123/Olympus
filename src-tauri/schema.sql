@@ -344,3 +344,19 @@ CREATE TABLE IF NOT EXISTS resource_skills (
  id TEXT PRIMARY KEY, name TEXT NOT NULL COLLATE NOCASE UNIQUE,
  instructions TEXT NOT NULL, created_at TEXT NOT NULL
 );
+
+-- Dashboard membership is independent of source files and project work history.
+CREATE TABLE IF NOT EXISTS project_members (
+ id TEXT PRIMARY KEY, visibility TEXT NOT NULL CHECK(visibility IN ('visible','removed','discovered')),
+ payload TEXT NOT NULL, revision INTEGER NOT NULL DEFAULT 0, intake TEXT NOT NULL DEFAULT '{}'
+);
+CREATE TABLE IF NOT EXISTS project_links (
+ source_key TEXT PRIMARY KEY, project_id TEXT NOT NULL REFERENCES project_members(id), kind TEXT NOT NULL, location TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS project_membership_state (id INTEGER PRIMARY KEY CHECK(id=1), initialized INTEGER NOT NULL DEFAULT 0);
+INSERT OR IGNORE INTO project_membership_state(id,initialized) VALUES(1,0);
+CREATE TABLE IF NOT EXISTS project_identity_conflicts (source_key TEXT PRIMARY KEY);
+CREATE TABLE IF NOT EXISTS project_brief_writes (
+ project_id TEXT PRIMARY KEY REFERENCES project_members(id), note_path TEXT NOT NULL UNIQUE,
+ before_text TEXT, after_text TEXT NOT NULL, purpose TEXT NOT NULL, reviewed_at TEXT NOT NULL
+);

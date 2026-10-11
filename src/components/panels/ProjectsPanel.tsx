@@ -20,6 +20,8 @@ import { readViewSlice, writeViewSlice } from "../../state/viewState";
 import { DelegationPanel } from "./DelegationPanel";
 import { OrganizerPanel } from "./organizer/OrganizerPanel";
 import "./projects.css";
+import {ProjectAddDialog, ProjectBrief} from "./ProjectManagement";
+import {projectMembership, publishProjectMember, type ProjectMember} from "../../services/projectMembership";
 
 interface ProjectsPanelProps {
   requestedStatus?: {status:OperationalStatus|"ALL";revision:number};
@@ -91,7 +93,7 @@ function age(value: string | null, now: Date): string {
 
 export function ProjectsPanel({
   requestedStatus,
-  projects: allProjects,
+  projects: scannedProjects,
   sessionBoundary,
   onSyncCanvas,
   noteWarnings = [],
@@ -105,6 +107,25 @@ export function ProjectsPanel({
   demoData = !isTauriRuntime(),
   projectsRootPath
 }: ProjectsPanelProps) {
+  const native=isTauriRuntime();
+  const [members,setMembers]=useState<ProjectMember[]|null>(null);
+  const [addTarget,setAddTarget]=useState<ProjectMember|null|undefined>(undefined);
+  const [membershipError,setMembershipError]=useState("");
+  const [membershipBusy,setMembershipBusy]=useState("");
+  const [removed,setRemoved]=useState<ProjectMember|null>(null);
+  const membershipLock=useRef(false),membershipVersion=useRef(0);
+  const reloadMembers=useCallback(async()=>{if(!native)return;const version=++membershipVersion.current;try{const m=await projectMembership.list();if(version===membershipVersion.current){setMembers(m);setMembershipError("")}}catch(e){if(version===membershipVersion.current){setMembers(null);setMembershipError(String(e))}}},[native]);
+  useEffect(()=>{void reloadMembers();return()=>{membershipVersion.current++}},[reloadMembers,scannedProjects]);
+  const updateMember=useCallback((m:ProjectMember)=>{membershipVersion.current++;setMembers(current=>[...(current??[]).filter(p=>p.project.id!==m.project.id),m]);publishProjectMember(m);void Promise.resolve().then(()=>onRescan?.()).catch(e=>setMembershipError(String(e)))},[onRescan]);
+  const allProjects=useMemo(()=>native?(members??[]).filter(m=>m.visibility==="visible").map(m=>scannedProjects.find(p=>p.id===m.project.id)??m.project):scannedProjects,[native,members,scannedProjects]);
+  async function changeVisibility(member:ProjectMember,visibility:"visible"|"removed"){
+    if(membershipLock.current)return;membershipLock.current=true;setMembershipBusy(member.project.id);setMembershipError("");
+    try{const updated=await projectMembership.visibility(member.project.id,visibility);updateMember(updated);setRemoved(visibility==="removed"?updated:null);if(projectFilter===member.project.id&&visibility==="removed")onClearFilter?.()}
+    catch(e){setMembershipError(String(e))}finally{membershipLock.current=false;setMembershipBusy("")}
+  }
+  function linked(member:ProjectMember){setAddTarget(undefined);updateMember(member);onFocusProject(member.project.id);setMembershipError("");setMembershipBusy(member.project.id);
+    void projectMembership.inspect(member.project.id).then(updateMember).catch(e=>setMembershipError(`Project saved. ${String(e)}`)).finally(()=>setMembershipBusy(""));
+  }
   const [status, setStatus] = useState<ObsidianActionResult | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [filter, setFilter] = useState<OperationalStatus | "ALL">("ALL");
@@ -124,7 +145,7 @@ export function ProjectsPanel({
   const visible = sortCommandProjects(rows.filter(row => filter === "ALL" || row.operationalStatus === filter), sort);
   const { perProject, unattributed } = attributeTasks(allProjects, tasks);
   const warnings = [...noteWarnings, ...allProjects.flatMap(project => project.warnings)];
-  const scanLoading = !demoData && projectScan.status === "loading";
+  const scanLoading = !demoData && (projectScan.status === "loading" || (native&&members===null&&!membershipError));
 
   // Board and detail scroll survive a mode switch (review U3). Tracked in a ref
   // and written on the way out: writing the slice on every scroll event would
@@ -171,13 +192,19 @@ export function ProjectsPanel({
   return <section className={`dashboard-panel projects-panel project-command ${focusMode ? "focus-projects" : ""}`}>
     <header className="command-board-heading">
       <div><span className="command-board-kicker">OLYMPUS / PORTFOLIO</span><h2>{selected ? selected.project.name : "Projects"}</h2></div>
-      {projectFilter ? <button className="ghost-action" onClick={backToBoard}>← All projects</button> : scanLoading || projectScan.status === "failed" ? null : <span>{plural(rows.length, "project", "projects")}</span>}
+      {projectFilter ? <button className="ghost-action" onClick={backToBoard}>← All projects</button> : <button className="command-project-action" disabled={!native} title={native?undefined:"Add projects in the desktop app"} onClick={()=>setAddTarget(null)}>+ Add project</button>}
     </header>
     <div className="command-board-scroll" ref={scrollRef} onScroll={event => { scrollTop.current = event.currentTarget.scrollTop; }}>
       <div className="command-board-inner">
+        {addTarget!==undefined&&<ProjectAddDialog target={addTarget} onClose={()=>setAddTarget(undefined)} onLinked={linked}/>}
+        {membershipError&&<div role="alert" className="project-form-error"><p>{membershipError}</p><button className="ghost-action" onClick={()=>void reloadMembers()}>Reload projects</button></div>}
+        {membershipBusy&&<p role="status" className="project-help">Updating project…</p>}
+        {removed&&<div role="status" className="project-removal-feedback"><span>{removed.project.name} removed from the dashboard. Files and history are kept.</span><button disabled={!!membershipBusy} onClick={()=>void changeVisibility(removed,"visible")}>Undo</button></div>}
+        {!projectFilter&&<div className="project-management-bar"><span className="project-help">{plural(rows.length,"project","projects")}</span>{members&&members.some(m=>m.visibility!=="visible")&&<details><summary>Available &amp; removed projects</summary><div className="project-membership-list">{members.filter(m=>m.visibility!=="visible").map(m=><div key={m.project.id}><span>{m.project.name}<small> · {m.visibility==="removed"?"Removed":"Discovered"}</small></span><button disabled={!!membershipBusy} onClick={()=>void changeVisibility(m,"visible")}>{m.visibility==="removed"?"Restore":"Add"}</button></div>)}</div></details>}</div>}
         <ScanStatus scan={projectScan} demoData={demoData} empty={allProjects.length === 0} root={projectsRootPath} onRescan={onRescan} />
         {(tasksError || runsError || ((tasksLoading || runsLoading) && !scanLoading)) && <p className="command-board-notice">{tasksError || runsError ? "Some sources are unavailable. Counts and execution state may be incomplete." : "Reading tasks and execution records…"}</p>}
         {projectFilter && boardWarnings}
+        {selected&&members?.find(m=>m.project.id===selected.project.id)&&<details key={selected.project.id} className="project-brief-disclosure" open={!selected.project.vision}><summary>Project brief &amp; sources</summary><ProjectBrief member={members.find(m=>m.project.id===selected.project.id)!} onChanged={updateMember} onLink={()=>setAddTarget(members.find(m=>m.project.id===selected.project.id)!)}/></details>}
         {projectFilter && !selected ? (scanLoading ? <BoardSkeleton /> : <p className="command-board-notice">Project is no longer available. Return to the portfolio.</p>) : selected ? <ProjectDetail
             row={selected} runs={runsAvailable ? runs : null} tasks={perProject.get(selected.project.id) ?? []}
             sessionBoundary={sessionBoundary} onOpenNote={onOpenNote} />
@@ -194,7 +221,7 @@ export function ProjectsPanel({
             <label className="command-board-sort">Sort <select value={sort} onChange={event => setSort(event.target.value as typeof sort)}><option value="priority">Priority</option><option value="recent">Recently changed</option><option value="name">Name</option></select></label>
           </div>
           <div className="command-board-rows">
-            {visible.map(row => <ProjectRow key={row.project.id} row={row} onOpen={openProject} />)}
+            {visible.map(row => <ProjectRow key={row.project.id} row={row} onOpen={openProject} management={native&&members?.some(m=>m.project.id===row.project.id)?<details className="project-row-options" onKeyDown={event=>{if(event.key==="Escape"){event.currentTarget.open=false;event.currentTarget.querySelector("summary")?.focus();event.stopPropagation()}}}><summary aria-label={`Options for ${row.project.name}`}>•••</summary><div><button disabled={!!membershipBusy} onClick={()=>setAddTarget(members!.find(m=>m.project.id===row.project.id)!)}>Link another source</button><button disabled={!!membershipBusy||!!row.openRun||row.operatorDecisions.length>0} onClick={()=>void changeVisibility(members!.find(m=>m.project.id===row.project.id)!,"removed")}>Remove from dashboard</button><p>{row.openRun||row.operatorDecisions.length?"Resolve active work or its review first.":"Keeps project files and history. You can restore it later."}</p></div></details>:undefined}/>)}
             {!visible.length && <p className="command-board-notice">No projects match this status.</p>}
           </div>
           {boardWarnings}
@@ -228,7 +255,7 @@ function ScanStatus({ scan, demoData, empty, root, onRescan }: { scan: ProjectSc
     <p>Last successful scan {formatWhen(scan.lastSuccessAt)}. Latest refresh failed: {reason}. These rows may be out of date.</p>{retry}
   </div>;
   if (empty) return <div className="command-scan-banner is-empty" role="status">
-    <p>No projects found. Olympus looked for folders under <code>{root || "the projects root"}</code> and notes in the vault's <code>01 - Projects</code>. The root is the stored <code>projectsRootPath</code> setting; Preferences does not edit it yet.</p>{onRescan && <button type="button" className="ghost-action command-scan-banner__retry" disabled={scan.scanning} onClick={() => void onRescan()}><RefreshCw size={12} aria-hidden="true" />{scan.scanning ? "Scanning…" : "Rescan"}</button>}
+    <p>No projects on your dashboard yet. Add a folder, repository, or idea to get started. Previously removed projects can be restored above.</p><details><summary>Discovery sources</summary><p>Folders under <code>{root || "the projects root"}</code> and vault notes in <code>01 - Projects</code>.</p></details>{onRescan && <button type="button" className="ghost-action command-scan-banner__retry" disabled={scan.scanning} onClick={() => void onRescan()}><RefreshCw size={12} aria-hidden="true" />{scan.scanning ? "Scanning…" : "Rescan"}</button>}
   </div>;
   return null;
 }
@@ -263,7 +290,7 @@ function OwnerChip({ row }: { row: ProjectCommandState }) {
   return <span className={`command-owner-chip owner-${(row.nextMoveOwner ?? "unknown").toLowerCase()}`}>Owner: {owner}</span>;
 }
 
-function ProjectRow({ row, onOpen }: { row: ProjectCommandState; onOpen: (projectId: string) => void }) {
+function ProjectRow({ row, onOpen, management }: { row: ProjectCommandState; onOpen: (projectId: string) => void; management?:React.ReactNode }) {
   const pinned = isPinnedStatus(row.operationalStatus);
   const decision = row.operatorDecisions[0];
   const action = decision ? (decision.phase === "waiting" ? "Review plan" : "Review result")
@@ -272,6 +299,7 @@ function ProjectRow({ row, onOpen }: { row: ProjectCommandState; onOpen: (projec
     <header>
       <h3>{row.project.name}</h3>
       {row.operationalStatus !== "UNKNOWN" && <span className="command-operational-status">{operationalStatusLabels[row.operationalStatus]}</span>}
+      {management}
     </header>
     <p className={`command-project-purpose ${row.project.vision.trim() ? "" : "is-missing"}`}>{row.project.vision.trim() || "This project's purpose and vision haven't been recorded yet."}</p>
     <div className="command-project-next">

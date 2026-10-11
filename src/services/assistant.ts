@@ -75,6 +75,8 @@ export async function requestAssistantReply(
   if (onEvent) channel.onmessage = onEvent;
 
   const requestId=options?.requestId??crypto.randomUUID();
+  const assessmentProjectId=history[history.length-1]?.attachment?.projectId;
+  const contextProjects=assessmentProjectId?projects.filter(project=>project.id===assessmentProjectId):projects;
   const task=[...turns].reverse().find(t=>t.role==="user")?.content??"";
   const skillApprovalId=await requestSkillReview(task,options?.capability??"PRIMARY",requestId);
   return invoke<AssistantReply>("send_assistant_message", {
@@ -90,9 +92,9 @@ export async function requestAssistantReply(
       activeProject: history[history.length-1]?.attachment?.kind === "project-snapshot" ? history[history.length-1]?.attachment?.label : undefined,
       capability: options?.capability,
       voiceDepth: options?.voiceDepth,
-      commandBoard: options?.commandBoard,
+      commandBoard: assessmentProjectId?undefined:options?.commandBoard,
       projectsRootPath: settings.projectsRootPath,
-      projects: projects.map((project) => ({
+      projects: contextProjects.map((project) => ({
         name: project.name,
         status: project.status,
         branch: project.branch,

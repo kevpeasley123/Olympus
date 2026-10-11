@@ -56,3 +56,6 @@ pub mod gmail;
 pub mod workflow;
 pub mod project_relevance;
 pub mod elevenlabs;
+pub mod project_registry;
+pub mod project_management;
+pub mod project_intake;
