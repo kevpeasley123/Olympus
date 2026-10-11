@@ -12,7 +12,6 @@ import {
   prepareBlocker, reviewProjectContext, sortCommandProjects,
   type OperationalStatus, type ProjectCommandState
 } from "../../services/projectCommandBoard";
-import type { AttentionItem } from "../../services/projectBriefing";
 import type { DelegationRun } from "../../services/delegation";
 import type { ProjectScanState } from "../../hooks/useDashboardData";
 import { isTauriRuntime } from "../../services/launcher";
@@ -74,12 +73,6 @@ let detailScrollOwner: string | null = null;
 const VISIBLE_TASK_LIMIT = 3;
 
 const plural = (count: number, one: string, many: string) => `${count} ${count === 1 ? one : many}`;
-const summaryWords: Partial<Record<OperationalStatus, [string, string]>> = {
-  NEEDS_YOU: ["needs you", "need you"], BLOCKED: ["blocked", "blocked"], IN_PROGRESS: ["in progress", "in progress"],
-  UNKNOWN: ["unconfirmed", "unconfirmed"], MONITORING: ["monitoring", "monitoring"], COMPLETE: ["archived", "archived"],
-  READY: ["ready", "ready"], WAITING: ["waiting", "waiting"]
-};
-
 /** Re-renders a freshness line on its own clock; polls do not notify on time alone. */
 function useNow(intervalMs: number) {
   const [now, setNow] = useState(() => new Date());
@@ -174,12 +167,11 @@ export function ProjectsPanel({
   // Below the rows on the board: they qualify the data, they are not the first thing to read.
   const boardWarnings = warnings.length > 0 ? <details className="command-board-notice"><summary>{plural(warnings.length, "source warning", "source warnings")}</summary>{warnings.map((warning,i) => <p key={i}>{warning}</p>)}</details> : null;
   const counts = (value: OperationalStatus) => rows.filter(row => row.operationalStatus === value).length;
-  const openCount = rows.filter(row => row.operationalStatus !== "COMPLETE").length;
 
   return <section className={`dashboard-panel projects-panel project-command ${focusMode ? "focus-projects" : ""}`}>
     <header className="command-board-heading">
-      <div><span className="command-board-kicker">OLYMPUS / PORTFOLIO</span><h2>{selected ? selected.project.name : "PROJECT COMMAND"}</h2></div>
-      {projectFilter ? <button className="ghost-action" onClick={backToBoard}>← All projects</button> : scanLoading || projectScan.status === "failed" ? null : <span>{openCount} OPEN</span>}
+      <div><span className="command-board-kicker">OLYMPUS / PORTFOLIO</span><h2>{selected ? selected.project.name : "Projects"}</h2></div>
+      {projectFilter ? <button className="ghost-action" onClick={backToBoard}>← All projects</button> : scanLoading || projectScan.status === "failed" ? null : <span>{plural(rows.length, "project", "projects")}</span>}
     </header>
     <div className="command-board-scroll" ref={scrollRef} onScroll={event => { scrollTop.current = event.currentTarget.scrollTop; }}>
       <div className="command-board-inner">
@@ -190,35 +182,33 @@ export function ProjectsPanel({
             row={selected} runs={runsAvailable ? runs : null} tasks={perProject.get(selected.project.id) ?? []}
             sessionBoundary={sessionBoundary} onOpenNote={onOpenNote} />
         : scanLoading ? <BoardSkeleton /> : rows.length === 0 ? boardWarnings : <>
-          <section className="command-board-summary" aria-label="Olympus brief">
-            <p><span className="command-board-summary__label">Ω BRIEF</span>{operationalStatuses.filter(value => counts(value) > 0).map(value => {
-              const [one, many] = summaryWords[value] ?? [value, value];
-              return `${counts(value)} ${counts(value) === 1 ? one : many}`;
-            }).join(" · ")}</p>
+          <div className="command-portfolio-intro">
+            <p>Your projects. A clear next step for each.</p>
             <button className="ghost-action" onClick={() => reviewProjectContext(rows)}>Review priorities with Olympus →</button>
-          </section>
-          <div className="command-board-meta">
-            <Freshness scan={projectScan} demoData={demoData} tasksAt={tasksAt} runsAt={runsAt} runsLive={!isTauriRuntime() ? false : runsAvailable} onRescan={onRescan} />
-            <p className="command-board-legend"><span>Ω rule-based suggestion · not approval</span><span>Attention: observations, not blockers</span></p>
           </div>
           <div className="command-board-controls">
-            <nav className="command-board-filters" aria-label="Filter projects by operational status">
-              {(["ALL", ...operationalStatuses] as const).filter(value => value === "ALL" || value === filter || counts(value) > 0).map(value =>
-                <button key={value} aria-pressed={filter === value} onClick={() => setFilter(value)}>{value === "ALL" ? "ALL" : operationalStatusLabels[value]} <span>{value === "ALL" ? rows.length : counts(value)}</span></button>)}
-            </nav>
+            <label className="command-board-sort">Show <select aria-label="Filter projects by operational status" value={filter} onChange={event => setFilter(event.target.value as typeof filter)}>
+              <option value="ALL">All projects ({rows.length})</option>
+              {operationalStatuses.filter(value => value === filter || counts(value) > 0).map(value => <option key={value} value={value}>{operationalStatusLabels[value]} ({counts(value)})</option>)}
+            </select></label>
             <label className="command-board-sort">Sort <select value={sort} onChange={event => setSort(event.target.value as typeof sort)}><option value="priority">Priority</option><option value="recent">Recently changed</option><option value="name">Name</option></select></label>
           </div>
           <div className="command-board-rows">
             {visible.map(row => <ProjectRow key={row.project.id} row={row} onOpen={openProject} />)}
             {!visible.length && <p className="command-board-notice">No projects match this status.</p>}
           </div>
-          <p className="command-board-notice">Attention items are observations from Git, vault notes and run records; they never change a project's status. Ready, blocked, and external waiting require explicit readiness or dependency evidence; these fields are not yet recorded. A next-step note alone does not authorize Olympus to execute.</p>
           {boardWarnings}
           {unattributed.length > 0 && <details className="command-unattributed"><summary>{plural(unattributed.length, "task", "tasks")} without a project</summary><UnattributedTasks tasks={unattributed} /></details>}
         </>}
+        <details className="command-portfolio-tools">
+          <summary>Sources &amp; project tools</summary>
+          <Freshness scan={projectScan} demoData={demoData} tasksAt={tasksAt} runsAt={runsAt} runsLive={isTauriRuntime() && runsAvailable} onRescan={onRescan} />
+          <p>Recommendations use recorded project information and rules. They are suggestions, not approved work. Git observations do not establish project readiness.</p>
+          <button className="ghost-action" onClick={() => void handleSyncCanvas()} disabled={syncing}>{syncing ? "Updating…" : "Update Canvas"}</button>
+          {status && <p role="status" className={`section-copy action-feedback ${status.tone}`}>{status.message}</p>}
+        </details>
       </div>
     </div>
-    <footer className="projects-footer">{status && <p className={`section-copy action-feedback ${status.tone}`}>{status.message}</p>}<button className="ghost-action" onClick={() => void handleSyncCanvas()} disabled={syncing}>{syncing ? "Updating…" : "Update Canvas"}</button></footer>
   </section>;
 }
 
@@ -273,45 +263,34 @@ function OwnerChip({ row }: { row: ProjectCommandState }) {
   return <span className={`command-owner-chip owner-${(row.nextMoveOwner ?? "unknown").toLowerCase()}`}>Owner: {owner}</span>;
 }
 
-function AttentionLine({ items }: { items: AttentionItem[] }) {
-  if (!items.length) return null;
-  return <p className="command-attention-line"><span className="command-attention-line__label">Attention</span>
-    {items.map((item, i) => <span key={i} className="command-attention-line__item">{item.text}<small> · {item.source}</small></span>)}
-  </p>;
-}
-
 function ProjectRow({ row, onOpen }: { row: ProjectCommandState; onOpen: (projectId: string) => void }) {
   const pinned = isPinnedStatus(row.operationalStatus);
-  // A checkpoint already on the row is not repeated as an observation.
-  const attention = row.operatorDecisions.length ? row.attention.filter(item => item.kind !== "review") : row.attention;
-  const change = row.lastMeaningfulChange;
-  const footer = [
-    row.openTaskCount === null ? "Tasks unavailable" : row.openTaskCount > 0 ? plural(row.openTaskCount, "open task", "open tasks") : null,
-    `Vault: ${row.project.status}${row.project.statusSource === "inferred" ? " (inferred)" : ""}`,
-    change ? `${change.source} ${formatWhen(change.at)}` : "Change date unavailable"
-  ].filter((item): item is string => Boolean(item));
+  const decision = row.operatorDecisions[0];
+  const action = decision ? (decision.phase === "waiting" ? "Review plan" : "Review result")
+    : row.openRun ? "View progress" : row.operationalStatus === "COMPLETE" ? "View project" : "Continue project";
   return <article className={`command-project-row status-${row.operationalStatus.toLowerCase()} ${pinned ? "is-pinned" : ""}`} aria-label={row.project.name}>
     <header>
       <h3>{row.project.name}</h3>
-      <div className="command-project-chips">
-        <span className="command-operational-status">{operationalStatusLabels[row.operationalStatus]}</span>
-        <OwnerChip row={row} />
-      </div>
+      {row.operationalStatus !== "UNKNOWN" && <span className="command-operational-status">{operationalStatusLabels[row.operationalStatus]}</span>}
     </header>
-    {row.project.summary && <p className="command-project-purpose">{row.project.summary}</p>}
-    <div className={`command-project-columns ${row.recommendationGeneric ? "is-two" : ""}`}>
-      <section><h4>STATE</h4><p>{row.currentState}</p></section>
-      <section><h4>NEXT MOVE</h4>{pinned && row.operatorDecisions.length ? <ul className="command-checkpoints">
-        {row.operatorDecisions.map(decision => <li key={decision.runId}>
-          <p>{decision.text}</p>
-          <button type="button" className="ghost-action" onClick={() => onOpen(row.project.id)}>Review<span className="projects-sr-only"> {decision.phase === "waiting" ? "plan" : "result"} in {row.project.name}</span> →</button>
-        </li>)}
-      </ul> : <p>{row.nextMove || (row.nextMoveOwner === "NONE" ? "No current move recorded or expected." : "Not recorded")}</p>}</section>
-      {!row.recommendationGeneric && <section className="command-recommendation"><h4>Ω OLYMPUS RECOMMENDS</h4><p>{row.olympusRecommendation}</p></section>}
+    <p className={`command-project-purpose ${row.project.vision.trim() ? "" : "is-missing"}`}>{row.project.vision.trim() || "This project's purpose and vision haven't been recorded yet."}</p>
+    <div className="command-project-next">
+      <section className="command-recommendation">
+        <h4>Olympus recommends</h4>
+        <p>{row.olympusRecommendation}</p>
+        {row.nextMove && <p className="command-project-context"><span>{decision ? "Review pending" : row.openRun ? "Current work" : "Recorded next step"}</span>{row.nextMove}</p>}
+      </section>
+      <button className="command-project-action" onClick={() => onOpen(row.project.id)}>{action}<span className="projects-sr-only"> {row.project.name}</span><span aria-hidden="true"> ↗</span></button>
     </div>
-    <AttentionLine items={attention} />
-    <footer><div>{footer.map(item => <span key={item}>{item}</span>)}</div>
-      <button className="ghost-action" onClick={() => onOpen(row.project.id)}>Open<span className="projects-sr-only"> {row.project.name}</span> →</button></footer>
+    <details className="command-row-details">
+      <summary>Project details{row.operatorDecisions.length > 1 ? ` · ${row.operatorDecisions.length} reviews pending` : ""}</summary>
+      <p>{row.currentState}</p>
+      <OwnerChip row={row} />
+      {row.operationalStatus === "UNKNOWN" && <p>Operational status has not been confirmed.</p>}
+      {row.operatorDecisions.length > 1 && <ul>{row.operatorDecisions.map(decision => <li key={decision.runId}>{decision.text}</li>)}</ul>}
+      {row.attention.length > 0 && <ul>{row.attention.map((item,i) => <li key={i}>{item.text} <small>· {item.source}</small></li>)}</ul>}
+      {row.lastMeaningfulChange && <p>{row.lastMeaningfulChange.source} · {formatWhen(row.lastMeaningfulChange.at)}</p>}
+    </details>
   </article>;
 }
 
@@ -324,6 +303,18 @@ function ProjectDetail({ row, runs, tasks, sessionBoundary, onOpenNote }: {
   const blocker = prepareBlocker(project, runs, isTauriRuntime());
   return <>
     <section className="command-project-detail" aria-label={`${project.name} detail`}>
+      <p className="command-detail-vision">{project.vision.trim() || "This project's purpose and vision haven't been recorded yet."}</p>
+      <div className="command-detail-grid">
+        <section className="command-recommendation"><h3>Ω Olympus recommends <span>rule-based suggestion · not approval</span></h3><p>{row.olympusRecommendation}</p></section>
+      </div>
+      <div className="command-board-actions"><button className="ghost-action" onClick={() => reviewProjectContext([row])}>Review with Olympus</button></div>
+    </section>
+
+    <OrganizerPanel key={project.id} projectId={project.id} blocker={blocker} />
+    {project.path ? <details className="command-project-detail" open={Boolean(row.openRun)}><summary>{row.openRun ? "Current work & reviews" : "Other coding runs"}</summary><DelegationPanel project={project} blocker={blocker} /></details> : null}
+
+    <details className="command-project-detail command-project-background">
+      <summary>Project background &amp; activity</summary>
       <div className="command-detail-chips">
         <span className="command-operational-status">{operationalStatusLabels[row.operationalStatus]}</span>
         <OwnerChip row={row} />
@@ -339,27 +330,15 @@ function ProjectDetail({ row, runs, tasks, sessionBoundary, onOpenNote }: {
         <ul>{row.attention.map((item, i) => <li key={i}>{item.text}<small> · {item.source}</small></li>)}</ul>
       </section>}
 
-      <div className="command-detail-grid">
-        <section><h3>Current state</h3><p>{row.currentState}</p></section>
-        <section><h3>Recorded next action <span>execution unverified</span></h3><p>{row.nextAction || "Not recorded"}</p></section>
-        <section className="command-recommendation"><h3>Ω Olympus recommends <span>rule-based suggestion · not approval</span></h3><p>{row.olympusRecommendation}</p></section>
-      </div>
-      <div className="command-board-actions"><button className="ghost-action" onClick={() => reviewProjectContext([row])}>Review with Olympus</button></div>
-    </section>
-
-    <OrganizerPanel key={project.id} projectId={project.id} blocker={blocker} />
-    {project.path ? <details className="command-project-detail"><summary>Other coding runs</summary><DelegationPanel project={project} blocker={blocker} /></details> : null}
-
-    <section className="command-project-detail">
-      <h3>Project intent</h3>
-      <p>{project.vision || project.summary || "No vision recorded."}</p>
+      <h3>Current state</h3><p>{row.currentState}</p>
+      <h3>Recorded next action</h3><p>{row.nextAction || "Not recorded"}</p>
       {project.vision && <p className="command-detail-note">{project.visionReviewedAt ? `Vision reviewed ${dayLabel(`${project.visionReviewedAt}T00:00:00`)}` : "Vision has no review date."}</p>}
       <h3>{sessionBoundary?.previousSessionStartedAt ? "Commits since previous session" : "Recent commits"}</h3>
       {commits.length ? <ul className="command-commit-list">{commits.map((commit,i) => <li key={i}><span>{commit.subject}</span><time dateTime={commit.at}>{formatWhen(commit.at)}</time></li>)}</ul>
         : <p className="command-detail-note">{sessionBoundary?.previousSessionStartedAt ? "No commits since the previous Olympus session." : "No commits in the last 24 hours."}</p>}
       <p className="command-detail-note">Blockers and general operator decisions are not recorded as structured fields. Delegation checkpoints appear above.</p>
-    </section>
-    <ProjectTasks project={project} tasks={tasks} />
+      <ProjectTasks project={project} tasks={tasks} />
+    </details>
   </>;
 }
 

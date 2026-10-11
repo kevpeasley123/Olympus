@@ -1,11 +1,19 @@
 # Project Command Board
 
-Project mode opens a compact portfolio: status brief, operator attention, filters,
-and consistent STATE / NEXT MOVE + OWNER / OLYMPUS RECOMMENDS rows. (Since
-2026-09-28 the separate operator-attention section is gone: NEEDS YOU and BLOCKED
-rows are pinned at the top instead. See the section at the end.) Open Project
-mounts one detailed workspace with vision, recent commits, recorded intent, tasks,
-Git/worktree details, Obsidian navigation, and the existing delegation workflow.
+Project mode opens a purpose-first portfolio (October 11 presentation pass).
+Each separated card shows its name, recorded vision, Olympus recommendation,
+relevant next-step context and one primary action. Missing vision is explicit;
+the generic repository scan summary is never substituted for project purpose.
+NEEDS YOU and BLOCKED rows remain pinned. Review checkpoints retain visible
+context and a Review action; active runs offer View progress. These actions open
+the existing project workspace without approving or starting execution.
+
+Status filtering and sorting remain compact controls. Owner, unknown operational
+status, Git observations and timestamps are available in Project details.
+Freshness, refresh and Canvas export live under Sources & project tools. The
+Research strip stays in Research mode. Project detail leads with vision and
+Organizer tasks; active coding runs expand, while repository facts, note links,
+history and attributed vault tasks sit under Project background & activity.
 One centre-panel scroll area respects the desktop shell; cards have no scroll areas.
 
 ## Sources and derivation
