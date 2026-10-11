@@ -10,7 +10,6 @@ import type { CSSProperties } from "react";
 import { Fragment, memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { MemoryPromotion } from "./MemoryPromotion";
 import type { ConversationMessage, TurnAttachment } from "../../types";
 import { attachmentTitle, turnDisplay } from "../../services/turnAttachment";
 import type { ObsidianActionResult } from "../../services/obsidian";
@@ -100,7 +99,6 @@ export function ChatPanel({ companion = false, onVoiceConversationToggle, messag
   const [mode, setMode] = useState<ConsoleMode>("dormant");
   const [draft, setDraft] = useState("");
   const [projectContext, setProjectContext] = useState<TurnAttachment | null>(null);
-  const [memorySource, setMemorySource] = useState<ConversationMessage | null>(null);
   const [observation, setObservation] = useState<string | null>(null);
   const [observationStatus, setObservationStatus] = useState<ObsidianActionResult | null>(null);
   const [recording, setRecording] = useState(false);
@@ -126,7 +124,7 @@ export function ChatPanel({ companion = false, onVoiceConversationToggle, messag
     if(savedReading.current.following)scroll.latest();
     else {scroll.interrupt();if(scroll.viewportRef.current)scroll.viewportRef.current.scrollTop=savedReading.current.top;}
   },[conversationPanel,conversationOpened]);
-  const editingMemory = memorySource !== null || observation !== null;
+  const editingMemory = observation !== null;
   const visibleMessages = conversationPanel ? messages.slice(historyStart) : mode === "transcript" ? messages.slice(historyStart) : messages.slice(liveStart);
   const liveInput = voice.active && voice.captionsEnabled && voice.inputMessageId && !messages.some(message => message.id === voice.inputMessageId)
     ? {id:voice.inputMessageId,role:"user" as const,content:voice.inputText || "Listening…",timestamp:"",voice:{kind:"input" as const}} : null;
@@ -246,12 +244,9 @@ export function ChatPanel({ companion = false, onVoiceConversationToggle, messag
   }, [mode, editingMemory, expanded]);
 
   const openComposer = useCallback((seed: string) => {
-    setMemorySource(null);
     setObservation(collapse(seed).slice(0, OBSERVATION_MAX_CHARS));
     setObservationStatus(null);
   }, []);
-  const noteMessage = useCallback((message: ConversationMessage) => openComposer(message.content), [openComposer]);
-  const saveMessage = useCallback((message: ConversationMessage) => { setObservation(null); setMemorySource(message); }, []);
 
   const observationLength = observation ? collapse(observation).length : 0;
   const observationTooLong = observationLength > OBSERVATION_MAX_CHARS;
@@ -353,7 +348,7 @@ export function ChatPanel({ companion = false, onVoiceConversationToggle, messag
               sameSpeaker={index > 0 && !separators[index] && renderedMessages[index-1].role === message.role} live={message === liveInput}
               latest={conversationPanel || (message.id === lastId && !pending)} textReplies={!autoSpeak} quietPlayback={quietPlayback}
               speaking={voice.phase === "SPEAKING" && voice.outputMessageId === message.id}
-              onNoteThis={noteMessage} onSaveMemory={saveMessage} /></Fragment>)}
+              /></Fragment>)}
             {pending && <article className="conversation-bubble assistant console-stream" data-message-id="stream">
               <p className="console-message-label">OLYMPUS{streamText && <span className="console-turn-state">Responding</span>}</p>
               {streamText ? <div className="console-markdown"><ReactMarkdown remarkPlugins={[remarkGfm]} skipHtml components={consoleMarkdownComponents}>{streamText}</ReactMarkdown></div> : <p className="console-processing">Processing command…</p>}
@@ -364,7 +359,6 @@ export function ChatPanel({ companion = false, onVoiceConversationToggle, messag
         </div>
         {!scroll.isFollowing && <button type="button" className="console-latest" onClick={() => scroll.latest(true)}>{conversationPanel?"↓ Latest reply":"↓ Latest"}</button>}
         <div className="console-tools">
-      {memorySource && <MemoryPromotion key={memorySource.id} message={memorySource} onClose={() => setMemorySource(null)} />}
 
       {observation !== null && (
         <div className="observation-composer">
@@ -474,8 +468,7 @@ const PLAYBACK_LABEL: Record<string, string> = {
 
 const ConversationBubble = memo(function ConversationBubble({
   message,
-  onNoteThis,
-  onSaveMemory, readingView = false, sameSpeaker = false, live = false, speaking = false, latest = false, textReplies = false, quietPlayback = "Not spoken"
+  readingView = false, sameSpeaker = false, live = false, speaking = false, latest = false, textReplies = false, quietPlayback = "Not spoken"
 }: {
   message: ConversationMessage;
   sameSpeaker?: boolean; live?: boolean; speaking?: boolean; readingView?: boolean;
@@ -484,8 +477,6 @@ const ConversationBubble = memo(function ConversationBubble({
   textReplies?: boolean;
   /** Receipt for an output that has no playback attempt recorded. */
   quietPlayback?: string;
-  onNoteThis: (message: ConversationMessage) => void;
-  onSaveMemory: (message: ConversationMessage) => void;
 }) {
   const output = message.voice?.kind === "output" ? message.voice : undefined;
   const spoken = output?.spokenResponse;
@@ -552,14 +543,6 @@ const ConversationBubble = memo(function ConversationBubble({
             : message.at ? <time dateTime={message.at} title={formatWhen(message.at, { withDate: true })}>{readingView ? new Date(message.at).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit",hour12:false}) : formatWhen(message.at)}</time> : message.timestamp}
 
         </small>
-        <span className="console-quiet-actions">
-          {message.role !== "system" && <button type="button" className="observation-seed" onClick={() => onSaveMemory(message)}>Save memory</button>}
-          {message.role === "assistant" && (
-            <button type="button" className="observation-seed" onClick={() => onNoteThis(message)}>
-              Note observation
-            </button>
-          )}
-        </span>
       </div>}
     </article>
   );

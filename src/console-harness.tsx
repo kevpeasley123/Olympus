@@ -64,9 +64,7 @@ async function run() {
   query<HTMLButtonElement>('[aria-label="Minimize console"]').click(); await wait(); finish(); await wait();
   assert(query(".console-status").textContent === "RESPONSE READY", "Dormant status reports an actual completed response");
   query<HTMLTextAreaElement>("textarea").focus(); await wait(1200);
-  clickText("Save memory"); await wait();
-  assert(Boolean(document.querySelector(".memory-composer")), "Memory promotion remains available");
-  clickText("Cancel"); await wait();
+  assert(![...document.querySelectorAll(".conversation-bubble button")].some(button => /Save memory|Note observation/.test(button.textContent ?? "")), "Messages omit memory and observation actions");
   query<HTMLButtonElement>('[aria-label="Record an observation"]').click(); await wait();
   assert(Boolean(document.querySelector("#observation-input")), "Observation composer remains available");
   clickText("Cancel"); await wait();

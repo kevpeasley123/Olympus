@@ -135,22 +135,8 @@ html .console-audio-footer { gap: 10px; }
 .console-spoken-summary > summary { color: #b4cbd4; font-size: var(--text-xs); cursor: pointer; }
 .console-spoken-summary p { margin: 6px 0 0; color: #c3ccd8; font-size: var(--text-sm); }
 
-/* Save memory and Note observation appear on hover or keyboard focus. Hidden
-   by clipping rather than transparent text, so the hidden state takes no
-   space and cannot be clicked, yet Tab still reaches both (F6). */
 html .command-console .conversation-bubble { position: relative; }
 html .command-console .conversation-bubble-footer { justify-content: flex-start; align-items: center; }
-.console-quiet-actions { display: inline-flex; gap: 12px; margin-left: auto; }
-html .command-console .conversation-bubble .observation-seed { opacity: 1; color: var(--muted); font-size: var(--text-xs); }
-html .command-console .conversation-bubble .observation-seed:hover { color: var(--accent); }
-html .command-console .conversation-bubble:not(:hover):not(:focus-within) .console-quiet-actions {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
-}
 
 .console-research-source { display: flex; align-items: flex-start; gap: 8px; }
 .console-research-source > details { flex: 1; min-width: 0; }
