@@ -92,9 +92,9 @@ fn register_project(app: &AppHandle, id: &str) -> OResult<()> {
                 [],
                 |r| r.get::<_, String>(0),
             )
-            .map_err(|_| error("unavailable", "Configure the projects root first."))?
+            .unwrap_or_default()
     };
-    let scan = super::projects::scan_tracked_projects_blocking(super::projects::ProjectsRequest {
+    let scan = super::project_management::scan(app, super::projects::ProjectsRequest {
         root_path: root,
         since_session: None,
     })?;

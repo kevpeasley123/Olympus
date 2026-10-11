@@ -102,11 +102,13 @@ struct CachedProjectsResponse {
     fetched_at: Instant,
 }
 
+pub(crate) fn clear_cache() { if let Ok(mut cache)=PROJECTS_CACHE.lock(){*cache=None;} }
+
 #[tauri::command]
 pub async fn scan_tracked_projects(
-    request: ProjectsRequest,
+    app: tauri::AppHandle, request: ProjectsRequest,
 ) -> Result<ProjectsResponse, String> {
-    tauri::async_runtime::spawn_blocking(move || scan_tracked_projects_blocking(request))
+    tauri::async_runtime::spawn_blocking(move || super::project_management::scan(&app, request))
         .await
         .map_err(|error| format!("Project scan task panicked: {error}"))?
 }
@@ -194,7 +196,7 @@ pub(crate) fn scan_tracked_projects_blocking(
 /// note supplies one. It used to be one of three canned sentences chosen from
 /// repo state, which read as advice while carrying no information, and this
 /// field is about to become the largest sentence on the screen.
-fn build_project_payload(
+pub(crate) fn build_project_payload(
     path: PathBuf,
     notes: &ProjectNoteIndex,
     since_session: Option<&str>,
@@ -469,8 +471,9 @@ fn linked_worktrees(path: &PathBuf) -> Vec<LinkedWorktree> {
     linked
 }
 
-fn git_command(path: &PathBuf, args: &[&str]) -> Result<String, String> {
+pub(crate) fn git_command(path: &PathBuf, args: &[&str]) -> Result<String, String> {
     let output = crate::commands::delegation::hide_console(&mut Command::new("git"))
+        .args(["-c", "core.fsmonitor=false"])
         .arg("-C")
         .arg(path)
         .args(args)
