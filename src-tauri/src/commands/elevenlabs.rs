@@ -46,6 +46,13 @@ fn validate(id:&str,voice:&str,model:&str,text:&str)->Result<(),String>{
     if text.trim().is_empty()||text.chars().count()>10_000{return Err("Speech must contain 1–10,000 characters.".into());}Ok(())
 }
 fn payload(text:&str,model:&str)->Value{json!({"text":text,"model_id":model,"language_code":"en"})}
+fn speech_request(text:&str,model:&str,voice:&str)->(String,Value){
+    if model=="eleven_v4" {
+        ("text-to-dialogue?output_format=mp3_44100_128".into(),json!({"inputs":[{"text":text,"voice_id":voice}],"model_id":model,"language_code":"en"}))
+    }else{
+        (format!("text-to-speech/{voice}?output_format=mp3_44100_128"),payload(text,model))
+    }
+}
 fn http_error(status:u16)->String{match status{
     401=>"ElevenLabs rejected the API key. Replace it in Voice Settings.",
     403=>"ElevenLabs denied access. Check the API key permissions and voice access.",
@@ -155,7 +162,8 @@ pub async fn elevenlabs_synthesize(db:tauri::State<'_,Db>,request_id:String,voic
         models::save(&db,&record)?;
         let speech=async {
             let secret=key()?;let client=client()?;
-            let response=request(&client,reqwest::Method::POST,&format!("text-to-speech/{voice_id}?output_format=mp3_44100_128"),&secret)?.json(&payload(&text,&model_id)).send().await.map_err(|_|"ElevenLabs connection failed or timed out. No automatic retry was made.".to_string())?;
+            let (path,payload)=speech_request(&text,&model_id,&voice_id);
+            let response=request(&client,reqwest::Method::POST,&path,&secret)?.json(&payload).send().await.map_err(|_|"ElevenLabs connection failed or timed out. No automatic retry was made.".to_string())?;
             let data=body(response,MAX_AUDIO).await?;
             if data.is_empty(){return Err("ElevenLabs returned no audio.".into());}
             Ok(SpeechAudio{audio_base64:base64::engine::general_purpose::STANDARD.encode(data)})
@@ -211,6 +219,15 @@ mod tests {
     fn request_contains_only_speech_input() {
         let value=payload("Say this", "eleven_v4");
         assert_eq!(value, serde_json::json!({"text":"Say this","model_id":"eleven_v4","language_code":"en"}));
+    }
+    #[test]
+    fn v4_uses_dialogue_with_the_selected_voice() {
+        let (path,value)=speech_request("Hello", "eleven_v4", "Voice123");
+        assert_eq!(path,"text-to-dialogue?output_format=mp3_44100_128");
+        assert_eq!(value,json!({"inputs":[{"text":"Hello","voice_id":"Voice123"}],"model_id":"eleven_v4","language_code":"en"}));
+        let (path,value)=speech_request("Hello", "eleven_multilingual_v2", "Voice123");
+        assert_eq!(path,"text-to-speech/Voice123?output_format=mp3_44100_128");
+        assert_eq!(value["text"],"Hello");
     }
     #[test]
     fn acceptance_profile_blocks_keyring_and_cancel() {

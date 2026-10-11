@@ -6,7 +6,7 @@ Olympus can use ElevenLabs for spoken answers while keeping the current reasonin
 1. Open Preferences, then select **ElevenLabs** under Speech provider.
 2. Click **Connect API key**. In the Windows credential dialog, paste the API key into **Password**; leave the user name unchanged. The key is stored as `Olympus.ElevenLabs` / `api-key` in Windows Credential Manager. It never crosses webview IPC, enters settings/SQLite, or appears in frontend logs.
 3. Keep voice `NOpBlnGInO9m6vDvFkFC`, model `eleven_v4`, English. Both IDs can be changed explicitly as the service evolves. Save edited IDs before checking or previewing.
-4. Click **Check connection**. This performs read-only voice/model discovery and generates no audio. The key needs voice/model read access, plus text-to-speech permission for playback.
+4. Click **Check connection**. This performs read-only voice/model discovery and generates no audio. The key needs voice/model read access, plus speech generation permission for playback. Kevin's accessible voice was confirmed on October 11 as **Cornelius**, ID `6sFKzaJr574YWVu4UuJF`; the initially supplied ID returned `voice_not_found`. Use the accessible ID for this setup.
 5. Click **Preview voice** to generate the fixed sample. It uses ElevenLabs credits. **Stop preview** cancels pending work and playback. Cancellation cannot promise a refund for work already received by the provider.
 6. Set Replies to Voice for automatic spoken answers. Text mode remains silent; explicit Replay still works. Opening Briefing follows the existing preference.
 
@@ -14,6 +14,7 @@ The browser harness displays configuration controls but cannot connect credentia
 
 ## Boundaries
 - Rust sends only the chosen spoken response, voice ID, model ID and English language code. It requests MP3 audio, with a 50-second HTTP timeout and 8 MiB response ceiling. The frontend plays a transient Blob and releases it on completion/stop/error; speech files are not saved.
+- `eleven_v4` uses the documented Text to Dialogue endpoint with one text/voice input. Other explicitly selected speech models use Text to Speech. This changes transport, not the selected model or voice. [Dialogue API contract](https://elevenlabs.io/docs/api-reference/text-to-dialogue/convert).
 - Provider failures are explicit; no automatic paid retries or silent fallback. Check connection validates availability, not account quota or synthesis quality. ElevenLabs' own data-retention policy still applies.
 - Windows key entry is native. Replace/remove affects future requests; already-submitted provider work may still be billed. Remove key is local credential deletion, not remote key revocation.
 - A maximum of two native generation requests permits live speech and isolated preview. Request IDs reject duplicate submission and remember recent cancellation; old results cannot resume after a new turn or stop.
