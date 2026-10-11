@@ -1,0 +1,21 @@
+.gmail-settings{border:1px solid #2a414f;border-radius:8px;background:#0c1b25;padding:14px;margin:16px 0;color:#cfdae3;font:12px/1.6 var(--font-ui,sans-serif)}
+.gmail-settings>summary{cursor:pointer;font-weight:500;color:#e0e7ee}
+.gmail-settings[open]>summary{padding-bottom:14px;border-bottom:1px solid #293e4b;margin-bottom:16px}
+.gmail-settings .gmail-account{display:flex;flex-direction:column;gap:5px;margin:0 0 14px;overflow-wrap:anywhere}
+.gmail-settings .gmail-account__label{font-size:9px;letter-spacing:.14em;color:#94a8b8}
+.gmail-settings .gmail-account strong{font-size:14px;font-weight:500;color:#edf0f3}
+.gmail-settings .gmail-account__status{color:#d7b77e;font-size:11px}
+.gmail-settings p{margin:10px 0;font-size:11px;line-height:1.65;color:#9db1c2}
+.gmail-settings .gmail-access{color:#d5e0e8;margin-bottom:3px}
+.gmail-settings .gmail-controls{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0}
+.gmail-settings .gmail-controls>button:first-child{border-color:#8e7548;color:#ead1a0;background:#29251b}
+.gmail-settings .gmail-horizon{display:grid;grid-template-columns:125px minmax(0,1fr);align-items:center;gap:12px;margin-top:20px}
+.gmail-settings select,.gmail-settings input{box-sizing:border-box;width:100%;min-width:0;background:#10212d;color:#e1e8ef;border:1px solid #344d5b;border-radius:6px;padding:9px 11px;font:12px/1.4 var(--font-ui,sans-serif)}
+.gmail-settings .gmail-facts{margin:14px 0}
+.gmail-settings .gmail-facts>div{display:grid;grid-template-columns:125px minmax(0,1fr);gap:12px;padding:5px 0}
+.gmail-settings dt{color:#9db1c2}.gmail-settings dd{margin:0;color:#d5e0e8}
+.gmail-settings .gmail-secondary{border-top:1px solid #293e4b;padding:12px 0 0;margin-top:12px}
+.gmail-settings .gmail-secondary>summary{cursor:pointer;color:#b9cad7;font-size:11px}
+.gmail-settings [role=alert]{border-left:2px solid #c9a567;padding:8px 12px;background:#252219;color:#e2c48e;border-radius:3px}
+.gmail-settings .gmail-confirm{padding:12px;border:1px solid #937348;border-radius:6px;margin:12px 0}
+@media(max-width:420px){.gmail-settings .gmail-horizon,.gmail-settings .gmail-facts>div{grid-template-columns:minmax(0,1fr);gap:4px}}
