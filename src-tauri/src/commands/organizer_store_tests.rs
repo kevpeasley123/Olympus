@@ -279,3 +279,15 @@ fn organizer_edit_retains_source_when_vault_is_unavailable() {
     });
     std::fs::remove_dir(profile).unwrap();
 }
+
+#[test]
+fn organizer_capture_defers_criteria_until_delegation() {
+    let mut c = db();
+    let mut request = input();
+    request.criteria.clear();
+    let task = create(&mut c, request).expect("a request can be captured before clarification");
+    assert!(get(&c, &task.id).unwrap().criteria.is_empty());
+    assert!(bind_proposal(&c, "premature", "run", &task).is_err());
+    let ready = update(&mut c, &task.id, task.revision, input()).unwrap();
+    assert!(bind_proposal(&c, "ready", "run", &ready).is_ok());
+}

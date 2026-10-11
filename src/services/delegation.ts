@@ -88,6 +88,7 @@ export interface ReviewDetails {
   approvals: string[];
   availableChecks: CheckOption[];
   reviewedAt: string | null;
+  recordedEvidence?: { criterion: string; note: string; checkId: string | null }[];
 }
 
 /** Read-only: the recorded contract, plan and evidence. Creates no proposal. */

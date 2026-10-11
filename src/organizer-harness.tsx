@@ -11,8 +11,13 @@ import "./styles.css";
 import "./components/panels/projects.css";
 let tasks: OrganizerTask[] = [], runs: DelegationRun[] = [];
 let conflict = false, unavailable = false, starts = 0;
+let rejectAcceptance = false, superseded = false;
+let runTaskId = "";
+const taskRuns = (task: OrganizerTask) => task.id === runTaskId ? runs : [];
+let recordedEvidence: {criterion: string; note: string; checkId: string | null}[] = [];
+let heldPreparation: Promise<void> | null = null, releasePreparation: (() => void) | null = null;
 const date = "2026-10-10T12:00:00Z";
-const state = (t: OrganizerTask) => t.state === "completed" ? "Completed" : t.intent === "proposed" ? "Proposed" : runs[0]?.phase === "complete" || runs[0]?.phase === "awaiting_review" ? "Result ready" : runs[0]?.phase === "waiting" ? "Needs you" : "Planned";
+const state = (t: OrganizerTask) => t.state === "completed" ? "Completed" : t.intent === "proposed" ? "Proposed" : taskRuns(t)[0]?.phase === "complete" || taskRuns(t)[0]?.phase === "awaiting_review" ? "Result ready" : taskRuns(t)[0]?.phase === "waiting" ? "Needs you" : "Planned";
 const proposal = (t: OrganizerTask): ApprovalProposal => ({ id: "proposal", sessionId: "fixture", expiresAt: Date.now() / 1000 + 600, baseBranch: "main", permitted: null, subject: { projectId: "p", projectName: "Olympus", repository: "C:/fixture", baseCommit: "abcdef123", driver: "Fixture", model: "No provider", stage: "plan", task: t.objective, criteria: t.criteria, scope: "Read-only fixture; no external calls", runId: "r", workspace: "C:/fixture/run", workspaceHash: "hash", plan: "" } });
 mockIPC(async (command, args) => structuredClone(await respond(command, args)));
 function respond(command: string, args: unknown) {
@@ -25,7 +30,7 @@ function respond(command: string, args: unknown) {
     if (command === "organizer_overview") {
         if (unavailable)
             throw { message: "Organizer unavailable: " + "Recover the desktop connection. ".repeat(20) };
-        return tasks.map(task => ({ task, displayStatus: state(task), needsAttention: runs.length > 0 && task.state === "open" }));
+        return tasks.map(task => ({ task, displayStatus: state(task), needsAttention: taskRuns(task).length > 0 && task.state === "open" }));
     }
     if (command === "list_delegation_runs")
         return runs;
@@ -36,7 +41,7 @@ function respond(command: string, args: unknown) {
         return t;
     }
     if (command === "fetch_organizer_task")
-        return { task, runs, resultHealth: { result: "Current workspace matches the recorded review" }, runIds: runs.map(r => r.id), displayStatus: state(task), sourceHealth: task.sources.map(s => s.kind==="url"?"External reference (not revalidated)":s.sha256?"Captured revision matches":"Available; original revision unknown"), events: [], results: runs.some(r => ["complete", "awaiting_review"].includes(r.phase)) ? [{ id: "result", taskId: task.id, runId: "r", summary: "Implementation and verification evidence preserved.", workspaceHash: "hash", manifest: { workspace: "C:/fixture/run", changedFiles: ["workflow.ts"], taskSnapshot: task }, reviewState: task.state === "completed" ? "accepted" : "pending", createdAt: date, acceptedAt: null }] : [] } satisfies OrganizerDetail;
+        return { task, runs: taskRuns(task), resultHealth: { result: "Current workspace matches the recorded review" }, runIds: taskRuns(task).map(r => r.id), displayStatus: state(task), sourceHealth: task.sources.map(s => s.kind==="url"?"External reference (not revalidated)":s.sha256?"Captured revision matches":"Available; original revision unknown"), events: [], results: taskRuns(task).some(r => ["complete", "awaiting_review"].includes(r.phase)) ? [{ id: "result", taskId: task.id, runId: "r", summary: "Implementation and verification evidence preserved.", workspaceHash: "hash", manifest: { workspace: "C:/fixture/run", changedFiles: ["workflow.ts"], taskSnapshot: task }, reviewState: superseded ? "superseded" : task.state === "completed" ? "accepted" : "pending", createdAt: date, acceptedAt: null }] : [] } satisfies OrganizerDetail;
     if (command === "update_organizer_task") {
         if (conflict) {
             conflict = false;
@@ -56,19 +61,30 @@ function respond(command: string, args: unknown) {
         return task;
     }
     if (command === "prepare_organizer_delegation")
-        return proposal(task);
+        return heldPreparation ? heldPreparation.then(() => proposal(task)) : proposal(task);
     if (command === "start_delegation_run") {
-        starts++;
+        starts++; runTaskId = task.id;
         if (starts > 1)
             throw Error("Duplicate start");
         runs = [{ id: "r", projectId: "p", projectName: "Olympus", task: task.objective, driver: "Fixture", model: "No provider", phase: "waiting", workspace: "C:/fixture/run", branch: "fixture", baseCommit: "abcdef", agentSessionId: "", processId: null, milestone: "Plan ready", checkpoint: "Review the plan", outcome: null, changedFiles: [], diffSummary: null, error: null, startedAt: date, updatedAt: date }];
         return runs[0];
     }
+    if (command === "fetch_delegation_review") return { criteria: task.criteria, plan: "Preserve the research, implement the request, and check the result.", checks: [], approvals: ["Fixture approved"], availableChecks: [], recordedEvidence, reviewedAt: runs[0]?.phase === "complete" ? date : null };
+    if (command === "fetch_delegation_diff") return "Fixture diff: research linked to result";
+    if (command === "prepare_delegation_resume") return { ...proposal(task), subject: { ...proposal(task).subject, stage: "implement", plan: "Preserve the research and verify the result." } };
+    if (command === "resume_delegation_run") { runs[0].phase = "editing"; return runs[0]; }
+    if (command === "complete_delegation_review") {
+        if (request.evidence.some((e: {note: string}) => e.note.trim().length < 20)) throw Error("Evidence required");
+        recordedEvidence = request.evidence; runs[0].phase = "complete"; return runs[0];
+    }
+    if (command === "cancel_delegation_run") { runs[0].phase = "cancelled"; return runs[0]; }
     if (command === "cancel_delegation_proposal" || command === "acknowledge_organizer_event")
         return;
     if (command === "delegation_review_fingerprint")
         return "hash";
     if (command === "accept_organizer_result") {
+        if (rejectAcceptance) { rejectAcceptance = false; throw Error("Fixture acceptance interrupted"); }
+        if (superseded) throw Error("Superseded result");
         if (runs[0]?.phase !== "complete")
             throw Error("Review required");
         task.state = "completed";
@@ -81,6 +97,10 @@ function respond(command: string, args: unknown) {
     }
     throw Error(`Unimplemented fixture command: ${command}`);
 }
-Object.assign(window, { organizerFixture: { snapshot: () => ({ tasks, runs, starts }), conflict: () => { conflict = true; }, phase: async (phase: DelegationRun["phase"]) => { runs[0].phase = phase; await refreshDelegationRuns(); await refreshOrganizer(); }, unavailable: async () => { unavailable = true; await refreshOrganizer(); } } });
+Object.assign(window, { organizerFixture: { holdPreparation: () => { heldPreparation = new Promise<void>(resolve => { releasePreparation = resolve; }); }, releasePreparation: () => { releasePreparation?.(); heldPreparation = null; },
+    anotherTask: async () => { tasks.push({...structuredClone(tasks[0]), id: "other", title: "Other task", objective: "A separate request"}); await refreshOrganizer(); },
+    rejectAcceptance: () => { rejectAcceptance = true; },
+    supersede: async () => { tasks[0].state = "open"; superseded = true; tasks[0].revision++; await refreshOrganizer(); },
+    snapshot: () => ({ tasks, runs, starts }), conflict: () => { conflict = true; }, phase: async (phase: DelegationRun["phase"]) => { runs[0].phase = phase; if (["awaiting_review", "complete"].includes(phase)) { runs[0].outcome = "The archived reference is linked to the saved result."; runs[0].checkpoint = null; } await refreshDelegationRuns(); await refreshOrganizer(); }, unavailable: async () => { unavailable = true; await refreshOrganizer(); } } });
 function Harness() { const [visible, setVisible] = useState(true); return <main style={{ maxWidth: 1200, margin: "30px auto", padding: 24, color: "#e4dfd3" }}><h1>Olympus · Project Organizer</h1><p>Isolated browser fixture · no external actions</p><button onClick={() => setVisible(!visible)}>Switch project view</button>{visible && <OrganizerPanel projectId="p" blocker={null}/>}</main>; }
 createRoot(document.getElementById("root")!).render(<Harness />);

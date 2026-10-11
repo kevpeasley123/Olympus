@@ -23,7 +23,9 @@ import "./projects.css";
 interface DelegationReviewProps {
   runId: string;
   projectId: string;
-  onComplete: (run: DelegationRun) => void;
+  onComplete: (run: DelegationRun, workspaceHash: string) => void | Promise<void>;
+  completeLabel?: string;
+  compact?: boolean;
 }
 
 /**
@@ -32,7 +34,7 @@ interface DelegationReviewProps {
  * (`reviewNotes`), so a check, a poll, a refresh or a mode switch never erases
  * them (review U3). Validity is re-derived on every read.
  */
-export function DelegationReview({ runId, projectId, onComplete }: DelegationReviewProps) {
+export function DelegationReview({ runId, projectId, onComplete, compact = false, completeLabel = "Record review and complete" }: DelegationReviewProps) {
   const [entry, setEntry] = useViewEntry("reviewNotes", runId, EMPTY_REVIEW_NOTES);
   const [details, setDetails] = useState<ReviewDetails | null>(null);
   const [diff, setDiff] = useState("");
@@ -99,8 +101,8 @@ export function DelegationReview({ runId, projectId, onComplete }: DelegationRev
         runId, workspaceHash: hash, unresolvedIssues: issues,
         evidence: details.criteria.map((criterion, i) => ({ criterion, note: notes[i] ?? "", checkId: evidence[i] || null }))
       });
+      await onComplete(run, hash);
       setEntry(null);
-      onComplete(run);
     } catch (e) { setError(String(e)); }
     finally { setBusy(false); }
   }
@@ -108,7 +110,7 @@ export function DelegationReview({ runId, projectId, onComplete }: DelegationRev
   const runningLabel = running && details ? checkLabel(running, details.availableChecks) : null;
 
   return <section className="delegation-review" aria-label="Result review">
-    <h4>Review the preserved result</h4>
+    <h4>{compact ? "Does this meet your request?" : "Review the preserved result"}</h4>
     {error && <p className="delegation-error" role="alert">{error}</p>}
     {invalidated && <div className="delegation-review__notice" role="status">
       <p>{invalidated}</p>
@@ -118,10 +120,10 @@ export function DelegationReview({ runId, projectId, onComplete }: DelegationRev
     {details && <>
       <details className="delegation-review__disclosure"><summary>Recorded approvals</summary>{details.approvals.map(row => <p key={row}>{row}</p>)}</details>
       <details className="delegation-review__disclosure"><summary>Plan</summary><pre>{details.plan || "No plan recorded."}</pre></details>
-      <details className="delegation-review__disclosure"><summary>Workspace diff · fingerprint {hash.slice(0, 8)}</summary><pre className="delegation-diff">{diff}</pre></details>
+      <details className="delegation-review__disclosure" open={compact || undefined}><summary>Workspace diff · fingerprint {hash.slice(0, 8)}</summary><pre className="delegation-diff">{diff}</pre></details>
 
-      <div className="delegation-review__group">
-        <h5>Checks</h5>
+      <details className="delegation-review__group" open={!compact || undefined}>
+        <summary>Checks · {details.checks.length} recorded</summary>
         <p className="delegation-review__hint">A successful process exit alone does not establish the requested outcome. Each check runs build and test scripts from this worktree, which the agent could have changed. It runs without API keys in its environment, but it is not sandboxed.</p>
         <div className="delegation-actions">
           {details.availableChecks.map(option => <button type="button" className="delegation-action" key={option.id} disabled={busy || !!option.unavailable} title={option.unavailable ?? "Runs code written by the agent"} onClick={() => void check(option.id)}>{running === option.id ? `Running ${option.label}…` : `${option.label} · runs agent code`}</button>)}
@@ -137,10 +139,10 @@ export function DelegationReview({ runId, projectId, onComplete }: DelegationRev
             <pre className="delegation-diff">{item.output}</pre>
           </details>;
         })}
-      </div>
+      </details>
 
       <div className="delegation-review__group">
-        <h5>Evidence per criterion</h5>
+        <h5>{compact ? "What you verified" : "Evidence per criterion"}</h5>
         {details.criteria.map((criterion, i) => {
           const length = noteLength(notes[i] ?? "");
           const valid = details.checks.filter(item => checkSupportsWorkspace(item, hash));
@@ -151,27 +153,29 @@ export function DelegationReview({ runId, projectId, onComplete }: DelegationRev
               placeholder="What you observed and where to find it (at least 20 characters)."
               onChange={e => setField(i, "notes", e.target.value)} />
             <span id={`evidence-count-${runId}-${i}`} className={`delegation-review__count ${length >= MIN_NOTE_CHARS ? "is-met" : ""}`}>{length}/{MIN_NOTE_CHARS} characters minimum</span>
+            <details open={!compact || undefined}><summary>Link an automated check (optional)</summary>
             <label htmlFor={`check-${runId}-${i}`} className="delegation-review__sublabel">Evidence type</label>
             <select id={`check-${runId}-${i}`} className="observation-input" value={evidence[i] ?? ""} disabled={busy} onChange={e => setField(i, "evidence", e.target.value)}>
               <option value="">Manual artifact or behavior review — no automated test claim</option>
               {valid.map(item => <option key={item.id} value={item.id}>{checkLabel(item.checkName, details.availableChecks)} · passed{item.finishedAt ? ` ${formatWhen(item.finishedAt)}` : ` · ${item.id.slice(0, 8)}`}</option>)}
-            </select>
+            </select></details>
           </div>;
         })}
       </div>
 
       <div className="delegation-review__group">
+        <details open={!compact || undefined}><summary>Report an unresolved issue</summary>
         <label htmlFor={`issues-${runId}`}>Unresolved issues <span>must be empty to complete; not stored</span></label>
-        <textarea id={`issues-${runId}`} className="observation-input" rows={2} value={issues} disabled={busy} onChange={e => setEntry(current => ({ ...current, projectId, issues: e.target.value }))} />
+        <textarea id={`issues-${runId}`} className="observation-input" rows={2} value={issues} disabled={busy} onChange={e => setEntry(current => ({ ...current, projectId, issues: e.target.value }))} /></details>
         <label className="delegation-review__ack"><input type="checkbox" checked={entry.reviewed} disabled={busy} onChange={e => setEntry(current => ({ ...current, projectId, reviewed: e.target.checked }))} /> I reviewed the diff and the evidence for every criterion.</label>
       </div>
 
       <div className="delegation-review__complete">
         <ul id={checklistId} className="delegation-review__checklist" aria-label="Completion requirements">
-          {checklist.map(item => <li key={item.text} className={item.met ? "is-met" : "is-unmet"}><span aria-hidden="true">{item.met ? "✓" : "✗"}</span><span className="projects-sr-only">{item.met ? "Met: " : "Not met: "}</span>{item.text}</li>)}
+          {(compact ? unmet : checklist).map(item => <li key={item.text} className={item.met ? "is-met" : "is-unmet"}><span aria-hidden="true">{item.met ? "✓" : "✗"}</span><span className="projects-sr-only">{item.met ? "Met: " : "Not met: "}</span>{item.text}</li>)}
         </ul>
         <button type="button" className="delegation-action delegation-action--primary" aria-describedby={checklistId} disabled={busy || unmet.length > 0} onClick={() => void complete()}>
-          {busy && !running ? "Working…" : "Record review and complete"}
+          {busy && !running ? "Working…" : completeLabel}
         </button>
         {unmet.length > 0 && <p className="delegation-review__hint">{unmet.length} {unmet.length === 1 ? "condition" : "conditions"} left.</p>}
       </div>
