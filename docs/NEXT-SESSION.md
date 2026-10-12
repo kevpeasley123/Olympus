@@ -1,6 +1,9 @@
 ## October 12, 2026 — outside tool packages added to the Armory plan
 
-Kevin wants the Armory to hold tools built by others, which he finds and adds over time, and wants skills to act through the tools they are granted rather than being instructions only. `docs/ARMORY-PLAN.md` now has Phase 3b, outside tool packages, with REA (`github.com/morluto/rea`) as the first candidate. It also has a dated status table and records the plan's approval of 2026-09-29. Nothing was installed or built; REA was evaluated only, from a read-only clone. Monid, below, belongs to Phase 3b.
+Kevin wants the Armory to hold tools built by others, which he finds and adds over time, and wants skills to act through the tools they are granted rather than being instructions only. He also decided the plan must not depend on Claude Code. `docs/ARMORY-PLAN.md` now has:
+- Phase 3b, outside tool packages, with REA (`github.com/morluto/rea`) as the first candidate;
+- an engine-neutral plan, with Codex and Claude Code built together in Phase 1 and a Codex coding driver in Phase 6;
+- a dated status table, and a record of the plan's approval of 2026-09-29. Nothing was installed or built; REA was evaluated only, from a read-only clone. Monid, below, belongs to Phase 3b.
 
 ## Next priority — Armory expansion and approval-gated Monid — October 7, 2026
 
