@@ -300,3 +300,9 @@ button.ecosystem-center:focus-visible { outline:2px solid #f1d39a;outline-offset
 }
 
 .project-command .project-overview p { font-weight:400; }
+
+/* Use the shared reading face; reserve serif type for titles. */
+.portfolio-art .command-project-row .command-project-purpose { font-family:var(--font-sans); font-weight:400; color:var(--secondary); }
+.project-command .project-overview p { color:var(--primary); font-family:var(--font-sans); font-weight:400; text-shadow:var(--text-shadow-body); }
+.project-command .project-overview-card h3 { font-weight:500; text-shadow:var(--text-shadow-body); }
+.portfolio-detail .command-board-heading h2 { font-family:var(--font-display); font-weight:400; text-shadow:var(--text-shadow-title); }
