@@ -112,3 +112,27 @@
 @keyframes ecosystem-twinkle {0%,100%{opacity:.45}50%{opacity:1}}
 @container(max-width:600px){.ecosystem-center{width:130px;height:130px}.ecosystem-center>span{font-size:46px}.ecosystem-center small{top:145px}.ecosystem-node strong{font-size:11px}.ecosystem-planet{width:calc(var(--planet-size) * .72);height:calc(var(--planet-size) * .72)}}
 @media(prefers-reduced-motion:reduce){.ecosystem-starfield .is-bright{animation:none}}
+
+/* The overview lives in the mountain scene; only its controls have a surface. */
+.dashboard-panel.portfolio-art.portfolio-overview {
+  background:transparent; border:0; box-shadow:none; backdrop-filter:none;
+}
+.portfolio-art.portfolio-overview .command-board-heading {
+  flex-wrap:wrap; flex-shrink:0; margin:0 0 16px;
+  background:linear-gradient(120deg,#0a1421ed,#101b28dd);
+  border:1px solid #a1b6cc30; border-radius:9px;
+  box-shadow:0 6px 20px #0002;
+}
+.portfolio-art.portfolio-overview .command-board-heading .command-board-controls {
+  flex:0 0 100%; min-width:0; padding-top:12px; border-top:1px solid #a1b6cc20;
+}
+.portfolio-art.portfolio-overview .command-board-scroll { padding:0 6px 20px; background:transparent; }
+.portfolio-art.portfolio-overview .command-board-inner { background:transparent; }
+.portfolio-overview .project-ecosystem {
+  background:transparent; border:0; border-radius:0; box-shadow:none;
+}
+.portfolio-overview .ecosystem-toolbar { text-shadow:0 1px 4px #000; }
+.portfolio-overview .command-portfolio-tools {
+  align-self:flex-start; padding:9px 12px; border:1px solid #a1b6cc30;
+  border-radius:6px; background:#0a1421dc; max-width:100%;
+}

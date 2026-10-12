@@ -200,6 +200,13 @@ export function ProjectsPanel({
       {demoData&&<span className="portfolio-demo" title="Browser preview · example project data. Desktop provides live records.">Demo data</span>}
       {!projectFilter&&<div className="portfolio-switch" role="group" aria-label="Project view"><button aria-pressed={portfolioView==="cards"} onClick={()=>setPortfolioView("cards")}>Cards</button><button aria-pressed={portfolioView==="ecosystem"} onClick={()=>setPortfolioView("ecosystem")}>Ecosystem</button></div>}
       {projectFilter ? <button className="ghost-action" onClick={backToBoard}>← All projects</button> : <button className="command-project-action" disabled={!native} title={native?undefined:"Add projects in the desktop app"} onClick={()=>setAddTarget(null)}>+ Add project</button>}
+      {!projectFilter && rows.length > 0 && (<div className="command-board-controls">{(tasksError || runsError || ((tasksLoading || runsLoading) && !scanLoading)) && <details className="portfolio-source-status"><summary>{tasksError || runsError ? "Some sources unavailable" : "Reading task records"}</summary><p>Counts and execution state may be incomplete. Unavailable task counts are shown as unknown.</p></details>}<input className="portfolio-search" aria-label="Search projects" placeholder="Search projects…" value={search} onChange={e=>setSearch(e.target.value)}/>
+            <label className="command-board-sort">Show <select aria-label="Filter projects by operational status" value={filter} onChange={event => setFilter(event.target.value as typeof filter)}>
+              <option value="ALL">All projects ({rows.length})</option>
+              {operationalStatuses.filter(value => value === filter || counts(value) > 0).map(value => <option key={value} value={value}>{operationalStatusLabels[value]} ({counts(value)})</option>)}
+            </select></label>
+            <label className="command-board-sort">Sort <select value={sort} onChange={event => setSort(event.target.value as typeof sort)}><option value="priority">Priority</option><option value="recent">Recently changed</option><option value="name">Name</option></select></label>
+          </div>)}
     </header>
     <div className="command-board-scroll" ref={scrollRef} onScroll={event => { scrollTop.current = event.currentTarget.scrollTop; }}>
       <div className="command-board-inner">
@@ -217,13 +224,6 @@ export function ProjectsPanel({
             row={selected} runs={runsAvailable ? runs : null} tasks={perProject.get(selected.project.id) ?? []}
             sessionBoundary={sessionBoundary} onOpenNote={onOpenNote} />
         : scanLoading ? <BoardSkeleton /> : rows.length === 0 ? boardWarnings : <>
-          <div className="command-board-controls">{(tasksError || runsError || ((tasksLoading || runsLoading) && !scanLoading)) && <details className="portfolio-source-status"><summary>{tasksError || runsError ? "Some sources unavailable" : "Reading task records"}</summary><p>Counts and execution state may be incomplete. Unavailable task counts are shown as unknown.</p></details>}<input className="portfolio-search" aria-label="Search projects" placeholder="Search projects…" value={search} onChange={e=>setSearch(e.target.value)}/>
-            <label className="command-board-sort">Show <select aria-label="Filter projects by operational status" value={filter} onChange={event => setFilter(event.target.value as typeof filter)}>
-              <option value="ALL">All projects ({rows.length})</option>
-              {operationalStatuses.filter(value => value === filter || counts(value) > 0).map(value => <option key={value} value={value}>{operationalStatusLabels[value]} ({counts(value)})</option>)}
-            </select></label>
-            <label className="command-board-sort">Sort <select value={sort} onChange={event => setSort(event.target.value as typeof sort)}><option value="priority">Priority</option><option value="recent">Recently changed</option><option value="name">Name</option></select></label>
-          </div>
           {portfolioView==="ecosystem" ? <ProjectEcosystem rows={visible} onOpen={openProject}/> : <div className="command-board-rows">
             {visible.map(row => <ProjectRow key={row.project.id} row={row} onOpen={openProject} management={native&&members?.some(m=>m.project.id===row.project.id)?<details className="project-row-options" onKeyDown={event=>{if(event.key==="Escape"){event.currentTarget.open=false;event.currentTarget.querySelector("summary")?.focus();event.stopPropagation()}}}><summary aria-label={`Options for ${row.project.name}`}>•••</summary><div><button disabled={!!membershipBusy} onClick={()=>setAddTarget(members!.find(m=>m.project.id===row.project.id)!)}>Link another source</button><button disabled={!!membershipBusy||!!row.openRun||row.operatorDecisions.length>0} onClick={()=>void changeVisibility(members!.find(m=>m.project.id===row.project.id)!,"removed")}>Remove from dashboard</button><p>{row.openRun||row.operatorDecisions.length?"Resolve active work or its review first.":"Keeps project files and history. You can restore it later."}</p></div></details>:undefined}/>)}
             {!visible.length && <p className="command-board-notice">No projects match this status.</p>}
