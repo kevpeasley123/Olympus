@@ -10,6 +10,7 @@ await page.setViewportSize({width,height:960});await page.goto(base+'/project-bo
 check(await page.getByRole('button',{name:'All',exact:true}).getAttribute('aria-pressed')==='true','All initial');
 check(await page.locator('.command-project-row').count()===4 && await page.locator('.ecosystem-node').count()===3,'All includes cards and ecosystem');
 check(await page.locator('.command-board-rows').evaluate(e=>e.getBoundingClientRect().bottom<=document.querySelector('.project-ecosystem').getBoundingClientRect().top),'Cards precede ecosystem');
+await page.evaluate(()=>document.fonts.ready);await page.waitForTimeout(250);
 const more=page.getByRole('button',{name:/Expand next step for/}).first();
 if(await more.count()) {
  const cardName=await more.locator('xpath=ancestor::article').getAttribute('aria-label');
@@ -23,7 +24,7 @@ if(await more.count()) {
 }
 await page.screenshot({path:`output/portfolio-review/all-${width}.png`});
 await page.locator('.command-project-row .command-project-action').first().click();
-await page.getByRole('heading',{name:'At a glance',exact:true}).waitFor();
+await page.locator('.project-overview').waitFor();
 await page.getByRole('button',{name:'← All projects',exact:true}).click();
 check(await page.getByRole('button',{name:'All',exact:true}).getAttribute('aria-pressed')==='true' && await page.locator('.ecosystem-node').count()===3,'All retained after project detail');
 await page.getByRole('button',{name:'Cards',exact:true}).click();
@@ -37,7 +38,7 @@ check(await page.locator('.ecosystem-node').count()===3,'Olympus is represented 
 check(await page.locator('.is-unmeasured').count()===4,'Unavailable tasks stay unknown');
 const hub=page.getByRole('button',{name:'Open Olympus project, task count unknown',exact:true});
 check(await hub.count()===1,'One interactive Olympus hub');
-await hub.focus();await page.keyboard.press('Enter');await page.getByRole('heading',{name:'At a glance',exact:true}).waitFor();
+await hub.focus();await page.keyboard.press('Enter');await page.locator('.project-overview').waitFor();
 check(await page.locator('.command-detail-vision').count()===1,'Central hub opens the project detail');
 await page.getByRole('button',{name:'← All projects',exact:true}).click();
 
@@ -45,7 +46,7 @@ check(await page.locator('.ecosystem-toolbar,.ecosystem-orbits,.command-portfoli
 check(await page.locator('.command-board-scroll').evaluate(e=>e.scrollWidth<=e.clientWidth+1),'No horizontal ecosystem overflow');
 await page.screenshot({path:`output/portfolio-review/ecosystem-${width}.png`});
 check(await page.locator('.command-board-controls').count()===0,'Portfolio toolbar removed');
-await page.locator('.ecosystem-node').filter({hasText:'Pokedex'}).click();await page.getByRole('heading',{name:'At a glance',exact:true}).waitFor();
+await page.locator('.ecosystem-node').filter({hasText:'Pokedex'}).click();await page.locator('.project-overview').waitFor();
 for(const name of ['Vision','Recent changes','Where it stands','Recommended next step'])check(await page.getByRole('heading',{name,exact:true}).isVisible(),`Visible detail section: ${name}`);
 check(await page.locator('.command-board-scroll').evaluate(e=>e.scrollWidth<=e.clientWidth+1),'No horizontal detail overflow');
 await page.screenshot({path:`output/portfolio-review/detail-${width}.png`});

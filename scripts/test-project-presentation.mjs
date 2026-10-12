@@ -29,7 +29,7 @@ try {
   await page.screenshot({path:`${output}/projects-${width}.png`});
  }
  await olympus.getByRole('button',{name:'Continue project Olympus',exact:true}).click();
- await page.getByRole('heading',{name:'At a glance',exact:true}).waitFor();
+ await page.locator('.project-overview').waitFor();
  assert.equal(await page.getByRole('button',{name:'Open project note',exact:true}).isVisible(),false,'Vault shortcut stays behind details');
  assert.equal(await page.getByText('Error: Organizer requires the Olympus desktop connection.',{exact:true}).count(),0);
  for(const heading of ['Vision','Recent changes','Where it stands','Recommended next step'])assert(await page.getByRole('heading',{name:heading,exact:true}).isVisible());
@@ -47,6 +47,14 @@ try {
  });
  assert.equal(await page.locator('.panel-slot-library').count(),0,'Project mode is focused on projects');
  await page.screenshot({path:`${output}/project-mode-1440.png`});
+ await page.setViewportSize({width:1200,height:900});
+ await page.getByRole('article',{name:'Obsidian Visual Project',exact:true}).getByRole('heading').click();
+ await page.locator('.project-overview').waitFor();
+ assert(await page.getByRole('heading',{name:'Obsidian Visual Project',exact:true}).isVisible(),'Card surface opens matching project overview');
+ const records=page.locator('.command-project-background');
+ assert(await records.evaluate(e=>e.getBoundingClientRect().bottom<=e.closest('.command-board-scroll').getBoundingClientRect().bottom),'Overview and tool rows fit at 1200x900');
+ await page.screenshot({path:`${output}/compact-overview-1200.png`});
+
  assert.deepEqual(errors,[]);
  console.log('PASS project presentation, responsive layout, project navigation and existing board browser checks. '+result);
 } catch(error) { console.error(error);process.exitCode=1; }

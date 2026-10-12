@@ -260,7 +260,11 @@ function ProjectRow({ row, onOpen, management }: { row: ProjectCommandState; onO
   const decision = row.operatorDecisions[0];
   const action = decision ? (decision.phase === "waiting" ? "Review plan" : "Review result")
     : row.openRun ? "View progress" : row.operationalStatus === "COMPLETE" ? "View project" : "Continue project";
-  return <article className={`command-project-row status-${row.operationalStatus.toLowerCase()} ${pinned ? "is-pinned" : ""}`} aria-label={row.project.name} style={{"--project-hue":projectColor(row.project.id,row.project.name)} as React.CSSProperties}>
+  return <article className={`command-project-row status-${row.operationalStatus.toLowerCase()} ${pinned ? "is-pinned" : ""}`} aria-label={row.project.name} onClick={event => {
+    const target = event.target as HTMLElement;
+    if (target.closest("button, a, input, select, textarea, summary, details") || window.getSelection()?.toString()) return;
+    onOpen(row.project.id);
+  }} style={{"--project-hue":projectColor(row.project.id,row.project.name)} as React.CSSProperties}>
     <header>
       <ProjectEmblem id={row.project.id} name={row.project.name}/><h3 title={row.project.name}>{row.project.name}</h3>
       {pinned && <span className="command-operational-status">{operationalStatusLabels[row.operationalStatus]}</span>}
@@ -294,19 +298,19 @@ function ProjectDetail({ row, runs, tasks, sessionBoundary, onOpenNote, tasksAva
     <section className="command-project-detail project-overview" aria-label={`${project.name} detail`}>
       <div className="project-overview-intro">
         <span className="project-overview-emblem"><ProjectEmblem id={project.id} name={project.name} /></span>
-        <div><span className="project-section-label">PROJECT OVERVIEW</span><h3>At a glance</h3>
+        <div>
           <p>{summary || project.vision.trim() || "Add a project brief to describe its purpose."}</p></div>
       </div>
       <div className="project-overview-layout">
         <div className="project-overview-main">
           <section className="project-overview-card"><span className="project-section-label">DIRECTION</span><h3>Vision</h3>
-            <p className="command-detail-vision">{project.vision.trim() || "A vision has not been recorded yet. Add it in the project brief below."}</p>
+            <p className="command-detail-vision">{project.vision.trim() || "No vision recorded."}</p>
             {project.visionReviewedAt && <small>Reviewed {dayLabel(`${project.visionReviewedAt}T00:00:00`)}</small>}
           </section>
           <section className="project-overview-card"><span className="project-section-label">PROGRESS</span><h3>Recent changes</h3>
-            {visibleCommits.length ? <ul className="project-change-list">{visibleCommits.slice(0,5).map((commit,i) => <li key={`${commit.at}-${i}`}><span>{commit.subject}</span><time dateTime={commit.at}>{formatWhen(commit.at)}</time></li>)}</ul>
+            {visibleCommits.length ? <ul className="project-change-list">{visibleCommits.slice(0,3).map((commit,i) => <li key={`${commit.at}-${i}`}><span>{commit.subject}</span><time dateTime={commit.at}>{formatWhen(commit.at)}</time></li>)}</ul>
               : <p className="project-overview-muted">{sessionBoundary?.previousSessionStartedAt ? "No commits recorded since the previous session." : "No commits recorded in the last 24 hours."}</p>}
-            <small>{commits.length ? "From Git history" : visibleCommits.length ? "Latest recorded commit" : "Git history"} · code changes do not confirm task completion.</small>
+            <small>{visibleCommits.length > 3 ? "Latest 3 · full history in project records. " : ""}{commits.length ? "From Git history" : visibleCommits.length ? "Latest recorded commit" : "Git history"} · code changes do not confirm task completion.</small>
           </section>
         </div>
         <div className="project-overview-side">
@@ -334,6 +338,7 @@ function ProjectDetail({ row, runs, tasks, sessionBoundary, onOpenNote, tasksAva
     {native && project.path ? <details className="project-work-disclosure" open={Boolean(row.openRun)}><summary>{row.openRun ? "Current work & reviews" : "Coding runs"}</summary><DelegationPanel project={project} blocker={blocker} /></details> : null}
     <details className="project-work-disclosure command-project-background"><summary>Project records &amp; source details</summary>
       <ProjectFacts project={project} onOpenNote={onOpenNote} />
+      {visibleCommits.length > 3 && <section><h3>Recent commit history</h3><ul className="project-change-list">{visibleCommits.map((commit,i) => <li key={i}><span>{commit.subject}</span><time dateTime={commit.at}>{formatWhen(commit.at)}</time></li>)}</ul></section>}
       <p className="project-help">Vault status: {STATUS_LABELS[project.status] ?? STATUS_LABELS.unclassified}{project.statusSource === "inferred" ? " (inferred)" : ""}</p>
       {row.attention.length > 0 && <ul>{row.attention.map((item,i) => <li key={i}>{item.text}<small> · {item.source}</small></li>)}</ul>}
     </details>

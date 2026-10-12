@@ -251,3 +251,27 @@ button.ecosystem-center:focus-visible { outline:2px solid #f1d39a;outline-offset
 .portfolio-art .command-project-next p.is-expanded { display:block; -webkit-line-clamp:unset; overflow:visible; }
 .portfolio-art .project-next-toggle { display:block; border:0; background:none; color:#bda67d; font:10px/1.4 var(--font-sans); padding:3px 0 0; cursor:pointer; }
 .portfolio-art .project-next-toggle:hover { color:#f0d29d; }
+
+/* Compact downstream overview: one useful screen before optional tools. */
+.portfolio-art .command-project-row { cursor:pointer; }
+.portfolio-detail .command-board-inner { gap:8px; }
+.project-command .project-overview { padding:8px 0 2px; }
+.project-overview-intro { gap:12px; padding:10px 12px; margin-bottom:12px; border:1px solid #8ba9bd29; border-radius:7px; background:#0c1b2790; }
+.project-overview-emblem { width:34px; height:34px; border-radius:8px; }
+.project-overview-emblem svg { width:21px; height:21px; }
+.project-overview-layout { grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:12px; }
+.project-overview-main,.project-overview-side { gap:12px; }
+.project-overview-card { padding:12px 14px; border-radius:7px; }
+.project-overview-card > .project-section-label { display:none; }
+.project-command .project-overview h3 { font-size:18px; margin:0 0 8px; }
+.project-command .project-overview p { font-size:13px; line-height:1.5; }
+.project-overview-card small { margin-top:7px; line-height:1.4; }
+.project-overview-status { padding:3px 7px; margin-bottom:7px; }
+.project-next-step button { margin-top:9px; }
+.project-change-list li { padding-bottom:7px; margin-bottom:7px; font-size:12px; line-height:1.4; }
+.project-change-list time { margin-top:2px; }
+.project-pending-review { margin-top:10px; }
+.portfolio-detail .project-work-disclosure { padding:10px 12px; border:1px solid #8ba9bd29; border-radius:6px; background:#0a172180; }
+.portfolio-detail .project-brief-disclosure { margin:0; padding:0 12px; border:1px solid #8ba9bd29; border-radius:6px; background:#0a172180; }
+.portfolio-detail .project-brief-disclosure>summary { padding:10px 0; }
+@container(max-width:680px) { .project-overview-layout { grid-template-columns:1fr; } }
