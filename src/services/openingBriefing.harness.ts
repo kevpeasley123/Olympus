@@ -15,51 +15,52 @@ export function runOpeningBriefingHarness() {
     composeOpeningBriefing({ projects, board: buildProjectCommandBoard(projects, [], runs, { tasks: true, runs: true }, now), sessionBoundary, projectsError }, now);
 
   const plain = brief([project, other]);
-  check(plain.includes("three commits across two projects"), `Counts commits since the last session: ${plain}`);
-  check(plain.includes("Next recorded step, Olympus: Run desktop acceptance of the review fixes."), `States the operator's own next step: ${plain}`);
-  check(!/!|great|exciting/i.test(plain), "Dry voice: no exclamation or enthusiasm");
-
+  check(plain.startsWith("Hello sir."), "Every brief opens with the requested greeting");
+  check(plain.includes("Fix sync") || plain.includes("fixing sync"), "Explains change descriptions, not only counts");
+  check(plain.includes("Run desktop acceptance of the review fixes"), "Preserves the recorded next step");
+  check(plain.includes("I'd recommend"), "Separately labels the recommendation");
+  check(!plain.includes("three commits across"), "Does not lead with commit accounting");
   const quiet = brief([{...project, sinceSessionCommits: []}]);
-  check(quiet.startsWith("No commits since your last session"), `Says so when nothing moved: ${quiet}`);
-
+  check(quiet.includes("no new committed updates"), "No commits does not imply no work");
   const first = brief([project], [], null);
-  check(first.startsWith("This is the first recorded Olympus session"), "No invented since-last-time summary without a boundary");
-
+  check(first.startsWith("Hello sir.") && first.includes("first recorded session"), "First session has greeting and explicit boundary");
+  check(!first.includes("fixing sync"), "No historical updates recast as since-session progress");
   const review = {id:"r",projectId:"p",task:"Harden writers",phase:"awaiting_review",milestone:"",updatedAt:"2026-09-28T08:00:00Z"} as DelegationRun;
   const needs = brief([project], [review]);
-  check(needs.includes("Olympus needs you: Review result and evidence: Harden writers."), `Surfaces recorded checkpoints: ${needs}`);
-
-  const unset = brief([{...project, nextStep: ""}]);
-  check(unset.includes("Olympus is active but has no recorded next step."), "Never borrows another project's step");
-
-  const failed = brief([project], [], boundary, "root missing");
-  check(failed.startsWith("The project scan failed"), "A failed scan is stated first, not guessed around");
-
-  const long = brief([{...project, nextStep: "word ".repeat(80)}]);
-  check(long.length < 400, "Items are clipped so the spoken briefing stays short");
-
-  check(brief([]) === "No projects are tracked yet.", "Empty state leads with the fact, so the one-line preview carries it");
-
-  // Attention (review F2): one source-backed observation, never a blocker.
+  check(needs.includes("Harden writers")&&needs.includes("review"), "Explains pending review with task context");
+  check(needs.indexOf("I'd recommend")>needs.indexOf("Harden writers"), "Recommendations follow the evidence");
+  const unset = brief([{...project, nextStep: ""},{...other,nextStep:'Ship Atlas'}]);
+  check(unset.includes("choose the next priority for Olympus"), "Missing next step leads to useful advice");
+  check(!unset.includes("is active but has no recorded next step"), "Avoids database field narration");
+  check(!unset.includes('Ship Atlas'), 'Never borrows a watching project next step for the active project');
+  check(brief([project], [], boundary, "root missing").startsWith("Hello sir. I couldn't"), "Scan failure is transparent and greeted");
+  check(brief([]).startsWith("Hello sir."), "Empty brief is greeted");
   const reviewed = {...project, visionReviewedAt: "2026-09-01"};
-  const clean = brief([reviewed]);
-  check(!clean.includes("Observed for attention"), `No attention sentence without an observation: ${clean}`);
-  const dirty = {...reviewed, id: "a", name: "Atlas", repoState: "git-pending" as const, sinceSessionCommits: [], nextStep: ""};
-  const observed = brief([reviewed, {...reviewed, id: "s", name: "Stale", visionReviewedAt: "2026-01-02"}, dirty]);
-  check(observed.includes("Observed for attention: Atlas has uncommitted changes in its main checkout, and one more observation on the Project board."),
-    `Git fact outranks vault hygiene and the rest is counted: ${observed}`);
-  check((observed.match(/Observed for attention/g) ?? []).length === 1, "At most one attention sentence");
-  check(!/Atlas (is blocked|needs you)/.test(observed) && !/blocker/i.test(observed), "An observation is never said as a blocker");
-  check(observed.indexOf("Observed for attention") < observed.indexOf("Next recorded step"), "Observation precedes the next step");
-  const worktree = brief([{...reviewed, linkedWorktrees: [{path: "/w", branch: "olympus/run-2", head: "abc", lastCommitAt: null, changedFiles: 3}]}]);
-  check(worktree.includes("Olympus has three uncommitted files in an agent worktree."), `Worktree phrased without the branch: ${worktree}`);
-  const stale = brief([{...reviewed, visionReviewedAt: "2026-01-02"}]);
-  check(stale.includes("Observed for attention: the Olympus vision was last reviewed 269 days ago."), `Vault-note observation reads as a sentence: ${stale}`);
-  const archived = brief([reviewed, {...dirty, status: "archived" as const}]);
-  check(!archived.includes("Observed for attention"), "Archived projects add no observation");
-  const awaiting = brief([reviewed], [review]);
-  check(!awaiting.includes("Observed for attention"), "A run awaiting review is said once, as needs you, not again as an observation");
-  check(brief([dirty]) === brief([dirty]), "Deterministic");
-  check(observed.length < 400, `Still short with an observation: ${observed.length}`);
+  const dirty = {...reviewed, repoState: "git-pending" as const, nextStep:""};
+  const observed = brief([dirty]);
+  check(observed.includes("uncommitted changes"), "Preserves unfinished local changes");
+  check(!observed.includes("Observed for attention")&&!observed.includes("more observation"), "Uses human explanation instead of observation counts");
+  check(!/Olympus is blocked/.test(observed), "Dirty checkout never implies blocked");
+  check(observed.includes("reviewing the uncommitted changes"), "Recommendation responds to the known unfinished work");
+  const subjects=['feat(projects): Add compact project cards','Improve ecosystem layout','feat(voice): Enable ElevenLabs spoken replies','Merge branch feature','Add compact project cards'];
+  const rich=brief([{...reviewed,sinceSessionCommits:subjects.map(subject=>({...commit,subject}))}]);
+  check(rich.includes("project dashboard")&&rich.includes("voice"), "Explains themes grounded in commit subjects");
+  check(rich.includes("compact project cards")&&rich.includes("ElevenLabs spoken replies"), "Includes concrete highlights");
+  check(!rich.includes("Merge branch")&&!rich.includes("feat("), "Omits merge noise and conventional commit prefixes");
+  check((rich.match(/compact project cards/g)||[]).length===1, "Deduplicates repeated subjects");
+  check(!/installed|deployed|all tests passed/i.test(rich), "Commits are not release or verification evidence");
+  const old=brief([{...reviewed,sinceSessionCommits:[],recentCommits:[commit]}]);
+  check(!old.includes("fixing sync"), "Never substitutes recent commits for the actual session window");
+  const long=brief([{...reviewed,nextStep:'word '.repeat(100),sinceSessionCommits:[{...commit,subject:'word '.repeat(100)}]}]);
+  check(long.length<1200, "Narrative remains bounded for speech");
+  check(brief([dirty])===brief([dirty]), "Brief remains deterministic without paid model calls");
+  const worktree=brief([{...reviewed,linkedWorktrees:[{path:'/w',branch:'private-branch',head:'abc',lastCommitAt:null,changedFiles:3}]}]);
+  check(worktree.includes('three uncommitted files')&&!worktree.includes('private-branch'),'Explains worktree work without exposing branch detail');
+  const archived=brief([reviewed,{...dirty,id:'a',name:'Archived',status:'archived'}]);
+  check(!archived.includes('Archived has uncommitted'),'Archived work does not raise an active attention item');
+  const stale=brief([{...reviewed,visionReviewedAt:'2026-01-02'}]);
+  check(stale.includes('269 days ago'),'Preserves source-backed vision review age');
+  const invalid=brief([reviewed],[],{...boundary,previousSessionStartedAt:'invalid'});
+  check(!invalid.includes('fixing sync'),'Invalid boundary cannot manufacture a recent-progress window');
   return { passed };
 }

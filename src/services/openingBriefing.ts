@@ -8,8 +8,7 @@ import { selectNextAction } from "./nextAction";
  *
  * Deterministic and assembled only from state Olympus can prove: commits since
  * the previous launch, recorded delegation checkpoints, and the operator's own
- * next step. No model call, so it costs nothing to compose, cannot invent a
- * fact, and still works when provider credit is exhausted. Speaking it is the
+ * next step. No model call, so it costs nothing to compose and still works when provider credit is exhausted. Speaking it is the
  * only paid part.
  */
 export interface OpeningBriefingInput {
@@ -74,8 +73,7 @@ function attentionSentence(board: ProjectCommandState[]): string | null {
     .sort((left, right) => (OBSERVATION_RANK[left.item.kind] ?? 9) - (OBSERVATION_RANK[right.item.kind] ?? 9));
   if (candidates.length === 0) return null;
   const [{ row, item }] = candidates;
-  const more = candidates.length - 1;
-  return `Observed for attention: ${clip(observation(row.project, item))}${more > 0 ? `, and ${lower(count(more, "more observation"))} on the Project board` : ""}.`;
+  return `One thing to keep in mind: ${clip(observation(row.project, item))}.`;
 }
 
 function sinceClause(sessionBoundary: SessionBoundary | null, now: Date): string | null {
@@ -90,57 +88,77 @@ function sinceClause(sessionBoundary: SessionBoundary | null, now: Date): string
   return sameDay ? `earlier today at ${when}` : when;
 }
 
+function joinItems(items: string[]): string {
+  return items.length<3 ? items.join(" and ") : `${items.slice(0,-1).join(", ")}, and ${items[items.length-1]}`;
+}
+
+function cleanSubject(subject:string):string {
+  return subject.replace(/^(feat|fix|refactor|docs|test|chore|style|perf|build|ci)(\([^)]*\))?!?:\s*/i,"").replace(/\s+/g," ").trim();
+}
+
+// Broad labels summarize the words in the change notes, not inferred outcomes.
+function changeTheme(subject:string):string {
+  if(/project|ecosystem|cards?\b/i.test(subject))return "the project dashboard";
+  if(/voice|speech|spoken|microphone|elevenlabs/i.test(subject))return "voice replies";
+  if(/omega|constellation|galaxy|stars?|header|typography|console|chat/i.test(subject))return "the interface";
+  if(/memory|vault|obsidian/i.test(subject))return "project memory";
+  if(/test|verification|acceptance/i.test(subject))return "verification";
+  return "other project work";
+}
+
+function describeChange(subject:string):string {
+  const forms:Record<string,string>={match:"matching",align:"aligning",unify:"unifying",restore:"restoring",replace:"replacing",support:"supporting",add:"adding",fix:"fixing",improve:"improving",refine:"refining",make:"making",remove:"removing",share:"sharing",show:"showing",keep:"keeping",fit:"fitting",simplify:"simplifying",enable:"enabling",update:"updating",render:"rendering",vary:"varying",distinguish:"distinguishing",place:"placing",give:"giving",default:"defaulting",recompose:"recomposing",represent:"representing",bring:"bringing",compact:"compacting"};
+  return clip(subject.replace(/^(\w+)\b/,word=>forms[word.toLowerCase()]??word));
+}
+
+function progressSummary(project:TrackedProject):string {
+  const subjects=[...new Set(project.sinceSessionCommits.map(c=>cleanSubject(c.subject)).filter(s=>s&&!/^Merge\b/i.test(s)))];
+  if(!subjects.length)return `There are recorded changes in ${project.name}, but the change notes don't give me a useful summary yet.`;
+  const groups=new Map<string,string[]>();
+  for(const subject of subjects){const theme=changeTheme(subject);groups.set(theme,[...(groups.get(theme)??[]),subject]);}
+  const ranked=[...groups].sort((a,b)=>b[1].length-a[1].length);
+  const themes=ranked.filter(([theme])=>theme!=="other project work").slice(0,3).map(([theme])=>theme);
+  const highlights=ranked.slice(0,3).map(([,items])=>items[0]);
+  // A small focused change-set still deserves more than one concrete example.
+  for(const subject of subjects){if(highlights.length>=3)break;if(!highlights.includes(subject))highlights.push(subject);}
+  return `${themes.length?`Work on ${project.name} has focused on ${joinItems(themes)}. `:`On ${project.name}, here are the recent updates. `}That includes ${joinItems(highlights.map(describeChange))}.`;
+}
+
 export function composeOpeningBriefing(
   { projects, board, sessionBoundary, projectsError }: OpeningBriefingInput,
   now = new Date()
 ): string {
-  if (projectsError) {
-    return "The project scan failed, so there is no project briefing yet.";
-  }
-  if (projects.length === 0) {
-    return "No projects are tracked yet.";
-  }
+  if (projectsError) return "Hello sir. I couldn't refresh the projects, so I can't give you a reliable update yet. I'd recommend retrying the project scan before deciding what to work on.";
+  if (!projects.length) return "Hello sir. We haven't linked any projects yet. I'd recommend adding the project you'd like to work on first so I can help you decide what comes next.";
+  const sentences=["Hello sir."];
+  const since=sinceClause(sessionBoundary,now);
+  const moved=projects.filter(p=>p.sinceSessionCommits.length>0).sort((a,b)=>b.sinceSessionCommits.length-a.sinceSessionCommits.length);
+  if(since){
+    sentences.push(moved.length?`Here's what changed since your last session, ${since}.`:`I found no new committed updates since your last session, ${since}. Work may still be in progress.`);
+    for(const project of moved.slice(0,2))sentences.push(progressSummary(project));
+    if(moved.length>2)sentences.push(`There are also updates in ${lower(count(moved.length-2,"other project"))} on the Project board.`);
+  }else sentences.push("This is our first recorded session, so I don't yet have a previous visit to compare against. Here's where things stand.");
 
-  const sentences: string[] = [];
-  const since = sinceClause(sessionBoundary, now);
-  if (since) {
-    const moved = projects.filter((project) => project.sinceSessionCommits.length > 0);
-    const commits = moved.reduce((total, project) => total + project.sinceSessionCommits.length, 0);
-    sentences.push(commits === 0
-      ? `No commits since your last session, ${since}.`
-      : `Since your last session, ${since}: ${lower(count(commits, "commit"))} across ${lower(count(moved.length, "project"))}.`);
-  } else {
-    sentences.push("This is the first recorded Olympus session, so there is no since-last-time summary.");
+  const attention=board.filter(row=>row.operationalStatus==="NEEDS_YOU"||row.operationalStatus==="BLOCKED");
+  for(const row of attention.slice(0,MAX_ATTENTION_ITEMS)){
+    const detail=row.operatorDecisions[0]?.text??row.nextMove??row.currentState;
+    sentences.push(row.operationalStatus==="BLOCKED"?`Work on ${row.project.name} is blocked: ${clip(detail)}.`:`${row.project.name} is waiting for your review: ${clip(detail)}.`);
   }
+  if(attention.length>MAX_ATTENTION_ITEMS)sentences.push(`${count(attention.length-MAX_ATTENTION_ITEMS,"other project")} also ${attention.length-MAX_ATTENTION_ITEMS===1?"needs":"need"} your attention on the Project board.`);
+  const running=board.filter(row=>row.operationalStatus==="IN_PROGRESS");
+  if(running.length)sentences.push(`Delegated work is still running on ${joinItems(running.slice(0,2).map(row=>row.project.name))}${running.length>2?" and other projects":""}.`);
+  const observed=attentionSentence(board);
+  if(observed)sentences.push(observed);
 
-  const attention = board.filter((row) => row.operationalStatus === "NEEDS_YOU" || row.operationalStatus === "BLOCKED");
-  for (const row of attention.slice(0, MAX_ATTENTION_ITEMS)) {
-    const detail = row.operatorDecisions[0]?.text ?? row.nextMove ?? row.currentState;
-    sentences.push(row.operationalStatus === "BLOCKED"
-      ? `${row.project.name} is blocked: ${clip(detail)}.`
-      : `${row.project.name} needs you: ${clip(detail)}.`);
-  }
-  const remaining = attention.length - MAX_ATTENTION_ITEMS;
-  if (remaining > 0) sentences.push(`${count(remaining, "more project")} ${remaining === 1 ? "needs" : "need"} attention.`);
+  const next=selectNextAction(projects);
+  if(next.kind==="stated")sentences.push(`${next.fallback?"No project is currently marked active. The latest saved next step":"The next step we have recorded"} for ${next.project} is: ${clip(next.step)}.`);
 
-  const running = board.filter((row) => row.operationalStatus === "IN_PROGRESS");
-  if (running.length > 0) {
-    sentences.push(running.length === 1
-      ? `Delegated work is running on ${running[0].project.name}.`
-      : `Delegated work is running on ${lower(count(running.length, "project"))}.`);
-  }
-
-  const observed = attentionSentence(board);
-  if (observed) sentences.push(observed);
-
-  const next = selectNextAction(projects);
-  if (next.kind === "stated") {
-    sentences.push(`${next.fallback ? "Nothing is active. The latest recorded step" : "Next recorded step"}, ${next.project}: ${clip(next.step)}.`);
-  } else if (next.project && projects.some((project) => project.status === "active")) {
-    sentences.push(`${next.project} is active but has no recorded next step.`);
-  } else if (attention.length === 0) {
-    sentences.push("Nothing is active and no next step is recorded.");
-  }
-
+  const dirty=projects.find(p=>(p.status==="active"||p.status==="watching")&&(p.repoState==="git-pending"||p.linkedWorktrees.some(w=>w.changedFiles>0)));
+  if(attention.length)sentences.push(`I'd recommend starting with the ${attention[0].operationalStatus==="BLOCKED"?"blocker":"review"} on ${attention[0].project.name} before taking on more work.`);
+  else if(running.length)sentences.push(`I'd recommend checking the next review checkpoint for ${running[0].project.name} before starting overlapping work.`);
+  else if(dirty)sentences.push(`I'd recommend reviewing the uncommitted changes in ${dirty.name} and deciding what is ready to keep before choosing the next task.`);
+  else if(next.kind==="stated")sentences.push(`I'd recommend checking that this still matches your priorities, then picking up that step.`);
+  else if(next.project)sentences.push(`I don't have a saved next step for this project yet. I'd recommend that we choose the next priority for ${next.project} and record a clear outcome before starting.`);
+  else sentences.push("I'd recommend choosing a project to focus on and agreeing on one concrete next step.");
   return sentences.join(" ");
 }
