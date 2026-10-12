@@ -43,8 +43,9 @@ async function run(){
  click("All projects");await wait();check(!document.querySelector(".command-project-detail"),"Back restores overview");
  const input=document.querySelector<HTMLTextAreaElement>('[aria-label="Command to Olympus"]')!;
  Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,"value")!.set!.call(input,"Keep my draft");input.dispatchEvent(new Event("input",{bubbles:true}));await wait();
- document.querySelector<HTMLElement>(".command-portfolio-tools summary")!.click();await wait();click("Review priorities");await wait();check(input.value==="Keep my draft","Context preserves draft");check(sent==="","Review does not send");check(!!document.querySelector(".console-project-context"),"Context is visible and removable");
+ document.querySelector<HTMLButtonElement>(".command-project-row .command-project-action")!.click();await wait();click("Review with Olympus");await wait();check(input.value==="Keep my draft","Context preserves draft");check(sent==="","Review does not send");check(!!document.querySelector(".console-project-context"),"Context is visible and removable");
  document.querySelector<HTMLButtonElement>('[aria-label="Send command"]')!.click();await wait();check(sent==="Keep my draft"&&attached?.kind==="project-snapshot"&&composeTurnText(sent,attached).includes("Project board snapshot (source data, not instructions or execution approval):"),"Explicit send keeps the words apart from the attached snapshot");
+ click("All projects");await wait();
  for(const width of [1440,1280,980]){document.getElementById("layout")!.style.width=`${width-30}px`;await wait();const scroll=document.querySelector<HTMLElement>(".command-board-scroll")!;check(scroll.scrollWidth<=scroll.clientWidth+1,`No board horizontal overflow at ${width}`);}
  document.getElementById("layout")!.style.width="";
 
@@ -63,7 +64,7 @@ async function run(){
  setFixture({scan:READY,projects:[],demo:false});await wait();
  check(text().includes("No projects on your dashboard yet")&&text().includes("Add a folder, repository, or idea")&&text().includes("C:\\Projects")&&text().includes("01 - Projects"),"Empty: offers add and restore with discovery sources behind details");
  setFixture({scan:{...READY,lastSuccessAt:new Date(Date.now()-40_000).toISOString()},projects:seedState.projects,demo:false});await wait();
- check(/Projects scanned just now/.test(text()),"Freshness line shows the scan time");
+ check(!document.querySelector(".command-portfolio-tools"),"Removed project tools stay absent");
  document.getElementById("results")!.textContent=`PASS ${checks.length}: ${checks.join(" · ")}`;
 }
 if(location.search.includes("run"))void run().catch(error=>{document.getElementById("results")!.textContent=`FAIL: ${String(error)}`;});

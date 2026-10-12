@@ -1,3 +1,4 @@
+import "./components/panels/projectDock.css";
 import { Communications } from "./components/panels/Communications";
 import { realtimeVoice, voicePreview, useVoiceState, type VoiceSnapshot } from "./services/realtimeVoice";
 import type { OlympusVisualState } from "./services/ambientMotion";
@@ -39,6 +40,9 @@ function readChatLayout(): "compact" | "expanded" {
 
 function App() {
   const [preferencesOpen,setPreferencesOpen]=useState(false);
+  const [projectChatOpen,setProjectChatOpen]=useState(false);
+  const [projectReplyReady,setProjectReplyReady]=useState(false);
+  const projectDockRef=useRef<HTMLButtonElement>(null);
   const [chatLayout,setChatLayoutState]=useState<"compact"|"expanded">(readChatLayout);
   const setChatLayout=useCallback((layout:"compact"|"expanded")=>{setChatLayoutState(layout);try{window.localStorage.setItem(CHAT_LAYOUT_KEY,layout)}catch{/* not remembered */}},[]);
   const [researchInspection,setResearchInspection]=useState<ResearchInspectionTarget|null>(null);
@@ -109,6 +113,20 @@ function App() {
   const dense = mode === "project";
   const research = mode === "research";
   const command = mode === "command";
+  const activateProjectChat=useCallback(()=>{if(dense){setProjectChatOpen(true);setProjectReplyReady(false);}},[dense]);
+  const changeProjectChat=useCallback((layout:"compact"|"expanded")=>{
+    setProjectChatOpen(layout==="expanded");
+    if(layout==="compact")requestAnimationFrame(()=>projectDockRef.current?.focus());
+    else setProjectReplyReady(false);
+  },[]);
+  const wasChatPending=useRef(chatPending);
+  const replyBeforeRequest=useRef<string>();
+  useEffect(()=>{
+    const latestReply=chat.filter(message=>message.role==="assistant").slice(-1)[0]?.id;
+    if(chatPending&&!wasChatPending.current)replyBeforeRequest.current=latestReply;
+    if(wasChatPending.current&&!chatPending&&!chatError&&!projectChatOpen&&latestReply&&latestReply!==replyBeforeRequest.current)setProjectReplyReady(true);
+    wasChatPending.current=chatPending;
+  },[chat,chatPending,chatError,projectChatOpen]);
   const armory = useCommandArmory(command);
   // Command's inspection state. Separate from conversation state by design:
   // selecting a lens, domain or capability never touches chat or drafts.
@@ -194,7 +212,7 @@ function App() {
     // per component would leave the ones nobody remembered to touch animating.
     <MotionConfig reducedMotion="user">
       <BackgroundLayer />
-      <main className={`app-shell mode-${mode} ${dense ? "focus-mode" : ""}`} data-chat-layout={command ? chatLayout : undefined}>
+      <main className={`app-shell mode-${mode} ${dense ? "focus-mode" : ""}`} data-chat-layout={command ? chatLayout : undefined} data-project-chat={dense ? (projectChatOpen ? "open" : "closed") : undefined}>
       {/* Each region has its own error boundary, so one view failing to render
           never unmounts the header, the console or the write gate. The write
           gate sits outside every boundary. */}
@@ -301,6 +319,10 @@ function App() {
 
           {/* The console stays anchored while its transcript aperture opens upward. */}
           <section className="right-stack dashboard-column">
+            {dense&&!projectChatOpen&&<button ref={projectDockRef} type="button" className="project-chat-dock" aria-label="Ask Olympus" aria-expanded={false} onClick={()=>window.dispatchEvent(new CustomEvent("olympus:focus-console"))}>
+              <span aria-hidden="true" className="project-chat-dock-symbol">Ω</span><span>Ask Olympus…</span>
+              <small role="status">{chatPending?"Working…":voice.active||voice.connecting?"Voice active":chatError?"Needs attention":projectReplyReady?"Reply ready":"Open conversation"}</small><span aria-hidden="true">↗</span>
+            </button>}
             <FadeInPanel index={8} className="panel-slot panel-slot-chat">
               <ErrorBoundary label="Command console">
                 <ChatPanel
@@ -317,8 +339,10 @@ function App() {
                   error={chatError}
               progress={chatProgress} onStop={() => void cancelChat()} inspectionProjects={projects.map(project => project.name)}
                   briefing={openingBriefing}
-                  layout={command ? chatLayout : "compact"}
-                  onLayoutChange={command ? setChatLayout : undefined}
+                  layout={command ? chatLayout : dense && projectChatOpen ? "expanded" : "compact"}
+                  onActivate={activateProjectChat}
+                  collapseLabel={dense ? "Back to projects" : undefined}
+                  onLayoutChange={command ? setChatLayout : dense ? changeProjectChat : undefined}
                   activeMissions={command ? commandView.liveMissions : []} selectedMissionId={commandView.selectedMissionId} onSelectMission={commandView.selectMission} missionsError={armory.missionsError} missionsLoading={!armory.missions}
                   mission={command ? mission : null}
                   capabilities={armory.capabilities}

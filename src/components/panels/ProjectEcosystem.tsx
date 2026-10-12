@@ -6,14 +6,13 @@ const starPoints=Array.from({length:180},(_,i)=>({x:((i*73.73+11)%100),y:((i*i*1
 function CelestialField(){return <svg className="ecosystem-starfield" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
  <g className="ecosystem-constellations">{[[[5,25],[13,18],[20,22],[26,13],[32,19]],[[64,12],[72,18],[79,13],[87,24],[94,20]],[[8,66],[17,60],[24,69],[19,81]],[[70,77],[79,68],[88,75],[94,63]]].map((points,i)=><g key={i}><polyline points={points.map(p=>p.join(',')).join(' ')}/>{points.map(([x,y],j)=><g key={j}><circle cx={x} cy={y} r=".22"/><path d={`M${x-.5} ${y}h1 M${x} ${y-.65}v1.3`}/></g>)}</g>)}</g>
  <g>{starPoints.map((p,i)=><circle key={i} cx={p.x} cy={p.y} r={p.r} className={i%13===0?"is-bright":""} style={{animationDelay:`${-i*.23}s`}}/>)}</g>
- <g className="ecosystem-orbits"><ellipse cx="50" cy="50" rx="44" ry="27" transform="rotate(-18 50 50)"/><ellipse cx="50" cy="50" rx="37" ry="42" transform="rotate(32 50 50)"/></g>
  </svg>}
 function identity(id:string){return [...id].reduce((n,c)=>(n*31+c.charCodeAt(0))>>>0,0)}
 export function projectColor(id:string){return [38,202,154,269,185,18][identity(id)%6]}
 export function ProjectEmblem({id}:{id:string}){const Icon=icons[identity(id)%icons.length];return <span className="project-emblem" aria-hidden="true"><Icon size={23} strokeWidth={1.4}/></span>}
 /** Node area encodes bounded vault-task workload; unknown is distinct from zero. */
 export function ProjectEcosystem({rows,onOpen}:{rows:ProjectCommandState[];onOpen:(id:string)=>void}){
- const [paused,setPaused]=useState(false),[page,setPage]=useState(0),[inView,setInView]=useState(true),[documentVisible,setDocumentVisible]=useState(!document.hidden);
+ const [page,setPage]=useState(0),[inView,setInView]=useState(true),[documentVisible,setDocumentVisible]=useState(!document.hidden);
  const root=useRef<HTMLDivElement>(null);
  const hues=useRef(new Map<string,number>());
  const palette=[12,207,148,275,184,34,326,230];
@@ -27,8 +26,7 @@ export function ProjectEcosystem({rows,onOpen}:{rows:ProjectCommandState[];onOpe
   : visible.length<=4 ? [[24,22],[67,18],[20,80],[71,77]]
   : [[26,18],[65,16],[13,49],[74,46],[31,84],[65,82]];
  const points=visible.map((row,i)=>({row,x:layout[i][0],y:layout[i][1]}));
- return <div className={`project-ecosystem ${visible.length>6?"is-dense":""} ${paused||!inView||!documentVisible?"is-paused":""}`} ref={root} aria-label="Project ecosystem">
-  <div className="ecosystem-toolbar"><span title="Area uses open vault task counts, capped at 25 for readability. It does not estimate total project size. Traveling light is a decorative connection cue, not live data-transfer telemetry.">Size · open vault tasks</span><button aria-pressed={paused} onClick={()=>setPaused(p=>!p)}>{paused?"Resume motion":"Pause motion"}</button></div>
+ return <div className={`project-ecosystem ${visible.length>6?"is-dense":""} ${!inView||!documentVisible?"is-paused":""}`} ref={root} aria-label="Project ecosystem">
   <div className="ecosystem-canvas">
    <CelestialField/>
    <svg className="ecosystem-links" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">{points.map(({row,x,y},i)=>{

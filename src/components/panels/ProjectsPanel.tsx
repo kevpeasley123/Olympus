@@ -3,10 +3,10 @@ import { GitBranch, ListChecks, RefreshCw } from "lucide-react";
 import type { ProjectStatus, SessionBoundary, TrackedProject } from "../../types";
 import { formatPath } from "../../utils/formatPath";
 import type { ObsidianActionResult } from "../../services/obsidian";
-import { refreshActionQueue, useActionQueue, type ActionQueueTask } from "../../hooks/useActionQueue";
+import { useActionQueue, type ActionQueueTask } from "../../hooks/useActionQueue";
 import { attributeTasks, groupBySourceFile } from "../../services/taskAttribution";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { refreshDelegationRuns, useDelegationRuns } from "../../hooks/useDelegationRuns";
+import { useDelegationRuns } from "../../hooks/useDelegationRuns";
 import {
   buildProjectCommandBoard, isPinnedStatus, operationalStatuses, operationalStatusLabels, ownerLabels,
   prepareBlocker, reviewProjectContext, sortCommandProjects,
@@ -77,27 +77,10 @@ let detailScrollOwner: string | null = null;
 const VISIBLE_TASK_LIMIT = 3;
 
 const plural = (count: number, one: string, many: string) => `${count} ${count === 1 ? one : many}`;
-/** Re-renders a freshness line on its own clock; polls do not notify on time alone. */
-function useNow(intervalMs: number) {
-  const [now, setNow] = useState(() => new Date());
-  useEffect(() => {
-    const timer = window.setInterval(() => setNow(new Date()), intervalMs);
-    return () => window.clearInterval(timer);
-  }, [intervalMs]);
-  return now;
-}
-
-/** "2 min ago" for today, else the short date: a source age, not a timestamp. */
-function age(value: string | null, now: Date): string {
-  if (!value) return "not yet";
-  return formatWhen(value, { now }).split(" · ")[0];
-}
-
 export function ProjectsPanel({
   requestedStatus,
   projects: scannedProjects,
   sessionBoundary,
-  onSyncCanvas,
   noteWarnings = [],
   focusMode = false,
   projectFilter = null,
@@ -128,8 +111,6 @@ export function ProjectsPanel({
   function linked(member:ProjectMember){setAddTarget(undefined);updateMember(member);onFocusProject(member.project.id);setMembershipError("");setMembershipBusy(member.project.id);
     void projectMembership.inspect(member.project.id).then(updateMember).catch(e=>setMembershipError(`Project saved. ${String(e)}`)).finally(()=>setMembershipBusy(""));
   }
-  const [status, setStatus] = useState<ObsidianActionResult | null>(null);
-  const [syncing, setSyncing] = useState(false);
   const [filter, setFilter] = useState<OperationalStatus | "ALL">("ALL");
   useEffect(() => {
     if (!requestedStatus || requestedStatus.revision === consumedVoiceRevision) return;
@@ -139,8 +120,8 @@ export function ProjectsPanel({
   const [portfolioView,setPortfolioView]=useState<"cards"|"ecosystem">("cards");
   const [search,setSearch]=useState("");
   const [sort, setSort] = useState<"priority" | "recent" | "name">("priority");
-  const { tasks, error: tasksError, loading: tasksLoading, lastSuccessAt: tasksAt } = useActionQueue();
-  const { data: runs, error: runsError, loading: runsLoading, lastSuccessAt: runsAt } = useDelegationRuns();
+  const { tasks, error: tasksError, loading: tasksLoading } = useActionQueue();
+  const { data: runs, error: runsError, loading: runsLoading } = useDelegationRuns();
   const organizer=useOrganizer();
   const tasksAvailable = !tasksError && !tasksLoading, runsAvailable = !runsError && !runsLoading;
   const rows = useMemo(() => buildProjectCommandBoard(allProjects, tasks, runs, { tasks: tasksAvailable, runs: runsAvailable },undefined,demoData?undefined:{rows:organizer.data,available:!organizer.error&&organizer.lastSuccessAt!==null}),
@@ -186,10 +167,7 @@ export function ProjectsPanel({
     onClearFilter?.();
   }, [onClearFilter]);
 
-  async function handleSyncCanvas() {
-    setSyncing(true);
-    try { setStatus(await onSyncCanvas()); } finally { setSyncing(false); }
-  }
+
   // Below the rows on the board: they qualify the data, they are not the first thing to read.
   const boardWarnings = warnings.length > 0 ? <details className="command-board-notice"><summary>{plural(warnings.length, "source warning", "source warnings")}</summary>{warnings.map((warning,i) => <p key={i}>{warning}</p>)}</details> : null;
   const counts = (value: OperationalStatus) => rows.filter(row => row.operationalStatus === value).length;
@@ -200,6 +178,13 @@ export function ProjectsPanel({
       {demoData&&<span className="portfolio-demo" title="Browser preview · example project data. Desktop provides live records.">Demo data</span>}
       {!projectFilter&&<div className="portfolio-switch" role="group" aria-label="Project view"><button aria-pressed={portfolioView==="cards"} onClick={()=>setPortfolioView("cards")}>Cards</button><button aria-pressed={portfolioView==="ecosystem"} onClick={()=>setPortfolioView("ecosystem")}>Ecosystem</button></div>}
       {projectFilter ? <button className="ghost-action" onClick={backToBoard}>← All projects</button> : <button className="command-project-action" disabled={!native} title={native?undefined:"Add projects in the desktop app"} onClick={()=>setAddTarget(null)}>+ Add project</button>}
+      {!projectFilter && rows.length > 0 && (<div className="command-board-controls">{(tasksError || runsError || ((tasksLoading || runsLoading) && !scanLoading)) && <details className="portfolio-source-status"><summary>{tasksError || runsError ? "Some sources unavailable" : "Reading task records"}</summary><p>Counts and execution state may be incomplete. Unavailable task counts are shown as unknown.</p></details>}<input className="portfolio-search" aria-label="Search projects" placeholder="Search projects…" value={search} onChange={e=>setSearch(e.target.value)}/>
+            <label className="command-board-sort">Show <select aria-label="Filter projects by operational status" value={filter} onChange={event => setFilter(event.target.value as typeof filter)}>
+              <option value="ALL">All projects ({rows.length})</option>
+              {operationalStatuses.filter(value => value === filter || counts(value) > 0).map(value => <option key={value} value={value}>{operationalStatusLabels[value]} ({counts(value)})</option>)}
+            </select></label>
+            <label className="command-board-sort">Sort <select value={sort} onChange={event => setSort(event.target.value as typeof sort)}><option value="priority">Priority</option><option value="recent">Recently changed</option><option value="name">Name</option></select></label>
+          </div>)}
     </header>
     <div className="command-board-scroll" ref={scrollRef} onScroll={event => { scrollTop.current = event.currentTarget.scrollTop; }}>
       <div className="command-board-inner">
@@ -217,13 +202,6 @@ export function ProjectsPanel({
             row={selected} runs={runsAvailable ? runs : null} tasks={perProject.get(selected.project.id) ?? []}
             sessionBoundary={sessionBoundary} onOpenNote={onOpenNote} />
         : scanLoading ? <BoardSkeleton /> : rows.length === 0 ? boardWarnings : <>
-          <div className="command-board-controls">{(tasksError || runsError || ((tasksLoading || runsLoading) && !scanLoading)) && <details className="portfolio-source-status"><summary>{tasksError || runsError ? "Some sources unavailable" : "Reading task records"}</summary><p>Counts and execution state may be incomplete. Unavailable task counts are shown as unknown.</p></details>}<input className="portfolio-search" aria-label="Search projects" placeholder="Search projects…" value={search} onChange={e=>setSearch(e.target.value)}/>
-            <label className="command-board-sort">Show <select aria-label="Filter projects by operational status" value={filter} onChange={event => setFilter(event.target.value as typeof filter)}>
-              <option value="ALL">All projects ({rows.length})</option>
-              {operationalStatuses.filter(value => value === filter || counts(value) > 0).map(value => <option key={value} value={value}>{operationalStatusLabels[value]} ({counts(value)})</option>)}
-            </select></label>
-            <label className="command-board-sort">Sort <select value={sort} onChange={event => setSort(event.target.value as typeof sort)}><option value="priority">Priority</option><option value="recent">Recently changed</option><option value="name">Name</option></select></label>
-          </div>
           {portfolioView==="ecosystem" ? <ProjectEcosystem rows={visible} onOpen={openProject}/> : <div className="command-board-rows">
             {visible.map(row => <ProjectRow key={row.project.id} row={row} onOpen={openProject} management={native&&members?.some(m=>m.project.id===row.project.id)?<details className="project-row-options" onKeyDown={event=>{if(event.key==="Escape"){event.currentTarget.open=false;event.currentTarget.querySelector("summary")?.focus();event.stopPropagation()}}}><summary aria-label={`Options for ${row.project.name}`}>•••</summary><div><button disabled={!!membershipBusy} onClick={()=>setAddTarget(members!.find(m=>m.project.id===row.project.id)!)}>Link another source</button><button disabled={!!membershipBusy||!!row.openRun||row.operatorDecisions.length>0} onClick={()=>void changeVisibility(members!.find(m=>m.project.id===row.project.id)!,"removed")}>Remove from dashboard</button><p>{row.openRun||row.operatorDecisions.length?"Resolve active work or its review first.":"Keeps project files and history. You can restore it later."}</p></div></details>:undefined}/>)}
             {!visible.length && <p className="command-board-notice">No projects match this status.</p>}
@@ -231,14 +209,7 @@ export function ProjectsPanel({
           {boardWarnings}
           {unattributed.length > 0 && <details className="command-unattributed"><summary>{plural(unattributed.length, "task", "tasks")} without a project</summary><UnattributedTasks tasks={unattributed} /></details>}
         </>}
-        <details className="command-portfolio-tools">
-          <summary>Sources &amp; project tools</summary>
-          {rows.length>0&&<button className="ghost-action" onClick={() => reviewProjectContext(rows)}>Review priorities with Olympus →</button>}
-          <Freshness scan={projectScan} demoData={demoData} tasksAt={tasksAt} runsAt={runsAt} runsLive={isTauriRuntime() && runsAvailable} onRescan={onRescan} />
-          <p>Recommendations use recorded project information and rules. They are suggestions, not approved work. Git observations do not establish project readiness.</p>
-          <button className="ghost-action" onClick={() => void handleSyncCanvas()} disabled={syncing}>{syncing ? "Updating…" : "Update Canvas"}</button>
-          {status && <p role="status" className={`section-copy action-feedback ${status.tone}`}>{status.message}</p>}
-        </details>
+
       </div>
     </div>
   </section>;
@@ -269,25 +240,6 @@ function BoardSkeleton() {
   return <div className="command-board-skeleton" aria-hidden="true">
     {[0, 1, 2].map(i => <div key={i} className="command-board-skeleton__row"><span /><span /><span /></div>)}
   </div>;
-}
-
-function Freshness({ scan, demoData, tasksAt, runsAt, runsLive, onRescan }: {
-  scan: ProjectScanState; demoData: boolean; tasksAt: string | null; runsAt: string | null; runsLive: boolean; onRescan?: () => void | Promise<void>;
-}) {
-  const now = useNow(15_000);
-  const [refreshing, setRefreshing] = useState(false);
-  const projects = demoData ? "Example projects (no scan in the browser)" : `Projects scanned ${scan.lastSuccessAt ? formatWhen(scan.lastSuccessAt, { now }) : "not yet"}`;
-  const runs = runsLive ? `runs ${age(runsAt, now)} · live updates` : `runs ${age(runsAt, now)}`;
-  async function refresh() {
-    setRefreshing(true);
-    try { await Promise.allSettled([onRescan?.(), refreshActionQueue(), refreshDelegationRuns()]); }
-    finally { setRefreshing(false); }
-  }
-  return <button type="button" className="command-board-freshness" onClick={() => void refresh()} disabled={refreshing || scan.scanning}
-    title="Rescan projects and re-read tasks and delegation runs">
-    <RefreshCw size={11} aria-hidden="true" />
-    <span>{refreshing || scan.scanning ? "Refreshing projects, tasks and runs…" : `${projects} · tasks ${age(tasksAt, now)} · ${runs}`}</span>
-  </button>;
 }
 
 function OwnerChip({ row }: { row: ProjectCommandState }) {
