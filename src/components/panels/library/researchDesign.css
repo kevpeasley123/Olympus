@@ -127,3 +127,15 @@ body:has(.mode-research) .background-image {background:#040c17 url('../../../ass
 .library-surface [data-presentation=list] .research-card-excerpt.is-search-match {display:block;font:12px/1.5 var(--font-sans);color:#aebfce;margin-top:6px}
 .library-add-entry .research-source-fields {display:flex}
 @media(max-width:700px) {.research-mobile-nav {display:flex;align-items:center;gap:10px;padding:12px 18px;color:#c8b691;font-size:11px}.research-view-tools {flex-wrap:wrap}.research-view-tools>span{display:none}.research-order{margin-left:0;margin-right:auto}}
+
+/* One quiet source/date line, balanced against review state. */
+.research-card-provenance {display:none}
+.library-surface [data-presentation=cards] .research-card-provenance {display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#b3c3d5;font:10px/1.4 var(--font-sans)}
+.library-surface [data-presentation=cards] .pantheon-entry-row-meta,
+.library-surface [data-presentation=cards] .pantheon-entry-row-bottom>.pantheon-entry-source {display:none}
+.library-surface [data-presentation=cards] .research-card-stance {flex-shrink:0;margin-left:auto;align-self:center}
+.research-card-kind .research-source-icon {flex-shrink:0;stroke:none;filter:drop-shadow(0 1px 3px #02081088)}
+.research-source-icon .source-icon-paper {fill:#b8cee9;stroke:#d0e0f2;stroke-width:.6}
+.research-source-icon .source-icon-fold {fill:#7896b9;stroke:none}
+.research-source-icon .source-icon-ink {fill:none;stroke:#405b7a;stroke-width:1.2;stroke-linecap:round}
+.research-source-icon .source-icon-play {fill:#405b7a;stroke:none}

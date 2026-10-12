@@ -37,8 +37,8 @@ try {
  await page.getByLabel('Research collection',{exact:true}).selectOption('recent');
  await page.screenshot({path:out+'/narrow-navigation.png'});
  await page.setViewportSize({width:1440,height:960});
- await page.getByRole('tab',{name:/Questions/}).click();await page.screenshot({path:out+'/questions.png'});
- await page.getByRole('tab',{name:'Audits',exact:true}).click();await page.screenshot({path:out+'/audits.png'});
+ assert.equal(await page.getByRole('tab',{name:/Questions|Audits/}).count(),0);
+ assert(await page.getByRole('region',{name:'Research library',exact:true}).isVisible());
  await page.goto('http://127.0.0.1:31420/research-verification-harness.html?check');
  await page.waitForFunction(()=>/browser checks passed|FAIL/.test(document.querySelector('#result')?.textContent||''),{},{timeout:60000});
  const result=await page.locator('#result').innerText();assert(!result.includes('FAIL'),result);console.log(result);

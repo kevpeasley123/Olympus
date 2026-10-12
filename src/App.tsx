@@ -52,7 +52,7 @@ function App() {
     quickApps,
     projects,
     sessionBoundary,
-    openingBriefing,
+    openingBriefing, requestBriefing, briefingPending,
     projectNoteWarnings,
     chat,
     chatPending, chatProgress, cancelChat,
@@ -339,6 +339,8 @@ function App() {
                   error={chatError}
               progress={chatProgress} onStop={() => void cancelChat()} inspectionProjects={projects.map(project => project.name)}
                   briefing={openingBriefing}
+                  onNewBriefing={command ? requestBriefing : undefined}
+                  briefingPending={briefingPending}
                   layout={command ? chatLayout : projectChatOpen ? "expanded" : "compact"}
                   onActivate={activateProjectChat}
                   collapseLabel={dense ? "Back to projects" : !command ? "Close console" : undefined}

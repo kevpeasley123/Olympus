@@ -1,4 +1,4 @@
-import { ChevronDown, FileText, AudioLines, BookOpen, LayoutGrid, List } from "lucide-react";
+import { ChevronDown, LayoutGrid, List } from "lucide-react";
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { categoryLabel, orderedCategories } from "../../../services/pantheonAnalysis";
 import { useViewSlice } from "../../../state/viewState";
@@ -498,7 +498,7 @@ const EntryRow = memo(function EntryRow({ entry, onOpen, showCategory = false, s
   return (
     <button type="button" className="pantheon-entry-row library-row" data-entry-id={entry.id} onClick={() => onOpen(entry.id)}>
       {showCategory ? <span className="pantheon-inline-category">{categoryLabel(entry.category)}</span> : null}
-      <span className="research-card-kind">{entry.sourceType==="transcript"||entry.sourceType==="talk"?<AudioLines size={21}/>:entry.sourceType==="guide"||entry.sourceType==="manual"?<BookOpen size={21}/>:<FileText size={21}/>}<span>{typeLabel(entry.sourceType)}</span></span>
+      <span className="research-card-kind"><SourceTypeIcon type={entry.sourceType}/><span>{typeLabel(entry.sourceType)}</span></span>
       <ResearchIllustration entry={entry}/>
       <span className="pantheon-entry-row-top">
         <strong>{entry.title}</strong>
@@ -512,6 +512,7 @@ const EntryRow = memo(function EntryRow({ entry, onOpen, showCategory = false, s
         </span>
       </span>
       <span className="pantheon-entry-row-bottom">
+        <span className="research-card-provenance" title={entry.sourceLabel || entry.sourceUrl || undefined}>{entry.sourceLabel || sourceHost(entry.sourceUrl)}{date ? <span>{entry.sourceLabel || sourceHost(entry.sourceUrl) ? " · " : ""}{dateMode === "published" ? "" : "Added "}{date}</span> : null}</span>
         <span className="research-card-stance">{entry.stance==="unevaluated"?"Not reviewed":entry.stance}</span><span className="research-list-stance"><StanceMark stance={entry.stance} compact /></span>
         <span className={`pantheon-type-tag pantheon-type-${entry.sourceType}`}>{typeLabel(entry.sourceType)}</span>
         {entry.sourceLabel ? <span className="pantheon-entry-source">{entry.sourceLabel}</span> : null}
@@ -546,4 +547,16 @@ function persistExpandedState(category: PantheonCategory, expanded: boolean) {
   } catch {
     // The toggle still applies for this session.
   }
+}
+
+function sourceHost(url: string | null): string {
+  try { const source = new URL(url || ""); return /^https?:$/.test(source.protocol) ? source.hostname.replace(/^www\./, "") : ""; } catch { return ""; }
+}
+
+function SourceTypeIcon({type}: {type: LibraryEntry["sourceType"]}) {
+  const book = type === "book" || type === "guide" || type === "manual";
+  const media = type === "transcript" || type === "talk";
+  return <svg width="24" height="26" viewBox="0 0 24 26" aria-hidden="true" className="research-source-icon" data-source-icon={book ? "book" : media ? "transcript" : "article"}>
+    {book ? <><path className="source-icon-paper" d="M2 4Q7 2 12 5Q17 2 22 4V22Q17 20 12 23Q7 20 2 22Z"/><path className="source-icon-ink" d="M12 5V23M5 8L9 9M5 12L9 13M15 9L19 8M15 13L19 12"/></> : media ? <><rect className="source-icon-paper" x="2" y="3" width="20" height="20" rx="3"/><path className="source-icon-play" d="M9 8L17 13L9 18Z"/></> : <><path className="source-icon-paper" d="M5 2H14L20 8V24H5Z"/><path className="source-icon-fold" d="M14 2V8H20"/><path className="source-icon-ink" d="M8 12H17M8 15H17M8 18H14"/></>}
+  </svg>;
 }

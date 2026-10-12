@@ -1,3 +1,4 @@
+import { generateSituationBriefing } from "../services/situationBriefing";
 import {consumeNextModel} from "../services/modelRouting";
 import { normalizeVoicePreferences, type VoicePreferences } from "../services/voicePreferences";
 import { refreshActionQueue, useActionQueue } from "./useActionQueue";
@@ -291,6 +292,27 @@ export function useDashboardData() {
     setOpeningBriefing({ id: message.id, text });
   }, [hydrated, projectsScanned, taskStore.loading, runStore.loading, sessionBoundary, projectsError]);
 
+  const briefingLock = useRef(false);
+  const [briefingPending, setBriefingPending] = useState(false);
+  const requestBriefing = useCallback(async () => {
+    if (briefingLock.current || !hydratedRef.current || !isTauriRuntime()) return;
+    briefingLock.current = true;
+    setBriefingPending(true);
+    setChatError(null);
+    try {
+      const text = await generateSituationBriefing(dashboardRef.current.settings.projectsRootPath, sessionBoundary);
+      const message = createAssistantMessage(text);
+      message.id = `${BRIEFING_ID_PREFIX}sitrep-${crypto.randomUUID()}`;
+      message.kind = "briefing";
+      message.voice = { kind: "output", spokenResponse: text, ...(dashboardRef.current.settings.autoSpeak ? {} : { playback: "skipped" as const }) };
+      dashboardRef.current = { ...dashboardRef.current, conversation: [...dashboardRef.current.conversation, message] };
+      setDashboardState(dashboardRef.current);
+      await appendConversationMessages([message]);
+      setOpeningBriefing({ id: message.id, text });
+    } catch (error) { setChatError(errorMessage(error)); }
+    finally { briefingLock.current = false; setBriefingPending(false); }
+  }, [sessionBoundary]);
+
   const sendChatMessage = useCallback(
     async (text: string, voiceDepth?: VoiceDepth, voiceMessageId?: string, turn?: TurnContext): Promise<VoiceAnswer | undefined> => {
       if (voiceDepth) while (requestInFlight.current) await new Promise(resolve => window.setTimeout(resolve, 80));
@@ -505,7 +527,7 @@ export function useDashboardData() {
       quickApps: dashboardState.quickApps,
       projects: dashboardState.projects,
       sessionBoundary,
-      openingBriefing,
+      openingBriefing, requestBriefing, briefingPending,
       projectScan,
       /** True in the browser preview: projects and conversation are seed fixtures. */
       demoData: DEMO_DATA,
@@ -533,7 +555,7 @@ export function useDashboardData() {
       dashboardState,
       hydrated,
       sessionBoundary,
-      openingBriefing,
+      openingBriefing, requestBriefing, briefingPending,
       projectScan,
       projectsError,
       refreshProjects,

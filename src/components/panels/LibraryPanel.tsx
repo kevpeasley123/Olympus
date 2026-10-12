@@ -1,7 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { FilePlus2, Layers3, Library, RotateCw, Search } from "lucide-react";
 import { useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import type { KeyboardEvent as ReactKeyboardEvent, ReactElement, ReactNode } from "react";
+import type { ReactElement, ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { usePantheon } from "../../hooks/usePantheon";
 import type { ResearchInspectionTarget } from "../../services/commandAgents";
@@ -10,7 +10,6 @@ import type { ObsidianActionResult } from "../../services/obsidian";
 import { anotherModalIsOpen, isEditableTarget, SHORTCUTS } from "../../services/shortcuts";
 import { useViewSlice, type ResearchArrival } from "../../state/viewState";
 import type { TrackedProject } from "../../types";
-import { KnowledgeAudit } from "./KnowledgeAudit";
 import { ResearchVerification } from "./ResearchVerification";
 import "./library/researchDesign.css";
 import { ResearchIntakeMenu } from "./library/ResearchIntakeMenu";
@@ -40,18 +39,12 @@ interface MigrationOutcome {
 
 type Segment = "library" | "questions" | "audits";
 
-const SEGMENTS: { id: Segment; label: string; suffix?: string; accessible: string }[] = [
-  { id: "library", label: "Library", accessible: "Library" },
-  { id: "questions", label: "Questions", suffix: "verified", accessible: "Questions (verified)" },
-  { id: "audits", label: "Audits", accessible: "Audits" }
-];
-
 const NO_PROJECTS: LibraryPanelProps["projects"] = [];
 
 export function LibraryPanel({ onViewDatabase, resident = false, inspectionTarget, onReturnToCommand, projects = NO_PROJECTS }: LibraryPanelProps) {
-  const { entries: raw, loading, error, refresh: refreshPantheon } = usePantheon();
+  const { entries: raw, loading, error, preview, refresh: refreshPantheon } = usePantheon();
   const [research, setResearch] = useViewSlice("research");
-  const segment: Segment = research.inspector ?? "library";
+  const segment: Segment = inspectionTarget && research.inspector === "questions" ? "questions" : "library";
   const entries = useMemo(() => prepareEntries(raw), [raw]);
   // The input answers every keystroke; the list follows when it can.
   const deferredQuery = useDeferredValue(research.query);
@@ -181,7 +174,6 @@ export function LibraryPanel({ onViewDatabase, resident = false, inspectionTarge
     openArrival({ ...target, context, returnTo: from === "questions" ? "questions" : "audits" });
   }, [openArrival]);
   const openFromQuestions = useMemo(() => openFromInspector("verification", "questions"), [openFromInspector]);
-  const openFromAudits = useMemo(() => openFromInspector("audit", "audits"), [openFromInspector]);
   const hasEntry = useCallback((sourceFile: string) => findEntryBySourceFile(entries, sourceFile) !== null, [entries]);
 
   function setQuery(value: string) {
@@ -283,16 +275,6 @@ export function LibraryPanel({ onViewDatabase, resident = false, inspectionTarge
     void refreshPantheon();
   }
 
-  function onSegmentKey(event: ReactKeyboardEvent<HTMLButtonElement>, index: number) {
-    const delta = event.key === "ArrowRight" ? 1 : event.key === "ArrowLeft" ? -1 : 0;
-    const edge = event.key === "Home" ? 0 : event.key === "End" ? SEGMENTS.length - 1 : null;
-    if (!delta && edge === null) return;
-    event.preventDefault();
-    const nextIndex = edge ?? (index + delta + SEGMENTS.length) % SEGMENTS.length;
-    selectSegment(SEGMENTS[nextIndex].id);
-    document.getElementById(`library-tab-${SEGMENTS[nextIndex].id}`)?.focus();
-  }
-
   const migrateNotice = unmigratedCount > 0 ? (
     <div className="library-notice" role="status">
       <span>
@@ -375,27 +357,7 @@ export function LibraryPanel({ onViewDatabase, resident = false, inspectionTarge
               <header className="pantheon-modal-header library-header">
                 <div className="pantheon-modal-title-group library-header__title">
                   <h2 className="pantheon-modal-title">Research</h2>
-                  <span className="pantheon-modal-meta">Pantheon · {entries.length} entries</span>
-                </div>
-                <div className="library-segments" role="tablist" aria-label="Research views">
-                  {SEGMENTS.map((item, index) => (
-                    <button
-                      key={item.id}
-                      id={`library-tab-${item.id}`}
-                      type="button"
-                      role="tab"
-                      aria-selected={segment === item.id}
-                      aria-controls={`library-view-${item.id}`}
-                      aria-label={item.accessible}
-                      tabIndex={segment === item.id ? 0 : -1}
-                      className={`library-segment ${segment === item.id ? "is-active" : ""}`}
-                      onClick={() => selectSegment(item.id)}
-                      onKeyDown={(event) => onSegmentKey(event, index)}
-                    >
-                      {item.label}
-                      {item.suffix ? <span className="library-segment__suffix">{item.suffix}</span> : null}
-                    </button>
-                  ))}
+                  <span className="pantheon-modal-meta">Pantheon · {entries.length} {preview ? "sample entries" : "entries"}</span>
                 </div>
                 <div className="pantheon-modal-actions library-header__actions">
                   {segment === "library" ? (
@@ -441,9 +403,9 @@ export function LibraryPanel({ onViewDatabase, resident = false, inspectionTarge
               <div className="library-views">
                 <div
                   className="library-view library-view--library"
-                  role="tabpanel"
+                  role="region"
                   id="library-view-library"
-                  aria-labelledby="library-tab-library"
+                  aria-label="Research library"
                   hidden={segment !== "library"}
                 >
                   <LibraryBrowser
@@ -455,19 +417,20 @@ export function LibraryPanel({ onViewDatabase, resident = false, inspectionTarge
                     openToken={openToken}
                     onOpenEntry={openEntry}
                     onBack={back}
-                    backToInspector={research.arrival?.returnTo === "questions" ? "Questions" : research.arrival?.returnTo === "audits" ? "Audits" : null}
+                    backToInspector={inspectionTarget && research.arrival?.returnTo === "questions" ? "Mission record" : null}
                     snapshotRef={librarySnapshot}
                   />
                 </div>
                 {visited.has("questions") || segment === "questions" ? (
                   <div
                     className="library-view library-view--inspector"
-                    role="tabpanel"
+                    role="region"
                     id="library-view-questions"
-                    aria-labelledby="library-tab-questions"
+                    aria-label="Mission verification record"
                     hidden={segment !== "questions"}
                     ref={(node) => { inspectorRefs.current.questions = node; }}
                   >
+                    <button type="button" className="ghost-action library-action" onClick={() => selectSegment("library")}>← Research library</button>
                     <ResearchVerification
                       requestedRunId={inspectionTarget?.runId}
                       inspectionOnly={Boolean(inspectionTarget?.runId)}
@@ -477,18 +440,7 @@ export function LibraryPanel({ onViewDatabase, resident = false, inspectionTarge
                     />
                   </div>
                 ) : null}
-                {visited.has("audits") || segment === "audits" ? (
-                  <div
-                    className="library-view library-view--inspector"
-                    role="tabpanel"
-                    id="library-view-audits"
-                    aria-labelledby="library-tab-audits"
-                    hidden={segment !== "audits"}
-                    ref={(node) => { inspectorRefs.current.audits = node; }}
-                  >
-                    <KnowledgeAudit onOpenEntry={openFromAudits} hasEntry={hasEntry} />
-                  </div>
-                ) : null}
+
               </div>
             </div>
           </div>

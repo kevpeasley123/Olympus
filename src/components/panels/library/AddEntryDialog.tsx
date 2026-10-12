@@ -313,6 +313,7 @@ export function AddEntryDialog({ initialMode="write", projects, onClose, onSaved
                 <option value="guide">Guide</option>
                 <option value="paper">Paper</option>
                 <option value="talk">Talk</option>
+                <option value="book">Book</option>
                 <option value="">Other / unspecified</option>
               </select>
             </div>
