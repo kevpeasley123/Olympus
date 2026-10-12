@@ -1,3 +1,7 @@
+## October 12, 2026 — outside tool packages added to the Armory plan
+
+Kevin wants the Armory to hold tools built by others, which he finds and adds over time, and wants skills to act through the tools they are granted rather than being instructions only. `docs/ARMORY-PLAN.md` now has Phase 3b, outside tool packages, with REA (`github.com/morluto/rea`) as the first candidate. It also has a dated status table and records the plan's approval of 2026-09-29. Nothing was installed or built; REA was evaluated only, from a read-only clone. Monid, below, belongs to Phase 3b.
+
 ## Next priority — Armory expansion and approval-gated Monid — October 7, 2026
 
 Kevin wants the next session to focus on a deployable arsenal of specialized tools in both Olympus Armory and Codex. Start with Monid discovery/integration, including scraping, content extraction, news, and generative video/enhancement capabilities where the current catalog actually supports them. This is a requested next-session direction, not evidence that those endpoints are available or connected today.

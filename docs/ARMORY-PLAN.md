@@ -1,10 +1,27 @@
 # Olympus Armory — implementation plan
 
-Drafted 2026-09-29 against release 0.20.0 (`c432f48`). Status: **proposed, awaiting Kevin's approval.** Nothing here is built.
+Drafted 2026-09-29 against release 0.20.0 (`c432f48`). Status: **approved by Kevin on 2026-09-29** (recorded in `docs/NEXT-SESSION.md`). Phase 3b, outside tool packages, was added on 2026-10-12.
+
+## Where this stands — October 12, 2026
+
+Checked against 0.30.0 (`b288ddf`). Since approval, work has gone mainly to Command visuals, Projects, the Organizer, Research and voice (0.21.0–0.30.0). The engine and tool plumbing that the later phases depend on has not started.
+
+| Phase | State |
+| --- | --- |
+| 0 — Groundwork | **Partly done.** 0b: Claude Code is found via `OLYMPUS_CLAUDE_CODE`, `PATH`, `~/.local/bin` and npm, and delegated children no longer receive `ANTHROPIC_API_KEY` (0.21.0). Still open in 0b: `--max-budget-usd 5` is still passed, and there is no login self-check. 0a is not done: `OLYMPUS-MANUAL.md` and `CLAUDE.md` still carry the old priorities and the API-first route. 0c, the engine spike, has not run, and it must run on Kevin's PC. |
+| 1 — Engine layer | Not started. Chat still runs on the API routes. |
+| 2 — Armory tools | Not started as an enforcing registry. `capabilities.rs` (0.21.0) is a read-only catalog that labels 14 tools with effects and approval; the registry can start from it. |
+| 3 — Orchestrator | Not started. Related pieces exist: delegation approvals, the Organizer's task-local plan and approval (0.26.0–0.27.0), and the workflow inspector. |
+| 3b — Outside packages | Added 2026-10-12. Not started. |
+| 4 — The show | The visuals are ahead of the plumbing. The flagship Armory, Pantheon, agent emblems and mission planets (0.22.0–0.30.0) replaced this phase's station band. They draw recorded workflow runs; no tool-call journal exists yet to drive them. |
+| 5 — Skills | Precursors only: instruction-only custom skills, reviewed per-request skill guidance, the Kinetics and Superpowers reference collections, and Hephaestus guidance bound to delegation approval. No skill can grant tools yet. |
+| 6–10 | Not started. Instead of Phase 9's local voice, ElevenLabs speech output (a paid API) was added. For Phase 10, only `launch_quick_app`'s fixed allowlist exists. |
+
+The October 7 direction in `docs/NEXT-SESSION.md` (Armory expansion with approval-gated Monid) has not started either. It belongs to Phase 3b.
 
 ## 1. The vision, in one paragraph
 
-Olympus becomes an armed command station. It runs on Kevin's subscriptions instead of paid API calls: Claude Code first, Codex second. It carries an **armory** of tools (Gmail, the vault, projects, research, and later apps and the computer) and a library of **skills**. Olympus Core turns a request into a plan, and Kevin approves the plan once. Olympus then coordinates a **swarm** of worker agents to carry it out, and shows the work happening live. Results come back in clean, purpose-built views, not as walls of chat text. The first showcase is *"Pull all emails from Natalie and organize them from most recent."* A later one is designing something together, iteratively.
+Olympus becomes an armed command station. It runs on Kevin's subscriptions instead of paid API calls: Claude Code first, Codex second. It carries an **armory** of tools (Gmail, the vault, projects, research, tools built by others, and later apps and the computer) and a library of **skills** that act through the tools they are granted. Olympus Core turns a request into a plan, and Kevin approves the plan once. Olympus then coordinates a **swarm** of worker agents to carry it out, and shows the work happening live. Results come back in clean, purpose-built views, not as walls of chat text. The first showcase is *"Pull all emails from Natalie and organize them from most recent."* A later one is designing something together, iteratively.
 
 ## 2. Decisions this plan rests on
 
@@ -16,6 +33,8 @@ Kevin decided these on 2026-09-29:
 | When a subscription limit is reached | **Pause and say so.** Never fall back to paid API calls on its own. |
 | Autonomy | **Approve the plan once.** Reads run freely. A multi-agent or write-capable task shows a plan (agents, tools, effects, limits) that Kevin approves once. Sending, deleting, purchases and anything irreversible always ask again. |
 | First showcase | **The Gmail task, with the live swarm view** |
+
+Kevin added on 2026-10-12: skills are not only instruction documents; they act through the tools they are granted. The armory also holds tools built by others, which he finds and adds over time. Phase 5 already covers the first. Phase 3b covers the second.
 
 This plan also revises earlier guidance. Once Kevin approves it, it is recorded in `OLYMPUS-MANUAL.md` and `CLAUDE.md`:
 
@@ -81,7 +100,7 @@ The plan builds on these; it does not replace them.
 
 Six principles:
 
-1. **Engines think; Olympus acts.** Engine processes get **no built-in tools** in chat or worker mode: no Bash, Read, Write or web. Their only tools are Olympus's, served over MCP. Every action therefore passes through Olympus's own gates, journal and acceptance-profile refusals. Coding delegation is the exception: it keeps its sandboxed built-in tools inside a worktree, as today.
+1. **Engines think; Olympus acts.** Engine processes get **no built-in tools** in chat or worker mode: no Bash, Read, Write or web. Their only tools are Olympus's, served over MCP. Every action therefore passes through Olympus's own gates, journal and acceptance-profile refusals. Coding delegation is the exception: it keeps its sandboxed built-in tools inside a worktree, as today. Outside packages (Phase 3b) are served the same way: engines reach them only through Olympus.
 2. **Scoped tokens, not trust.** Each worker gets its own MCP bearer token, encoding exactly the tools and effect tiers in its approved plan. A worker cannot call a tool its plan didn't grant, even if the engine is misconfigured or tricked by an email.
 3. **Every pixel is a real event.** The swarm view draws only what the journal records. There are no staged animations, following the design review's "nothing fictional on desktop" principle.
 4. **Subscription only, by construction.** Engine children are launched with `env_clear` and an allowlist that never includes `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN` or `OPENAI_API_KEY`, plus `--setting-sources ""` so no `apiKeyHelper` loads. A startup self-check reports which login each engine will use.
@@ -198,6 +217,43 @@ Sizes are relative (S ≈ a focused session, M ≈ a few sessions, L ≈ a week 
 
 Kevin approves one plan card, watches the graph fill in live, gets a grouped `mail-list` artifact, and can open every tool call behind it.
 
+### Phase 3b — Outside tool packages (M)
+
+Added 2026-10-12. The armory holds tools built by others as well as Olympus's own, so a tool Kevin discovers can be used from an Olympus plan. The first is REA (`github.com/morluto/rea`, MIT), a reverse-engineering MCP server. Most such tools ship as MCP servers, so one bridge covers most of them. This phase comes after Phase 3 because it needs two things: the registry and MCP host from Phase 2, and plan approval for tools that run code from Phase 3.
+
+- **Manifest.** `PackageDefinition {id, source, version, sha256, license, runtime, entry, reviewed_at, tools[]}`, stored in SQLite with the approval that activated it. `source` is an exact npm version or Git commit, never a range or a branch.
+- **Install.** Olympus first shows an install plan: the source, the exact version, the licence, the runtime required (REA needs Node.js 22.19+), and the install folder. After approval it downloads into `app_data/packages/<id>/<version>/`, verifies the hash and records the install.
+  - It never installs a runtime; a missing runtime is reported, not fixed.
+  - It never changes Claude Code, Codex or other global settings.
+  - It never upgrades a package on its own.
+- **Process.** Each active package runs as an Olympus child process. It gets the same Job Object, PID-plus-creation-time identity and key-free environment allowlist as an engine (section 4, principle 4). Its working directory is its install folder, and it stops when Olympus closes or after an idle timeout.
+- **Bridge.** Olympus is the package's only MCP client.
+  - Olympus reads the package's tool list and serves each tool from its own MCP host as `<package>.<tool>`, for example `rea.analyze_javascript_application`.
+  - Engines never connect to a package directly.
+  - Every call is schema-validated, checked against the worker's grant, forwarded, and journaled in `tool_calls` like a native tool.
+  - This is the one exception to "Armory tools run in Olympus": the call is gated and journaled in Olympus, but the work runs in the package's process.
+- **Ratings.** A tool needs an effect tier before it can be granted.
+  - The package's own MCP annotations (`readOnlyHint`, `destructiveHint`) are shown as suggestions and never trusted.
+  - An unrated tool is unavailable. Kevin rates tools in the Armory, and anything he has not rated lower is `execute`.
+  - A tool that spends money confirms every call with its price, whatever its tier. This follows the owner policy for Monid recorded in `docs/NEXT-SESSION.md`.
+- **Drift.** On every start, Olympus compares the package's hash, tool list and schemas with the approved record. Any difference deactivates the package until Kevin approves it again, as Phase 5 does for edited skills.
+- **Paths.** When a tool's schema declares a file path, Olympus accepts only paths inside folders Kevin has approved for that package. A tool whose inputs cannot be checked this way is rated `execute`.
+- **Bundled skills.** A package's own instruction file (REA's `reverse-engineer-anything`) is imported as a Phase 5 skill. Its `allowed_tools` are limited to that package, and it is inactive until approved. Until Phase 5 lands, it is held as reference text only.
+- **Results.** Package output is untrusted evidence, marked the same way as mail. A plan that reads package output cannot hold an unconfirmed `external_write` grant.
+- **Armory view.** Each package appears as a plugin with its source, version, approval state, rated tools and recent calls. A package that is installed but unapproved, or has drifted, is shown as such: installed does not mean ready.
+- **Not in this phase.**
+  - Packages that are command-line tools rather than MCP servers. They need a separate adapter that declares each command template. Monid may fall here; its interface has not been verified.
+  - A real sandbox (Windows Sandbox, a VM or WSL). That is a separate decision; until it is made, the containment statement below applies.
+
+**Containment, stated plainly.** Olympus controls three things: which calls reach a package, their inputs, and what reaches the engine afterwards. It does not control what the package's code does once called. REA analysing a binary, for example, runs Ghidra with Kevin's user permissions. Approving a package at a pinned version is therefore the real trust decision, and every `execute` call needs an approved plan.
+
+**First package: REA on Windows.**
+- `read`: static JavaScript/Electron, .NET and Go inspection, and analysis of saved network captures (HAR).
+- `execute`: live website analysis, because it drives a browser, and native binary analysis through Ghidra, which REA marks experimental on Windows.
+- Unavailable on Windows: process capture, firmware, and the Linux crash and EVM tools.
+
+**Exit test:** in the installed app, Kevin asks how an Electron app on his PC implements a feature. Olympus answers using REA's static analysis, every REA call appears in the journal with its tier, and the answer cites REA's evidence. Pinning a different REA version deactivates it until Kevin approves it again.
+
 ### Phase 4 — The show: armory and swarm in the instrument (M)
 
 - **Command instrument:** the armory becomes part of the instrument, not a panel. Tool families (Mail, Vault, Projects, Research, later Apps, System, Design) sit as fixed stations on an outer band around the project ring. Skills are small marks at their stations.
@@ -219,6 +275,7 @@ Kevin approves one plan card, watches the graph fill in live, gets a grouped `ma
 - **Format:** a skill is a Markdown file with frontmatter in the vault (`05 - Skills/Olympus/<id>.md`). The frontmatter holds `id`, `version`, `title`, `purpose`, `allowed_tools`, `max_effect`, `inputs` and `outputs` (schemas), `limits` and `examples`; the body holds the instructions. It compiles into the existing `SkillContract`. Built-in compiled skills (communication, research, verification) remain.
 - **Trust rule:** an edited or new skill file is **inactive until Kevin approves it** in the Armory tab. Approval records the file's fingerprint, and any later change deactivates it until re-approved. This keeps "presence in the library is not endorsement".
 - **Teaching:** "Olympus, learn how to …" drafts a skill file through the write gate, shows it, and activates it on approval.
+- **Existing custom skills:** the instruction-only skills saved through Add skill become skill files with no tools. Kevin can grant them tools later, and each grant needs his approval.
 - **First skill pack:**
   - `people-resolver@1`, `mail-collector@1`, `mail-organizer@1` (formalizing Phase 3's workers);
   - `project-briefer@1`;
@@ -273,6 +330,7 @@ Kevin approves one plan card, watches the graph fill in live, gets a grouped `ma
 - **Grants are enforced by Olympus, not requested of the model.** The MCP token encodes the grant, and the effect tier sets the gate. External writes and irreversible actions always confirm per action.
 - **Untrusted content stays data.** Mail, web and file text arrive as marked evidence. A plan that reads untrusted content cannot also hold an unconfirmed `external_write` grant.
 - **Engines have no built-in tools** outside delegation's worktree sandbox.
+- **Outside packages are approved at a pinned version.** Olympus gates and journals every call to them, but does not control what their code does once called (Phase 3b).
 - **No silent spend.** Subscription only, key-free child environments, pause on limits, and API routes used only by explicit choice.
 - **Everything is recoverable or confirmed,** following the manual's autonomy table. The journal records every call with its approval id.
 - **The acceptance profile covers all of it.** Engines are replayed and external effects refused, so every phase can be accepted on synthetic data first.
@@ -305,7 +363,7 @@ Everything not listed here proceeds without asking.
 | 5 | Phase 10, per connector | Each new computer or app trust boundary |
 | — | End of each phase | "Ship it" to release and install. These can be batched if Kevin prefers. |
 
-Plan approvals, write confirmations and send confirmations inside the product are Olympus's normal operation, not project check-ins.
+Plan approvals, package approvals and tool ratings, write confirmations and send confirmations inside the product are Olympus's normal operation, not project check-ins.
 
 ## 10. Standing authorization requested
 
@@ -325,6 +383,7 @@ Still excluded without a word from Kevin: merging to `master`, releases and inst
 | CLI output formats drift between versions | Minimum version check at startup, stream parsing pinned by replay fixtures, and a clear "engine version unsupported" state |
 | Latency from process start | Warm `--resume` sessions, timing recorded in receipts, and a streaming UI from the first delta |
 | Prompt injection via email | Scoped grants, untrusted-evidence marking, no unconfirmed external writes, and a journal of every call |
+| An outside package is malicious, or is compromised upstream | Pinned version and hash, no automatic upgrades, deactivation on any drift, a key-free environment, rated tools only, and journaled calls. This is not a sandbox, so approve only packages Kevin would run himself. |
 | Swarms burn through the subscription | Concurrency cap, turn and time limits per plan, and limits shown in the plan card before approval |
 | Scope creep in the visual work | Gate B, and "every pixel is a real event" |
 | Local transcripts left by engines | Phase 0 finds where they go. They are redirected to app data or cleaned up under Olympus's control. |
@@ -338,9 +397,10 @@ Two-tier memory and selective promotion, and the Decision Log being evidence rat
 1. The engine on the subscription (Phases 0–1).
 2. The armory and tool-using tasks (Phase 2).
 3. The orchestrated swarm with plan approval and the Operations view (Phase 3).
-4. The show: armory and swarm in the instrument (Phase 4).
-5. Skills (Phase 5).
-6. Trustworthy live project briefings and curated memory: maintained, not expanded.
-7. Codex, write tools, design co-building, local voice, computer and apps (Phases 6–10).
+4. Outside tool packages, starting with REA (Phase 3b).
+5. The show: armory and swarm in the instrument (Phase 4).
+6. Skills (Phase 5).
+7. Trustworthy live project briefings and curated memory: maintained, not expanded.
+8. Codex, write tools, design co-building, local voice, computer and apps (Phases 6–10).
 
 The existing 0.20.0 minor issues (the truncated scan-failure path, the stale-state lag) fold into Phase 1's first release.
