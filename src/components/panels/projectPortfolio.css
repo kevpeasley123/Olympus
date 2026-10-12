@@ -238,3 +238,9 @@ button.ecosystem-center:focus-visible { outline:2px solid #f1d39a;outline-offset
  .portfolio-combined .command-project-row .command-project-purpose { margin:6px 0 10px 35px; }
  .portfolio-combined .command-project-next { margin:0 -12px; padding:4px 12px; }
 }
+
+/* Next steps are readable sentences, not clipped previews. */
+.portfolio-art .command-project-next { align-items:center; padding-top:8px; padding-bottom:8px; }
+.portfolio-art .command-project-next .command-recommendation { align-items:flex-start; }
+.portfolio-art .command-project-next .command-recommendation > svg { margin-top:2px; }
+.portfolio-art .command-project-next p { display:block; -webkit-line-clamp:unset; overflow:visible; white-space:normal; overflow-wrap:anywhere; line-height:1.5; }
