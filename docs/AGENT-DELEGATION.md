@@ -110,21 +110,27 @@ checks, reviewing, waiting, complete, or failed.
 
 ## First driver
 
-Claude Code is the pilot driver. The backend resolves its executable, in order:
-`OLYMPUS_CLAUDE_CODE` when set, `claude.exe` on `PATH`, `%USERPROFILE%\.local\bin`,
-then the npm global install under `%APPDATA%`. The webview cannot choose a
-program or arguments. The adapter uses structured streaming output, a fixed
-UUID session, a $5 budget per launch, a 45-minute wall-clock limit per launch,
-and a two-stage permission boundary:
+Claude Code is the pilot driver. The backend resolves its native executable
+(`OLYMPUS_CLAUDE_CODE`, then `PATH`, then `~/.local/bin`, then npm's global
+install); the webview cannot choose a program or arguments. The adapter uses
+structured streaming output, a fixed UUID session, a turn limit and a 45-minute
+wall-clock limit per launch, and a two-stage permission boundary:
 
 1. A read-only planning run creates the isolated branch/worktree and ends in
    `waiting`.
 2. A second operator approval resumes that same session with a bounded set of
    edit and local verification tools.
 
-The $5 budget is Claude Code's `--max-budget-usd`, which applies to one launch.
-Planning, implementation and every resume are separate launches, and Olympus
-keeps no spend ledger across them, so a run's total can exceed $5.
+Launches run only on a Claude subscription sign-in. `claude auth status --json`
+runs with the launch environment when a proposal is prepared, before an approval
+is consumed, and again immediately before each launch. Anything other than a
+claude.ai sign-in with no API key configured refuses the run, including a sign-in
+Olympus cannot confirm (`engines.rs`). Usage is bounded by Claude Code's
+`--max-turns` (40 for planning, 120 for implementation) and the 45-minute limit,
+both per launch; the earlier `--max-budget-usd 5` assumed API billing and was
+removed on 2026-10-12. A launch that stops at its turn limit is recorded as
+failed, not as an outcome. Planning, implementation and every resume are
+separate launches, so a run's total can exceed one launch's limits.
 
 Every launch passes an exact built-in tool inventory (`--tools`: `Read,Glob,Grep`
 for planning; `Read,Glob,Grep,Edit,Write,Bash` for implementation, with
@@ -275,8 +281,8 @@ actions in words, task, criteria, plan, workspace. Permitted actions come from t
 display-only `permitted` field (see
 [OPERATOR-APPROVAL-DESIGN.md](OPERATOR-APPROVAL-DESIGN.md#display-fields-and-review-surface--september-28-2026)),
 for example "Read and search the repository only (Read, Glob, Grep); no edits and no
-shell commands. Loads no settings files, hooks or MCP servers. $5 budget and
-45-minute limit per launch, not per run." The exact scope string is behind a
+shell commands. Loads no settings files, hooks or MCP servers. Up to 40 turns and
+45 minutes per launch, not per run, on your Claude subscription sign-in only." The exact scope string is behind a
 disclosure; when the build does not recognise the scope, the raw string is shown
 instead. A live countdown ("Expires in m:ss") runs to the proposal's expiry, after
 which Approve is disabled and the review must be prepared again. There is one

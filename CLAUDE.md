@@ -42,6 +42,8 @@ Break these and something breaks quietly rather than loudly.
 
 The default route is OpenAI Responses (Sol, medium), with explicit one-request Astra Deep Analysis (high). Read `docs/MODEL-ROUTING.md`. Central IDs live in `commands/models.rs`. Preserve local history, `store: false`, structured voice output, and request provenance. Claude Code delegation remains a separate execution driver.
 
+Direction, approved and not yet built: primary reasoning moves to a subscription engine, with Codex and Claude Code as equals and neither required (`docs/ARMORY-PLAN.md`). Until its Phase 1 lands, the route above is what runs. Engines never receive an API key, and delegated Claude Code launches only on a subscription sign-in (`commands/engines.rs`).
+
 ## Anthropic API constraints
 
 The explicit Claude comparison route calls `claude-opus-5`, defined as `CLAUDE_MODEL` in `src-tauri/src/commands/models.rs`; `src-tauri/src/commands/assistant.rs` builds and sends the request. These are current and counterintuitive — **verify against the `claude-api` skill rather than writing from memory**, which is likely stale:

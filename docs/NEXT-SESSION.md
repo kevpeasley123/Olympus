@@ -7,20 +7,45 @@ file replaced is `docs/archive/NEXT-SESSION-through-2026-10-11.md`.
 
 ## State — 2026-10-12
 
-- **Version 0.30.0** on `master` (`b288ddf`). Kevin confirmed on 2026-10-12
-  that it is installed on his PC and in daily use.
-- **In flight:** `claude/modest-mayer-nvawru`, not merged. It holds:
+- **Version 0.32.0** on `master`, released from `claude/modest-mayer-nvawru`
+  through "Bring everything current". Kevin confirmed on 2026-10-12 that 0.30.0
+  was installed and in daily use; whether 0.31.0 and 0.32.0 are installed is
+  not yet confirmed.
+- **0.31.0** (another session, `claude/bold-ptolemy-bwywj1`) recorded the
+  Armory direction and built Phase 0b:
+  - Codex and Claude Code are found and their sign-ins checked (`engines.rs`,
+    Preferences > Subscription engines).
+  - Delegated Claude Code refuses to start without a confirmed subscription and
+    runs within turn limits instead of a dollar budget.
+  - See `docs/ARMORY-PLAN.md`.
+- **0.32.0** brings in:
   - the guidance cleanup and its drift check;
-  - removal of chat memory writers, dashboard exports and proven dead weight;
+  - removal of the chat memory writers, the dashboard exports and proven dead
+    weight (with a before/after style proof on 51 screens);
   - the project-brief vault commit;
-  - visual review pointed at the shipped Command.
-- Every remote branch that is ahead of `master` predates the 2026-09-07 history
+  - a visual review of the shipped Command.
+- Every other remote branch ahead of `master` predates the 2026-09-07 history
   restart and shares no history with it; all are superseded.
 
 ## Last verification — 2026-10-12, Linux cloud container
 
-Not the desktop app, WebView2, Tauri IPC or real data. Filled in from the
-session's final run; see the branch's last commit message.
+Not the desktop app, WebView2, Tauri IPC or real data. The counts are in the
+0.32.0 release commit message.
+
+## Next
+
+1. **Armory Phase 0 on the PC.** Open Preferences > Subscription engines. Both
+   engines should be found and show a subscription. If either shows "Not
+   confirmed", record the output of `claude auth status --json` or
+   `codex login status`, so the parser can learn that shape.
+2. **Armory Phase 1, the engine layer**, per `docs/ARMORY-PLAN.md`, after the
+   engine spike runs on the PC. Monid belongs to Phase 3b; the spending policy is
+   in `OLYMPUS-MANUAL.md`, and the earlier step-by-step plan is the first
+   section of `docs/archive/NEXT-SESSION-through-2026-10-11.md`.
+3. **Home semantic navigation.** Approved as an independent slice, not
+   started. The only written design is the Semantic Zoom section and Phase 4 of
+   `docs/archive/SKILLS-GRAPHS-INSPECTION-PLAN.md`.
+4. **One paid Research run from the UI**, once API credit is available.
 
 ## Decisions waiting on Kevin
 
@@ -44,13 +69,6 @@ session's final run; see the branch's last commit message.
    the non-flagship paths in `CommandInstrument` are now reachable only from
    `command-agent-harness.html` without `?flagship`. Proposed: remove them and
    their CSS with the same before/after style proof used on 2026-10-12.
-5. **Armory expansion and Monid**, requested 2026-10-07. Not started; no Monid
-   code exists. The spending policy is in `OLYMPUS-MANUAL.md`. The earlier
-   step-by-step plan is the first section of the archived log.
-6. **Home semantic navigation.** Approved as an independent slice, not
-   started. The only written design is the Semantic Zoom section and Phase 4 of
-   `docs/archive/SKILLS-GRAPHS-INSPECTION-PLAN.md`.
-7. **One paid Research run from the UI**, once API credit is available.
 
 ## Known issues
 
@@ -87,8 +105,9 @@ session's final run; see the branch's last commit message.
 These are recorded in the release lines and still open. Kevin's daily use
 covers the screens he uses; these paths each need a deliberate trigger.
 
-- A Coding Delegate (Hephaestus) run that completes, and Organizer acceptance
-  of its real result.
+- A Coding Delegate (Hephaestus) run that completes under the turn limit, and
+  Organizer acceptance of its real result.
+- The engine sign-in checks against Kevin's real Codex and Claude Code installs.
 - A paid Research / Verification run from the UI.
 - Live-provider skill guidance.
 - A project brief saved since the 2026-10-12 vault-commit change.

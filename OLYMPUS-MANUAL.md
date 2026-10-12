@@ -13,6 +13,17 @@ capable of directing specialized agents inside safe, recoverable boundaries.
 Olympus is not primarily a chat client. Chat and voice are ways to operate a
 system that maintains project truth, memory, decisions, and delegated work.
 
+It is also an armory (approved September 29, revised October 12, 2026; see
+`docs/ARMORY-PLAN.md`). It holds tools and skills that act, not only describe:
+Olympus's own, and tools built by others that Kevin finds and points it at.
+Olympus turns a request into a plan, Kevin approves the plan once, and agents
+carry it out with what the armory holds. The engines are Kevin's Codex and
+Claude Code subscriptions, as equals; neither is required, and Olympus never
+falls back to paid API calls on its own. The armory is also reachable from
+Kevin's own Codex or Claude Code sessions, under the same approvals. An outside
+tool is approved at a pinned version: Olympus gates and records every call to
+it, but it is not a sandbox, so safety comes first.
+
 ## Opening experience
 
 Olympus reopens in the mode it was left in; Command is the default. Command is
@@ -172,6 +183,7 @@ Autonomy grows with recoverability:
 | Brief, recommend, challenge, plan | Automatic |
 | Create an isolated branch, draft files, run tests | Automatic when recoverable |
 | Commit isolated work with clear attribution | Usually automatic |
+| Carry out a multi-step or multi-agent plan | One approval of the plan; sending, spending and irreversible steps still ask each time |
 | Change architecture, product direction, or visual language | Pause for Kevin |
 | Push, deploy, send, overwrite human work | Explicit approval |
 | Delete data or take difficult-to-reverse action | Explicit approval plus recovery information |
@@ -222,13 +234,19 @@ Presence should come from awareness and readiness, not constant interruption.
 
 ## Product priorities
 
-1. Trustworthy live project briefings.
-2. Research and verification agents.
-3. Curated project memory.
-4. Proactive warnings and briefs.
-5. The full project constellation.
-6. Voice commands.
-7. Delegating work to coding agents (implemented, unproven; no pilot prerequisite).
+1. Both subscription engines, Codex and Claude Code.
+2. The armory and tool-using tasks.
+3. The orchestrated swarm, with plan approval and an Operations view.
+4. Outside tool packages, starting with REA.
+5. The show: armory and swarm in the Command instrument.
+6. Skills that act through the tools they are granted.
+7. Trustworthy live project briefings and curated memory: maintained, not expanded.
+8. Mixed-engine tasks and a Codex coding driver, write tools, design co-building,
+   local voice, computer and apps.
+
+Phases and status are in `docs/ARMORY-PLAN.md`. October 12, 2026: this list
+replaces the one Kevin ranked on September 28 (git history has it), as the
+approved Armory plan's section 13 specified.
 
 Do not let a lower priority delay the evidence and safety foundations required by
 a higher one.
@@ -236,7 +254,7 @@ a higher one.
 September 23–24, 2026: Kevin redirected agent work to the Research / Verification
 pair ahead of the Coding Delegate pilot, and removed that pilot as a prerequisite
 for other work. Coding delegation remains implemented and unproven. Kevin
-re-ranked the list above accordingly on September 28, 2026.
+re-ranked the earlier list accordingly on September 28, 2026.
 
 ## Evidence standard
 

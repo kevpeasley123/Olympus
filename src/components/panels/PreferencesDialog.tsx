@@ -2,6 +2,7 @@ import "./PreferencesDialog.css";
 import { Power, X } from "lucide-react";
 import { useState } from "react";
 import { Modal } from "../Modal";
+import { EngineSettings } from "./EngineSettings";
 import { GmailSettings } from "./GmailSettings";
 import { ModelDiagnostics } from "./ModelSettings";
 import { ReplyModeToggle } from "./ReplyModeToggle";
@@ -67,6 +68,9 @@ export function PreferencesDialog({ open, onClose, preferences, onPreferences, s
       </section>
       <section className="preferences-section">
         <GmailSettings />
+      </section>
+      <section className="preferences-section">
+        <EngineSettings />
       </section>
       <section className="preferences-section">
         <ModelDiagnostics />

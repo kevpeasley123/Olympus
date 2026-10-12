@@ -67,6 +67,7 @@ Tauri commands exposed by the desktop shell — every entry in the `generate_han
 | Write gate | `resolve_vault_write` |
 | Projects | `scan_tracked_projects`, `fetch_action_queue`, `project_members`, `link_project`, `set_project_visibility`, `save_project_intake`, `pick_project_folder`, `inspect_project`, `confirm_project_brief` |
 | Organizer | `create_organizer_task`, `update_organizer_task`, `list_organizer_tasks`, `fetch_organizer_task`, `set_organizer_intent`, `move_organizer_task`, `prepare_organizer_delegation`, `accept_organizer_result`, `finish_organizer_task`, `acknowledge_organizer_event`, `organizer_overview` |
+| Engines | `engine_status` |
 | Delegation | `prepare_delegation_run`, `prepare_delegation_resume`, `cancel_delegation_proposal`, `start_delegation_run`, `resume_delegation_run`, `cancel_delegation_run`, `list_delegation_runs`, `fetch_delegation_diff` |
 | Delegation review | `fetch_delegation_review`, `run_delegation_check`, `delegation_review_fingerprint`, `complete_delegation_review` |
 | Knowledge audit | `start_knowledge_audit`, `list_knowledge_audits`, `inspect_knowledge_audit` (no UI entry point; the view is rendered only by its harness) |
@@ -233,16 +234,18 @@ Processes started here:
 - `git` in the project repository and the run worktree: `status`, `rev-parse`,
   `worktree add -b olympus/run-*`, `ls-files --others`, and `diff --no-ext-diff`
   for review.
-- The Claude Code executable, resolved from `OLYMPUS_CLAUDE_CODE`, then
-  `claude.exe` on `PATH`, then the native installer's location, then the npm
-  global install (`claude_candidates` in `delegation.rs`): once with
-  `--version`, then once per stage. Every launch passes an exact `--tools`
-  inventory, `--setting-sources ""`, `--strict-mcp-config` with an empty MCP
-  config, `--max-budget-usd` (per launch), and `--` before the prompt; stdin is
-  null. The environment is cleared to an allowlist of system paths
-  (`allowed_environment`); no API key or token is passed, because Claude Code
-  would prefer it over the operator's subscription login. Each launch has a
-  45-minute wall-clock limit.
+- The Claude Code executable, resolved from `OLYMPUS_CLAUDE_CODE`, `PATH`,
+  `~/.local/bin` or npm's global install: once with `--version`, then once per
+  stage. Every launch passes an exact `--tools` inventory, `--setting-sources ""`,
+  `--strict-mcp-config` with an empty MCP config, `--max-turns` (40 planning, 120
+  implementation), and `--` before the prompt; stdin is null. The environment is
+  cleared to an allowlist that never includes an API key or token. Each launch
+  has a 45-minute wall-clock limit.
+- Sign-in checks, with the same environment and a 20-second limit:
+  `claude auth status --json` when a delegation proposal is prepared and before
+  each launch, and both it and `codex login status` when Preferences checks the
+  engines (`engine_status`). Codex is resolved from `OLYMPUS_CODEX`, `PATH` or
+  npm's global install; nothing else launches it yet.
 - `taskkill /PID <pid> /T /F` on cancellation, only while the process's
   creation time still matches the one recorded with the PID.
 

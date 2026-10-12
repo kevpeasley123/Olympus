@@ -9,6 +9,7 @@ pub mod approvals;
 pub mod assistant;
 pub mod attachments;
 pub mod delegation;
+pub mod engines;
 pub mod external_link;
 pub mod research_retrieval;
 pub mod research_agents;
