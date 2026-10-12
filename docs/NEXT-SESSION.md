@@ -1,6 +1,6 @@
-## October 12, 2026 — Armory direction recorded; Phase 0a and 0b built
+## October 12, 2026 — 0.31.0: Armory direction recorded; Phase 0a and 0b built
 
-Branch `claude/bold-ptolemy-bwywj1`, not merged.
+Released as 0.31.0 from `claude/bold-ptolemy-bwywj1` through "Bring everything current". `claude/modest-mayer-nvawru` was still in progress in a running session and was held back. It rewrites `CLAUDE.md`, the manual, `ARCHITECTURE.md` and this handoff, so merging `master` into it will conflict in those files.
 
 **Direction.** Kevin wants the Armory to hold tools and skills that act, including tools built by others that he finds and points Olympus at. Codex and Claude Code are equal subscription engines, and neither is required. The armory should also be reachable from his own Codex and Claude Code sessions, and safety comes first. `docs/ARMORY-PLAN.md` records all of this:
 - Phase 3b, outside tool packages, with REA (`github.com/morluto/rea`) as the first candidate;
