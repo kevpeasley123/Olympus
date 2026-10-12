@@ -20,6 +20,19 @@ export async function runElevenVoiceHarness() {
     return {voice,audio,requests,cancels,updates,resolve:()=>resolve({audioBase64:"SUQz"}),reject:()=>reject(Error("ElevenLabs quota unavailable")),secrets:()=>secrets,microphones:()=>microphones,plays:()=>plays,pauses:()=>pauses};
   }
   const prefs={...DEFAULT_VOICE_PREFERENCES,speechProvider:"elevenlabs" as const,autoSpeak:true};
+  const toggle=fixture();
+  await toggle.voice.applyPreferences({...DEFAULT_VOICE_PREFERENCES,speechProvider:'openai',autoSpeak:false});
+  toggle.voice.mute();
+  const enabled=toggle.voice.setSpokenReplies(true);
+  check(enabled.autoSpeak&&enabled.speechProvider==='elevenlabs','Spoken reply switch chooses ElevenLabs even from OpenAI preferences');
+  check(!toggle.voice.getSnapshot().muted&&!toggle.voice.getSnapshot().microphoneOn,'Enabling spoken replies unmutes output without enabling input');
+  check(toggle.secrets()===0&&toggle.microphones()===0&&toggle.requests.length===0,'Toggle alone never requests credentials, microphone or paid synthesis');
+  await toggle.voice.sendText('Read my typed reply');
+  check(toggle.requests.length===1&&toggle.secrets()===0&&toggle.microphones()===0,'Typed reply after toggle uses ElevenLabs only');
+  const disabled=toggle.voice.setSpokenReplies(false);toggle.resolve();await tick();
+  check(!disabled.autoSpeak&&toggle.plays()===0&&toggle.cancels.length===1,'Turning spoken replies off cancels pending speech and ignores late audio');
+  await toggle.voice.sendText('Stay silent');
+  check(toggle.requests.length===1,'Later typed replies stay silent after toggling off');toggle.voice.stop();
   const f=fixture();await f.voice.applyPreferences(prefs);await f.voice.sendText("hello");
   check(f.requests.length===1&&f.requests[0].voiceId===prefs.elevenVoiceId&&f.requests[0].modelId==="eleven_v4","Selected voice and model reach one native synthesis request");
   check(f.secrets()===0&&f.microphones()===0,"Typed ElevenLabs speech never opens OpenAI audio or microphone");

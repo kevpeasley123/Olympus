@@ -103,6 +103,15 @@ export class RealtimeVoice {
   subscribe=(listener:()=>void)=>{this.listeners.add(listener);return ()=>{this.listeners.delete(listener);};};
   getSnapshot=()=>this.snapshot;
   configure(callbacks:VoiceCallbacks){this.callbacks=callbacks;}
+  /** Output-only preference. Never start a session or capture input here. */
+  setSpokenReplies(enabled:boolean):VoicePreferences {
+    this.stop();
+    this.dismissError();
+    if(enabled&&this.snapshot.muted)this.mute();
+    const next:VoicePreferences={...this.preferences,autoSpeak:enabled,...(enabled?{speechProvider:'elevenlabs' as const}:{})};
+    void this.applyPreferences(next);
+    return next;
+  }
   async applyPreferences(value:VoicePreferences) {
     const next=normalizeVoicePreferences(value);
     const reconnect=next.speechProvider!==this.preferences.speechProvider || next.elevenVoiceId!==this.preferences.elevenVoiceId || next.elevenModelId!==this.preferences.elevenModelId || next.selectedVoice!==this.preferences.selectedVoice || next.speechStyle!==this.preferences.speechStyle || next.bargeInEnabled!==this.preferences.bargeInEnabled;

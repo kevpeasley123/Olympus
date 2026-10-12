@@ -72,6 +72,12 @@ function App() {
     demoData
   } = useDashboardData();
   const voice = useVoiceState();
+  function toggleSpokenReplies(){
+    if(!settingsReady)return;
+    voicePreview.stop();
+    const next=realtimeVoice.setSpokenReplies(!settings.autoSpeak);
+    updateVoicePreferences({autoSpeak:next.autoSpeak,speechProvider:next.speechProvider});
+  }
   function toggleVoiceConversation(){
     if(!settingsReady)return;
     const current=realtimeVoice.getSnapshot();
@@ -260,7 +266,7 @@ function App() {
                   active={command}
                   visualState={instrumentState(voice, chatError)}
                   voiceLevel={voice.level}
-                  voiceSnapshot={voice} onVoiceToggle={toggleVoiceConversation} voiceReady={settingsReady}
+                  voiceSnapshot={voice} onSpokenRepliesToggle={toggleSpokenReplies} spokenReplies={settings.autoSpeak} voiceReady={settingsReady}
                   projects={projects}
                   capabilities={armory.capabilities}
                   capabilitiesError={armory.capabilitiesError}
