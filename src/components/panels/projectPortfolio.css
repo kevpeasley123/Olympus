@@ -152,3 +152,7 @@ body:has(.mode-project .project-ecosystem) .background-vignette {
 .ecosystem-node-label { background:radial-gradient(ellipse at 35% 50%,#040c17c9,transparent 75%); }
 .ecosystem-center .ecosystem-surface::after { opacity:.54; }
 .ecosystem-surface::after { opacity:.42; }
+
+button.ecosystem-center { padding:0;border:0;background:none;cursor:pointer; }
+button.ecosystem-center:hover .ecosystem-surface { filter:brightness(1.1); }
+button.ecosystem-center:focus-visible { outline:2px solid #f1d39a;outline-offset:7px; }

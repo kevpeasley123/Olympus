@@ -33,7 +33,10 @@ export function ProjectEmblem({id,name}:{id:string;name?:string}){
 export function ProjectEcosystem({rows,onOpen}:{rows:ProjectCommandState[];onOpen:(id:string)=>void}){
  const [page,setPage]=useState(0),[inView,setInView]=useState(true),[documentVisible,setDocumentVisible]=useState(!document.hidden);
  const root=useRef<HTMLDivElement>(null);
- const pages=Math.max(1,Math.ceil(rows.length/8)),current=Math.min(page,pages-1),visible=rows.slice(current*8,current*8+8);
+ const olympus=rows.find(row=>/^(project\s+)?olympus$/i.test(row.project.name.trim()));
+ const satellites=rows.filter(row=>row!==olympus);
+ const pages=Math.max(1,Math.ceil(satellites.length/8)),current=Math.min(page,pages-1),visible=satellites.slice(current*8,current*8+8);
+ const centerContent=<><i className="ecosystem-surface" aria-hidden="true"/><span aria-hidden="true">Ω</span><strong>OLYMPUS</strong></>;
  useEffect(()=>{const node=root.current;if(!node)return;const observer=new IntersectionObserver(([entry])=>setInView(entry.isIntersecting));observer.observe(node);return()=>observer.disconnect()},[]);
  useEffect(()=>{const listener=()=>setDocumentVisible(!document.hidden);document.addEventListener("visibilitychange",listener);return()=>document.removeEventListener("visibilitychange",listener)},[]);
  // Art-directed positions leave a clear central valley and room for side labels.
@@ -49,7 +52,7 @@ export function ProjectEcosystem({rows,onOpen}:{rows:ProjectCommandState[];onOpe
     const d=`M47 50 C${47+(x-47)*.42} ${50+(y-50)*.12} ${x+(x<47?8:-8)} ${y+(y<50?-8:8)} ${x} ${y}`;
     return <g key={row.project.id}><path className="ecosystem-link-base" d={d}/><path className="ecosystem-link-signal" d={d} pathLength="100" style={{animationDelay:`${-i*1.1}s`,animationDuration:`${5+i*.31}s`}}/></g>
    })}</svg>
-   <div className="ecosystem-center"><i className="ecosystem-surface" aria-hidden="true"/><span>Ω</span><strong>OLYMPUS</strong></div>
+   {olympus ? <button type="button" className={`ecosystem-center ${olympus.openTaskCount===null?"is-unmeasured":""}`} onClick={()=>onOpen(olympus.project.id)} aria-label={`Open Olympus project, ${olympus.openTaskCount===null?"task count unknown":`${olympus.openTaskCount} open vault tasks`}`} title="Open Olympus project">{centerContent}</button> : <div className="ecosystem-center" aria-label="Olympus ecosystem hub">{centerContent}</div>}
    {points.map(({row,x,y},i)=><button key={row.project.id} className={`ecosystem-node ${row.openTaskCount===null?"is-unmeasured":""}`} style={{left:`${x}%`,top:`${y}%`,"--project-hue":projectColor(row.project.id,row.project.name),"--planet-size":`${Math.sqrt(4096+Math.min(25,row.openTaskCount??0)*220)}px`,"--drift-delay":`${-i*1.7}s`} as CSSProperties} onClick={()=>onOpen(row.project.id)} aria-label={`Open ${row.project.name}, ${row.openTaskCount===null?"task count unknown":`${row.openTaskCount} open vault tasks`}`}>
     <span className="ecosystem-planet"><i className="ecosystem-surface" aria-hidden="true"/><ProjectEmblem id={row.project.id} name={row.project.name}/></span><span className="ecosystem-node-label"><strong>{row.project.name}</strong><small>{row.openTaskCount===null?"Unmeasured":`${row.openTaskCount} open tasks`}</small></span>
    </button>)}

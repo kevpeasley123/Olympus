@@ -12,12 +12,18 @@ check(await page.locator('.portfolio-demo').isVisible(),'Demo badge visible');
 check(await page.locator('.command-board-scroll').evaluate(e=>e.scrollWidth<=e.clientWidth+1),'No horizontal card overflow');
 await page.screenshot({path:`output/portfolio-review/cards-${width}.png`});
 await page.getByRole('button',{name:'Ecosystem',exact:true}).focus();await page.keyboard.press('Enter');
-check(await page.locator('.ecosystem-node').count()===4,'Every project has a node');
+check(await page.locator('.ecosystem-node').count()===3,'Olympus is represented only by the central hub');
 check(await page.locator('.is-unmeasured').count()===4,'Unavailable tasks stay unknown');
+const hub=page.getByRole('button',{name:'Open Olympus project, task count unknown',exact:true});
+check(await hub.count()===1,'One interactive Olympus hub');
+await hub.focus();await page.keyboard.press('Enter');await page.getByRole('heading',{name:'Your tasks',exact:true}).waitFor();
+check(await page.locator('.command-detail-vision').count()===1,'Central hub opens the project detail');
+await page.getByRole('button',{name:'← All projects',exact:true}).click();
+
 check(await page.locator('.ecosystem-toolbar,.ecosystem-orbits,.command-portfolio-tools').count()===0,'Removed scene controls and tools stay absent');
 check(await page.locator('.command-board-scroll').evaluate(e=>e.scrollWidth<=e.clientWidth+1),'No horizontal ecosystem overflow');
 await page.screenshot({path:`output/portfolio-review/ecosystem-${width}.png`});
-await page.getByRole('textbox',{name:'Search projects'}).fill('Pokedex');check(await page.locator('.ecosystem-node').count()===1,'Search filters ecosystem');
+await page.getByRole('textbox',{name:'Search projects'}).fill('Pokedex');check(await page.locator('.ecosystem-node').count()===1,'Search filters ecosystem');check(await page.locator('button.ecosystem-center').count()===0,'Filtered-out Olympus stays a noninteractive harness');
 await page.locator('.ecosystem-node').click();await page.getByRole('heading',{name:'Your tasks',exact:true}).waitFor();await page.getByRole('button',{name:'← All projects',exact:true}).click();check(await page.getByRole('button',{name:'Ecosystem',exact:true}).getAttribute('aria-pressed')==='true','View retained across detail');
 }
 await page.emulateMedia({reducedMotion:'reduce'});await page.getByRole('textbox',{name:'Search projects'}).fill('');check(await page.locator('.ecosystem-planet').first().evaluate(e=>getComputedStyle(e).animationName)==='none','Reduced motion respected');
