@@ -14,7 +14,7 @@ Since approval, work has gone mainly to Command visuals, Projects, the Organizer
 
 | Phase | State |
 | --- | --- |
-| 0 — Groundwork | **Partly done, Claude side only.** From 0b: Claude Code is found via `OLYMPUS_CLAUDE_CODE`, `PATH`, `~/.local/bin` and npm, and delegated children no longer receive `ANTHROPIC_API_KEY` (0.21.0). Still open in 0b: `--max-budget-usd 5` is still passed, and there is no login self-check. Nothing Codex-related is built: Olympus has no Codex driver, and Codex appears only as catalog labels. 0a is not done: `OLYMPUS-MANUAL.md` and `CLAUDE.md` still carry the old priorities and the API-first route. 0c, the engine spike, has not run for either engine, and it must run on Kevin's PC. |
+| 0 — Groundwork | **0a and 0b done on 2026-10-12, compiled and unit-tested; not yet run on Kevin's PC.**<br>0a: the manual and `CLAUDE.md` record the direction and the new priorities.<br>0b, in `engines.rs` and `delegation.rs`:<ul><li>Claude Code is found via `OLYMPUS_CLAUDE_CODE`, `PATH`, `~/.local/bin` and npm (0.21.0). Codex is found via `OLYMPUS_CODEX`, `PATH` and npm's global install.</li><li>Neither engine ever receives an API key.</li><li>A sign-in check reads each CLI's own status in the launch environment. It appears in Preferences under "Subscription engines", and delegated Claude Code is refused unless the check confirms a subscription.</li><li>`--max-budget-usd 5` is replaced by `--max-turns` (40 planning, 120 implementation) and the existing 45-minute limit.</li></ul>0c, the engine spike, has not run for either engine; it must run on Kevin's PC. |
 | 1 — Engine layer | Not started. Chat still runs on the API routes. It already has a Stop control and a four-minute turn limit (2026-10-07), which this phase can reuse. |
 | 2 — Armory tools | The existing tools run inside fixed workflows (see above). Not started: the registry with effect tiers, the MCP host, and the `tool_calls` journal. |
 | 3 — Orchestrator | Not started. Related pieces exist: delegation approvals, the Organizer's task-local plan and approval (0.26.0–0.27.0), and the workflow inspector. |
@@ -44,6 +44,11 @@ Kevin added three points on 2026-10-12:
 - Skills are not only instruction documents; they act through the tools they are granted. Phase 5 already covers this.
 - The armory also holds tools built by others, which he finds and adds over time. Phase 3b covers this.
 - The plan must not depend on Claude Code. Both engines are built together in Phase 1, every later phase works on either, and coding delegation gets a Codex driver in Phase 6.
+
+Kevin confirmed three more points on 2026-10-12:
+- The armory is reachable from his own Codex and Claude Code sessions outside Olympus, under the same approvals (Phase 2).
+- For now, Kevin finds tools and points Olympus at them. Olympus digests and installs what he points to, after approval; it does not search for tools on its own (Phase 3b).
+- Safety first. An outside package is a trust decision, not a sandbox (Phase 3b, "Containment").
 
 This plan also revises earlier guidance. Once Kevin approves it, it is recorded in `OLYMPUS-MANUAL.md` and `CLAUDE.md`:
 
@@ -115,7 +120,7 @@ Seven principles:
 4. **Subscription only, by construction.** Engine children are launched with `env_clear` and an allowlist that never includes `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN` or `OPENAI_API_KEY`.
    - Claude Code also gets `--setting-sources ""`, so no `apiKeyHelper` loads.
    - Codex gets whatever equivalent Phase 0c finds that keeps it on the ChatGPT sign-in.
-   - A startup self-check reports which login each engine will use.
+   - A sign-in check reports which login each engine will use. It runs in Preferences and before every launch, rather than at startup, because each check starts the CLI. A launch is refused unless the check confirms a subscription.
 5. **Olympus owns history.** SQLite remains the source of truth for conversations. Engine session files are a cache that may be discarded.
 6. **Deterministic tests.** A `ReplayEngine` plays back recorded engine streams, so everything except live model quality is testable without spending subscription limits.
 7. **No engine is required.** Every phase works with Codex or Claude Code, and with either one missing. An engine-specific behaviour is a property of that engine's driver, never of the plan.
@@ -134,6 +139,10 @@ Sizes are relative (S ≈ a focused session, M ≈ a few sessions, L ≈ a week 
 - Discover `claude.exe` from a configured path, then `PATH` (`where claude`), then the known install locations (native installer, npm global), and report which was found.
 - Update the tests that pin the flags (`launches_pin_tools_settings_and_mcp_and_end_options_before_the_prompt`).
 - Give the Codex CLI the same lookup and report: a configured path, then `PATH`, then the known install locations.
+
+*Status, 2026-10-12:* 0a and 0b are done. They are compiled and unit-tested on Linux only; the sign-in check and the turn limit have not yet run on Kevin's PC.
+- **Turn limits:** 40 for planning and 120 for implementation. These are starting values to revisit after real runs.
+- **Sign-in check:** reads `claude auth status --json` and `codex login status`. Their output formats were taken from Claude Code 2.1.42 and 2.1.296 and from the Codex source at `a9b0815`. Any other output counts as unconfirmed, and an unconfirmed sign-in refuses the launch.
 
 **0c. Engine spike on Windows, both engines.** This must run in a local session on Kevin's PC, signed into both subscriptions. Every item below is answered for **Codex** (`codex exec --json`) and for **Claude Code** (`claude -p --output-format stream-json --verbose --include-partial-messages`). It records real behaviour into `docs/ENGINE-SPIKE.md` and saves stream fixtures for the ReplayEngine.
 - **Stream shape:** the event shapes, token deltas, and the final event (usage, session or thread id).
@@ -184,6 +193,10 @@ Sizes are relative (S ≈ a focused session, M ≈ a few sessions, L ≈ a week 
   | `external_write`, `irreversible` | always a per-action confirmation, even inside an approved plan |
   | `execute` | only through delegation's sandbox |
 - **MCP host:** an in-process server bound to `127.0.0.1` on a random port, with a per-launch secret and per-worker scoped tokens. Every call is validated against the schema, checked against the token's grant, executed in Rust and journaled.
+- **Reach from Kevin's own sessions.** When Kevin works in Codex or Claude Code outside Olympus, those sessions can use the armory through the same MCP host.
+  - Olympus issues each session its own scoped token, which Kevin grants and can revoke.
+  - Tiers, approvals and the journal apply exactly as they do for Olympus's workers, and approvals still appear in Olympus.
+  - Nothing is added to those tools' own configuration without Kevin's approval.
 - **Journal:** new additive tables `tool_calls(id, task_id, agent_id, tool_id, tool_version, input_json, output_summary, effect, status, started_at, finished_at, approval_id, error)`. A global Tauri event `olympus-activity` streams them live.
 - **First tools, all read-only:**
   - `gmail.find_people(name)`: distinct senders and recipients matching a name, with message counts and last-seen dates.

@@ -49,7 +49,8 @@ export interface PermittedActions {
   tools: string[];
   commands: string[];
   edits: boolean;
-  budgetUsd: string;
+  /** Claude Code's turn limit for one launch. */
+  turnLimit: number;
   launchLimitMinutes: number;
   excluded: string[];
 }

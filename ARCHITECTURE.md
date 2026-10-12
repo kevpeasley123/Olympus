@@ -54,6 +54,7 @@ Tauri commands exposed by the desktop shell — all 81 in the `invoke_handler` l
 | Vault | `write_memory_artifact`, `fetch_pantheon_entries`, `write_pantheon_entry`, `migrate_pantheon_schema`, `save_attachment_to_vault`, `append_profile_observation`, `promote_chat_memory`, `fetch_operator_profile`, `fetch_recent_vault_writes`, `fetch_vault_graph`, `open_vault_note` |
 | Write gate | `resolve_vault_write` |
 | Live data | `scan_tracked_projects`, `fetch_action_queue` |
+| Engines | `engine_status` |
 | Delegation | `prepare_delegation_run`, `prepare_delegation_resume`, `cancel_delegation_proposal`, `start_delegation_run`, `resume_delegation_run`, `cancel_delegation_run`, `list_delegation_runs`, `fetch_delegation_diff` |
 | Delegation review | `fetch_delegation_review`, `run_delegation_check`, `delegation_review_fingerprint`, `complete_delegation_review` |
 | Knowledge audit | `start_knowledge_audit`, `list_knowledge_audits`, `inspect_knowledge_audit` |
@@ -214,13 +215,18 @@ Processes started here:
 - `git` in the project repository and the run worktree: `status`, `rev-parse`,
   `worktree add -b olympus/run-*`, `ls-files --others`, and `diff --no-ext-diff`
   for review.
-- The Claude Code executable, resolved at one fixed location beneath `APPDATA`:
-  once with `--version`, then once per stage. Every launch passes an exact
-  `--tools` inventory, `--setting-sources ""`, `--strict-mcp-config` with an
-  empty MCP config, `--max-budget-usd 5` (per launch), and `--` before the
-  prompt; stdin is null. The environment is cleared to an allowlist that
-  includes `ANTHROPIC_API_KEY` when set. Each launch has a 45-minute wall-clock
-  limit.
+- The Claude Code executable, resolved from `OLYMPUS_CLAUDE_CODE`, `PATH`,
+  `~/.local/bin` or npm's global install: once with `--version`, then once per
+  stage. Every launch passes an exact `--tools` inventory, `--setting-sources ""`,
+  `--strict-mcp-config` with an empty MCP config, `--max-turns` (40 planning, 120
+  implementation), and `--` before the prompt; stdin is null. The environment is
+  cleared to an allowlist that never includes an API key or token. Each launch
+  has a 45-minute wall-clock limit.
+- Sign-in checks, with the same environment and a 20-second limit:
+  `claude auth status --json` when a delegation proposal is prepared and before
+  each launch, and both it and `codex login status` when Preferences checks the
+  engines (`engine_status`). Codex is resolved from `OLYMPUS_CODEX`, `PATH` or
+  npm's global install; nothing else launches it yet.
 - `taskkill /PID <pid> /T /F` on cancellation, only while the process's
   creation time still matches the one recorded with the PID.
 

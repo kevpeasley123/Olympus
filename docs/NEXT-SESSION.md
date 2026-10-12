@@ -1,9 +1,39 @@
-## October 12, 2026 — outside tool packages added to the Armory plan
+## October 12, 2026 — Armory direction recorded; Phase 0a and 0b built
 
-Kevin wants the Armory to hold tools built by others, which he finds and adds over time, and wants skills to act through the tools they are granted rather than being instructions only. He also decided the plan must not depend on Claude Code. `docs/ARMORY-PLAN.md` now has:
+Branch `claude/bold-ptolemy-bwywj1`, not merged.
+
+**Direction.** Kevin wants the Armory to hold tools and skills that act, including tools built by others that he finds and points Olympus at. Codex and Claude Code are equal subscription engines, and neither is required. The armory should also be reachable from his own Codex and Claude Code sessions, and safety comes first. `docs/ARMORY-PLAN.md` records all of this:
 - Phase 3b, outside tool packages, with REA (`github.com/morluto/rea`) as the first candidate;
-- an engine-neutral plan, with Codex and Claude Code built together in Phase 1 and a Codex coding driver in Phase 6;
-- a dated status table, and a record of the plan's approval of 2026-09-29. Nothing was installed or built; REA was evaluated only, from a read-only clone. Monid, below, belongs to Phase 3b.
+- the plan made engine-neutral;
+- a dated status table.
+
+The manual and `CLAUDE.md` carry the direction and the new priorities (0a). Monid, below, belongs to Phase 3b.
+
+**Built (0b):**
+- `commands/engines.rs` finds Codex (`OLYMPUS_CODEX`, `PATH`, npm's global install) as well as Claude Code.
+- It checks each engine's sign-in with the CLI's own status command, in the launch environment.
+- Preferences has a "Subscription engines" disclosure (`engine_status`) showing the result.
+- Delegated Claude Code is refused unless the check confirms a claude.ai subscription with no API key configured. The check runs when a proposal is prepared, before an approval is consumed, and immediately before each launch.
+- `--max-budget-usd 5` is replaced by `--max-turns` (40 planning, 120 implementation). Scopes are now `plan-v4` and `implement-v4`, so proposals prepared before this change must be prepared again.
+- A run that stops at its turn limit is recorded as failed, not as an outcome.
+
+**Verified on Linux only:**
+- `cargo test --lib`: 525 passed, 18 ignored.
+- `npm run build` passes.
+- All 29 non-browser `scripts/test-*.mjs` pass.
+- The 15 browser scripts pass under headless Chromium after the usual workarounds (Edge channel removed, port and harness paths adjusted).
+- `npm run visual:review`: 21/21.
+- The new Preferences section was rendered with a mocked IPC result.
+
+**Not run on the PC:**
+- The sign-in check against Kevin's real Codex and Claude Code installs.
+- A delegated run with the turn limit.
+
+**To check on the PC.** Open Preferences, then "Subscription engines". Both engines should be found and show a subscription. If either shows "Not confirmed", record its status output, so the parser can learn that shape:
+- `claude auth status --json`
+- `codex login status`
+
+REA was evaluated only, from a read-only clone; nothing was installed.
 
 ## Next priority — Armory expansion and approval-gated Monid — October 7, 2026
 

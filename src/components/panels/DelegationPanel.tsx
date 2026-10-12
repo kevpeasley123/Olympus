@@ -398,7 +398,7 @@ function permittedSentence(proposal: ApprovalProposal): string | null {
     : `Read and search the repository only (${tools}); no edits and no shell commands`;
   const commands = permitted.commands.length ? `; run only ${permitted.commands.join(", ")}` : "";
   const excluded = permitted.edits ? ` No ${permitted.excluded.filter(item => !item.includes("settings")).join(", ")}.` : "";
-  return `${reach}${commands}.${excluded} Loads no settings files, hooks or MCP servers. $${permitted.budgetUsd} budget and ${permitted.launchLimitMinutes}-minute limit per launch, not per run.`;
+  return `${reach}${commands}.${excluded} Loads no settings files, hooks or MCP servers. Up to ${permitted.turnLimit} turns and ${permitted.launchLimitMinutes} minutes per launch, not per run, on your Claude subscription sign-in only.`;
 }
 
 export function ApprovalSubject({ proposal, busy, onApprove, onCancel, compact = false }: {
