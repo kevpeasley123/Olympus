@@ -246,29 +246,20 @@ function ProjectRow({ row, onOpen, management }: { row: ProjectCommandState; onO
     : row.openRun ? "View progress" : row.operationalStatus === "COMPLETE" ? "View project" : "Continue project";
   return <article className={`command-project-row status-${row.operationalStatus.toLowerCase()} ${pinned ? "is-pinned" : ""}`} aria-label={row.project.name} style={{"--project-hue":projectColor(row.project.id,row.project.name)} as React.CSSProperties}>
     <header>
-      <ProjectEmblem id={row.project.id} name={row.project.name}/><h3>{row.project.name}</h3>
-      {row.operationalStatus !== "UNKNOWN" && <span className="command-operational-status">{operationalStatusLabels[row.operationalStatus]}</span>}
+      <ProjectEmblem id={row.project.id} name={row.project.name}/><h3 title={row.project.name}>{row.project.name}</h3>
+      {pinned && <span className="command-operational-status">{operationalStatusLabels[row.operationalStatus]}</span>}
+    <div className="portfolio-workload" title="Open tasks recorded in the vault task ledger">{row.openTaskCount===null?"Tasks unknown":`${row.openTaskCount} open tasks`}</div>
       {management}
     </header>
     <p className={`command-project-purpose ${row.project.vision.trim() ? "" : "is-missing"}`}>{row.project.vision.trim() || "This project's purpose and vision haven't been recorded yet."}</p>
-    <div className="portfolio-workload" title="Open tasks recorded in the vault task ledger">{row.openTaskCount===null?"Tasks unknown":`${row.openTaskCount} open tasks`}</div>
     <div className="command-project-next">
       <section className="command-recommendation">
-        <h4>{row.nextMove ? "Next step" : "Olympus recommends"}</h4>
-        <p title={row.nextMove || row.olympusRecommendation}>{row.nextMove || row.olympusRecommendation}</p>
+        <ListChecks size={13} aria-hidden="true"/>
+        <p title={row.nextMove || row.olympusRecommendation}><span>{row.nextMove ? "Next: " : "Suggested: "}</span>{row.nextMove || row.olympusRecommendation}</p>
       </section>
       <button className="command-project-action" onClick={() => onOpen(row.project.id)}>{action==="Continue project"?<>Continue<span className="projects-sr-only"> project</span></>:action}<span className="projects-sr-only"> {row.project.name}</span><span aria-hidden="true"> ↗</span></button>
     </div>
-    <details className="command-row-details">
-      <summary>Project details{row.operatorDecisions.length > 1 ? ` · ${row.operatorDecisions.length} reviews pending` : ""}</summary>
-      <p><strong>Olympus recommends</strong> · {row.olympusRecommendation}</p>
-      <p>{row.currentState}</p>
-      <OwnerChip row={row} />
-      {row.operationalStatus === "UNKNOWN" && <p>Operational status has not been confirmed.</p>}
-      {row.operatorDecisions.length > 1 && <ul>{row.operatorDecisions.map(decision => <li key={decision.runId}>{decision.text}</li>)}</ul>}
-      {row.attention.length > 0 && <ul>{row.attention.map((item,i) => <li key={i}>{item.text} <small>· {item.source}</small></li>)}</ul>}
-      {row.lastMeaningfulChange && <p>{row.lastMeaningfulChange.source} · {formatWhen(row.lastMeaningfulChange.at)}</p>}
-    </details>
+
   </article>;
 }
 

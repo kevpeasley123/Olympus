@@ -20,9 +20,8 @@ try {
  assert.match(await olympus.innerText(),/A private, local-first AI command station/,'The card leads with real project vision');
  assert.equal(await olympus.getByText('Owner: Unknown',{exact:true}).isVisible(),false);
  assert.equal(await olympus.getByRole('button').count(),1,'One primary action per project');
- await olympus.locator('.command-row-details summary').click();
- assert.equal(await olympus.getByText('Olympus recommends',{exact:true}).isVisible(),true);
- await olympus.locator('.command-row-details summary').click();
+ assert.equal(await page.locator('.command-row-details').count(),0,'No redundant card details disclosure');
+ assert(await olympus.locator('.portfolio-workload').isVisible(),'Task badge visible');
  for(const width of [1440,1280,980]) {
   await page.setViewportSize({width,height:960});
   const board=page.locator('.command-board-scroll');

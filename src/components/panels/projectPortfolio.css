@@ -218,3 +218,23 @@ button.ecosystem-center:focus-visible { outline:2px solid #f1d39a;outline-offset
  .portfolio-combined .ecosystem-canvas { height:300px; margin:32px 18px 24px; }
  .portfolio-combined .is-dense .ecosystem-canvas { height:300px; margin-bottom:32px; }
 }
+
+/* Reference card treatment: illustrated body and one crisp action footer. */
+.portfolio-art .command-project-row { padding:14px 14px 0; border-radius:6px; }
+.portfolio-art .command-project-row > header { flex-wrap:nowrap; gap:10px; }
+.portfolio-art .command-project-row h3 { min-width:0; font-size:15px; text-transform:none; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.portfolio-art .command-project-row .portfolio-workload { display:block; flex-shrink:0; margin:0; padding:4px 7px; border:1px solid hsl(var(--project-hue) 45% 60% / .4); border-radius:20px; background:hsl(var(--project-hue) 40% 25% / .5); color:hsl(var(--project-hue) 50% 82%); font-size:10px; white-space:nowrap; }
+.portfolio-art .command-project-row .command-project-purpose { margin:7px 0 12px 46px; font:12px/1.55 Georgia,serif; height:3.1em; -webkit-line-clamp:2; }
+.portfolio-art .command-project-next { margin:0 -14px; padding:4px 14px; border-radius:0 0 6px 6px; }
+.portfolio-art .command-project-next .command-recommendation { display:flex; align-items:center; gap:7px; }
+.portfolio-art .command-recommendation > svg { flex-shrink:0; color:#aebdca; }
+.portfolio-art .command-project-next p { font-size:11px; -webkit-line-clamp:1; }
+.portfolio-art .command-project-next .command-project-action { min-height:28px; }
+.portfolio-art .command-project-row.is-pinned > header { flex-wrap:wrap; }
+@container(min-width:900px) {
+ .portfolio-combined .command-project-row { padding:10px 12px 0; }
+ .portfolio-combined .command-project-row > header { gap:7px; }
+ .portfolio-combined .command-project-row h3 { font-size:14px; }
+ .portfolio-combined .command-project-row .command-project-purpose { margin:6px 0 10px 35px; }
+ .portfolio-combined .command-project-next { margin:0 -12px; padding:4px 12px; }
+}
