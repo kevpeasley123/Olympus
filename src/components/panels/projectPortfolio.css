@@ -115,3 +115,40 @@
 }
 
 .portfolio-overview .project-ecosystem::before { display:none; }
+
+/* Reference lighting: open sky, saturated luminous limbs, warm metallic type. */
+body:has(.mode-project .project-ecosystem) .background-image {
+ background:#040c17 url('../../assets/ecosystem-night-sky.png') center bottom/cover no-repeat;
+ filter:saturate(.9) brightness(.86);translate:none;
+}
+body:has(.mode-project .project-ecosystem) .background-vignette {
+ background:linear-gradient(180deg,#02061138,transparent 30%,#02061116 75%,#0206115c);
+}
+.ecosystem-star-points { position:absolute;inset:0;pointer-events:none;z-index:-1; }
+.ecosystem-star-points i { position:absolute;background:#c8def2;border-radius:50%;opacity:.48; }
+.ecosystem-star-points .is-bright { background:#eefaff;opacity:.9;box-shadow:0 0 4px #b4e7ff,0 0 11px #60b7e66b;animation:ecosystem-twinkle 7s ease-in-out infinite; }
+.ecosystem-constellations polyline { stroke:#9dbbda;opacity:.24;stroke-width:.045; }
+.ecosystem-constellations circle { fill:#edf6ff;filter:drop-shadow(0 0 .28px #9cdbff); }
+.ecosystem-surface { background:radial-gradient(ellipse at 25% 18%,hsl(var(--project-hue) 80% 70% / .5),transparent 38%),radial-gradient(ellipse at 65% 69%,#01040bef,transparent 68%),radial-gradient(circle at 36% 28%,hsl(var(--project-hue) 68% 28%),hsl(var(--project-hue) 65% 8%) 74%,#01050a);
+ box-shadow:inset 2px 3px 5px hsl(var(--project-hue) 95% 83% / .9),inset -1px -1px 3px hsl(var(--project-hue) 85% 66% / .7),0 0 3px hsl(var(--project-hue) 90% 72% / .9),0 0 13px hsl(var(--project-hue) 85% 58% / .4),0 0 32px hsl(var(--project-hue) 85% 52% / .17);
+}
+.ecosystem-surface::after { opacity:.47;filter:grayscale(1) contrast(1.2);mix-blend-mode:luminosity; }
+.ecosystem-center { width:132px;height:132px; }
+.ecosystem-center .ecosystem-surface { box-shadow:inset 3px 4px 7px #ffe9bce6,inset -1px -1px 3px #eabe6dcc,0 0 5px #ffe4aab3,0 0 23px #efbc6066,0 0 54px #e9ae4545; }
+.ecosystem-center .ecosystem-surface::after { opacity:.67;mix-blend-mode:screen; }
+.ecosystem-center>span { font:54px/1 Georgia,serif;color:#f5d391;text-shadow:0 0 3px #ffcf8273,0 0 12px #e9aa434d,0 2px 3px #000; }
+.ecosystem-center strong { font:500 14px/1.1 Georgia,serif;letter-spacing:1.3px;color:#eac079;text-shadow:0 0 6px #e9aa435e,0 1px 3px #000; }
+.ecosystem-planet .project-emblem { color:hsl(var(--project-hue) 90% 80%);filter:drop-shadow(0 0 4px hsl(var(--project-hue) 90% 68% / .45)); }
+.ecosystem-planet .project-emblem svg { width:26px;height:26px;stroke-width:1.65; }
+.ecosystem-node-label strong { color:#ede7dd;font:500 15px/1.3 Georgia,serif;text-shadow:0 0 9px #d1dfed24,0 2px 4px #000; }
+.ecosystem-node-label small { color:#a8c6e6;text-shadow:0 0 7px #90b7e126,0 1px 3px #000; }
+@container(max-width:700px){.ecosystem-center{width:100px;height:100px}.ecosystem-center>span{font-size:40px}.ecosystem-center strong{font-size:11px}.ecosystem-node-label strong{font-size:12px}}
+@media(prefers-reduced-motion:reduce){.ecosystem-star-points .is-bright{animation:none}}
+
+/* Pinpoint stars keep their shape at wide and narrow aspect ratios. */
+.ecosystem-beacon { position:absolute;width:2.5px;height:2.5px;border-radius:50%;background:#f0f8ff;box-shadow:0 0 4px #c6edff,0 0 10px #79bfff80;transform:translate(-50%,-50%); }
+.ecosystem-beacon::before,.ecosystem-beacon::after { content:"";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:linear-gradient(90deg,transparent,#b6dcf599,transparent);width:11px;height:1px; }
+.ecosystem-beacon::after { transform:translate(-50%,-50%) rotate(90deg);width:8px; }
+.ecosystem-node-label { background:radial-gradient(ellipse at 35% 50%,#040c17c9,transparent 75%); }
+.ecosystem-center .ecosystem-surface::after { opacity:.54; }
+.ecosystem-surface::after { opacity:.42; }

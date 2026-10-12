@@ -252,9 +252,9 @@ function ProjectRow({ row, onOpen, management }: { row: ProjectCommandState; onO
   const decision = row.operatorDecisions[0];
   const action = decision ? (decision.phase === "waiting" ? "Review plan" : "Review result")
     : row.openRun ? "View progress" : row.operationalStatus === "COMPLETE" ? "View project" : "Continue project";
-  return <article className={`command-project-row status-${row.operationalStatus.toLowerCase()} ${pinned ? "is-pinned" : ""}`} aria-label={row.project.name} style={{"--project-hue":projectColor(row.project.id)} as React.CSSProperties}>
+  return <article className={`command-project-row status-${row.operationalStatus.toLowerCase()} ${pinned ? "is-pinned" : ""}`} aria-label={row.project.name} style={{"--project-hue":projectColor(row.project.id,row.project.name)} as React.CSSProperties}>
     <header>
-      <ProjectEmblem id={row.project.id}/><h3>{row.project.name}</h3>
+      <ProjectEmblem id={row.project.id} name={row.project.name}/><h3>{row.project.name}</h3>
       {row.operationalStatus !== "UNKNOWN" && <span className="command-operational-status">{operationalStatusLabels[row.operationalStatus]}</span>}
       {management}
     </header>
