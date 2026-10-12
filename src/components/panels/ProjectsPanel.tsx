@@ -117,6 +117,7 @@ export function ProjectsPanel({
     consumedVoiceRevision = requestedStatus.revision;
     setFilter(requestedStatus.status);
   }, [requestedStatus]);
+  const [highlightedProject,setHighlightedProject]=useState<string|null>(null);
   const [portfolioView,setPortfolioView]=useState<"all"|"cards"|"ecosystem">("all");
   const { tasks, error: tasksError, loading: tasksLoading } = useActionQueue();
   const { data: runs, error: runsError, loading: runsLoading } = useDelegationRuns();
@@ -192,10 +193,10 @@ export function ProjectsPanel({
             sessionBoundary={sessionBoundary} onOpenNote={onOpenNote} tasksAvailable={tasksAvailable} />
         : scanLoading ? <BoardSkeleton /> : rows.length === 0 ? boardWarnings : <>
           {portfolioView!=="ecosystem" && <div className="command-board-rows">
-            {visible.map(row => <ProjectRow key={row.project.id} row={row} onOpen={openProject} management={native&&members?.some(m=>m.project.id===row.project.id)?<details className="project-row-options" onKeyDown={event=>{if(event.key==="Escape"){event.currentTarget.open=false;event.currentTarget.querySelector("summary")?.focus();event.stopPropagation()}}}><summary aria-label={`Options for ${row.project.name}`}>•••</summary><div><button disabled={!!membershipBusy} onClick={()=>setAddTarget(members!.find(m=>m.project.id===row.project.id)!)}>Link another source</button><button disabled={!!membershipBusy||!!row.openRun||row.operatorDecisions.length>0} onClick={()=>void changeVisibility(members!.find(m=>m.project.id===row.project.id)!,"removed")}>Remove from dashboard</button><p>{row.openRun||row.operatorDecisions.length?"Resolve active work or its review first.":"Keeps project files and history. You can restore it later."}</p></div></details>:undefined}/>)}
+            {visible.map(row => <ProjectRow key={row.project.id} row={row} highlighted={portfolioView==="all"&&highlightedProject===row.project.id} onOpen={openProject} management={native&&members?.some(m=>m.project.id===row.project.id)?<details className="project-row-options" onKeyDown={event=>{if(event.key==="Escape"){event.currentTarget.open=false;event.currentTarget.querySelector("summary")?.focus();event.stopPropagation()}}}><summary aria-label={`Options for ${row.project.name}`}>•••</summary><div><button disabled={!!membershipBusy} onClick={()=>setAddTarget(members!.find(m=>m.project.id===row.project.id)!)}>Link another source</button><button disabled={!!membershipBusy||!!row.openRun||row.operatorDecisions.length>0} onClick={()=>void changeVisibility(members!.find(m=>m.project.id===row.project.id)!,"removed")}>Remove from dashboard</button><p>{row.openRun||row.operatorDecisions.length?"Resolve active work or its review first.":"Keeps project files and history. You can restore it later."}</p></div></details>:undefined}/>)}
             {!visible.length && <p className="command-board-notice">No projects match this status.</p>}
           </div>}
-          {portfolioView!=="cards" && <ProjectEcosystem rows={visible} onOpen={openProject}/>}
+          {portfolioView!=="cards" && <ProjectEcosystem rows={visible} onOpen={openProject} onHighlight={setHighlightedProject}/>}
           {boardWarnings}
           {unattributed.length > 0 && <details className="command-unattributed"><summary>{plural(unattributed.length, "task", "tasks")} without a project</summary><UnattributedTasks tasks={unattributed} /></details>}
         </>}
@@ -239,7 +240,7 @@ function OwnerChip({ row }: { row: ProjectCommandState }) {
   return <span className={`command-owner-chip owner-${(row.nextMoveOwner ?? "unknown").toLowerCase()}`}>Owner: {owner}</span>;
 }
 
-function ProjectRow({ row, onOpen, management }: { row: ProjectCommandState; onOpen: (projectId: string) => void; management?:React.ReactNode }) {
+function ProjectRow({ row, onOpen, management, highlighted=false }: { highlighted?:boolean; row: ProjectCommandState; onOpen: (projectId: string) => void; management?:React.ReactNode }) {
   const [nextExpanded, setNextExpanded] = useState(false);
   const [nextOverflows, setNextOverflows] = useState(false);
   const nextRef = useRef<HTMLParagraphElement>(null);
@@ -260,7 +261,7 @@ function ProjectRow({ row, onOpen, management }: { row: ProjectCommandState; onO
   const decision = row.operatorDecisions[0];
   const action = decision ? (decision.phase === "waiting" ? "Review plan" : "Review result")
     : row.openRun ? "View progress" : row.operationalStatus === "COMPLETE" ? "View project" : "Continue project";
-  return <article className={`command-project-row status-${row.operationalStatus.toLowerCase()} ${pinned ? "is-pinned" : ""}`} aria-label={row.project.name} onClick={event => {
+  return <article className={`command-project-row ${highlighted ? "is-orb-highlighted" : ""} status-${row.operationalStatus.toLowerCase()} ${pinned ? "is-pinned" : ""}`} aria-label={row.project.name} onClick={event => {
     const target = event.target as HTMLElement;
     if (target.closest("button, a, input, select, textarea, summary, details") || window.getSelection()?.toString()) return;
     onOpen(row.project.id);

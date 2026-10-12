@@ -22,6 +22,23 @@ if(await more.count()) {
  check((await card.boundingBox()).height>before,'Expansion grows the card downward');
  await less.click();check(Math.abs((await card.boundingBox()).height-before)<2,'Collapse restores compact card');
 }
+const highlights=page.locator('.command-project-row.is-orb-highlighted');
+for(const name of ['Pokedex','Olympus']) {
+ const orb=page.getByRole('button',{name:new RegExp(`^Open ${name}(?: project)?,`)});
+ await orb.hover();
+ await page.waitForFunction(name=>document.querySelector('.is-orb-highlighted')?.getAttribute('aria-label')===name,name);
+ check(await highlights.count()===1 && await highlights.getAttribute('aria-label')===name,`Orb hover highlights only ${name}`);
+ if(width===1440&&name==='Pokedex'){await page.waitForTimeout(250);await page.screenshot({path:'output/portfolio-review/orb-card-highlight.png'});}
+ await page.getByRole('button',{name:'All',exact:true}).hover();
+ await page.waitForFunction(()=>!document.querySelector('.is-orb-highlighted'));
+ check(await highlights.count()===0,'Pointer exit clears highlight');
+ await orb.focus();
+ await page.waitForFunction(name=>document.querySelector('.is-orb-highlighted')?.getAttribute('aria-label')===name,name);
+ check(await highlights.count()===1,'Keyboard focus highlights matching card');
+ await page.getByRole('button',{name:'All',exact:true}).focus();
+ await page.waitForFunction(()=>!document.querySelector('.is-orb-highlighted'));
+ check(await highlights.count()===0,'Blur clears highlight');
+}
 await page.screenshot({path:`output/portfolio-review/all-${width}.png`});
 await page.locator('.command-project-row .command-project-action').first().click();
 await page.locator('.project-overview').waitFor();

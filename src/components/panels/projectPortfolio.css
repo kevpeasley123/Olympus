@@ -300,3 +300,9 @@ button.ecosystem-center:focus-visible { outline:2px solid #f1d39a;outline-offset
 }
 
 .project-command .project-overview p { font-weight:400; }
+
+/* Link the ecosystem inspection to the matching card without shifting layout. */
+.portfolio-combined .command-project-row.is-orb-highlighted {
+ border-color:hsl(var(--project-hue) 65% 76% / .95);
+ box-shadow:0 0 0 1px hsl(var(--project-hue) 60% 70% / .28),0 0 24px hsl(var(--project-hue) 65% 60% / .23),inset 0 0 20px hsl(var(--project-hue) 50% 60% / .08);
+}
