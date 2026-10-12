@@ -32,8 +32,8 @@
 .mission-data-note{font:10px/1.5 var(--font-sans);color:#8499a7;margin:8px 0}
 .selected-mission-context>h4{font:14px var(--font-display);color:#e1cfae;margin-bottom:8px}.selected-mission-context .mission-view{margin:0;font-size:11px}
 .command-console>.console-workspace-header{order:0}.command-console>.console-idle{order:1}.command-console>.console-command-bar{order:4}.command-console>.console-stage{order:1}
-html .mode-command:has(.olympus-armory) .console-idle{padding:26px 24px 16px;flex:1;min-height:0;overflow:auto;gap:16px}
-html .mode-command:has(.olympus-armory) .command-console[data-layout="expanded"]{background:linear-gradient(150deg,#020c13f5,#020b12ed)}
+html .app-shell .console-idle{padding:26px 24px 16px;flex:1;min-height:0;overflow:auto;gap:16px}
+html .app-shell .command-console[data-layout="expanded"]{background:linear-gradient(150deg,#020c13f5,#020b12ed)}
 .skills-constellation{position:absolute;right:7%;top:22%;width:130px;height:105px;z-index:4;color:#b3c9d6}
 .skills-constellation svg{position:absolute;inset:0;width:100%;height:100%;fill:none;stroke:#adc5d0;stroke-width:.5;opacity:.18;pointer-events:none}
 .architecture-label{position:absolute;top:-12px;right:5px;font:8px var(--font-mono);text-transform:uppercase;letter-spacing:.27em;color:#9eafb9;white-space:nowrap}
