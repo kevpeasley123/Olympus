@@ -12,6 +12,8 @@ import { useViewSlice, type ResearchArrival } from "../../state/viewState";
 import type { TrackedProject } from "../../types";
 import { KnowledgeAudit } from "./KnowledgeAudit";
 import { ResearchVerification } from "./ResearchVerification";
+import "./library/researchDesign.css";
+import { ResearchIntakeMenu } from "./library/ResearchIntakeMenu";
 import { AddEntryDialog } from "./library/AddEntryDialog";
 import type { LibraryProject } from "./library/EntryDetail";
 import { LibraryBrowser } from "./library/LibraryBrowser";
@@ -59,6 +61,7 @@ export function LibraryPanel({ onViewDatabase, resident = false, inspectionTarge
   // closes it without a second piece of state to keep in step.
   const databaseOpen = resident || databaseRequested;
   const [addEntryOpen, setAddEntryOpen] = useState(false);
+  const [intakeMode,setIntakeMode]=useState<"write"|"upload"|"link">("write");
   const [status, setStatus] = useState<ObsidianActionResult | null>(null);
   const [busyAction, setBusyAction] = useState<"view" | null>(null);
   const [migrating, setMigrating] = useState(false);
@@ -351,7 +354,7 @@ export function LibraryPanel({ onViewDatabase, resident = false, inspectionTarge
       )}
 
       {addEntryOpen ? (
-        <AddEntryDialog projects={libraryProjects} onClose={() => setAddEntryOpen(false)} onSaved={handleSaved} />
+        <AddEntryDialog initialMode={intakeMode} projects={libraryProjects} onClose={() => {setAddEntryOpen(false);requestAnimationFrame(()=>surfaceRef.current?.querySelector<HTMLButtonElement>(".research-add")?.focus());}} onSaved={handleSaved} />
       ) : null}
 
       {databaseOpen &&
@@ -371,8 +374,8 @@ export function LibraryPanel({ onViewDatabase, resident = false, inspectionTarge
             >
               <header className="pantheon-modal-header library-header">
                 <div className="pantheon-modal-title-group library-header__title">
-                  <h2 className="pantheon-modal-title">Pantheon</h2>
-                  <span className="pantheon-modal-meta">{entryLabel}</span>
+                  <h2 className="pantheon-modal-title">Research</h2>
+                  <span className="pantheon-modal-meta">Pantheon · {entries.length} entries</span>
                 </div>
                 <div className="library-segments" role="tablist" aria-label="Research views">
                   {SEGMENTS.map((item, index) => (
@@ -418,10 +421,7 @@ export function LibraryPanel({ onViewDatabase, resident = false, inspectionTarge
                   >
                     <RotateCw size={13} aria-hidden="true" />
                   </button>
-                  <button type="button" className="ghost-action library-action" onClick={() => setAddEntryOpen(true)} disabled={busyAction === "view"}>
-                    <FilePlus2 size={13} aria-hidden="true" />
-                    Add Entry
-                  </button>
+                  <ResearchIntakeMenu onChoose={mode=>{setIntakeMode(mode);setAddEntryOpen(true);}} disabled={busyAction==="view"}/>
                   {/* Nothing to close in residence — the mode switcher is what
                       leaves. A close button that emptied the centre column
                       would strand Research mode on a blank panel. */}

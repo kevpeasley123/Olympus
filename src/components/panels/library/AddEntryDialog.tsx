@@ -45,6 +45,7 @@ const ORIGIN_TEXT: Record<string, string> = {
 };
 
 interface AddEntryDialogProps {
+  initialMode?: "write"|"upload"|"link";
   projects: LibraryProject[];
   onClose: () => void;
   onSaved: (path: string) => void;
@@ -53,7 +54,8 @@ interface AddEntryDialogProps {
 
 type Confirm = null | "close";
 
-export function AddEntryDialog({ projects, onClose, onSaved, client = tauriAddEntryClient }: AddEntryDialogProps) {
+export function AddEntryDialog({ initialMode="write", projects, onClose, onSaved, client = tauriAddEntryClient }: AddEntryDialogProps) {
+  const [intakeMode,setIntakeMode]=useState(initialMode);
   const [research, setResearch] = useViewSlice("research");
   const [blank] = useState(() => blankDraft());
   const [form, setForm] = useState<EntryDraftFields>(blank);
@@ -128,6 +130,7 @@ export function AddEntryDialog({ projects, onClose, onSaved, client = tauriAddEn
     if (!kept || dirty) return;
     const { keptAt: _keptAt, ...fields } = kept as ResearchEntryDraft;
     setForm(fields);
+    setIntakeMode(fields.sourceUrl ? "link" : fields.attachment ? "upload" : "write");
     setRestored(true);
     setError(null);
   }
@@ -229,11 +232,28 @@ export function AddEntryDialog({ projects, onClose, onSaved, client = tauriAddEn
     return names;
   }, [projects, form.project]);
 
+  const sourceFields = (<>
+          <div className="form-row research-source-fields">
+            <div className="form-field">
+              <label className="form-label" htmlFor="ae-source-url">Source URL <span className="form-optional">(optional)</span></label>
+              <input id="ae-source-url" type="url" className="form-input" placeholder="https://..." value={form.sourceUrl}
+                onChange={(event) => update("sourceUrl", event.target.value)} disabled={locked} />
+              <span className="form-helper">Saves the link with your notes; page contents are not downloaded.</span>
+            </div>
+            <div className="form-field">
+              <label className="form-label" htmlFor="ae-source-date">Source date <span className="form-optional">(optional)</span></label>
+              <input id="ae-source-date" type="date" className="form-input" value={form.sourceDate}
+                onChange={(event) => update("sourceDate", event.target.value)} disabled={locked} />
+            </div>
+          </div>
+
+  </>);
+
   return (
     <Modal
       open
       onClose={requestClose}
-      title="Add Entry"
+      title="Add research"
       showTitle={false}
       className="library-add-entry"
       initialFocus={offerRestore ? ".library-notice button" : "#ae-title"}
@@ -241,7 +261,7 @@ export function AddEntryDialog({ projects, onClose, onSaved, client = tauriAddEn
     >
       <header className="pantheon-modal-header">
         <div className="pantheon-modal-title-group">
-          <h2 className="pantheon-modal-title">Add Entry</h2>
+          <h2 className="pantheon-modal-title">Add research</h2>
           <span className="pantheon-modal-meta">New research entry</span>
         </div>
         <button type="button" className="pantheon-modal-close" onClick={requestClose} aria-label="Close" title="Close (Esc)" disabled={submitting}>
@@ -250,7 +270,8 @@ export function AddEntryDialog({ projects, onClose, onSaved, client = tauriAddEn
       </header>
 
       <div className="pantheon-modal-body pantheon-modal-body--form">
-        <div className="add-entry-form">
+        <div className="add-entry-form" data-intake={intakeMode}>
+          <div className="research-intake-tabs" role="group" aria-label="Entry method">{(["write","upload","link"] as const).map(mode=><button type="button" key={mode} aria-pressed={intakeMode===mode} onClick={()=>setIntakeMode(mode)}>{mode==="write"?"Write or paste":mode==="upload"?"Upload a file":"Save a link"}</button>)}</div>
           {offerRestore && kept ? (
             <div className="library-notice" role="status">
               <span>
@@ -270,15 +291,18 @@ export function AddEntryDialog({ projects, onClose, onSaved, client = tauriAddEn
               onChange={(event) => update("title", event.target.value)} disabled={locked} />
           </div>
 
+          {intakeMode==="link" && sourceFields}
           {/* Second, not last. This is the entry — the metadata below it
               describes the thing typed here. */}
           <div className="form-field form-field--body">
-            <label className="form-label" htmlFor="ae-body">Body</label>
-            <textarea id="ae-body" className="form-input form-textarea" rows={10} value={form.body} disabled={locked}
+            <label className="form-label" htmlFor="ae-body">{intakeMode==="link"?"Notes or excerpt":"Content"}</label>
+            <textarea id="ae-body" className="form-input form-textarea" rows={7} value={form.body} disabled={locked}
               placeholder="Write or paste the entry. Markdown supported. An attachment below can be extracted into this field, but typing here is the normal path."
               onChange={(event) => update("body", event.target.value)} />
           </div>
 
+          <details className="research-entry-options"><summary>Organization & review details <span>Optional</span></summary>
+            {intakeMode!=="link" && sourceFields}
           <div className="form-row">
             <div className="form-field">
               <label className="form-label" htmlFor="ae-source-type">Source type</label>
@@ -299,19 +323,6 @@ export function AddEntryDialog({ projects, onClose, onSaved, client = tauriAddEn
                 <option value="">No project</option>
                 {projectOptions.map((name) => <option key={name} value={name}>{name}</option>)}
               </select>
-            </div>
-          </div>
-
-          <div className="form-row">
-            <div className="form-field">
-              <label className="form-label" htmlFor="ae-source-url">Source URL <span className="form-optional">(optional)</span></label>
-              <input id="ae-source-url" type="url" className="form-input" placeholder="https://..." value={form.sourceUrl}
-                onChange={(event) => update("sourceUrl", event.target.value)} disabled={locked} />
-            </div>
-            <div className="form-field">
-              <label className="form-label" htmlFor="ae-source-date">Source date <span className="form-optional">(optional)</span></label>
-              <input id="ae-source-date" type="date" className="form-input" value={form.sourceDate}
-                onChange={(event) => update("sourceDate", event.target.value)} disabled={locked} />
             </div>
           </div>
 
@@ -350,7 +361,8 @@ export function AddEntryDialog({ projects, onClose, onSaved, client = tauriAddEn
             <span className="form-helper">Left blank, the entry reads as having no stated purpose — which is visible rather than guessed at.</span>
           </div>
 
-          <div className="form-field">
+          </details>
+          <div className="form-field research-attachment-field">
             <span className="form-label" id="ae-attachment-label">Attachment <span className="form-optional">(optional)</span></span>
             {form.attachment ? (
               <div className="attachment-staged-row" aria-labelledby="ae-attachment-label">
@@ -374,7 +386,7 @@ export function AddEntryDialog({ projects, onClose, onSaved, client = tauriAddEn
               </span>
             ) : (
               <span className="form-helper" id="ae-attachment-help">
-                Allowed: {ALLOWED_ATTACHMENT_EXTENSIONS.join(", ")}. Files copy into <code>02 - Research/_attachments/</code> when the entry is saved.
+                Allowed: {ALLOWED_ATTACHMENT_EXTENSIONS.join(", ")}. A copy is kept with your research when you save.
               </span>
             )}
 

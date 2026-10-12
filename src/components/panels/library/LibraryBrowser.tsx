@@ -1,4 +1,4 @@
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, FileText, AudioLines, BookOpen, LayoutGrid, List } from "lucide-react";
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { categoryLabel, orderedCategories } from "../../../services/pantheonAnalysis";
 import { useViewSlice } from "../../../state/viewState";
@@ -18,6 +18,7 @@ import {
   type LibrarySection,
   type LibrarySort
 } from "./libraryModel";
+import { ResearchIllustration } from "./ResearchIllustration";
 import { StanceMark } from "./StanceMark";
 
 const SECTION_STORAGE_PREFIX = "pantheon.sectionExpanded.";
@@ -47,6 +48,10 @@ interface LibraryBrowserProps {
 
 export function LibraryBrowser({ entries, loading, query, projects, active, openToken, onOpenEntry, onBack, backToInspector, snapshotRef }: LibraryBrowserProps) {
   const [research, setResearch] = useViewSlice("research");
+  const presentation=research.presentation ?? "cards";
+  const unreviewed=research.unreviewedOnly ?? false;
+  const setPresentation=(value:"cards"|"list")=>setResearch(current=>({...current,presentation:value}));
+  const setUnreviewed=(value:boolean)=>setResearch(current=>({...current,unreviewedOnly:value}));
   const { view, detailEntryId, arrival } = research;
   const sort: LibrarySort = research.sort ?? "added";
   const activeCategory = (research.section ?? orderedCategories()[0]) as PantheonCategory;
@@ -64,13 +69,13 @@ export function LibraryBrowser({ entries, loading, query, projects, active, open
   const lastOpenToken = useRef(openToken);
   const previousDetail = useRef<string | null>(detailEntryId);
 
-  const sections = useMemo(() => buildSections(entries, sort === "title" ? "added" : sort), [entries, sort]);
+  const sections = useMemo(() => buildSections(entries, sort), [entries, sort]);
   const resolveWikilink = useMemo(() => buildWikilinkResolver(entries), [entries]);
   const search = useMemo(() => searchEntries(entries, query), [entries, query]);
   const searching = search.terms.length > 0;
   const primarySections = useMemo(() => (searching ? buildSections(search.primary, "added").filter((section) => section.entries.length > 0) : []), [search, searching]);
   const recent = useMemo(() => sortEntries(entries, "added").slice(0, RECENT_COUNT), [entries]);
-  const all = useMemo(() => (view === "all" ? sortEntries(entries, sort) : []), [entries, sort, view]);
+  const all = useMemo(() => (view === "all" ? sortEntries(unreviewed ? entries.filter(e=>e.stance==="unevaluated") : entries, sort) : []), [entries, sort, view, unreviewed]);
   const selected = useMemo(() => (detailEntryId ? entries.find((entry) => entry.id === detailEntryId) ?? null : null), [detailEntryId, entries]);
   const missing = !selected && arrival && !detailEntryId ? arrival : null;
   const showingDetail = Boolean(selected || missing);
@@ -230,12 +235,14 @@ export function LibraryBrowser({ entries, loading, query, projects, active, open
   }, [onOpenEntry]);
 
   function selectView(next: "recent" | "all") {
+    setUnreviewed(false);
     setResearch((current) => ({ ...current, view: next, detailEntryId: null, arrival: null, listScrollTop: 0 }));
     listScroll.current = 0;
     if (scrollRef.current) scrollRef.current.scrollTop = 0;
   }
 
   function jumpToCategory(category: PantheonCategory) {
+    setUnreviewed(false);
     setResearch((current) => ({ ...current, view: "grouped", section: category, detailEntryId: null, arrival: null }));
     setExpandedSections((current) => {
       if (current[category]) return current;
@@ -258,11 +265,12 @@ export function LibraryBrowser({ entries, loading, query, projects, active, open
     ?? (searching ? "search results" : view === "recent" ? "Recently added" : view === "all" ? "All entries" : categoryLabel(selected?.category ?? activeCategory));
 
   return (
-    <div className="pantheon-workspace library-workspace">
+    <div className="pantheon-workspace library-workspace" data-presentation={presentation}>
       <aside className="pantheon-sidebar" aria-label="Library sections">
         <div className="pantheon-sidebar-scroll">
           <div className="pantheon-sidebar-group">
-            <p className="pantheon-sidebar-label">Categories</p>
+            <button type="button" className={`pantheon-sidebar-row ${view==="all"&&!unreviewed?"is-active":""}`} onClick={()=>selectView("all")}><span>All research</span><span className="pantheon-sidebar-count">{entries.length}</span></button>
+            <p className="pantheon-sidebar-label">Collections</p>
             <div className="pantheon-sidebar-list">
               {sections.map((section) => {
                 const count = counts.get(section.category)!;
@@ -294,8 +302,8 @@ export function LibraryBrowser({ entries, loading, query, projects, active, open
               <button type="button" className={`pantheon-sidebar-row ${view === "recent" ? "is-active" : ""}`} aria-current={view === "recent" ? "true" : undefined} onClick={() => selectView("recent")}>
                 <span>Recently added</span>
               </button>
-              <button type="button" className={`pantheon-sidebar-row ${view === "all" ? "is-active" : ""}`} aria-current={view === "all" ? "true" : undefined} onClick={() => selectView("all")}>
-                <span>All entries</span>
+              <button type="button" className={`pantheon-sidebar-row ${unreviewed ? "is-active" : ""}`} aria-pressed={unreviewed} onClick={() => {selectView("all");setUnreviewed(true);}}>
+                <span>Not reviewed</span><span className="pantheon-sidebar-count">{entries.filter(e=>e.stance==="unevaluated").length}</span>
               </button>
             </div>
           </div>
@@ -303,6 +311,8 @@ export function LibraryBrowser({ entries, loading, query, projects, active, open
       </aside>
 
       <div className="pantheon-main">
+        <label className="research-mobile-nav">Browse<select aria-label="Research collection" value={unreviewed?"unreviewed":view==="grouped"?activeCategory:view} onChange={e=>{const value=e.target.value;if(value==="unreviewed"){selectView("all");setUnreviewed(true);}else if(value==="all"||value==="recent")selectView(value);else jumpToCategory(value as PantheonCategory);}}><option value="all">All research</option><option value="recent">Recently added</option><option value="unreviewed">Not reviewed</option>{sections.map(section=><option key={section.category} value={section.category}>{section.title} · {section.entries.length}</option>)}</select></label>
+        {!showingDetail && <div className="research-view-tools"><span>{searching ? "Search results" : unreviewed ? "Not reviewed" : view==="grouped" ? categoryLabel(activeCategory) : view==="recent" ? "Recently added" : "Your research"}</span>{!searching && view!=="recent" && <label className="research-order"><span className="library-sr-only">Order</span><select aria-label="Research order" value={sort} onChange={e=>setResearch(current=>({...current,sort:e.target.value as LibrarySort}))}><option value="added">Recently added</option><option value="published">Publication date</option><option value="title">Title A–Z</option></select></label>}<div role="group" aria-label="Library layout">{(["cards","list"] as const).map(value=><button key={value} type="button" aria-pressed={presentation===value} onClick={()=>setPresentation(value)}>{value==="cards"?<LayoutGrid size={13}/>:<List size={13}/>} {value==="cards"?"Cards":"List"}</button>)}</div></div>}
         <div className="pantheon-main-scroll" ref={scrollRef} onScroll={onScroll}>
           {selected ? (
             <EntryDetail
@@ -391,6 +401,7 @@ export function LibraryBrowser({ entries, loading, query, projects, active, open
                 </label>
               </div>
               <div className="pantheon-flat-list">
+                {all.length===0&&<p className="section-copy">No entries in this view yet. Add research to build your library.</p>}
                 {all.slice(0, allLimit).map((entry) => <EntryRow key={entry.id} entry={entry} onOpen={openFromList} showCategory dateMode={sort === "published" ? "published" : "added"} />)}
               </div>
               {all.length > allLimit ? (
@@ -403,7 +414,7 @@ export function LibraryBrowser({ entries, loading, query, projects, active, open
           ) : (
             <div className="library-list pantheon-sections">
               {loading && entries.length === 0 ? <p className="section-copy">Reading the library…</p> : null}
-              {sections.map((section) => (
+              {sections.filter(section=>section.category===activeCategory).map((section) => (
                 <SectionBlock
                   key={section.category}
                   section={section}
@@ -487,6 +498,8 @@ const EntryRow = memo(function EntryRow({ entry, onOpen, showCategory = false, s
   return (
     <button type="button" className="pantheon-entry-row library-row" data-entry-id={entry.id} onClick={() => onOpen(entry.id)}>
       {showCategory ? <span className="pantheon-inline-category">{categoryLabel(entry.category)}</span> : null}
+      <span className="research-card-kind">{entry.sourceType==="transcript"||entry.sourceType==="talk"?<AudioLines size={21}/>:entry.sourceType==="guide"||entry.sourceType==="manual"?<BookOpen size={21}/>:<FileText size={21}/>}<span>{typeLabel(entry.sourceType)}</span></span>
+      <ResearchIllustration entry={entry}/>
       <span className="pantheon-entry-row-top">
         <strong>{entry.title}</strong>
         <span className="pantheon-entry-row-meta">
@@ -499,11 +512,11 @@ const EntryRow = memo(function EntryRow({ entry, onOpen, showCategory = false, s
         </span>
       </span>
       <span className="pantheon-entry-row-bottom">
-        <StanceMark stance={entry.stance} compact />
+        <span className="research-card-stance">{entry.stance==="unevaluated"?"Not reviewed":entry.stance}</span><span className="research-list-stance"><StanceMark stance={entry.stance} compact /></span>
         <span className={`pantheon-type-tag pantheon-type-${entry.sourceType}`}>{typeLabel(entry.sourceType)}</span>
         {entry.sourceLabel ? <span className="pantheon-entry-source">{entry.sourceLabel}</span> : null}
       </span>
-      {snippet ? <span className="library-row__snippet">{snippet}</span> : null}
+      <span className={`research-card-excerpt ${snippet?"is-search-match":""}`}>{snippet || entry.markdownBody.split("\n").filter(line=>line.trim() && !/^\s*(#|---|\[!)/.test(line) && line.trim()!==entry.title).join(" ").replace(/[#*_`>]/g,"").replace(/\[([^\]]+)\]\([^)]+\)/g,"$1").slice(0,220) || "Open to read this entry."}</span>
     </button>
   );
 });
