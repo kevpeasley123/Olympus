@@ -28,9 +28,12 @@ const EVENT_NAME: &str = "delegation-run-updated";
 const MAX_TASK_CHARS: usize = 4_000;
 const MAX_DIFF_CHARS: usize = 120_000;
 const MODEL: &str = super::models::CODING_MODEL;
-// Claude Code applies this per launch. Planning, implementation and each resume launch
-// separately, and Olympus keeps no aggregate spend ledger across them.
-const MAX_BUDGET_USD: &str = "5";
+// Launches run only on a subscription sign-in (checked before each one), so usage is
+// bounded by turns and time, not by a dollar cap that assumes API billing
+// (docs/ARMORY-PLAN.md, 0b). Claude Code applies both per launch: planning,
+// implementation and each resume launch separately.
+const PLAN_MAX_TURNS: u32 = 40;
+const IMPLEMENTATION_MAX_TURNS: u32 = 120;
 // A hung CLI would otherwise block new runs for its project indefinitely.
 const MAX_LAUNCH_DURATION: Duration = Duration::from_secs(45 * 60);
 const PLAN_TOOLS: &str = "Read,Glob,Grep";
@@ -477,6 +480,17 @@ fn parse_agent_result(value: &Value) -> Result<String, String> {
             "Claude Code reported an error result; no successful outcome was established.".into(),
         );
     }
+    // A turn-limit stop arrives with `is_error: false` and no result text, so the
+    // subtype is the only sign the work did not finish.
+    match value.get("subtype").and_then(Value::as_str) {
+        None | Some("success") => {}
+        Some("error_max_turns") => {
+            return Err("Claude Code reached this launch's turn limit before finishing; no successful outcome was established. The worktree is preserved.".into())
+        }
+        Some(other) => {
+            return Err(format!("Claude Code ended with `{other}`; no successful outcome was established."))
+        }
+    }
     let summary = value
         .get("result")
         .and_then(Value::as_str)
@@ -563,7 +577,9 @@ fn inspect_stream_line(
     }
 }
 
-fn allowed_environment(command: &mut Command) {
+/// The environment of every engine child, and of the sign-in checks that describe
+/// those launches (`engines.rs`).
+pub(crate) fn allowed_environment(command: &mut Command) {
     let keys = [
         "APPDATA",
         "LOCALAPPDATA",
@@ -576,10 +592,13 @@ fn allowed_environment(command: &mut Command) {
         "TMP",
         "SystemRoot",
         "ComSpec",
+        // Where each CLI keeps its sign-in, when the operator has moved it.
+        "CLAUDE_CONFIG_DIR",
+        "CODEX_HOME",
     ];
     // No API key or token: Claude Code prefers `ANTHROPIC_API_KEY` and
-    // `ANTHROPIC_AUTH_TOKEN` over its subscription login, so passing either
-    // would bill the API for every delegated run (docs/ARMORY-PLAN.md, 0b).
+    // `ANTHROPIC_AUTH_TOKEN` over its subscription login, and Codex `OPENAI_API_KEY`
+    // over ChatGPT, so passing any would bill the API (docs/ARMORY-PLAN.md, 0b).
     let values: Vec<(String, std::ffi::OsString)> = keys
         .iter()
         .filter_map(|key| std::env::var_os(key).map(|value| ((*key).to_string(), value)))
@@ -618,6 +637,9 @@ fn spawn_claude(app: AppHandle, run: DelegationRun, stage: Stage) -> Result<(), 
     // The commands refuse first; this is the one place a process is started.
     super::acceptance::refuse_delegation()?;
     let executable = claude_executable()?;
+    // Checked again here, not only at preparation: the sign-in can change while an
+    // approval is pending.
+    super::engines::require_claude_subscription(&executable)?;
     let (criteria, approved_plan) = contract(app.state::<Db>().inner(), &run.id)?;
     let evidence_contract = format!(
         "\n\nAcceptance criteria:\n{}",
@@ -740,7 +762,7 @@ fn claude_command(executable: &Path, run: &DelegationRun, stage: Stage, prompt: 
     hide_console(&mut command)
         .current_dir(&run.workspace)
         .args(["--print", "--output-format", "stream-json", "--verbose"])
-        .args(["--max-budget-usd", MAX_BUDGET_USD, "--model", MODEL])
+        .args(["--max-turns", &max_turns(stage).to_string(), "--model", MODEL])
         .args(["--setting-sources", NO_SETTING_SOURCES])
         .args(["--strict-mcp-config", "--mcp-config", EMPTY_MCP_CONFIG])
         .stdin(Stdio::null())
@@ -1347,7 +1369,10 @@ pub(crate) fn planning_subject(
         );
     }
     let base_commit = git(&repository, &["rev-parse", "HEAD"])?;
-    let driver = format!("Claude Code {}", claude_version(&claude_executable()?)?);
+    let executable = claude_executable()?;
+    // Before a proposal exists, so a wrong sign-in never costs an approval or a worktree.
+    super::engines::require_claude_subscription(&executable)?;
+    let driver = format!("Claude Code {}", claude_version(&executable)?);
     let workspace = app
         .path()
         .app_data_dir()
@@ -1383,6 +1408,7 @@ fn resume_subject(db: &Db, id: &str) -> Result<Subject, String> {
     if detached.is_some() {
         return Err("A detached process is still running; cancel it before recovery.".into());
     }
+    super::engines::require_claude_subscription(&claude_executable()?)?;
     let (criteria, plan) = contract(db, id)?;
     let (project_name, repository) = resolve_project(db, &run.project_id)?;
     if git(&repository, &["rev-parse", "HEAD"])? != run.base_commit {
@@ -1436,15 +1462,27 @@ fn guidance_scope() -> String {
     format!("Superpowers pilot v1; guidance-sha256={:x}\n{}", Sha256::digest(HEPHAESTUS_GUIDANCE.as_bytes()), HEPHAESTUS_GUIDANCE)
 }
 
-const LAUNCH_LIMITS: &str =
-    "no settings, hooks or MCP servers; $5 budget per launch, not per run; 45-minute launch limit";
+fn max_turns(stage: Stage) -> u32 {
+    match stage {
+        Stage::Plan => PLAN_MAX_TURNS,
+        Stage::Implement => IMPLEMENTATION_MAX_TURNS,
+    }
+}
+
+fn launch_limits(stage: Stage) -> String {
+    format!(
+        "no settings, hooks or MCP servers; subscription sign-in only; {} turns and {}-minute limit per launch, not per run",
+        max_turns(stage),
+        MAX_LAUNCH_DURATION.as_secs() / 60
+    )
+}
 
 fn plan_scope() -> String {
-    format!("plan-v3: {PLAN_TOOLS}; no edits; {LAUNCH_LIMITS}\n{}", guidance_scope())
+    format!("plan-v4: {PLAN_TOOLS}; no edits; {}\n{}", launch_limits(Stage::Plan), guidance_scope())
 }
 
 fn implementation_scope() -> String {
-    format!("implement-v3: {IMPLEMENTATION_TOOLS}; {LAUNCH_LIMITS}; no commit/push/merge\n{}", guidance_scope())
+    format!("implement-v4: {IMPLEMENTATION_TOOLS}; {}; no commit/push/merge\n{}", launch_limits(Stage::Implement), guidance_scope())
 }
 
 /// A proposal as the review surface receives it. The approval binds `subject` alone;
@@ -1468,7 +1506,8 @@ pub struct PermittedActions {
     /// Command prefixes pre-approved inside `Bash`; any other command is denied.
     pub commands: Vec<String>,
     pub edits: bool,
-    pub budget_usd: String,
+    /// Claude Code's `--max-turns` for the launch.
+    pub turn_limit: u32,
     pub launch_limit_minutes: u64,
     /// What the scope rules out.
     pub excluded: Vec<String>,
@@ -1484,7 +1523,7 @@ fn permitted_actions(scope: &str) -> Option<PermittedActions> {
             tools: PLAN_TOOLS.split(',').map(str::to_string).collect(),
             commands: Vec::new(),
             edits: false,
-            budget_usd: MAX_BUDGET_USD.into(),
+            turn_limit: PLAN_MAX_TURNS,
             launch_limit_minutes,
             excluded: vec!["edits".into(), "shell commands".into(), isolation],
         });
@@ -1505,7 +1544,7 @@ fn permitted_actions(scope: &str) -> Option<PermittedActions> {
             tools,
             commands,
             edits: true,
-            budget_usd: MAX_BUDGET_USD.into(),
+            turn_limit: IMPLEMENTATION_MAX_TURNS,
             launch_limit_minutes,
             excluded: vec!["commit".into(), "push".into(), "merge".into(), isolation],
         });
@@ -2136,8 +2175,23 @@ mod process_boundary_tests {
                 }
             );
             assert!(!args.iter().any(|a| a.contains("git diff")));
+            // Bounded by turns and time; a dollar cap assumes API billing.
+            assert_eq!(args[at("--max-turns") + 1], max_turns(stage).to_string());
+            assert!(!args.iter().any(|a| a == "--max-budget-usd"));
         }
         assert!(plan_scope().contains("per launch"));
+        assert!(plan_scope().contains("subscription sign-in only"));
+        assert!(implementation_scope().contains(&format!("{IMPLEMENTATION_MAX_TURNS} turns")));
+    }
+
+    #[test]
+    fn a_turn_limit_stop_is_not_a_successful_outcome() {
+        let stopped = serde_json::json!({"type":"result","subtype":"error_max_turns","is_error":false,"num_turns":120});
+        assert!(parse_agent_result(&stopped).unwrap_err().contains("turn limit"));
+        let other = serde_json::json!({"type":"result","subtype":"error_during_execution","is_error":false});
+        assert!(parse_agent_result(&other).is_err());
+        let done = serde_json::json!({"type":"result","subtype":"success","is_error":false,"result":"Done."});
+        assert_eq!(parse_agent_result(&done).unwrap(), "Done.");
     }
 
     #[test]
@@ -2145,7 +2199,7 @@ mod process_boundary_tests {
         let plan = permitted_actions(&plan_scope()).unwrap();
         assert_eq!(plan.tools, ["Read", "Glob", "Grep"]);
         assert!(plan.commands.is_empty() && !plan.edits);
-        assert_eq!(plan.budget_usd, MAX_BUDGET_USD);
+        assert_eq!(plan.turn_limit, PLAN_MAX_TURNS);
         assert_eq!(plan.launch_limit_minutes, 45);
 
         let implement = permitted_actions(&implementation_scope()).unwrap();
@@ -2161,6 +2215,7 @@ mod process_boundary_tests {
             ]
         );
         assert!(implement.edits);
+        assert_eq!(implement.turn_limit, IMPLEMENTATION_MAX_TURNS);
         for action in ["commit", "push", "merge"] {
             assert!(implement.excluded.iter().any(|item| item == action));
             assert!(implementation_scope().contains(action));

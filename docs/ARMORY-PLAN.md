@@ -1,10 +1,33 @@
 # Olympus Armory — implementation plan
 
-Drafted 2026-09-29 against release 0.20.0 (`c432f48`). Status: **proposed, awaiting Kevin's approval.** Nothing here is built.
+Drafted 2026-09-29 against release 0.20.0 (`c432f48`). Status: **approved by Kevin on 2026-09-29** (recorded in `docs/NEXT-SESSION.md`). Revised on 2026-10-12 in two ways: Phase 3b, outside tool packages, was added, and the plan was made engine-neutral, so Codex and Claude Code are equal engines and nothing depends on either one.
+
+## Where this stands — October 12, 2026
+
+Checked against `origin/master` at 0.30.0 (`b288ddf`), the version installed on Kevin's PC. No other branch on GitHub adds engine or Armory machinery. Work on Kevin's PC that was never pushed would not be visible to this check.
+
+Since approval, work has gone mainly to Command visuals, Projects, the Organizer, Research and voice (0.21.0–0.30.0).
+
+**What runs today.** Olympus already has working tools, but only inside fixed workflows: Gmail sync and situation analysis, research and verification, repository inspection, the Organizer, and Hephaestus coding delegation through Claude Code. `capabilities.rs` (0.21.0) catalogs 14 of them with their effects and approval rules, and the Command Armory displays that catalog.
+
+**What does not exist yet** is what this plan builds: a subscription engine that can be handed a set of tools, a model choosing which of those tools to call within an approved grant, and a journal of every call.
+
+| Phase | State |
+| --- | --- |
+| 0 — Groundwork | **0a and 0b done on 2026-10-12, compiled and unit-tested; not yet run on Kevin's PC.**<br>0a: the manual and `CLAUDE.md` record the direction and the new priorities.<br>0b, in `engines.rs` and `delegation.rs`:<ul><li>Claude Code is found via `OLYMPUS_CLAUDE_CODE`, `PATH`, `~/.local/bin` and npm (0.21.0). Codex is found via `OLYMPUS_CODEX`, `PATH` and npm's global install.</li><li>Neither engine ever receives an API key.</li><li>A sign-in check reads each CLI's own status in the launch environment. It appears in Preferences under "Subscription engines", and delegated Claude Code is refused unless the check confirms a subscription.</li><li>`--max-budget-usd 5` is replaced by `--max-turns` (40 planning, 120 implementation) and the existing 45-minute limit.</li></ul>0c, the engine spike, has not run for either engine; it must run on Kevin's PC. |
+| 1 — Engine layer | Not started. Chat still runs on the API routes. It already has a Stop control and a four-minute turn limit (2026-10-07), which this phase can reuse. |
+| 2 — Armory tools | The existing tools run inside fixed workflows (see above). Not started: the registry with effect tiers, the MCP host, and the `tool_calls` journal. |
+| 3 — Orchestrator | Not started. Related pieces exist: delegation approvals, the Organizer's task-local plan and approval (0.26.0–0.27.0), and the workflow inspector. |
+| 3b — Outside packages | Added 2026-10-12. Not started. |
+| 4 — The show | The visuals are ahead of the plumbing. The flagship Armory, Pantheon, agent emblems and mission planets (0.22.0–0.30.0) replaced this phase's station band. They draw recorded workflow runs; no tool-call journal exists yet to drive them. |
+| 5 — Skills | Precursors only: instruction-only custom skills, reviewed per-request skill guidance, the Kinetics and Superpowers reference collections, and Hephaestus guidance bound to delegation approval. No skill can grant tools yet. |
+| 6–10 | Not started. Instead of Phase 9's local voice, ElevenLabs speech output (a paid API) was added. For Phase 10, only `launch_quick_app`'s fixed allowlist exists. Gmail situation analysis can already use a local Ollama model (`OLYMPUS_EMAIL_ANALYSIS_PROVIDER=ollama`). |
+
+The October 7 direction in `docs/NEXT-SESSION.md` (Armory expansion with approval-gated Monid) has not started either. It belongs to Phase 3b.
 
 ## 1. The vision, in one paragraph
 
-Olympus becomes an armed command station. It runs on Kevin's subscriptions instead of paid API calls: Claude Code first, Codex second. It carries an **armory** of tools (Gmail, the vault, projects, research, and later apps and the computer) and a library of **skills**. Olympus Core turns a request into a plan, and Kevin approves the plan once. Olympus then coordinates a **swarm** of worker agents to carry it out, and shows the work happening live. Results come back in clean, purpose-built views, not as walls of chat text. The first showcase is *"Pull all emails from Natalie and organize them from most recent."* A later one is designing something together, iteratively.
+Olympus becomes an armed command station. It runs on Kevin's subscriptions instead of paid API calls, through either engine: Codex or Claude Code. Nothing in the plan depends on one of them. It carries an **armory** of tools (Gmail, the vault, projects, research, tools built by others, and later apps and the computer) and a library of **skills** that act through the tools they are granted. Olympus Core turns a request into a plan, and Kevin approves the plan once. Olympus then coordinates a **swarm** of worker agents to carry it out, and shows the work happening live. Results come back in clean, purpose-built views, not as walls of chat text. The first showcase is *"Pull all emails from Natalie and organize them from most recent."* A later one is designing something together, iteratively.
 
 ## 2. Decisions this plan rests on
 
@@ -12,16 +35,26 @@ Kevin decided these on 2026-09-29:
 
 | Decision | Choice |
 | --- | --- |
-| Main engine | **Claude Code (subscription) first, Codex (subscription) second** |
+| Main engine | **Codex and Claude Code as equal engines, both on subscription.** The default is a setting. Revised 2026-10-12; originally Claude Code first and Codex second. |
 | When a subscription limit is reached | **Pause and say so.** Never fall back to paid API calls on its own. |
 | Autonomy | **Approve the plan once.** Reads run freely. A multi-agent or write-capable task shows a plan (agents, tools, effects, limits) that Kevin approves once. Sending, deleting, purchases and anything irreversible always ask again. |
 | First showcase | **The Gmail task, with the live swarm view** |
+
+Kevin added three points on 2026-10-12:
+- Skills are not only instruction documents; they act through the tools they are granted. Phase 5 already covers this.
+- The armory also holds tools built by others, which he finds and adds over time. Phase 3b covers this.
+- The plan must not depend on Claude Code. Both engines are built together in Phase 1, every later phase works on either, and coding delegation gets a Codex driver in Phase 6.
+
+Kevin confirmed three more points on 2026-10-12:
+- The armory is reachable from his own Codex and Claude Code sessions outside Olympus, under the same approvals (Phase 2).
+- For now, Kevin finds tools and points Olympus at them. Olympus digests and installs what he points to, after approval; it does not search for tools on its own (Phase 3b).
+- Safety first. An outside package is a trust decision, not a sandbox (Phase 3b, "Containment").
 
 This plan also revises earlier guidance. Once Kevin approves it, it is recorded in `OLYMPUS-MANUAL.md` and `CLAUDE.md`:
 
 - "Not another agent role or a general framework" (`CLAUDE.md`, "Next") is withdrawn. It was scope discipline for the Research/Verification slice, not product direction.
 - "Rust assembles context; the model calls no tools" becomes: **the model calls Olympus's tools, and Olympus executes them.** Every tool still runs inside the Rust backend, behind the existing gates.
-- Primary reasoning moves from OpenAI API (Sol) to **Claude Code on the subscription**. The API routes remain as explicit choices. Realtime voice stays on the API until local voice lands (Phase 9).
+- Primary reasoning moves from OpenAI API (Sol) to **a subscription engine, Codex or Claude Code**. The API routes remain as explicit choices. Realtime voice stays on the API until local voice lands (Phase 9).
 - Product priorities are re-ranked (section 13).
 
 Everything else in the manual stands. That includes the write gate, two-tier memory, dry voice, truthful surfaces, Gmail being read-only until Phase 7, and "one instrument, readable across the room" for Command.
@@ -71,7 +104,7 @@ The plan builds on these; it does not replace them.
    └───────┬──────────────────┬──────────────────┬───────┘
            │ engine process   │ engine process   │ …
            ▼                  ▼                  ▼
-     Claude Code -p     Claude Code -p      Codex exec
+       Codex exec       Claude Code -p     either engine
      (subscription)     (subscription)      (subscription)
            │  tool calls over MCP (scoped token)
            ▼
@@ -79,14 +112,18 @@ The plan builds on these; it does not replace them.
      write gate), projects, research, delegation, apps …
 ```
 
-Six principles:
+Seven principles:
 
-1. **Engines think; Olympus acts.** Engine processes get **no built-in tools** in chat or worker mode: no Bash, Read, Write or web. Their only tools are Olympus's, served over MCP. Every action therefore passes through Olympus's own gates, journal and acceptance-profile refusals. Coding delegation is the exception: it keeps its sandboxed built-in tools inside a worktree, as today.
+1. **Engines think; Olympus acts.** Engine processes get **no built-in tools** in chat or worker mode: no Bash, Read, Write or web. Their only tools are Olympus's, served over MCP. Every action therefore passes through Olympus's own gates, journal and acceptance-profile refusals. Coding delegation is the exception: it keeps its sandboxed built-in tools inside a worktree, as today. Outside packages (Phase 3b) are served the same way: engines reach them only through Olympus.
 2. **Scoped tokens, not trust.** Each worker gets its own MCP bearer token, encoding exactly the tools and effect tiers in its approved plan. A worker cannot call a tool its plan didn't grant, even if the engine is misconfigured or tricked by an email.
 3. **Every pixel is a real event.** The swarm view draws only what the journal records. There are no staged animations, following the design review's "nothing fictional on desktop" principle.
-4. **Subscription only, by construction.** Engine children are launched with `env_clear` and an allowlist that never includes `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN` or `OPENAI_API_KEY`, plus `--setting-sources ""` so no `apiKeyHelper` loads. A startup self-check reports which login each engine will use.
+4. **Subscription only, by construction.** Engine children are launched with `env_clear` and an allowlist that never includes `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN` or `OPENAI_API_KEY`.
+   - Claude Code also gets `--setting-sources ""`, so no `apiKeyHelper` loads.
+   - Codex gets whatever equivalent Phase 0c finds that keeps it on the ChatGPT sign-in.
+   - A sign-in check reports which login each engine will use. It runs in Preferences and before every launch, rather than at startup, because each check starts the CLI. A launch is refused unless the check confirms a subscription.
 5. **Olympus owns history.** SQLite remains the source of truth for conversations. Engine session files are a cache that may be discarded.
 6. **Deterministic tests.** A `ReplayEngine` plays back recorded engine streams, so everything except live model quality is testable without spending subscription limits.
+7. **No engine is required.** Every phase works with Codex or Claude Code, and with either one missing. An engine-specific behaviour is a property of that engine's driver, never of the plan.
 
 ## 5. Phases
 
@@ -101,37 +138,43 @@ Sizes are relative (S ≈ a focused session, M ≈ a few sessions, L ≈ a week 
 - Replace `--max-budget-usd` with turn and time limits. Keep a note that API billing is no longer expected.
 - Discover `claude.exe` from a configured path, then `PATH` (`where claude`), then the known install locations (native installer, npm global), and report which was found.
 - Update the tests that pin the flags (`launches_pin_tools_settings_and_mcp_and_end_options_before_the_prompt`).
+- Give the Codex CLI the same lookup and report: a configured path, then `PATH`, then the known install locations.
 
-**0c. Engine spike on Windows.** This must run in a local session on Kevin's PC, logged into his subscription. It records real behaviour into `docs/ENGINE-SPIKE.md` and saves stream fixtures for the ReplayEngine:
-- `claude -p --output-format stream-json --verbose --include-partial-messages`: the event shapes, token deltas, and the `result` event (usage, session id).
-- A tiny stub MCP server via `--mcp-config` + `--strict-mcp-config` + `--allowedTools mcp__olympus__*` + `--permission-mode dontAsk`. Confirm built-ins can be fully disabled (`--tools ""` or equivalent) and that unlisted tools are denied.
-- `--resume` continuity and time to first token, cold and warm.
-- Structured output: can the voice JSON contract be produced reliably (prompt + validation + one repair)?
-- **What a usage-limit hit looks like.** The documentation is silent; capture the real event or text so the "pause and say so" behaviour can detect it.
-- Where Claude Code writes session transcripts, and whether that can be disabled or redirected to Olympus's app-data directory.
-- The same exercise for `codex exec --json`, including its MCP configuration (per-run config file or `-c` override) and its ChatGPT sign-in.
-- `--agents` / subagent visibility (`--forward-subagent-text`, `parent_tool_use_id`), recorded for comparison with the Olympus-owned scheduler.
+*Status, 2026-10-12:* 0a and 0b are done. They are compiled and unit-tested on Linux only; the sign-in check and the turn limit have not yet run on Kevin's PC.
+- **Turn limits:** 40 for planning and 120 for implementation. These are starting values to revisit after real runs.
+- **Sign-in check:** reads `claude auth status --json` and `codex login status`. Their output formats were taken from Claude Code 2.1.42 and 2.1.296 and from the Codex source at `a9b0815`. Any other output counts as unconfirmed, and an unconfirmed sign-in refuses the launch.
 
-**Exit test:** the spike report answers every item above with captured evidence. Any "impossible" result feeds back into this plan before Phase 1. That is the only way the spike creates a check-in.
+**0c. Engine spike on Windows, both engines.** This must run in a local session on Kevin's PC, signed into both subscriptions. Every item below is answered for **Codex** (`codex exec --json`) and for **Claude Code** (`claude -p --output-format stream-json --verbose --include-partial-messages`). It records real behaviour into `docs/ENGINE-SPIKE.md` and saves stream fixtures for the ReplayEngine.
+- **Stream shape:** the event shapes, token deltas, and the final event (usage, session or thread id).
+- **Olympus's tools only:** a tiny stub MCP server, configured per run.
+  - Claude Code: `--mcp-config`, `--strict-mcp-config`, `--allowedTools mcp__olympus__*` and `--permission-mode dontAsk`.
+  - Codex: a per-run config file or `-c` override.
+  - For both: confirm that built-in tools (shell, file edits, web) can be fully disabled and that unlisted tools are denied. If an engine cannot do this, it may run only inside delegation's worktree sandbox until it can.
+- **Sign-in:** confirm each engine uses the subscription sign-in (ChatGPT for Codex) with no key present, and what it does when only a key is present.
+- **Continuity and latency:** resuming a session, and time to first token, cold and warm.
+- **Structured output:** can each engine produce the voice JSON contract reliably (prompt, validation and one repair)?
+- **What a usage-limit hit looks like** on each engine. The documentation is silent; capture the real event or text so the "pause and say so" behaviour can detect it.
+- **Transcripts:** where each engine writes session transcripts, and whether that can be disabled or redirected to Olympus's app-data directory.
+- **Subagents:** each engine's own subagent features and their visibility in the stream (for Claude Code, `--agents`, `--forward-subagent-text` and `parent_tool_use_id`), recorded for comparison with the Olympus-owned scheduler.
 
-### Phase 1 — Engine layer: chat on the subscription (M)
+**Exit test:** the spike report answers every item above, for both engines, with captured evidence. Any "impossible" result feeds back into this plan before Phase 1. That is the only way the spike creates a check-in.
+
+### Phase 1 — Engine layer: chat on either subscription (M–L)
 
 - **`Engine` trait** (Rust): `start(turn) -> stream of EngineEvent {Started, Delta, ToolCall, ToolResult, Notice, Usage, Finished, Failed(kind)}` plus `cancel()`. Implementations:
-  - `ClaudeCodeEngine`, using the Phase 0 findings;
+  - `CodexEngine` and `ClaudeCodeEngine`, built together from the Phase 0 findings;
   - `ApiEngine`, which wraps today's `responses::complete` and `send_anthropic_message` unchanged;
-  - `ReplayEngine` for tests.
-
-  `CodexEngine` follows in Phase 6.
-- **Routing:** `models.rs` gains an engine dimension, `Engine::{ClaudeSubscription, CodexSubscription, OpenAiApi, AnthropicApi}`. The default route becomes Claude subscription. Sol, Astra and the Claude API remain selectable routes, labelled as paid.
-- **Chat path:** `send_assistant_message` dispatches through the trait. The same system blocks and `<olympus_evidence>` build apply, passed via `--append-system-prompt` plus the turn input. History comes from SQLite each turn, and `--resume` is used only as an optimisation.
-- **Chat cancellation (new):** a Stop control in the console, which kills the engine child through the Job Object.
+  - `ReplayEngine` for tests, with fixtures from both engines.
+- **Routing:** `models.rs` gains an engine dimension, `Engine::{CodexSubscription, ClaudeSubscription, OpenAiApi, AnthropicApi}`. The default subscription engine is a Preferences setting, and either engine can be chosen per turn. Sol, Astra and the Claude API remain selectable routes, labelled as paid.
+- **Chat path:** `send_assistant_message` dispatches through the trait. The same system blocks and `<olympus_evidence>` build apply, passed in the way each engine's driver supports (for Claude Code, `--append-system-prompt`) plus the turn input. History comes from SQLite each turn, and each engine's session resume is used only as an optimisation.
+- **Chat cancellation:** the existing Stop control and four-minute turn limit (2026-10-07) also kill the engine child through the Job Object.
 - **Voice:** voice turns use the same engine and must satisfy the `VoiceAnswer` contract (validate, one repair attempt, otherwise the existing `invalid_voice_contract` error). Realtime speech output stays on the API until Phase 9, and Preferences says so plainly.
-- **Limit handling:** the `subscription_limit` failure kind pauses the turn with a console notice ("Claude subscription limit reached. Resumes when it resets, or switch engine."). It never retries on the API.
-- **Engine status** in Preferences: installed, version, login type (subscription or API key detected and refused), last limit event.
+- **Limit handling:** the `subscription_limit` failure kind pauses the turn with a console notice naming the engine ("Codex subscription limit reached. Resumes when it resets."). If the other engine is available, the notice offers **Continue on Claude Code** (or **Continue on Codex**) as a button. It never switches silently and never retries on the API.
+- **Engine status** in Preferences, per engine: installed, version, login type (subscription, or API key detected and refused), last limit event. Either engine may be missing; Olympus runs on whichever is present.
 - **Acceptance profile:** engine launches are refused, as providers are today. Acceptance runs use the `ReplayEngine` with recorded fixtures, so the synthetic pass can exercise the whole UI for free.
 - **Tests:** replay-driven stream tests; env-allowlist tests asserting no key ever reaches a child; `request_payload_matches_the_model_contract` kept for the API engines; a new engine-contract test.
 
-**Exit test:** with `.env` keys removed, Kevin can hold a normal typed conversation in the installed app, and it shows "Claude · subscription". Model receipts record the engine. A forced limit, via a replay fixture, shows the pause notice.
+**Exit test:** with `.env` keys removed, Kevin can hold a normal typed conversation in the installed app on each engine, and it shows which one answered ("Codex · subscription" or "Claude · subscription"). Model receipts record the engine. A forced limit on one engine, via a replay fixture, shows the pause notice and the offer to continue on the other. With one engine uninstalled, chat still works on the other.
 
 ### Phase 2 — The armory: tools and the first single-agent task (M–L)
 
@@ -150,6 +193,10 @@ Sizes are relative (S ≈ a focused session, M ≈ a few sessions, L ≈ a week 
   | `external_write`, `irreversible` | always a per-action confirmation, even inside an approved plan |
   | `execute` | only through delegation's sandbox |
 - **MCP host:** an in-process server bound to `127.0.0.1` on a random port, with a per-launch secret and per-worker scoped tokens. Every call is validated against the schema, checked against the token's grant, executed in Rust and journaled.
+- **Reach from Kevin's own sessions.** When Kevin works in Codex or Claude Code outside Olympus, those sessions can use the armory through the same MCP host.
+  - Olympus issues each session its own scoped token, which Kevin grants and can revoke.
+  - Tiers, approvals and the journal apply exactly as they do for Olympus's workers, and approvals still appear in Olympus.
+  - Nothing is added to those tools' own configuration without Kevin's approval.
 - **Journal:** new additive tables `tool_calls(id, task_id, agent_id, tool_id, tool_version, input_json, output_summary, effect, status, started_at, finished_at, approval_id, error)`. A global Tauri event `olympus-activity` streams them live.
 - **First tools, all read-only:**
   - `gmail.find_people(name)`: distinct senders and recipients matching a name, with message counts and last-seen dates.
@@ -180,7 +227,7 @@ Sizes are relative (S ≈ a focused session, M ≈ a few sessions, L ≈ a week 
 - **Plan approval:** a `TaskSubject` (the request, plan hash, grants, limits, engine) goes through the existing `approvals.rs` machinery: whole-subject equality, consumed once, a 600 s expiry and immutable records. The plan card lists agents, tools with effect badges, limits and a countdown, with **Approve**, **Edit request** and **Cancel**.
   - Plans that are read-only and single-agent skip approval ("reads run freely").
   - Any `external_write` or `irreversible` step still confirms per action at run time.
-- **Scheduler:** spawns workers as engine processes, each with its own scoped MCP token and `--append-system-prompt` from its skill. It respects dependencies and the concurrency cap. It supports cancelling a task or a single worker, and a wall-clock timeout. A subscription limit pauses the whole task, keeps what has completed, and lets it resume later.
+- **Scheduler:** spawns workers as engine processes, each on its planned engine with its own scoped MCP token and its skill's instructions. It respects dependencies and the concurrency cap. It supports cancelling a task or a single worker, and a wall-clock timeout. A subscription limit pauses the whole task, keeps what has completed, and lets it resume later.
 - **Synthesis:** a final Core step merges worker outputs into the planned artifacts, with provenance: which worker and which tool calls produced each part.
 - **Tables:** `tasks`, `task_agents`, `task_events` (additive), linked to `tool_calls` and `model_requests`.
 - **Operations view (a new, fifth mode):** Command's centre is protected by "one instrument", so the lean-in work surface needs its own mode. It has three parts:
@@ -197,6 +244,43 @@ Sizes are relative (S ≈ a focused session, M ≈ a few sessions, L ≈ a week 
 4. synthesis.
 
 Kevin approves one plan card, watches the graph fill in live, gets a grouped `mail-list` artifact, and can open every tool call behind it.
+
+### Phase 3b — Outside tool packages (M)
+
+Added 2026-10-12. The armory holds tools built by others as well as Olympus's own, so a tool Kevin discovers can be used from an Olympus plan. The first is REA (`github.com/morluto/rea`, MIT), a reverse-engineering MCP server. Most such tools ship as MCP servers, so one bridge covers most of them. This phase comes after Phase 3 because it needs two things: the registry and MCP host from Phase 2, and plan approval for tools that run code from Phase 3.
+
+- **Manifest.** `PackageDefinition {id, source, version, sha256, license, runtime, entry, reviewed_at, tools[]}`, stored in SQLite with the approval that activated it. `source` is an exact npm version or Git commit, never a range or a branch.
+- **Install.** Olympus first shows an install plan: the source, the exact version, the licence, the runtime required (REA needs Node.js 22.19+), and the install folder. After approval it downloads into `app_data/packages/<id>/<version>/`, verifies the hash and records the install.
+  - It never installs a runtime; a missing runtime is reported, not fixed.
+  - It never changes Claude Code, Codex or other global settings.
+  - It never upgrades a package on its own.
+- **Process.** Each active package runs as an Olympus child process. It gets the same Job Object, PID-plus-creation-time identity and key-free environment allowlist as an engine (section 4, principle 4). Its working directory is its install folder, and it stops when Olympus closes or after an idle timeout.
+- **Bridge.** Olympus is the package's only MCP client.
+  - Olympus reads the package's tool list and serves each tool from its own MCP host as `<package>.<tool>`, for example `rea.analyze_javascript_application`. Codex and Claude Code workers see it the same way.
+  - Engines never connect to a package directly.
+  - Every call is schema-validated, checked against the worker's grant, forwarded, and journaled in `tool_calls` like a native tool.
+  - This is the one exception to "Armory tools run in Olympus": the call is gated and journaled in Olympus, but the work runs in the package's process.
+- **Ratings.** A tool needs an effect tier before it can be granted.
+  - The package's own MCP annotations (`readOnlyHint`, `destructiveHint`) are shown as suggestions and never trusted.
+  - An unrated tool is unavailable. Kevin rates tools in the Armory, and anything he has not rated lower is `execute`.
+  - A tool that spends money confirms every call with its price, whatever its tier. This follows the owner policy for Monid recorded in `docs/NEXT-SESSION.md`.
+- **Drift.** On every start, Olympus compares the package's hash, tool list and schemas with the approved record. Any difference deactivates the package until Kevin approves it again, as Phase 5 does for edited skills.
+- **Paths.** When a tool's schema declares a file path, Olympus accepts only paths inside folders Kevin has approved for that package. A tool whose inputs cannot be checked this way is rated `execute`.
+- **Bundled skills.** A package's own instruction file (REA's `reverse-engineer-anything`) is imported as a Phase 5 skill. Its `allowed_tools` are limited to that package, and it is inactive until approved. Until Phase 5 lands, it is held as reference text only.
+- **Results.** Package output is untrusted evidence, marked the same way as mail. A plan that reads package output cannot hold an unconfirmed `external_write` grant.
+- **Armory view.** Each package appears as a plugin with its source, version, approval state, rated tools and recent calls. A package that is installed but unapproved, or has drifted, is shown as such: installed does not mean ready.
+- **Not in this phase.**
+  - Packages that are command-line tools rather than MCP servers. They need a separate adapter that declares each command template. Monid may fall here; its interface has not been verified.
+  - A real sandbox (Windows Sandbox, a VM or WSL). That is a separate decision; until it is made, the containment statement below applies.
+
+**Containment, stated plainly.** Olympus controls three things: which calls reach a package, their inputs, and what reaches the engine afterwards. It does not control what the package's code does once called. REA analysing a binary, for example, runs Ghidra with Kevin's user permissions. Approving a package at a pinned version is therefore the real trust decision, and every `execute` call needs an approved plan.
+
+**First package: REA on Windows.**
+- `read`: static JavaScript/Electron, .NET and Go inspection, and analysis of saved network captures (HAR).
+- `execute`: live website analysis, because it drives a browser, and native binary analysis through Ghidra, which REA marks experimental on Windows.
+- Unavailable on Windows: process capture, firmware, and the Linux crash and EVM tools.
+
+**Exit test:** in the installed app, Kevin asks how an Electron app on his PC implements a feature. Olympus answers using REA's static analysis, every REA call appears in the journal with its tier, and the answer cites REA's evidence. Pinning a different REA version deactivates it until Kevin approves it again.
 
 ### Phase 4 — The show: armory and swarm in the instrument (M)
 
@@ -219,6 +303,7 @@ Kevin approves one plan card, watches the graph fill in live, gets a grouped `ma
 - **Format:** a skill is a Markdown file with frontmatter in the vault (`05 - Skills/Olympus/<id>.md`). The frontmatter holds `id`, `version`, `title`, `purpose`, `allowed_tools`, `max_effect`, `inputs` and `outputs` (schemas), `limits` and `examples`; the body holds the instructions. It compiles into the existing `SkillContract`. Built-in compiled skills (communication, research, verification) remain.
 - **Trust rule:** an edited or new skill file is **inactive until Kevin approves it** in the Armory tab. Approval records the file's fingerprint, and any later change deactivates it until re-approved. This keeps "presence in the library is not endorsement".
 - **Teaching:** "Olympus, learn how to …" drafts a skill file through the write gate, shows it, and activates it on approval.
+- **Existing custom skills:** the instruction-only skills saved through Add skill become skill files with no tools. Kevin can grant them tools later, and each grant needs his approval.
 - **First skill pack:**
   - `people-resolver@1`, `mail-collector@1`, `mail-organizer@1` (formalizing Phase 3's workers);
   - `project-briefer@1`;
@@ -227,13 +312,21 @@ Kevin approves one plan card, watches the graph fill in live, gets a grouped `ma
 
 **Exit test:** a skill written by Kevin in Obsidian appears in the armory as pending. Once approved, it is usable in a plan, and it deactivates when he edits it.
 
-### Phase 6 — Codex as the second engine (S–M)
+### Phase 6 — Mixed engines and a Codex coding driver (S–M)
 
-- `CodexEngine` over `codex exec --json`, with MCP configured per run from the Phase 0 findings.
-- Engine choice per task or per worker, shown in the plan. The default is Claude.
-- On a Claude limit, the pause notice offers **Continue on Codex** as a button. It never switches silently, per Kevin's decision.
+Both engines exist from Phase 1. This phase lets one task use both, and removes the last Claude-only path, coding delegation.
 
-**Exit test:** the Natalie swarm runs with Codex workers. A replayed Claude limit shows the switch offer, and accepting it resumes the task.
+- **Engine choice per worker,** shown in the plan. The default comes from Preferences.
+- **Limits mid-task:** a limit on one engine pauses the task and offers to continue its remaining workers on the other engine. It never switches silently, per Kevin's decision.
+- **Coding delegation (Hephaestus) gets a Codex driver** beside the Claude Code one.
+  - It keeps the same worktree isolation, approval records, Job Object and time limit.
+  - Codex's own sandbox and approval settings are mapped as Phase 0c records them.
+  - The approval subject names the engine, so an approval for one engine cannot launch the other.
+
+**Exit test:**
+- The Natalie swarm runs with workers on both engines.
+- A replayed limit on one engine shows the switch offer, and accepting it resumes the task.
+- A Hephaestus run completes on Codex in its worktree under the same approvals.
 
 ### Phase 7 — Write-capable tools (M)
 
@@ -249,7 +342,7 @@ Kevin approves one plan card, watches the graph fill in live, gets a grouped `ma
 ### Phase 8 — Design co-building (L)
 
 - **Conversation phase:** the `design-brief@1` skill asks focused questions and produces a **brief artifact** (goals, audience, references, constraints) that Kevin edits or approves.
-- **Build phase:** a delegation run (Claude Code on the subscription) builds a first draft in a sandbox worktree under `app_data`. A local preview server serves it in a sandboxed view in Operations. This needs a scoped CSP addition for the loopback preview origin, reviewed as a security change.
+- **Build phase:** a delegation run on either subscription engine builds a first draft in a sandbox worktree under `app_data`. A local preview server serves it in a sandboxed view in Operations. This needs a scoped CSP addition for the loopback preview origin, reviewed as a security change.
 - **Iterate loop:** Kevin comments ("bigger headline, calmer palette"). Each round is a new run on the same worktree, with before/after snapshots and one-click revert to any round.
 - **Promotion:** copying the result into a real project is an explicit, approved step.
 
@@ -273,6 +366,7 @@ Kevin approves one plan card, watches the graph fill in live, gets a grouped `ma
 - **Grants are enforced by Olympus, not requested of the model.** The MCP token encodes the grant, and the effect tier sets the gate. External writes and irreversible actions always confirm per action.
 - **Untrusted content stays data.** Mail, web and file text arrive as marked evidence. A plan that reads untrusted content cannot also hold an unconfirmed `external_write` grant.
 - **Engines have no built-in tools** outside delegation's worktree sandbox.
+- **Outside packages are approved at a pinned version.** Olympus gates and journals every call to them, but does not control what their code does once called (Phase 3b).
 - **No silent spend.** Subscription only, key-free child environments, pause on limits, and API routes used only by explicit choice.
 - **Everything is recoverable or confirmed,** following the manual's autonomy table. The journal records every call with its approval id.
 - **The acceptance profile covers all of it.** Engines are replayed and external effects refused, so every phase can be accepted on synthetic data first.
@@ -286,11 +380,11 @@ Kevin approves one plan card, watches the graph fill in live, gets a grouped `ma
 
 ## 8. Where the work runs
 
-The engine spike, live checks, desktop acceptance and anything touching the subscription **must run on Kevin's PC**. A cloud session cannot reach his machine or his Claude login.
+The engine spike, live checks, desktop acceptance and anything touching the subscription **must run on Kevin's PC**. A cloud session cannot reach his machine or his subscription sign-ins.
 
-**Recommendation:** execute this plan from **one local Claude Code session** in the Olympus folder. It can build, launch the app, run the acceptance pass and use the real `claude` and `codex` CLIs, with no hand-offs. Cloud sessions remain useful for isolated code work.
+**Recommendation:** execute this plan from **one local session, Codex or Claude Code,** in the Olympus folder. It can build, launch the app, run the acceptance pass and use the real `codex` and `claude` CLIs, with no hand-offs. Cloud sessions remain useful for isolated code work.
 
-Building Olympus this way also uses Kevin's Claude subscription limits.
+Building Olympus this way also uses the limits of whichever subscription runs that session.
 
 ## 9. Check-ins: the complete list
 
@@ -305,7 +399,7 @@ Everything not listed here proceeds without asking.
 | 5 | Phase 10, per connector | Each new computer or app trust boundary |
 | — | End of each phase | "Ship it" to release and install. These can be batched if Kevin prefers. |
 
-Plan approvals, write confirmations and send confirmations inside the product are Olympus's normal operation, not project check-ins.
+Plan approvals, package approvals and tool ratings, write confirmations and send confirmations inside the product are Olympus's normal operation, not project check-ins.
 
 ## 10. Standing authorization requested
 
@@ -325,6 +419,7 @@ Still excluded without a word from Kevin: merging to `master`, releases and inst
 | CLI output formats drift between versions | Minimum version check at startup, stream parsing pinned by replay fixtures, and a clear "engine version unsupported" state |
 | Latency from process start | Warm `--resume` sessions, timing recorded in receipts, and a streaming UI from the first delta |
 | Prompt injection via email | Scoped grants, untrusted-evidence marking, no unconfirmed external writes, and a journal of every call |
+| An outside package is malicious, or is compromised upstream | Pinned version and hash, no automatic upgrades, deactivation on any drift, a key-free environment, rated tools only, and journaled calls. This is not a sandbox, so approve only packages Kevin would run himself. |
 | Swarms burn through the subscription | Concurrency cap, turn and time limits per plan, and limits shown in the plan card before approval |
 | Scope creep in the visual work | Gate B, and "every pixel is a real event" |
 | Local transcripts left by engines | Phase 0 finds where they go. They are redirected to app data or cleaned up under Olympus's control. |
@@ -335,12 +430,13 @@ Two-tier memory and selective promotion, and the Decision Log being evidence rat
 
 ## 13. Proposed product priorities (replacing the list in the manual)
 
-1. The engine on the subscription (Phases 0–1).
+1. Both subscription engines, Codex and Claude Code (Phases 0–1).
 2. The armory and tool-using tasks (Phase 2).
 3. The orchestrated swarm with plan approval and the Operations view (Phase 3).
-4. The show: armory and swarm in the instrument (Phase 4).
-5. Skills (Phase 5).
-6. Trustworthy live project briefings and curated memory: maintained, not expanded.
-7. Codex, write tools, design co-building, local voice, computer and apps (Phases 6–10).
+4. Outside tool packages, starting with REA (Phase 3b).
+5. The show: armory and swarm in the instrument (Phase 4).
+6. Skills (Phase 5).
+7. Trustworthy live project briefings and curated memory: maintained, not expanded.
+8. Mixed-engine tasks and a Codex coding driver, write tools, design co-building, local voice, computer and apps (Phases 6–10).
 
 The existing 0.20.0 minor issues (the truncated scan-failure path, the stale-state lag) fold into Phase 1's first release.
