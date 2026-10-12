@@ -16,8 +16,7 @@ execution. Project linking, Remove from dashboard and Restore are described in
 There is no sort or status-filter control on the board. Rows sort by status
 priority; a voice request can set a status filter, which shows a Clear filter
 button. Sources & project tools, including Update Canvas and the freshness line,
-were removed in 0.29.0 (`df3db81`); `onSyncCanvas` is still passed to
-`ProjectsPanel` but nothing calls it.
+were removed in 0.29.0 (`df3db81`), and the canvas export itself on 2026-10-12.
 
 Project detail opens on an overview: summary, Vision, Recent changes (up to three
 commits since the previous session, or from the last 24 hours), Where it stands, and Recommended next step with **Review with Olympus**.

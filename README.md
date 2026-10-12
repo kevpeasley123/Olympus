@@ -21,7 +21,7 @@ dated baseline, not the current state.
 - Visual identity: futuristic AI lab with professional command-center density
 - Core screen: Command's Pantheon, an Ω instrument with mission planets and skill, plugin, agent and Obsidian-memory constellations, beside the Armory panel
 - Modes: Command (Pantheon, Armory and console), Project (project cards, ecosystem view, Organizer tasks, project linking and coding-agent delegation), Research (the Pantheon research library and inspection of saved verification runs), and Communications (read-only Gmail, situation maps and briefings); the same chat console and voice run across all four
-- Memory surface: Obsidian-flavored Markdown notes in the vault, plus a derived, rebuildable search index outside it. The backend can regenerate a projects Canvas and a research Base in `00 - Dashboard`; no button in the app currently triggers either
+- Memory surface: Obsidian-flavored Markdown notes in the vault, plus a derived, rebuildable search index outside it.
 - Safety model: reads run freely. Vault writes pass the write gate described in `ARCHITECTURE.md`: out-of-vault paths are rejected, new files at unused paths and regeneration of unedited app-authored files proceed, and appends to or rewrites of notes a person may have written ask first. Delegated coding runs need an operator approval for planning and another for implementation, and never push, merge or deploy. Gmail access is read-only
 
 ## Obsidian Skills Reference
@@ -164,7 +164,7 @@ What is stored, by area (`src-tauri/schema.sql` declares every table and sets
 | Settings and tool flags | `settings`, `tool_states` | Upsert on change |
 | Chat history | `conversation_messages`, with `conversation_research`, `conversation_mail`, `conversation_voice`, `conversation_model`, `conversation_turn_context` and `conversation_imports` keyed by message ID | Append at send time; a re-append cannot rewrite content or provenance |
 | Desktop session boundaries | `operator_sessions` | One idempotent row per launch |
-| Vault write fingerprints and log | `artifact_hashes`, `processing_logs` | Written by the write gate |
+| Vault write log | `processing_logs`; `artifact_hashes` (fingerprints of derived files; no current writer) | Written by the write gate |
 | Delegation and approval | `delegation_runs`, `delegation_events`, `delegation_contracts`, `delegation_checks`, `delegation_reviews`, `operator_approvals`, `approval_consumptions`, `approval_revocations` | Durable run state, append-only milestones, immutable approval records |
 | Organizer | `organizer_tasks`, `organizer_sources`, `organizer_proposal_links`, `organizer_run_links`, `organizer_results`, `organizer_events`, plus a row in `projects` for each project that holds tasks | Revisioned tasks with linked runs, reviewable results and an event log (see `docs/ORGANIZER.md`) |
 | Project membership | `project_members`, `project_links`, `project_membership_state`, `project_identity_conflicts`, `project_brief_writes` | Revisioned membership; removals kept as tombstones; briefs staged before the vault write (see `docs/PROJECT-LINKING.md`) |

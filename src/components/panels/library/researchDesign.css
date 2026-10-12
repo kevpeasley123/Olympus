@@ -4,13 +4,9 @@
 .library-surface .library-header__title {display:flex;flex-direction:column;align-items:flex-start;gap:4px;min-width:155px}
 .library-surface .library-header__title h2 {font:400 28px/1.1 var(--font-display);color:#f2eee4}
 .library-surface .library-header__title .pantheon-modal-meta {font:11px var(--font-sans);color:#9eb0c4}
-.library-surface .library-segments {border:0;background:none;border-radius:0;padding:0;align-self:stretch}
-.library-surface .library-segment {border-radius:0;border-bottom:2px solid transparent;color:#b1c0ce;font:12px var(--font-sans);padding:8px 13px}
-.library-surface .library-segment.is-active {background:none;box-shadow:none;color:#edcf97;border-bottom-color:#d5b77f}
 .library-surface .library-header__actions {flex:1;min-width:0;justify-content:flex-end;gap:10px}
 .library-surface .library-search {flex:1;min-width:120px;max-width:410px}
 .library-surface .pantheon-search-input {height:35px;background:#07121c;border:1px solid #526b815e;border-radius:5px;font-size:12px}
-.library-surface .library-segment__suffix {display:none}
 .library-surface .library-workspace {grid-template-columns:208px minmax(0,1fr);background:transparent}
 .library-surface .pantheon-sidebar {background:#050e17b8;border-right:1px solid #7895b12b;padding:16px 12px}
 .library-surface .pantheon-sidebar-label {color:#8fa4b8;font:9px var(--font-sans);letter-spacing:.16em;margin:20px 8px 10px}
@@ -95,7 +91,6 @@
  .library-surface .library-workspace {grid-template-columns:1fr}
  .library-surface .pantheon-sidebar {display:none}
  .library-surface .library-header__title h2 {font-size:24px}
- .library-surface .library-segment {padding-inline:8px}
  .library-surface [data-presentation=cards] .pantheon-entry-row {height:210px}
  .research-intake-menu {width:min(264px,calc(100vw - 64px))}
 }

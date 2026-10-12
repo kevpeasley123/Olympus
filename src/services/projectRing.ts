@@ -1079,14 +1079,3 @@ function truncateToFit(text: string, maximum: number): string {
   if (text.length <= maximum) return text;
   return `${text.slice(0, Math.max(1, maximum - 1))}…`;
 }
-
-export function arcPathForSegment(
-  segment: Pick<ProjectRingSegment, "startAngle" | "endAngle">,
-  centre: number,
-  radius = PROJECT_RING_RADIUS
-): string {
-  const start = pointOnProjectRing(segment.startAngle, radius, centre);
-  const end = pointOnProjectRing(segment.endAngle, radius, centre);
-  const large = segment.endAngle - segment.startAngle > 180 ? 1 : 0;
-  return `M ${start.x} ${start.y} A ${radius} ${radius} 0 ${large} 1 ${end.x} ${end.y}`;
-}

@@ -24,8 +24,3 @@ export function routeLabel(request: Pick<ModelRequest, "capability" | "reasoning
   const effort = request.reasoningEffort ? ` · ${request.reasoningEffort}` : "";
   return `${name}${effort}${route?.note ? ` (${route.note})` : ""}`;
 }
-
-/** Tooltip text: provider, the model that answered (or was asked for), request id. */
-export function routeTitle(request: Pick<ModelRequest, "provider" | "actualModel" | "requestedModel" | "id">): string {
-  return `${request.provider} · ${request.actualModel ?? `${request.requestedModel} (requested; unconfirmed)`} · request ${request.id}`;
-}

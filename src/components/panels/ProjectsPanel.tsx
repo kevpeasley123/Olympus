@@ -2,7 +2,6 @@ import {useOrganizer} from "../../hooks/useOrganizer";
 import { GitBranch, ListChecks, RefreshCw } from "lucide-react";
 import type { ProjectStatus, SessionBoundary, TrackedProject } from "../../types";
 import { formatPath } from "../../utils/formatPath";
-import type { ObsidianActionResult } from "../../services/obsidian";
 import { useActionQueue, type ActionQueueTask } from "../../hooks/useActionQueue";
 import { attributeTasks, groupBySourceFile } from "../../services/taskAttribution";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useId } from "react";
@@ -29,7 +28,6 @@ interface ProjectsPanelProps {
   requestedStatus?: {status:OperationalStatus|"ALL";revision:number};
   projects: TrackedProject[];
   sessionBoundary: SessionBoundary | null;
-  onSyncCanvas: () => Promise<ObsidianActionResult>;
   /** Problems with `01 - Projects` itself, not with any one project. */
   noteWarnings?: string[];
   focusMode?: boolean;

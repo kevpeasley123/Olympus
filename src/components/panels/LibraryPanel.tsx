@@ -1,12 +1,9 @@
 import { invoke } from "@tauri-apps/api/core";
-import { FilePlus2, Layers3, Library, RotateCw, Search } from "lucide-react";
+import { RotateCw, Search } from "lucide-react";
 import { useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import type { ReactElement, ReactNode } from "react";
-import { createPortal } from "react-dom";
 import { usePantheon } from "../../hooks/usePantheon";
 import type { ResearchInspectionTarget } from "../../services/commandAgents";
 import { useNavigationTarget } from "../../services/navigation";
-import type { ObsidianActionResult } from "../../services/obsidian";
 import { anotherModalIsOpen, isEditableTarget, SHORTCUTS } from "../../services/shortcuts";
 import { useViewSlice, type ResearchArrival } from "../../state/viewState";
 import type { TrackedProject } from "../../types";
@@ -16,15 +13,13 @@ import { ResearchIntakeMenu } from "./library/ResearchIntakeMenu";
 import { AddEntryDialog } from "./library/AddEntryDialog";
 import type { LibraryProject } from "./library/EntryDetail";
 import { LibraryBrowser } from "./library/LibraryBrowser";
-import { findEntryBySourceFile, latestAddedLabel, prepareEntries } from "./library/libraryModel";
+import { findEntryBySourceFile, prepareEntries } from "./library/libraryModel";
 import "./library/library.css";
 
 interface LibraryPanelProps {
   inspectionTarget?: ResearchInspectionTarget | null;
   onReturnToCommand?: () => void;
-  onViewDatabase: () => Promise<ObsidianActionResult>;
   /** Research mode: the library lives in the centre column instead of a modal. */
-  resident?: boolean;
   /** Tracked projects, for the Add Entry project select and the detail's project link. */
   projects?: Pick<TrackedProject, "id" | "name" | "notePath">[];
 }
@@ -41,27 +36,25 @@ type Segment = "library" | "questions" | "audits";
 
 const NO_PROJECTS: LibraryPanelProps["projects"] = [];
 
-export function LibraryPanel({ onViewDatabase, resident = false, inspectionTarget, onReturnToCommand, projects = NO_PROJECTS }: LibraryPanelProps) {
+interface LibraryStatus { tone: "success" | "warning" | "error"; message: string; path?: string }
+
+export function LibraryPanel({ inspectionTarget, onReturnToCommand, projects = NO_PROJECTS }: LibraryPanelProps) {
   const { entries: raw, loading, error, preview, refresh: refreshPantheon } = usePantheon();
   const [research, setResearch] = useViewSlice("research");
   const segment: Segment = inspectionTarget && research.inspector === "questions" ? "questions" : "library";
   const entries = useMemo(() => prepareEntries(raw), [raw]);
   // The input answers every keystroke; the list follows when it can.
   const deferredQuery = useDeferredValue(research.query);
-  const [databaseRequested, setDatabaseRequested] = useState(false);
   // Research mode holds the library open in the centre column; every other mode
   // opens it on request. Derived rather than an effect, so leaving the mode
   // closes it without a second piece of state to keep in step.
-  const databaseOpen = resident || databaseRequested;
   const [addEntryOpen, setAddEntryOpen] = useState(false);
   const [intakeMode,setIntakeMode]=useState<"write"|"upload"|"link">("write");
-  const [status, setStatus] = useState<ObsidianActionResult | null>(null);
-  const [busyAction, setBusyAction] = useState<"view" | null>(null);
+  const [status, setStatus] = useState<LibraryStatus | null>(null);
   const [migrating, setMigrating] = useState(false);
   const [openToken, setOpenToken] = useState(0);
   const [visited, setVisited] = useState<Set<Segment>>(() => new Set([segment]));
   const searchInputRef = useRef<HTMLInputElement | null>(null);
-  const databaseDialogRef = useRef<HTMLDivElement | null>(null);
   const surfaceRef = useRef<HTMLDivElement | null>(null);
   const inspectorRefs = useRef<Partial<Record<Segment, HTMLDivElement | null>>>({});
   const inspectorScroll = useRef<Partial<Record<Segment, number>>>({});
@@ -74,12 +67,6 @@ export function LibraryPanel({ onViewDatabase, resident = false, inspectionTarge
   // An entry written before the schema change parses with no origin at all —
   // the parser drops its legacy writer value rather than reading it as one.
   const unmigratedCount = useMemo(() => raw.filter((entry) => !entry.origin).length, [raw]);
-  const entryLabel = useMemo(() => {
-    if (loading && raw.length === 0) return "Loading entries…";
-    const count = `${entries.length} ${entries.length === 1 ? "entry" : "entries"}`;
-    const latest = latestAddedLabel(entries);
-    return latest ? `${count} · last added ${latest}` : count;
-  }, [entries, loading, raw.length]);
 
   const librarySnapshot = useRef<(() => void) | null>(null);
   const selectSegment = useCallback((next: Segment) => {
@@ -138,7 +125,7 @@ export function LibraryPanel({ onViewDatabase, resident = false, inspectionTarge
   // The destination for "Open in library" from a chat reply (review U5).
   const [navigationTarget, consumeNavigation] = useNavigationTarget("research");
   useEffect(() => {
-    if (!resident || !navigationTarget) return;
+    if (!navigationTarget) return;
     // Wait for the first scan, so a source is not reported missing before the
     // library has been read.
     if (loading && raw.length === 0) return;
@@ -150,7 +137,7 @@ export function LibraryPanel({ onViewDatabase, resident = false, inspectionTarge
       context: "reply"
     });
     consumeNavigation(navigationTarget.revision);
-  }, [consumeNavigation, loading, navigationTarget, openArrival, raw.length, resident]);
+  }, [consumeNavigation, loading, navigationTarget, openArrival, raw.length]);
 
   const openEntry = useCallback((id: string) => {
     setResearch((state) => ({ ...state, detailEntryId: id, arrival: null }));
@@ -181,10 +168,8 @@ export function LibraryPanel({ onViewDatabase, resident = false, inspectionTarge
   }
 
   useEffect(() => {
-    if (!databaseOpen) return;
-
     function handleKeydown(event: KeyboardEvent) {
-      if (anotherModalIsOpen(resident ? null : databaseDialogRef.current)) return;
+      if (anotherModalIsOpen(null)) return;
 
       // Ctrl+K belongs to the console in every mode; search is `/`, and only
       // when the key would not otherwise be typed into a field.
@@ -203,9 +188,8 @@ export function LibraryPanel({ onViewDatabase, resident = false, inspectionTarge
       if (event.key !== "Escape" || event.defaultPrevented || event.isComposing) return;
       // Only for keys pressed in the library or on nothing in particular; the
       // console and other panels own their own Escape.
-      // The Project-mode database is a modal: every Escape is its own.
       const target = event.target as Node | null;
-      const inside = !resident || target === document.body || (target !== null && surfaceRef.current?.contains(target));
+      const inside = target === document.body || (target !== null && surfaceRef.current?.contains(target));
       if (!inside) return;
       const state = research;
       if (target === searchInputRef.current && state.query) {
@@ -217,9 +201,6 @@ export function LibraryPanel({ onViewDatabase, resident = false, inspectionTarge
       } else if (state.query && readSegment() === "library") {
         event.preventDefault();
         setQuery("");
-      } else if (!resident) {
-        event.preventDefault();
-        closeDatabase();
       }
     }
 
@@ -248,26 +229,6 @@ export function LibraryPanel({ onViewDatabase, resident = false, inspectionTarge
     }
   }
 
-  async function handleViewDatabase() {
-    setBusyAction("view");
-    const result = await onViewDatabase();
-    setStatus(result);
-    setBusyAction(null);
-    returnFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    setDatabaseRequested(true);
-  }
-
-  function closeDatabase() {
-    setDatabaseRequested(false);
-    const origin = returnFocus.current;
-    returnFocus.current = null;
-    if (origin?.isConnected) window.setTimeout(() => origin.focus(), 0);
-  }
-
-  // Focus moves into the modal database, as it does into every dialog.
-  useEffect(() => {
-    if (!resident && databaseRequested) searchInputRef.current?.focus();
-  }, [databaseRequested, resident]);
 
   function handleSaved(path: string) {
     setAddEntryOpen(false);
@@ -298,60 +259,14 @@ export function LibraryPanel({ onViewDatabase, resident = false, inspectionTarge
 
   return (
     <>
-      {/* Header-only in residence: the library itself opens as a modal, so the
-          resident panel is a single strip rather than a full-height panel
-          reporting a count. Research mode drops the strip — the full library is
-          already in the column below and would repeat every one of these. */}
-      {resident ? null : (
-        <section className="dashboard-panel research-panel pantheon-panel is-collapsed surface-chrome library-strip">
-          <div className="panel-head">
-            <span className="panel-head__icon"><Library size={15} /></span>
-            <p className="panel-head__title">Pantheon</p>
-            <span className="panel-head__meta">{entryLabel}</span>
-            <div className="panel-head__actions">
-              <button type="button" className="ghost-action library-action" onClick={() => void handleViewDatabase()}>
-                <Layers3 size={13} aria-hidden="true" />
-                {busyAction === "view" ? "Refreshing…" : "View Database"}
-              </button>
-              <button type="button" className="ghost-action library-action" onClick={() => setAddEntryOpen(true)} disabled={busyAction === "view"}>
-                <FilePlus2 size={13} aria-hidden="true" />
-                Add Entry
-              </button>
-              <button
-                type="button"
-                className="ghost-action library-action icon-only-action"
-                onClick={() => void refreshPantheon()}
-                disabled={loading}
-                title="Refresh Pantheon entries from vault"
-                aria-label="Refresh Pantheon entries from vault"
-              >
-                <RotateCw size={13} aria-hidden="true" />
-              </button>
-            </div>
-          </div>
-          {migrateNotice}
-          {statusLine}
-          {errorLine}
-        </section>
-      )}
-
       {addEntryOpen ? (
         <AddEntryDialog initialMode={intakeMode} projects={libraryProjects} onClose={() => {setAddEntryOpen(false);requestAnimationFrame(()=>surfaceRef.current?.querySelector<HTMLButtonElement>(".research-add")?.focus());}} onSaved={handleSaved} />
       ) : null}
 
-      {databaseOpen &&
-        inSurface(
-          resident,
-          <div
-            className={resident ? "pantheon-resident-shell" : "pantheon-modal-backdrop"}
-            onClick={resident ? undefined : closeDatabase}
-          >
+      <div className="pantheon-resident-shell">
             <div
-              ref={(node) => { databaseDialogRef.current = node; surfaceRef.current = node; }}
-              className={resident ? "dashboard-panel pantheon-resident library-surface" : "pantheon-modal library-surface"}
-              role={resident ? undefined : "dialog"}
-              aria-modal={resident ? undefined : true}
-              aria-label={resident ? undefined : "Pantheon Database"}
+              ref={surfaceRef}
+              className="dashboard-panel pantheon-resident library-surface"
               onClick={(event) => event.stopPropagation()}
             >
               <header className="pantheon-modal-header library-header">
@@ -383,22 +298,13 @@ export function LibraryPanel({ onViewDatabase, resident = false, inspectionTarge
                   >
                     <RotateCw size={13} aria-hidden="true" />
                   </button>
-                  <ResearchIntakeMenu onChoose={mode=>{setIntakeMode(mode);setAddEntryOpen(true);}} disabled={busyAction==="view"}/>
-                  {/* Nothing to close in residence — the mode switcher is what
-                      leaves. A close button that emptied the centre column
-                      would strand Research mode on a blank panel. */}
-                  {resident ? null : (
-                    <button type="button" className="pantheon-modal-close" onClick={closeDatabase} aria-label="Close Pantheon Database" title="Close (Esc)">
-                      ×
-                    </button>
-                  )}
+                  <ResearchIntakeMenu onChoose={mode=>{setIntakeMode(mode);setAddEntryOpen(true);}}/>
                 </div>
               </header>
 
-              {/* The strip carries these outside residence. */}
-              {resident ? migrateNotice : null}
-              {resident ? statusLine : null}
-              {resident ? errorLine : null}
+              {migrateNotice}
+              {statusLine}
+              {errorLine}
 
               <div className="library-views">
                 <div
@@ -443,17 +349,7 @@ export function LibraryPanel({ onViewDatabase, resident = false, inspectionTarge
 
               </div>
             </div>
-          </div>
-        )}
+      </div>
     </>
   );
-}
-
-/**
- * Resident renders in place; otherwise the library goes to a portal exactly as
- * it always has. One wrapper decision, so the surface inside it has no idea
- * which mode it is in and cannot drift between the two.
- */
-function inSurface(resident: boolean, node: ReactElement): ReactNode {
-  return resident ? node : createPortal(node, document.body);
 }

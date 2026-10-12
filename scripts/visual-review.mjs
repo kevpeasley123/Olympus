@@ -1,14 +1,15 @@
 #!/usr/bin/env node
-// Olympus visual review: launches the Vite preview, drives the Command harness
-// through deterministic scenarios at desktop viewports, waits for the
-// harness's visual-ready contract, runs semantic geometry and text-overflow
-// assertions, captures screenshots and writes a report for Claude (or a
-// person) to read. Browser-only: it proves layout and rendering in Chromium,
+// Olympus visual review: launches the Vite preview, drives the shipped Command
+// composition (the Armory, the Pantheon and the companion console) through
+// deterministic scenarios at desktop viewports, plus the real App in browser
+// mode, waits for the harness's visual-ready contract, runs semantic geometry
+// and text-overflow assertions, captures screenshots and writes a report for
+// Claude (or a person) to read. Browser-only: it proves layout and rendering in Chromium,
 // not WebView2, Tauri IPC or the installed app.
 //
 //   npm run visual:review                      primary viewport, every scenario, plus key scenarios at 1920×1080 and 1280×800
 //   npm run visual:review -- --all             every scenario at every viewport
-//   npm run visual:review -- --scenario idle --scenario mission-active
+//   npm run visual:review -- --scenario idle --scenario missions
 //   npm run visual:review -- --viewport 1920x1080
 //   npm run visual:review -- --url http://127.0.0.1:31420   reuse a running dev server
 //   npm run visual:review -- --no-checks       skip the in-page functional checks
@@ -29,11 +30,29 @@ const HARNESS = "/command-agent-harness.html";
 // Primary: the installed window's configured size (tauri.conf.json 1440×960,
 // confirmed by the native pass's 1456×999 captures including the frame).
 export const VIEWPORTS = { primary: [1440, 960], wide: [1920, 1080], narrow: [1280, 800] };
-export const SCENARIOS = [
-  "idle", "agent-olympus", "agent-research", "agent-verification", "agent-coding", "domain-communications", "capability-detail",
-  "chat-compact", "chat-expanded", "mission-active", "mission-research", "mission-complete", "reduced-motion"
-];
-const KEY_SCENARIOS = ["idle", "chat-expanded", "domain-communications", "mission-active"];
+
+// The shipped Command composition: the Armory, the Pantheon and the companion
+// console, as App.tsx renders it (`flagship`). Each scenario names the harness
+// state it loads, the query it adds and an optional step after it is ready.
+// `app-command` loads the real App in browser mode rather than the harness.
+const SCENARIO_SETUP = {
+  "idle": { state: "idle" },
+  "missions": { state: "mission-research", query: "&missions=2" },
+  "mission-active": { state: "mission-active" },
+  "mission-complete": { state: "mission-complete" },
+  "conversation": { state: "chat-expanded", after: async page => { await page.getByRole("button", { name: "Conversation", exact: true }).click(); await page.waitForTimeout(400); } },
+  "chat-compact": { state: "chat-compact" },
+  "armory-agents": { state: "idle", after: async page => {
+    await page.getByRole("button", { name: /^Agents\s*5$/ }).first().click();
+    const dialog = page.getByRole("dialog", { name: "Olympus Armory" }); await dialog.waitFor();
+    await dialog.getByRole("button", { name: /Athena Research/ }).click(); await page.waitForTimeout(300);
+  } },
+  "voice-speaking": { state: "idle", query: "&voice=speaking&level=0.8" },
+  "reduced-motion": { state: "reduced-motion" },
+  "app-command": { app: true }
+};
+export const SCENARIOS = Object.keys(SCENARIO_SETUP);
+const KEY_SCENARIOS = ["idle", "missions", "conversation", "app-command"];
 
 const args = process.argv.slice(2);
 const option = name => args.flatMap((arg, i) => arg === `--${name}` ? [args[i + 1]] : []);
@@ -90,52 +109,38 @@ function inspectPage({ scenario, tolerance }) {
   const fail = (id, detail) => failures.push({ id, detail });
   const note = (id, detail) => notes.push({ id, detail });
   const $ = selector => document.querySelector(selector);
-  const box = selector => { const element = $(selector); if (!element) return null; const r = element.getBoundingClientRect(); return { left: r.left, right: r.right, top: r.top, bottom: r.bottom, width: r.width, height: r.height }; };
+  const box = selector => { const element = $(selector); if (!element) return null; const r = element.getBoundingClientRect(); return r.width || r.height ? { left: r.left, right: r.right, top: r.top, bottom: r.bottom, width: r.width, height: r.height } : null; };
   const intersects = (a, b) => a && b && a.left < b.right - tolerance && b.left < a.right - tolerance && a.top < b.bottom - tolerance && b.top < a.bottom - tolerance;
   const inside = (inner, outer, slack = tolerance) => inner && outer && inner.left >= outer.left - slack && inner.right <= outer.right + slack && inner.top >= outer.top - slack && inner.bottom <= outer.bottom + slack;
   const viewport = { left: 0, top: 0, right: innerWidth, bottom: innerHeight };
-  const regions = { catalog: box(".command-agent-catalog"), center: box(".center-stack"), dial: box(".command-instrument__dial"), right: box(".right-stack"), chat: box(".command-console"), composer: box("#olympus-console-input"), send: box('[aria-label="Send command"]'), rail: box(".tools-rail") };
+  const regions = { armory: box(".olympus-armory"), center: box(".center-stack"), chat: box(".command-console"), composer: box("#olympus-console-input"), send: box('[aria-label="Send command"]') };
 
   if (document.documentElement.scrollWidth > innerWidth + 1) fail("no-horizontal-overflow", `scrollWidth ${document.documentElement.scrollWidth} > ${innerWidth}`);
   if (innerHeight >= 760 && document.documentElement.scrollHeight > innerHeight + 1) fail("no-page-scroll", `scrollHeight ${document.documentElement.scrollHeight} > ${innerHeight}`);
   for (const [name, rect] of Object.entries(regions)) if (!rect) fail(`region-present:${name}`, "missing");
-  if (regions.catalog && regions.dial && regions.catalog.right > regions.dial.left + tolerance) fail("catalog-left-of-core", `catalog.right ${regions.catalog.right.toFixed(0)} > core.left ${regions.dial.left.toFixed(0)}`);
-  if (regions.dial && regions.chat && regions.dial.right > regions.chat.left + tolerance) fail("chat-right-of-core", `core.right ${regions.dial.right.toFixed(0)} > chat.left ${regions.chat.left.toFixed(0)}`);
-  if (intersects(regions.chat, regions.dial)) fail("chat-not-over-core", "chat overlaps the instrument");
-  if (intersects(regions.chat, regions.catalog)) fail("chat-not-over-catalog", "chat overlaps the Agent Catalog");
-  if (regions.chat && regions.right && !inside(regions.chat, regions.right, 2)) fail("chat-in-column", "chat escapes its column");
-  if (regions.dial && !inside(regions.dial, viewport, 2)) fail("core-in-viewport", "instrument is clipped by the viewport");
-  if (regions.composer && (!inside(regions.composer, viewport) || (regions.chat && !inside(regions.composer, regions.chat, 2)))) fail("composer-visible", "composer is outside the viewport or chat");
+  if (!$(".command-instrument[data-flagship]")) fail("shipped-composition", "the Command instrument is not the flagship composition");
+  if ($(".command-agent-catalog")) fail("shipped-composition", "the retired Agent Catalog is mounted");
+  if (regions.armory && regions.center && regions.armory.right > regions.center.left + tolerance) fail("armory-left-of-pantheon", `armory.right ${regions.armory.right.toFixed(0)} > centre.left ${regions.center.left.toFixed(0)}`);
+  if (innerWidth >= 1280 && regions.center && regions.chat && regions.center.right > regions.chat.left + tolerance) fail("console-right-of-pantheon", `centre.right ${regions.center.right.toFixed(0)} > console.left ${regions.chat.left.toFixed(0)}`);
+  if (intersects(regions.chat, regions.armory)) fail("console-not-over-armory", "the console overlaps the Armory");
+  if (regions.composer && (!inside(regions.composer, viewport) || (regions.chat && !inside(regions.composer, regions.chat, 2)))) fail("composer-visible", "composer is outside the viewport or console");
   if (regions.send && !inside(regions.send, viewport)) fail("send-visible", "send control is outside the viewport");
-  const gap = (a, b) => b.left - a.right;
-  if (regions.catalog && regions.center && gap(regions.catalog, regions.center) < 8) fail("region-spacing", `catalog → core gap ${gap(regions.catalog, regions.center).toFixed(0)}px`);
-  if (regions.center && regions.right && gap(regions.center, regions.right) < 8) fail("region-spacing", `core → chat gap ${gap(regions.center, regions.right).toFixed(0)}px`);
-  if (regions.dial && regions.dial.width < 340) fail("core-not-squeezed", `instrument ${regions.dial.width.toFixed(0)}px wide`);
-  if (regions.catalog && regions.chat && Math.abs(regions.catalog.top - regions.chat.top) > 24 && document.querySelector('.command-console[data-layout="expanded"]')) note("panel-alignment", `catalog top ${regions.catalog.top.toFixed(0)} vs chat top ${regions.chat.top.toFixed(0)}`);
-
-  // Capability glyphs and labels: inside the instrument, not on top of each other.
-  const nodes = [...document.querySelectorAll(".capability-node")];
-  const labels = nodes.map(node => ({ id: node.getAttribute("data-capability"), rect: node.querySelector(".capability-node__label")?.getBoundingClientRect() })).filter(entry => entry.rect);
-  for (const node of nodes) { const r = node.querySelector(".capability-node__glyph")?.getBoundingClientRect(); if (r && regions.dial && !inside(r, regions.dial, 2)) fail("capability-inside-core", `${node.getAttribute("data-capability")} outside the instrument`); }
-  for (let i = 0; i < labels.length; i++) for (let j = i + 1; j < labels.length; j++) if (intersects(labels[i].rect, labels[j].rect)) fail("capability-labels-separate", `${labels[i].id} overlaps ${labels[j].id}`);
-  if (regions.dial) { const cx = (regions.dial.left + regions.dial.right) / 2, cy = (regions.dial.top + regions.dial.bottom) / 2, clear = regions.dial.width * 70 / 440;
-    for (const label of labels) { const lx = (label.rect.left + label.rect.right) / 2, ly = (label.rect.top + label.rect.bottom) / 2; if (Math.hypot(lx - cx, ly - cy) < clear) note("label-near-core", `${label.id} label within the Ω clearance`); } }
+  if (regions.center && regions.center.width < 480) fail("pantheon-not-squeezed", `centre ${regions.center.width.toFixed(0)}px wide`);
+  if (regions.armory && regions.chat && Math.abs(regions.armory.top - regions.chat.top) > 24 && $('.command-console[data-layout="expanded"]')) note("panel-alignment", `armory top ${regions.armory.top.toFixed(0)} vs console top ${regions.chat.top.toFixed(0)}`);
 
   // Text: clipped without an ellipsis is a defect; an ellipsis is intentional clamping, noted.
   const hiddenByDesign = element => {
     for (let node = element; node && node !== document.body; node = node.parentElement) {
-      const own = getComputedStyle(node), box = node.getBoundingClientRect();
-      if (own.clipPath !== "none" || own.clip !== "auto" && own.position === "absolute" || box.width <= 1 && box.height <= 1 || Number(own.opacity) === 0) return true;
+      const own = getComputedStyle(node), rect = node.getBoundingClientRect();
+      if (own.clipPath !== "none" || own.clip !== "auto" && own.position === "absolute" || rect.width <= 1 && rect.height <= 1 || Number(own.opacity) === 0) return true;
     }
     return false;
   };
-  const textSelectors = ".command-agent-catalog, .command-console, .command-instrument__status, .command-instrument__preview, .mission-view, .capability-detail";
   let clamped = 0;
-  for (const element of document.querySelectorAll(`:is(${textSelectors}) :is(h2,h3,h4,p,span,strong,small,dd,dt,li,button,label,time)`)) {
+  for (const element of document.querySelectorAll(":is(.olympus-armory, .command-console, .armory-dialog, .pantheon-voice) :is(h2,h3,h4,p,span,strong,small,dd,dt,li,button,label,time)")) {
     if (!element.textContent?.trim() || element.children.length > 3) continue;
     const style = getComputedStyle(element);
     if (style.display === "none" || style.visibility === "hidden" || element.closest("[hidden], details:not([open]) > :not(summary)")) continue;
-    // Hidden by design: screen-reader-only text and controls revealed on hover clip themselves.
     if (hiddenByDesign(element)) continue;
     const rect = element.getBoundingClientRect(); if (!rect.width || !rect.height) continue;
     const horizontal = element.scrollWidth > element.clientWidth + 1 && style.overflowX !== "visible";
@@ -143,35 +148,87 @@ function inspectPage({ scenario, tolerance }) {
     const text = element.textContent.trim().slice(0, 60);
     if (horizontal && !clamp) fail("text-not-clipped", `"${text}" is clipped (${element.className || element.tagName})`);
     else if (horizontal && clamp) clamped++;
-    const scroller = element.closest(".console-viewport, .agent-catalog-list, .agent-selected-detail, .mission-view, .console-idle");
+    const scroller = element.closest(".console-viewport, .console-idle, .active-mission-list, .armory-dialog, .armory-agent-list");
     if (!scroller && !inside(rect, viewport, 1)) fail("text-in-viewport", `"${text}" is outside the viewport`);
-    // A scroller at rest shows its start: text cut off above it can never be scrolled to.
-    if (scroller && scroller.scrollTop === 0) { const box = scroller.getBoundingClientRect(); if (rect.top < box.top - 1 && rect.bottom > box.top) fail("text-reachable", `"${text}" is cut off above its scroll container`); }
+    if (scroller && scroller.scrollTop === 0) { const sbox = scroller.getBoundingClientRect(); if (rect.top < sbox.top - 1 && rect.bottom > sbox.top) fail("text-reachable", `"${text}" is cut off above its scroll container`); }
   }
   if (clamped) note("intentional-ellipsis", `${clamped} element(s) clamp with an ellipsis`);
 
   // Scenario truth: the state on screen is the state asked for.
-  const nodeIds = nodes.map(node => node.getAttribute("data-capability")).sort().join(",");
   const expect = (condition, id, detail) => { if (!condition) fail(`scenario:${id}`, detail); };
-  const mission = $(".mission-view");
-  if (["idle", "agent-olympus", "chat-compact", "reduced-motion"].includes(scenario)) expect(!nodes.length && !mission, "quiet-idle", `idle shows ${nodes.length} capability nodes and ${mission ? "a" : "no"} mission`);
-  if (scenario === "agent-research") expect(nodeIds === "evidence-synthesis,model-primary,pantheon,research-retrieval", "research-lens", nodeIds);
-  if (scenario === "agent-verification") expect(nodeIds === "claim-verification,model-primary,pantheon", "verification-lens", nodeIds);
-  if (scenario === "agent-coding") expect(nodeIds === "claude-code,git" && $('.capability-node[data-capability="claude-code"]')?.getAttribute("data-state") === "unavailable", "coding-lens", nodeIds);
-  if (scenario === "domain-communications") expect(nodes.length === 5, "domain-reveal", nodeIds);
-  if (scenario === "capability-detail") expect($(".capability-detail")?.textContent?.includes("Claim Verification"), "detail", "capability detail missing");
+  const canvas = $(".hybrid-core canvas");
+  const planets = canvas?.dataset.missionPlanets;
+  const brief = $(".command-console")?.innerText ?? "";
+  const expectPlanets = { "idle": "0", "missions": "2", "mission-active": "1", "mission-complete": "0", "reduced-motion": "0" }[scenario];
+  if (expectPlanets !== undefined && canvas) expect(planets === expectPlanets, "mission-planets", `expected ${expectPlanets} mission planets, saw ${planets}`);
+  if (["idle", "mission-complete", "reduced-motion"].includes(scenario)) expect(brief.includes("No active missions reported."), "quiet-brief", "Mission brief does not report an idle state");
+  if (scenario === "missions") expect(brief.includes("2 active missions. 1 awaiting approval."), "missions-brief", "Mission brief does not report two missions with one awaiting approval");
+  if (scenario === "mission-active") expect(brief.includes("1 active mission."), "mission-brief", "Mission brief does not report one active mission");
+  if (scenario === "conversation") expect($('.command-console .console-viewport') && document.querySelectorAll(".command-console .conversation-bubble").length > 0, "conversation", "Conversation tab shows no messages");
   if (scenario === "chat-compact") expect($('.command-console[data-layout="compact"][data-mode="dormant"]'), "compact", "console is not compact and dormant");
-  if (scenario === "chat-expanded") expect($('.command-console[data-layout="expanded"] .console-viewport') && !$(".console-idle"), "expanded", "expanded conversation not shown");
-  if (scenario.startsWith("mission-active") || scenario === "mission-research") {
-    expect(mission?.getAttribute("data-status") === "running", "mission-running", "no running mission view");
-    expect($('.mission-view__steps li[data-state="active"]'), "active-step", "no active step");
-    expect($('.agent-role-row[data-working="active"]'), "agent-working", "no working agent highlighted");
-    expect($('.capability-ring__segment[data-state="active"]'), "domain-active", "no active domain on the ring");
-    expect(nodes.some(node => node.getAttribute("data-state") === "active"), "capability-active", "no active capability revealed");
-  }
-  if (scenario === "mission-research") expect([...document.querySelectorAll('.agent-role-row[data-working="active"]')].some(row => row.textContent?.includes("Verification")), "verification-working", "Verification Agent is not among the working agents");
-  if (scenario === "mission-complete") expect(mission?.getAttribute("data-status") === "completed" && !$('.mission-view__steps li[data-state="active"]') && !nodes.some(node => node.getAttribute("data-state") === "active"), "mission-complete", "completed mission still shows activity");
-  return { failures, notes, regions, renderer: document.documentElement.dataset.visualRenderer, nodes: nodeIds };
+  if (scenario === "armory-agents") expect([...document.querySelectorAll('[role="dialog"]')].some(d => d.textContent?.includes("Scoped Pantheon Research excerpts only")), "armory-loadout", "Athena's loadout does not show its real scope");
+  if (scenario === "voice-speaking") { const wave = [...document.querySelectorAll(".pantheon-voice__wave span")].map(n => n.getBoundingClientRect().height); expect(wave.length && Math.max(...wave) > 10, "voice-wave", `voice wave peak ${Math.max(0, ...wave)}px`); }
+  return { failures, notes, regions, renderer: document.documentElement.dataset.visualRenderer ?? canvas?.dataset.engine ?? "none", planets };
+}
+
+/**
+ * Interaction checks on the shipped composition: the real App in browser mode
+ * and the harness. They replace the retired Agent Catalog checks.
+ */
+async function functionalChecks(browser, base) {
+  const checks = [], errors = [];
+  const check = (condition, label) => { if (!condition) throw Error(label); checks.push(label); };
+  const page = await (await browser.newContext({ viewport: { width: VIEWPORTS.primary[0], height: VIEWPORTS.primary[1] } })).newPage();
+  page.on("pageerror", error => errors.push(error.message));
+  try {
+    await page.goto(base + "/");
+    await page.getByRole("button", { name: "Command", exact: true }).click();
+    await page.waitForSelector('[data-flagship][data-scene-ready="true"]', { timeout: 90_000 });
+    check(await page.locator(".command-agent-catalog").count() === 0, "The App mounts no Agent Catalog");
+    const agents = page.getByRole("button", { name: /^Agents\s*\d+$/ }).first();
+    await agents.click();
+    const dialog = page.getByRole("dialog", { name: "Olympus Armory" });
+    await dialog.waitFor();
+    await dialog.getByRole("button", { name: /Athena Research/ }).click();
+    check(await dialog.getByText("Scoped Pantheon Research excerpts only", { exact: true }).isVisible(), "Athena's loadout shows its real scope");
+    await dialog.getByRole("button", { name: "Pantheon library Available", exact: true }).click();
+    check(await dialog.getByLabel("Capability detail", { exact: true }).isVisible(), "A capability contract opens for inspection");
+    await page.keyboard.press("Escape");
+    check(await dialog.count() === 0, "Escape closes the Armory");
+    check(await agents.evaluate(element => element === document.activeElement), "The Armory returns keyboard focus to its trigger");
+    for (const [name, mode] of [["Project", "project"], ["Research", "research"], ["Communications", "communications"]]) {
+      await page.getByRole("button", { name, exact: true }).click();
+      await page.locator(`.mode-${mode}`).waitFor();
+      check(true, `${name} opens its destination`);
+      await page.getByRole("button", { name: "Command", exact: true }).click();
+    }
+    await page.getByRole("button", { name: "Open preferences", exact: true }).first().click();
+    await page.getByRole("dialog").first().waitFor();
+    check(true, "Preferences opens from the console");
+    await page.keyboard.press("Escape");
+
+    await page.goto(`${base}${HARNESS}?flagship&scenario=idle`);
+    await page.waitForSelector('html[data-visual-ready="idle"]', { timeout: 90_000 });
+    const canvas = page.locator(".hybrid-core canvas");
+    check(await canvas.getAttribute("data-projection") === "PerspectiveCamera", "The Pantheon renders with a perspective camera");
+    const start = Number(await canvas.getAttribute("data-galaxy-time"));
+    await page.waitForTimeout(2500);
+    check(Number(await canvas.getAttribute("data-galaxy-time")) > start, "The galaxy advances with animation frames");
+
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.goto(`${base}${HARNESS}?flagship&scenario=reduced-motion`);
+    await page.waitForSelector('html[data-visual-ready="reduced-motion"]', { timeout: 90_000 });
+    const frozen = await canvas.getAttribute("data-galaxy-time");
+    await page.waitForTimeout(1400);
+    check(frozen === await canvas.getAttribute("data-galaxy-time"), "Reduced motion freezes the galaxy");
+    await page.evaluate(() => document.querySelector(".hybrid-core canvas")?.dispatchEvent(new Event("webglcontextlost", { cancelable: true })));
+    await page.getByText("3D view unavailable", { exact: false }).waitFor();
+    check(await page.getByRole("group", { name: "Dashboard mode" }).getByRole("button").count() === 4, "Header navigation survives a lost graphics context");
+    check(errors.length === 0, `No page errors${errors.length ? `: ${errors[0]}` : ""}`);
+    return { passed: checks.length, failed: false, text: checks.map(c => `PASS ${c}`).join("\n") };
+  } catch (error) {
+    return { passed: checks.length, failed: true, text: [...checks.map(c => `PASS ${c}`), `FAIL ${error.message}`].join("\n") };
+  } finally { await page.context().close(); }
 }
 
 async function main() {
@@ -192,8 +249,17 @@ async function main() {
       const name = `${scenario}@${width}x${height}`;
       const started = Date.now();
       try {
-        await page.goto(`${preview.base}${HARNESS}?scenario=${scenario}`, {timeout:90000});
-        await page.waitForSelector(`html[data-visual-ready="${scenario}"]`, { timeout: 90_000 });
+        const setup = SCENARIO_SETUP[scenario];
+        if (setup.app) {
+          await page.goto(`${preview.base}/`, { timeout: 90_000 });
+          await page.getByRole("button", { name: "Command", exact: true }).click();
+          await page.waitForSelector('[data-flagship][data-scene-ready="true"]', { timeout: 90_000 });
+          await page.evaluate(() => document.fonts.ready); await page.waitForTimeout(700);
+        } else {
+          await page.goto(`${preview.base}${HARNESS}?flagship&scenario=${setup.state}${setup.query ?? ""}`, { timeout: 90_000 });
+          await page.waitForSelector(`html[data-visual-ready="${setup.state}"]`, { timeout: 90_000 });
+          if (setup.after) await setup.after(page);
+        }
         const inspection = await page.evaluate(inspectPage, { scenario, tolerance: 1 });
         if(inspection.failures.length||errors.length)console.error(inspection.failures,errors);
         for (const error of errors) inspection.failures.push({ id: "console-error", detail: error.slice(0, 300) });
@@ -207,12 +273,8 @@ async function main() {
       process.stdout.write(`${results.at(-1).failures.length ? "FAIL" : "ok  "} ${name} (${results.at(-1).ms} ms)\n`);
     }
     if (!flag("no-checks")) {
-      const page = await (await browser.newContext({ viewport: { width: VIEWPORTS.primary[0], height: VIEWPORTS.primary[1] } })).newPage();
-      await page.goto(`${preview.base}${HARNESS}?check`);
-      await page.waitForFunction(() => /checks passed|FAIL/.test(document.querySelector("#result")?.textContent ?? ""), null, { timeout: 180_000 }).catch(() => {});
-      const text = await page.evaluate(() => document.querySelector("#result")?.textContent ?? "no result");
-      functional = { passed: (text.match(/^PASS /gm) ?? []).length, failed: /FAIL/.test(text), text };
-      process.stdout.write(`${functional.failed ? "FAIL" : "ok  "} functional checks: ${functional.passed} passed\n`);
+      functional = await functionalChecks(browser, preview.base);
+      process.stdout.write(`${functional.failed ? "FAIL" : "ok  "} functional checks: ${functional.passed} passed${functional.failed ? `, then ${functional.text.split("\n").at(-1)}` : ""}\n`);
     }
     if (!flag("no-checks")) await checkOrganizer(browser,preview.base,join(OUTPUT,"organizer"));
   } finally { await browser.close(); preview.stop(); }

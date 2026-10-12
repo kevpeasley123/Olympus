@@ -18,8 +18,7 @@ function Fixture() {
   }, []);
   return <><pre id="results" style={{ position: "fixed", left: 30, top: 30, maxWidth: 700, whiteSpace: "pre-wrap", color: "white" }}>Waiting…</pre>
     <div style={{ position: "fixed", right: 24, bottom: 40, width: 380, height: "calc(100vh - 160px)", display: "flex", alignItems: "flex-end" }}>
-      <ChatPanel messages={messages} pending={pending} onSendMessage={text => { setMessages(m => [...m, { id: "fixture-command", role: "user", content: text, timestamp: "12:01" }]); begin(); }}
-        onRecordObservation={async () => ({ tone: "success", message: "Fixture only" })} />
+      <ChatPanel messages={messages} pending={pending} onSendMessage={text => { setMessages(m => [...m, { id: "fixture-command", role: "user", content: text, timestamp: "12:01" }]); begin(); }} />
     </div></>;
 }
 createRoot(document.getElementById("root")!).render(<Fixture />);

@@ -47,11 +47,6 @@ export function importedTimeLabel(
   return `Imported ${formatWhen(message.importedAt, { now })} · ${original}`;
 }
 
-/** When the message happened: its ISO `at`, when it has one. */
-export function messageDate(message: Pick<ConversationMessage, "at">): Date | null {
-  return toDate(message.at);
-}
-
 /**
  * The day heading to draw above each message, or null. A heading opens the
  * first dated message and every change of calendar day after it; undated

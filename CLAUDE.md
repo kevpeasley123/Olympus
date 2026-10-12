@@ -81,7 +81,7 @@ Ten folders at `C:\Users\kevpe\OneDrive\Desktop\Projects\Obsidian vaults\Olympus
 04 - Decisions   09 - System
 ```
 
-`write_memory_artifact` (in `lib.rs`) regenerates the two derived dashboard artifacts, named by an enum so Rust chooses the path, through the write gate. PowerShell scripts in `scripts/` scaffold and repair the structure.
+Every app write to the vault goes through the write gate and gets its own vault Git commit (see `ARCHITECTURE.md`, "Vault writes"). PowerShell scripts in `scripts/` scaffold and repair the structure.
 
 ## Where state lives
 

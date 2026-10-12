@@ -36,7 +36,6 @@ html .console-status[data-status="audio-unavailable"] { color: #d9bf9c; }
 /* The status keeps its words at console widths: the model prefix and the
    reply-mode icons give way first. */
 @container (max-width: 480px) {
-  html .model-route-prefix { display: none; }
   html .console-reply-mode button svg { display: none; }
 }
 /* At 1280 the console column is ~335px inside: tighten spacing, not type, so
@@ -57,8 +56,7 @@ html .command-console .conversation-bubble .console-message-label { font-size: v
 html .console-history-controls button,
 html .console-load-history,
 html .console-latest,
-html .console-expand-response,
-html .console-response-details > summary { font-size: var(--text-xs); }
+html .console-expand-response { font-size: var(--text-xs); }
 html .console-turn-state { font-size: var(--text-xs); letter-spacing: .02em; }
 @media (min-width: 1800px) {
   html .console-status { font-size: clamp(11px, .62vw, 14px); }
@@ -116,7 +114,6 @@ html .command-console .conversation-bubble[data-kind="briefing"] .console-messag
 .conversation-bubble[data-kind="briefing"] .console-briefing-label { flex-basis: 100%; }
 
 html .command-console .conversation-bubble small { color: #8d9db2; font-size: var(--text-xs); }
-html .message-model { color: #9fb0c3; font-size: var(--text-xs); }
 html .console-audio-footer { gap: 10px; }
 .console-replay {
   display: inline-flex;
@@ -191,26 +188,6 @@ html .command-console .conversation-bubble-footer { justify-content: flex-start;
 
 /* ---- Instrument ---------------------------------------------------------- */
 html .command-instrument__status { font-size: var(--text-sm); color: #a8b6c8; opacity: .9; }
-.command-instrument__scan {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 10px;
-  max-width: min(640px, 90%);
-  margin: 0;
-  color: #b8c4d3;
-  font: var(--text-sm) var(--font-mono);
-}
-.command-instrument__scan > span:first-child { flex: 0 0 auto; white-space: nowrap; }
-.command-instrument__scan[data-scan="failed"] > span:first-child { color: #e6b48c; }
-.command-instrument__scan-detail {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: var(--muted);
-  font-size: var(--text-xs);
-}
 html .hybrid-status {
   display: flex;
   flex-wrap: wrap;

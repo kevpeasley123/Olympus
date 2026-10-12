@@ -123,7 +123,6 @@ export function buildCommandMaterialStudy(scene:T.Scene,renderer:T.WebGLRenderer
   environment.dispose();pmrem.dispose();
   const engraving=engravedTexture(Boolean(layout.flagship)), contour=contourTexture();
   const frameMetal=new T.MeshPhysicalMaterial({color:0x1c303f,metalness:.85,roughness:.25,envMapIntensity:.55,clearcoat:.4});
-  const dark=new T.MeshStandardMaterial({color:0x070d15,metalness:.7,roughness:.42});
   const lines=new T.LineBasicMaterial({color:0x547891,transparent:true,opacity:MATERIAL_TUNING.structureSecondary});
   const warmLines=new T.LineBasicMaterial({color:layout.orbitalCards?0xffd19a:0xffa13d,transparent:true,opacity:.8,toneMapped:false});
   const group=new T.Group();group.name="Command material study";scene.add(group);

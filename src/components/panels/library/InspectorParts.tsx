@@ -28,7 +28,7 @@ export function isFlowNodeList(value: unknown): value is FlowNode[] {
 }
 
 /** Saved steps in order, each with its last recorded event. No event reads as such, never as success. */
-export function FlowStructure({ nodes, events, caption }: { nodes: FlowNode[]; events: FlowEvent[]; caption?: string }) {
+export function FlowStructure({ nodes, events }: { nodes: FlowNode[]; events: FlowEvent[] }) {
   const last = new Map<string, FlowEvent>();
   events.forEach((event) => last.set(event.node, event));
   return (
@@ -45,7 +45,7 @@ export function FlowStructure({ nodes, events, caption }: { nodes: FlowNode[]; e
           );
         })}
       </ol>
-      <figcaption>{caption ?? "Saved dependencies in order, with the last event recorded for each step."}</figcaption>
+      <figcaption>Saved dependencies in order, with the last event recorded for each step.</figcaption>
     </figure>
   );
 }

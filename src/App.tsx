@@ -63,9 +63,6 @@ function App() {
     chatCapability,
     sendChatMessage,
     updateVoiceMessage,
-    recordObservation,
-    syncResearchBase,
-    syncProjectsCanvas,
     refreshAll,
     projectScan,
     rescanProjects,
@@ -137,7 +134,7 @@ function App() {
   // Command's inspection state. Separate from conversation state by design:
   // selecting a lens, domain or capability never touches chat or drafts.
   const commandView = useCommandView(armory.capabilities, armory.missions);
-  const { mission, focus } = commandView;
+  const { mission } = commandView;
   const openMission = useCallback((destination: Mission["destination"]) => {
     setMode(destination === "research" ? "research" : destination === "communications" ? "communications" : "project");
   }, []);
@@ -292,7 +289,7 @@ function App() {
             {command ? null : mode === "communications" ? <ErrorBoundary label="Communications view"><Communications onSettings={()=>setPreferencesOpen(true)} /></ErrorBoundary> : research ? (
               <FadeInPanel index={1} className="panel-slot panel-slot-library-resident">
                 <ErrorBoundary label="Research view">
-                  <LibraryPanel onViewDatabase={syncResearchBase} resident inspectionTarget={researchInspection}
+                  <LibraryPanel inspectionTarget={researchInspection}
                     onReturnToCommand={()=>{setResearchInspection(null);setMode("command")}} projects={projects}/>
                 </ErrorBoundary>
               </FadeInPanel>
@@ -304,7 +301,6 @@ function App() {
                       requestedStatus={voiceFilter}
                       projects={projects}
                       sessionBoundary={sessionBoundary}
-                      onSyncCanvas={syncProjectsCanvas}
                       noteWarnings={projectNoteWarnings}
                       focusMode={dense}
                       projectFilter={projectFilter}
@@ -340,7 +336,6 @@ function App() {
                   voiceSettingsReady={settingsReady}
                   messages={chat}
                   onSendMessage={(text, attachment) => { voicePreview.stop(); void realtimeVoice.sendText(text,isTauriRuntime(),{attachment,scope:mode === "communications" ? "gmail-workspace" : undefined}); }}
-                  onRecordObservation={recordObservation}
                   pending={chatPending}
                   error={chatError}
               progress={chatProgress} onStop={() => void cancelChat()} inspectionProjects={projects.map(project => project.name)}

@@ -140,31 +140,6 @@ export function analyzeResearchRecord(input: AnalysisInput): Pick<
   };
 }
 
-export function normalizeResearchRecord(record: ResearchRecord): ResearchRecord {
-  const analysis = analyzeResearchRecord({
-    title: record.title,
-    content: record.content,
-    sourceType: record.sourceType,
-    sourceDate: record.sourceDate ?? record.createdAt,
-    createdAt: record.createdAt,
-    summary: record.summary,
-    tags: record.tags
-  });
-
-  return {
-    ...record,
-    sourceDate: record.sourceDate ?? record.createdAt,
-    summary: record.summary || analysis.summary,
-    tags: record.tags?.length ? Array.from(new Set([...record.tags, ...analysis.tags])) : analysis.tags,
-    category: record.category ?? analysis.category,
-    categoryReason: record.categoryReason ?? analysis.categoryReason,
-    themes: record.themes?.length ? record.themes : analysis.themes,
-    wordCount: record.wordCount ?? analysis.wordCount,
-    estReadMinutes: record.estReadMinutes ?? analysis.estReadMinutes,
-    freshness: record.freshness ?? analysis.freshness
-  };
-}
-
 function buildSummary(existingSummary: string | undefined, content: string): string {
   if (existingSummary?.trim()) {
     return existingSummary.trim();

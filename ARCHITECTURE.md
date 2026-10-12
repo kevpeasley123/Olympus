@@ -63,7 +63,7 @@ Tauri commands exposed by the desktop shell — every entry in the `generate_han
 | Voice | `create_voice_session`, `record_voice_request`, `voice_usage`, `elevenlabs_status`, `elevenlabs_connect`, `elevenlabs_disconnect`, `elevenlabs_check`, `elevenlabs_synthesize`, `elevenlabs_cancel` |
 | Persistence | `load_persisted_state`, `begin_operator_session`, `save_settings`, `save_tool_states`, `append_conversation_messages`, `clear_conversation` |
 | Memory index | `memory_status`, `memory_preview`, `memory_rebuild`, `memory_request_evidence` |
-| Vault | `write_memory_artifact`, `fetch_pantheon_entries`, `write_pantheon_entry`, `migrate_pantheon_schema`, `save_attachment_to_vault`, `fetch_operator_profile`, `fetch_recent_vault_writes`, `fetch_vault_graph`, `open_vault_note` |
+| Vault | `fetch_pantheon_entries`, `write_pantheon_entry`, `migrate_pantheon_schema`, `save_attachment_to_vault`, `fetch_operator_profile`, `fetch_recent_vault_writes`, `fetch_vault_graph`, `open_vault_note` |
 | Write gate | `resolve_vault_write` |
 | Projects | `scan_tracked_projects`, `fetch_action_queue`, `project_members`, `link_project`, `set_project_visibility`, `save_project_intake`, `pick_project_folder`, `inspect_project`, `confirm_project_brief` |
 | Organizer | `create_organizer_task`, `update_organizer_task`, `list_organizer_tasks`, `fetch_organizer_task`, `set_organizer_intent`, `move_organizer_task`, `prepare_organizer_delegation`, `accept_organizer_result`, `finish_organizer_task`, `acknowledge_organizer_event`, `organizer_overview` |
@@ -84,7 +84,7 @@ Read-only additions to existing command results (2026-09-28, design review): `lo
 
 2026-09-29: `append_conversation_messages` takes an optional `imported` flag, set only by the one-time `localStorage` import; the rows it inserts are recorded in the additive `conversation_imports` table in the same transaction, and `load_persisted_state` returns `importedAt` instead of `at` for them.
 
-`pick_attachment_file` keeps the chosen path in Rust and returns a one-use token; `extract_pdf_text` and `save_attachment_to_vault` accept only that token. `write_memory_artifact` takes an artifact kind (the research `.base` or the projects `.canvas`), and Rust chooses the path.
+`pick_attachment_file` keeps the chosen path in Rust and returns a one-use token; `extract_pdf_text` and `save_attachment_to_vault` accept only that token.
 
 The SQLite connection is opened once during `setup()` and held in managed state, so the frontend can assume persistence is ready before it can invoke anything.
 
@@ -92,22 +92,22 @@ The webview renders untrusted text (research notes, email, repository output), s
 
 ## Vault writes
 
-Five commands write to the vault. All of them resolve the vault root in Rust via `commands::get_vault_path()`; **no caller supplies a path** (this was unified in `62c957e` — `write_memory_artifact` previously took the root from the frontend).
+Four commands write to the vault. All of them resolve the vault root in Rust via `commands::get_vault_path()`; **no caller supplies a path** (unified in `62c957e`).
 
 | Command | Operation | Target | Declared intent | Asks first? |
 | --- | --- | --- | --- | --- |
 | `write_pantheon_entry` | create | `02 - Research/<date> <title>.md` | `CreateUnique` | No — `create_unique` (`pantheon.rs`) claims a free suffixed name with `create_new`, so nothing is destroyed |
 | `save_attachment_to_vault` | create | `02 - Research/_attachments/<file>` | `CreateUnique` | No — `copy_to_unique` (`attachments.rs`) claims a free suffixed name with `create_new`; the source is a file the operator picked, named to the webview only by a one-use token |
-| `write_memory_artifact` | **overwrite** | `00 - Dashboard/Olympus Research.base`, `Olympus Projects.canvas` | `RegenerateDerived` | Only when the file diverged from what Olympus last wrote, or was never fingerprinted |
 | `migrate_pantheon_schema` | **modify** | frontmatter of `02 - Research/*.md` entries | `ModifyAuthored` | **Always**, one confirmation per file with a diff summary |
 | `confirm_project_brief` | **create or modify** | the linked project's note, default `01 - Projects/Linked <id>.md` | `ModifyAuthored` | **Always**, with the diff and the complete purpose and constraints |
 
 No command deletes or renames a note the operator can see.
 
-`write_memory_artifact` has no entry point in the app: Update Canvas went with
-Sources & project tools in `df3db81`, and View Database is in the Library strip
-that `LibraryPanel` renders only when not `resident`, while `App.tsx` mounts it
-only as `resident`.
+The dashboard exports (the Projects canvas and the Research base in
+`00 - Dashboard`) and their command, `write_memory_artifact`, were removed on
+2026-10-12 at Kevin's direction; their buttons had already gone. Files they wrote
+earlier stay in the vault untouched. The `RegenerateDerived` intent and its
+fingerprint rule remain in the gate, tested, with no current caller.
 
 Chat no longer writes to the vault. Kevin removed the Save memory and
 Observation buttons on 2026-10-11 (`74fd5de`, `a155cd5`) and their backend
@@ -126,7 +126,7 @@ Every vault write goes through `commands::vault_write`, which does two separate 
 
 When a write needs a human, `write_confirm::request_confirmation` emits `vault-write-pending` to the webview and blocks on the answer. Timeout (120s), a dropped channel, and an emit failure all **deny**. The operator's answer returns through `resolve_vault_write`. `WriteConfirmDialog.tsx` renders it; declining is the default on Escape, the backdrop, and the focused button, and the dialog's wording comes from the intent-derived `operation` field so an append is never described as an overwrite. Concurrent requests queue by ID rather than replacing each other on screen. `resolve_vault_write` returns whether the answer reached a live request, and the dialog reports an approval that arrived after the timeout as nothing written instead of as a write.
 
-Fingerprints of app-authored files live in the SQLite `artifact_hashes` table, normalised for line endings and trailing whitespace before hashing — the vault syncs through OneDrive and is opened by Obsidian, and neither round-trip is a human edit. A file whose fingerprint still matches is regenerated silently; one that diverged, or was never recorded, prompts. **Absent must mean confirm** — treating a missing row as clean would make the check bypassable by deleting it.
+Fingerprints of app-authored derived files live in the SQLite `artifact_hashes` table (no writer uses it since the dashboard exports went), normalised for line endings and trailing whitespace before hashing — the vault syncs through OneDrive and is opened by Obsidian, and neither round-trip is a human edit. A file whose fingerprint still matches is regenerated silently; one that diverged, or was never recorded, prompts. **Absent must mean confirm** — treating a missing row as clean would make the check bypassable by deleting it.
 
 After a successful approved write, `vault_git::commit_vault_file` commits only
 that vault-relative path. It uses a temporary Git index seeded from `HEAD`,
@@ -275,7 +275,7 @@ are in-process libraries. Test-only spawns (`mklink` in `vault_write.rs`,
 
 Dashboard panels compose from `src/App.tsx`. Live data sources:
 
-- **Pantheon** — walks `02 - Research/` and parses each note's YAML frontmatter; entries require an `olympus/research` tag. It does not read `Olympus Research.base`, which is a generated output rather than an input
+- **Pantheon** — walks `02 - Research/` and parses each note's YAML frontmatter; entries require an `olympus/research` tag. It does not read `Olympus Research.base`, an older generated output
 - **Projects / Git** — local repository inspection via Tauri commands. Project
   notes contribute operator-owned status, current vision, vision review date,
   and committed next action; Git contributes branch, commit, and working-tree

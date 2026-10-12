@@ -26,7 +26,6 @@ export function consumeNextModel(){
  return value;
 }
 export function useModelSelection(){return useSyncExternalStore(listener=>{listeners.add(listener);return ()=>{listeners.delete(listener);};},()=>selection);}
-export function useNextModel(){return useModelSelection().capability;}
 export async function loadModelCatalog():Promise<ModelCatalog>{
  if(loading)return loading;
  loading=(async()=>{

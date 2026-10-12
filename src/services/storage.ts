@@ -1,15 +1,9 @@
-import {resetModelSelection} from "./modelRouting";
+
 import { normalizeVoicePreferences, readVoicePreferences } from "./voicePreferences";
 import { invoke } from "@tauri-apps/api/core";
 import { desktopInitialState, isSeedMessage, seedState } from "../data/seed";
 import { isTauriRuntime } from "./launcher";
-import type {
-  ConversationMessage,
-  OlympusState,
-  ProjectStatus,
-  ToolDefinition,
-  TrackedProject
-} from "../types";
+import type { ConversationMessage, OlympusState, ProjectStatus, TrackedProject } from "../types";
 
 const STORAGE_KEY = "olympus:v8";
 const LEGACY_KEYS = [
@@ -108,35 +102,6 @@ export async function appendConversationMessages(
     console.warn("[Olympus] Could not append conversation history.", error);
     return false;
   }
-}
-
-export async function resetState(): Promise<OlympusState> {
-  clearLegacyState();
-  window.localStorage.removeItem(STORAGE_KEY);
-
-  if (isTauriRuntime()) {
-    try {
-      await invoke("clear_conversation");
-    } catch (error) {
-      console.warn("[Olympus] Could not clear conversation history.", error);
-    }
-  }
-
-  resetModelSelection();
-  const initial = initialDashboardState();
-  await persistPreferences(initial);
-  return initial;
-}
-
-export function updateToolEnabled(
-  state: OlympusState,
-  toolId: ToolDefinition["id"],
-  enabled: boolean
-): OlympusState {
-  return {
-    ...state,
-    tools: state.tools.map((tool) => (tool.id === toolId ? { ...tool, enabled } : tool))
-  };
 }
 
 function applyPersistedState(persisted: PersistedState): OlympusState {

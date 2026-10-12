@@ -253,46 +253,6 @@ fn begin_operator_session_in(db: &Db, raw_session_id: &str) -> Result<SessionBou
     })
 }
 
-/// Fingerprint of a generated artifact as the app last wrote it, if we have one.
-///
-/// Takes `&Db` rather than `State` so the caller controls the lock's scope —
-/// the write gate must release it before awaiting a human, since a MutexGuard
-/// held across an await is not Send.
-pub fn read_artifact_fingerprint(db: &Db, vault_relative_path: &str) -> Result<Option<String>, String> {
-    let connection = db.0.lock().map_err(|error| error.to_string())?;
-
-    connection
-        .query_row(
-            "SELECT content_sha256 FROM artifact_hashes WHERE vault_relative_path = ?1",
-            params![vault_relative_path],
-            |row| row.get::<_, String>(0),
-        )
-        .map(Some)
-        .or_else(|error| match error {
-            rusqlite::Error::QueryReturnedNoRows => Ok(None),
-            other => Err(other.to_string()),
-        })
-}
-
-pub fn store_artifact_fingerprint(
-    db: &Db,
-    vault_relative_path: &str,
-    fingerprint: &str,
-) -> Result<(), String> {
-    let connection = db.0.lock().map_err(|error| error.to_string())?;
-
-    connection
-        .execute(
-            "INSERT INTO artifact_hashes (vault_relative_path, content_sha256, written_at) \
-             VALUES (?1, ?2, CURRENT_TIMESTAMP) \
-             ON CONFLICT(vault_relative_path) DO UPDATE SET \
-             content_sha256 = excluded.content_sha256, written_at = CURRENT_TIMESTAMP",
-            params![vault_relative_path, fingerprint],
-        )
-        .map(|_| ())
-        .map_err(|error| error.to_string())
-}
-
 /// A side row that no longer parses is logged and dropped. Failing the whole
 /// load would hand the webview seed state, and its next preference save would
 /// overwrite the real settings with it.

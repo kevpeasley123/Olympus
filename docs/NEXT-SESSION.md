@@ -9,51 +9,41 @@ file replaced is `docs/archive/NEXT-SESSION-through-2026-10-11.md`.
 
 - **Version 0.30.0** on `master` (`b288ddf`). Kevin confirmed on 2026-10-12
   that it is installed on his PC and in daily use.
-- **In flight:** `claude/modest-mayer-nvawru` — guidance-doc cleanup, the
-  `scripts/test-guidance-docs.mjs` drift check, and removal of proven dead
-  weight. Not merged.
+- **In flight:** `claude/modest-mayer-nvawru`, not merged. It holds:
+  - the guidance cleanup and its drift check;
+  - removal of chat memory writers, dashboard exports and proven dead weight;
+  - the project-brief vault commit;
+  - visual review pointed at the shipped Command.
 - Every remote branch that is ahead of `master` predates the 2026-09-07 history
   restart and shares no history with it; all are superseded.
 
 ## Last verification — 2026-10-12, Linux cloud container
 
-Not the desktop app, WebView2, Tauri IPC or real data.
-
-- `npm run build` passes, with the existing warning that the main chunk exceeds
-  500 kB.
-- `cargo test --lib`: 521 passed, 18 ignored. On Linux this needs
-  `libwebkit2gtk-4.1-dev` and `libgtk-3-dev`.
-- All 44 `scripts/test-*.mjs` pass, but 12 of them only after a workaround (see
-  Known issues).
-- `npm run visual:review`: 21 of 21 captures pass the mechanical checks, but they
-  show the old Command composition (see Known issues).
+Not the desktop app, WebView2, Tauri IPC or real data. Filled in from the
+session's final run; see the branch's last commit message.
 
 ## Decisions waiting on Kevin
 
-1. **Chat memory and dashboard exports.** These features have no button but
-   still work in the backend:
-   - "Save to memory" (append to `04 - Decisions/Decision Log.md`) and the
-     Observation button were removed from chat on 2026-10-11 (`74fd5de`,
-     `a155cd5`).
-   - Update Canvas went in 0.29.0. View Database is unreachable, because
-     `LibraryPanel` only shows it when it is not `resident`.
+1. **Chat memory in Obsidian.** Kevin wants chats stored in the vault and
+   remembered the way ChatGPT and Claude do. Today:
+   - Chat is one continuous SQLite log on the PC.
+   - The model sees only the last 40 messages, plus indexed recall over curated
+     vault notes.
+   - Chats are never written to the vault, and past chats are not searchable.
 
-   Either bring them back or remove the code and its docs. Until Kevin decides,
-   none of it is removed as dead weight.
-2. **Release-line wording.** "Not accepted in the desktop app" confused Kevin,
-   who runs every release. Proposed replacement: record when a version is
-   installed, and list only the paths that have never run against real data.
-3. **Schema migrations.** There is no schema version (see `ARCHITECTURE.md`,
-   "Schema evolution"). Proposed fix:
-   - Track a version with `PRAGMA user_version` and keep an ordered list of
-     migrations, run in one transaction after backing up the database file.
-   - Fold the existing `process_id` check into that list.
-   - Add a test that migrates an old database and requires it to end up
-     identical to a fresh one.
-   - Dropping the unused tables would be the first migration.
-4. **Project brief commit.** `confirm_project_brief` writes through the gate
-   but makes no vault Git commit, unlike every other writer. Proposed: commit
-   it like the others, and add a test.
+   This changes the settled "remembers, selectively" decision in `CLAUDE.md`,
+   so the design needs his choices before building. It also needs the
+   migration runner (item 2) for a conversation id.
+2. **Schema migrations.** Designed in `docs/SCHEMA-MIGRATIONS.md`, deferred by
+   Kevin until it can be done properly.
+3. **Knowledge audit.** A fixed read-only check of research and evidence
+   health. Its screen went in 0.30.0, and nothing can start it now. Kevin's
+   view: it probably needs no screen. Retire it (code, three commands, two
+   tables via a migration) or run it on a schedule later.
+4. **Retired Command composition.** The Agent Catalog, the capability ring and
+   the non-flagship paths in `CommandInstrument` are now reachable only from
+   `command-agent-harness.html` without `?flagship`. Proposed: remove them and
+   their CSS with the same before/after style proof used on 2026-10-12.
 5. **Armory expansion and Monid**, requested 2026-10-07. Not started; no Monid
    code exists. The spending policy is in `OLYMPUS-MANUAL.md`. The earlier
    step-by-step plan is the first section of the archived log.
@@ -64,26 +54,19 @@ Not the desktop app, WebView2, Tauri IPC or real data.
 
 ## Known issues
 
-- **Visual review covers the wrong screen.** `npm run visual:review` drives
-  `command-agent-harness.html` without `?flagship`, so it captures the
-  pre-October-7 Agent Catalog and orbital cards, not the shipped Command. The
-  shipped composition is covered only by ad hoc scripts, which nothing runs
-  automatically. Two of them fail at `b288ddf` on stale assertions:
-  - `scripts/flagship-review.mjs` expects the two inner rings, which have been
-    hidden since 0.25.0.
-  - `scripts/mission-review.mjs` looks for "Obsidian constellation", which is
-    now "Obsidian Memory constellation".
-- **Stale fixture.** `src/services/capabilitiesFixture.json` predates
-  `hephaestus-engineering` and lists 7 skills, so browser previews show one
-  fewer than the desktop app.
 - **Tests only run on Kevin's machine.** 12 browser test scripts hard-code
   `channel:'msedge'`, and 11 of them expect a dev server already running on
   `127.0.0.1:31420` (one uses `31448`). There is no `npm test` and no CI.
-- **Unreachable views.**
-  - The knowledge audit has no entry point: `KnowledgeAudit` is rendered only
-    by its harness.
-  - The voice conversation control was unmounted the day it was added and
-    lives only in `src/voice-control-harness.tsx`.
+- **One-off review scripts are stale.** `scripts/*-review.mjs` launch Edge only
+  and nothing runs them; `mission-review.mjs` looks for "Obsidian
+  constellation", now "Obsidian Memory constellation". `npm run visual:review`
+  covers the shipped Command instead.
+- **Stale fixture.** `src/services/capabilitiesFixture.json` predates
+  `hephaestus-engineering` and lists 7 skills, so browser previews show one
+  fewer than the desktop app.
+- **No caller.** `clear_conversation`, `memory_status`, `memory_preview`,
+  `memory_rebuild`, `list_organizer_tasks` and `communication_skills` are
+  registered but nothing in the app calls them.
 - **Project identity is split.** `organizer_tasks.project_id` references the
   legacy `projects` table, while linked projects live in `project_members`.
 - **Unverified at ≥1500×800.** Situation maps size their inspector from the
@@ -108,4 +91,5 @@ covers the screens he uses; these paths each need a deliberate trigger.
   of its real result.
 - A paid Research / Verification run from the UI.
 - Live-provider skill guidance.
+- A project brief saved since the 2026-10-12 vault-commit change.
 - Process-crash timing, and running an older binary against a newer database.
