@@ -65,9 +65,7 @@ async function run() {
   assert(query(".console-status").textContent === "RESPONSE READY", "Dormant status reports an actual completed response");
   query<HTMLTextAreaElement>("textarea").focus(); await wait(1200);
   assert(![...document.querySelectorAll(".conversation-bubble button")].some(button => /Save memory|Note observation/.test(button.textContent ?? "")), "Messages omit memory and observation actions");
-  query<HTMLButtonElement>('[aria-label="Record an observation"]').click(); await wait();
-  assert(Boolean(document.querySelector("#observation-input")), "Observation composer remains available");
-  clickText("Cancel"); await wait();
+  assert(!document.querySelector('[aria-label="Record an observation"],[aria-label="Open conversation history"]'), "Chat omits observation and history icon actions");
   clickText("Earlier conversation"); await wait();
   query(".console-input-row textarea").dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })); await wait();
   assert(query(".command-console").dataset.mode === "engaged", "Escape steps from transcript to live");

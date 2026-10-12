@@ -271,7 +271,7 @@ async function checks() {
     // A scripted click does not take focus the way a pointer does; release the composer the suggestion focused.
     query<HTMLTextAreaElement>('[aria-label="Command to Olympus"]').blur();
     query<HTMLTextAreaElement>('[aria-label="Command to Olympus"]').focus(); await wait(500); check(query(".command-console").dataset.mode === "engaged", "Compact console opens upward"); layoutChecks();
-    query<HTMLButtonElement>('[aria-label="Open conversation history"]').click(); await wait(500); check(query(".command-console").dataset.mode === "transcript", "Full history expansion uses the right reserve"); layoutChecks();
+    check(!document.querySelector('[aria-label="Open conversation history"],[aria-label="Record an observation"]'), "Chat omits redundant header actions"); query<HTMLButtonElement>('.console-history-controls button').click(); await wait(500); check(query(".command-console").dataset.mode === "transcript", "Full history expansion uses the right reserve"); layoutChecks();
     check(Math.abs(rect(".command-instrument__dial").width - baseline.width) < 1, "Chat expansion does not resize instrument geometry");
     query<HTMLTextAreaElement>('[aria-label="Command to Olympus"]').dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })); await wait();
     query<HTMLTextAreaElement>('[aria-label="Command to Olympus"]').dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })); await wait();

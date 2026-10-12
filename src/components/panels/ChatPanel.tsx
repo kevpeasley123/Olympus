@@ -5,7 +5,7 @@ import { realtimeVoice, voicePreview, useVoiceState } from "../../services/realt
 import { isModalOpen, SHORTCUTS } from "../../services/shortcuts";
 import { ReplyModeToggle } from "./ReplyModeToggle";
 import { Mic, MicOff, Volume2, VolumeX, Square, Keyboard } from "lucide-react";
-import { ChevronRight, NotebookPen, X, History, Settings2, Paperclip, Maximize2, Minimize2 } from "lucide-react";
+import { ChevronRight, X, Settings2, Paperclip, Maximize2, Minimize2 } from "lucide-react";
 import type { CSSProperties } from "react";
 import { Fragment, memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
@@ -249,10 +249,6 @@ export function ChatPanel({ companion = false, onVoiceConversationToggle, messag
     return () => document.removeEventListener("pointerdown", outside);
   }, [mode, editingMemory, expanded]);
 
-  const openComposer = useCallback((seed: string) => {
-    setObservation(collapse(seed).slice(0, OBSERVATION_MAX_CHARS));
-    setObservationStatus(null);
-  }, []);
 
   const observationLength = observation ? collapse(observation).length : 0;
   const observationTooLong = observationLength > OBSERVATION_MAX_CHARS;
@@ -293,9 +289,6 @@ export function ChatPanel({ companion = false, onVoiceConversationToggle, messag
           <span role="status" className="console-status" data-status={status.toLowerCase().replace(/\s+/g, "-")}>{status.replace(/^OLYMPUS /, "")}</span></div>
         {(pending || voice.active || voice.connecting) && <ActivityTrace level={voice.active ? voice.level : 0} busy />}
         <div className="console-header-actions">
-          {expanded && <><button type="button" className="ghost-icon-action" title="Record an observation" aria-label="Record an observation" disabled={recording}
-            onClick={() => { setConversationOpened(true); if (observation === null) openComposer(""); else setObservation(null); }}><NotebookPen size={14} /></button>
-          <button type="button" className="ghost-icon-action" aria-label="Open conversation history" title="Conversation history" onClick={showHistory}><History size={14} /></button></>}
           {onLayoutChange && <button type="button" className={expanded ? "ghost-icon-action" : "ghost-action console-restore"} aria-label={expanded ? collapseLabel ?? "Compact console" : "Expand conversation"} title={expanded ? collapseLabel ?? "Compact console" : "Expand conversation"} onClick={() => { onLayoutChange(expanded ? "compact" : "expanded"); if(!collapseLabel)requestAnimationFrame(() => panelRef.current?.querySelector<HTMLButtonElement>(".console-header-actions button:last-child")?.focus()); }}>{expanded ? <><Minimize2 size={14} />{collapseLabel&&<span>{collapseLabel}</span>}</> : <><Maximize2 size={14} /> Expand</>}</button>}
         </div>
       </header>}
@@ -328,8 +321,6 @@ export function ChatPanel({ companion = false, onVoiceConversationToggle, messag
         {!expanded && <header className="console-header">
           <span>{mode === "transcript" ? "TRANSCRIPT" : "LIVE CONVERSATION"}</span>
           <div className="console-header-actions">
-            <button type="button" className="ghost-icon-action" title="Record an observation" aria-label="Record an observation" disabled={recording}
-              onClick={() => observation === null ? openComposer("") : setObservation(null)}><NotebookPen size={14} /></button>
             <button type="button" className="ghost-icon-action" aria-label={mode === "transcript" ? "Return to live conversation" : "Minimize console"}
               disabled={editingMemory} onClick={stepBack}><X size={15} /></button>
           </div>
@@ -430,7 +421,6 @@ export function ChatPanel({ companion = false, onVoiceConversationToggle, messag
           {!companion&&onAutoSpeakChange&&<ReplyModeToggle compact={companion} autoSpeak={autoSpeak} onChange={onAutoSpeakChange} disabled={!voiceSettingsReady}/>}
           <ModelRouteControl disabled={pending}/>
           {onOpenPreferences&&<button type="button" className="ghost-icon-action" aria-label="Open preferences" title="Open preferences" onClick={onOpenPreferences}><Settings2 size={14}/></button>}
-          {!expanded && <button type="button" className="ghost-icon-action" aria-label="Open conversation history" title="Conversation history" onClick={showHistory}><History size={14} /></button>}
 
         </div>
         {/* Non-modal: one line under the status, and reading it is the operator's
