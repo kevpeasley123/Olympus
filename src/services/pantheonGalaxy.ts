@@ -15,14 +15,17 @@ export function buildPantheonGalaxy(scene: T.Scene) {
     color.set(i % 7 === 0 ? 0xe7bf78 : 0x8cb7d1).multiplyScalar((.25 + random() * .65) * (1 - .65 * Math.pow(radius / 181, 4)));
     colors.set([color.r, color.g, color.b], i * 3);
   }
-  // A fixed permutation distributes exactly 30% without changing the seeded star positions.
+  // A fixed permutation gives 40% of the ambient stars a varied size and glow.
+  // Keep the original positions and quiet majority so the named clusters remain distinct.
   const variation = new Float32Array(count * 3);
   for (let i = 0; i < count; i++) {
-    const larger = (i * 197) % count < count * .3;
-    variation.set([larger ? 1.3 : 1, random() * Math.PI * 2, .65 + random() * .45], i * 3);
+    const enhanced = (i * 197) % count < count * .4;
+    const size = enhanced ? 1.35 + ((i * 73 + 19) % 101) / 100 * .75 : 1;
+    variation.set([size, random() * Math.PI * 2, .65 + random() * .45], i * 3);
   }
-  // Brightness is independent of size: both cohorts contain small and large stars.
-  const glow = Float32Array.from({length: count}, (_, i) => (i * 137 + 53) % count < count / 2 ? 1.18 : 1);
+  // Separate deterministic values avoid making every larger star equally bright.
+  const glow = Float32Array.from({length: count}, (_, i) => (i * 197) % count < count * .4
+    ? 1.2 + ((i * 137 + 53) % 101) / 100 * .65 : 1);
   const dustGeometry = new T.BufferGeometry();
   dustGeometry.setAttribute("glow", new T.BufferAttribute(glow, 1));
   dustGeometry.setAttribute("variation", new T.BufferAttribute(variation, 3));
