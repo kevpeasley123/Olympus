@@ -1,0 +1,117 @@
+/* Portfolio: compact reading surfaces, landscape imagery, and a quiet celestial map. */
+.portfolio-art { --portfolio-line: #b7c7da29; }
+.portfolio-art .command-board-heading { padding: 16px 20px; gap: 16px; align-items:center; }
+.portfolio-art .command-board-heading h2 { font: 23px var(--font-display, Georgia); letter-spacing:0; display:flex; gap:12px; align-items:center; }
+.portfolio-count { font: 16px var(--font-sans); color:#8092a8; }
+.portfolio-switch { display:flex; margin-left:auto; border:1px solid var(--portfolio-line); border-radius:7px; padding:3px; background:#07111b; }
+.portfolio-switch button { padding:8px 13px; background:transparent; border:1px solid transparent; border-radius:4px; color:#acbdcc; font-size:12px; cursor:pointer; }
+.portfolio-switch button[aria-pressed=true] { border-color:#b99b62; background:#b99b6218; color:#f1d5a6; }
+.portfolio-art .command-board-scroll { padding:12px 20px 20px; }
+.portfolio-art .command-board-inner { gap:12px; position:relative; }
+.portfolio-art .command-board-controls { gap:12px; padding:0; flex-wrap:wrap; }
+.portfolio-search { flex:1; min-width:120px; max-width:360px; border:1px solid var(--portfolio-line); background:#07111bc9; color:#e2e8ef; border-radius:6px; padding:9px 12px; height:36px; }
+.portfolio-art .command-board-sort { gap:6px; font-size:11px; }
+.portfolio-art .command-board-sort select { height:36px; max-width:190px; font-size:12px; }
+.portfolio-art .command-board-rows { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); align-items:start; gap:16px; }
+.portfolio-art .command-project-row { --project-hue:38; position:relative; padding:18px 18px 10px; border:1px solid #8197b340; border-radius:9px; background:linear-gradient(180deg,#101c29b8 0%,#07111bd9 70%),url('../../assets/olympus-mountain-sanctuary-v4.png') center 48%/cover; box-shadow:0 6px 18px #0003; transition:border-color .2s,box-shadow .2s; }
+.portfolio-art .command-project-row:nth-child(3n+2) { background-position:center,65% 70%; }
+.portfolio-art .command-project-row:nth-child(3n) { background-position:center,20% 30%; }
+.portfolio-art .command-project-row:hover { border-color:hsl(var(--project-hue) 45% 65% / .7); box-shadow:0 8px 24px #0005; }
+.portfolio-art .command-project-row > header { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.portfolio-art .command-project-row h3 { flex:1; min-width:100px; color:#e6e9ed; font:500 18px/1.3 var(--font-display,Georgia); letter-spacing:0; overflow-wrap:anywhere; }
+.project-emblem { display:inline-flex; align-items:center; justify-content:center; flex-shrink:0; width:43px; height:43px; color:hsl(var(--project-hue) 60% 74%); border:1px solid hsl(var(--project-hue) 50% 65% / .65); border-radius:50%; background:radial-gradient(circle at 35% 30%,hsl(var(--project-hue) 40% 50% / .25),#09121bd9); box-shadow:inset 0 0 14px hsl(var(--project-hue) 70% 60% / .1); }
+.portfolio-art .command-project-row .command-operational-status { order:3; font-size:10px; padding:3px 5px; }
+.portfolio-art .command-project-row .command-project-purpose { margin:12px 0; font-size:12px; line-height:1.6; height:3.2em; overflow:hidden; display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical; color:#b9c6d4; }
+.portfolio-workload { font-size:10px; color:hsl(var(--project-hue) 50% 75%); margin-bottom:12px; }
+.portfolio-art .command-project-next { display:flex; gap:12px; align-items:center; margin:0 -18px; padding:12px 18px; border-radius:0; border-top:1px solid var(--portfolio-line); background:#07101bd9; }
+.portfolio-art .command-recommendation { flex:1; min-width:0; }
+.portfolio-art .command-project-next h4 { margin:0 0 4px; font-size:10px; color:#bca77e; font-weight:500; }
+.portfolio-art .command-project-next p { font-size:12px; line-height:1.5; display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical; overflow:hidden; }
+.portfolio-art .command-project-next .command-project-action { background:transparent; border:0; color:#e2c18c; padding:0; min-height:36px; font-size:11px; gap:3px; white-space:normal; max-width:85px; flex-shrink:0; }
+.portfolio-art .command-row-details { margin-top:9px; font-size:11px; }
+.portfolio-art .command-row-details[open] { background:#09131f; position:relative; z-index:2; }
+.portfolio-art .project-row-options { margin-left:auto; z-index:5; }
+.portfolio-demo { color:#baa376; font-size:10px; letter-spacing:.03em; align-self:start; }
+.portfolio-source-status { font-size:11px; color:#d6b780; }
+.portfolio-source-status summary { cursor:pointer; }
+.portfolio-source-status p { margin:6px 0; color:#b8c5d4; }
+.portfolio-art .project-management-bar { margin:0; padding:0; min-height:0; font-size:11px; }
+.portfolio-art button:focus-visible,.portfolio-art input:focus-visible,.portfolio-art select:focus-visible { outline:2px solid #e6c486; outline-offset:3px; }
+
+/* Preserve the compact landscape cards independently of the ecosystem scene. */
+.portfolio-art .command-board-heading .portfolio-demo { align-self:center;white-space:nowrap; }
+.portfolio-art .command-board-controls .portfolio-source-status { order:4;margin-left:auto;max-width:180px; }
+.portfolio-art .command-project-next .command-project-action { white-space:nowrap;max-width:none; }
+@container(min-width:850px){.portfolio-art .command-board-rows{grid-template-columns:repeat(3,minmax(0,1fr))}.portfolio-art .command-project-row h3{font-size:16px}.portfolio-art .project-emblem{width:36px;height:36px}}
+@container(max-width:600px){.portfolio-art .command-board-rows{grid-template-columns:1fr}.portfolio-art .command-board-heading{flex-wrap:wrap;gap:8px}.portfolio-art .command-board-controls .portfolio-source-status{max-width:none;margin-left:0}}
+/* Second visual pass: put the cards first and let project color tint the scenery. */
+.portfolio-art .command-board-heading .portfolio-demo { align-self:center; white-space:nowrap; }
+.portfolio-art .command-board-controls .portfolio-source-status { order:4; margin-left:auto; max-width:180px; }
+.portfolio-art .command-project-row { background:linear-gradient(130deg,hsl(var(--project-hue) 45% 25% / .26),transparent 65%),linear-gradient(180deg,#101c2988,#07111be8 75%),url('../../assets/olympus-mountain-sanctuary-v4.png') center 48%/cover; }
+.portfolio-art .command-project-row .command-project-purpose { margin:10px 0 8px; }
+.portfolio-art .command-project-next { padding-top:9px; padding-bottom:9px; }
+.portfolio-art .command-project-next .command-project-action { white-space:nowrap; max-width:none; }
+.portfolio-art .command-row-details { margin-top:7px; }
+.portfolio-art .command-board-rows { gap:14px; }
+@container(min-width:850px){.portfolio-art .command-board-rows{grid-template-columns:repeat(3,minmax(0,1fr))}.portfolio-art .command-project-row h3{font-size:16px}.portfolio-art .project-emblem{width:36px;height:36px}}
+@container(max-width:600px){.portfolio-art .command-board-heading .portfolio-demo{font-size:10px}.portfolio-art .command-board-controls .portfolio-source-status{max-width:none;margin-left:0}.portfolio-art .command-board-controls{padding-top:4px}}
+/* Landscape composition: environment frames the space, never competes with it. */
+.project-ecosystem { position:relative;isolation:isolate;border:1px solid #8fa8c02c;border-radius:9px;overflow:hidden;background:radial-gradient(ellipse at 48% 50%,#152232 0%,#07111d 48%,#030911 100%); }
+.project-ecosystem::before { content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(#07121a55,#030b1744),url('../../assets/olympus-mountain-sanctuary-v4.png') center 58%/cover;mask-image:radial-gradient(ellipse at 49% 33%,transparent 18%,#0003 48%,#000 83%);opacity:.8; }
+.ecosystem-pages button { background:#07111bc9;color:#bdcadb;border:1px solid #7790ac42;border-radius:5px;padding:7px 10px;font-size:11px;cursor:pointer; }
+.ecosystem-canvas { position:relative;height:370px;margin:42px 18px 32px;isolation:isolate; }
+.is-dense .ecosystem-canvas { height:380px;margin-bottom:42px; }
+.ecosystem-starfield,.ecosystem-links { position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible; }
+.ecosystem-starfield { z-index:-1; }
+.ecosystem-starfield circle { fill:#c4ddff;opacity:.55; }
+.ecosystem-starfield .is-bright { fill:#e1eeff;opacity:.95;filter:drop-shadow(0 0 .3px #a8d8ff);animation:ecosystem-twinkle 7s ease-in-out infinite; }
+.ecosystem-constellations polyline { fill:none;stroke:#91b7e3;stroke-width:.07;opacity:.32; }
+.ecosystem-constellations circle { fill:#e0f3ff;filter:drop-shadow(0 0 .45px #5fbdff); }
+.ecosystem-constellations path { stroke:#a5d8ff;stroke-width:.055;opacity:.8; }
+.ecosystem-links { z-index:0; }
+.ecosystem-links path { fill:none;vector-effect:non-scaling-stroke; }
+.ecosystem-links .ecosystem-link-base { stroke:#c6a36b;stroke-width:1;opacity:.75; }
+.ecosystem-links .ecosystem-link-signal { stroke:#fff1c5;stroke-width:1.8;stroke-linecap:round;stroke-dasharray:1.2 98.8;stroke-dashoffset:100;filter:drop-shadow(0 0 .3px #ffd994);animation:ecosystem-relay 6s linear infinite; }
+.ecosystem-center,.ecosystem-node { position:absolute;transform:translate(-50%,-50%);z-index:1; }
+.ecosystem-center { --project-hue:38;left:47%;top:50%;width:116px;height:116px;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;isolation:isolate; }
+.ecosystem-center>span { font:49px/1 Georgia;color:#f1d6a7;text-shadow:0 2px 7px #000; }
+.ecosystem-center strong { font:12px Georgia;letter-spacing:1.6px;margin-top:5px;color:#ecd6b5;text-shadow:0 2px 5px #000; }
+.ecosystem-node { width:var(--planet-size);height:var(--planet-size);padding:0;border:0;background:transparent;border-radius:50%;color:#e0e8f1;cursor:pointer; }
+.ecosystem-planet { position:relative;isolation:isolate;width:100%;height:100%;display:grid;place-items:center;border-radius:50%; }
+.ecosystem-surface { position:absolute;inset:0;z-index:-1;border-radius:50%;pointer-events:none;background:radial-gradient(ellipse at 26% 19%,hsl(var(--project-hue) 52% 67% / .35),transparent 29%),radial-gradient(ellipse at 64% 65%,#010509ee,transparent 68%),radial-gradient(circle at 35% 28%,hsl(var(--project-hue) 46% 20%),hsl(var(--project-hue) 58% 9%) 72%,#02060b);box-shadow:inset 2px 3px 5px hsl(var(--project-hue) 85% 83% / .75),inset -1px -1px 3px hsl(var(--project-hue) 68% 65% / .45),0 0 3px hsl(var(--project-hue) 80% 72% / .75),0 0 19px hsl(var(--project-hue) 75% 52% / .23); }
+.ecosystem-surface::after { content:"";position:absolute;inset:0;border-radius:50%;background:url('../../assets/ecosystem-planet-gold.png') center/108% no-repeat;mix-blend-mode:screen;opacity:.65;filter:grayscale(1) contrast(1.3);mask-image:linear-gradient(145deg,#000,transparent 93%); }
+.ecosystem-center .ecosystem-surface { box-shadow:inset 3px 4px 8px #ffe8b7ad,inset -1px -1px 3px #e8c78988,0 0 5px #ffe6b78c,0 0 28px #e7b65d55,0 0 65px #e7b65d20; }
+.ecosystem-planet .project-emblem { width:30px;height:30px;background:none;border:0;box-shadow:none;color:hsl(var(--project-hue) 67% 79%);filter:drop-shadow(0 2px 3px #000); }
+.ecosystem-planet .project-emblem svg { width:23px;height:23px;stroke-width:1.7; }
+.ecosystem-node-label { position:absolute;left:calc(100% + 15px);top:50%;transform:translateY(-50%);width:145px;display:flex;flex-direction:column;gap:6px;text-align:left;pointer-events:none;text-shadow:0 2px 5px #000; }
+.ecosystem-node-label strong { font:500 14px/1.3 Georgia,serif;overflow-wrap:anywhere;color:#e2e6eb; }
+.ecosystem-node-label small { font-size:10px;color:#a6bed7; }
+.ecosystem-node:hover .ecosystem-surface { filter:brightness(1.2); }
+.ecosystem-pages { display:flex;justify-content:center;gap:16px;align-items:center;padding:12px;color:#a8b7ca;font-size:11px;border-top:1px solid #849ab51c; }
+.ecosystem-pages button:disabled { opacity:.4;cursor:default; }
+.ecosystem-empty { text-align:center;padding:20px;color:#b8c6d8; }
+.project-ecosystem.is-paused :is(.is-bright,.ecosystem-link-signal) { animation-play-state:paused; }
+@keyframes ecosystem-twinkle {0%,100%{opacity:.45}50%{opacity:1}}
+@keyframes ecosystem-relay {from{stroke-dashoffset:100}to{stroke-dashoffset:0}}
+@container(max-width:700px){.ecosystem-node-label{left:50%;top:calc(100% + 10px);transform:translateX(-50%);width:110px;text-align:center}.ecosystem-node-label strong{font-size:11px}.ecosystem-canvas,.is-dense .ecosystem-canvas{height:570px;margin-bottom:70px}.ecosystem-node{width:calc(var(--planet-size) * .72);height:calc(var(--planet-size) * .72)}.ecosystem-center{width:95px;height:95px}.ecosystem-center>span{font-size:38px}.ecosystem-center strong{font-size:10px}}
+@media(prefers-reduced-motion:reduce){.ecosystem-starfield .is-bright,.ecosystem-links .ecosystem-link-signal{animation:none}.ecosystem-links .ecosystem-link-signal{opacity:0}.portfolio-art .command-project-row{transition:none}}
+/* The overview lives in the mountain scene; only its controls have a surface. */
+.dashboard-panel.portfolio-art.portfolio-overview {
+  background:transparent; border:0; box-shadow:none; backdrop-filter:none;
+}
+.portfolio-art.portfolio-overview .command-board-heading {
+  flex-wrap:wrap; flex-shrink:0; margin:0 0 16px;
+  background:linear-gradient(120deg,#0a1421ed,#101b28dd);
+  border:1px solid #a1b6cc30; border-radius:9px;
+  box-shadow:0 6px 20px #0002;
+}
+.portfolio-art.portfolio-overview .command-board-heading .command-board-controls {
+  flex:0 0 100%; min-width:0; padding-top:12px; border-top:1px solid #a1b6cc20;
+}
+.portfolio-art.portfolio-overview .command-board-scroll { padding:0 6px 20px; background:transparent; }
+.portfolio-art.portfolio-overview .command-board-inner { background:transparent; }
+.portfolio-overview .project-ecosystem {
+  background:transparent; border:0; border-radius:0; box-shadow:none;
+}
+
+.portfolio-overview .project-ecosystem::before { display:none; }

@@ -50,6 +50,8 @@ function firstSentence(text: string): string {
 
 interface ChatPanelProps {
   companion?: boolean;
+  onActivate?: () => void;
+  collapseLabel?: string;
   onVoiceConversationToggle?:()=>void;
   onOpenPreferences?:()=>void;
   autoSpeak?:boolean;
@@ -89,7 +91,7 @@ function collapse(text: string): string { return text.split(/\s+/).filter(Boolea
 
 export function ChatPanel({ companion = false, onVoiceConversationToggle, messages, onSendMessage, onRecordObservation, pending = false, progress = null, onStop, inspectionProjects = [], error = null,onOpenPreferences,autoSpeak=false,onAutoSpeakChange,voiceSettingsReady=true,briefing=null,
   activeMissions = [], selectedMissionId = null, onSelectMission, missionsError = null, missionsLoading = false,
-  layout = "compact", onLayoutChange, mission = null, capabilities = null, suggestions = [], onOpenMission, onDismissMission }: ChatPanelProps) {
+  layout = "compact", onLayoutChange, onActivate, collapseLabel, mission = null, capabilities = null, suggestions = [], onOpenMission, onDismissMission }: ChatPanelProps) {
   const expanded = layout === "expanded";
   const conversationPanel = companion && expanded;
   const voice = useVoiceState();
@@ -164,10 +166,13 @@ export function ChatPanel({ companion = false, onVoiceConversationToggle, messag
     setConversationOpened(true);
     scroll.preserve(); if(!conversationPanel)setHistoryStart(Math.max(0, liveStart - CONSOLE.historyPage)); setMode("transcript");
   }
+  const wasVoiceActive=useRef(false);
   useEffect(() => {
-    if (voice.active || voice.connecting) setConversationOpened(true);
+    const active=voice.active||voice.connecting;
+    if (active) {setConversationOpened(true);if(!wasVoiceActive.current)onActivate?.();}
+    wasVoiceActive.current=active;
     if ((voice.active || voice.connecting) && mode === "dormant") { setMode("engaged"); setLiveStart(liveConversationStart(messages)); }
-  }, [voice.active, voice.connecting]);
+  }, [voice.active, voice.connecting,onActivate]);
   // The expanded workspace is never dormant: it is the conversation's home.
   useEffect(() => { if (expanded && mode === "dormant") { setMode("engaged"); setLiveStart(liveConversationStart(messages)); } }, [expanded, mode]);
   // Compacting is a deliberate "get out of the way": back to the command bar.
@@ -213,6 +218,7 @@ export function ChatPanel({ companion = false, onVoiceConversationToggle, messag
   }, []);
   useEffect(() => {
     const focusConsole = (event?: Event) => {
+      onActivate?.();
       const detail = (event as CustomEvent<{label:string;context:string;prompt:string;heading?:string;kind?:string;projectId?:string}> | undefined)?.detail;
       if (detail && typeof detail.context === "string" && typeof detail.label === "string") {
         // Communications attaches a thread reference under its own heading.
@@ -222,7 +228,7 @@ export function ChatPanel({ companion = false, onVoiceConversationToggle, messag
         setMode("engaged");
       }
       if (detail && !detail.context && typeof detail.prompt === "string") { setDraft(current=>current.trim()?`${current}\n\n${detail.prompt}`:detail.prompt); setProjectContext(null); setMode("engaged"); }
-      inputRef.current?.focus();
+      requestAnimationFrame(()=>inputRef.current?.focus());
     };
     const shortcut = (event: KeyboardEvent) => {
       if (SHORTCUTS.console.matches(event)) {
@@ -233,7 +239,7 @@ export function ChatPanel({ companion = false, onVoiceConversationToggle, messag
     window.addEventListener("olympus:focus-console", focusConsole);
     window.addEventListener("keydown", shortcut);
     return () => { window.removeEventListener("olympus:focus-console", focusConsole); window.removeEventListener("keydown", shortcut); };
-  }, []);
+  }, [onActivate]);
   useEffect(() => {
     const outside = (event: PointerEvent) => {
       if ((event.target as Element)?.closest?.(".modal-backdrop, .ambient-bottom-right")) return;
@@ -290,7 +296,7 @@ export function ChatPanel({ companion = false, onVoiceConversationToggle, messag
           {expanded && <><button type="button" className="ghost-icon-action" title="Record an observation" aria-label="Record an observation" disabled={recording}
             onClick={() => { setConversationOpened(true); if (observation === null) openComposer(""); else setObservation(null); }}><NotebookPen size={14} /></button>
           <button type="button" className="ghost-icon-action" aria-label="Open conversation history" title="Conversation history" onClick={showHistory}><History size={14} /></button></>}
-          {onLayoutChange && <button type="button" className={expanded ? "ghost-icon-action" : "ghost-action console-restore"} aria-label={expanded ? "Compact console" : "Expand conversation"} title={expanded ? "Compact console" : "Expand conversation"} onClick={() => { onLayoutChange(expanded ? "compact" : "expanded"); requestAnimationFrame(() => panelRef.current?.querySelector<HTMLButtonElement>(".console-header-actions button:last-child")?.focus()); }}>{expanded ? <Minimize2 size={14} /> : <><Maximize2 size={14} /> Expand</>}</button>}
+          {onLayoutChange && <button type="button" className={expanded ? "ghost-icon-action" : "ghost-action console-restore"} aria-label={expanded ? collapseLabel ?? "Compact console" : "Expand conversation"} title={expanded ? collapseLabel ?? "Compact console" : "Expand conversation"} onClick={() => { onLayoutChange(expanded ? "compact" : "expanded"); if(!collapseLabel)requestAnimationFrame(() => panelRef.current?.querySelector<HTMLButtonElement>(".console-header-actions button:last-child")?.focus()); }}>{expanded ? <><Minimize2 size={14} />{collapseLabel&&<span>{collapseLabel}</span>}</> : <><Maximize2 size={14} /> Expand</>}</button>}
         </div>
       </header>}
       {conversationPanel && <>
