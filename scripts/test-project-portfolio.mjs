@@ -7,11 +7,21 @@ const browser=await chromium.launch({channel:'msedge'});let checks=0;const check
 try{const page=await browser.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));
 for(const width of [1440,1280,980,600]){
 await page.setViewportSize({width,height:960});await page.goto(base+'/project-board-harness.html');await page.locator('.command-project-row').first().waitFor();if(width===600)await page.locator('#layout').evaluate(e=>{e.style.gridTemplateColumns='1fr';e.lastElementChild.style.display='none'});
-check(await page.getByRole('button',{name:'Cards',exact:true}).getAttribute('aria-pressed')==='true','Cards initial');
+check(await page.getByRole('button',{name:'All',exact:true}).getAttribute('aria-pressed')==='true','All initial');
+check(await page.locator('.command-project-row').count()===4 && await page.locator('.ecosystem-node').count()===3,'All includes cards and ecosystem');
+check(await page.locator('.command-board-rows').evaluate(e=>e.getBoundingClientRect().bottom<=document.querySelector('.project-ecosystem').getBoundingClientRect().top),'Cards precede ecosystem');
+await page.screenshot({path:`output/portfolio-review/all-${width}.png`});
+await page.locator('.command-project-row .command-project-action').first().click();
+await page.getByRole('heading',{name:'At a glance',exact:true}).waitFor();
+await page.getByRole('button',{name:'← All projects',exact:true}).click();
+check(await page.getByRole('button',{name:'All',exact:true}).getAttribute('aria-pressed')==='true' && await page.locator('.ecosystem-node').count()===3,'All retained after project detail');
+await page.getByRole('button',{name:'Cards',exact:true}).click();
+check(await page.locator('.ecosystem-node').count()===0,'Cards hides ecosystem');
 check(await page.locator('.portfolio-demo').isVisible(),'Demo badge visible');
 check(await page.locator('.command-board-scroll').evaluate(e=>e.scrollWidth<=e.clientWidth+1),'No horizontal card overflow');
 await page.screenshot({path:`output/portfolio-review/cards-${width}.png`});
 await page.getByRole('button',{name:'Ecosystem',exact:true}).focus();await page.keyboard.press('Enter');
+check(await page.locator('.command-project-row').count()===0,'Ecosystem hides cards');
 check(await page.locator('.ecosystem-node').count()===3,'Olympus is represented only by the central hub');
 check(await page.locator('.is-unmeasured').count()===4,'Unavailable tasks stay unknown');
 const hub=page.getByRole('button',{name:'Open Olympus project, task count unknown',exact:true});

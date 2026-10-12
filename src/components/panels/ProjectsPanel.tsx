@@ -117,7 +117,7 @@ export function ProjectsPanel({
     consumedVoiceRevision = requestedStatus.revision;
     setFilter(requestedStatus.status);
   }, [requestedStatus]);
-  const [portfolioView,setPortfolioView]=useState<"cards"|"ecosystem">("cards");
+  const [portfolioView,setPortfolioView]=useState<"all"|"cards"|"ecosystem">("all");
   const { tasks, error: tasksError, loading: tasksLoading } = useActionQueue();
   const { data: runs, error: runsError, loading: runsLoading } = useDelegationRuns();
   const organizer=useOrganizer();
@@ -169,12 +169,12 @@ export function ProjectsPanel({
   // Below the rows on the board: they qualify the data, they are not the first thing to read.
   const boardWarnings = warnings.length > 0 ? <details className="command-board-notice"><summary>{plural(warnings.length, "source warning", "source warnings")}</summary>{warnings.map((warning,i) => <p key={i}>{warning}</p>)}</details> : null;
 
-  return <section className={`dashboard-panel projects-panel project-command portfolio-art ${projectFilter ? "portfolio-detail" : "portfolio-overview"} ${focusMode ? "focus-projects" : ""}`}>
+  return <section className={`dashboard-panel projects-panel project-command portfolio-art ${projectFilter ? "portfolio-detail" : "portfolio-overview"} ${!projectFilter && portfolioView === "all" ? "portfolio-combined" : ""} ${focusMode ? "focus-projects" : ""}`}>
     <header className="command-board-heading">
       <div><h2>{selected ? selected.project.name : <>Projects <span className="portfolio-count">{rows.length}</span></>}</h2></div>
       {demoData&&<span className="portfolio-demo" title="Browser preview · example project data. Desktop provides live records.">Demo data</span>}
       {!demoData && (tasksError || runsError) && <details className="portfolio-source-status"><summary>Records incomplete</summary><p>{tasksError ? "Saved tasks are unavailable. " : ""}{runsError ? "Work and review records are unavailable. " : ""}Status and counts may be incomplete.</p></details>}
-      {!projectFilter&&<div className="portfolio-switch" role="group" aria-label="Project view"><button aria-pressed={portfolioView==="cards"} onClick={()=>setPortfolioView("cards")}>Cards</button><button aria-pressed={portfolioView==="ecosystem"} onClick={()=>setPortfolioView("ecosystem")}>Ecosystem</button></div>}
+      {!projectFilter&&<div className="portfolio-switch" role="group" aria-label="Project view"><button aria-pressed={portfolioView==="all"} onClick={()=>setPortfolioView("all")}>All</button><button aria-pressed={portfolioView==="cards"} onClick={()=>setPortfolioView("cards")}>Cards</button><button aria-pressed={portfolioView==="ecosystem"} onClick={()=>setPortfolioView("ecosystem")}>Ecosystem</button></div>}
       {projectFilter ? <button className="ghost-action" onClick={backToBoard}>← All projects</button> : <button className="command-project-action" disabled={!native} title={native?undefined:"Add projects in the desktop app"} onClick={()=>setAddTarget(null)}>+ Add project</button>}
       {!projectFilter && filter !== "ALL" && <button className="ghost-action" onClick={() => setFilter("ALL")}>{operationalStatusLabels[filter]} · Clear filter</button>}
     </header>
@@ -191,10 +191,11 @@ export function ProjectsPanel({
             row={selected} runs={runsAvailable ? runs : null} tasks={perProject.get(selected.project.id) ?? []}
             sessionBoundary={sessionBoundary} onOpenNote={onOpenNote} tasksAvailable={tasksAvailable} />
         : scanLoading ? <BoardSkeleton /> : rows.length === 0 ? boardWarnings : <>
-          {portfolioView==="ecosystem" ? <ProjectEcosystem rows={visible} onOpen={openProject}/> : <div className="command-board-rows">
+          {portfolioView!=="ecosystem" && <div className="command-board-rows">
             {visible.map(row => <ProjectRow key={row.project.id} row={row} onOpen={openProject} management={native&&members?.some(m=>m.project.id===row.project.id)?<details className="project-row-options" onKeyDown={event=>{if(event.key==="Escape"){event.currentTarget.open=false;event.currentTarget.querySelector("summary")?.focus();event.stopPropagation()}}}><summary aria-label={`Options for ${row.project.name}`}>•••</summary><div><button disabled={!!membershipBusy} onClick={()=>setAddTarget(members!.find(m=>m.project.id===row.project.id)!)}>Link another source</button><button disabled={!!membershipBusy||!!row.openRun||row.operatorDecisions.length>0} onClick={()=>void changeVisibility(members!.find(m=>m.project.id===row.project.id)!,"removed")}>Remove from dashboard</button><p>{row.openRun||row.operatorDecisions.length?"Resolve active work or its review first.":"Keeps project files and history. You can restore it later."}</p></div></details>:undefined}/>)}
             {!visible.length && <p className="command-board-notice">No projects match this status.</p>}
           </div>}
+          {portfolioView!=="cards" && <ProjectEcosystem rows={visible} onOpen={openProject}/>}
           {boardWarnings}
           {unattributed.length > 0 && <details className="command-unattributed"><summary>{plural(unattributed.length, "task", "tasks")} without a project</summary><UnattributedTasks tasks={unattributed} /></details>}
         </>}

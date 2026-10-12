@@ -192,3 +192,12 @@ button.ecosystem-center:focus-visible { outline:2px solid #f1d39a;outline-offset
 }
 
 .project-command .project-overview h3 { text-transform:none; }
+
+/* Combined portfolio keeps the map close to the compact card overview. */
+.portfolio-combined .command-board-rows { gap:12px; }
+.portfolio-combined .command-project-row { padding:12px 14px 8px; }
+.portfolio-combined .command-project-row .command-project-purpose { margin:8px 0; }
+.portfolio-combined .portfolio-workload { margin-bottom:8px; }
+.portfolio-combined .command-project-next { margin:0 -14px; padding:8px 14px; }
+.portfolio-combined .command-row-details { margin-top:6px; }
+@container(min-width:900px) { .portfolio-combined .command-board-rows { grid-template-columns:repeat(4,minmax(0,1fr)); } }
