@@ -77,3 +77,38 @@
 .ecosystem-planet::before { content:"";position:absolute;width:inherit;height:inherit;border-radius:50%;background:repeating-linear-gradient(150deg,transparent 0 9px,#ffffff08 10px,transparent 12px);pointer-events:none; }
 @container(min-width:850px){.portfolio-art .command-board-rows{grid-template-columns:repeat(3,minmax(0,1fr))}.portfolio-art .command-project-row h3{font-size:16px}.portfolio-art .project-emblem{width:36px;height:36px}}
 @container(max-width:600px){.portfolio-art .command-board-heading .portfolio-demo{font-size:10px}.portfolio-art .command-board-controls .portfolio-source-status{max-width:none;margin-left:0}.portfolio-art .command-board-controls{padding-top:4px}}
+/* Reference fidelity pass: real terrain/cloud asset, atmospheric bodies and layered constellations. */
+.project-ecosystem { background:radial-gradient(ellipse at 50% 42%,#14203744,transparent 65%),linear-gradient(#030c17a8,#030a1590),url('../../assets/olympus-mountain-sanctuary-v4.png') center/cover; }
+.ecosystem-canvas { height:610px; margin:32px 0 26px; isolation:isolate; }
+.ecosystem-starfield { position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:-1;overflow:visible; }
+.ecosystem-starfield circle { fill:#c4ddff;opacity:.55; }
+.ecosystem-starfield .is-bright { fill:#e1eeff;opacity:.95;filter:drop-shadow(0 0 .3px #a8d8ff);animation:ecosystem-twinkle 7s ease-in-out infinite; }
+.ecosystem-constellations polyline { fill:none;stroke:#91b7e3;stroke-width:.07;opacity:.32; }
+.ecosystem-constellations circle { fill:#e0f3ff;filter:drop-shadow(0 0 .45px #5fbdff); }
+.ecosystem-constellations path { stroke:#a5d8ff;stroke-width:.055;opacity:.8; }
+.ecosystem-orbits ellipse { fill:none;stroke:#6f9bb9;stroke-width:.055;opacity:.3; }
+.ecosystem-links path { stroke:#d3b57b;stroke-width:.13;opacity:.78;filter:drop-shadow(0 0 .15px #dbb469); }
+.ecosystem-links>ellipse { opacity:.25; }
+.ecosystem-center { width:185px;height:185px;border:0;background:none;box-shadow:none; }
+.ecosystem-surface { position:absolute;inset:-9%;background:url('../../assets/ecosystem-planet-gold.png') center/contain no-repeat;pointer-events:none;z-index:-1; }
+.ecosystem-center .ecosystem-surface { filter:brightness(.8) saturate(.72) drop-shadow(0 0 12px #e7b75a66); }
+.ecosystem-center::before { inset:-3px;border-color:#e6c77e33;box-shadow:0 0 40px #edbe6833; }
+.ecosystem-center>span { font-size:63px;text-shadow:0 2px 7px #000,0 0 14px #402b13; }
+.ecosystem-center strong { font-size:14px;text-shadow:0 2px 5px #000; }
+.ecosystem-center small { top:200px;letter-spacing:.06em; }
+.ecosystem-planet { position:relative;isolation:isolate;background:none;border:0;box-shadow:none; }
+.ecosystem-planet .ecosystem-surface { filter:hue-rotate(calc((var(--project-hue) - 38) * 1deg)) saturate(.85) brightness(.73) drop-shadow(0 0 9px hsl(var(--project-hue) 75% 65% / .4)); }
+.ecosystem-planet::before { inset:0;width:auto;height:auto;background:none;box-shadow:inset 0 0 8px hsl(var(--project-hue) 75% 72% / .5),0 0 17px hsl(var(--project-hue) 70% 60% / .18);border:1px solid hsl(var(--project-hue) 65% 75% / .4); }
+.ecosystem-planet .project-emblem { color:hsl(var(--project-hue) 75% 85%);filter:drop-shadow(0 2px 3px #000);width:36px;height:36px; }
+.ecosystem-planet .project-emblem svg { width:25px;height:25px;stroke-width:1.8; }
+.ecosystem-node { gap:8px; }
+.ecosystem-node strong { text-shadow:0 2px 5px #000;font-weight:500; }
+.ecosystem-node small { color:#adbdcf;text-shadow:0 1px 3px #000; }
+.ecosystem-node:hover .ecosystem-planet { box-shadow:none; }
+.ecosystem-node:hover .ecosystem-surface { filter:hue-rotate(calc((var(--project-hue) - 38) * 1deg)) saturate(.95) brightness(.95) drop-shadow(0 0 12px hsl(var(--project-hue) 75% 65% / .5)); }
+.ecosystem-node.is-unmeasured .ecosystem-planet { opacity:.85; }
+.ecosystem-node.is-unmeasured .ecosystem-planet::before { border-style:dashed; }
+.project-ecosystem:is(:hover,:focus-within,.is-paused) .is-bright { animation-play-state:paused; }
+@keyframes ecosystem-twinkle {0%,100%{opacity:.45}50%{opacity:1}}
+@container(max-width:600px){.ecosystem-center{width:130px;height:130px}.ecosystem-center>span{font-size:46px}.ecosystem-center small{top:145px}.ecosystem-node strong{font-size:11px}.ecosystem-planet{width:calc(var(--planet-size) * .72);height:calc(var(--planet-size) * .72)}}
+@media(prefers-reduced-motion:reduce){.ecosystem-starfield .is-bright{animation:none}}
