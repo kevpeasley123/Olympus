@@ -32,18 +32,18 @@ html .mode-command .command-instrument[data-flagship] .command-instrument__dial{
 .pantheon-caption{text-align:center;margin-top:-28px;z-index:1;pointer-events:none}.pantheon-caption>.command-eyebrow{font-size:9px;color:#8e9faf;letter-spacing:.26em}.pantheon-caption h2{font:32px/1.2 var(--font-display,"Cinzel",serif);letter-spacing:.2em;font-weight:400;margin:10px 0;color:#e2d6c2}.pantheon-state{font:10px var(--font-mono);color:#ad9d87;letter-spacing:.16em;text-transform:uppercase}
 .pantheon-destinations{display:flex;justify-content:center;flex-wrap:wrap;gap:0;margin:36px 0 0;z-index:2;width:100%}.pantheon-destinations button{background:none;border:0;border-top:1px solid #8eabbd27;border-bottom:1px solid #8eabbd10;padding:16px 13px;text-align:left;color:#acbdcc;font:11px var(--font-sans);cursor:pointer;transition:color .18s,background .18s}.pantheon-destinations button span{display:inline-block;margin-left:14px;color:#6e7a86;font:9px var(--font-mono)}.pantheon-destinations button:hover{color:#f3d4a4;background:#e2b7770b}.pantheon-destinations button:hover span{color:#d8b47b}
 .command-instrument[data-flagship] .command-orbit-motto{font-size:9px;letter-spacing:.16em;margin-top:26px;color:#9d927f}.command-instrument[data-flagship] .command-instrument__preview{font-size:9px;position:absolute;bottom:0;color:#65788a}.command-instrument[data-flagship] .command-instrument__status{display:none}
-html .mode-command:has(.olympus-armory) .command-console[data-layout="expanded"]{background:linear-gradient(155deg,#0b1721db,#07111acd);border:1px solid #8499ab26;border-radius:5px;box-shadow:none}
-html .mode-command:has(.olympus-armory) .console-workspace-header{border-color:#8499ab20;padding:24px 22px}
-html .mode-command:has(.olympus-armory) .console-idle{gap:22px;padding:30px 24px 40px;align-items:stretch}
-html .mode-command:has(.olympus-armory) .console-idle__title{font-size:25px;line-height:1.45;text-align:left;max-width:300px}
-html .mode-command:has(.olympus-armory) .console-welcome-rule{align-self:flex-start;width:44px}
-html .mode-command:has(.olympus-armory) .console-idle__description{text-align:left;font-size:12px;line-height:1.8;color:#94a8b8}
-html .mode-command:has(.olympus-armory) .console-inspect-project{order:4;font-size:11px;color:#8295a4}
-html .mode-command:has(.olympus-armory) .console-idle__briefing{background:transparent;border:0;border-left:1px solid #b3986555;border-radius:0;padding:8px 0 8px 14px;font-size:12px}
-html .mode-command:has(.olympus-armory) .console-suggestions{gap:0;display:flex;flex-direction:column;align-items:stretch}
-html .mode-command:has(.olympus-armory) .console-suggestion{border:0;border-bottom:1px solid #91a6b820;border-radius:0;background:none;text-align:left;padding:11px 0;font-size:11px}
-html .mode-command:has(.olympus-armory) .console-idle__history{font-size:10px;color:#768c9f}
-html .mode-command:has(.olympus-armory) .console-command-bar{border-color:#7896ac33;background:#061019c9;border-radius:5px;min-height:112px}
+html .app-shell .command-console[data-layout="expanded"]{background:linear-gradient(155deg,#0b1721db,#07111acd);border:1px solid #8499ab26;border-radius:5px;box-shadow:none}
+html .app-shell .console-workspace-header{border-color:#8499ab20;padding:24px 22px}
+html .app-shell .console-idle{gap:22px;padding:30px 24px 40px;align-items:stretch}
+html .app-shell .console-idle__title{font-size:25px;line-height:1.45;text-align:left;max-width:300px}
+html .app-shell .console-welcome-rule{align-self:flex-start;width:44px}
+html .app-shell .console-idle__description{text-align:left;font-size:12px;line-height:1.8;color:#94a8b8}
+html .app-shell .console-inspect-project{order:4;font-size:11px;color:#8295a4}
+html .app-shell .console-idle__briefing{background:transparent;border:0;border-left:1px solid #b3986555;border-radius:0;padding:8px 0 8px 14px;font-size:12px}
+html .app-shell .console-suggestions{gap:0;display:flex;flex-direction:column;align-items:stretch}
+html .app-shell .console-suggestion{border:0;border-bottom:1px solid #91a6b820;border-radius:0;background:none;text-align:left;padding:11px 0;font-size:11px}
+html .app-shell .console-idle__history{font-size:10px;color:#768c9f}
+html .app-shell .console-command-bar{border-color:#7896ac33;background:#061019c9;border-radius:5px;min-height:112px}
 /* A focused inspection surface, with bounded scroll and the shared focus trap. */
 .modal-dialog.armory-dialog{width:min(860px,calc(100vw - 48px));max-width:860px;max-height:min(820px,calc(100vh - 80px));padding:0;display:flex;flex-direction:column;overflow:hidden;border:1px solid #9da8b348;border-radius:8px;background:linear-gradient(145deg,#14212c,#07121c 65%);box-shadow:0 32px 100px #000b;color:#b8c8d4}
 .armory-dialog-header{padding:30px 34px 23px;display:flex;justify-content:space-between;align-items:flex-start}.armory-dialog-header h2{font:28px/1.3 "Cinzel",serif;color:#e6ddcc;margin:6px 0}.armory-dialog-header p{font-size:12px;color:#8fa4b7;margin:0}
@@ -61,7 +61,7 @@ html .mode-command:has(.olympus-armory) .console-command-bar{border-color:#7896a
 .armory-item-detail{position:relative;background:#08131e;border-left:2px solid #b79c6d;padding:22px 24px;margin-top:24px}.armory-item-detail>.armory-close{float:right}.armory-item-detail h3{font:20px "Cinzel",serif;color:#e1d2ba}.armory-item-detail p{font:12px/1.8 var(--font-sans);color:#a8bdcb}
 .armory-dialog-footer{display:flex;justify-content:space-between;gap:20px;padding:18px 34px;border-top:1px solid #8ca2b325;font:9px/1.6 var(--font-mono);color:#8698a7}
 @media(min-width:1700px){html .mode-command:has(.olympus-armory) .main-grid{grid-template-columns:192px minmax(0,1fr) 410px;gap:30px}.olympus-armory{padding-top:54px}.armory-heading h2{font-size:32px}.pantheon-caption h2{font-size:36px}}
-@media(max-width:1350px){html .mode-command:has(.olympus-armory) .main-grid{grid-template-columns:146px minmax(0,1fr) 320px;gap:14px}.olympus-armory{padding-top:24px}.armory-presence{margin-top:26px}.pantheon-destinations button{padding:14px 9px;font-size:10px}.pantheon-destinations button span{margin-left:6px}.pantheon-caption h2{font-size:27px}html .mode-command:has(.olympus-armory) .console-idle{padding:20px;gap:16px}html .mode-command:has(.olympus-armory) .console-idle__title{font-size:23px}}
+@media(max-width:1350px){html .mode-command:has(.olympus-armory) .main-grid{grid-template-columns:146px minmax(0,1fr) 320px;gap:14px}.olympus-armory{padding-top:24px}.armory-presence{margin-top:26px}.pantheon-destinations button{padding:14px 9px;font-size:10px}.pantheon-destinations button span{margin-left:6px}.pantheon-caption h2{font-size:27px}html .app-shell .console-idle{padding:20px;gap:16px}html .app-shell .console-idle__title{font-size:23px}}
 @media(max-height:850px){.armory-presence{margin-top:24px}.armory-operation-summary{padding-top:20px}.pantheon-caption{margin-top:-22px}.pantheon-destinations{margin-top:24px}.command-instrument[data-flagship] .command-orbit-motto{margin-top:18px}}
 @media(max-width:1050px){html .mode-command:has(.olympus-armory) .main-grid{grid-template-columns:130px minmax(0,1fr);gap:18px}html .mode-command:has(.olympus-armory) .tools-rail{display:none}html .mode-command:has(.olympus-armory) .right-stack{grid-column:1/-1;min-height:420px}.olympus-armory{grid-column:1}.armory-presence{display:none}.armory-operation-summary{margin-top:30px}html .mode-command:has(.olympus-armory) .center-stack{grid-column:2}html .mode-command:has(.olympus-armory) .main-grid{height:auto;overflow:visible}html:has(.olympus-armory),html:has(.olympus-armory) body{overflow:auto}.armory-tabs{gap:0;padding:0 12px}.armory-tabs button{font-size:11px;padding:14px 8px;gap:6px}.armory-plugin-list,.loadout-grid{grid-template-columns:1fr}.armory-dialog-header,.armory-dialog-body{padding:22px}.armory-dialog-footer{padding:14px 22px}.armory-agent-entry{gap:12px}.armory-agent-entry strong{font-size:15px}}
 @media(prefers-reduced-motion:reduce){.olympus-armory *,.armory-dialog *,.pantheon-destinations *{transition:none!important;animation:none!important}}
@@ -86,7 +86,7 @@ html .mode-command .command-instrument[data-flagship] .command-instrument__dial{
 
 .olympus-armory{background:linear-gradient(90deg,#040b1370,transparent);overflow-x:hidden}
 .olympus-armory::before{display:none}
-html .mode-command:has(.olympus-armory) .command-console *{scrollbar-width:thin;scrollbar-color:#425665 transparent}
+html .app-shell .command-console *{scrollbar-width:thin;scrollbar-color:#425665 transparent}
 @media(max-height:850px){.armory-heading p{margin-bottom:12px}.armory-presence{margin-top:14px}.armory-operation-summary{padding-top:12px;margin-top:auto}.olympus-armory>footer{display:none}.armory-open{padding:12px 3px}.armory-presence button{padding:8px 0}.armory-operation-summary p{margin-bottom:0}.armory-operation-summary p>span{display:none}}
 
 .companion-operation{margin:0 20px;border-bottom:1px solid #b39a7030;flex-shrink:0}
@@ -218,6 +218,6 @@ html .mode-command:has(.olympus-armory) .tools-rail{display:none}
 /* Command heading hierarchy: brand, peer sections, companion identity. */
 html:has(.olympus-armory) .olympus-wordmark{font-size:30px;letter-spacing:4px}
 .olympus-armory .armory-heading h2,.mode-command:has(.olympus-armory) .pantheon-caption h2{font-size:22px;letter-spacing:2px;font-weight:400}
-.mode-command:has(.olympus-armory) .console-workspace-title strong{font-size:16px;letter-spacing:1.5px}
+.app-shell .console-workspace-title strong{font-size:16px;letter-spacing:1.5px}
 .armory-working-sparks .armory-spark-branch{stroke-dasharray:none;animation-name:armory-branch-flash;stroke-width:.3}
 @keyframes armory-branch-flash{0%,65%{opacity:0}67%{opacity:.5}70%{opacity:.1}73%{opacity:.3}81%,100%{opacity:0}}

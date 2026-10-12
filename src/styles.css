@@ -38,13 +38,13 @@
      over the bright photo; #7d8ba1 would still fail chrome (4.13). The blue
      cast keeps labels distinct from --muted at nearly the same luminance.
      Text placed straight on the photograph with no surface is not covered. */
-  --label: #7f93ad;
-  --muted: #8a96aa;
+  --label: #9badc2;
+  --muted: #9aa9bc;
   /* Secondary body copy: briefing prose, delegation detail, entry bodies.
      These rules referenced --secondary before it existed and inherited. */
-  --secondary: #c3ccd8;
+  --secondary: #d6dde7;
   --text: var(--secondary);
-  --primary: #f4f6fa;
+  --primary: #f2f0eb;
 
   /* One focus indicator (review U9/D2). The amber of the mode switcher, which
      reads on every surface tier and over the photograph. */
@@ -70,7 +70,10 @@
   --surface-dense: rgba(10, 15, 26, 0.94);
   --surface-dense-blur: blur(10px);
   --font-sans: "Inter", system-ui, -apple-system, sans-serif;
-  --font-display: "Cinzel", "Cormorant Garamond", Georgia, serif;
+  --font-display: Georgia, "Times New Roman", serif;
+  --font-brand: "Cinzel", Georgia, serif;
+  --text-shadow-body: 0 1px 1px rgb(0 0 0 / .28);
+  --text-shadow-title: 0 1px 2px rgb(0 0 0 / .55);
   --font-mono: "JetBrains Mono", "SF Mono", Consolas, monospace;
   color: var(--primary);
   font-family: var(--font-sans);
@@ -5009,3 +5012,13 @@ small {
 .console-inspect-project { display:grid; gap:8px; color:#d7dfeb; }
 .console-inspect-project small { color:#a4b3c8; font-size:12px; line-height:1.5; }
 .console-inspect-project select { max-width:100%; background:#111b2b; color:#e3eaf3; padding:8px; }
+
+/* Shared typography: crisp prose, refined titles, restrained dark separation. */
+body { text-shadow:var(--text-shadow-body); }
+h1,h2,h3 { text-shadow:var(--text-shadow-title); }
+.olympus-wordmark { font-family:var(--font-brand); text-shadow:var(--text-shadow-title); }
+button,input,textarea,select { font-family:var(--font-sans); }
+input,textarea,select,code,pre,kbd { text-shadow:none; }
+button:disabled,[aria-disabled="true"] { text-shadow:none; }
+::selection { background:#725529; color:#fff8ea; text-shadow:none; }
+@media (forced-colors:active) { body,h1,h2,h3,.olympus-wordmark { text-shadow:none; } }

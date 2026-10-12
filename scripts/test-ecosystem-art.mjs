@@ -7,7 +7,7 @@ try {
  const page=await browser.newPage();
  for(const width of [1440,1280]) {
   await page.setViewportSize({width,height:960});
-  await page.goto('http://127.0.0.1:31420/');
+  await page.goto((process.argv[2]??'http://127.0.0.1:31420')+'/');
   await page.getByRole('button',{name:'Project',exact:true}).click();
   await page.getByRole('button',{name:'Ecosystem',exact:true}).click();
   await page.locator('.ecosystem-node').first().waitFor();await page.waitForTimeout(700);

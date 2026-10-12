@@ -1,3 +1,5 @@
+import { isTauriRuntime } from "../services/launcher";
+import { researchPreviewEntries } from "../data/researchPreview";
 import { invoke } from "@tauri-apps/api/core";
 import { useCallback } from "react";
 import { createPollingStore } from "./createPollingStore";
@@ -55,11 +57,12 @@ export interface PantheonEntry {
  * scan that finds nothing new reads no file bodies at all.
  */
 const POLL_INTERVAL_MS = 300_000;
+const BROWSER_PREVIEW = import.meta.env.DEV && !isTauriRuntime();
 
 const useStore = createPollingStore<PantheonEntry[]>({
   intervalMs: POLL_INTERVAL_MS,
   initial: [],
-  fetcher: () => invoke<PantheonEntry[]>("fetch_pantheon_entries")
+  fetcher: () => BROWSER_PREVIEW ? Promise.resolve(researchPreviewEntries) : invoke<PantheonEntry[]>("fetch_pantheon_entries")
 });
 
 export function usePantheon() {
@@ -67,7 +70,7 @@ export function usePantheon() {
   // Callers refresh after adding an entry; joining a scan that began before
   // the write would hide the new entry for up to five minutes.
   const refreshNow = useCallback(() => refresh({ force: true }), [refresh]);
-  return { entries: data, loading, error, lastSuccessAt, refresh: refreshNow };
+  return { entries: data, loading, error, lastSuccessAt, refresh: refreshNow, preview: BROWSER_PREVIEW };
 }
 
 export const refreshPantheon = () => useStore.refresh({ force: true });

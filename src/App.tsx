@@ -52,7 +52,7 @@ function App() {
     quickApps,
     projects,
     sessionBoundary,
-    openingBriefing,
+    openingBriefing, requestBriefing, briefingPending,
     projectNoteWarnings,
     chat,
     chatPending, chatProgress, cancelChat,
@@ -119,7 +119,7 @@ function App() {
   const dense = mode === "project";
   const research = mode === "research";
   const command = mode === "command";
-  const activateProjectChat=useCallback(()=>{if(dense){setProjectChatOpen(true);setProjectReplyReady(false);}},[dense]);
+  const activateProjectChat=useCallback(()=>{if(!command){setProjectChatOpen(true);setProjectReplyReady(false);}},[command]);
   const changeProjectChat=useCallback((layout:"compact"|"expanded")=>{
     setProjectChatOpen(layout==="expanded");
     if(layout==="compact")requestAnimationFrame(()=>projectDockRef.current?.focus());
@@ -133,7 +133,7 @@ function App() {
     if(wasChatPending.current&&!chatPending&&!chatError&&!projectChatOpen&&latestReply&&latestReply!==replyBeforeRequest.current)setProjectReplyReady(true);
     wasChatPending.current=chatPending;
   },[chat,chatPending,chatError,projectChatOpen]);
-  const armory = useCommandArmory(command);
+  const armory = useCommandArmory(true);
   // Command's inspection state. Separate from conversation state by design:
   // selecting a lens, domain or capability never touches chat or drafts.
   const commandView = useCommandView(armory.capabilities, armory.missions);
@@ -218,7 +218,7 @@ function App() {
     // per component would leave the ones nobody remembered to touch animating.
     <MotionConfig reducedMotion="user">
       <BackgroundLayer />
-      <main className={`app-shell mode-${mode} ${dense ? "focus-mode" : ""}`} data-chat-layout={command ? chatLayout : undefined} data-project-chat={dense ? (projectChatOpen ? "open" : "closed") : undefined}>
+      <main className={`app-shell mode-${mode} ${dense ? "focus-mode" : ""}`} data-chat-layout={command ? chatLayout : projectChatOpen ? "expanded" : "compact"} data-project-chat={!command ? (projectChatOpen ? "open" : "closed") : undefined}>
       {/* Each region has its own error boundary, so one view failing to render
           never unmounts the header, the console or the write gate. The write
           gate sits outside every boundary. */}
@@ -325,15 +325,15 @@ function App() {
 
           {/* The console stays anchored while its transcript aperture opens upward. */}
           <section className="right-stack dashboard-column">
-            {dense&&!projectChatOpen&&<button ref={projectDockRef} type="button" className="project-chat-dock" aria-label="Ask Olympus" aria-expanded={false} onClick={()=>window.dispatchEvent(new CustomEvent("olympus:focus-console"))}>
+            {!command&&!projectChatOpen&&<button ref={projectDockRef} type="button" className="project-chat-dock" aria-label="Ask Olympus" aria-expanded={false} onClick={()=>window.dispatchEvent(new CustomEvent("olympus:focus-console"))}>
               <span aria-hidden="true" className="project-chat-dock-symbol">Ω</span><span>Ask Olympus…</span>
               <small role="status">{chatPending?"Working…":voice.active||voice.connecting?"Voice active":chatError?"Needs attention":projectReplyReady?"Reply ready":"Open conversation"}</small><span aria-hidden="true">↗</span>
             </button>}
             <FadeInPanel index={8} className="panel-slot panel-slot-chat">
               <ErrorBoundary label="Command console">
                 <ChatPanel
-                  companion={command}
-                  onVoiceConversationToggle={command?toggleVoiceConversation:undefined}
+                  companion={true}
+                  onVoiceConversationToggle={toggleVoiceConversation}
                   onOpenPreferences={()=>setPreferencesOpen(true)}
                   autoSpeak={settings.autoSpeak}
                   onAutoSpeakChange={autoSpeak=>updateVoicePreferences({autoSpeak})}
@@ -345,12 +345,14 @@ function App() {
                   error={chatError}
               progress={chatProgress} onStop={() => void cancelChat()} inspectionProjects={projects.map(project => project.name)}
                   briefing={openingBriefing}
-                  layout={command ? chatLayout : dense && projectChatOpen ? "expanded" : "compact"}
+                  onNewBriefing={command ? requestBriefing : undefined}
+                  briefingPending={briefingPending}
+                  layout={command ? chatLayout : projectChatOpen ? "expanded" : "compact"}
                   onActivate={activateProjectChat}
-                  collapseLabel={dense ? "Back to projects" : undefined}
-                  onLayoutChange={command ? setChatLayout : dense ? changeProjectChat : undefined}
-                  activeMissions={command ? commandView.liveMissions : []} selectedMissionId={commandView.selectedMissionId} onSelectMission={commandView.selectMission} missionsError={armory.missionsError} missionsLoading={!armory.missions}
-                  mission={command ? mission : null}
+                  collapseLabel={dense ? "Back to projects" : !command ? "Close console" : undefined}
+                  onLayoutChange={command ? setChatLayout : changeProjectChat}
+                  activeMissions={commandView.liveMissions} selectedMissionId={commandView.selectedMissionId} onSelectMission={commandView.selectMission} missionsError={armory.missionsError} missionsLoading={!armory.missions}
+                  mission={mission}
                   capabilities={armory.capabilities}
                   suggestions={suggestionsFor(armory.capabilities).slice(0, 3)}
                   onOpenMission={openMission}

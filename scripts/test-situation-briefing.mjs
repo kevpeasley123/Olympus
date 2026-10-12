@@ -1,0 +1,20 @@
+import {build} from 'esbuild';
+import {mkdir} from 'node:fs/promises';
+import assert from 'node:assert/strict';
+await mkdir('output/tests',{recursive:true});
+await build({entryPoints:['src/services/situationBriefing.ts'],bundle:true,platform:'node',format:'esm',outfile:'output/tests/situation-briefing.mjs',plugins:[{name:'briefing-fixtures',setup(b){
+ b.onResolve({filter:/^(\.\/liveData|\.\/delegation|@tauri-apps\/api\/core)$/},a=>({path:a.path,namespace:'fixtures'}));
+ b.onLoad({filter:/.*/,namespace:'fixtures'},a=>({contents:a.path==='./liveData'?'export const fetchProjects=(...args)=>globalThis.fixture.projects(...args);':a.path==='./delegation'?'export const listDelegationRuns=()=>globalThis.fixture.runs();':'export const invoke=()=>globalThis.fixture.tasks();',loader:'js'}));
+}}]});
+const {generateSituationBriefing}=await import('../output/tests/situation-briefing.mjs');
+let scans=0;
+globalThis.fixture={projects:async(root,since)=>{scans++;assert.equal(root,'test-root');assert.equal(since,null);return {projects:[],warnings:[]}},tasks:async()=>[],runs:async()=>[]};
+assert.match(await generateSituationBriefing('test-root',null),/^Current situation\. Hello sir\. No projects are tracked yet\./);
+await generateSituationBriefing('test-root',null);assert.equal(scans,2,'Every request must scan again');
+fixture.tasks=async()=>{throw Error('offline')};
+assert.match(await generateSituationBriefing('test-root',null),/task records.*incomplete/);
+fixture.runs=async()=>{throw Error('offline')};
+assert.match(await generateSituationBriefing('test-root',null),/running-work records/);
+fixture.projects=async()=>{throw Error('offline')};
+await assert.rejects(generateSituationBriefing('test-root',null),/Couldn't refresh project records/);
+console.log('PASS fresh scan per request, empty state, partial-source disclosure, and failed-scan rejection');

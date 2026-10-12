@@ -1,24 +1,32 @@
 /* Projects own the workspace until the operator opens the conversation. */
-html .mode-project .main-grid { position:relative; grid-template-columns:44px minmax(0,1fr) 0px; grid-template-rows:minmax(0,1fr) 46px; column-gap:0; row-gap:12px; }
-html .mode-project .tools-rail { grid-column:1; grid-row:1 / -1; margin-right:10px; }
-html .mode-project .center-stack { grid-column:2; grid-row:1; min-width:0; margin-left:10px; }
-html .mode-project .right-stack { position:relative; inset:auto; grid-column:2; grid-row:2; width:auto; max-height:none; min-width:0; margin-left:10px; align-items:stretch; }
-html .mode-project[data-project-chat="closed"] .panel-slot-chat { display:none; }
+html :is(.mode-project,.mode-research,.mode-communications) .main-grid { position:relative; grid-template-columns:44px minmax(0,1fr) 0px; grid-template-rows:minmax(0,1fr) 46px; column-gap:0; row-gap:12px; }
+html :is(.mode-project,.mode-research,.mode-communications) .tools-rail { grid-column:1; grid-row:1 / -1; margin-right:10px; }
+html :is(.mode-project,.mode-research,.mode-communications) .center-stack { grid-column:2; grid-row:1; min-width:0; margin-left:10px; }
+html :is(.mode-project,.mode-research,.mode-communications) .right-stack { position:relative; inset:auto; grid-column:2; grid-row:2; width:auto; max-height:none; min-width:0; margin-left:10px; align-items:stretch; }
+html :is(.mode-project,.mode-research,.mode-communications)[data-project-chat="closed"] .panel-slot-chat { display:none; }
 .project-chat-dock { display:flex; align-items:center; justify-content:flex-start; gap:12px; margin-left:auto; width:min(420px,100%); height:44px; padding:0 14px; border:1px solid #b69b6159; border-radius:8px; background:var(--surface-dense,#0b1520); color:var(--text-primary,#d9e1e8); cursor:pointer; font:inherit; font-size:13px; }
 .project-chat-dock:hover { border-color:#c9a66d; background:#14212d; }
 .project-chat-dock-symbol { color:#d1ae70; font-size:23px; }
 .project-chat-dock small { margin-left:auto; color:#a7b4c2; font-size:11px; }
 .project-chat-dock:focus-visible { outline:2px solid #d1ae70; outline-offset:-3px; }
-html .mode-project[data-project-chat="open"] .main-grid { grid-template-columns:44px minmax(0,1fr) 396px; grid-template-rows:minmax(0,1fr); }
-html .mode-project[data-project-chat="open"] .right-stack { grid-column:3; grid-row:1; margin-left:16px; }
-html .mode-project[data-project-chat="open"] .panel-slot-chat { height:100%; align-items:stretch; }
-html .mode-project[data-project-chat="open"] .command-console { height:100%; max-height:100%; display:flex; flex-direction:column; min-height:0; }
-html .mode-project[data-project-chat="open"] .console-aperture { flex:1; height:auto; min-height:0; max-height:none; }
-html .mode-project .console-workspace-header .ghost-icon-action:has(span) { display:flex; align-items:center; gap:6px; width:auto; font-size:11px; }
+html :is(.mode-project,.mode-research,.mode-communications)[data-project-chat="open"] .main-grid { grid-template-columns:44px minmax(0,1fr) 396px; grid-template-rows:minmax(0,1fr); }
+html :is(.mode-project,.mode-research,.mode-communications)[data-project-chat="open"] .right-stack { grid-column:3; grid-row:1; margin-left:16px; }
+html :is(.mode-project,.mode-research,.mode-communications)[data-project-chat="open"] .panel-slot-chat { height:100%; align-items:stretch; }
+html :is(.mode-project,.mode-research,.mode-communications)[data-project-chat="open"] .command-console { height:100%; max-height:100%; display:flex; flex-direction:column; min-height:0; }
+html :is(.mode-project,.mode-research,.mode-communications)[data-project-chat="open"] .console-aperture { flex:1; height:auto; min-height:0; max-height:none; }
+html :is(.mode-project,.mode-research,.mode-communications) .console-workspace-header .ghost-icon-action:has(span) { display:flex; align-items:center; gap:6px; width:auto; font-size:11px; }
 @media(min-width:1100px) and (prefers-reduced-motion:no-preference) {
- html .mode-project .main-grid { transition:grid-template-columns 220ms ease-out; }
+ html :is(.mode-project,.mode-research,.mode-communications) .main-grid { transition:grid-template-columns 220ms ease-out; }
 }
 @media(max-width:1099px) {
- html .mode-project[data-project-chat="open"] .main-grid { grid-template-columns:44px minmax(0,1fr) 0px; }
- html .mode-project[data-project-chat="open"] .right-stack { position:absolute; grid-area:auto; inset:0 0 0 auto; width:min(420px,calc(100% - 54px)); height:100%; z-index:30; margin:0; border-radius:10px; background:var(--surface-dense,#0b1520); box-shadow:-12px 0 32px #0008; }
+ html :is(.mode-project,.mode-research,.mode-communications)[data-project-chat="open"] .main-grid { grid-template-columns:44px minmax(0,1fr) 0px; }
+ html :is(.mode-project,.mode-research,.mode-communications)[data-project-chat="open"] .right-stack { position:absolute; grid-area:auto; inset:0 0 0 auto; width:min(420px,calc(100% - 54px)); height:100%; z-index:30; margin:0; border-radius:10px; background:var(--surface-dense,#0b1520); box-shadow:-12px 0 32px #0008; }
 }
+
+/* One console presentation, regardless of the workspace opening it. */
+html :is(.mode-project,.mode-research,.mode-communications) .right-stack { justify-self:stretch; }
+html :is(.mode-project,.mode-research,.mode-communications)[data-project-chat="open"] .command-console[data-conversation-panel] .console-aperture { flex:1 1 0; height:0; min-height:0; max-height:none; }
+html :is(.mode-project,.mode-research,.mode-communications)[data-project-chat="open"] .command-console[data-conversation-panel] .console-aperture[hidden] { display:none; }
+
+/* Situations shares the workspace row; the dock owns the second row. */
+html .mode-communications .center-stack:has(.communications[data-view="situations"]:not([data-short-height]) .situation-canvas){grid-row:1}

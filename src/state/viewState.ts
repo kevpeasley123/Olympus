@@ -59,6 +59,8 @@ export interface ReviewNotesState {
 }
 
 export interface ResearchViewState {
+  presentation?: "cards" | "list";
+  unreviewedOnly?: boolean;
   view: "grouped" | "recent" | "all";
   query: string;
   /** Pantheon category id of the section in view, or null for the first. */
@@ -173,7 +175,7 @@ const DEFAULTS: ViewSlices = {
   project: { detailProjectId: null, boardScrollTop: 0, detailScrollTop: 0 },
   projectDrafts: {},
   reviewNotes: {},
-  research: { view: "grouped", query: "", section: null, detailEntryId: null, listScrollTop: 0 },
+  research: { view: "all", query: "", section: null, detailEntryId: null, listScrollTop: 0 },
   comms: {},
   navigation: { research: null, communications: null }
 };

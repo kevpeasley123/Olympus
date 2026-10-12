@@ -60,6 +60,8 @@ function buildRecord(entry: PantheonEntry): ResearchRecord {
  */
 export function mapPantheonSourceType(input: string): ResearchRecord["sourceType"] {
   switch (input.trim().toLowerCase()) {
+    case "book":
+      return "book";
     case "transcript":
       return "transcript";
     case "note":

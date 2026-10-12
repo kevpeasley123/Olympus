@@ -1,0 +1,46 @@
+import {chromium} from 'playwright';
+import {mkdir} from 'node:fs/promises';
+import assert from 'node:assert/strict';
+const out='output/research-design';await mkdir(out,{recursive:true});
+const browser=await chromium.launch({channel:'msedge'});
+try {
+ const page=await browser.newPage({viewport:{width:1440,height:960}});
+ const entries=['How always-on agents work','Agent Engineering','Graph Engineering Explained','Graph Engineering with Claude','How to Build Agent Loops','How I use LLMs'].map((title,i)=>({id:String(i),title,sourceFile:'02 - Research/'+i+'.md',entryType:'research',sourceType:i<2?'transcript':'article',created:'2026-10-10',stance:'unevaluated',sourceLabel:'Review fixture',tags:['olympus/research','graph'],wordCount:1200,fileModifiedAt:'2026-10-10',bodyPreview:'',body:'# '+title+'\n\nResearch fixture excerpt: clear evidence and practical examples for understanding the underlying ideas.\n\n## Details\n\nA second paragraph for the reading view.',origin:'collected'}));
+ await page.route('**/src/hooks/usePantheon.ts*',route=>route.fulfill({contentType:'application/javascript',body:`export const PANTHEON_STANCES=["endorsed","provisional","disputed","unevaluated"];export const PANTHEON_ORIGINS=["collected","olympus-found"];const entries=${JSON.stringify(entries)};export function usePantheon(){return {entries,loading:false,error:null,refresh:async()=>{}}}export async function refreshPantheon(){}`}));
+ await page.goto((process.argv[2]??'http://127.0.0.1:31420')+'/');await page.getByRole('button',{name:'Research',exact:true}).click();
+ const cards=page.locator('.library-row');await cards.first().waitFor();assert.equal(await cards.count(),6);
+ assert.equal(await cards.filter({hasText:'Agent Engineering'}).locator('svg[data-motif]').getAttribute('data-motif'),'agents');
+ assert.equal(await cards.filter({hasText:'Graph Engineering Explained'}).locator('svg[data-motif]').getAttribute('data-motif'),'graph');
+ await page.screenshot({path:out+'/library-1440.png'});
+ await page.getByRole('button',{name:'Add research',exact:true}).click();await page.screenshot({path:out+'/intake-menu.png'});
+ await page.getByRole('button',{name:/Write or paste/}).click();
+ await page.locator('#ae-title').fill('A preserved research draft');await page.locator('#ae-body').fill('Keep this note.');
+ await page.getByRole('button',{name:'Save a link',exact:true}).click();await page.locator('#ae-source-url').fill('https://example.com/source');assert(await page.locator('#ae-source-url').isVisible());
+ await page.getByRole('button',{name:'Upload a file',exact:true}).click();assert.equal(await page.locator('#ae-body').inputValue(),'Keep this note.');
+ assert(await page.getByRole('button',{name:'Choose a file…',exact:true}).isVisible());await page.screenshot({path:out+'/upload-entry.png'});
+ await page.getByRole('button',{name:'Cancel',exact:true}).click();await page.getByRole('button',{name:'Keep as draft',exact:true}).click();
+ await page.getByRole('button',{name:'List',exact:true}).click();assert.equal(await page.locator('.library-workspace').getAttribute('data-presentation'),'list');
+ await page.getByRole('button',{name:'Cards',exact:true}).click();await cards.first().click();assert(await page.locator('.library-reading').isVisible());
+ await page.screenshot({path:out+'/entry-detail.png'});await page.locator('.library-back').click();assert.equal(await cards.count(),6);
+ await page.getByRole('textbox',{name:'Search the library'}).fill('Graph Engineering Explained');await page.waitForTimeout(300);assert.equal(await cards.count(),1);
+ await page.getByRole('textbox',{name:'Search the library'}).fill('');
+ for(const width of [1920,980]){await page.setViewportSize({width,height:960});await page.waitForTimeout(400);await page.screenshot({path:out+'/library-'+width+'.png'});assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));}
+ await page.getByRole('button',{name:'Add research',exact:true}).click();await page.getByRole('button',{name:/Write or paste/}).click();
+ await page.getByRole('button',{name:'Restore',exact:true}).click();assert.equal(await page.locator('#ae-title').inputValue(),'A preserved research draft');assert(await page.locator('#ae-source-url').isVisible());
+ await page.getByRole('button',{name:'Cancel',exact:true}).click();await page.getByRole('button',{name:'Keep as draft',exact:true}).click();
+ await page.getByLabel('Research order',{exact:true}).selectOption('title');
+ await page.getByRole('button',{name:'List',exact:true}).click();
+ await page.getByRole('textbox',{name:'Search the library'}).fill('second paragraph');await page.waitForTimeout(300);
+ assert(await page.locator('.is-search-match').first().isVisible());
+ await page.getByRole('textbox',{name:'Search the library'}).fill('');
+ await page.setViewportSize({width:680,height:900});assert(await page.getByLabel('Research collection',{exact:true}).isVisible());
+ await page.getByLabel('Research collection',{exact:true}).selectOption('recent');
+ await page.screenshot({path:out+'/narrow-navigation.png'});
+ await page.setViewportSize({width:1440,height:960});
+ assert.equal(await page.getByRole('tab',{name:/Questions|Audits/}).count(),0);
+ assert(await page.getByRole('region',{name:'Research library',exact:true}).isVisible());
+ await page.goto((process.argv[2]??'http://127.0.0.1:31420')+'/research-verification-harness.html?check');
+ await page.waitForFunction(()=>/browser checks passed|FAIL/.test(document.querySelector('#result')?.textContent||''),{},{timeout:60000});
+ const result=await page.locator('#result').innerText();assert(!result.includes('FAIL'),result);console.log(result);
+ console.log('PASS cards, illustrations, list, detail/back, search, intake, draft recovery and viewport bounds');
+}finally{await browser.close()}
