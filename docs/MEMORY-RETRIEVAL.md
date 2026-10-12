@@ -1,6 +1,6 @@
 # Indexed curated memory
 
-Implemented in the development backend on October 8, 2026. This is the first retrieval slice of the approved [durability review](reviews/2026-10-08-memory-retrieval.md). It does not collect Codex/Claude chats automatically. Contributors must write curated records using the [continuity protocol](MEMORY-CONTINUITY.md).
+Implemented on October 8, 2026 (`2dcdeec`) and shipped in 0.26.0; this is the default request path. This is the first retrieval slice of the approved [durability review](reviews/2026-10-08-memory-retrieval.md). It does not collect Codex/Claude chats automatically. Contributors must write curated records using the [continuity protocol](MEMORY-CONTINUITY.md).
 
 ## Request behavior
 
@@ -53,7 +53,7 @@ The combined request also enforces a conservative 160,000-unit local ceiling: re
 
 Native commands: `memory_status`, `memory_preview(query)`, `memory_rebuild`, `memory_request_evidence(requestId)`. Preview uses the same bounded reader and health state as real requests without calling a provider. Status includes generation, last reconciliation, document/chunk/byte counts and indexing issues. A queued rebuild is asynchronous; inspect status to confirm completion.
 
-Per-response model **Details** includes the backend's saved packet, scope, limitations, exact excerpts, dates, revisions, offsets and source-note links. It stays closed by default. A receipt means evidence was prepared for a request, not proof that every source influenced the answer or that dispatch succeeded. Source notes opened later may have changed since the saved snapshot.
+Each reply's model attribution disclosure (**Answered by …**, or **Requested … · unconfirmed**) includes the backend's saved packet, scope, limitations, exact excerpts, dates, revisions, offsets and source-note links. It stays closed by default. A receipt means evidence was prepared for a request, not proof that every source influenced the answer or that dispatch succeeded. Source notes opened later may have changed since the saved snapshot.
 
 On open failure, explicit rebuild archives the derived index/WAL/SHM family before recreating it; recovery never rewrites vault sources. Ordinary failures return unavailable/partial state. There is no automatic full-vault prompt fallback. `OLYMPUS_MEMORY_MODE=legacy` is an explicit local rollback to the earlier bounded research/Decision Log path; receipts disclose that indexed recall is disabled.
 

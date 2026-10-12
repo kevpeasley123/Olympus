@@ -1,6 +1,14 @@
 # Olympus Armory — implementation plan
 
-Drafted 2026-09-29 against release 0.20.0 (`c432f48`). Status: **proposed, awaiting Kevin's approval.** Nothing here is built.
+Drafted 2026-09-29 against release 0.20.0 (`c432f48`). Recorded as approved in `NEXT-SESSION.md` (0.21.0 entry).
+
+Status at 0.30.0:
+
+- **Built:** Phase 0b in part (0.21.0). Claude Code is found through `OLYMPUS_CLAUDE_CODE`, `PATH`, `~/.local/bin` and the npm location, and delegated children get a cleared environment with no API key or token. The auth self-check was not added, and `--max-budget-usd 5` is still passed. Separately, chat gained a Stop control and a four-minute turn limit on the API routes (2026-10-07).
+- **Not built:** everything else. The engine spike (0c) has not been run and `docs/ENGINE-SPIKE.md` does not exist. There is no engine trait, MCP host, tool registry, `tool_calls` journal, Operations mode or swarm. The 0a records were not made: `CLAUDE.md` still names OpenAI Responses as the default route, and `OLYMPUS-MANUAL.md` keeps its own priority list rather than section 13's.
+- The shipped Command "Armory" (`OlympusArmory.tsx`, see `COMMAND-FLAGSHIP.md`) is an inspection panel over existing capabilities. It is not the Phase 2 tool registry.
+
+Section 3 below describes 0.20.0 as drafted. Of its two defects, the executable lookup is fixed; the API key is no longer passed, but the budget flag remains.
 
 ## 1. The vision, in one paragraph
 
@@ -94,7 +102,7 @@ Sizes are relative (S ≈ a focused session, M ≈ a few sessions, L ≈ a week 
 
 ### Phase 0 — Groundwork and engine spike (S–M)
 
-**0a. Record the direction.** Update `OLYMPUS-MANUAL.md` (purpose, the autonomy table's "plan approval" row, the new priorities) and `CLAUDE.md` ("Primary reasoning", "Next"). Add this plan to `docs/`.
+**0a. Record the direction.** Update `OLYMPUS-MANUAL.md` (purpose, the autonomy table's "plan approval" row, the new priorities) `CLAUDE.md` ("Primary reasoning") and `docs/NEXT-SESSION.md`. Add this plan to `docs/`.
 
 **0b. Fix the two delegation defects.**
 - Remove `ANTHROPIC_API_KEY` from `allowed_environment` and add the auth self-check.

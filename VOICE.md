@@ -1,4 +1,11 @@
-# Olympus voice — Phase 1
+# Olympus voice
+
+OpenAI Realtime handles the microphone and, when the Speech provider is OpenAI,
+spoken output. Since 0.27.0 the Speech provider can be ElevenLabs, which then
+speaks replies, previews and the opening briefing; the microphone still uses
+OpenAI. See [ELEVENLABS-VOICE.md](docs/ELEVENLABS-VOICE.md) and
+[VOICE-LAB.md](docs/VOICE-LAB.md). The dated sections below record each phase;
+where they differ, the later section and those two documents are current.
 
 ## Start and stop
 
@@ -14,17 +21,17 @@ two minutes; the session cap is fifteen minutes.
 
 Mute silences output, not the microphone. Stop voice ends capture. Interrupt stops
 speech and listens for a correction. Typing remains available; submitting text ends
-microphone capture. With Preferences > Voice Lab > Auto Speak enabled (since
-2026-09-28: **Voice** replies, set in the console or under Preferences > Replies &
-briefing), typed replies play a concise spoken summary through a receive-only connection, with the microphone
-off. That connection closes after playback. With Auto Speak off, typed replies are
-text-only. Replay can open its own receive-only connection and uses the API; it does
+microphone capture. With **Voice** replies (Preferences > Replies & briefing >
+Spoken replies, or Command's Spoken replies switch, which also selects ElevenLabs)
+and the OpenAI provider, typed replies play a concise spoken summary through a
+receive-only connection, with the microphone off. That connection closes after
+playback. With Text replies, typed replies are text-only. Replay can open its own receive-only connection and uses the API; it does
 not retain a raw audio recording.
 
 Opening briefing: once per launch, after the first project scan, Olympus adds a short
-briefing built from provable project state to the conversation and, with Auto Speak on,
-speaks it through the same receive-only path. Preferences > Voice Lab > Opening Briefing
-turns it off (since 2026-09-28 the switch is under Preferences > Replies & briefing). After
+briefing built from provable project state to the conversation and, with Voice replies on,
+speaks it through the selected speech provider. Preferences > Replies & briefing >
+Opening Briefing turns it off. After
 a voice failure earlier in the session the briefing is not spoken. WebView2 runs with `--autoplay-policy=no-user-gesture-required` because no
 gesture precedes it.
 
@@ -106,11 +113,12 @@ voiceContract.ts. Browser devices currently use the OS defaults. The transport h
 injected dependencies so later device selection/local activation can be added without
 changing project state or conversation ownership.
 
-Next: configure the key and run a live acceptance pass; measure end-of-turn latency;
-add device selection and persisted preferences; improve immediate spoken feedback
-while the orchestrator works. Scoped voice confirmation needs an explicit binding
-to the existing immutable proposal, expiry and one-use authorization records before
-it can safely be supported. Wake word/custom voices remain later work.
+Open items: a live acceptance pass; end-of-turn latency measurement; device
+selection; immediate spoken feedback while the orchestrator works. Persisted
+preferences arrived in 0.8.0 (below) and a custom voice through ElevenLabs in
+0.27.0. Scoped voice confirmation needs an explicit binding to the existing
+immutable proposal, expiry and one-use authorization records before it can safely
+be supported. Wake word remains later work.
 
 ## Official API references checked 2026-09-07
 
@@ -122,10 +130,9 @@ it can safely be supported. Wake word/custom voices remain later work.
 
 ## Voice settings (0.8.0)
 
-Open the existing bottom-right Preferences control for Olympus Voice. The curated
-selector offers Marin and Cedar; All voices exposes all ten currently documented
-Realtime identities without invented personality descriptions. Each can be previewed
-using the identical neutral Olympus phrase. Preview uses a receive-only Realtime
+Voice choice lives in Preferences > Voice (OpenAI provider only); since 0.8.1 the
+curated/All split is replaced by the single Voice lab list described below. Each
+voice can be previewed using the identical neutral Olympus phrase. Preview uses a receive-only Realtime
 connection, pauses the conversation microphone, never invokes the reasoning handler
 and never appends messages. Resume microphone explicitly after a preview.
 
@@ -134,8 +141,9 @@ embedded/validated by Rust. It owns voice IDs, curated membership, defaults, pre
 phrase and behavior/style instructions. Add future supported voices there after
 checking official Realtime documentation, then rebuild the application.
 
-The six preferences (selectedVoice, speechStyle, responseDepth, autoSpeak,
-captionsEnabled, bargeInEnabled) extend OlympusSettings. Existing persistPreferences
+The voice preferences (originally six: selectedVoice, speechStyle, responseDepth,
+autoSpeak, captionsEnabled, bargeInEnabled; since joined by briefOnOpen,
+speechProvider, elevenVoiceId and elevenModelId) extend OlympusSettings. Existing persistPreferences
 stores their normalized JSON as the voicePreferences key in SQLite settings; browser
 fixtures use the existing localStorage path. Older installations receive defaults.
 No conversation table or project-state migration is involved.
@@ -164,7 +172,8 @@ Simulated microphone reconnection and interruption are not physical acoustic tes
 
 ## Voice Lab — 0.8.1
 
-All ten Realtime voices are visible in Preferences > Voice Lab. The shared
+All ten Realtime voices are visible in Preferences > Voice, under the **Voice lab ·
+preview and choose a voice** disclosure (shown when the Speech provider is OpenAI). The shared
 `src/config/olympusVoice.json` remains the single frontend/backend catalog;
 Cedar and Marin are marked OpenAI recommended, with no personality claims.
 Preview and Use as Olympus voice are separate actions. The fixed sample contains
@@ -236,9 +245,11 @@ See [COMMAND-CONSOLE.md](docs/COMMAND-CONSOLE.md) for the console side of each i
   spoken · audio plays in the desktop app".
 - **Names.** Responding (text arriving) is distinct from Speaking (audio). MIC LIVE
   shows while the microphone captures.
-- **Preferences.** Reply mode (Text / Voice, the same control as the console) and
-  Opening Briefing sit first under Replies & briefing; the voice lab is behind a
-  disclosure in the Voice section.
+- **Preferences.** Reply mode (Text / Voice, labelled Spoken replies) and Opening
+  Briefing sit first under Replies & briefing; the voice lab is behind a disclosure
+  in the Voice section. Since 0.30.0 the console mounted in every mode no longer
+  shows its own Text / Voice control; Preferences and Command's Spoken replies
+  switch set it.
 
 Not verified in this environment: WebView2 autoplay of the opening briefing, a real
 429 or quota failure, and streaming latency on real Sol and Claude voice turns.

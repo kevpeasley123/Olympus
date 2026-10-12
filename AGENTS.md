@@ -7,8 +7,8 @@ and priorities.
 Then read:
 
 1. `ARCHITECTURE.md` for technical boundaries and safety invariants.
-2. `docs/NEXT-SESSION.md` for current verified and assumed state (its top
-   sections; older sections are marked historical). `docs/HANDOFF.md` is historical.
+2. `docs/NEXT-SESSION.md` for the current version, open work, decisions
+   waiting on Kevin and known issues. Earlier handoffs are in `docs/archive/`.
 3. `CLAUDE.md` for model/API constraints that apply to any implementation agent,
    despite the filename.
 
@@ -26,6 +26,39 @@ generated recommendations.
 - Pause before product-direction, architecture, or visual-language changes that
   conflict with the current vision.
 - State which verification level was actually reached.
+- Kevin works in development mode (`npm run tauri dev`). Package or install
+  only when he asks, or through "Bring everything current".
+
+## Keeping guidance current
+
+Each kind of fact has one home. Put it there and nowhere else; anywhere else,
+link to it.
+
+| Fact | Home | Rule |
+| --- | --- | --- |
+| Product intent, operating policy, autonomy | `OLYMPUS-MANUAL.md` | Describes what Olympus is for and how it behaves. No versions, release dates or build state. |
+| Technical boundaries and safety invariants | `ARCHITECTURE.md` | Describes the code as it is. No "current as of" stamps or counts that drift. |
+| Model and API constraints, the release routine | `CLAUDE.md` | Applies to every implementation agent. No project state. |
+| Agent working rules | this file | No project state. |
+| Current version, open work, decisions waiting on Kevin, known issues, next steps | `docs/NEXT-SESSION.md` | Rewritten, not appended, at the end of each session and at every release. At most 150 lines. |
+| Release history | `docs/RELEASES.md` | One line per release, appended. |
+| How one feature works | `docs/<FEATURE>.md` | Describes what ships. When the feature is replaced or removed, update or move the doc to `docs/archive/` in the same commit. |
+| Dated records: reviews, audits, superseded designs, old handoffs | `docs/reviews/`, `docs/archive/` | Never edited to look current. |
+
+- A change that adds, removes or alters behaviour a document describes updates
+  that document in the same commit. Removing a UI entry point counts, even when
+  the backend stays.
+- Outside the handoff's dated verification record and the release lines, do not
+  record test, file or command counts. They go stale with the next commit; the
+  scripts report them.
+- `scripts/test-guidance-docs.mjs` enforces what a script can prove: the handoff
+  names the current version and stays short, `docs/RELEASES.md` has the
+  version, every repository file a live doc names exists, every `npm run`
+  script named exists, and the `ARCHITECTURE.md` command table matches
+  `src-tauri/src/lib.rs`. It is a `test-*.mjs` script, so the release gate runs
+  it. Run it after a version bump.
+- Every release commit bumps the version, adds its `docs/RELEASES.md` line and
+  rewrites `docs/NEXT-SESSION.md`, together.
 
 ## "Bring everything current"
 

@@ -1,3 +1,5 @@
+> Archived on 2026-10-12: the historical handoff kept until 2026-09-28. Historical record, not current guidance; links inside it are not maintained. Current state: `docs/NEXT-SESSION.md`.
+
 # Historical handoff
 
 As of September 28, 2026 this file is historical. The current handoff is

@@ -1,6 +1,6 @@
 # Olympus — First communicating agent pair
 
-Implementation receipt · September 23–24, 2026 · released in 0.19.0 ([RELEASE-0.19.0.md](RELEASE-0.19.0.md)). Statements below that it is not installed describe the pre-release stage. 2026-09-28: Research Verification now skips and names unreadable or malformed notes, counts only tagged notes toward its budget, treats a `running` row past its deadline as stale, and its tables moved into `schema.sql`.
+Implementation receipt · September 23–24, 2026 · released in 0.19.0 ([RELEASE-0.19.0.md](archive/RELEASE-0.19.0.md)). Statements below that it is not installed describe the pre-release stage. 2026-09-28: Research Verification now skips and names unreadable or malformed notes, counts only tagged notes toward its budget, treats a `running` row past its deadline as stale, and its tables moved into `schema.sql`. 2026-10-11 (0.30.0): Research lost its Library | Questions | Audits control; the workflow is now reached only from Command's Armory (see Agent catalog). The scoped live run described under Next agent is still open; see `docs/NEXT-SESSION.md`.
 
 ## CURRENT AGENT STATE
 
@@ -128,7 +128,8 @@ role's structured output; the parent constructs and validates packets from it.
 
 At most one clarification round, four model requests, six source excerpts and five
 claims. There are no automatic retries or model fallbacks. The parent has a 240-second
-deadline; existing transport also bounds each request to 60 seconds. Cancellation
+deadline; existing transport also bounds the connection to 15 seconds and each
+silence within a request to 60 seconds. Cancellation
 is checked between steps and polled during a request; dropping the pending HTTP
 future prevents its result from advancing the graph. This does not promise that a
 provider has undone already-processed work or that unreported usage is zero.
@@ -170,10 +171,12 @@ opaque quality score or automatic optimization is introduced.
 
 ## AGENT CATALOG
 
-Research / Pantheon → **Research with verification & agent catalog** is a secondary
-disclosure next to Knowledge Audit. No new top-level section. *(Superseded
-2026-09-28: it is the **Questions (verified)** view of the Research header's
-Library | Questions | Audits control; see "Inspector layout" below.)*
+Since 0.30.0 (2026-10-11) Research has no tab for this workflow. In Command's
+Armory, the Athena (Research) and Themis (Verification) loadouts offer **Open
+workflow**, which opens Research on the question form, and list up to five recent
+runs, each of which opens that saved run read-only. Its region is named "Mission
+verification record"; **← Research library** leaves it. No new top-level section.
+The view's own **Agent catalog** disclosure is described below.
 
 The catalog separates two compiled role definitions, current pair availability, the
 legacy Coding Delegate, Olympus as orchestrator, and dated documentary candidates /
@@ -196,10 +199,10 @@ cannot launch this workflow; the operator uses its explicit Research UI action.
 Design-review items U5, U7 and D4. The runner, records and authority boundary are
 unchanged; this is presentation of saved runs.
 
-- The workflow is the **Questions (verified)** segment of Research. It takes the full
-  height, stays mounted when another segment is shown and keeps its scroll; Agent
-  Catalog deep links select it. The question form folds away while a saved run is
-  open, so its brief starts near the top.
+- The workflow is a full-height view in Research, opened from the Armory (see
+  Agent catalog above); there is no segment control since 0.30.0. It stays mounted
+  and keeps its scroll while the library is shown. The question form folds away
+  while a saved run is open, so its brief starts near the top.
 - A run reads in Workflow Inspection's order: the question; the brief, with
   Supported / Contradicted / Insufficient counts; evidence cards; a small structure
   view of the flow; then executions, messages, receipts, identity binding, saved

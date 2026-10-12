@@ -1,6 +1,6 @@
 # Voice Lab and usage
 
-Open Preferences → Voice → ElevenLabs → Voice Lab in the native development app.
+Open Preferences, choose ElevenLabs as the Speech provider, then open **Voice Lab · short speech tests** (desktop app).
 Enter one to five words (at most 200 characters), then choose Generate. This ends
 any live microphone conversation and sends only the script to ElevenLabs. It does
 not call OpenAI or reason over the script. The browser preview cannot use saved
@@ -12,7 +12,8 @@ memory without a generation request. Editing the script or voice/model, starting
 a new generation, or closing settings releases the cached audio. No audio is saved
 to disk by Voice Lab.
 
-The quiet Voice session disclosure beneath Pantheon totals this native app run.
+The quiet Voice session disclosure beneath Pantheon (inside the Spoken replies
+control, and repeated in the ElevenLabs preferences) totals this native app run.
 The backend captures valid `character-cost` response headers as confirmed
 ElevenLabs credits, including when audio delivery subsequently fails. Missing
 headers and in-flight/cancelled requests remain unconfirmed. Failures before

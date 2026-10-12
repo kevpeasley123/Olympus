@@ -4,7 +4,7 @@ Approved architecture, implemented 2026-09-08. The Olympus identity, project tru
 
 ## Routes
 
-`src-tauri/src/commands/models.rs` is the only production model-ID catalog:
+`src-tauri/src/commands/models.rs` is the production model-ID catalog for reasoning, realtime speech, transcription and delegation:
 
 | Capability | Provider / model | Effort | Max output tokens |
 |---|---|---|---|
@@ -14,6 +14,8 @@ Approved architecture, implemented 2026-09-08. The Olympus identity, project tru
 | Realtime speech | OpenAI gpt-realtime-2.1 | n/a | n/a |
 | Transcription | OpenAI gpt-4o-mini-transcribe | n/a | n/a |
 | Delegated code execution | Claude Code sonnet | existing driver | n/a |
+
+Optional ElevenLabs spoken replies are outside this catalog. The operator chooses the voice and model ID in Voice settings (default `eleven_v4`, in `src/services/voicePreferences.ts`), and `elevenlabs.rs` records each synthesis in `model_requests` with capability `TTS`. See `ELEVENLABS-VOICE.md`.
 
 The output budget is per route (`Route::max_output_tokens`) because it caps reasoning and answer together on both providers: a shared 8,000 left high-effort Astra requests ending `incomplete`. The Claude budget covers adaptive thinking plus text and is streamed.
 
@@ -31,7 +33,7 @@ The SSE decoder handles UTF-8 chunk boundaries, actual model metadata, text delt
 
 The Anthropic stream follows the same rules: its decoder buffers bytes, an `error` event records its `error.type` as the request's error code, and a stream that ends without a `stop_reason` is interrupted rather than complete (text is kept with a truncation notice and the record is `incomplete`; no text is an error). A refused voice turn on either provider returns a minimal spoken answer carrying the notice, so the microphone session continues.
 
-Neither adapter has a whole-request timeout. Each bounds the connection (15 s) and every silence between chunks (Responses 240 s for chat, 60 s for structured work; Anthropic 120 s), so a long, healthy stream is not cut off.
+Neither adapter has a whole-request timeout. Each bounds the connection (15 s) and every silence between chunks (Responses 240 s for chat, 60 s for structured work; Anthropic 120 s), so a long, healthy stream is not cut off. Since 2026-10-07 the console turn as a whole has a four-minute limit and a Stop control (`send_assistant_message`, `cancel_assistant_message`); Stop drops the in-flight request, and provider work already accepted may still incur usage.
 
 ## Diagnostics and persistence
 
@@ -53,7 +55,7 @@ Source baseline: 0.18.0, commit `cb25daf`, Olympus Memory Worktree. The installe
 
 Decision, recorded 2026-09-28: the operator authorized packaging and installing 0.19.0 on September 24, 2026 with GPT-6 Sol as PRIMARY, without the live acceptance described next (`RELEASE-0.19.0.md`: no paid acceptance run). The acceptance below is still open and is now post-release evidence, not a gate. The 2026-09-28 per-route output budgets (Astra 32,000) have not been exercised live either.
 
-After restoring API credits, run `cargo test --lib --manifest-path src-tauri/Cargo.toml live_openai_routes -- --ignored --nocapture` and the same command with `live_olympus_behavior`. Complete synthetic communications assessment/briefing/draft checks and desktop acceptance for provenance after restart and one-request Deep Analysis reset. Compare against the previous model using the baseline revision in isolation. Only then prepare the versioned installer and preserve the previous installer/database backup before updating the installed app. Rollback is the prior installer or reverting the PRIMARY catalog change; historical model provenance must remain intact.
+After restoring API credits, run `cargo test --lib --manifest-path src-tauri/Cargo.toml live_openai_routes -- --ignored --nocapture` and the same command with `live_olympus_behavior`. Complete synthetic communications assessment/briefing/draft checks and desktop acceptance for provenance after restart and one-request Deep Analysis reset. Compare against the previous model using the baseline revision in isolation. Releases through 0.30.0 have shipped without it; `RELEASES.md` still lists live-provider acceptance as pending. Rollback is the prior installer or reverting the PRIMARY catalog change; historical model provenance must remain intact.
 
 ## Historical verification — 0.9.0
 

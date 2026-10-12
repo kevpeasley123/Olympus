@@ -10,18 +10,19 @@ The recoverable coding-agent boundary, and the launcher that implements it, are
 described in [`docs/AGENT-DELEGATION.md`](docs/AGENT-DELEGATION.md).
 
 Current state and next steps are in [`docs/NEXT-SESSION.md`](docs/NEXT-SESSION.md);
-the latest release is [`docs/RELEASE-0.19.0.md`](docs/RELEASE-0.19.0.md). The
-July 27, 2026 audit ([`docs/AUDIT-2026-07-27.md`](docs/AUDIT-2026-07-27.md)) is a
+releases, newest first, with what each has not had accepted in the desktop app,
+are in [`docs/RELEASES.md`](docs/RELEASES.md). The
+July 27, 2026 audit ([`docs/archive/AUDIT-2026-07-27.md`](docs/archive/AUDIT-2026-07-27.md)) is a
 dated baseline, not the current state.
 
 ## V1 Shape
 
 - Desktop shell: Tauri + React + TypeScript + Vite
 - Visual identity: futuristic AI lab with professional command-center density
-- Core screen: an ambient omega instrument whose labelled project ring and linked-note constellation remain readable across the room
-- Modes: Command (instrument, Agent Catalog and console), Project (Command Board and portfolio), Research (Pantheon library and agent inspection), and Communications (read-only Gmail, situation maps and briefings); chat and voice run across all four
-- Memory surface: Obsidian-flavored Markdown artifacts, with JSON Canvas and Bases export previews
-- Safety model: recoverable work proceeds autonomously; risky or divergent vault writes use the implemented approval gate described in `ARCHITECTURE.md`
+- Core screen: Command's Pantheon, an Ω instrument with mission planets and skill, plugin, agent and Obsidian-memory constellations, beside the Armory panel
+- Modes: Command (Pantheon, Armory and console), Project (project cards, ecosystem view, Organizer tasks, project linking and coding-agent delegation), Research (the Pantheon research library and inspection of saved verification runs), and Communications (read-only Gmail, situation maps and briefings); the same chat console and voice run across all four
+- Memory surface: Obsidian-flavored Markdown notes in the vault, plus a derived, rebuildable search index outside it. The backend can regenerate a projects Canvas and a research Base in `00 - Dashboard`; no button in the app currently triggers either
+- Safety model: reads run freely. Vault writes pass the write gate described in `ARCHITECTURE.md`: out-of-vault paths are rejected, new files at unused paths and regeneration of unedited app-authored files proceed, and appends to or rewrites of notes a person may have written ask first. Delegated coding runs need an operator approval for planning and another for implementation, and never push, merge or deploy. Gmail access is read-only
 
 ## Obsidian Skills Reference
 
@@ -98,10 +99,18 @@ stable executable, and repairs an existing Olympus taskbar pin if it still
 targets the development build. The pinned target does not change between
 releases.
 
+`npm run update` (`scripts/update-olympus.ps1`) is the everyday path: it brings
+the local checkout to `origin/master` and, when master is newer than the installed
+app, builds and installs it through the same script. It stops on a dirty or
+diverged checkout. Running the script with `-CreateShortcut` puts an **Update
+Olympus** icon on the desktop that runs it.
+
 ## Delegate a coding task
 
-In desktop **Project** mode, a project's detail shows **Prepare Claude run**
-when the project has a folder under the projects root. When Olympus would refuse
+In desktop **Project** mode, a project with a local folder has
+a **Coding runs** section in its detail, with **Prepare Claude run**. An Organizer
+task's **Start work** (under **Tasks & planning**, see
+[`docs/ORGANIZER.md`](docs/ORGANIZER.md)) prepares the same planning proposal. When Olympus would refuse
 a run (no Git repository, uncommitted work in the primary checkout, a run
 already open on the project), the button is disabled and the reason is stated.
 Prepare opens a draft task and acceptance criteria; the task starts from the
@@ -122,11 +131,11 @@ wording did not match the app.)
 
 ## Assistant Setup
 
-Text and voice reasoning use OpenAI Responses from Rust. Add `OPENAI_API_KEY` to the ignored project-root `.env`; optional `ANTHROPIC_API_KEY` enables explicit Claude comparison and, when set, is passed to Claude Code for delegated runs. Keys never reach the webview. API usage is billed separately from chat subscriptions.
+Text and voice reasoning use OpenAI Responses from Rust. Add `OPENAI_API_KEY` to the ignored project-root `.env`; optional `ANTHROPIC_API_KEY` enables explicit Claude comparison. Delegated Claude Code runs never receive either key; they use Claude Code's own subscription login. Keys never reach the webview. API usage is billed separately from chat subscriptions.
 
-- Default: Sol (`gpt-6-sol`, medium). The Next answer selector offers one-request Deep Analysis (`gpt-6-astra`, high) and Claude comparison, then returns to Sol.
+- Default: Sol (`gpt-6-sol`, medium). The console's model control offers Deep Analysis (`gpt-6-astra`, high) and Claude comparison, applied to the next answer (then back to Sol) or to this chat until changed.
 - `src-tauri/src/commands/models.rs` owns model IDs and routes. There is no automatic provider fallback.
-- OpenAI requests use `store: false`, local history (last 40 messages, at most 120,000 characters), and shared Olympus/vault/project instructions. Realtime still handles speech; it does not replace the reasoning layer.
+- OpenAI requests use `store: false`, local history (last 40 messages, at most 120,000 characters), and shared Olympus/vault/project instructions. OpenAI Realtime handles microphone transcription and, unless ElevenLabs is the selected speech provider ([ElevenLabs voice](docs/ELEVENLABS-VOICE.md)), spoken output; it does not replace the reasoning layer.
 - Preferences → Model diagnostics shows backend request records and reported token usage; assistant messages retain model provenance across reloads. Client-reported audio/transcription records are explicitly distinguished from confirmed reasoning model metadata.
 - See [model routing](docs/MODEL-ROUTING.md) for contracts and verification limits.
 
@@ -153,28 +162,34 @@ What is stored, by area (`src-tauri/schema.sql` declares every table and sets
 | Area | Tables | Write pattern |
 | --- | --- | --- |
 | Settings and tool flags | `settings`, `tool_states` | Upsert on change |
-| Chat history | `conversation_messages`, with `conversation_research`, `conversation_mail`, `conversation_voice`, `conversation_model` keyed by message ID | Append at send time; a re-append cannot rewrite content or provenance |
+| Chat history | `conversation_messages`, with `conversation_research`, `conversation_mail`, `conversation_voice`, `conversation_model`, `conversation_turn_context` and `conversation_imports` keyed by message ID | Append at send time; a re-append cannot rewrite content or provenance |
 | Desktop session boundaries | `operator_sessions` | One idempotent row per launch |
 | Vault write fingerprints and log | `artifact_hashes`, `processing_logs` | Written by the write gate |
 | Delegation and approval | `delegation_runs`, `delegation_events`, `delegation_contracts`, `delegation_checks`, `delegation_reviews`, `operator_approvals`, `approval_consumptions`, `approval_revocations` | Durable run state, append-only milestones, immutable approval records |
-| Model diagnostics | `model_requests` | Prompt-free request records; no retention policy |
+| Organizer | `organizer_tasks`, `organizer_sources`, `organizer_proposal_links`, `organizer_run_links`, `organizer_results`, `organizer_events`, plus a row in `projects` for each project that holds tasks | Revisioned tasks with linked runs, reviewable results and an event log (see `docs/ORGANIZER.md`) |
+| Project membership | `project_members`, `project_links`, `project_membership_state`, `project_identity_conflicts`, `project_brief_writes` | Revisioned membership; removals kept as tombstones; briefs staged before the vault write (see `docs/PROJECT-LINKING.md`) |
+| Memory receipts | `request_memory` | One evidence packet per backend model request, never rewritten |
+| Model diagnostics | `model_requests` | Prompt-free request records, including ElevenLabs speech records; no retention policy |
 | Fixed workflows | `knowledge_audit_runs`, `knowledge_audit_events`, `research_verification_runs`, `research_verification_checkpoints` | One run row plus events or checkpoints |
+| Reusable skills | `resource_skills` | One row per saved skill |
 | Gmail | `gmail_accounts`, `gmail_messages`, `gmail_search` (FTS), `gmail_sync_runs`, `gmail_candidates` | Cache and history cursor commit in one transaction |
 | Communications | `communication_runs`, `communication_events`, `communication_evaluations`, and six `communication_situation*` tables | Account-scoped; Remove cache deletes them with the mailbox |
-| Reserved | `projects`, `tasks`, `research_items`, `skill_recipes`, `dashboard_modules`, `operator_briefs` | Declared, never read or written |
+| Reserved | `tasks`, `research_items`, `skill_recipes`, `dashboard_modules`, `operator_briefs` | Declared, never read or written |
 
-The project scan is refreshed live and deliberately not persisted. Since 2026-09-28 the desktop app starts with no example projects: until the first scan settles the ring and board say "Scanning projects…", a failed scan shows nothing rather than example data, and a later failure keeps the last genuine result marked stale. Only the browser preview shows labelled example projects.
+The indexed memory search cache is a separate, derived `memory-index.sqlite` in the app-local data directory; it can be rebuilt from the vault (see `docs/MEMORY-RETRIEVAL.md`).
+
+The project scan is refreshed live and deliberately not persisted. Since 2026-09-28 the desktop app starts with no example projects: until the first scan settles the board says "Scanning projects…", a failed scan shows nothing rather than example data, and a later failure keeps the last genuine result marked stale. Only the browser preview shows labelled example projects.
 
 Conversation is appended when a message is sent rather than rewritten alongside other state, so a long history costs nothing on unrelated updates. The first desktop launch after an existing browser install imports any `localStorage` state into SQLite automatically.
 
 ## Command renderer
 
-Since 2026-09-28 the flat SVG instrument (project ring, linked notes, day arc and an Ω glyph) draws immediately and stays the whole instrument if WebGL is unavailable or fails; the 3D scene starts the first time Command is shown and replaces the flat glyph once it has painted. A graphics failure says "3D view unavailable · showing the flat instrument" and offers Retry 3D view. This supersedes the earlier statement that Command renders only the 3D instrument with no fallback. See [renderer lifecycle](docs/COMMAND-3D-LIFECYCLE.md) and the historical [0.10.0 prototype notes](docs/COMMAND-3D-IMPLEMENTATION.md).
+Since 2026-09-28 a flat layer draws immediately and stays if WebGL is unavailable or fails: in the shipped Pantheon view that is an Ω glyph plus the skill, plugin, agent and Obsidian-memory constellations and mission targets, which are HTML rather than 3D. (The earlier flat project ring and day arc are not drawn in the Pantheon layout, which the app always uses.) The 3D scene starts the first time Command is shown and replaces the flat glyph once it has painted. A graphics failure says "3D view unavailable · showing the flat instrument" and offers Retry 3D view. This supersedes the earlier statement that Command renders only the 3D instrument with no fallback. See [renderer lifecycle](docs/COMMAND-3D-LIFECYCLE.md) and the historical [0.10.0 prototype notes](docs/COMMAND-3D-IMPLEMENTATION.md).
 
 ## Keyboard and preferences
 
 The dock's **?** popover lists the shortcuts from the same registry the handlers use: Ctrl/Cmd+K focuses the console from any mode; Ctrl/Cmd+\ cycles Command, Project, Research and Communications (ignored while typing); Ctrl/Cmd+Shift+M starts or stops the microphone; Ctrl/Cmd+R refreshes projects, tasks, runs, library, vault and the mail view and never reloads the window; Esc closes a dialog or steps the console back; `/` focuses library search in Research. While a dialog is open, it owns the keyboard.
 
-Preferences (the gear in the dock) is a dialog: Replies & briefing (Text or Voice replies, Opening Briefing), Voice, Gmail, Model diagnostics, and **Restart Olympus**, which moved there from the Pantheon strip on 2026-09-28 and asks for confirmation, naming any reply, voice session or delegated run it would interrupt.
+Preferences (the console's gear, or the dock's gear outside Command) is a dialog: Replies & briefing (Spoken replies: Text or Voice; Opening Briefing), Voice (speech provider, OpenAI or ElevenLabs voice, Voice Lab), Gmail, Model diagnostics, and **Restart Olympus**, which moved there from the Pantheon strip on 2026-09-28 and asks for confirmation, naming any reply, voice session or delegated run it would interrupt.
 
 Unsent drafts, open entries, review notes and scroll positions survive mode switches and refreshes for the session. They are held in memory only and are lost when the app restarts.

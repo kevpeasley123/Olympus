@@ -1,10 +1,10 @@
 # Bounded repository inspection
 
-Command's idle workspace offers **Inspect a project (read-only)**. Choose a
-project, review the filled request, and press Send. The equivalent console
-request is `/inspect Exact project folder: question`. Ordinary conversation
-does not automatically read repositories. Selecting a project never sends a
-request or creates memory.
+The console offers **Inspect a project (read-only)** while no conversation is
+open. Choose a project, review the filled request, and press Send. The
+equivalent console request is `/inspect Exact project folder: question`.
+Ordinary conversation does not automatically read repositories. Selecting a
+project never sends a request or creates memory.
 
 This is a bounded JSON planning workflow, not native provider function calling,
 a subscription engine, or a general agent framework. It uses the selected
@@ -57,6 +57,6 @@ rendering, not installed WebView2 performance. Shared scene depth testing
 provides front/back occlusion; no desktop visual acceptance was possible because
 native computer control was unavailable in the agent runtime.
 
-No application release/install, push, live provider task, credential change, or
-production-data mutation was performed. Live answer quality and the installed
-application version remain unverified.
+No live provider task, credential change, or production-data mutation was
+performed for this verification. The feature has since shipped and is in 0.30.0;
+live answer quality remains unverified.

@@ -2,15 +2,17 @@
 
 Olympus can use ElevenLabs for spoken answers while keeping the current reasoning route and OpenAI microphone transcription. Typed replies and manual replay do not open a microphone or OpenAI audio session when ElevenLabs is selected.
 
-## Setup in the native development app
-1. Open Preferences, then select **ElevenLabs** under Speech provider.
-2. Click **Connect API key**. In the Windows credential dialog, paste the API key into **Password**; leave the user name unchanged. The key is stored as `Olympus.ElevenLabs` / `api-key` in Windows Credential Manager. It never crosses webview IPC, enters settings/SQLite, or appears in frontend logs.
-3. Keep voice `NOpBlnGInO9m6vDvFkFC`, model `eleven_v4`, English. Both IDs can be changed explicitly as the service evolves. Save edited IDs before checking or previewing.
-4. Click **Check connection**. This performs read-only voice/model discovery and generates no audio. The key needs voice/model read access, plus speech generation permission for playback. Kevin's accessible voice was confirmed on October 11 as **Cornelius**, ID `6sFKzaJr574YWVu4UuJF`; the initially supplied ID returned `voice_not_found`. Use the accessible ID for this setup.
-5. Click **Preview voice** to generate the fixed sample. It uses ElevenLabs credits. **Stop preview** cancels pending work and playback. Cancellation cannot promise a refund for work already received by the provider.
-6. Set Replies to Voice for automatic spoken answers. Text mode remains silent; explicit Replay still works. Opening Briefing follows the existing preference.
+Shipped in 0.27.0. Since 0.30.0 (`388969e`) the **Spoken replies** switch beneath Pantheon in Command controls ElevenLabs spoken replies only: turning it on sets Voice replies and selects ElevenLabs; turning it off sets Text replies. Toggling it stops any active voice session and never starts a microphone session. The explicit voice conversation control added on 2026-10-11 was unmounted the same day and survives only in `src/voice-control-harness.tsx`; the console microphone button remains.
 
-The browser harness displays configuration controls but cannot connect credentials or generate paid speech. The installed app must contain this code before these controls are available there; running native dev does not install an update.
+## Setup
+1. Open Preferences, then select **ElevenLabs** under Speech provider.
+2. Open **Manage API connection** and click **Connect API key**. In the Windows credential dialog, paste the API key into **Password**; leave the user name unchanged. The key is stored as `Olympus.ElevenLabs` / `api-key` in Windows Credential Manager. It never crosses webview IPC, enters settings/SQLite, or appears in frontend logs.
+3. The defaults are voice `NOpBlnGInO9m6vDvFkFC`, model `eleven_v4`, English. That default voice ID returned `voice_not_found` for Kevin's account on October 11; his accessible voice is **Cornelius**, ID `6sFKzaJr574YWVu4UuJF`. Enter the accessible ID and choose **Save voice settings**; edited IDs must be saved before checking or previewing.
+4. Click **Check connection**. This performs read-only voice/model discovery and generates no audio. The key needs voice/model read access, plus speech generation permission for playback.
+5. Click **Preview voice** to generate the fixed sample. It uses ElevenLabs credits. **Stop preview** cancels pending work and playback. Cancellation cannot promise a refund for work already received by the provider.
+6. Set **Spoken replies** to Voice under Preferences > Replies & briefing, or turn on the Command switch, for automatic spoken answers. Text mode remains silent; explicit Replay still works. Opening Briefing follows the existing preference.
+
+The browser harness displays configuration controls but cannot connect credentials or generate paid speech.
 
 ## Boundaries
 - Rust sends only the chosen spoken response, voice ID, model ID and English language code. It requests MP3 audio, with a 50-second HTTP timeout and 8 MiB response ceiling. The frontend plays a transient Blob and releases it on completion/stop/error; speech files are not saved.
@@ -26,4 +28,4 @@ The browser harness displays configuration controls but cannot connect credentia
 [ElevenLabs synthesis API](https://elevenlabs.io/docs/api-reference/text-to-speech/convert), [voice discovery](https://elevenlabs.io/docs/api-reference/voices/get), [model discovery](https://elevenlabs.io/docs/api-reference/models/list), [Windows credential dialog](https://learn.microsoft.com/en-us/windows/win32/api/wincred/nf-wincred-creduipromptforcredentialsw).
 
 ## Verification commands
-`node scripts/test-eleven-voice.mjs`, `node scripts/test-command-voice.mjs`, `node scripts/test-eleven-browser.mjs <dev-url>`, `cargo test --lib` from `src-tauri`, `npm run build`, and `npm run visual:review`. Browser screenshot output is `output/elevenlabs-review/`; browser checks are not native desktop or live-provider acceptance.
+`node scripts/test-eleven-voice.mjs`, `node scripts/test-command-voice.mjs`, `node scripts/test-eleven-browser.mjs <dev-url>`, `node scripts/test-voice-control-browser.mjs` (the Spoken replies switch), `cargo test --lib` from `src-tauri`, `npm run build`, and `npm run visual:review`. Browser screenshot output is `output/elevenlabs-review/`; browser checks are not native desktop or live-provider acceptance.

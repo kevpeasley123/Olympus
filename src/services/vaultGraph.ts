@@ -8,7 +8,7 @@
  *
  * Everything in this file is pure. That is the only way anything on the
  * frontend can be checked without the desktop app — see the harness note in
- * `docs/HANDOFF.md`.
+ * `docs/archive/HANDOFF-through-2026-09-28.md`.
  */
 
 /** Mirrors `GraphNode` in `src-tauri/src/commands/vault_graph.rs`. */

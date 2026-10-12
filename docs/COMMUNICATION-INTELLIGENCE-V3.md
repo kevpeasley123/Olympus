@@ -1,8 +1,8 @@
 # Communication Intelligence v3
 
-Status, 2026-09-28: released in 0.17.0. The live graph is now `communication-intelligence/v4`, which keeps this assessment policy and corrects trace boundaries; see [WORKFLOW-INSPECTION.md](WORKFLOW-INSPECTION.md).
+Status, 2026-10-12: the current description of thread triage (Communications → Browse email → Thread triage history), part of the installed 0.30.0. Released in 0.17.0. The live graph is `communication-intelligence/v4` (`gmail/intelligence_v3.rs`), which keeps this assessment policy and corrects trace boundaries; see [WORKFLOW-INSPECTION.md](WORKFLOW-INSPECTION.md). The v2 `analyze` runner in `gmail/intelligence.rs` is called only by tests; that file still hosts the shared commands (run listing, events, feedback, skills).
 
-Development implementation, September 13, 2026. At the time, the installed release was 0.16.0.
+Implemented September 13, 2026.
 
 ## Adopted critique
 
@@ -12,11 +12,11 @@ Development implementation, September 13, 2026. At the time, the installed relea
 - **Generalize:** a typed supplied-thread assessment contract and strict structured-output adapter without retrieval or execution authority.
 - **Gmail-specific:** account/horizon selection, immutable cache snapshots, cached thread expansion and navigation.
 - **First loop:** conditional evidence expansion is useful because additional thread history or excerpt text can resolve a concrete uncertainty. A predetermined cascade is not presented as a loop.
-- **Model boundary:** explicit Analyze/Refresh; local narrowing before any model call. Existing Sol medium route, no provider fallback.
+- **Model boundary:** explicit request only; local narrowing before any model call. Existing Sol medium route, no provider fallback.
 
 ## Graph and bounds
 
-`communication-intelligence/v3`: snapshot -> select -> assess / project -> synthesize. Assessment binds `communication-assess@2`; provider-independent literal name/alias matching remains `project-relevance@2`. Assessment and project work are coordinated in the fixed runner; no parallel scheduler or arbitrary graph execution.
+`communication-intelligence/v4` runs snapshot → select → assess → project → synthesize in sequence (v3 declared assess and project as siblings). Assessment binds `communication-assess@2`; provider-independent literal name/alias matching remains `project-relevance@2`, supplied as context inside each assessment pass and finalized after assessment. The fixed runner has no parallel scheduler or arbitrary graph execution.
 
 Selection uses available, in-scope, time-bounded cached mail for the enabled account. Up to four recent flagged threads are preferred, then the most recent remaining threads fill a six-thread cap. This permits unflagged transactional updates without sending the entire cache. It does not guarantee coverage or semantic relevance; six candidates can still miss important mail. Counts come from SQLite, never the model.
 
@@ -24,7 +24,7 @@ Each selected thread has an immutable local snapshot of up to four cached messag
 
 Assessment returns what happened, what changed, operator impact, attention (`needs_you`, `background`, `uncertain`), priority (`high`, `normal`, `low`), recommendation (`review`, `verify`, `monitor`, `no_action`), next move, exact ordered evidence references and evidence sufficiency. Source text and project context are untrusted data, not instructions. Mailbox-level counts and authority remain deterministic.
 
-When evidence is insufficient, the model can request `older_messages` or `fuller_excerpt`. The runner expands only the same immutable thread snapshot and re-evaluates only changed threads. There are at most three model calls per run, with a 60-second HTTP timeout per call and a pre-call run deadline. No automatic transport retries or fallback. Stop reasons distinguish sufficient evidence, no new evidence, unavailable context and exhausted pass budget. Insufficient results remain uncertain/verify, never a confident no-action finding. No further source is fetched from Gmail, the web or a project file during this loop.
+When evidence is insufficient, the model can request `older_messages` or `fuller_excerpt`. The runner expands only the same immutable thread snapshot and re-evaluates only changed threads. There are at most three model calls per run. Each call has a 15-second connection timeout and a 60-second idle timeout on the response stream, with no whole-request cap; no pass starts after 185 seconds of run time. No automatic transport retries or fallback. Stop reasons distinguish sufficient evidence, no new evidence, unavailable context and exhausted pass budget. Insufficient results remain uncertain/verify, never a confident no-action finding. No further source is fetched from Gmail, the web or a project file during this loop.
 
 The matcher still reports suggested/ambiguous/unresolved literal relationships. It does not semantically resolve ownership or promote a project relationship. Model interpretation can discuss supplied suggestions, but cannot replace the matcher's evidence or confirm project intent.
 
@@ -40,8 +40,8 @@ Feedback choices Useful, Interpretation incorrect, and This needs me append eval
 
 ## Operator use and verification
 
-In the native development app: Communications -> Analyze communications (or Refresh intelligence). The disclosure explains selected excerpts go to OpenAI. Read the foreground brief, expand Background, and use Why this? for evidence, missing-context reasons and feedback. Inspect analysis shows graph events, request receipts and saved skill contracts. The browser harness is synthetic and cannot call the native model route.
+In the desktop app: Communications → Browse email → Thread triage history → **Analyze communications** (labelled **Run thread triage** once a run exists). The disclosure states that selected cached excerpts and matching project metadata go to OpenAI · Sol: up to 6 threads, 4 messages each, 3 context passes. A run is refused while background situation understanding is running. Read the foreground brief, expand Background, and use Why this? for evidence, missing-context reasons and feedback. Inspect analysis shows graph events, request receipts and saved skill contracts; About this workflow shows the compiled definition. A brief is marked out of date when the cache or project notes change, or after 15 minutes. The browser harness is synthetic and cannot call the native model route.
 
-Verified: frontend build; Rust suite 296 passed / 2 ignored; Communications synthetic browser harness 57 checks, including no model call on opening, background visibility, feedback wiring, stale/failure withholding, source access and narrow layout. Backend fixtures exercise actual v3 orchestration with an injected model: expansion, no-new-evidence stop, third-pass budget, changed-cache/disconnect failure without DB lock, invalid output, history replay and scoped feedback. Existing shared chat transport tests still pass.
+Verified on 2026-09-13: frontend build; Rust suite 296 passed / 2 ignored; Communications synthetic browser harness 57 checks, including no model call on opening, background visibility, feedback wiring, stale/failure withholding, source access and narrow layout. Backend fixtures exercise actual v3 orchestration with an injected model: expansion, no-new-evidence stop, third-pass budget, changed-cache/disconnect failure without DB lock, invalid output, history replay and scoped feedback. Existing shared chat transport tests still pass.
 
-Not yet verified: paid live Responses acceptance of this particular schema, real-mailbox interpretation quality, and native operator interaction. No real mail was sent to a model during implementation. A first explicit native acceptance run should compare each generated conclusion with its source and record Useful/Incorrect/Missed feedback; results may require prompt or selection tuning. Do not call the synthetic harness proof of production interpretation quality.
+Not verified as of that date: paid live Responses acceptance of this particular schema, real-mailbox interpretation quality, and native operator interaction. No real mail was sent to a model during implementation. A first explicit native acceptance run should compare each generated conclusion with its source and record Useful/Incorrect/Missed feedback; results may require prompt or selection tuning. Do not call the synthetic harness proof of production interpretation quality.
