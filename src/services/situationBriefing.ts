@@ -19,5 +19,6 @@ export async function generateSituationBriefing(root: string, boundary: SessionB
     runs.status === "fulfilled" ? runs.value : [],
     { tasks: tasks.status === "fulfilled", runs: runs.status === "fulfilled" });
   const gaps = [tasks.status === "rejected" ? "task records" : "", runs.status === "rejected" ? "running-work records" : "", projects.value.warnings.length ? "some project notes" : ""].filter(Boolean);
-  return `Current situation. ${gaps.length ? `I couldn't refresh ${gaps.join(" and ")}, so this briefing is incomplete. ` : ""}${composeOpeningBriefing({projects:projects.value.projects,board,sessionBoundary:boundary,projectsError:null})}`;
+  const briefing = composeOpeningBriefing({projects:projects.value.projects,board,sessionBoundary:boundary,projectsError:null}).replace(/^Hello sir\.\s*/, "");
+  return `Hello sir. Current situation. ${gaps.length ? `I couldn't refresh ${gaps.join(" and ")}, so this briefing is incomplete. ` : ""}${briefing}`;
 }

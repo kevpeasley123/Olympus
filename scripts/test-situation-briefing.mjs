@@ -9,10 +9,10 @@ await build({entryPoints:['src/services/situationBriefing.ts'],bundle:true,platf
 const {generateSituationBriefing}=await import('../output/tests/situation-briefing.mjs');
 let scans=0;
 globalThis.fixture={projects:async(root,since)=>{scans++;assert.equal(root,'test-root');assert.equal(since,null);return {projects:[],warnings:[]}},tasks:async()=>[],runs:async()=>[]};
-assert.match(await generateSituationBriefing('test-root',null),/^Current situation\. Hello sir\. No projects are tracked yet\./);
+assert.match(await generateSituationBriefing('test-root',null),/^Hello sir\. Current situation\. We haven't linked any projects yet\./);
 await generateSituationBriefing('test-root',null);assert.equal(scans,2,'Every request must scan again');
 fixture.tasks=async()=>{throw Error('offline')};
-assert.match(await generateSituationBriefing('test-root',null),/task records.*incomplete/);
+assert.match(await generateSituationBriefing('test-root',null),/^Hello sir\. Current situation\..*task records.*incomplete/);
 fixture.runs=async()=>{throw Error('offline')};
 assert.match(await generateSituationBriefing('test-root',null),/running-work records/);
 fixture.projects=async()=>{throw Error('offline')};
