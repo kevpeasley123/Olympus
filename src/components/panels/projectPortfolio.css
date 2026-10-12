@@ -112,3 +112,34 @@
 @keyframes ecosystem-twinkle {0%,100%{opacity:.45}50%{opacity:1}}
 @container(max-width:600px){.ecosystem-center{width:130px;height:130px}.ecosystem-center>span{font-size:46px}.ecosystem-center small{top:145px}.ecosystem-node strong{font-size:11px}.ecosystem-planet{width:calc(var(--planet-size) * .72);height:calc(var(--planet-size) * .72)}}
 @media(prefers-reduced-motion:reduce){.ecosystem-starfield .is-bright{animation:none}}
+/* Orb fidelity: the sphere is the anchor. Labels do not shift its center. */
+.ecosystem-node { width:var(--planet-size);height:var(--planet-size);padding:0;gap:0;display:grid;place-items:center; }
+.ecosystem-node-label { position:absolute;top:calc(100% + 10px);left:50%;transform:translateX(-50%);width:156px;display:flex;flex-direction:column;gap:5px;pointer-events:none; }
+.ecosystem-node-label strong { width:100%;max-width:none; }
+.ecosystem-planet { width:100%;height:100%;animation:none; }
+.ecosystem-surface { inset:0;border-radius:50%;background:radial-gradient(ellipse at 30% 18%,#ffffff8c 0%,transparent 24%),radial-gradient(ellipse at 62% 73%,#000b,transparent 65%),radial-gradient(circle at 37% 32%,hsl(var(--project-hue,38) 70% 44%),hsl(var(--project-hue,38) 80% 13%) 67%,#020813 96%); }
+.ecosystem-planet .ecosystem-surface,.ecosystem-node:hover .ecosystem-surface { filter:none;box-shadow:inset 3px 3px 9px hsl(var(--project-hue) 85% 82% / .5),inset -9px -7px 16px #000b; }
+.ecosystem-surface::after { content:"";position:absolute;inset:0;border-radius:50%;background:url('../../assets/ecosystem-planet-gold.png') center/110% no-repeat;mix-blend-mode:screen;opacity:.13;filter:grayscale(1) blur(2px); }
+.ecosystem-planet::before { inset:-1px;box-shadow:0 0 9px hsl(var(--project-hue) 95% 67% / .55),0 0 28px hsl(var(--project-hue) 80% 55% / .2),inset 0 0 7px hsl(var(--project-hue) 95% 75% / .7);border:1px solid hsl(var(--project-hue) 95% 77% / .7); }
+.ecosystem-planet::after { content:"";position:absolute;inset:7%;border-radius:50%;border-top:1px solid #ffffff45;transform:rotate(-35deg);pointer-events:none; }
+.ecosystem-center { --project-hue:38;width:172px;height:172px; }
+.ecosystem-center .ecosystem-surface { filter:none;box-shadow:inset 4px 4px 14px #ffe4a875,inset -14px -11px 25px #000b; }
+.ecosystem-center::before { inset:-1px;border:1px solid #ffe5b69c;box-shadow:0 0 13px #edc27e85,0 0 40px #d4a65f40,inset 0 0 12px #ffe3a87a; }
+.ecosystem-center small { top:190px; }
+.ecosystem-links { z-index:0; }
+.ecosystem-center,.ecosystem-node { z-index:1; }
+.ecosystem-links .ecosystem-link-base { stroke:#cfaf78;stroke-width:.12;opacity:.7;filter:none; }
+.ecosystem-links .ecosystem-link-signal { stroke:#fff1c5;stroke-width:.23;stroke-linecap:round;stroke-dasharray:2 98;stroke-dashoffset:100;filter:drop-shadow(0 0 .25px #ffd994);animation:ecosystem-relay 6s linear infinite; }
+@keyframes ecosystem-relay { from{stroke-dashoffset:100}to{stroke-dashoffset:0} }
+.project-ecosystem:is(:hover,:focus-within,.is-paused) .ecosystem-link-signal { animation-play-state:paused; }
+@container(max-width:600px){.ecosystem-node{width:calc(var(--planet-size) * .72);height:calc(var(--planet-size) * .72)}.ecosystem-planet{width:100%;height:100%}.ecosystem-node-label{width:108px}.ecosystem-node-label strong{max-width:none}.ecosystem-center{width:126px;height:126px}.ecosystem-center small{top:141px}}
+@media(prefers-reduced-motion:reduce){.ecosystem-links .ecosystem-link-signal{animation:none;opacity:0}}
+/* Second reference pass: softer volume, cloudy interior and a crisp luminous limb. */
+.ecosystem-surface { background:radial-gradient(ellipse at 25% 22%,hsl(var(--project-hue,38) 70% 72% / .42),transparent 42%),radial-gradient(ellipse at 67% 71%,#000a,transparent 67%),radial-gradient(circle at 38% 30%,hsl(var(--project-hue,38) 63% 33%),hsl(var(--project-hue,38) 75% 12%) 70%,#020813); }
+.ecosystem-surface::after { opacity:.24;filter:grayscale(1) blur(1.7px);background-size:116%; }
+.ecosystem-planet::after { display:none; }
+.ecosystem-planet::before { box-shadow:0 0 5px hsl(var(--project-hue) 95% 78% / .55),0 0 23px hsl(var(--project-hue) 80% 55% / .24),inset 2px 2px 8px hsl(var(--project-hue) 95% 80% / .65); }
+.ecosystem-center .ecosystem-surface::after { opacity:.28; }
+.ecosystem-center .ecosystem-surface { box-shadow:inset 4px 4px 14px #ffe4a855,inset -14px -11px 25px #000b; }
+.project-ecosystem:hover .ecosystem-link-signal,.project-ecosystem:focus-within .ecosystem-link-signal { animation-play-state:running; }
+.project-ecosystem.is-paused .ecosystem-link-signal { animation-play-state:paused; }
