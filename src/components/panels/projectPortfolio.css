@@ -38,32 +38,13 @@
 .portfolio-art .project-management-bar { margin:0; padding:0; min-height:0; font-size:11px; }
 .portfolio-art .command-portfolio-tools { padding-top:10px; font-size:11px; }
 .portfolio-art button:focus-visible,.portfolio-art input:focus-visible,.portfolio-art select:focus-visible { outline:2px solid #e6c486; outline-offset:3px; }
-.project-ecosystem { position:relative; border:1px solid #8fa8c02c; border-radius:10px; overflow:hidden; background:radial-gradient(ellipse at 50% 50%,#694b261f,transparent 55%),linear-gradient(#05101bdd,#07101c99),url('../../assets/olympus-mountain-sanctuary-v4.png') center/cover; }
-.ecosystem-toolbar { position:absolute; top:12px; left:14px; right:14px; z-index:3; display:flex; justify-content:space-between; gap:10px; align-items:center; color:#a8b7ca; font-size:10px; }
-.ecosystem-toolbar button,.ecosystem-pages button { background:#0b1622; color:#bdcadb; border:1px solid #7790ac42; border-radius:5px; padding:7px 10px; font-size:11px; cursor:pointer; }
-.ecosystem-canvas { position:relative; height:590px; margin:30px 0; }
-.ecosystem-links { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; }
-.ecosystem-links path { fill:none; stroke:#c9a86680; stroke-width:.12; }
-.ecosystem-links ellipse { fill:none; stroke:#8da4c22b; stroke-width:.1; stroke-dasharray:.5 1.5; }
-.ecosystem-center { position:absolute; left:50%;top:50%;transform:translate(-50%,-50%);width:132px;height:132px;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;background:radial-gradient(circle at 30% 25%,#edc97970,#77512860 40%,#10121bd9 72%);border:1px solid #e7c283;box-shadow:inset 3px 3px 20px #eec67855,0 0 35px #dbb06430; }
-.ecosystem-center>span { font:54px Georgia;color:#efd4a4;line-height:1; }
-.ecosystem-center strong { font:12px Georgia;letter-spacing:2px;margin-top:6px;color:#ecd6b5; }
-.ecosystem-center small { position:absolute;top:145px;width:180px;text-align:center;color:#a19177;font-size:10px; }
-.ecosystem-node { position:absolute;transform:translate(-50%,-50%);width:150px;display:flex;align-items:center;flex-direction:column;gap:6px;border:0;background:transparent;color:#dce6ef;cursor:pointer;padding:4px;border-radius:8px; }
-.ecosystem-planet { width:var(--planet-size);height:var(--planet-size);display:grid;place-items:center;border-radius:50%;border:1px solid hsl(var(--project-hue) 55% 68%);background:radial-gradient(circle at 28% 22%,hsl(var(--project-hue) 70% 80% / .5),hsl(var(--project-hue) 50% 35% / .8) 32%,#06101de8 78%);box-shadow:inset 3px 2px 9px hsl(var(--project-hue) 60% 80% / .3),0 0 20px hsl(var(--project-hue) 60% 50% / .2);animation:portfolio-float 8s ease-in-out infinite;animation-delay:var(--drift-delay); }
-.ecosystem-planet .project-emblem { background:none;border:0;box-shadow:none; }
-.ecosystem-node strong { font:13px/1.3 var(--font-sans);text-align:center;max-width:150px;overflow-wrap:anywhere; }
-.ecosystem-node small { font-size:10px;color:#9eafc3; }
-.ecosystem-node:hover .ecosystem-planet { box-shadow:0 0 30px hsl(var(--project-hue) 65% 65% / .45); }
-.ecosystem-node.is-unmeasured .ecosystem-planet { border-style:dashed;opacity:.7; }
-.project-ecosystem:is(:hover,:focus-within,.is-paused) .ecosystem-planet { animation-play-state:paused; }
-.ecosystem-pages { display:flex;justify-content:center;gap:16px;align-items:center;padding:12px;color:#a8b7ca;font-size:11px; }
-.ecosystem-pages button:disabled { opacity:.4;cursor:default; }
-.ecosystem-empty { text-align:center;padding:20px;color:#b8c6d8; }
-@keyframes portfolio-float { 0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)} }
-@container (min-width:1100px) { .portfolio-art .command-board-rows { grid-template-columns:repeat(3,minmax(0,1fr)); } }
-@container (max-width:600px) { .portfolio-art .command-board-rows { grid-template-columns:1fr; }.portfolio-art .command-board-heading { flex-wrap:wrap;gap:8px; }.portfolio-art .command-board-heading h2{font-size:20px}.portfolio-art .command-board-controls{gap:8px}.portfolio-search{max-width:none}.ecosystem-node { width:95px; }.ecosystem-node strong {font-size:11px;max-width:95px}.ecosystem-center{width:95px;height:95px}.ecosystem-center>span{font-size:38px}.ecosystem-center small{top:105px}.ecosystem-canvas{height:620px}.ecosystem-planet{width:calc(var(--planet-size) * .72);height:calc(var(--planet-size) * .72)} }
-@media(prefers-reduced-motion:reduce){.ecosystem-planet{animation:none!important}.portfolio-art .command-project-row{transition:none}}
+
+/* Preserve the compact landscape cards independently of the ecosystem scene. */
+.portfolio-art .command-board-heading .portfolio-demo { align-self:center;white-space:nowrap; }
+.portfolio-art .command-board-controls .portfolio-source-status { order:4;margin-left:auto;max-width:180px; }
+.portfolio-art .command-project-next .command-project-action { white-space:nowrap;max-width:none; }
+@container(min-width:850px){.portfolio-art .command-board-rows{grid-template-columns:repeat(3,minmax(0,1fr))}.portfolio-art .command-project-row h3{font-size:16px}.portfolio-art .project-emblem{width:36px;height:36px}}
+@container(max-width:600px){.portfolio-art .command-board-rows{grid-template-columns:1fr}.portfolio-art .command-board-heading{flex-wrap:wrap;gap:8px}.portfolio-art .command-board-controls .portfolio-source-status{max-width:none;margin-left:0}}
 /* Second visual pass: put the cards first and let project color tint the scenery. */
 .portfolio-art .command-board-heading .portfolio-demo { align-self:center; white-space:nowrap; }
 .portfolio-art .command-board-controls .portfolio-source-status { order:4; margin-left:auto; max-width:180px; }
@@ -73,73 +54,49 @@
 .portfolio-art .command-project-next .command-project-action { white-space:nowrap; max-width:none; }
 .portfolio-art .command-row-details { margin-top:7px; }
 .portfolio-art .command-board-rows { gap:14px; }
-.ecosystem-center::before { content:"";position:absolute;inset:-10px;border:1px solid #e4bb6425;border-radius:50%;pointer-events:none;box-shadow:0 0 35px #d1a35020; }
-.ecosystem-planet::before { content:"";position:absolute;width:inherit;height:inherit;border-radius:50%;background:repeating-linear-gradient(150deg,transparent 0 9px,#ffffff08 10px,transparent 12px);pointer-events:none; }
 @container(min-width:850px){.portfolio-art .command-board-rows{grid-template-columns:repeat(3,minmax(0,1fr))}.portfolio-art .command-project-row h3{font-size:16px}.portfolio-art .project-emblem{width:36px;height:36px}}
 @container(max-width:600px){.portfolio-art .command-board-heading .portfolio-demo{font-size:10px}.portfolio-art .command-board-controls .portfolio-source-status{max-width:none;margin-left:0}.portfolio-art .command-board-controls{padding-top:4px}}
-/* Reference fidelity pass: real terrain/cloud asset, atmospheric bodies and layered constellations. */
-.project-ecosystem { background:radial-gradient(ellipse at 50% 42%,#14203744,transparent 65%),linear-gradient(#030c17a8,#030a1590),url('../../assets/olympus-mountain-sanctuary-v4.png') center/cover; }
-.ecosystem-canvas { height:610px; margin:32px 0 26px; isolation:isolate; }
-.ecosystem-starfield { position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:-1;overflow:visible; }
+/* Landscape composition: environment frames the space, never competes with it. */
+.project-ecosystem { position:relative;isolation:isolate;border:1px solid #8fa8c02c;border-radius:9px;overflow:hidden;background:radial-gradient(ellipse at 48% 50%,#152232 0%,#07111d 48%,#030911 100%); }
+.project-ecosystem::before { content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(#07121a55,#030b1744),url('../../assets/olympus-mountain-sanctuary-v4.png') center 58%/cover;mask-image:radial-gradient(ellipse at 49% 33%,transparent 18%,#0003 48%,#000 83%);opacity:.8; }
+.ecosystem-toolbar { position:absolute;top:12px;left:14px;right:14px;z-index:3;display:flex;justify-content:space-between;gap:10px;align-items:center;color:#a8b7ca;font-size:10px; }
+.ecosystem-toolbar>span { padding:7px 10px;border:1px solid #7790ac32;background:#07101bba;border-radius:5px; }
+.ecosystem-toolbar button,.ecosystem-pages button { background:#07111bc9;color:#bdcadb;border:1px solid #7790ac42;border-radius:5px;padding:7px 10px;font-size:11px;cursor:pointer; }
+.ecosystem-canvas { position:relative;height:370px;margin:42px 18px 32px;isolation:isolate; }
+.is-dense .ecosystem-canvas { height:380px;margin-bottom:42px; }
+.ecosystem-starfield,.ecosystem-links { position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible; }
+.ecosystem-starfield { z-index:-1; }
 .ecosystem-starfield circle { fill:#c4ddff;opacity:.55; }
 .ecosystem-starfield .is-bright { fill:#e1eeff;opacity:.95;filter:drop-shadow(0 0 .3px #a8d8ff);animation:ecosystem-twinkle 7s ease-in-out infinite; }
 .ecosystem-constellations polyline { fill:none;stroke:#91b7e3;stroke-width:.07;opacity:.32; }
 .ecosystem-constellations circle { fill:#e0f3ff;filter:drop-shadow(0 0 .45px #5fbdff); }
 .ecosystem-constellations path { stroke:#a5d8ff;stroke-width:.055;opacity:.8; }
 .ecosystem-orbits ellipse { fill:none;stroke:#6f9bb9;stroke-width:.055;opacity:.3; }
-.ecosystem-links path { stroke:#d3b57b;stroke-width:.13;opacity:.78;filter:drop-shadow(0 0 .15px #dbb469); }
-.ecosystem-links>ellipse { opacity:.25; }
-.ecosystem-center { width:185px;height:185px;border:0;background:none;box-shadow:none; }
-.ecosystem-surface { position:absolute;inset:-9%;background:url('../../assets/ecosystem-planet-gold.png') center/contain no-repeat;pointer-events:none;z-index:-1; }
-.ecosystem-center .ecosystem-surface { filter:brightness(.8) saturate(.72) drop-shadow(0 0 12px #e7b75a66); }
-.ecosystem-center::before { inset:-3px;border-color:#e6c77e33;box-shadow:0 0 40px #edbe6833; }
-.ecosystem-center>span { font-size:63px;text-shadow:0 2px 7px #000,0 0 14px #402b13; }
-.ecosystem-center strong { font-size:14px;text-shadow:0 2px 5px #000; }
-.ecosystem-center small { top:200px;letter-spacing:.06em; }
-.ecosystem-planet { position:relative;isolation:isolate;background:none;border:0;box-shadow:none; }
-.ecosystem-planet .ecosystem-surface { filter:hue-rotate(calc((var(--project-hue) - 38) * 1deg)) saturate(.85) brightness(.73) drop-shadow(0 0 9px hsl(var(--project-hue) 75% 65% / .4)); }
-.ecosystem-planet::before { inset:0;width:auto;height:auto;background:none;box-shadow:inset 0 0 8px hsl(var(--project-hue) 75% 72% / .5),0 0 17px hsl(var(--project-hue) 70% 60% / .18);border:1px solid hsl(var(--project-hue) 65% 75% / .4); }
-.ecosystem-planet .project-emblem { color:hsl(var(--project-hue) 75% 85%);filter:drop-shadow(0 2px 3px #000);width:36px;height:36px; }
-.ecosystem-planet .project-emblem svg { width:25px;height:25px;stroke-width:1.8; }
-.ecosystem-node { gap:8px; }
-.ecosystem-node strong { text-shadow:0 2px 5px #000;font-weight:500; }
-.ecosystem-node small { color:#adbdcf;text-shadow:0 1px 3px #000; }
-.ecosystem-node:hover .ecosystem-planet { box-shadow:none; }
-.ecosystem-node:hover .ecosystem-surface { filter:hue-rotate(calc((var(--project-hue) - 38) * 1deg)) saturate(.95) brightness(.95) drop-shadow(0 0 12px hsl(var(--project-hue) 75% 65% / .5)); }
-.ecosystem-node.is-unmeasured .ecosystem-planet { opacity:.85; }
-.ecosystem-node.is-unmeasured .ecosystem-planet::before { border-style:dashed; }
-.project-ecosystem:is(:hover,:focus-within,.is-paused) .is-bright { animation-play-state:paused; }
-@keyframes ecosystem-twinkle {0%,100%{opacity:.45}50%{opacity:1}}
-@container(max-width:600px){.ecosystem-center{width:130px;height:130px}.ecosystem-center>span{font-size:46px}.ecosystem-center small{top:145px}.ecosystem-node strong{font-size:11px}.ecosystem-planet{width:calc(var(--planet-size) * .72);height:calc(var(--planet-size) * .72)}}
-@media(prefers-reduced-motion:reduce){.ecosystem-starfield .is-bright{animation:none}}
-/* Orb fidelity: the sphere is the anchor. Labels do not shift its center. */
-.ecosystem-node { width:var(--planet-size);height:var(--planet-size);padding:0;gap:0;display:grid;place-items:center; }
-.ecosystem-node-label { position:absolute;top:calc(100% + 10px);left:50%;transform:translateX(-50%);width:156px;display:flex;flex-direction:column;gap:5px;pointer-events:none; }
-.ecosystem-node-label strong { width:100%;max-width:none; }
-.ecosystem-planet { width:100%;height:100%;animation:none; }
-.ecosystem-surface { inset:0;border-radius:50%;background:radial-gradient(ellipse at 30% 18%,#ffffff8c 0%,transparent 24%),radial-gradient(ellipse at 62% 73%,#000b,transparent 65%),radial-gradient(circle at 37% 32%,hsl(var(--project-hue,38) 70% 44%),hsl(var(--project-hue,38) 80% 13%) 67%,#020813 96%); }
-.ecosystem-planet .ecosystem-surface,.ecosystem-node:hover .ecosystem-surface { filter:none;box-shadow:inset 3px 3px 9px hsl(var(--project-hue) 85% 82% / .5),inset -9px -7px 16px #000b; }
-.ecosystem-surface::after { content:"";position:absolute;inset:0;border-radius:50%;background:url('../../assets/ecosystem-planet-gold.png') center/110% no-repeat;mix-blend-mode:screen;opacity:.13;filter:grayscale(1) blur(2px); }
-.ecosystem-planet::before { inset:-1px;box-shadow:0 0 9px hsl(var(--project-hue) 95% 67% / .55),0 0 28px hsl(var(--project-hue) 80% 55% / .2),inset 0 0 7px hsl(var(--project-hue) 95% 75% / .7);border:1px solid hsl(var(--project-hue) 95% 77% / .7); }
-.ecosystem-planet::after { content:"";position:absolute;inset:7%;border-radius:50%;border-top:1px solid #ffffff45;transform:rotate(-35deg);pointer-events:none; }
-.ecosystem-center { --project-hue:38;width:172px;height:172px; }
-.ecosystem-center .ecosystem-surface { filter:none;box-shadow:inset 4px 4px 14px #ffe4a875,inset -14px -11px 25px #000b; }
-.ecosystem-center::before { inset:-1px;border:1px solid #ffe5b69c;box-shadow:0 0 13px #edc27e85,0 0 40px #d4a65f40,inset 0 0 12px #ffe3a87a; }
-.ecosystem-center small { top:190px; }
 .ecosystem-links { z-index:0; }
-.ecosystem-center,.ecosystem-node { z-index:1; }
-.ecosystem-links .ecosystem-link-base { stroke:#cfaf78;stroke-width:.12;opacity:.7;filter:none; }
-.ecosystem-links .ecosystem-link-signal { stroke:#fff1c5;stroke-width:.23;stroke-linecap:round;stroke-dasharray:2 98;stroke-dashoffset:100;filter:drop-shadow(0 0 .25px #ffd994);animation:ecosystem-relay 6s linear infinite; }
-@keyframes ecosystem-relay { from{stroke-dashoffset:100}to{stroke-dashoffset:0} }
-.project-ecosystem:is(:hover,:focus-within,.is-paused) .ecosystem-link-signal { animation-play-state:paused; }
-@container(max-width:600px){.ecosystem-node{width:calc(var(--planet-size) * .72);height:calc(var(--planet-size) * .72)}.ecosystem-planet{width:100%;height:100%}.ecosystem-node-label{width:108px}.ecosystem-node-label strong{max-width:none}.ecosystem-center{width:126px;height:126px}.ecosystem-center small{top:141px}}
-@media(prefers-reduced-motion:reduce){.ecosystem-links .ecosystem-link-signal{animation:none;opacity:0}}
-/* Second reference pass: softer volume, cloudy interior and a crisp luminous limb. */
-.ecosystem-surface { background:radial-gradient(ellipse at 25% 22%,hsl(var(--project-hue,38) 70% 72% / .42),transparent 42%),radial-gradient(ellipse at 67% 71%,#000a,transparent 67%),radial-gradient(circle at 38% 30%,hsl(var(--project-hue,38) 63% 33%),hsl(var(--project-hue,38) 75% 12%) 70%,#020813); }
-.ecosystem-surface::after { opacity:.24;filter:grayscale(1) blur(1.7px);background-size:116%; }
-.ecosystem-planet::after { display:none; }
-.ecosystem-planet::before { box-shadow:0 0 5px hsl(var(--project-hue) 95% 78% / .55),0 0 23px hsl(var(--project-hue) 80% 55% / .24),inset 2px 2px 8px hsl(var(--project-hue) 95% 80% / .65); }
-.ecosystem-center .ecosystem-surface::after { opacity:.28; }
-.ecosystem-center .ecosystem-surface { box-shadow:inset 4px 4px 14px #ffe4a855,inset -14px -11px 25px #000b; }
-.project-ecosystem:hover .ecosystem-link-signal,.project-ecosystem:focus-within .ecosystem-link-signal { animation-play-state:running; }
-.project-ecosystem.is-paused .ecosystem-link-signal { animation-play-state:paused; }
+.ecosystem-links path { fill:none;vector-effect:non-scaling-stroke; }
+.ecosystem-links .ecosystem-link-base { stroke:#c6a36b;stroke-width:1;opacity:.75; }
+.ecosystem-links .ecosystem-link-signal { stroke:#fff1c5;stroke-width:1.8;stroke-linecap:round;stroke-dasharray:1.2 98.8;stroke-dashoffset:100;filter:drop-shadow(0 0 .3px #ffd994);animation:ecosystem-relay 6s linear infinite; }
+.ecosystem-center,.ecosystem-node { position:absolute;transform:translate(-50%,-50%);z-index:1; }
+.ecosystem-center { --project-hue:38;left:47%;top:50%;width:116px;height:116px;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;isolation:isolate; }
+.ecosystem-center>span { font:49px/1 Georgia;color:#f1d6a7;text-shadow:0 2px 7px #000; }
+.ecosystem-center strong { font:12px Georgia;letter-spacing:1.6px;margin-top:5px;color:#ecd6b5;text-shadow:0 2px 5px #000; }
+.ecosystem-node { width:var(--planet-size);height:var(--planet-size);padding:0;border:0;background:transparent;border-radius:50%;color:#e0e8f1;cursor:pointer; }
+.ecosystem-planet { position:relative;isolation:isolate;width:100%;height:100%;display:grid;place-items:center;border-radius:50%; }
+.ecosystem-surface { position:absolute;inset:0;z-index:-1;border-radius:50%;pointer-events:none;background:radial-gradient(ellipse at 26% 19%,hsl(var(--project-hue) 52% 67% / .35),transparent 29%),radial-gradient(ellipse at 64% 65%,#010509ee,transparent 68%),radial-gradient(circle at 35% 28%,hsl(var(--project-hue) 46% 20%),hsl(var(--project-hue) 58% 9%) 72%,#02060b);box-shadow:inset 2px 3px 5px hsl(var(--project-hue) 85% 83% / .75),inset -1px -1px 3px hsl(var(--project-hue) 68% 65% / .45),0 0 3px hsl(var(--project-hue) 80% 72% / .75),0 0 19px hsl(var(--project-hue) 75% 52% / .23); }
+.ecosystem-surface::after { content:"";position:absolute;inset:0;border-radius:50%;background:url('../../assets/ecosystem-planet-gold.png') center/116% no-repeat;mix-blend-mode:screen;opacity:.34;filter:grayscale(1) blur(.8px);mask-image:linear-gradient(145deg,#000,transparent 72%); }
+.ecosystem-center .ecosystem-surface { box-shadow:inset 3px 4px 8px #ffe8b7ad,inset -1px -1px 3px #e8c78988,0 0 5px #ffe6b78c,0 0 28px #e7b65d55,0 0 65px #e7b65d20; }
+.ecosystem-planet .project-emblem { width:30px;height:30px;background:none;border:0;box-shadow:none;color:hsl(var(--project-hue) 67% 79%);filter:drop-shadow(0 2px 3px #000); }
+.ecosystem-planet .project-emblem svg { width:23px;height:23px;stroke-width:1.7; }
+.ecosystem-node-label { position:absolute;left:calc(100% + 15px);top:50%;transform:translateY(-50%);width:145px;display:flex;flex-direction:column;gap:6px;text-align:left;pointer-events:none;text-shadow:0 2px 5px #000; }
+.ecosystem-node-label strong { font:500 14px/1.3 Georgia,serif;overflow-wrap:anywhere;color:#e2e6eb; }
+.ecosystem-node-label small { font-size:10px;color:#a6bed7; }
+.ecosystem-node:hover .ecosystem-surface { filter:brightness(1.2); }
+.ecosystem-node.is-unmeasured .ecosystem-planet { outline:1px dashed #b5c5d54d;outline-offset:3px; }
+.ecosystem-pages { display:flex;justify-content:center;gap:16px;align-items:center;padding:12px;color:#a8b7ca;font-size:11px;border-top:1px solid #849ab51c; }
+.ecosystem-pages button:disabled { opacity:.4;cursor:default; }
+.ecosystem-empty { text-align:center;padding:20px;color:#b8c6d8; }
+.project-ecosystem.is-paused :is(.is-bright,.ecosystem-link-signal) { animation-play-state:paused; }
+@keyframes ecosystem-twinkle {0%,100%{opacity:.45}50%{opacity:1}}
+@keyframes ecosystem-relay {from{stroke-dashoffset:100}to{stroke-dashoffset:0}}
+@container(max-width:700px){.ecosystem-node-label{left:50%;top:calc(100% + 10px);transform:translateX(-50%);width:110px;text-align:center}.ecosystem-node-label strong{font-size:11px}.ecosystem-canvas,.is-dense .ecosystem-canvas{height:570px;margin-bottom:70px}.ecosystem-node{width:calc(var(--planet-size) * .72);height:calc(var(--planet-size) * .72)}.ecosystem-center{width:95px;height:95px}.ecosystem-center>span{font-size:38px}.ecosystem-center strong{font-size:10px}}
+@media(prefers-reduced-motion:reduce){.ecosystem-starfield .is-bright,.ecosystem-links .ecosystem-link-signal{animation:none}.ecosystem-links .ecosystem-link-signal{opacity:0}.portfolio-art .command-project-row{transition:none}}

@@ -21,17 +21,22 @@ export function ProjectEcosystem({rows,onOpen}:{rows:ProjectCommandState[];onOpe
  const pages=Math.max(1,Math.ceil(rows.length/8)),current=Math.min(page,pages-1),visible=rows.slice(current*8,current*8+8);
  useEffect(()=>{const node=root.current;if(!node)return;const observer=new IntersectionObserver(([entry])=>setInView(entry.isIntersecting));observer.observe(node);return()=>observer.disconnect()},[]);
  useEffect(()=>{const listener=()=>setDocumentVisible(!document.hidden);document.addEventListener("visibilitychange",listener);return()=>document.removeEventListener("visibilitychange",listener)},[]);
- const points=visible.map((row,i)=>{const a=-Math.PI/2+i*2*Math.PI/visible.length;return {row,x:50+36*Math.cos(a),y:50+36*Math.sin(a)}});
- return <div className={`project-ecosystem ${paused||!inView||!documentVisible?"is-paused":""}`} ref={root} aria-label="Project ecosystem">
+ // Art-directed positions leave a clear central valley and room for side labels.
+ const layout=visible.length>6
+  ? [[23,14],[63,12],[10,39],[73,38],[17,67],[64,66],[28,91],[74,90]]
+  : visible.length<=4 ? [[24,22],[67,18],[20,80],[71,77]]
+  : [[26,18],[65,16],[13,49],[74,46],[31,84],[65,82]];
+ const points=visible.map((row,i)=>({row,x:layout[i][0],y:layout[i][1]}));
+ return <div className={`project-ecosystem ${visible.length>6?"is-dense":""} ${paused||!inView||!documentVisible?"is-paused":""}`} ref={root} aria-label="Project ecosystem">
   <div className="ecosystem-toolbar"><span title="Area uses open vault task counts, capped at 25 for readability. It does not estimate total project size. Traveling light is a decorative connection cue, not live data-transfer telemetry.">Size · open vault tasks</span><button aria-pressed={paused} onClick={()=>setPaused(p=>!p)}>{paused?"Resume motion":"Pause motion"}</button></div>
   <div className="ecosystem-canvas">
    <CelestialField/>
    <svg className="ecosystem-links" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">{points.map(({row,x,y},i)=>{
-    const d=`M50 50 C${50+(x-50)*.45} 50 ${x} ${50+(y-50)*.55} ${x} ${y}`;
+    const d=`M47 50 C${47+(x-47)*.42} ${50+(y-50)*.12} ${x+(x<47?8:-8)} ${y+(y<50?-8:8)} ${x} ${y}`;
     return <g key={row.project.id}><path className="ecosystem-link-base" d={d}/><path className="ecosystem-link-signal" d={d} pathLength="100" style={{animationDelay:`${-i*1.1}s`,animationDuration:`${5+i*.31}s`}}/></g>
    })}</svg>
-   <div className="ecosystem-center"><i className="ecosystem-surface" aria-hidden="true"/><span>Ω</span><strong>OLYMPUS</strong><small>Your project ecosystem</small></div>
-   {points.map(({row,x,y},i)=><button key={row.project.id} className={`ecosystem-node ${row.openTaskCount===null?"is-unmeasured":""}`} style={{left:`${x}%`,top:`${y}%`,"--project-hue":hues.current.get(row.project.id),"--planet-size":`${Math.sqrt(6400+Math.min(25,row.openTaskCount??0)*320)}px`,"--drift-delay":`${-i*1.7}s`} as CSSProperties} onClick={()=>onOpen(row.project.id)} aria-label={`Open ${row.project.name}, ${row.openTaskCount===null?"task count unknown":`${row.openTaskCount} open vault tasks`}`}>
+   <div className="ecosystem-center"><i className="ecosystem-surface" aria-hidden="true"/><span>Ω</span><strong>OLYMPUS</strong></div>
+   {points.map(({row,x,y},i)=><button key={row.project.id} className={`ecosystem-node ${row.openTaskCount===null?"is-unmeasured":""}`} style={{left:`${x}%`,top:`${y}%`,"--project-hue":hues.current.get(row.project.id),"--planet-size":`${Math.sqrt(4096+Math.min(25,row.openTaskCount??0)*220)}px`,"--drift-delay":`${-i*1.7}s`} as CSSProperties} onClick={()=>onOpen(row.project.id)} aria-label={`Open ${row.project.name}, ${row.openTaskCount===null?"task count unknown":`${row.openTaskCount} open vault tasks`}`}>
     <span className="ecosystem-planet"><i className="ecosystem-surface" aria-hidden="true"/><ProjectEmblem id={row.project.id}/></span><span className="ecosystem-node-label"><strong>{row.project.name}</strong><small>{row.openTaskCount===null?"Unmeasured":`${row.openTaskCount} open tasks`}</small></span>
    </button>)}
   </div>
