@@ -275,3 +275,28 @@ button.ecosystem-center:focus-visible { outline:2px solid #f1d39a;outline-offset
 .portfolio-detail .project-brief-disclosure { margin:0; padding:0 12px; border:1px solid #8ba9bd29; border-radius:6px; background:#0a172180; }
 .portfolio-detail .project-brief-disclosure>summary { padding:10px 0; }
 @container(max-width:680px) { .project-overview-layout { grid-template-columns:1fr; } }
+
+/* Match the approved render's gold labels, light copy and shared row edges. */
+.portfolio-detail .command-board-heading h2 { font:400 28px/1.2 Georgia,serif; text-transform:none; color:#edf0f6; }
+.project-overview-main,.project-overview-side { display:contents; }
+.project-overview-main > :first-child { grid-column:1; grid-row:1; }
+.project-overview-main > :nth-child(2) { grid-column:1; grid-row:2; }
+.project-overview-side > :first-child { grid-column:2; grid-row:1; }
+.project-overview-side > :nth-child(2) { grid-column:2; grid-row:2; }
+.project-overview-layout { align-items:stretch; }
+.project-command .project-overview-card h3 { font:600 11px/1.4 var(--font-sans); letter-spacing:.15em; text-transform:uppercase; color:#e6b65e; margin:0 0 12px; }
+.project-command .project-overview p { color:#dce5f2; font-size:14px; line-height:1.5; }
+.project-overview-card small { color:#94a9bb; font-size:11px; }
+.project-overview-card { padding:15px 17px; border-color:#36506199; background:linear-gradient(135deg,#0c1d29,#091620); }
+.project-overview-card.project-next-step { border-color:#36506199; background:linear-gradient(135deg,#0c1d29,#091620); }
+.project-overview-intro { padding:12px 14px; gap:15px; }
+.project-overview-emblem { width:44px; height:44px; display:flex; align-items:center; justify-content:center; }
+.project-overview-emblem > .project-emblem { display:flex; align-items:center; justify-content:center; width:100%; height:100%; margin:0; padding:0; border:0; border-radius:0; background:none; box-shadow:none; color:#edc778; }
+.project-overview-emblem svg { display:block; width:23px; height:23px; flex-shrink:0; margin:0; }
+.project-command .project-next-step .ghost-action { border:1px solid #dfaf55; border-radius:4px; color:#f0c36e; font-size:12px; padding:7px 12px; background:#08131c; }
+.portfolio-detail .project-work-disclosure>summary,.portfolio-detail .project-brief-disclosure>summary { color:#dce5f2; font-size:13px; }
+@container(max-width:680px) {
+ .project-overview-main > :nth-child(n),.project-overview-side > :nth-child(n) { grid-column:1; grid-row:auto; }
+}
+
+.project-command .project-overview p { font-weight:400; }
