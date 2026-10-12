@@ -12,26 +12,35 @@ bodies. Armory remains left, Pantheon center, Olympus conversation right.
 - `useCommandView` owns selection for both planetary targets and Active Missions.
   Selecting only inspects. MissionView retains recorded steps, assigned agents,
   approval text and navigation to the originating surface.
-- Progress halos and right-panel bars measure completed eligible steps, not
-  estimated total effort. Unknown progress has no arc. Workflow projections
-  have no deadline field; no deadline or percentage is fabricated.
+- Right-panel progress bars measure completed eligible steps, not estimated
+  total effort. Unknown progress has no bar. The planet progress halos were
+  hidden in 0.24.0; progress belongs to the mission directory. Workflow
+  projections have no deadline field; no deadline or percentage is fabricated.
 - Waiting is not automatically blocked: a waiting run with a recorded failed
   step uses warning treatment. Approval uses the recorded approval flag.
-- Plugins are real source/connection/local adapters; edges indicate shared
-  workflow membership. Skills are snapshot instructions; edges indicate shared
-  allowed tools (24 visible stars maximum, 10 edges). Obsidian uses the bounded
-  vault graph and real note links (60 visible edges). All three domain labels
-  persist independently of missions. Existing inspection actions are retained.
+- Plugins are real source/connection/local adapters. Skills are snapshot
+  instructions (24 visible stars maximum), plus one Superpowers reference
+  collection star. Since 2026-10-11 (`a939fed`) the Plugin and Skill lines are
+  decorative nearest-neighbour group lines, not shared workflow or tool
+  membership. Obsidian Memory uses the bounded vault graph and real note links
+  (at most 60 drawn). Lines in each group show only while one of its stars is
+  hovered or focused. The Plugins, Skills, Obsidian Memory and (since 0.25.0)
+  Agents labels persist independently of missions. Existing inspection actions
+  are retained.
 
 ## Rendering and performance
 
 Existing Three.js perspective rendering is retained. The larger Omega has
 beveled solid geometry, metallic sides, seeded irregular energy grain and local
-bloom. Two continuous inclined toruses cross the shared depth buffer. Mission
-spheres and their thin orbit paths use rotated circular geometry. Periods are
-260–419 seconds; waiting moves at 12% speed. Arrival phases are spread and retained
+bloom. The two inner toruses this pass kept have been hidden in the flagship
+since 0.25.0. Mission spheres orbit on rotated circular paths, which have been
+invisible since 0.24.0. Periods are 180–269 seconds (260–419 before 0.24.0). A
+planet pauses while it is hovered, focused or inspected from the mission list;
+waiting runs no longer slow down. Arrival phases are spread and retained
 across polling. Projected HTML targets follow the same camera; a ray against
-Omega hides labels when the solid occludes a planet. Keyboard and right-panel
+Omega marks a planet occluded when the solid is in front of it. Since 2026-10-08
+(`652c71b`) an occluded planet's hover ring and hit area are disabled while its
+label stays visible and clickable. Keyboard and right-panel
 access remain. Graphics failure retains flat mission controls and retry.
 
 The former 22 decorative bodies were removed. Ambient particles are one seeded
@@ -46,17 +55,25 @@ No dependency, paid call, backend command or execution authority was added.
 
 Run `node scripts/test-pantheon-missions.mjs` for lifecycle and telemetry tests.
 `node scripts/mission-review.mjs <dev-url>` covers zero/one/two missions, completed
-missions, paired selection, four viewports, reduced motion and context loss.
-`flagship-review.mjs` now asserts zero idle planets instead of decorative bodies.
-Run the full `npm run visual:review` regression suite per AGENTS.md.
+missions, paired selection, four viewports, reduced motion and context loss. It
+launches Edge (`channel: 'msedge'`). Run on 2026-10-12 in Chromium instead, it
+stopped at its first "Permanent Obsidian" check: it looks for a group named
+"Obsidian constellation", and the group is now labelled "Obsidian Memory
+constellation". `flagship-review.mjs` asserts zero idle planets instead of
+decorative bodies; see [COMMAND-FLAGSHIP.md](COMMAND-FLAGSHIP.md) for its state.
+
+`npm run visual:review`, the regression pass AGENTS.md asks for, does not cover
+this composition: it drives `command-agent-harness.html` without `?flagship` and
+captures the older Agent Catalog and orbital capability cards. The mission
+planets are covered only by the ad-hoc `scripts/*-review.mjs` scripts.
 
 Browser fixtures are synthetic. Production still reads `command_missions`,
 `command_capabilities` and the vault graph through existing Tauri paths. Browser
 preview has synthetic capabilities and zero live missions. Browser verification
 does not establish native WebView2, real IPC or installed desktop acceptance.
 
-The existing Olympian landscape is retained and is not pixel-identical to the
-supplied painting. Real agent names, counts and workflow titles replace the
+Command's backdrop has been the canyon altar (`olympus-altar-v5.png`) since
+0.24.0; it is not pixel-identical to the supplied painting. Real agent names, counts and workflow titles replace the
 render's example content. The backend reports supported workflow runs, not a
 general project/deadline mission registry; background sync and monitors remain
 outside its projection. Dense mission-label collision avoidance and native

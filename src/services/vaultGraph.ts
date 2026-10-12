@@ -8,7 +8,7 @@
  *
  * Everything in this file is pure. That is the only way anything on the
  * frontend can be checked without the desktop app — see the harness note in
- * `docs/HANDOFF.md`.
+ * `docs/archive/HANDOFF-through-2026-09-28.md`.
  */
 
 /** Mirrors `GraphNode` in `src-tauri/src/commands/vault_graph.rs`. */
@@ -68,10 +68,6 @@ export const EMPTY_VAULT_GRAPH: VaultGraphPayload = {
  * linked one", which is worth seeing and is what prompts the linking.
  */
 export const GRAPH_MIN_CONNECTED_ANCHORS = 1;
-
-export function isGraphLegible(graph: VaultGraphPayload): boolean {
-  return graph.connectedProjectCount >= GRAPH_MIN_CONNECTED_ANCHORS;
-}
 
 /** Reachable, non-project notes are exactly the nodes Command is allowed to draw. */
 export function connectedNoteIds(graph: VaultGraphPayload): Set<string> {
@@ -134,16 +130,6 @@ export function bandForNode(node: VaultGraphNode): GraphBand {
   return "deep";
 }
 
-/**
- * Degree drives size, within a range narrow enough that it never competes with
- * the band for attention. Anchors are fixed and largest: they are the thing
- * every radius is measured from.
- */
-function nodeRadius(node: VaultGraphNode): number {
-  if (node.hop === 0) return 4.5;
-  return 2 + Math.min(node.degree, 8) * 0.25;
-}
-
 export interface PositionedNode extends VaultGraphNode {
   x: number;
   y: number;
@@ -178,155 +164,4 @@ function byId(left: string, right: string): number {
   if (left < right) return -1;
   if (left > right) return 1;
   return 0;
-}
-
-function pointAt(angle: number, radius: number, centre: number) {
-  const radians = ((angle - 90) * Math.PI) / 180;
-  return {
-    x: centre + Math.cos(radians) * radius,
-    y: centre + Math.sin(radians) * radius
-  };
-}
-
-/**
- * Positions every node and edge.
- *
- * Angles come from a wedge per anchor, subdivided recursively down the hop tree.
- * **Wedge width is proportional to subtree size, not an equal share.** The real
- * vault forces this: eight anchors where one owns every link would give the only
- * real cluster 45° to hold thirteen children while seven childless anchors each
- * owned 45° of nothing. Anchor *order* stays fixed on id, so the sequence around
- * the ring is stable; only the widths breathe as links are added.
- */
-export function layoutVaultGraph(
-  graph: VaultGraphPayload,
-  centre: number
-): GraphLayout {
-  const nodesById = new Map<string, VaultGraphNode>();
-  for (const node of graph.nodes) nodesById.set(node.id, node);
-
-  const neighbours = new Map<string, string[]>();
-  for (const edge of graph.edges) {
-    if (!nodesById.has(edge.from) || !nodesById.has(edge.to)) continue;
-    if (!neighbours.has(edge.from)) neighbours.set(edge.from, []);
-    if (!neighbours.has(edge.to)) neighbours.set(edge.to, []);
-    neighbours.get(edge.from)!.push(edge.to);
-    neighbours.get(edge.to)!.push(edge.from);
-  }
-
-  // Parent is the lowest-id neighbour one hop closer. Lowest-id rather than
-  // first-seen so the tree does not depend on edge order.
-  const children = new Map<string, string[]>();
-  for (const node of graph.nodes) {
-    if (node.hop === null || node.hop <= 0) continue;
-    const candidates = (neighbours.get(node.id) ?? [])
-      .filter((other) => nodesById.get(other)?.hop === (node.hop as number) - 1)
-      .sort(byId);
-    const parent = candidates[0];
-    if (parent === undefined) continue;
-    if (!children.has(parent)) children.set(parent, []);
-    children.get(parent)!.push(node.id);
-  }
-  for (const list of children.values()) list.sort(byId);
-
-  // Post-order subtree sizes. The hop tree is acyclic by construction — every
-  // node has at most one parent and strictly smaller hop — so recursion cannot
-  // loop, but depth is bounded by the vault's longest chain regardless.
-  const sizes = new Map<string, number>();
-  function subtreeSize(id: string): number {
-    const cached = sizes.get(id);
-    if (cached !== undefined) return cached;
-    let total = 1;
-    for (const child of children.get(id) ?? []) total += subtreeSize(child);
-    sizes.set(id, total);
-    return total;
-  }
-
-  const positioned: PositionedNode[] = [];
-
-  function place(node: VaultGraphNode, angle: number) {
-    const radius = radiusForHop(node.hop);
-    const { x, y } = pointAt(angle, radius, centre);
-    positioned.push({
-      ...node,
-      x,
-      y,
-      angle,
-      radius,
-      size: nodeRadius(node),
-      band: bandForNode(node)
-    });
-  }
-
-  /** Lays a node at the centre of its wedge, then divides the wedge among its children. */
-  function spread(id: string, wedgeStart: number, wedgeWidth: number) {
-    const node = nodesById.get(id);
-    if (!node) return;
-
-    place(node, wedgeStart + wedgeWidth / 2);
-
-    const kids = children.get(id) ?? [];
-    if (kids.length === 0) return;
-
-    const total = kids.reduce((sum, child) => sum + subtreeSize(child), 0);
-    let cursor = wedgeStart;
-    for (const child of kids) {
-      const share = (subtreeSize(child) / total) * wedgeWidth;
-      spread(child, cursor, share);
-      cursor += share;
-    }
-  }
-
-  const anchors = graph.nodes
-    .filter((node) => node.hop === 0)
-    .map((node) => node.id)
-    .sort(byId);
-
-  const anchorTotal = anchors.reduce((sum, id) => sum + subtreeSize(id), 0);
-  let cursor = 0;
-  for (const id of anchors) {
-    const width = anchorTotal === 0 ? 360 / anchors.length : (subtreeSize(id) / anchorTotal) * 360;
-    spread(id, cursor, width);
-    cursor += width;
-  }
-
-  // Orphans own the rim outright and are spaced evenly across it. They have no
-  // parent to hang from, and crowding them against the cluster would imply a
-  // relationship that is precisely what they lack.
-  const orphans = graph.nodes
-    .filter((node) => node.hop === null)
-    .map((node) => node.id)
-    .sort(byId);
-  orphans.forEach((id, index) => {
-    const node = nodesById.get(id);
-    if (node) place(node, (index / orphans.length) * 360);
-  });
-
-  const placedById = new Map<string, PositionedNode>();
-  for (const node of positioned) placedById.set(node.id, node);
-
-  const edges: PositionedEdge[] = [];
-  for (const edge of graph.edges) {
-    const from = placedById.get(edge.from);
-    const to = placedById.get(edge.to);
-    if (!from || !to) continue;
-    edges.push({ key: `${edge.from}→${edge.to}`, from, to });
-  }
-
-  positioned.sort((left, right) => byId(left.id, right.id));
-
-  return { nodes: positioned, edges };
-}
-
-/** Hover copy. Says what the node is and how far out it sits, nothing inferred. */
-export function describeNode(
-  node: Pick<VaultGraphNode, "id" | "title" | "folder" | "hop">
-): string {
-  // Rust derives `folder` from the first path segment, so a file at the vault
-  // root reports its own filename as its folder — `AGENTS.md` in `AGENTS.md`.
-  // Naming the real location is more useful than echoing the title back.
-  const where = !node.folder || node.folder === node.id ? "vault root" : node.folder;
-  if (node.hop === null) return `${node.title} · ${where} · unlinked`;
-  if (node.hop === 0) return `${node.title} · ${where} · project`;
-  return `${node.title} · ${where} · ${node.hop} hop${node.hop === 1 ? "" : "s"} out`;
 }

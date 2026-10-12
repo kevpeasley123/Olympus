@@ -29,8 +29,6 @@ export interface SituationsWorkspaceProps {
  loadThread?:(threadId:string)=>Promise<MailMessage[]>;
  /** Supplied by Communications, which polls once for the header and this view. */
  feed?:SituationFeed;
- /** Kept for callers that open a thread elsewhere; source review now happens in the inspector. */
- onOpen?:unknown;
 }
 
 /** Standalone studies poll for themselves; Communications passes its shared feed. */

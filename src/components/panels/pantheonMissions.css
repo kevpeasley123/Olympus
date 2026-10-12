@@ -31,7 +31,7 @@
 .active-mission-card em{display:block;font:9px/1.8 var(--font-mono);color:#819baa;margin-top:3px}
 .mission-data-note{font:10px/1.5 var(--font-sans);color:#8499a7;margin:8px 0}
 .selected-mission-context>h4{font:14px var(--font-display);color:#e1cfae;margin-bottom:8px}.selected-mission-context .mission-view{margin:0;font-size:11px}
-.command-console>.console-workspace-header{order:0}.command-console>.console-idle{order:1}.command-console>.console-command-bar{order:4}.command-console>.console-stage{order:1}
+.command-console>.console-workspace-header{order:0}.command-console>.console-idle{order:1}.command-console>.console-command-bar{order:4}
 html .app-shell .console-idle{padding:26px 24px 16px;flex:1;min-height:0;overflow:auto;gap:16px}
 html .app-shell .command-console[data-layout="expanded"]{background:linear-gradient(150deg,#020c13f5,#020b12ed)}
 .skills-constellation{position:absolute;right:7%;top:22%;width:130px;height:105px;z-index:4;color:#b3c9d6}
@@ -43,8 +43,6 @@ html .app-shell .command-console[data-layout="expanded"]{background:linear-gradi
 .command-instrument[data-flagship] .armory-star__light{width:3px;height:3px;box-shadow:0 0 6px #bfe5ff66}
 .command-instrument[data-flagship] .vault-constellation{left:17%;bottom:6%;width:29%;height:18%}
 .command-instrument[data-flagship] .vault-constellation__label{font-size:8px;text-transform:uppercase;letter-spacing:.21em;bottom:-10px}
-.pantheon-motto{display:block;font:8px var(--font-sans);text-transform:uppercase;letter-spacing:.38em;color:#b7b4a6}
-.pantheon-state{display:block;margin-top:10px;font-size:8px}
 .command-console>.console-aperture{order:1}
 .armory-agent-filters{display:flex;gap:3px;margin:12px 0 4px}.armory-presence .armory-agent-filters button{display:block;width:auto;font-size:9px;padding:6px 8px;border:1px solid #7995a12b;border-radius:4px;color:#9eb0bb}.armory-presence .armory-agent-filters button[aria-pressed="true"]{background:#9cbac318;color:#ebdfc3}
 .armory-heading p{font-size:8px;text-transform:uppercase;letter-spacing:.13em;margin:10px 0 0;color:#9db6c6}
@@ -56,7 +54,7 @@ html .app-shell .command-console[data-layout="expanded"]{background:linear-gradi
 .pantheon-caption .pantheon-voice:not([data-active="true"]){opacity:.5;margin-top:8px;min-height:36px}
 .pantheon-voice:not([data-active="true"]){opacity:.22;min-height:24px;margin-top:12px}
 html .mode-command .command-instrument[data-flagship] .command-instrument__dial{width:min(100cqw,calc(100vh - 275px),850px);height:min(100cqw,calc(100vh - 275px),850px)}
-@media(max-width:1350px){.mission-planet-label{width:108px}.mission-planet-label strong{font-size:10px}.mission-planet-label small{font-size:7px}.skills-constellation{width:95px;height:90px;right:4%}.command-instrument[data-flagship] .armory-constellation{left:19%;width:100px}.pantheon-motto{letter-spacing:.2em;font-size:7px}.active-mission-list{margin-inline:12px}}
+@media(max-width:1350px){.mission-planet-label{width:108px}.mission-planet-label strong{font-size:10px}.mission-planet-label small{font-size:7px}.skills-constellation{width:95px;height:90px;right:4%}.command-instrument[data-flagship] .armory-constellation{left:19%;width:100px}.active-mission-list{margin-inline:12px}}
 @media(prefers-reduced-motion:reduce){.mission-planet-label{transition:none}}
 
 /* The architecture belongs to the distant canyon field, clear of the foreground dais. */

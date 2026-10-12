@@ -1,8 +1,6 @@
 import { DEFAULT_VOICE_PREFERENCES } from "../services/voicePreferences";
 import type { OlympusState } from "../types";
 
-const today = new Date().toISOString().slice(0, 10);
-
 export const seedState: OlympusState = {
   version: 7,
   settings: {

@@ -1,7 +1,7 @@
 # Companion conversation panel
 
-The flagship companion has explicit Overview and Conversation views within its
-existing column. Overview keeps the Mission Brief and active mission cards.
+The companion console has explicit Overview and Conversation views within its
+existing column. Overview keeps the Mission brief and active mission cards.
 Conversation replaces them with a full-height transcript above the pinned
 composer. Mission status appears only in Overview; the view switch never grants
 approval or executes a mission.
@@ -13,9 +13,13 @@ message disclosures intact. New responses follow only while the reader is at the
 bottom; Latest reply returns there explicitly. Assistant responses use the full
 reading width without separate card backgrounds or collapsed previews.
 
-This applies to the flagship expanded companion. Other compact consoles retain
-their existing behavior. Column widening is not introduced. Model selection,
-voice controls, evidence, memory actions and approval boundaries are preserved.
+This applies whenever the companion console is expanded. Since 0.30.0
+(`ab0b766`) the app mounts the companion console in all four modes, so Project,
+Research and Communications get the same views when their conversation dock is
+open. A compact console keeps its compact behavior. Column widening is not
+introduced. Model selection, voice controls, evidence and approval boundaries are
+preserved. The chat memory and observation actions were removed in 0.28.0 and
+0.30.0; see `CURATED-MEMORY.md`.
 
 Verification: `node scripts/conversation-panel-review.mjs` exercises switching,
 draft/scroll retention (including repeated Overview clicks), incoming replies,

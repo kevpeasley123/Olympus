@@ -30,6 +30,6 @@ mockIPC(async(command,args)=>{
 });
 Object.assign(window,{projectFixture:{calls,failSave:()=>{failSave=true},blockRemoval:(value:boolean)=>{failRemove=value},failReads:()=>{failMembers=true;failScan=true},remount:()=>remount(),members:()=>structuredClone(members)}});
 function Fixture(){const [projects,setProjects]=useState(members.map(m=>m.project)),[selected,setSelected]=useState<string|null>(null),[key,setKey]=useState(0);remount=()=>{setSelected(null);setKey(k=>k+1)};
- return <div style={{position:"fixed",inset:24,maxWidth:1020,display:"flex",minHeight:0}}><ProjectsPanel key={key} projects={projects} demoData={false} projectFilter={selected} onClearFilter={()=>setSelected(null)} onFocusProject={setSelected} onRescan={async()=>{if(failScan)throw Error("Scan fixture unavailable");setProjects(members.filter(m=>m.visibility==="visible").map(m=>({...m.project})))}} sessionBoundary={null} onOpenNote={()=>{}} onSyncCanvas={async()=>({tone:"success",message:"Fixture"})}/></div>;
+ return <div style={{position:"fixed",inset:24,maxWidth:1020,display:"flex",minHeight:0}}><ProjectsPanel key={key} projects={projects} demoData={false} projectFilter={selected} onClearFilter={()=>setSelected(null)} onFocusProject={setSelected} onRescan={async()=>{if(failScan)throw Error("Scan fixture unavailable");setProjects(members.filter(m=>m.visibility==="visible").map(m=>({...m.project})))}} sessionBoundary={null} onOpenNote={()=>{}}/></div>;
 }
 createRoot(document.getElementById("root")!).render(<Fixture/>);

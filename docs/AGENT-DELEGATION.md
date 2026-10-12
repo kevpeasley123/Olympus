@@ -97,8 +97,9 @@ Each driver adapter must:
 1. confirm its executable and version;
 2. build fixed arguments in Rust;
 3. constrain the working directory to the run workspace;
-4. pass only the minimum required environment (for Claude Code, an allowlist that
-   includes `ANTHROPIC_API_KEY` when set; for checks, an allowlist without keys);
+4. pass only the minimum required environment (Claude Code and checks each get a
+   cleared environment plus an allowlist of system, profile and temp variables;
+   neither receives an API key or token);
 5. emit structured phase, milestone, checkpoint, and completion events;
 6. distinguish process output from user-facing progress;
 7. terminate cleanly and report whether child processes remain.
@@ -142,6 +143,10 @@ prompt. The empty `--setting-sources` value was verified against Claude Code
 2.1.283; it is not yet confirmed on the installed driver (2.1.222 at the last
 audit). It also stops an `apiKeyHelper` in user settings from loading.
 
+Both prompts carry the pinned Hephaestus guidance
+(`src-tauri/src/commands/hephaestus-guidance.txt`); its text and SHA-256 are part
+of the approved scope. See `SUPERPOWERS-COLLECTION.md`.
+
 The bundled Codex executable is not used because Windows currently refuses
 standalone execution. Auto-routing belongs after this one driver proves its
 end-to-end behavior.
@@ -156,15 +161,17 @@ end-to-end behavior.
   `src/components/panels/DelegationPanel.tsx` and `DelegationReview.tsx`; the
   review form's rules are pure functions in `src/services/delegationReview.ts`,
   and prepare blockers are `prepareBlocker` in `src/services/projectCommandBoard.ts`.
-- Entry point: **Prepare Claude run** beside a real committed next action in
-  Project mode. (Since 2026-09-28: in the detail of any project that has a folder
-  under the projects root; the button is disabled with the reason when Olympus
-  would refuse. See the section at the end.)
+- Entry points, desktop only: **Prepare Claude run** in a project's **Coding runs**
+  disclosure (titled **Current work & reviews** while a run is open), shown for a
+  project with a folder under the projects root; the button is disabled with the
+  reason when Olympus would refuse (see the section at the end). An adopted
+  Organizer task can also prepare a run through `prepare_organizer_delegation`,
+  which uses the same approval records (see `ORGANIZER.md`).
 
 The process boundary, persistence, state transitions, frontend build, and unit
-tests are verified. A real paid Claude run and its human checkpoint remain the
-acceptance test; Olympus does not initiate that run without the operator's
-button press.
+tests are verified. No delegated run has completed. A real Claude Code run and
+its human checkpoint remain the acceptance test; Olympus does not initiate that
+run without the operator's button press.
 
 The backend stores the Claude process ID and, beside it in `delegation_events`,
 the process creation time. Cancellation terminates the full Windows process tree
@@ -190,8 +197,11 @@ processes it runs. In particular:
   Cargo config). The agent can edit that code with `Edit`/`Write` and then run
   it, which is arbitrary execution as the operator's Windows user, with network
   access and the user's filesystem permissions.
-- The Claude process receives `ANTHROPIC_API_KEY` (when set) because it needs
-  it to call the model. Code the agent runs inherits that environment.
+- The Claude process receives no API key or token. `allowed_environment` clears
+  the environment and passes only system, profile and temp-directory variables
+  (since 0.21.0), so Claude Code uses the operator's own login. Code the agent
+  runs inherits that reduced environment and still runs as the operator's
+  Windows user.
 - The operator's **Run check** buttons run the same repository scripts again,
   outside Claude Code. The check runner clears its environment and passes only
   an allowlist (`PATH`, system and temp directories, the user profile and app

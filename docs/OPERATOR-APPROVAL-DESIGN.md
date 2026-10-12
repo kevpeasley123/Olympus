@@ -24,7 +24,7 @@ Revocation is another event, not an edit of the original. Creation, consumption,
 ## Operator interaction and backend boundary
 
 1. Project mode displays the proposed task and distinguishes “unverified commitment” from a verified approval.
-2. **Prepare run** asks Rust to create a short-lived pending proposal. Rust resolves project, base, driver, task and scope; the webview cannot supply an executable or substitute these values during approval.
+2. **Prepare Claude run** asks Rust to create a short-lived pending proposal. Rust resolves project, base, driver, task and scope; the webview cannot supply an executable or substitute these values during approval.
 3. The desktop review displays the exact task, project, base, driver, permitted stage, and recovery location. The operator chooses **Approve planning** or **Cancel**. (Since 2026-09-28 the review also shows permitted actions in words, the base branch and a countdown; see "Display fields and review surface" below.)
 4. Approval resolves only that pending proposal, in the current desktop session, before its expiry. Rust stamps and records it. Unknown, expired, replayed, cancelled, or mismatched requests deny.
 5. Starting the run consumes approval transactionally before process launch. If worktree or process preparation fails, preserve the failed attempt and recovery information; do not silently reuse approval for another run.
@@ -67,6 +67,8 @@ Losing SQLite loses verifiability and requires fresh approval. This deliberately
 ## Implementation boundary
 
 Individual delegated tasks require the in-app review flow. Installing this mechanism does not approve a task. Approval and consumption are recorded together before launch; failed launches require new approval. Verification records bind to the workspace fingerprint. Manual artifact or behavior review is explicitly labelled and does not claim an automated test ran.
+
+The same proposal, approval and consumption records also gate Organizer task delegation (`prepare_organizer_delegation`, see `ORGANIZER.md`) and one-request skill guidance in the console (stage `skill-guidance`, `skill_guidance.rs`, see `RESOURCE-INTAKE.md`).
 
 ## Display fields and review surface — September 28, 2026
 

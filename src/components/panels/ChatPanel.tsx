@@ -7,13 +7,11 @@ import { ReplyModeToggle } from "./ReplyModeToggle";
 import { Mic, MicOff, Volume2, VolumeX, Square, Keyboard } from "lucide-react";
 import { ChevronRight, X, Settings2, Paperclip, Maximize2, Minimize2 } from "lucide-react";
 import type { CSSProperties } from "react";
-import { Fragment, memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Fragment, memo, useEffect, useLayoutEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { ConversationMessage, TurnAttachment } from "../../types";
 import { attachmentTitle, turnDisplay } from "../../services/turnAttachment";
-import type { ObsidianActionResult } from "../../services/obsidian";
-import { OBSERVATION_MAX_CHARS } from "../../services/observations";
 import { CONSOLE, consoleStepBack, liveConversationStart } from "../../services/commandConsole";
 import type { ConsoleMode } from "../../services/commandConsole";
 import { useConversationScroll } from "../../hooks/useConversationScroll";
@@ -61,7 +59,6 @@ interface ChatPanelProps {
   messages: ConversationMessage[];
   /** The operator's words, and what they attached; the two are stored apart. */
   onSendMessage: (message: string, attachment?: TurnAttachment) => void;
-  onRecordObservation: (text: string) => Promise<ObsidianActionResult>;
   pending?: boolean;
   progress?: string | null;
   onStop?: () => void;
@@ -89,9 +86,8 @@ interface ChatPanelProps {
   onOpenMission?: (destination: Mission["destination"]) => void;
   onDismissMission?: (id: string) => void;
 }
-function collapse(text: string): string { return text.split(/\s+/).filter(Boolean).join(" "); }
 
-export function ChatPanel({ companion = false, onVoiceConversationToggle, messages, onSendMessage, onRecordObservation, pending = false, progress = null, onStop, inspectionProjects = [], error = null,onOpenPreferences,autoSpeak=false,onAutoSpeakChange,voiceSettingsReady=true,briefing=null,onNewBriefing,briefingPending=false,
+export function ChatPanel({ companion = false, onVoiceConversationToggle, messages, onSendMessage, pending = false, progress = null, onStop, inspectionProjects = [], error = null,onOpenPreferences,autoSpeak=false,onAutoSpeakChange,voiceSettingsReady=true,briefing=null,onNewBriefing,briefingPending=false,
   activeMissions = [], selectedMissionId = null, onSelectMission, missionsError = null, missionsLoading = false,
   layout = "compact", onLayoutChange, onActivate, collapseLabel, mission = null, capabilities = null, suggestions = [], onOpenMission, onDismissMission }: ChatPanelProps) {
   const expanded = layout === "expanded";
@@ -103,9 +99,6 @@ export function ChatPanel({ companion = false, onVoiceConversationToggle, messag
   const [mode, setMode] = useState<ConsoleMode>("dormant");
   const [draft, setDraft] = useState("");
   const [projectContext, setProjectContext] = useState<TurnAttachment | null>(null);
-  const [observation, setObservation] = useState<string | null>(null);
-  const [observationStatus, setObservationStatus] = useState<ObsidianActionResult | null>(null);
-  const [recording, setRecording] = useState(false);
   const [liveStart, setLiveStart] = useState(() => liveConversationStart(messages));
   const [historyStart, setHistoryStart] = useState(0);
   const [responseReady, setResponseReady] = useState(false);
@@ -128,7 +121,6 @@ export function ChatPanel({ companion = false, onVoiceConversationToggle, messag
     if(savedReading.current.following)scroll.latest();
     else {scroll.interrupt();if(scroll.viewportRef.current)scroll.viewportRef.current.scrollTop=savedReading.current.top;}
   },[conversationPanel,conversationOpened]);
-  const editingMemory = observation !== null;
   const visibleMessages = conversationPanel ? messages.slice(historyStart) : mode === "transcript" ? messages.slice(historyStart) : messages.slice(liveStart);
   const liveInput = voice.active && voice.captionsEnabled && voice.inputMessageId && !messages.some(message => message.id === voice.inputMessageId)
     ? {id:voice.inputMessageId,role:"user" as const,content:voice.inputText || "Listening…",timestamp:"",voice:{kind:"input" as const}} : null;
@@ -160,7 +152,7 @@ export function ChatPanel({ companion = false, onVoiceConversationToggle, messag
     setMode("engaged"); setLiveStart(liveConversationStart(messages)); setResponseReady(false); scroll.latest(smooth);
   }
   function stepBack() {
-    if (editingMemory || conversationPanel) return;
+    if (conversationPanel) return;
     if (mode === "transcript") showLive();
     else if (!expanded) { setMode(consoleStepBack(mode)); panelRef.current?.focus(); }
   }
@@ -179,7 +171,7 @@ export function ChatPanel({ companion = false, onVoiceConversationToggle, messag
   useEffect(() => { if (expanded && mode === "dormant") { setMode("engaged"); setLiveStart(liveConversationStart(messages)); } }, [expanded, mode]);
   // Compacting is a deliberate "get out of the way": back to the command bar.
   const previousLayout = useRef(layout);
-  useEffect(() => { if (previousLayout.current === "expanded" && layout === "compact" && !editingMemory) setMode("dormant"); previousLayout.current = layout; }, [layout]);
+  useEffect(() => { if (previousLayout.current === "expanded" && layout === "compact") setMode("dormant"); previousLayout.current = layout; }, [layout]);
   // Opening the console is how the briefing is read; it is then no longer news.
   useEffect(() => { if (mode !== "dormant" && briefing) setBriefingSeen(briefing.id); }, [mode, briefing]);
   useEffect(() => {
@@ -245,35 +237,14 @@ export function ChatPanel({ companion = false, onVoiceConversationToggle, messag
   useEffect(() => {
     const outside = (event: PointerEvent) => {
       if ((event.target as Element)?.closest?.(".modal-backdrop, .ambient-bottom-right")) return;
-      if (!expanded && !editingMemory && mode === "engaged" && !panelRef.current?.contains(event.target as Node)) setMode("dormant");
+      if (!expanded && mode === "engaged" && !panelRef.current?.contains(event.target as Node)) setMode("dormant");
     };
     document.addEventListener("pointerdown", outside);
     return () => document.removeEventListener("pointerdown", outside);
-  }, [mode, editingMemory, expanded]);
+  }, [mode, expanded]);
 
 
-  const observationLength = observation ? collapse(observation).length : 0;
-  const observationTooLong = observationLength > OBSERVATION_MAX_CHARS;
 
-  async function recordObservation() {
-    if (!observation || recording) return;
-
-    const text = collapse(observation);
-    if (!text || text.length > OBSERVATION_MAX_CHARS) return;
-
-    setRecording(true);
-    try {
-      // Resolves only after the operator answers the write gate, so the
-      // composer stays open and disabled for the whole confirmation.
-      const result = await onRecordObservation(text);
-      setObservationStatus(result);
-      if (result.tone === "success") {
-        setObservation(null);
-      }
-    } finally {
-      setRecording(false);
-    }
-  }
 
 
   const inspectionControl = inspectionProjects.length > 0 && <details className="console-inspect-project"><summary>Inspect a project (read-only)</summary><label>Project <select aria-label="Inspect a project read-only" defaultValue="" onChange={event => { const name=event.target.value; if(name) { setDraft(`/inspect ${name}: Find one small issue and explain the smallest fix with file evidence.`); setConversationOpened(true); setMode("engaged"); requestAnimationFrame(() => inputRef.current?.focus()); } event.target.value=""; }}><option value="">Choose project…</option>{inspectionProjects.map(name=><option key={name} value={name}>{name}</option>)}</select></label><small>Read-only source review. Uses the selected paid OpenAI API route; at most three file reads plus an answer, within four minutes. Review the request, then Send.</small></details>;
@@ -282,7 +253,7 @@ export function ChatPanel({ companion = false, onVoiceConversationToggle, messag
     <section ref={panelRef} tabIndex={-1} className="command-console" data-mode={mode} data-layout={layout} data-conversation-panel={conversationPanel || undefined} data-panel-view={conversationPanel ? (conversationOpened?"conversation":"overview") : undefined} data-idle={idle || undefined} data-signal={signal ?? undefined}
       aria-label="Olympus Command Console" style={{ "--console-transition": `${CONSOLE.transitionMs}ms`, "--console-signal": `${CONSOLE.signalMs}ms` } as CSSProperties}
       onKeyDown={event => {
-        if (event.key === "Escape" && !event.nativeEvent.isComposing && !editingMemory) { event.preventDefault(); event.stopPropagation(); stepBack(); }
+        if (event.key === "Escape" && !event.nativeEvent.isComposing) { event.preventDefault(); event.stopPropagation(); stepBack(); }
       }}>
       <SkillApproval/>
       {(expanded || onLayoutChange) && <header className="console-workspace-header">
@@ -297,7 +268,7 @@ export function ChatPanel({ companion = false, onVoiceConversationToggle, messag
       </header>}
       {conversationPanel && <>
         <div className="conversation-view-switch" role="group" aria-label="Olympus panel view">
-          <button type="button" aria-pressed={!conversationOpened} disabled={editingMemory} onClick={showOverview}>Overview</button>
+          <button type="button" aria-pressed={!conversationOpened} onClick={showOverview}>Overview</button>
           <button type="button" aria-pressed={conversationOpened} onClick={()=>setConversationOpened(true)}>Conversation</button>
         </div>
 
@@ -326,7 +297,7 @@ export function ChatPanel({ companion = false, onVoiceConversationToggle, messag
           <div className="console-header-actions">
           {onNewBriefing && <button type="button" className="ghost-action" disabled={briefingPending || pending || voice.active || voice.connecting || !voiceSettingsReady || !isTauriRuntime()} title={!isTauriRuntime() ? "Live briefings require the desktop app" : "Refresh project records and give a new situation briefing"} onClick={() => { setConversationOpened(true); showLive(); void onNewBriefing(); }}>{briefingPending ? "Refreshing…" : "New briefing"}</button>}
             <button type="button" className="ghost-icon-action" aria-label={mode === "transcript" ? "Return to live conversation" : "Minimize console"}
-              disabled={editingMemory} onClick={stepBack}><X size={15} /></button>
+              onClick={stepBack}><X size={15} /></button>
           </div>
         </header>}
         <div className="console-history-controls" hidden={conversationPanel}>
@@ -359,63 +330,6 @@ export function ChatPanel({ companion = false, onVoiceConversationToggle, messag
           </div>
         </div>
         {!scroll.isFollowing && <button type="button" className="console-latest" onClick={() => scroll.latest(true)}>{conversationPanel?"↓ Latest reply":"↓ Latest"}</button>}
-        <div className="console-tools">
-
-      {observation !== null && (
-        <div className="observation-composer">
-          <label className="observation-label" htmlFor="observation-input">
-            Observation — appended, dated, to Profile Observations
-          </label>
-          <textarea
-            id="observation-input"
-            className="observation-input"
-            rows={3}
-            autoFocus
-            value={observation}
-            disabled={recording}
-            placeholder="Something Olympus should know about how you work."
-            onChange={(event) => setObservation(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Escape" && !recording) {
-                event.stopPropagation(); setObservation(null);
-              }
-              if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
-                event.preventDefault();
-                void recordObservation();
-              }
-            }}
-          />
-          <div className="observation-actions">
-            <span className={`observation-count tabular-data ${observationTooLong ? "over" : ""}`}>
-              {observationLength}/{OBSERVATION_MAX_CHARS}
-            </span>
-            <button
-              type="button"
-              className="ghost-action"
-              disabled={recording}
-              onClick={() => setObservation(null)}
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              className="ghost-action"
-              disabled={recording || observationLength === 0 || observationTooLong}
-              onClick={() => void recordObservation()}
-            >
-              {recording ? "Waiting for approval..." : "Record"}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {observationStatus && (
-        <p className={`section-copy action-feedback ${observationStatus.tone}`}>
-          {observationStatus.message}
-        </p>
-      )}
-
-        </div>
       </div>}
       <div className="console-command-bar">
         {companion && !conversationOpened && inspectionControl}

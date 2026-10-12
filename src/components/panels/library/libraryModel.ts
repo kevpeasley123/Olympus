@@ -216,18 +216,6 @@ export function buildSections(entries: LibraryEntry[], sort: LibrarySort = "adde
   }));
 }
 
-export function latestAddedLabel(entries: LibraryEntry[], now: Date = new Date()): string | null {
-  let latest = Number.NaN;
-  let value: string | null = null;
-  for (const entry of entries) {
-    if (!Number.isNaN(entry.addedSort) && (Number.isNaN(latest) || entry.addedSort > latest)) {
-      latest = entry.addedSort;
-      value = entry.addedAt;
-    }
-  }
-  return value ? formatLibraryDay(value, now) : null;
-}
-
 // ---- Search ----------------------------------------------------------------------
 
 export interface SearchResult {

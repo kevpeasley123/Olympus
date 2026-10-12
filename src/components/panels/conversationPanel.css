@@ -17,8 +17,6 @@ html .app-shell .command-console[data-conversation-panel] .console-command-bar{o
 .command-console[data-conversation-panel] .conversation-bubble.user{background:#162633;border:1px solid #66859944;border-radius:5px;padding:12px}
 .command-console[data-conversation-panel] .console-markdown,.command-console[data-conversation-panel] .console-command-text{font:13px/1.7 var(--font-sans);color:#e2e9ed;overflow-wrap:anywhere}
 .command-console[data-conversation-panel] .console-message-label{margin-bottom:8px}
-.command-console[data-conversation-panel] .console-tools:empty{display:none}
-.command-console[data-conversation-panel] .console-tools:has(.observation-composer),.command-console[data-conversation-panel] .console-tools:has(.memory-promotion){max-height:45%;overflow:auto}
 .command-console[data-conversation-panel] .console-latest{flex-shrink:0}
 
 /* Match the approved compact reading treatment, overriding legacy bubble rules. */
@@ -38,7 +36,6 @@ html .app-shell .command-console[data-conversation-panel] .console-message-label
 html .app-shell .command-console[data-conversation-panel] .console-modality{display:none}
 html .app-shell .command-console[data-conversation-panel] .conversation-bubble .console-message-meta{position:absolute;right:10px;top:9px;font:400 9px/1.4 var(--font-sans);color:#839bae}
 html .app-shell .command-console[data-conversation-panel] .conversation-bubble-footer{border:0;padding:0;margin-top:5px;min-height:0}
-html .app-shell .command-console[data-conversation-panel] .conversation-bubble .observation-seed{font-size:9px}
 html .app-shell .command-console[data-conversation-panel] .model-attribution{font:10px/1.4 var(--font-sans);margin:6px 0 0;color:#93abba}
 html .app-shell .command-console[data-conversation-panel] .console-day-separator{margin:12px 0 6px;font-size:9px}
 html .app-shell .command-console[data-conversation-panel] .console-command-bar{padding:8px;margin:0 7px 8px;border:0;border-top:1px solid #526c7c33;border-radius:0;background:#06111bed}

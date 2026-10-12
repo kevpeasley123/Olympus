@@ -246,10 +246,6 @@ select:focus {
 }
 
 /* Prose and tabular numerals. The image must not read behind either. */
-.surface-dense {
-  background: var(--surface-dense);
-  backdrop-filter: var(--surface-dense-blur);
-}
 
 /* Short labels only — chrome, rails, and collapsed rows. This is the tier that
    actually lets the background through. */
@@ -295,8 +291,7 @@ select:focus {
   text-transform: uppercase;
 }
 
-.panel-header,
-.conversation-input-shell {
+.panel-header {
   display: flex;
   align-items: center;
 }
@@ -542,40 +537,8 @@ select:focus {
   min-height: 20px;
 }
 
-.panel-head__icon {
-  display: grid;
-  place-items: center;
-  flex: 0 0 auto;
-  color: var(--accent);
-  opacity: 0.75;
-}
-
-.panel-head__title {
-  margin: 0;
-  color: var(--accent);
-  font-size: var(--text-xs);
-  font-weight: var(--weight-medium);
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  white-space: nowrap;
-}
-
 /* Pushes the actions to the right and gives the title room to sit next to a
    meta value without the two colliding. */
-.panel-head__meta {
-  flex: 1 1 auto;
-  min-width: 0;
-  color: var(--muted);
-  font-size: var(--text-xs);
-  text-align: right;
-}
-
-.panel-head__actions {
-  display: flex;
-  align-items: center;
-  gap: var(--space-8);
-  flex: 0 0 auto;
-}
 
 .settings-panel {
   max-width: 560px;
@@ -583,34 +546,6 @@ select:focus {
 
 .preferences-panel {
   max-width: 520px;
-}
-
-.preferences-list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-8);
-  margin-top: var(--space-16);
-}
-
-.preference-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-16);
-  min-height: 36px;
-  padding: 0 0 var(--space-8);
-  border-bottom: 1px solid var(--divider);
-}
-
-.preference-row span {
-  color: var(--muted);
-  font-size: var(--text-sm);
-}
-
-.preference-row strong {
-  color: var(--primary);
-  font-size: var(--text-base);
-  font-weight: var(--weight-medium);
 }
 
 small {
@@ -749,11 +684,6 @@ small {
 .center-stack > .panel-slot-instrument > * {
   flex: 1 1 auto;
   min-height: 0;
-}
-
-.projects-filter-chip {
-  text-transform: capitalize;
-  gap: var(--space-4);
 }
 
 .tools-rail > .panel-slot-tools,
@@ -1052,19 +982,6 @@ small {
   overflow: hidden;
 }
 
-.projects-panel-top {
-  flex: 0 0 auto;
-}
-
-.projects-footer {
-  display: flex;
-  justify-content: flex-end;
-  flex: 0 0 auto;
-  margin-top: var(--space-12);
-  padding-top: var(--space-12);
-  border-top: 1px solid var(--divider);
-}
-
 
 .projects-title {
   margin: 0;
@@ -1294,10 +1211,6 @@ small {
 
 /* Header-only in residence — the library itself opens as a modal — so it is a
    single strip rather than a panel reporting a count at full height. */
-.research-panel {
-  flex: 0 0 auto;
-  padding: var(--panel-pad-tight);
-}
 
 
 .action-feedback {
@@ -1314,15 +1227,6 @@ small {
 
 .action-feedback.error {
   color: var(--negative);
-}
-
-.pantheon-panel {
-  display: flex;
-  flex: 0 0 auto;
-  flex-direction: column;
-  overflow: hidden;
-  padding-top: 10px;
-  padding-bottom: 10px;
 }
 
 
@@ -1491,8 +1395,7 @@ small {
 }
 
 .pantheon-empty strong,
-.pantheon-entry-row-top strong,
-.pantheon-detail-header h3 {
+.pantheon-entry-row-top strong {
   color: var(--primary);
   font-weight: var(--weight-medium);
 }
@@ -1671,85 +1574,12 @@ small {
   min-width: 120px;
 }
 
-.pantheon-detail-view {
-  display: flex;
-  flex-direction: column;
-  min-height: 100%;
-}
-
-.pantheon-back-link {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-8);
-  align-self: flex-start;
-  padding: 0;
-  color: var(--muted);
-  font-size: var(--text-sm);
-  border: 0;
-  background: transparent;
-}
-
-.pantheon-back-link:hover {
-  color: #cbd5e1;
-}
-
-.pantheon-detail-header {
-  margin-top: var(--space-16);
-}
-
-.pantheon-detail-header h3 {
-  margin: 0;
-  font-size: var(--text-xl);
-}
-
-.pantheon-detail-meta {
-  margin: var(--space-8) 0 0;
-  color: var(--muted);
-  font-size: var(--text-sm);
-}
-
 /* The operator's judgement of a source, kept visually distinct from its
    bibliographic metadata above — one is what the source is, the other is what he
    thinks of it. */
-.pantheon-detail-judgement {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: var(--space-8);
-  margin: var(--space-8) 0 0;
-  font-size: var(--text-sm);
-}
-
-.pantheon-stance,
-.pantheon-origin {
-  padding: 1px 6px;
-  border: 1px solid currentColor;
-  color: var(--muted);
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-.pantheon-stance.is-endorsed {
-  color: var(--positive);
-}
-
-.pantheon-stance.is-disputed {
-  color: var(--negative);
-}
 
 /* `unevaluated` and `provisional` stay muted on purpose: the absence of a
    judgement should not draw the eye more than a judgement does. */
-
-.pantheon-why-kept {
-  color: var(--text);
-}
-
-.pantheon-why-kept.is-absent {
-  color: var(--muted);
-  font-style: italic;
-}
 
 
 .icon-only-action {
@@ -1766,16 +1596,6 @@ small {
   flex-direction: column;
   min-height: 0;
   overflow: hidden;
-}
-
-.conversation-thread {
-  display: flex;
-  flex-direction: column;
-  flex: 1 1 auto;
-  gap: var(--space-12);
-  min-height: 0;
-  margin-top: var(--space-12);
-  overflow-y: auto;
 }
 
 .conversation-bubble {
@@ -1819,10 +1639,6 @@ small {
 
 /* Status bubbles carry no timestamp, so the paragraph's bottom margin would
    otherwise leave a hanging gap. */
-.conversation-pending p,
-.conversation-error p {
-  margin-bottom: 0;
-}
 
 /* Olympus speaking about the turn, not the assistant speaking. It has to be
    unmistakably not-prose: monospace, smaller, its own rule above it. It sits
@@ -1849,19 +1665,6 @@ small {
    as a judgement about the request. */
 .conversation-notice--truncated {
   color: #9aa8bd;
-}
-
-.conversation-pending {
-  animation: conversation-pulse 1.4s ease-in-out infinite;
-}
-
-.conversation-pending p {
-  color: var(--muted);
-}
-
-.conversation-error {
-  background: rgba(217, 119, 6, 0.16);
-  border-left: 2px solid var(--accent);
 }
 
 @keyframes conversation-pulse {
@@ -1902,56 +1705,8 @@ small {
 
 /* Quiet until the bubble is hovered: recording an observation is a deliberate
    act, not something to advertise on every message in the thread. */
-.observation-seed {
-  padding: 0;
-  border: 0;
-  background: none;
-  color: transparent;
-  font-size: var(--text-xs);
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  cursor: pointer;
-  transition: color 160ms ease;
-}
-
-.conversation-bubble:hover .observation-seed,
-.observation-seed:focus-visible {
-  color: var(--muted);
-}
-
-.conversation-bubble:hover .observation-seed:hover {
-  color: var(--accent);
-}
-
-.observation-composer {
-  display: flex;
-  flex: 0 0 auto;
-  flex-direction: column;
-  gap: var(--space-8);
-  margin-top: var(--space-12);
-  padding: var(--space-12);
-  border: 1px solid rgba(90, 216, 255, 0.22);
-  border-radius: 8px;
-  background: rgba(7, 20, 31, 0.7);
-}
 
 /* Keep the review controls reachable at the minimum desktop height. */
-.memory-composer {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow-y: auto;
-}
-
-.memory-composer > * { flex-shrink: 0; }
-.memory-composer .observation-actions { flex-wrap: wrap; }
-.memory-composer .section-copy { margin: 0; }
-
-.observation-label {
-  color: var(--label);
-  font-size: var(--text-xs);
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
 
 .observation-input {
   width: 100%;
@@ -1969,34 +1724,6 @@ small {
 .observation-input:focus {
   border-color: rgba(90, 216, 255, 0.5);
   outline: none;
-}
-
-.observation-actions {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: var(--space-8);
-}
-
-.observation-count {
-  margin-right: auto;
-  color: var(--muted);
-  font-size: var(--text-xs);
-}
-
-.observation-count.over {
-  color: var(--negative);
-}
-
-.conversation-input-shell {
-  gap: var(--space-12);
-  margin-top: auto;
-  padding-top: var(--space-16);
-  flex: 0 0 auto;
-}
-
-.conversation-input-shell input {
-  flex: 1 1 auto;
 }
 
 .send-button {
@@ -2150,23 +1877,7 @@ small {
   color: var(--muted);
 }
 
-.composer-error {
-  background: rgba(248, 113, 113, 0.08);
-  border: 1px solid rgba(248, 113, 113, 0.2);
-  border-radius: 6px;
-  padding: 10px 14px;
-  margin-bottom: 16px;
-  font-size: 12px;
-  color: rgba(248, 113, 113, 0.9);
-}
-
 /* Add Entry modal — narrower than database modal, fits centered with form */
-.pantheon-modal--add-entry {
-  width: 640px;
-  max-width: 90vw;
-  height: auto;
-  max-height: 90vh;
-}
 
 .pantheon-modal-body--form {
   padding: 24px 28px;
@@ -2608,32 +2319,7 @@ small {
   color: var(--primary);
 }
 
-.pantheon-wikilink {
-  display: inline-block;
-  padding: 1px 6px;
-  background: rgba(217, 119, 6, 0.08);
-  border: 1px solid rgba(217, 119, 6, 0.2);
-  border-radius: 4px;
-  color: var(--accent);
-  font-family: var(--font-mono);
-  font-size: 0.9em;
-}
-
 /* Pantheon database modal (portaled to document.body) */
-.pantheon-modal-backdrop {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 1000;
-  background: rgba(10, 15, 26, 0.75);
-  backdrop-filter: blur(4px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  animation: pantheon-modal-fade-in 200ms ease-out;
-}
 
 @keyframes pantheon-modal-fade-in {
   from {
@@ -2770,32 +2456,6 @@ small {
 /* Command mode only: the thread shrinks to the last exchange so it stops being
    the loudest thing on a deliberately sparse screen. It grows back on focus,
    on send, or on asking for it. */
-.conversation-panel--collapsed {
-  flex: 0 0 auto;
-}
-
-.conversation-panel--collapsed .conversation-thread {
-  flex: 0 0 auto;
-  max-height: 40vh;
-  overflow-y: auto;
-}
-
-.conversation-expand {
-  align-self: flex-start;
-  padding: 0;
-  border: none;
-  background: none;
-  color: var(--muted);
-  font-family: inherit;
-  font-size: 12px;
-  cursor: pointer;
-  opacity: 0.75;
-}
-
-.conversation-expand:hover {
-  color: var(--accent);
-  opacity: 1;
-}
 
 /* ---- Command instrument ------------------------------------------------- */
 /* Command is the ambient, across-the-room surface: one instrument and quiet
@@ -2866,14 +2526,6 @@ small {
   vector-effect: non-scaling-stroke;
 }
 
-.day-arc__elapsed {
-  stroke: var(--accent);
-  stroke-width: 2;
-  opacity: 0.55;
-  stroke-linecap: round;
-  vector-effect: non-scaling-stroke;
-}
-
 .day-arc__tick {
   stroke-width: 3;
   stroke-linecap: round;
@@ -2898,17 +2550,6 @@ small {
 
 .day-arc__tick:hover {
   opacity: 1;
-}
-
-.day-arc__now {
-  fill: none;
-  stroke: var(--accent);
-  stroke-width: 2;
-  vector-effect: non-scaling-stroke;
-}
-
-.day-arc__now.is-live {
-  animation: day-arc-now-breath 4s ease-in-out infinite;
 }
 
 @keyframes day-arc-now-breath {
@@ -3224,11 +2865,6 @@ small {
 
 /* The breath. Opacity and scale only: both composite, where animating the glyph's
    drop-shadow would re-raster the filter every frame over the backdrop blur. */
-.omega-glow {
-  transform-box: view-box;
-  animation: omega-breath var(--breath-duration) ease-in-out infinite;
-  will-change: transform, opacity;
-}
 
 /* Ambient, never a signal. Nothing on this instrument should be mistaken for
    data because it moves, so the cycle is slow and the extremes are gentle. */
@@ -3246,27 +2882,6 @@ small {
 
 /* Thinking: energy held, going nowhere. The glyph steps back and a thin arc
    circles it. */
-.omega-presence--thinking .instrument-glyph {
-  opacity: 0.62;
-}
-
-.omega-presence--thinking .omega-glow {
-  opacity: 0.5;
-  animation-duration: calc(var(--breath-duration) * 0.6);
-}
-
-.omega-think-arc {
-  transform-box: view-box;
-  stroke: var(--accent);
-  stroke-width: 1.5;
-  stroke-linecap: round;
-  /* A short arc, not a ring: circumference at r=79 is ~496, so this draws about
-     an eighth of it and leaves the rest open. */
-  stroke-dasharray: 62 434;
-  opacity: 0.75;
-  animation: omega-orbit 2.4s linear infinite;
-  will-change: transform;
-}
 
 @keyframes omega-orbit {
   from {
@@ -3287,51 +2902,13 @@ small {
    is what makes the glyph grow in place rather than fly out of frame. Anything
    set here is silently overridden. */
 
-.omega-presence--speaking .omega-glow {
-  animation-duration: calc(var(--breath-duration) * 0.45);
-}
-
 /* The one glowing object. Nothing else in this mode gets a shadow.
    Depth pass: the flat fill became a dark body with a bright outline —
    `paint-order: stroke` puts the stroke behind the fill, so the bright edge
    rims the letterform instead of thickening it. The halo stays the gradient
    disc behind; the highlight is the offset underlay text beside this. */
-.instrument-glyph {
-  fill: #c2660a;
-  stroke: #f59e0b;
-  stroke-width: 1.6;
-  paint-order: stroke;
-  opacity: 0.9;
-  filter: drop-shadow(0 0 14px rgba(217, 119, 6, 0.45))
-    drop-shadow(0 0 40px rgba(217, 119, 6, 0.2));
-  /* Opacity is transitioned too, so entering and leaving thinking eases rather
-     than cutting, and returning to idle settles back into the breath. */
-  transition:
-    filter 300ms ease-out,
-    opacity 420ms ease-out;
-}
 
 /* Occluded by the body except along the upper contours — the lit top edge. */
-.instrument-glyph-highlight {
-  fill: rgba(255, 216, 150, 0.5);
-  opacity: 0.9;
-  pointer-events: none;
-  transition: opacity 420ms ease-out;
-}
-
-.omega-presence--thinking .instrument-glyph-highlight {
-  opacity: 0.55;
-}
-
-.command-instrument__svg.pulse-vault-write .instrument-glyph {
-  filter: drop-shadow(0 0 20px rgba(217, 119, 6, 0.7))
-    drop-shadow(0 0 52px rgba(217, 119, 6, 0.34));
-}
-
-.command-instrument__svg.pulse-graph-node .instrument-glyph {
-  filter: drop-shadow(0 0 18px rgba(217, 119, 6, 0.62))
-    drop-shadow(0 0 46px rgba(217, 119, 6, 0.28));
-}
 
 /* Replaces the tier counts, at the same position and the same quiet weight.
    Monospace because the content is a model identifier, which is a name to be
@@ -3438,234 +3015,6 @@ small {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
   gap: var(--space-12);
-}
-
-.briefing-card {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-12);
-  min-width: 0;
-  padding: var(--space-16);
-  border: 1px solid rgba(151, 173, 200, 0.18);
-  background:
-    linear-gradient(180deg, rgba(11, 21, 34, 0.86), rgba(8, 16, 27, 0.76));
-  box-shadow: inset 3px 0 0 rgba(151, 173, 200, 0.22);
-  backdrop-filter: blur(16px);
-}
-
-.briefing-card--active {
-  border-color: rgba(217, 119, 6, 0.3);
-  box-shadow:
-    inset 3px 0 0 rgba(217, 119, 6, 0.85),
-    0 18px 42px rgba(3, 9, 16, 0.2);
-}
-
-.briefing-card--featured {
-  padding: var(--space-20);
-}
-
-.briefing-card--featured .briefing-card__head h2 {
-  font-size: 26px;
-}
-
-.briefing-card--secondary {
-  background: rgba(8, 16, 27, 0.58);
-  box-shadow: inset 2px 0 0 rgba(151, 173, 200, 0.2);
-}
-
-.briefing-card--secondary.briefing-card--active {
-  box-shadow: inset 2px 0 0 rgba(217, 119, 6, 0.72);
-}
-
-.briefing-card__head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--space-16);
-}
-
-.briefing-card__head h2 {
-  margin: 6px 0 0;
-  color: var(--primary);
-  font-size: 21px;
-  font-weight: var(--weight-medium);
-  letter-spacing: -0.015em;
-}
-
-.briefing-card__status-line,
-.briefing-card__activity {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-8);
-  color: var(--muted);
-  font-size: 9px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-}
-
-.briefing-card__status {
-  color: var(--secondary);
-}
-
-.briefing-card__status.active {
-  color: var(--accent);
-}
-
-.briefing-card__activity {
-  justify-content: flex-end;
-  max-width: 48%;
-  line-height: 1.5;
-  text-align: right;
-}
-
-.briefing-card__activity span + span::before {
-  content: "·";
-  margin-right: var(--space-8);
-  opacity: 0.4;
-}
-
-.briefing-card__vision {
-  position: relative;
-  padding: 10px var(--space-12) 10px var(--space-16);
-  border-left: 1px solid rgba(217, 119, 6, 0.38);
-  background: rgba(217, 119, 6, 0.055);
-}
-
-.briefing-card__label {
-  display: block;
-  margin-bottom: 6px;
-  color: var(--muted);
-  font-size: 9px;
-  font-weight: var(--weight-medium);
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-}
-
-.briefing-card__vision p,
-.briefing-card__committed p,
-.briefing-card__recommendation p {
-  margin: 0;
-  color: var(--secondary);
-  font-size: 13px;
-  line-height: 1.55;
-}
-
-.briefing-card__note-link {
-  margin-top: 6px;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: var(--accent);
-  cursor: pointer;
-  font-size: 10px;
-}
-
-.briefing-card__note-link:hover,
-.briefing-card__note-link:focus-visible {
-  color: var(--primary);
-  outline: none;
-}
-
-.briefing-card__columns {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: var(--space-12);
-}
-
-.briefing-card__columns > section {
-  min-width: 0;
-}
-
-.briefing-card__list,
-.briefing-card__attention ul {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.briefing-card__list li,
-.briefing-card__attention li {
-  position: relative;
-  padding-left: 12px;
-  color: var(--secondary);
-  font-size: 12px;
-  line-height: 1.5;
-}
-
-.briefing-card__list li::before,
-.briefing-card__attention li::before {
-  content: "";
-  position: absolute;
-  top: 0.68em;
-  left: 0;
-  width: 4px;
-  height: 4px;
-  background: var(--muted);
-}
-
-.briefing-card__committed {
-  padding-left: var(--space-16);
-  border-left: 1px solid rgba(82, 225, 255, 0.2);
-}
-
-.briefing-card__recommendation {
-  padding: 10px var(--space-16);
-  border: 1px solid rgba(82, 225, 255, 0.18);
-  background: rgba(35, 151, 181, 0.07);
-}
-
-.briefing-card__recommendation .briefing-card__label {
-  color: rgba(82, 225, 255, 0.82);
-}
-
-.briefing-card__attention {
-  padding-top: 10px;
-  border-top: 1px solid rgba(224, 165, 74, 0.18);
-}
-
-.briefing-card__attention .briefing-card__label,
-.briefing-card__attention li {
-  color: #d8b77d;
-}
-
-.briefing-card__actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-8);
-  align-self: flex-start;
-  margin-top: auto;
-}
-
-.briefing-card__focus,
-.briefing-card__delegate {
-  padding: 8px 12px;
-  border: 1px solid rgba(217, 119, 6, 0.34);
-  background: rgba(217, 119, 6, 0.08);
-  color: var(--primary);
-  cursor: pointer;
-  font: inherit;
-  font-size: 11px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-.briefing-card__delegate {
-  border-color: rgba(82, 225, 255, 0.26);
-  background: rgba(35, 151, 181, 0.08);
-}
-
-.briefing-card__focus:hover,
-.briefing-card__focus:focus-visible,
-.briefing-card__delegate:hover,
-.briefing-card__delegate:focus-visible {
-  border-color: var(--accent);
-  background: rgba(217, 119, 6, 0.16);
-  outline: none;
 }
 
 .delegation-panel {
@@ -3914,24 +3263,6 @@ small {
   gap: 6px;
 }
 
-.briefing-key {
-  width: 6px;
-  height: 6px;
-  background: var(--muted);
-}
-
-.briefing-key--committed {
-  background: var(--primary);
-}
-
-.briefing-key--recommended {
-  background: rgba(82, 225, 255, 0.82);
-}
-
-.briefing-key--attention {
-  background: #d8b77d;
-}
-
 /* ---- Tasks, attributed to their project -------------------------------- */
 /* The Action Queue dissolved into the project cards. A task now renders under
    the project whose note holds its checkbox, so the panel says what is open
@@ -4154,20 +3485,10 @@ small {
    selectors were fine. Anything added below this block is unguarded. */
 @media (prefers-reduced-motion: reduce) {
   .ring-outer,
-  .ring-middle,
-  .ring-inner,
-  /* The now-marker stops breathing but stays at the right position, and every
-     tick keeps its hover label. Matched with `.is-live` so this beats the rule
-     that turns it on: source order settles ties, not specificity gaps. */
-  .day-arc__now,
-  .day-arc__now.is-live,
-  .conversation-pending,
-  .delegation-phase.is-active,
-  /* The omega's three presence states. The breath and the orbit stop; the states
-     stay distinguishable statically, below. */
-  .omega-glow,
-  .omega-think-arc,
-  .ambient-inline-button.is-spinning {
+.ring-middle,
+.ring-inner,
+.delegation-phase.is-active,
+.ambient-inline-button.is-spinning {
     animation: none;
   }
 
@@ -4175,48 +3496,20 @@ small {
      at either extreme; thinking keeps its dimmed glyph and shows the arc as a
      static mark; speaking holds a brighter, larger glow. Three readable states
      with nothing moving, and nothing here changes hit targets. */
-  .omega-glow {
-    opacity: 0.72;
-    transform: scale(1);
-  }
-
-  .omega-presence--thinking .omega-glow {
-    opacity: 0.5;
-  }
-
-  .omega-think-arc {
-    opacity: 0.85;
-    stroke-dasharray: 62 434;
-  }
-
-  .omega-presence--speaking .omega-glow {
-    opacity: 1;
-    transform: scale(1.06);
-  }
 
   .main-grid,
-  .tools-rail,
-  .projects-panel,
-  .panel-slot,
-  .tool-row,
-  .ghost-action,
-  .send-button,
-  .observation-seed,
-  /* A ring node still brightens on hover — that is how it identifies itself —
-     but it arrives instantly rather than easing in. */
-  .project-ring__segment,
-  /* The depth pass moved segment colour onto these children; they transition
-     fill and stroke on hover, which is motion the parent guard no longer
-     covers. */
-  .project-ring__segment-fill,
-  .project-ring__segment-face,
-  .project-ring__window-name,
-  .project-ring__node,
-  /* The glyph fades between presence states over 420ms. Stopping the keyframes
-     but leaving the transition would keep a visible fade under the setting. */
-  .instrument-glyph,
-  .instrument-glyph-highlight,
-  .background-image {
+.tools-rail,
+.projects-panel,
+.panel-slot,
+.tool-row,
+.ghost-action,
+.send-button,
+.project-ring__segment,
+.project-ring__segment-fill,
+.project-ring__segment-face,
+.project-ring__window-name,
+.project-ring__node,
+.background-image {
     transition: none;
   }
 
@@ -4308,21 +3601,11 @@ small {
 .ambient-node-signal { fill: #d97706; animation: ambient-signal var(--ambient-nodePulse) ease-in-out both; }
 .ambient-edge-signal { stroke: #d97706; stroke-width: 1.2; vector-effect: non-scaling-stroke; animation: ambient-edge-signal var(--ambient-nodePulse) ease-in-out both; }
 @keyframes ambient-edge-signal { 0%, 100% { opacity: 0; } 40% { opacity: .65; } }
-.command-instrument .omega-presence--idle {
-  --breath-opacity-low: .45; --breath-opacity-high: 1;
-  --breath-scale-low: 1; --breath-scale-high: 1.005;
-}
 /* Keep the glyph stationary: illumination comes from opacity, not animated filters. */
-.command-instrument .omega-presence--idle .instrument-glyph-highlight {
-  animation: ambient-core-light var(--ambient-breath) ease-in-out infinite;
-}
 @keyframes ambient-core-light { 0%, 100% { opacity: .5; } 50% { opacity: 1; } }
-.command-instrument__dial:hover .omega-presence--idle { --breath-opacity-low: .55; --breath-opacity-high: 1; }
-.command-instrument[data-visual-state="listening"] .omega-glow { --breath-opacity-low: .8; --breath-opacity-high: .94; }
 .command-instrument[data-visual-state="thinking"] .ambient-orbit--outer,
 .command-instrument[data-visual-state="executing"] .ambient-orbit--outer { animation-duration: calc(var(--ambient-orbitSlow) * .8); }
 .command-instrument[data-visual-state="executing"] .ambient-energy { opacity: .9; }
-.command-instrument[data-visual-state="complete"] .omega-glow { animation: ambient-complete var(--ambient-nodePulse) ease-out both; }
 @keyframes ambient-complete { 0% { opacity: .85; transform: scale(1); } 60% { opacity: .35; transform: scale(1.08); } 100% { opacity: .72; transform: scale(1); } }
 /* Animate only the existing vignette; the artwork itself stays sharp and unchanged. */
 .background-vignette { animation: ambient-atmosphere var(--ambient-background) ease-in-out infinite; }
@@ -4383,7 +3666,7 @@ small {
 .command-console .conversation-bubble { max-width: none; padding: 0 0 20px; margin: 0 0 16px; background: transparent; border: 0; border-bottom: 1px solid rgba(137,166,196,.1); overflow-wrap: anywhere; }
 .command-console .conversation-bubble:last-child { margin-bottom: 0; }
 .command-console .conversation-bubble p { line-height: 1.7; font-size: 13px; }
-.command-console .conversation-message-label, .command-console .conversation-bubble .console-message-label { margin: 0 0 7px; font: 9px var(--font-mono); letter-spacing: .14em; color: #8595ab; }
+.command-console .conversation-bubble .console-message-label { margin: 0 0 7px; font: 9px var(--font-mono); letter-spacing: .14em; color: #8595ab; }
 .command-console .conversation-bubble.assistant .console-message-label { color: #bd853d; }
 .command-console .conversation-bubble .console-command-text { color: #b5c1d0; white-space: pre-wrap; font-size: 12px; }
 .console-command-text > span { color: var(--accent); }
@@ -4401,16 +3684,10 @@ small {
 .console-markdown img { max-width: 100%; }
 .command-console .conversation-bubble-footer { margin-top: 10px; gap: 10px; flex-wrap: wrap; }
 .command-console .conversation-bubble small { color: #617187; font-size: 9px; }
-.command-console .observation-seed { opacity: .65; font-size: 9px; }
-.command-console .observation-seed:focus-visible { opacity: 1; }
 .console-processing, .console-empty { color: #8c9eb5; font-size: 12px; }
 .console-error { color: #efae8e; padding: 10px 0; font-size: 12px; overflow-wrap: anywhere; }
 .console-latest { flex: 0 0 auto; align-self: flex-end; margin: 5px 14px 8px; color: #efb56b; }
-.console-tools { flex: 0 1 auto; overflow-y: auto; max-height: 65%; }
-.console-tools:empty { display: none; }
-.console-tools .observation-composer, .console-tools .action-feedback { margin: 0; padding: 14px; }
 .command-console[data-signal] .console-command-bar::after { content: ""; position: absolute; inset: 0; pointer-events: none; border: 1px solid #dd943e; animation: console-signal var(--console-signal) ease-out both; }
-.command-instrument__svg.pulse-command-received .instrument-glyph-highlight { animation: console-signal 700ms ease-out; }
 @keyframes console-deploy { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes console-signal { 0%, 25% { opacity: .9; } 100% { opacity: 0; } }
 @media (max-width: 1000px) {
@@ -4438,23 +3715,6 @@ small {
 .command-board-heading>span,.command-board-kicker { font:10px "JetBrains Mono",monospace; letter-spacing:.12em; color:#ab9178; }
 .command-board-scroll { overflow-y:auto; overflow-x:hidden; min-height:0; padding:16px 20px; display:flex; flex-direction:column; gap:16px; scrollbar-gutter:stable; }
 .command-board-scroll>* { flex-shrink:0; min-width:0; }
-.command-board-brief { border-left:2px solid #b47849; background:#111c29; padding:12px 15px; }
-.command-board-brief>div { display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap; }
-.command-board-brief h3,.command-attention h3 { margin:0; font:11px "JetBrains Mono",monospace; letter-spacing:.07em; color:#d7b18c; }
-.command-board-brief span { font:8px "JetBrains Mono",monospace; color:#8c99a8; }
-.command-board-brief p,.command-attention p { font-size:12px; line-height:1.6; margin:9px 0; color:#b9c4cf; }
-.command-board-brief button { padding-left:0; font-size:11px; }
-.command-attention { border-bottom:1px solid #253343; padding-bottom:10px; }
-.command-attention h3 { display:flex; justify-content:space-between; }
-.command-attention-item { display:flex; align-items:center; gap:12px; justify-content:space-between; padding:12px 0; border-top:1px solid #253343; margin-top:10px; }
-.command-attention-item strong { font-size:12px; color:#e3d0bd; }
-.command-attention-item small { color:#a2afbd; }
-.command-board-filters { display:flex; flex-wrap:wrap; gap:4px 12px; }
-.command-board-filters button { background:none; border:0; border-bottom:1px solid transparent; color:#8999a9; font:9px "JetBrains Mono",monospace; padding:7px 0; cursor:pointer; }
-.command-board-filters button[aria-pressed="true"] { color:#e6b586; border-color:#d29864; }
-.command-board-filters button span { opacity:.7; }
-.command-board-list-heading { display:flex; justify-content:space-between; align-items:center; font:9px "JetBrains Mono",monospace; color:#95a5b5; }
-.command-board-list-heading select { background:#101b28; color:#bdc9d5; border:1px solid #2a3b4d; padding:5px; margin-left:8px; }
 .command-board-rows { display:flex; flex-direction:column; gap:10px; }
 .command-project-row { padding:14px 15px 11px; border:1px solid #263545; background:#0e1925; min-width:0; }
 .command-project-row.status-needs_you { border-left:2px solid #c38b57; }
@@ -4462,19 +3722,12 @@ small {
 .command-project-row h3 { margin:0; color:#e0e6ec; font-size:14px; overflow-wrap:anywhere; }
 .command-operational-status { color:#bba68e; font:9px "JetBrains Mono",monospace; flex-shrink:0; }
 .command-project-purpose { margin:5px 0 12px; font-size:11px; color:#8293a4; overflow-wrap:anywhere; }
-.command-project-columns { display:grid; grid-template-columns:1fr 1.1fr 1fr; gap:16px; }
-.command-project-columns section { min-width:0; }
-.command-project-columns h4 { margin:0 0 6px; font:9px "JetBrains Mono",monospace; color:#9aacbd; letter-spacing:.04em; }
-.command-project-columns h4 span { display:block; font-size:8px; color:#c6a17e; margin-top:4px; }
-.command-project-columns p { margin:0; color:#bcc7d2; font-size:11px; line-height:1.55; overflow-wrap:anywhere; }
-.command-project-columns small { display:block; font-size:9px; color:#8391a0; margin-top:5px; }
 .command-project-row>footer { display:flex; justify-content:space-between; align-items:center; gap:10px; border-top:1px solid #213040; padding-top:8px; margin-top:12px; }
 .command-project-row>footer>div { display:flex; gap:5px 12px; flex-wrap:wrap; font-size:9px; color:#8495a6; }
 .command-project-row>footer button { flex-shrink:0; font-size:10px; }
 .command-board-notice { color:#94a2b0; font-size:10px; line-height:1.5; margin:0; overflow-wrap:anywhere; }
 .command-project-detail { color:#b9c7d4; font-size:13px; line-height:1.6; overflow-wrap:anywhere; }
 .command-project-detail h3 { color:#cfb59b; font-size:11px; margin:18px 0 6px; }
-.command-board-actions { display:flex; gap:12px; flex-wrap:wrap; }
 .command-unattributed { color:#a8b6c4; font-size:11px; }
 .command-board-scroll .project-card,.command-board-scroll .delegation-panel { min-width:0; overflow-wrap:anywhere; }
 .command-board-scroll .project-card-header,.command-board-scroll .project-top-meta { flex-wrap:wrap; }
@@ -4483,17 +3736,11 @@ small {
 .console-project-context { font-size:10px; color:#bca489; padding:4px 0; }
 .console-project-context pre { max-height:160px; overflow:auto; white-space:pre-wrap; overflow-wrap:anywhere; }
 
-@media(max-width:1050px) { .command-project-columns { grid-template-columns:1fr; } .command-board-scroll { padding:12px; } .command-project-row>footer { align-items:flex-start; } }
+@media(max-width:1050px) { .command-board-scroll { padding:12px; } .command-project-row>footer { align-items:flex-start; } }
 
 .project-command.dashboard-panel { padding:0; }
 .command-board-heading { padding:14px 16px 12px; }
 .command-board-scroll { padding:12px 16px; gap:12px; flex:1 1 auto; }
-.command-board-brief { padding:10px 12px; }
-.command-board-brief .ghost-action { min-height:24px; padding:4px 8px; }
-.command-board-list-heading label { display:flex; align-items:center; gap:6px; margin:0; }
-.command-board-list-heading select { width:auto; min-height:24px; font-size:10px; }
-.command-attention>p { margin:6px 0 0; font-size:11px; }
-.project-command .projects-footer { margin:0; padding:8px 16px; }
 .project-command .ghost-action { font-size:10px; }
 .command-board-scroll::-webkit-scrollbar { width:6px; }
 .command-board-scroll::-webkit-scrollbar-track { background:#0c1621; }
@@ -4506,12 +3753,6 @@ small {
 .console-voice-status strong { font-size:8px; color:#c5a27e; }
 .console-voice-controls { display:flex; gap:8px; flex-wrap:wrap; }
 .console-voice-controls button { font-size:9px; display:flex; gap:4px; align-items:center; }
-.console-spoken-record { border-left:2px solid #6b9ba7; padding:8px 10px; margin:10px 0; color:#bbc9d6; font-size:12px; line-height:1.5; }
-.console-spoken-record strong { color:#b7a18b; font-size:9px; }
-.console-spoken-record small { color:#879bab; font-size:10px; }
-.command-instrument[data-visual-state="listening"] .omega-glow { opacity:.8; }
-.command-instrument[data-visual-state="speaking"][data-voice-energy="active"] .omega-glow { filter:brightness(1.18); }
-@media(prefers-reduced-motion:reduce) { .command-instrument[data-voice-energy] .omega-glow { filter:none; } }
 
 /* Conversation roles are spatially distinct; identity remains textual. */
 .command-console .conversation-bubble { width:fit-content; max-width:88%; margin:22px auto 0 0; padding:13px 14px 10px; background:#0b1723; border:1px solid #28404e; border-left:2px solid #487684; border-radius:3px; }
@@ -4527,9 +3768,8 @@ small {
 .console-response-preview[data-collapsed="true"] { max-height:220px; overflow:hidden; }
 .console-response-preview > :first-child { margin-top:0; }
 .console-response-preview > :last-child { margin-bottom:0; }
-.console-expand-response, .console-response-details > summary { color:#b4cbd4; font-size:10px; margin-top:10px; cursor:pointer; }
+.console-expand-response { color:#b4cbd4; font-size:10px; margin-top:10px; cursor:pointer; }
 .console-expand-response { background:none; border:0; padding:0; }
-.console-response-details[open] > summary { margin-bottom:12px; }
 .console-audio-footer { display:flex; align-items:center; flex-wrap:wrap; gap:8px; margin-top:10px; }
 .console-audio-footer details { width:100%; font-size:10px; color:#8da4b6; }
 .command-console .conversation-bubble small { color:#99a9ba; }
@@ -4563,14 +3803,8 @@ small {
 .model-route-control { position:relative; flex:0 0 auto; color:#91a5b8; font:10px var(--font-mono); }
 .model-route-trigger { background:transparent; border:1px solid transparent; color:#c5b18f; font:9px var(--font-mono); padding:4px; white-space:nowrap; cursor:pointer; }
 .model-route-trigger:hover,.model-route-trigger[aria-expanded="true"] { border-color:#685039; color:#efbd7a; background:#15202b; }
-.model-route-trigger:focus-visible,.model-route-menu button:focus-visible { outline:var(--focus-ring-width) solid var(--focus-ring); outline-offset:2px; }
+.model-route-trigger:focus-visible { outline:var(--focus-ring-width) solid var(--focus-ring); outline-offset:2px; }
 .model-route-trigger:disabled { opacity:.45; cursor:default; }
-.model-route-menu { position:absolute; bottom:calc(100% + 10px); right:0; width:206px; z-index:40; padding:5px; background:#0b1520; border:1px solid #354757; box-shadow:0 8px 24px #0008; }
-.model-route-menu button { display:flex; flex-direction:column; gap:4px; width:100%; text-align:left; padding:9px 10px; border:0; border-left:2px solid transparent; background:transparent; color:#b9c5d1; font:10px var(--font-mono); cursor:pointer; }
-.model-route-menu button[aria-checked="true"] { border-left-color:#e19a4b; background:#211e1a; color:#f0be7d; }
-.model-route-menu button:hover { background:#1b2935; }
-.model-route-menu small { color:#93a5b7; font:10px var(--font-mono); }
-.model-route-menu p { margin:6px 10px; color:#7e92a5; font:9px/1.5 var(--font-mono); }
 .console-status-line { gap:6px; }
 .console-status-line .console-status { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .console-command-bar { container-type:inline-size; }
@@ -4581,12 +3815,8 @@ small {
 .console-reply-mode button:focus-visible { outline:var(--focus-ring-width) solid var(--focus-ring); outline-offset:2px; }
 .console-reply-mode button:disabled { opacity:.45; cursor:default; }
 @container (max-width:380px) { .console-reply-mode button svg { display:none; } }
-@container (max-width:340px) { .model-route-prefix { display:none; } }
 .model-diagnostics { color:#98aabd; font:10px var(--font-mono); border-bottom:1px solid #35495b; padding:10px 0; margin-bottom:14px; }
-.model-diagnostics-list { max-height:280px; overflow:auto; margin-top:10px; }
-.model-diagnostics-list summary { padding:6px 0; }
 .model-diagnostics pre { white-space:pre-wrap; overflow-wrap:anywhere; font-size:9px; }
-.message-model { color:#91a5b8; font-size:9px; }
 
 /* Optional dimensional renderer: SVG retains all semantic labels and interaction targets. */
 .command-instrument__dial { position: relative; }
@@ -4609,9 +3839,6 @@ small {
 .command-instrument[data-renderer="hybrid"] .project-ring__node-group { animation: none; }
 .command-instrument[data-renderer="hybrid"] .project-ring__node,
 .command-instrument[data-renderer="hybrid"] .project-ring__node-group > circle[pointer-events="none"] { opacity: 0; }
-.hybrid-setting { display:flex; align-items:center; gap:10px; padding:12px 0; border-bottom:1px solid #263746; color:#cbd6df; font-size:12px; }
-.hybrid-setting input { accent-color:#df893b; width:16px; height:16px; flex:0 0 16px; }
-.hybrid-setting small { display:block; color:#7f94a6; margin-top:4px; }
 .hybrid-status { color:#c3a582; font-size:11px; max-width:440px; }
 
 /* The shallow camera adds bounded node parallax.
@@ -4658,9 +3885,6 @@ small {
   .day-arc__tracker.is-live .day-arc__tracker-beacon,
   .day-arc__tracker.is-live .day-arc__tracker-wake { animation:none; }
 }
-.pantheon-modal-body--knowledge { flex-direction:column; }
-.knowledge-audit-disclosure { flex:0 0 auto; max-height:70%; overflow:auto; padding:12px 18px; border-bottom:1px solid #29394a; }
-.knowledge-audit-disclosure > summary { cursor:pointer; color:#c3a77e; }
 .knowledge-audit { color:#c2ccda; max-width:900px; font-size:13px; }
 .knowledge-audit p { line-height:1.5; }
 .knowledge-audit form,.knowledge-audit-history { display:flex; gap:12px; align-items:end; flex-wrap:wrap; margin:14px 0; }
@@ -4732,19 +3956,6 @@ small {
 .comms-pagination small { margin-right:auto; }
 .comms-text-action { background:none; border:0; padding:5px 0; color:#afc4d6; font-size:11px; text-align:left; }
 .comms-text-action:disabled { opacity:.35; cursor:default; }
-.comms-signals { border-left:1px solid #63758324; padding:18px 0 0 22px; min-width:0; }
-.comms-signals h3 { font:11px var(--font-mono); letter-spacing:.17em; color:#b0c1cf; margin:0 0 28px; }
-.comms-signals h4 { font:9px var(--font-mono); letter-spacing:.1em; color:#8e9dab; margin:0 0 12px; }
-.comms-signals h4 small { font:10px var(--font-sans); letter-spacing:0; margin-top:6px; }
-.comms-signals section { margin-bottom:28px; }
-.comms-signals p { color:#a1b0be; font-size:11px; line-height:1.7; }
-.comms-signal { display:block; width:100%; text-align:left; background:none; border:0; border-left:1px solid #b5814045; padding:0 0 0 11px; margin:18px 0; }
-.comms-signal strong { color:#c2cfda; font-size:11px; font-weight:500; }
-.comms-signal span { display:block; font-size:11px; color:#a0b1c1; margin:5px 0; }
-.comms-signal small { line-height:1.7; font-size:10px; color:#96a5b2; }
-.comms-person { display:flex; width:100%; justify-content:space-between; gap:10px; padding:8px 0; background:none; border:0; color:#aebfcd; font-size:11px; text-align:left; }
-.comms-person span { overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
-.comms-person strong { font-weight:400; color:#869baa; }
 .comms-analytics { border-top:1px solid #63758325; margin:22px 0 0; padding:18px 0 8px; }
 .comms-analytics>summary { font:10px var(--font-mono); letter-spacing:.15em; color:#afbfcc; cursor:pointer; }
 .comms-analytics>summary span { font:11px var(--font-sans); letter-spacing:0; color:#748897; margin-left:18px; }
@@ -4770,8 +3981,8 @@ small {
 .comms-source { border-top:1px solid #2c3c4b; padding:16px 0; }
 .comms-source pre { white-space:pre-wrap; overflow-wrap:anywhere; font-family:inherit; font-size:12px; line-height:1.7; color:#bac8d7; }
 .communications button:focus-visible,.communications input:focus-visible,.communications select:focus-visible,.communications summary:focus-visible { outline:var(--focus-ring-width) solid var(--focus-ring); outline-offset:2px; }
-@media(max-width:1050px){.comms-workbench{grid-template-columns:minmax(0,1fr)}.comms-signals{border-left:0;border-top:1px solid #63758324;padding-left:0;display:grid;grid-template-columns:1fr 1fr;gap:20px}.comms-signals>h3{grid-column:1/-1;margin-bottom:0}.comms-intelligence-strip>div{padding:0 16px}.comms-title h2{font-size:16px}}
-@media(max-width:750px){.communications{padding:16px}.comms-title h2{font-size:14px}.comms-intelligence-strip{flex-wrap:wrap;gap:12px;min-height:80px}.comms-intelligence-strip>div{padding:0 10px}.comms-intelligence-strip strong{font-size:21px}.comms-intelligence-strip span{font-size:10px}.comms-analytics-content,.comms-signals{grid-template-columns:1fr}.comms-health{flex-basis:100%}.comms-row{grid-template-columns:4px minmax(0,1fr) 48px}.comms-subject{grid-column:2/-1;grid-row:2}.comms-row time{grid-column:3;grid-row:1}.comms-tags{grid-column:2/-1}.comms-inspector{right:10px;width:calc(100vw - 30px)}.mode-communications .main-grid{grid-template-columns:minmax(0,1fr)}.mode-communications .center-stack,.mode-communications .right-stack{grid-column:1}.mode-communications .tools-rail{display:none}}
+@media(max-width:1050px){.comms-workbench{grid-template-columns:minmax(0,1fr)}.comms-intelligence-strip>div{padding:0 16px}.comms-title h2{font-size:16px}}
+@media(max-width:750px){.communications{padding:16px}.comms-title h2{font-size:14px}.comms-intelligence-strip{flex-wrap:wrap;gap:12px;min-height:80px}.comms-intelligence-strip>div{padding:0 10px}.comms-intelligence-strip strong{font-size:21px}.comms-intelligence-strip span{font-size:10px}.comms-analytics-content{grid-template-columns:1fr}.comms-health{flex-basis:100%}.comms-row{grid-template-columns:4px minmax(0,1fr) 48px}.comms-subject{grid-column:2/-1;grid-row:2}.comms-row time{grid-column:3;grid-row:1}.comms-tags{grid-column:2/-1}.comms-inspector{right:10px;width:calc(100vw - 30px)}.mode-communications .main-grid{grid-template-columns:minmax(0,1fr)}.mode-communications .center-stack,.mode-communications .right-stack{grid-column:1}.mode-communications .tools-rail{display:none}}
 @media(prefers-reduced-motion:reduce){.communications *{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
 .comms-fixture-header { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; min-height:80px; gap:10px; }
 .comms-fixture-controls { display:flex; align-items:center; gap:16px; padding:8px 0 12px; font-size:11px; flex-wrap:wrap; }
@@ -4781,7 +3992,6 @@ small {
 .comms-fixture-chat input { width:100%; background:#07121b; color:#bdcbd5; padding:10px; border:1px solid #263642; }
 .comms-fixture-conversation { height:150px; width:100%; overflow:auto; color:#8fa2b1; }
 .comms-fixture[data-narrow] .comms-workbench { grid-template-columns:1fr; }
-.comms-fixture[data-narrow] .comms-signals { border-left:0; border-top:1px solid #63758324; padding-left:0; }
 .comms-fixture[data-narrow] .comms-intelligence-strip>div { padding:0 10px; }
 @media(max-width:750px){.comms-fixture-header{padding:12px 0}.comms-fixture .mode-switcher{flex-wrap:wrap;max-width:100%}}
 .mode-communications .center-stack { scrollbar-width:thin; scrollbar-color:#405363 transparent; }

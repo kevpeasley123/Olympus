@@ -17,11 +17,6 @@ import { conversationStream } from "../services/conversationStream";
 import { fetchProjects } from "../services/liveData";
 import {applyProjectMember,subscribeProjectMembers} from "../services/projectMembership";
 import { isTauriRuntime } from "../services/launcher";
-import {
-  syncProjectsCanvasToVault,
-  syncResearchBaseToVault
-} from "../services/obsidian";
-import { recordObservation as recordObservationInVault } from "../services/observations";
 import { cancelAssistantReply, createAssistantMessage, requestAssistantReply } from "../services/assistant";
 import { planTurnRelease } from "../services/glyphState";
 import { emitInstrumentEvent } from "../services/instrumentEvents";
@@ -466,40 +461,10 @@ export function useDashboardData() {
     void appendConversationMessages([updated]);
   }, []);
 
-  const syncResearchBase = useCallback(async () => {
-    try {
-      return await syncResearchBaseToVault();
-    } catch (error) {
-      return {
-        tone: "error" as const,
-        message: `Could not update the Obsidian Base: ${errorMessage(error)}`
-      };
-    }
-  }, []);
 
-  const syncProjectsCanvas = useCallback(async () => {
-    try {
-      return await syncProjectsCanvasToVault(dashboardState.projects);
-    } catch (error) {
-      return {
-        tone: "error" as const,
-        message: `Could not update the project canvas: ${errorMessage(error)}`
-      };
-    }
-  }, [dashboardState.projects]);
 
   // Not folded into the conversation save path: an observation is a deliberate,
   // approved vault write, not a side effect of chatting.
-  const recordObservation = useCallback(async (text: string) => {
-    try {
-      return await recordObservationInVault(text);
-    } catch (error) {
-      return {
-        tone: "error" as const,
-        message: `Could not record the observation: ${errorMessage(error)}`
-      };
-    }
-  }, []);
 
   /**
    * Everything the Ctrl+R registry label promises, and anything subscribed to
@@ -546,9 +511,6 @@ export function useDashboardData() {
       sendChatMessage,
       updateVoiceMessage,
       updateVoicePreferences,
-      recordObservation,
-      syncResearchBase,
-      syncProjectsCanvas,
       refreshAll
     }),
     [
@@ -570,9 +532,6 @@ export function useDashboardData() {
       sendChatMessage,
       updateVoiceMessage,
       updateVoicePreferences,
-      recordObservation,
-      syncResearchBase,
-      syncProjectsCanvas,
       refreshAll
     ]
   );

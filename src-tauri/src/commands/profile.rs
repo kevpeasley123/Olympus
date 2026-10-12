@@ -21,14 +21,6 @@ use super::pantheon::split_frontmatter;
 
 const PROFILE_NOTE: &str = "09 - System/User Profile.md";
 
-/// Applied by callers when the corresponding field is absent or unparseable.
-pub const DEFAULT_BRIEF_TIME: TimeOfDay = TimeOfDay {
-    hour: 7,
-    minute: 30,
-};
-pub const DEFAULT_BRIEF_MAX_WORDS: u32 = 400;
-pub const DEFAULT_ACTIVE_PROJECT_CAP: u32 = 5;
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TimeOfDay {

@@ -26,6 +26,7 @@ import { ChatPanel } from "./components/panels/ChatPanel";
 import { HeaderBar } from "./components/panels/HeaderBar";
 import { ResearchVerification } from "./components/panels/ResearchVerification";
 import type { CommandCatalog, CommandCatalogClient } from "./services/commandAgents";
+import type { VoiceSnapshot } from "./services/realtimeVoice";
 import type { ResearchClient, ResearchRun, AgentCatalog } from "./services/researchVerification";
 import type { TrackedProject, ConversationMessage } from "./types";
 import { EMPTY_VAULT_GRAPH, type VaultGraphPayload } from "./services/vaultGraph";
@@ -158,12 +159,12 @@ function Harness() {
         onResearch={runId => setDestination({ runId })} onProjects={() => setDestination({ projects: true })}
         capabilities={capabilities} working={command.focus.agents} orchestrating={command.focus.running} selectedCapability={command.selectedCapability} onSelectCapability={command.setSelectedCapability} />}
       <section className="center-stack dashboard-column"><div className="panel-slot panel-slot-instrument">
-        <CommandInstrument missions={command.liveMissions} selectedMission={command.selectedMissionId} onSelectMission={command.selectMission} visualState={params.get("voice")==="speaking"?"speaking":params.get("voice")==="listening"?"listening":undefined} voiceLevel={Number(params.get("level")??0)} flagship={flagship} onProjects={()=>setDestination({projects:true})} projects={projects} capabilities={capabilities} view={command.view} light={command.light} activeDomains={command.activeDomains}
+        <CommandInstrument missions={command.liveMissions} selectedMission={command.selectedMissionId} onSelectMission={command.selectMission} visualState={params.get("voice")==="speaking"?"speaking":params.get("voice")==="listening"?"listening":undefined} voiceLevel={Number(params.get("level")??0)} voiceSnapshot={voiceFixture} spokenReplies={Boolean(voiceFixture)} flagship={flagship} onProjects={()=>setDestination({projects:true})} projects={projects} capabilities={capabilities} view={command.view} light={command.light} activeDomains={command.activeDomains}
           missionOperation={command.missionOperation} working={command.working} selectedDomain={command.selectedDomain} selectedCapability={command.selectedCapability}
           onHoverDomain={command.setHoverDomain} onSelectDomain={command.setSelectedDomain} onSelectCapability={command.setSelectedCapability} />
       </div></section>
       <section className="right-stack dashboard-column"><div className="panel-slot panel-slot-chat">
-        <ChatPanel companion={flagship} inspectionProjects={["fixture-repo"]} messages={messages} autoSpeak={false} onAutoSpeakChange={() => {}} onOpenPreferences={() => {}} onSendMessage={() => { mutations++; }} onRecordObservation={async () => { mutations++; return { tone: "error", message: "Fixture only" }; }}
+        <ChatPanel companion={flagship} inspectionProjects={["fixture-repo"]} messages={messages} autoSpeak={false} onAutoSpeakChange={() => {}} onOpenPreferences={() => {}} onSendMessage={() => { mutations++; }}
           activeMissions={command.liveMissions} selectedMissionId={command.selectedMissionId} onSelectMission={command.selectMission} layout={layout} onLayoutChange={setLayout} mission={command.mission} capabilities={capabilities} suggestions={flagship?suggestions.slice(0,3):suggestions}
           onOpenMission={destination => setDestination(destination === "research" ? {} : { projects: true })} onDismissMission={command.dismissMission} />
       </div></section>
@@ -176,6 +177,10 @@ function Harness() {
       <ResearchVerification client={readOnlyResearch} available requestedRunId={destination.runId} inspectionOnly onReturn={() => setDestination(null)} />}</section>}
   </main><style>{`.command-fixture-controls{position:fixed;left:18px;bottom:3px;right:18px;display:flex;align-items:center;gap:14px;font:9px monospace;z-index:30;color:#acbacb}.command-fixture-controls button,.command-fixture-controls select{font:9px monospace;background:#10202d;color:#bdcbd8;border:1px solid #64798c55;padding:2px 5px}.command-fixture-controls details{margin-left:auto}.command-fixture-controls pre{position:absolute;bottom:20px;right:0;max-height:55vh;max-width:80vw;overflow:auto;white-space:pre-wrap;background:#07121e;padding:14px;border:1px solid #526479}.command-fixture-inspector{position:fixed;inset:90px 20px 35px;overflow:auto;z-index:40;background:#0a1522;border:1px solid #64798c;padding:15px}`}</style></>;
 }
+
+// `?voice=speaking&level=n` drives the shipped Spoken replies wave, which reads
+// the voice snapshot rather than the instrument's visual state.
+const voiceFixture = params.get("voice") === "speaking" ? { phase: "SPEAKING", level: Number(params.get("level") ?? 0), muted: false } as unknown as VoiceSnapshot : undefined;
 
 const frame = () => new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
 /** Sets `data-visual-ready` once the scenario is genuinely painted; never on a timer alone. */

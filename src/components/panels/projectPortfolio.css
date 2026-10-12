@@ -9,9 +9,6 @@
 .portfolio-art .command-board-scroll { padding:12px 20px 20px; }
 .portfolio-art .command-board-inner { gap:12px; position:relative; }
 .portfolio-art .command-board-controls { gap:12px; padding:0; flex-wrap:wrap; }
-.portfolio-search { flex:1; min-width:120px; max-width:360px; border:1px solid var(--portfolio-line); background:#07111bc9; color:#e2e8ef; border-radius:6px; padding:9px 12px; height:36px; }
-.portfolio-art .command-board-sort { gap:6px; font-size:11px; }
-.portfolio-art .command-board-sort select { height:36px; max-width:190px; font-size:12px; }
 .portfolio-art .command-board-rows { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); align-items:start; gap:16px; }
 .portfolio-art .command-project-row { --project-hue:38; position:relative; padding:18px 18px 10px; border:1px solid #8197b340; border-radius:9px; background:linear-gradient(180deg,#101c29b8 0%,#07111bd9 70%),url('../../assets/olympus-mountain-sanctuary-v4.png') center 48%/cover; box-shadow:0 6px 18px #0003; transition:border-color .2s,box-shadow .2s; }
 .portfolio-art .command-project-row:nth-child(3n+2) { background-position:center,65% 70%; }
@@ -28,8 +25,6 @@
 .portfolio-art .command-project-next h4 { margin:0 0 4px; font-size:10px; color:#bca77e; font-weight:500; }
 .portfolio-art .command-project-next p { font-size:12px; line-height:1.5; display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical; overflow:hidden; }
 .portfolio-art .command-project-next .command-project-action { background:transparent; border:0; color:#e2c18c; padding:0; min-height:36px; font-size:11px; gap:3px; white-space:normal; max-width:85px; flex-shrink:0; }
-.portfolio-art .command-row-details { margin-top:9px; font-size:11px; }
-.portfolio-art .command-row-details[open] { background:#09131f; position:relative; z-index:2; }
 .portfolio-art .project-row-options { margin-left:auto; z-index:5; }
 .portfolio-demo { color:#baa376; font-size:10px; letter-spacing:.03em; align-self:start; }
 .portfolio-source-status { font-size:11px; color:#d6b780; }
@@ -51,7 +46,6 @@
 .portfolio-art .command-project-row .command-project-purpose { margin:10px 0 8px; }
 .portfolio-art .command-project-next { padding-top:9px; padding-bottom:9px; }
 .portfolio-art .command-project-next .command-project-action { white-space:nowrap; max-width:none; }
-.portfolio-art .command-row-details { margin-top:7px; }
 .portfolio-art .command-board-rows { gap:14px; }
 @container(min-width:850px){.portfolio-art .command-board-rows{grid-template-columns:repeat(3,minmax(0,1fr))}.portfolio-art .command-project-row h3{font-size:16px}.portfolio-art .project-emblem{width:36px;height:36px}}
 @container(max-width:600px){.portfolio-art .command-board-heading .portfolio-demo{font-size:10px}.portfolio-art .command-board-controls .portfolio-source-status{max-width:none;margin-left:0}.portfolio-art .command-board-controls{padding-top:4px}}
@@ -199,7 +193,6 @@ button.ecosystem-center:focus-visible { outline:2px solid #f1d39a;outline-offset
 .portfolio-combined .command-project-row .command-project-purpose { margin:8px 0; }
 .portfolio-combined .portfolio-workload { margin-bottom:8px; }
 .portfolio-combined .command-project-next { margin:0 -14px; padding:8px 14px; }
-.portfolio-combined .command-row-details { margin-top:6px; }
 @container(min-width:900px) { .portfolio-combined .command-board-rows { grid-template-columns:repeat(4,minmax(0,1fr)); } }
 
 /* Wide combined view reserves room for the entire map, not just its first row. */
@@ -214,7 +207,6 @@ button.ecosystem-center:focus-visible { outline:2px solid #f1d39a;outline-offset
  .portfolio-combined .command-project-next h4 { display:none; }
  .portfolio-combined .command-project-next p { -webkit-line-clamp:1; }
  .portfolio-combined .command-project-next .command-project-action { min-height:28px; }
- .portfolio-combined .command-row-details { margin-top:4px; }
  .portfolio-combined .ecosystem-canvas { height:300px; margin:32px 18px 24px; }
  .portfolio-combined .is-dense .ecosystem-canvas { height:300px; margin-bottom:32px; }
 }

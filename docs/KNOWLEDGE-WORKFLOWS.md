@@ -1,9 +1,9 @@
-Status, 2026-09-28: `knowledge-audit/v1` is released and makes no model calls. Communication Intelligence (which shares its GraphNode / SkillContract definitions) and situation understanding are documented in [COMMUNICATION-INTELLIGENCE-V3.md](COMMUNICATION-INTELLIGENCE-V3.md) and [COMMUNICATION-SITUATIONS.md](COMMUNICATION-SITUATIONS.md); those do call the primary model.
+Status, 2026-09-28: `knowledge-audit/v1` is released and makes no model calls. Since 0.30.0 (2026-10-11) the app has no Knowledge Audit view: the Research Audits segment was removed and the `KnowledgeAudit` component is rendered only by `src/knowledge-audit-harness.tsx`. Audits cannot be started or inspected in the desktop app. The IPC commands, tables and restart recovery remain, and saved audit runs still appear as Command missions. Communication Intelligence (which shares its GraphNode / SkillContract definitions) and situation understanding are documented in [COMMUNICATION-INTELLIGENCE-V3.md](COMMUNICATION-INTELLIGENCE-V3.md) and [COMMUNICATION-SITUATIONS.md](COMMUNICATION-SITUATIONS.md); those do call the primary model.
 
 # Knowledge, graphs, loops, and improvement
 
-September 12, 2026. First slice implemented in development; not a release or an
-authorization to execute any proposed action.
+September 12, 2026. First slice implemented in development and released in
+0.16.0; not an authorization to execute any proposed action.
 
 ## Architecture decision
 
@@ -18,19 +18,23 @@ Repository inspection found substantial existing machinery:
 | --- | --- |
 | `assistant.rs`, `vault_context.rs` | Shared text/voice context, stable operator notes, bounded historical decisions; preserve their distinct authority |
 | `research_retrieval.rs`, `pantheon.rs` | Deterministic topic ranking, at most 3 sources / 4,000 excerpt characters; source stance, origin, body fingerprints |
-| `conversation_research`, `memory_promotion.rs` | Durable supplied-source snapshots and exact reviewed chat promotion; not a generated knowledge store |
+| `conversation_research` | Durable supplied-source snapshots; not a generated knowledge store |
 | `vault_write.rs` | Contained paths, normalized SHA-256 fingerprints, explicit write intents; source reads in this slice reuse containment |
 | `projects.rs`, `project_notes.rs`, `projectBriefing.ts`, `projectCommandBoard.ts` | Git/intent reconciliation, since-opened briefs, deterministic attention and next-move projection |
 | `approvals.rs`, `delegation.rs`, `delegation_review.rs` | Exact-scope approval consumption, isolated worktrees, events, workspace-bound checks, operator acceptance; never bypass |
 | `models.rs`, `responses.rs` | Backend model catalog and actual request telemetry; no model call needed for this first slice |
 | Dashboard/Pantheon polling | Refresh infrastructure, not a durable autonomous scheduler |
-| Current constellation presentation | Category and 80-second yaw; unrelated to workflow execution and unchanged here |
+| Constellation presentation | Unrelated to workflow execution and unchanged by this slice |
 
 Missing before this slice: persisted audit runs, explicit graph dependencies,
 branch/iteration evidence, rechecking source provenance after restart, and an
-inspectable generated attention report. Still missing: durable LLM topic pages,
-claim-level semantic entailment/conflict checking, interview extraction,
-read-only cadence, and live connector adapters.
+inspectable generated attention report. Still missing from this workflow:
+durable LLM topic pages, claim-level semantic entailment/conflict checking,
+interview extraction, read-only cadence, and live connector adapters. Elsewhere,
+the Research/Verification pair checks claims against supplied excerpts with a
+model (`RESEARCH-VERIFICATION-AGENTS.md`), Gmail is a read-only connector
+(`GMAIL.md`), and the opening briefing runs once at launch
+(`src/services/openingBriefing.ts`).
 
 ### First-workflow choice
 
@@ -151,8 +155,8 @@ Two additive tables are applied through the existing idempotent startup schema:
 - `knowledge_audit_events`: ordered, timestamped node starts/iterations/evidence,
   failures/joins/verification/routes and subsequent inspection checks.
 
-Audit reports are operational artifacts, so SQLite owns them. They are readable
-through Research → Knowledge audit & evidence history. This does **not** decide
+Audit reports are operational artifacts, so SQLite owns them. Until 0.30.0 they
+were readable in Research (see the status note). This does **not** decide
 where future topic knowledge belongs: reviewable Markdown synthesis should live
 in a clearly generated vault area only after an explicit write contract is
 implemented through the existing gate. No vault schema/folder is added here.
@@ -213,16 +217,7 @@ a concrete workflow needs them. Do not introduce every future node kind now.
 
 ## Audits view (2026-09-28)
 
-Design-review items U5, U7 and D4; presentation only. Knowledge audits are the
-**Audits** segment of Research (Library | Questions | Audits), full height, kept
-mounted with their scroll. A saved audit reads: the topic, what needs attention,
-evidence packets, whether each source snapshot is unchanged now, a small structure
-view, and route, fingerprints (full-file and excerpt body), events and JSON under an
-**Internals** disclosure. **Recheck evidence** checks each source's fingerprint now
-and does not rewrite the saved report. Each evidence packet offers **Open entry**,
-which opens the library entry with the saved excerpt and fingerprint and says
-whether it is unchanged, changed or no longer in the library; a packet whose file is
-not in the library now says so. Findings remain generated proposals.
+The 2026-09-28 Audits segment of Research was removed in 0.30.0 (2026-10-11); see the status note at the top. `KnowledgeAudit.tsx` and its harness keep the inspector, unrendered by the app.
 
 ## Acceptance and verification
 

@@ -1,11 +1,12 @@
 # Communication Intelligence inspection — Phase 1 and Phase 2
 
-Implemented September 23, 2026 (Phoenix). Source changes in Olympus Memory
-Worktree, based on release 0.18.0 / `cb25daf`. Not packaged or installed.
+Implemented September 23, 2026 (Phoenix) in Olympus Memory Worktree, based on
+release 0.18.0 / `cb25daf`; released in 0.19.0 ([RELEASE-0.19.0.md](archive/RELEASE-0.19.0.md)).
 
 The approved first slice makes the existing fixed workflow inspectable through
-**Communications → Thread analysis history → Inspect analysis**. **About this
-workflow** opens the compiled definition without requiring a new analysis.
+**Communications → Browse email → Thread triage history → Inspect analysis**
+(the history disclosure was named Thread analysis history at implementation).
+**About this workflow** opens the compiled definition without requiring a new analysis.
 Graph Detail links to the actual saved `communication-assess` and
 `project-relevance` contracts; Skill Detail returns to its originating graph or
 run. Existing source review remains in the brief. No permanent navigation was
@@ -112,10 +113,8 @@ There is no continuous inspection animation; reduced-motion CSS disables motion.
   unavailable. The database was opened read-only; zero changes were made and no
   private source content was exported.
 
-Native installation and a fresh paid v4 run were not exercised. The installed
-0.18.0 application is unchanged. Existing GPT-6 model-routing/error-reporting
-edits remain separate in the worktree; their previous paid acceptance was blocked
-by exhausted API credits. No paid calls were retried for inspection work.
+A fresh paid v4 run was not exercised, and no paid calls were retried for
+inspection work. Packaging followed in 0.19.0.
 
 Reproduce with:
 
@@ -140,5 +139,5 @@ The original authority boundaries, roadmap and defer list remain in force:
 no authoring/DSL, dynamic executor, runtime plugins, marketplace, agent framework,
 capability map, new top-level section, autonomous rewriting or opaque scores.
 
-See [the approved planning report](SKILLS-GRAPHS-INSPECTION-PLAN.md) for the
+See [the approved planning report](archive/SKILLS-GRAPHS-INSPECTION-PLAN.md) for the
 unchanged longer-term design.

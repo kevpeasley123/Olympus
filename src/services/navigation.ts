@@ -43,10 +43,6 @@ export function openResearchEntry(target: ResearchEntryTarget): void {
   emit({ kind: "research", target });
 }
 
-export function openCommunicationsSituation(target: CommunicationsSituationTarget): void {
-  emit({ kind: "communications", target });
-}
-
 /** Open a project's detail in Project mode. */
 export function openProject(projectId: string): void {
   emit({ kind: "project", projectId });

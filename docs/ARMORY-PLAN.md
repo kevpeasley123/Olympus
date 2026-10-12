@@ -131,7 +131,7 @@ Sizes are relative (S ≈ a focused session, M ≈ a few sessions, L ≈ a week 
 
 ### Phase 0 — Groundwork and engine spike (S–M)
 
-**0a. Record the direction.** Update `OLYMPUS-MANUAL.md` (purpose, the autonomy table's "plan approval" row, the new priorities) and `CLAUDE.md` ("Primary reasoning", "Next"). Add this plan to `docs/`.
+**0a. Record the direction.** Update `OLYMPUS-MANUAL.md` (purpose, the autonomy table's "plan approval" row, the new priorities) `CLAUDE.md` ("Primary reasoning") and `docs/NEXT-SESSION.md`. Add this plan to `docs/`.
 
 **0b. Fix the two delegation defects.**
 - Remove `ANTHROPIC_API_KEY` from `allowed_environment` and add the auth self-check.

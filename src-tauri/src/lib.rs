@@ -8,7 +8,6 @@ use std::path::PathBuf;
 use std::process::Command;
 
 use commands::vault_write;
-use commands::write_confirm;
 use commands::write_confirm::resolve_vault_write;
 
 use commands::attachments::{
@@ -20,8 +19,6 @@ use commands::delegation::{
     cancel_delegation_run, fetch_delegation_diff, list_delegation_runs,
     resume_delegation_run, start_delegation_run, prepare_delegation_run, prepare_delegation_resume, DelegationProcesses,
 };
-use commands::observations::append_profile_observation;
-use commands::memory_promotion::promote_chat_memory;
 use commands::pantheon::{fetch_pantheon_entries, write_pantheon_entry};
 use commands::pantheon_migrate::migrate_pantheon_schema;
 use commands::profile::fetch_operator_profile;
@@ -32,46 +29,10 @@ use commands::persistence::{
 use commands::projects::scan_tracked_projects;
 use commands::tasks::fetch_action_queue;
 use rusqlite::Connection;
-use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
 use tauri::Manager;
 
 const SCHEMA: &str = include_str!("../schema.sql");
-
-/// The derived files this command may regenerate. Rust owns the path: taking a
-/// folder and file name from the webview let any script in it write anywhere
-/// in the vault, including `.git/hooks`, without a dialog for a new file.
-#[derive(Debug, Clone, Copy, Deserialize)]
-#[serde(rename_all = "camelCase")]
-enum MemoryArtifactKind {
-    ResearchBase,
-    ProjectsCanvas,
-}
-
-impl MemoryArtifactKind {
-    fn relative_path(self) -> &'static str {
-        match self {
-            Self::ResearchBase => "00 - Dashboard/Olympus Research.base",
-            Self::ProjectsCanvas => "00 - Dashboard/Olympus Projects.canvas",
-        }
-    }
-}
-
-#[derive(Debug, Deserialize)]
-struct MemoryArtifact {
-    kind: MemoryArtifactKind,
-    content: String,
-}
-
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-struct WriteResult {
-    path: String,
-    /// False when the operator declined the overwrite. Declining is a correct
-    /// outcome, not a failure — the command did its job by asking and honouring
-    /// the answer — so it returns Ok and lets the caller phrase it neutrally.
-    written: bool,
-}
 
 /// Opens the local database and applies the schema. Runs once at startup so the
 /// frontend can assume persistence is ready by the time it can invoke anything.
@@ -109,101 +70,6 @@ fn open_database(app: &tauri::AppHandle) -> Result<Connection, String> {
 
     eprintln!("[Olympus::Db] opened {}", db_path.display());
     Ok(connection)
-}
-
-#[tauri::command]
-async fn write_memory_artifact(
-    app: tauri::AppHandle,
-    db: tauri::State<'_, commands::persistence::Db>,
-    artifact: MemoryArtifact,
-) -> Result<WriteResult, String> {
-    // The vault root comes from Rust, not the caller. Accepting it from the
-    // frontend gave the app two sources of truth for where the vault lives:
-    // this command wrote to the configured path while the Pantheon and
-    // attachment writers used the constant, so a divergence would have split
-    // the vault in half.
-    // Already separator-stable, so a fingerprint row written on one platform
-    // is still found on another.
-    let key = artifact.kind.relative_path();
-    let relative = std::path::Path::new(key);
-    let target = vault_write::resolve_vault_path(relative).map_err(|error| error.to_string())?;
-
-    // Disk I/O goes to the blocking pool, not a tokio worker. This command now
-    // awaits a human, so it must not also be the thing holding a worker busy.
-    let target_for_read = target.clone();
-    let on_disk = tauri::async_runtime::spawn_blocking(move || vault_write::read_existing(&target_for_read))
-        .await
-        .map_err(|error| format!("Artifact read task panicked: {error}"))??;
-
-    // Scoped so the database lock is released before any await — a MutexGuard
-    // held across an await is not Send, and this function now awaits a human.
-    let recorded = commands::persistence::read_artifact_fingerprint(db.inner(), &key)?;
-
-    // Declared, not inferred: these are files the app regenerates from its own
-    // state.
-    let decision = vault_write::decide(
-        vault_write::WriteIntent::RegenerateDerived,
-        on_disk.as_deref(),
-        recorded.as_deref(),
-    );
-
-    if let vault_write::WriteDecision::NeedsConfirmation(reason) = decision {
-        let summary =
-            vault_write::summarise_diff(on_disk.as_deref().unwrap_or_default(), &artifact.content);
-
-        let approved = write_confirm::request_confirmation(
-            &app,
-            key.to_string(),
-            vault_write::WriteIntent::RegenerateDerived,
-            reason,
-            summary,
-        )
-        .await;
-
-        if !approved {
-            return Ok(WriteResult {
-                path: vault_write::display_path(&target),
-                written: false,
-            });
-        }
-    }
-
-    // The vault can be re-pointed, or a link planted, while the dialog is open.
-    let resolved = vault_write::resolve_vault_path(relative).map_err(|error| error.to_string())?;
-    if resolved != target {
-        return Err("The vault location changed during review. Nothing was written.".to_string());
-    }
-
-    // Confirmation is resolved by this point; the write itself also goes to the
-    // blocking pool rather than running on a worker thread. It lands only if
-    // the file still holds the bytes the decision above was made about.
-    let content = artifact.content.clone();
-    tauri::async_runtime::spawn_blocking(move || {
-        vault_write::replace_if_unchanged(&resolved, on_disk.as_deref(), &content)
-    })
-    .await
-    .map_err(|error| format!("Artifact write task panicked: {error}"))??;
-
-    // Recorded only after a successful write, so a failed write cannot leave a
-    // fingerprint claiming authorship of contents that were never stored.
-    commands::persistence::store_artifact_fingerprint(
-        db.inner(),
-        key,
-        &vault_write::content_fingerprint(&artifact.content),
-    )?;
-    // Logged before the commit, which can fail after the file has landed.
-    commands::persistence::log_vault_write(db.inner(), key, "overwrite");
-    commands::vault_git::commit_vault_file(key, "update").map_err(|error| {
-        format!(
-            "The vault file was written at {key}, but its automatic Git commit failed: {error}. \
-             The file remains in the vault."
-        )
-    })?;
-
-    Ok(WriteResult {
-        path: vault_write::display_path(&target),
-        written: true,
-    })
 }
 
 /// Opens a vault note in Obsidian.
@@ -431,7 +297,6 @@ pub fn run() {
             append_conversation_messages,
             begin_operator_session,
             clear_conversation,
-            write_memory_artifact,
             launch_quick_app,
             open_vault_note,
             restart_olympus,
@@ -445,8 +310,6 @@ pub fn run() {
             fetch_operator_profile,
             resolve_vault_write,
             commands::external_link::open_external_link,
-            append_profile_observation,
-            promote_chat_memory,
             write_pantheon_entry,
             migrate_pantheon_schema,
             fetch_recent_vault_writes,

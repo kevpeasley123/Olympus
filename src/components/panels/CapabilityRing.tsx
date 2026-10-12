@@ -5,8 +5,6 @@ import { AMBIENT } from "../../services/ambientMotion";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { CommandLayout } from "../../services/hybridCore";
 import { layoutCentreReadout, pointOnProjectRing } from "../../services/projectRing";
-import type { RingSegment } from "../../services/capabilityRing";
-import { segmentCaption } from "../../services/capabilityRing";
 import {
   CAPABILITY_WORD, layoutRevealed, shortName,
   type ArmoryView, type Capability, type CapabilityDomain
@@ -41,31 +39,6 @@ interface CapabilityRingProps {
 }
 
 const BAND = 23;
-const NAME_RATIO = .62;
-const NAME_FONT = 10.5;
-const END_PADDING = 6;
-
-export function bandPath(segment: Pick<RingSegment, "startAngle" | "endAngle">, centre: number, outer: number, inner: number) {
-  const a = pointOnProjectRing(segment.startAngle, outer, centre), b = pointOnProjectRing(segment.endAngle, outer, centre);
-  const c = pointOnProjectRing(segment.endAngle, inner, centre), d = pointOnProjectRing(segment.startAngle, inner, centre);
-  const large = segment.endAngle - segment.startAngle > 180 ? 1 : 0;
-  return `M ${a.x} ${a.y} A ${outer} ${outer} 0 ${large} 1 ${b.x} ${b.y} L ${c.x} ${c.y} A ${inner} ${inner} 0 ${large} 0 ${d.x} ${d.y} Z`;
-}
-export function arcPath(segment: Pick<RingSegment, "startAngle" | "endAngle">, centre: number, radius: number) {
-  const a = pointOnProjectRing(segment.startAngle, radius, centre), b = pointOnProjectRing(segment.endAngle, radius, centre);
-  return `M ${a.x} ${a.y} A ${radius} ${radius} 0 ${segment.endAngle - segment.startAngle > 180 ? 1 : 0} 1 ${b.x} ${b.y}`;
-}
-/** Upright text along a sector: the lower half draws its arc reversed. */
-function namePath(segment: RingSegment, centre: number, radius: number) {
-  const flipped = segment.midAngle > 90 && segment.midAngle < 270;
-  const from = pointOnProjectRing(flipped ? segment.endAngle : segment.startAngle, radius, centre);
-  const to = pointOnProjectRing(flipped ? segment.startAngle : segment.endAngle, radius, centre);
-  return `M ${from.x} ${from.y} A ${radius} ${radius} 0 0 ${flipped ? 0 : 1} ${to.x} ${to.y}`;
-}
-export function captionCapacity(segment: Pick<RingSegment, "startAngle" | "endAngle">, radius: number, renderScale: number) {
-  const usable = (segment.endAngle - segment.startAngle) * Math.PI * radius / 180 - END_PADDING * 2;
-  return Math.floor(usable / (NAME_FONT / Math.max(renderScale, .01) * NAME_RATIO));
-}
 
 function domainName(domain: CapabilityDomain | undefined) {
   if (!domain) return "";

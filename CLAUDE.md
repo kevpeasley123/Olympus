@@ -69,7 +69,7 @@ Background Communications situation analysis, approved by the operator and recor
 
 **It acts, with an approval gate, and advises when needed.** Reads run freely; writes surface a confirmation before touching disk or project state. This is already the README's stated safety model.
 
-**It remembers, selectively.** Two tiers: SQLite holds the raw conversation log (complete, searchable, invisible); the vault holds promoted notes (curated, human-readable, permanent). Not every exchange earns a vault note — that would bury the vault in "what's the weather" within a month.
+**It remembers, selectively.** Two tiers: SQLite holds the raw conversation log (complete, searchable, invisible); the vault holds curated notes (human-readable, permanent). Not every exchange earns a vault note — that would bury the vault in "what's the weather" within a month. Chat itself does not write to the vault: Kevin removed the Save memory and Observation actions on 2026-10-11. Vault notes come from Kevin, or from explicit reviewed workflows such as research entries and project briefs.
 
 ## Vault
 
@@ -83,33 +83,18 @@ Ten folders at `C:\Users\kevpe\OneDrive\Desktop\Projects\Obsidian vaults\Olympus
 04 - Decisions   09 - System
 ```
 
-`write_memory_artifact` (in `lib.rs`) regenerates the two derived dashboard artifacts, named by an enum so Rust chooses the path, through the write gate. PowerShell scripts in `scripts/` scaffold and repair the structure.
+Every app write to the vault goes through the write gate and gets its own vault Git commit (see `ARCHITECTURE.md`, "Vault writes"). PowerShell scripts in `scripts/` scaffold and repair the structure.
 
-## State of play
+## Where state lives
 
-Done, in order (early items are historical; details in `docs/NEXT-SESSION.md` and the release notes):
+This file holds no project state, on purpose: every copy of "what is done and
+what is next" kept here went stale. Read these instead:
 
-1. **SQLite persistence** — first wired as `settings`, `tool_states` and `conversation_messages`, with automatic import of `localStorage` on first desktop launch. `src-tauri/schema.sql` now holds every table.
-2. **A real model behind chat** — originally an Anthropic call replacing a keyword scorer. Since 0.9.0 the default is OpenAI Responses; Claude is the explicit comparison route (see Primary reasoning).
-3. **The write gate** — every vault write declares a `WriteIntent`, is proven contained, and asks the operator before touching anything it did not author. See `ARCHITECTURE.md`.
-4. **Observations** — `append_profile_observation` adds one dated line to `09 - System/Profile Observations.md`, atomically and always with confirmation. Written from the Chat panel; deliberately kept out of the assistant's own context.
-5. **Decision history in assistant context** — at most the newest 16,000 characters of `04 - Decisions/Decision Log.md`, in a separate cached section labelled as historical evidence rather than standing instruction. Current direction outranks it, and Profile Observations remain excluded.
-6. **Selective research and chat promotion** — bounded question-relevant excerpts with persisted provenance, and a reviewed chat-to-Decision-Log path. See `docs/CURATED-MEMORY.md`.
-7. **Verified operator approval** (0.3.0) — delegation starts only from a backend approval record for the exact task and scope. See `docs/OPERATOR-APPROVAL-DESIGN.md`. The Coding Delegate is implemented and unproven: no completed run.
-8. **Communications and 0.19.0** — the Communications mode arrived across 0.16.0–0.18.0 (native read-only Gmail, then situation maps and briefings). 0.19.0 (September 24, 2026) added GPT-6 Sol/Astra routing, saved workflow inspection, the Research @1 / Verification @1 agent pair, and Command's operational Agent Catalog. See `docs/RELEASE-0.19.0.md`.
-9. **2026-09-28 review fixes** — most findings in `docs/reviews/2026-09-28-v0.19.0/` were fixed on this branch, some partially and one deferred: webview script and navigation hardening, vault writer and attachment hardening, delegation containment, Gmail sync degradation, and model stream handling. Status per finding is in `REMEDIATION.md` there. Compiled and unit-tested; not yet accepted in the desktop app.
-10. **2026-09-28 design-review implementation** — U1–U12, D1–D6 and F1–F6 of `docs/reviews/2026-09-28-design-usability/` (P1–P6 deferred): truthful project-scan state, session view state, one shortcut registry, Preferences as a dialog, per-region error boundaries, quiet voice failures, evidence links, legible delegation approval, Communications at laptop widths. Build, `cargo test --lib`, scripts, harnesses and an IPC mock only; not accepted in the desktop app. Desktop acceptance list in `docs/NEXT-SESSION.md`; per-item status in `IMPLEMENTATION-CHECKLIST.md` in that folder.
-
-Next (from `docs/NEXT-SESSION.md`):
-
-- Desktop acceptance of the review fixes, using the checklist in `docs/NEXT-SESSION.md`.
-- One scoped, explicit paid Research UI run once API credit is available.
-- The Armory plan (`docs/ARMORY-PLAN.md`): the engine spike for Codex and Claude Code, run on the owner's PC, then the engine layer. It withdrew the earlier "not another agent role or a general framework".
-- Home semantic navigation: approved as an independent slice, not started.
-
-Do not turn the research library into standing prompt instructions. Do not treat the Coding pilot as a prerequisite; the operator removed it.
-
-`docs/NEXT-SESSION.md` is the current session handoff and is more specific than this section. `docs/HANDOFF.md` is historical. (`OLYMPUS-BRIEF.md` and `STATE-REVIEW.md` were earlier state documents, deleted on 2026-07-31 — git history has them.)
+- `docs/NEXT-SESSION.md` — current version, what is in flight, open decisions,
+  known issues and next steps. Rewritten, not appended, each session.
+- `docs/RELEASES.md` — one line per release.
+- `AGENTS.md`, "Keeping guidance current" — which document owns which kind of
+  fact, and the rules that keep them true. They apply to Claude as well.
 
 ## "Bring everything current"
 
@@ -118,16 +103,17 @@ The owner's standing instruction, decided 2026-09-30. When he says it (or plainl
 1. **Push this session's work.** Commit and push finished work on the session's branch. Half-done work stays on its branch and is named in the report.
 2. **Find pending work.** Branches on `origin` that are ahead of `master` and whose last commit is newer than master's latest release commit. Older branches (the July 2026 experiments) are superseded: leave them and do not list them.
 3. **Check each one.** Merge `master` into it and run `npm run build`, `cargo test --lib --manifest-path src-tauri/Cargo.toml`, every `scripts/test-*.mjs`, and `npm run visual:review`. If anything is red, fix it when it is plainly this branch's fault. Otherwise, stop for that branch and report it; never merge red.
-4. **Release.** Bump the minor version in `package.json`, `package-lock.json`, `src-tauri/Cargo.toml`, `src-tauri/Cargo.lock` and `src-tauri/tauri.conf.json`. Add a line to `docs/RELEASES.md`: the version, what it includes, and what is not yet accepted in the desktop app.
+4. **Release.** Bump the minor version in `package.json`, `package-lock.json`, `src-tauri/Cargo.toml`, `src-tauri/Cargo.lock` and `src-tauri/tauri.conf.json`. Add a line to `docs/RELEASES.md`: the version, what it includes, and which paths have never run against real data (a paid provider call, a delegated run, a live Gmail action). Add the install date when Kevin confirms it. Rewrite `docs/NEXT-SESSION.md` for the new version, then run `node scripts/test-guidance-docs.mjs` again; it fails until both docs name the version.
 5. **Merge.** Open a pull request into `master` with a merge commit, and merge it. Delete nothing.
 6. **Install.** In a session on the owner's PC, run `npm run update` from the Olympus checkout (`scripts/update-olympus.ps1`). It fast-forwards to `origin/master`, closes the app, builds and installs the MSI, and relaunches. A cloud session cannot reach the PC: finish by telling him to double-click **Update Olympus** on his desktop.
 
-It never authorizes force-pushes, history rewrites, skipped or disabled tests, touching `.env`, credentials, production data or the vault, or widening Gmail permissions. Desktop acceptance is not a gate; the release line records what has not been accepted. Report in three lines: what was released (version, branches), what was held back and why, and what he has to do (usually nothing, or the icon).
+It never authorizes force-pushes, history rewrites, skipped or disabled tests, touching `.env`, credentials, production data or the vault, or widening Gmail permissions. Desktop acceptance is not a gate; the release line records what has never run against real data. Report in three lines: what was released (version, branches), what was held back and why, and what he has to do (usually nothing, or the icon).
 
 ## Conventions
 
 - Match the surrounding code's comment density and idiom. Comments explain constraints the code can't show, not what the next line does.
-- Verify before claiming. `cargo test --lib` runs the portable suite; machine-bound real-vault checks are `#[ignore]` and run with `cargo test --lib -- --ignored` on the owner's machine. `cargo test --lib` and `npm run build` both pass on this branch; say so only when you've run them.
+- Verify before claiming. `cargo test --lib` runs the portable suite; machine-bound real-vault checks are `#[ignore]` and run with `cargo test --lib -- --ignored` on the owner's machine. Say a check passes only when you have run it.
+- A change that adds, removes or alters behaviour a document describes updates that document in the same commit. Removing a UI entry point counts.
 - The desktop app can't be launched from a headless environment. Compilation and unit tests are not the same as the app working — say which one you actually did.
 
 ## Shared project memory

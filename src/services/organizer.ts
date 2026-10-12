@@ -65,11 +65,6 @@ export interface OrganizerOverview {
     displayStatus: string;
     needsAttention: boolean;
 }
-export interface OrganizerFailure {
-    code: string;
-    message: string;
-    currentTask?: OrganizerTask | null;
-}
 export const organizerMessage = (error: unknown): string => typeof error === "object" && error !== null && "message" in error ? String(error.message) : String(error);
 export const listOrganizer = () => invoke<OrganizerOverview[]>("organizer_overview");
 export const createTask = (request: TaskInput) => invoke<OrganizerTask>("create_organizer_task", { request });

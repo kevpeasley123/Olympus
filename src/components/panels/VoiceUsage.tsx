@@ -3,7 +3,7 @@ import {nativeVoiceCommand} from '../../services/elevenSpeech';
 import {isTauriRuntime} from '../../services/launcher';
 import './VoiceUsage.css';
 type Usage={credits:number;confirmed:number;unconfirmed:number;notSubmitted:number;transcriptionRequests:number;transcriptionTokens:number;transcriptionUnconfirmed:number;openaiSpeechRequests:number};
-export function VoiceUsage({expanded=false}:{expanded?:boolean}){
+export function VoiceUsage(){
   const native=isTauriRuntime();const [usage,setUsage]=useState<Usage|null>(null);const [error,setError]=useState(false);
   const [rate,setRate]=useState(()=>{try{return localStorage.getItem('olympus.voice.creditRate')??'';}catch{return '';}});
   useEffect(()=>{
@@ -15,7 +15,7 @@ export function VoiceUsage({expanded=false}:{expanded?:boolean}){
   const numericRate=rate.trim()===''?null:Number(rate);const validRate=numericRate!==null&&Number.isFinite(numericRate)&&numericRate>=0;
   const partial=!!usage&&(usage.unconfirmed>0||usage.transcriptionRequests>0||usage.openaiSpeechRequests>0);
   const label=!native?'Voice usage · desktop only':error?'Voice usage · unavailable':!usage?'Voice usage · loading…':`Voice session · ${usage.credits.toLocaleString(undefined,{maximumFractionDigits:2})} credits${partial?' + unconfirmed':''}`;
-  return <details className="voice-usage" open={expanded||undefined}>
+  return <details className="voice-usage">
     <summary>{label}</summary>
     <div className="voice-usage__details">
       <strong>Voice usage · this app run</strong>

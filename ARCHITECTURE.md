@@ -1,8 +1,11 @@
 # Olympus — Architecture
 
-Current as of September 28, 2026: release 0.19.0 plus the 2026-09-28 review fixes
-and the 2026-09-28 design-review implementation (see `docs/NEXT-SESSION.md` and
-[the implementation checklist](docs/reviews/2026-09-28-design-usability/IMPLEMENTATION-CHECKLIST.md)).
+Technical boundaries and safety invariants of the code as it is. This file has
+no version or date stamp on purpose: when a change alters something described
+here, the same commit updates it. Current state and next steps live in
+`docs/NEXT-SESSION.md`; release history in `docs/RELEASES.md`.
+`scripts/test-guidance-docs.mjs` checks the command table below against
+`src-tauri/src/lib.rs`.
 
 ## Knowledge workflows
 
@@ -11,6 +14,8 @@ prior-evidence health and delegation-review collection, a deterministic join,
 fingerprint verification and closed attention routing. Generated findings carry
 no memory, approval or execution authority. Two additive SQLite tables retain
 audit runs and node events; source notes are never written by this graph.
+The backend and tables ship, but the app has no entry point to start or inspect
+an audit: the `KnowledgeAudit` view is rendered only by its harness.
 See [Knowledge workflows](docs/KNOWLEDGE-WORKFLOWS.md) for implemented scope,
 loop bounds, recovery, routing and the phased synthesis/interview/cadence plan.
 
@@ -32,9 +37,13 @@ Research notes render through `react-markdown` with `remark-gfm` and an Olympus 
 src/             React frontend — App, components, hooks, services, data, utils, styles
 src-tauri/       Rust desktop shell — Cargo.toml, tauri.conf.json (including the CSP), schema.sql;
                  src/main.rs only sets the Windows GUI subsystem for release builds and calls
-                 src/lib.rs, which registers commands; src/commands/ holds about 30 modules
-                 (gmail/ is a submodule tree)
-scripts/         PowerShell scripts that scaffold and sync the Obsidian vault
+                 src/lib.rs, which registers commands; src/commands/ holds the command modules
+                 (gmail/ and memory/ are submodule trees)
+scripts/         test-*.mjs checks (the release gate runs all of them), visual-review.mjs,
+                 *-review.mjs one-off capture tools, acceptance/ fixtures, and PowerShell
+                 scripts that install Olympus and scaffold or back up the Obsidian vault
+*-harness.html   Dev-only browser harnesses (served by Vite, not built) that mount
+                 components against mocked IPC and fixtures for the scripts above
 OLYMPUS-MANUAL.md Canonical product vision, operating policy, and autonomy boundaries
 AGENTS.md         Thin Codex/agent adapter to the canonical manual
 CLAUDE.md         Claude-specific adapter plus technical constraints
@@ -45,32 +54,38 @@ package.json     Frontend dependencies and npm scripts
 .env.example     Required environment variables (copy to .env)
 ```
 
-Tauri commands exposed by the desktop shell — all 81 in the `invoke_handler` list in `src-tauri/src/lib.rs` (regenerated 2026-09-29; `gmail_cache_counts` and `acceptance_profile` are the additions since 0.19.0, `command_capabilities` and `command_missions` the uncommitted Command Armory additions):
+Tauri commands exposed by the desktop shell — every entry in the `generate_handler!` list in `src-tauri/src/lib.rs`. The table sits between the `commands` markers and must list each registered command exactly once; `scripts/test-guidance-docs.mjs` fails when it does not.
 
+<!-- commands:start -->
 | Area | Commands |
 | --- | --- |
-| Assistant and models | `send_assistant_message`, `model_routes`, `model_diagnostics`, `record_voice_request`, `create_voice_session` |
+| Assistant and models | `send_assistant_message`, `cancel_assistant_message`, `model_routes`, `save_model_selection`, `model_diagnostics` |
+| Voice | `create_voice_session`, `record_voice_request`, `voice_usage`, `elevenlabs_status`, `elevenlabs_connect`, `elevenlabs_disconnect`, `elevenlabs_check`, `elevenlabs_synthesize`, `elevenlabs_cancel` |
 | Persistence | `load_persisted_state`, `begin_operator_session`, `save_settings`, `save_tool_states`, `append_conversation_messages`, `clear_conversation` |
-| Vault | `write_memory_artifact`, `fetch_pantheon_entries`, `write_pantheon_entry`, `migrate_pantheon_schema`, `save_attachment_to_vault`, `append_profile_observation`, `promote_chat_memory`, `fetch_operator_profile`, `fetch_recent_vault_writes`, `fetch_vault_graph`, `open_vault_note` |
+| Memory index | `memory_status`, `memory_preview`, `memory_rebuild`, `memory_request_evidence` |
+| Vault | `fetch_pantheon_entries`, `write_pantheon_entry`, `migrate_pantheon_schema`, `save_attachment_to_vault`, `fetch_operator_profile`, `fetch_recent_vault_writes`, `fetch_vault_graph`, `open_vault_note` |
 | Write gate | `resolve_vault_write` |
-| Live data | `scan_tracked_projects`, `fetch_action_queue` |
+| Projects | `scan_tracked_projects`, `fetch_action_queue`, `project_members`, `link_project`, `set_project_visibility`, `save_project_intake`, `pick_project_folder`, `inspect_project`, `confirm_project_brief` |
+| Organizer | `create_organizer_task`, `update_organizer_task`, `list_organizer_tasks`, `fetch_organizer_task`, `set_organizer_intent`, `move_organizer_task`, `prepare_organizer_delegation`, `accept_organizer_result`, `finish_organizer_task`, `acknowledge_organizer_event`, `organizer_overview` |
 | Engines | `engine_status` |
 | Delegation | `prepare_delegation_run`, `prepare_delegation_resume`, `cancel_delegation_proposal`, `start_delegation_run`, `resume_delegation_run`, `cancel_delegation_run`, `list_delegation_runs`, `fetch_delegation_diff` |
 | Delegation review | `fetch_delegation_review`, `run_delegation_check`, `delegation_review_fingerprint`, `complete_delegation_review` |
-| Knowledge audit | `start_knowledge_audit`, `list_knowledge_audits`, `inspect_knowledge_audit` |
+| Knowledge audit | `start_knowledge_audit`, `list_knowledge_audits`, `inspect_knowledge_audit` (no UI entry point; the view is rendered only by its harness) |
 | Research / Verification agents | `research_agent_catalog`, `start_research_verification`, `inspect_research_verification`, `list_research_verifications`, `cancel_research_verification` |
-| Command catalog | `command_agent_catalog`, `command_capabilities`, `command_missions` (read-only projections; see `docs/COMMAND-ARMORY-REDESIGN.md`) |
+| Command Armory | `command_agent_catalog`, `command_capabilities`, `command_missions` (read-only projections; see `docs/COMMAND-FLAGSHIP.md`) |
+| Resources and skills | `resource_skills`, `add_resource_skill`, `extract_resource_text`, `recommend_resource_skills` |
 | Gmail | `gmail_status`, `gmail_connect`, `gmail_cancel`, `gmail_disconnect`, `gmail_sync`, `gmail_set_horizon`, `gmail_search`, `gmail_thread`, `gmail_workspace`, `gmail_remove_cache`, `gmail_cache_counts` |
 | Communication Intelligence | `analyze_communications`, `communication_runs`, `communication_run_events`, `communication_feedback`, `communication_skills`, `communication_workflow`, `inspect_communication_run` |
-| Situations | `situation_snapshot`, `situation_refresh`, `situation_set_background`, `situation_update`, `situation_edit`, `situation_draft`, `situation_save_draft`, `situation_document_status`, `situation_document_open` |
+| Situations and email attention | `situation_snapshot`, `situation_refresh`, `situation_set_background`, `situation_update`, `situation_edit`, `situation_draft`, `situation_save_draft`, `situation_document_status`, `situation_document_open`, `email_attention_decide` |
 | Shell / files | `launch_quick_app`, `restart_olympus`, `pick_attachment_file`, `extract_pdf_text`, `open_external_link` |
 | Acceptance | `acceptance_profile` (read-only; `null` unless the debug-only acceptance profile is active) |
+<!-- commands:end -->
 
 Read-only additions to existing command results (2026-09-28, design review): `load_persisted_state` returns each message's `at` (the row's `created_at` as ISO 8601 UTC; nothing new is written); `create_voice_session` names a plain provider error code such as `insufficient_quota`, never the response body; `fetch_pantheon_entries` carries each entry's body fingerprint (the value a reply's research snapshot stores), whole-file fingerprint (the value Research Verification binds) and frontmatter `source_url`; `prepare_delegation_run` and `prepare_delegation_resume` return display-only `permitted` and `baseBranch` beside the bound `subject`; `fetch_delegation_review` returns `reviewedAt`; `situation_snapshot` reports understanding freshness (last publish, last attempt, consecutive failures, the worker's real resume time during backoff) and a content revision, answering `{unchanged, revision}` when the caller already holds that revision. `gmail_cache_counts` counts what cache removal, or a narrower history range, would delete; it validates the range like `gmail_set_horizon` and deletes nothing.
 
 2026-09-29: `append_conversation_messages` takes an optional `imported` flag, set only by the one-time `localStorage` import; the rows it inserts are recorded in the additive `conversation_imports` table in the same transaction, and `load_persisted_state` returns `importedAt` instead of `at` for them.
 
-`pick_attachment_file` keeps the chosen path in Rust and returns a one-use token; `extract_pdf_text` and `save_attachment_to_vault` accept only that token. `write_memory_artifact` takes an artifact kind (the research `.base` or the projects `.canvas`), and Rust chooses the path.
+`pick_attachment_file` keeps the chosen path in Rust and returns a one-use token; `extract_pdf_text` and `save_attachment_to_vault` accept only that token.
 
 The SQLite connection is opened once during `setup()` and held in managed state, so the frontend can assume persistence is ready before it can invoke anything.
 
@@ -78,18 +93,30 @@ The webview renders untrusted text (research notes, email, repository output), s
 
 ## Vault writes
 
-Olympus has written to the vault since April 2026. Six commands do it. All six resolve the vault root in Rust via `commands::get_vault_path()`; **no caller supplies a path** (this was unified in `62c957e` — `write_memory_artifact` previously took the root from the frontend).
+Four commands write to the vault. All of them resolve the vault root in Rust via `commands::get_vault_path()`; **no caller supplies a path** (unified in `62c957e`).
 
 | Command | Operation | Target | Declared intent | Asks first? |
 | --- | --- | --- | --- | --- |
 | `write_pantheon_entry` | create | `02 - Research/<date> <title>.md` | `CreateUnique` | No — `create_unique` (`pantheon.rs`) claims a free suffixed name with `create_new`, so nothing is destroyed |
 | `save_attachment_to_vault` | create | `02 - Research/_attachments/<file>` | `CreateUnique` | No — `copy_to_unique` (`attachments.rs`) claims a free suffixed name with `create_new`; the source is a file the operator picked, named to the webview only by a one-use token |
-| `write_memory_artifact` | **overwrite** | `00 - Dashboard/Olympus Research.base`, `Olympus Projects.canvas` | `RegenerateDerived` | Only when the file diverged from what Olympus last wrote, or was never fingerprinted |
-| `promote_chat_memory` | **append** | `04 - Decisions/Decision Log.md` | `AppendAuthored` | **Always**, with the complete bounded addition |
-| `append_profile_observation` | **append** | `09 - System/Profile Observations.md` | `AppendAuthored` | **Always** |
 | `migrate_pantheon_schema` | **modify** | frontmatter of `02 - Research/*.md` entries | `ModifyAuthored` | **Always**, one confirmation per file with a diff summary |
+| `confirm_project_brief` | **create or modify** | the linked project's note, default `01 - Projects/Linked <id>.md` | `ModifyAuthored` | **Always**, with the diff and the complete purpose and constraints |
 
 No command deletes or renames a note the operator can see.
+
+The dashboard exports (the Projects canvas and the Research base in
+`00 - Dashboard`) and their command, `write_memory_artifact`, were removed on
+2026-10-12 at Kevin's direction; their buttons had already gone. Files they wrote
+earlier stay in the vault untouched. The `RegenerateDerived` intent and its
+fingerprint rule remain in the gate, tested, with no current caller.
+
+Chat no longer writes to the vault. Kevin removed the Save memory and
+Observation buttons on 2026-10-11 (`74fd5de`, `a155cd5`) and their backend
+commands, `promote_chat_memory` and `append_profile_observation`, were deleted
+on 2026-10-12. `09 - System/Profile Observations.md` may still exist in the
+vault; it stays out of the assistant's context (`vault_context.rs` tests the
+absence), because inferences fed back into the prompt become
+indistinguishable from the operator's own instructions.
 
 ### The write gate
 
@@ -100,22 +127,15 @@ Every vault write goes through `commands::vault_write`, which does two separate 
 
 When a write needs a human, `write_confirm::request_confirmation` emits `vault-write-pending` to the webview and blocks on the answer. Timeout (120s), a dropped channel, and an emit failure all **deny**. The operator's answer returns through `resolve_vault_write`. `WriteConfirmDialog.tsx` renders it; declining is the default on Escape, the backdrop, and the focused button, and the dialog's wording comes from the intent-derived `operation` field so an append is never described as an overwrite. Concurrent requests queue by ID rather than replacing each other on screen. `resolve_vault_write` returns whether the answer reached a live request, and the dialog reports an approval that arrived after the timeout as nothing written instead of as a write.
 
-Fingerprints of app-authored files live in the SQLite `artifact_hashes` table, normalised for line endings and trailing whitespace before hashing — the vault syncs through OneDrive and is opened by Obsidian, and neither round-trip is a human edit. A file whose fingerprint still matches is regenerated silently; one that diverged, or was never recorded, prompts. **Absent must mean confirm** — treating a missing row as clean would make the check bypassable by deleting it.
+Fingerprints of app-authored derived files live in the SQLite `artifact_hashes` table (no writer uses it since the dashboard exports went), normalised for line endings and trailing whitespace before hashing — the vault syncs through OneDrive and is opened by Obsidian, and neither round-trip is a human edit. A file whose fingerprint still matches is regenerated silently; one that diverged, or was never recorded, prompts. **Absent must mean confirm** — treating a missing row as clean would make the check bypassable by deleting it.
 
 After a successful approved write, `vault_git::commit_vault_file` commits only
 that vault-relative path. It uses a temporary Git index seeded from `HEAD`,
 proves the resulting commit tree contains exactly one changed path, atomically
 advances the vault branch, then refreshes only that path in the operator's real
-index. Unrelated staged and unstaged vault work is never adopted.
-
-### The appender
-
-`append_profile_observation` and `promote_chat_memory` append to existing notes and always ask. The observation-specific invariants below remain unchanged; the separate promotion path is documented in `docs/CURATED-MEMORY.md`. Two properties are load-bearing:
-
-- **The write is atomic.** The whole file is composed in memory, written to a uniquely named dot-prefixed temp file claimed with `create_new` in the same directory, flushed with `sync_all`, and renamed over the target, with one writer at a time behind a mutex. A plain append interrupted mid-write leaves half an entry in a note the operator reads by hand.
-- **The note is not read back.** `09 - System/Profile Observations.md` is deliberately absent from `vault_context::STABLE_NOTES`. Inferences that re-entered the assistant's context would arrive on the next turn indistinguishable from the operator's own stated preferences. `observations.rs` carries a test asserting the absence.
-
-Because the gate can hold for up to two minutes, the appender re-resolves the path and compares the note's exact bytes after approval, and refuses to write if it changed while the dialog was open — otherwise a concurrent append or an edit in Obsidian would be silently dropped by the full-file replace. Only a missing file counts as absent; any other read error fails closed.
+index. Unrelated staged and unstaged vault work is never adopted. A Rust test
+(`every_vault_writer_commits_its_file` in `vault_git.rs`) fails if a module
+declares a `WriteIntent` without calling `commit_vault_file`.
 
 ## Process spawns
 
@@ -190,9 +210,8 @@ Two things follow that "the subcommands are read-only" does not cover:
 - The scan runs from effects in `hooks/useDashboardData.ts` (on mount and on a
   60-second interval), so it runs twice per mount under StrictMode in dev. Scans
   carry a request sequence, so a stale result cannot land last. **No gated write
-  is effect-reachable** — Update Canvas, View Database, and Record (observation)
-  are all button handlers — so the double-invoke does not produce duplicate
-  confirmation dialogs.
+  is effect-reachable** — every gated write starts from a button handler — so
+  the double-invoke does not produce duplicate confirmation dialogs.
 
 ### Vault git — `vault_git::git`
 
@@ -259,7 +278,7 @@ are in-process libraries. Test-only spawns (`mklink` in `vault_write.rs`,
 
 Dashboard panels compose from `src/App.tsx`. Live data sources:
 
-- **Pantheon** — walks `02 - Research/` and parses each note's YAML frontmatter; entries require an `olympus/research` tag. It does not read `Olympus Research.base`, which is a generated output rather than an input
+- **Pantheon** — walks `02 - Research/` and parses each note's YAML frontmatter; entries require an `olympus/research` tag. It does not read `Olympus Research.base`, an older generated output
 - **Projects / Git** — local repository inspection via Tauri commands. Project
   notes contribute operator-owned status, current vision, vision review date,
   and committed next action; Git contributes branch, commit, and working-tree
@@ -278,11 +297,13 @@ Dashboard panels compose from `src/App.tsx`. Live data sources:
 
 - **Chat** — `send_assistant_message` resolves a backend-owned route (OpenAI Responses by default, explicit Anthropic comparison) from Rust, so the
   API key never reaches the webview. The request includes the stable System
-  notes plus at most the newest 16,000 characters of `04 - Decisions/Decision
-  Log.md`, in a separate section labelled as historical evidence rather than
-  standing instruction. Current operator direction and current project vision
-  explicitly outrank it. `09 - System/Profile Observations.md` remains excluded,
-  and bounded Pantheon retrieval includes attributed source snapshots. Content
+  notes and the indexed-memory evidence packet selected for the question
+  (`memory::load_for_turn`; see *Indexed curated memory* below). Setting
+  `OLYMPUS_MEMORY_MODE=legacy` is a local rollback to the older context: the
+  newest 16,000 characters of `04 - Decisions/Decision Log.md`, labelled as
+  historical evidence, plus per-question Pantheon excerpts. In both, current
+  operator direction and current project vision outrank recalled history, and
+  `09 - System/Profile Observations.md` is never read. Content
   another party could have written (project state, the command board, research
   excerpts, Gmail evidence) travels in one `<olympus_evidence>` user item before
   the latest turn, not in the system prompt. See `docs/MODEL-ROUTING.md` for
@@ -290,10 +311,9 @@ Dashboard panels compose from `src/App.tsx`. Live data sources:
 
 Seeded fallbacks live in `src/data/seed.ts`. Since 2026-09-28 the desktop starts from `desktopInitialState` — seed settings, tools and quick apps, but no projects and no conversation — and `useDashboardData()` reports a `projectScan` state (`loading`, `ready`, `stale`, `failed`) with the last success time, instead of showing example projects until the first scan. A failed first scan leaves the list empty; a later failure keeps the last genuine result as `stale`. Only the browser preview shows the seed projects and conversation, flagged `demoData` and labelled as examples. Desktop hydration drops only messages that exactly match the seed fixture. State is plain React (`useState` / `useEffect` / `useMemo`). `src/services/storage.ts` selects a persistence backend per runtime: SQLite in the desktop shell, `localStorage` in the browser dev server, with one source of truth each. State hydrates asynchronously after mount, and the save effect is gated on hydration so seed defaults cannot overwrite stored state on first render.
 
-## Frontend structure (design review, 2026-09-28)
+## Frontend structure
 
-The design-review implementation added shared modules that surfaces build on
-rather than duplicating:
+Shared modules that surfaces build on rather than duplicating:
 
 | Module | Role |
 | --- | --- |
@@ -307,9 +327,9 @@ rather than duplicating:
 | `src/components/panels/library/` | LibraryPanel split into `LibraryBrowser`, `EntryDetail`, `AddEntryDialog`, `entryMarkdown`, `excerptHighlight`, `StanceMark`, `InspectorParts` and the pure `libraryModel.ts` (tested by `scripts/test-library.mjs`). |
 | `projects.css`, `command.css`, `communications.css`, `library/library.css`, `library/inspector.css` | Surface stylesheets split out of `styles.css`, which keeps the tokens (`--focus-ring`, `--text-micro` … `--text-2xl`, `--label` at #7f93ad) and the global `:focus-visible` ring. `scripts/test-css-tokens.mjs` fails on an undefined `var(--x)` without a fallback. |
 
-Error-boundary layout in `App.tsx`: header, tool rail, agent catalog, Command
-view, Communications view, Research view, Project view, Pantheon strip, command
-console and status dock each have their own boundary. There is no root boundary
+Error-boundary layout in `App.tsx`: every top-level region (header, rail,
+Armory, each mode's view, the command console and the status dock) has its own
+boundary. There is no root boundary
 around App, and `WriteConfirmDialog` sits outside every boundary, so a view that
 fails to render never unmounts the console or a pending write decision. (If the
 gate did unmount, Rust would still deny the write on timeout.)
@@ -338,10 +358,10 @@ Copy `.env.example` to `.env` and fill in:
 
 ```
 OPENAI_API_KEY=      # required: primary reasoning, voice, Communications, Research/Verification
-ANTHROPIC_API_KEY=   # optional: explicit Claude comparison; passed to Claude Code delegation when set
+ANTHROPIC_API_KEY=   # optional: explicit Claude comparison route only; never passed to Claude Code delegation
 ```
 
-Gmail needs no key in `.env`: its Desktop OAuth client file lives in the app data directory, and refresh tokens live in Windows Credential Manager (see `docs/GMAIL.md`). The `OLYMPUS_*_FIXTURE` and `OLYMPUS_TEST_PROJECTS_ROOT` variables are read only by tests and harnesses.
+Gmail needs no key in `.env`: its Desktop OAuth client file lives in the app data directory, and refresh tokens live in Windows Credential Manager (see `docs/GMAIL.md`). The ElevenLabs key is entered through the Windows credential dialog and stored in Credential Manager as `Olympus.ElevenLabs` (`commands/elevenlabs.rs`); the webview only learns whether one is configured. The `OLYMPUS_*_FIXTURE` and `OLYMPUS_TEST_PROJECTS_ROOT` variables are read only by tests and harnesses.
 
 `.env` is gitignored and loaded by `load_olympus_env()` in `src-tauri/src/lib.rs`, which resolves it relative to the Cargo manifest — so it belongs at the repo root, next to `package.json`.
 
@@ -351,9 +371,45 @@ Gmail needs no key in `.env`: its Desktop OAuth client file lives in the app dat
 
 For higher-level system framing, project context, and decision history, see the Obsidian vault — particularly `09 - System/System Architecture.md`, `09 - System/Dashboard Information Architecture.md`, and `04 - Decisions/Decision Log.md`. The original April 25, 2026 codebase discovery report is archived at `09 - System/2026-04-25 Olympus Architecture Discovery.md`.
 
+## Project registry and Organizer
+
+SQLite owns dashboard membership: `project_members`, `project_links`,
+`project_membership_state`, `project_identity_conflicts` and
+`project_brief_writes` (`project_registry.rs`, `project_management.rs`,
+`project_intake.rs`). Linking accepts a local folder, an HTTPS repository URL or
+an idea; inspection reads bounded local files or one public README and never
+clones or executes anything. Removal is a tombstone, never a file deletion. See
+[PROJECT-LINKING.md](docs/PROJECT-LINKING.md).
+
+The Organizer (`organizer.rs`, `organizer_store.rs`, `organizer_lifecycle.rs`;
+six `organizer_*` tables) keeps versioned tasks inside a project's detail view
+and hands execution to the existing delegation approval path. A result is
+accepted only after a completed run, a matching review fingerprint and the
+current task revision. `organizer_tasks.project_id` references the legacy
+`projects` table, which the project scan fills, not `project_members`. See
+[ORGANIZER.md](docs/ORGANIZER.md).
+
+## Schema evolution
+
+`open_database` (`lib.rs`) runs all of `schema.sql` on every start. Every
+statement is `CREATE … IF NOT EXISTS`, so a new table reaches an existing
+database, but a column or constraint added to an existing table does not. The
+one exception is a hand-written check that adds `delegation_runs.process_id`.
+There is no schema version. Tests build fresh databases from `schema.sql`, so
+they cannot catch this; until a migration runner exists, do not change an
+existing table. The runner is designed but deferred: see
+[SCHEMA-MIGRATIONS.md](docs/SCHEMA-MIGRATIONS.md).
+
+## Speech output
+
+Spoken replies use either OpenAI speech or ElevenLabs (`elevenlabs.rs`). The
+ElevenLabs key lives in Windows Credential Manager and never crosses IPC; Rust
+sends only the spoken text, voice, model and language, and returns transient
+audio. See [ELEVENLABS-VOICE.md](docs/ELEVENLABS-VOICE.md).
+
 ## Curated-memory implementation
 
-See [CURATED-MEMORY.md](docs/CURATED-MEMORY.md) for bounded retrieval, persisted source snapshots, and reviewed chat promotion. These additions grant no delegation authority. [OPERATOR-APPROVAL-DESIGN.md](docs/OPERATOR-APPROVAL-DESIGN.md) is implemented (0.3.0); a live delegation run remains acceptance work.
+See [CURATED-MEMORY.md](docs/CURATED-MEMORY.md) for bounded retrieval and persisted source snapshots. These additions grant no delegation authority. [OPERATOR-APPROVAL-DESIGN.md](docs/OPERATOR-APPROVAL-DESIGN.md) is implemented; no delegation run has completed against a real project yet.
 
 
 ## Voice adapter
@@ -366,13 +422,13 @@ commands. Additive conversation_voice metadata shares message IDs with the exist
 conversation log. See VOICE.md for lifecycle, configuration and verification limits.
 
 
-## Native Gmail source (added September 12, 2026; released from 0.16.0)
+## Native Gmail source
 
 See [GMAIL.md](docs/GMAIL.md) for setup, ownership, bounds, privacy, verification and live acceptance. `commands/gmail/{auth,mime,sync,store}.rs` adds a native read-only external source: system-browser PKCE/loopback OAuth, Windows Credential Manager refresh tokens, deterministic bounded history sync, SQLite snapshots/FTS and separate generated candidates. `gmail_accounts`, `gmail_messages`, `gmail_search`, `gmail_sync_runs`, `gmail_candidates` and `conversation_mail` are additive. No generalized live-source primitive existed; vault research and curated memory remain unchanged.
 
 The common assistant handler supplies backend-built, question-routed communication evidence to either reasoning provider. Exact excerpts are persisted with replies and labelled in chat. Gmail cannot override Git implementation facts, operator intent, decisions or execution approval. Current candidates appear in Gmail preferences; they never enter the task/approval tables. Native cadence only runs while the app is open and is separate from the specific knowledge-audit graph. The web preview cannot access native mail credentials.
 
-OAuth is configured on the owner's machine and a first 206-message import succeeded on 2026-09-12. Still open: MIME review against real mail, incremental sync across a restart, a Gmail-grounded answer, and Disconnect/revoke (see the 2026-09-28 acceptance list in `docs/NEXT-SESSION.md`). The SQLite cache is unencrypted under the Windows user profile, and BitLocker state was not verified.
+OAuth is configured on the owner's machine and a first 206-message import succeeded on 2026-09-12. The Gmail items not yet exercised against real mail are tracked in `docs/NEXT-SESSION.md`. The SQLite cache is unencrypted under the Windows user profile, and BitLocker state was not verified.
 
 ### Communication Intelligence
 
@@ -384,7 +440,7 @@ Explicit Analyze/Refresh runs the fixed `communication-intelligence/v4` graph (`
 The fourth dashboard mode uses `gmail_workspace` for bounded local metadata aggregation (up to 2,000 eligible messages, 40 preview rows per page). Bodies load only through the existing thread command. Candidate joins require the current source fingerprint; source analytics, generated candidates and operator-confirmed state remain separate. Typed Communications questions can add seven-day cache aggregates; explicit thread markers resolve in native read-only retrieval and preserve excerpt provenance. No analytics job invokes a model. See `docs/COMMUNICATIONS.md`.
 
 
-### Evolving Communications situations (added September 13, 2026)
+### Evolving Communications situations
 
 See [COMMUNICATION-SITUATIONS.md](docs/COMMUNICATION-SITUATIONS.md). The operator-approved situation worker runs bounded changed-thread discovery and briefing synthesis against the native cache, explicit situation updates and matching Research. Six additive account-scoped `communication_situation*` tables retain document contexts, generated situations and sources, operator updates, background state and local drafts. A fixed versioned workflow validates evidence and rechecks context before atomic publication. It does not create tasks, change intent, send email or expand Gmail scope. The existing single-active-analysis constraint and model transport are reused; purpose-specific typed contracts do not add a general agent executor. The UI polls snapshots without model calls and preserves map/draft state. Background analysis runs while the app is open, can be paused, and is disclosed in Communications and Gmail preferences. Consecutive failures back off from five minutes to four hours; a new situation over the 24-situation limit is kept as a deferred observation rather than re-analysed each cycle.
 

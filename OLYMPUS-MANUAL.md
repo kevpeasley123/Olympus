@@ -24,45 +24,22 @@ Kevin's own Codex or Claude Code sessions, under the same approvals. An outside
 tool is approved at a pinned version: Olympus gates and records every call to
 it, but it is not a sandbox, so safety comes first.
 
-## Current Command composition - October 7, 2026
-
-The owner's flagship redesign supersedes the permanent Agent Catalog and orbital
-card composition described in historical sections below. Command now presents a
-compact Olympus Armory at left, the perspective Pantheon/Omega as the visual
-center, and a quiet companion console at right. Agents, Plugins, Skills, and
-Operations are separate inspection categories. Agent loadouts expose their actual
-compiled scope and authority; inspection never executes a capability. Plugins
-count source/connection/local adapters, excluding model routes and executors.
-Operations count active/waiting recorded workflows; Gmail sync and monitors are
-not yet covered by that endpoint. Never imply that an empty workflow snapshot
-proves the entire application idle. See `docs/COMMAND-FLAGSHIP.md`.
-
-Resource intake is an explicit write workflow beside Armory inspection: capture
-source documents, review locally selected passages and save unevaluated library
-artifacts. Added skills are reusable instruction documents without execution
-privileges. Plugin stars reflect real adapter counts and open inspection details.
-AI resource analysis requires a separately authorized explicit action; the current
-local outline makes no model request. See `docs/RESOURCE-INTAKE.md`.
-
 ## Opening experience
 
-On launch, Command is the ambient, glanceable state of Olympus. It should be
-readable from across the room: the full omega instrument, the Agent Catalog on
-the left, and the conversation workspace in its own right column (compact on
-request). The instrument is the mode, not an illustration beside another
-interface. The orbital capability cards show what Olympus can do — its capability domains, derived
-from real runtime Tools and Skills — not projects (decided 2026-09-29, Command
-Armory redesign). Projects, briefing prose and repository details belong in
-Project mode.
+Olympus reopens in the mode it was left in; Command is the default. Command is
+the ambient and glanceable state of the system, readable from across the room: the Armory at left, the Pantheon instrument at
+the centre, and the companion console at right. When the Opening Briefing
+preference is on, the console opens with a short briefing built only from
+provable project state, spoken when spoken replies are on. Project cards,
+briefing detail and repository facts belong in Project mode.
 
 Project mode opens a purpose-first portfolio: distinct project cards with a name,
-recorded vision, Olympus recommendation and one action to continue or review work.
-Operational diagnostics and source tools sit behind disclosures; pending reviews
-remain visible. The project workspace leads with vision and Organizer tasks,
-with repository facts and vault navigation in background details.
-Unknown state stays explicit in details; recorded intent does not imply
-readiness, approval or execution. Review with Olympus supplies context to the existing
-Command Console and waits for the operator to send. See PROJECT-COMMAND-BOARD.md.
+recorded vision, one next step or labelled suggestion, and one action to continue
+or review work. The project workspace leads with vision and Organizer tasks,
+with repository facts and vault navigation in background details. Unknown state
+stays explicit; recorded intent does not imply readiness, approval or
+execution. Review with Olympus supplies context to the console and waits for
+the operator to send. See `PROJECT-COMMAND-BOARD.md`.
 
 ## Project truth
 
@@ -108,39 +85,47 @@ not commands to repeat an old choice forever.
 
 ### Command
 
-The ambient command and conversation surface. Its centre column contains the
-full-size omega instrument: the day arc, the orbital capability cards, the linked
-note constellation (ambient), and central glyph. A lens (the selected agent),
-a selected domain, or a recorded mission reveals individual Tools and Skills
-within the central inspection field with an honest state: available, in scope, active,
-completed, unavailable, or requires approval. Revealing and inspecting never
-invoke anything. The conversation workspace fills the right column by default
-(idle suggestions, conversation, a Mission View projected from recorded run
-events, pinned composer) and compacts to the anchored command bar on request.
+The ambient command surface. The instrument is the mode, not an illustration
+beside another interface.
 
-The operational Agent Catalog occupies the left region beside the slim global
-rail. Olympus Core is listed separately as orchestrator; only actual executable
-roles appear here. Selected-role details stay in the same left panel. The right
-region belongs to the conversation workspace, which must cover neither the
-catalog nor the central instrument. Catalog inspection
-is read-only and never launches agents. Deeper graph/run inspection links to the
-existing Research surface. See `docs/COMMAND-AGENT-CATALOG.md` and
-`docs/COMMAND-ARMORY-REDESIGN.md`.
+- **Armory** (left). Agents, Plugins and Skills are separate inspection
+  categories with real counts. Agent loadouts show each role's compiled scope
+  and authority, including which roles are unproven or placeholders. Plugins
+  count source, connection and local adapters, never model routes or executors.
+  Inspection never executes a capability. Resource intake (Add resources &
+  skills) is a separate, explicit write workflow. Added skills are reusable
+  instruction documents with no execution privileges, and AI analysis of a
+  resource needs its own explicit authorization; see
+  `docs/RESOURCE-INTAKE.md`.
+- **Pantheon** (centre). The Omega glyph in real perspective. Recorded
+  missions orbit it as planets, and the Plugins, Skills, Agents and Obsidian
+  memory constellations surround it. Hovering or selecting reveals detail and
+  never invokes anything. The Spoken replies switch sits beneath it.
+- **Companion console** (right). Overview (Mission brief, Active missions) and
+  Conversation tabs. The same console serves every mode.
 
-On October 7, 2026, Kevin approved the supplied visual reference: an open orbital instrument with capability cards, a Project navigation card, and tabbed agent details. This supersedes the earlier segmented-ring visual treatment; capability inspection remains read-only.
+The Mission brief counts active and waiting recorded workflows. Gmail sync and
+background monitors are not in that endpoint, so an empty snapshot never proves
+the whole application idle. See `docs/COMMAND-FLAGSHIP.md` and
+`docs/COMMAND-MISSION-PANTHEON.md`.
 
-Command's defining test is “one instrument, readable across the room.”
-A proposal that adds project-detail cards, a list, or a scroll container to its centre column
-belongs in Project mode. The instrument must not shrink to make room for a panel;
-that inversion turns the mode's primary display into decoration.
+Command's defining test is "one instrument, readable across the room." A
+proposal that adds project-detail cards, a list or a scroll container to its
+centre belongs in Project mode. The instrument must not shrink to make room for
+a panel; that inversion turns the mode's primary display into decoration.
+
+Kevin requested this composition on October 7, 2026. It replaced the permanent
+Agent Catalog and orbital capability cards approved on September 29 and earlier
+that day.
 
 ### Projects
 
-The complete portfolio. Active, watching, scaffold, and archived projects remain
-visible with their repository state, vision, accomplishments, tasks, committed
-actions, recommendations, and attention items. Its hero area presents the
-primary active session path; additional active or optional watching paths appear
-as secondary cards. This is the mode for leaning in and reading detail.
+The complete portfolio, for leaning in and reading detail. Cards and the
+project ecosystem share one view by default; each can be shown alone. Every
+project keeps its repository state, vision, tasks, committed actions,
+recommendations and attention items, and linked projects can be added, removed
+from the dashboard and restored without deleting anything. See
+`PROJECT-COMMAND-BOARD.md` and `docs/PROJECT-LINKING.md`.
 
 Operator commitments, Olympus recommendations, and attention items remain
 visually distinct here and anywhere else they appear.
@@ -162,7 +147,7 @@ would materially improve an answer. It does not inject the entire library into
 every conversation and does not need ceremonial citations for ordinary advice.
 
 Research also hosts read-only inspection of the Research and Verification agents'
-runs, reached from the Command catalog.
+runs, reached from those agents' loadouts in the Armory.
 
 ### Communications
 
@@ -205,6 +190,20 @@ Autonomy grows with recoverability:
 
 An agent should be allowed to work independently inside a reversible sandbox and
 stop at critical product, design, and irreversible boundaries.
+
+### Paid external tools (Monid) — decided October 7, 2026
+
+Ask before every Monid tool execution and before spending anything. Discovery,
+setup or an earlier approval grants no standing authority. Each request shows
+the provider and tool, purpose and expected output, exact inputs and what data
+leaves the machine, the current price or estimate and its uncertainty, a
+maximum spend or bounded quantity, expected runtime, and existing tools that
+could do the job. Approval binds to that proposal: changed inputs, retries,
+additional runs or a higher cost need a fresh one. Unknown pricing is never
+treated as free, and a balance is never topped up silently. If the provider
+cannot enforce a cost cap, say so rather than promising one. The rule belongs at
+the backend execution boundary, not only in interface text. No Monid
+integration exists yet.
 
 ## Delegated work
 
@@ -276,10 +275,12 @@ No wake word or background activation. While armed, microphone capture is clearl
 labelled, including during answers; Stop voice ends capture. Silence ends a session
 after two minutes; sessions have a fifteen-minute cap.
 
-The Command Console's Text | Voice toggle controls reply output independently of
-microphone capture. Text keeps replies written; Voice also reads a concise spoken
-answer, including for typed messages. This is the same saved preference as Auto
-Speak in Voice Lab. Choosing Voice does not activate the microphone.
+Spoken replies (Preferences > Replies & briefing, or the switch beneath the
+Pantheon) control reply output independently of microphone capture. Text keeps
+replies written; Voice also speaks a concise answer, including for typed
+messages, through the selected speech provider: OpenAI or ElevenLabs. The
+Pantheon switch selects ElevenLabs. Turning spoken replies on never activates
+the microphone.
 
 Each voice answer has a concise spoken abstraction and full visual detail from one
 reasoning turn. Neither is authorization. Audio can be interrupted immediately;

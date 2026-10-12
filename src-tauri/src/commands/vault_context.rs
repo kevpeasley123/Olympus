@@ -35,10 +35,9 @@ pub const DECISION_HISTORY_NOTE: &str = "04 - Decisions/Decision Log.md";
 /// Vault-relative notes that describe the operator and the system itself.
 /// Ordered most- to least-important so truncation degrades sensibly.
 ///
-/// Public so that notes which must *not* be in it can assert their absence —
-/// see `observations.rs`. Everything here reaches the model as authoritative,
-/// which is the reason inferred content is kept out.
-pub const STABLE_NOTES: &[(&str, &str)] = &[
+/// Everything here reaches the model as authoritative, which is the reason
+/// inferred content is kept out (see the Profile Observations test below).
+const STABLE_NOTES: &[(&str, &str)] = &[
     ("Operator profile", "09 - System/User Profile.md"),
     ("Charter", "09 - System/Olympus Charter.md"),
     ("Skill index", "05 - Skills/Skill Index.md"),
@@ -330,6 +329,20 @@ mod tests {
             "the retained tail began in the middle of a line: {retained:?}"
         );
         fs::remove_dir_all(&directory).ok();
+    }
+
+    /// Olympus used to append its own inferences about the operator here. The
+    /// writer is gone (2026-10-12) but the note may remain in the vault, and
+    /// inferences fed back into the prompt would arrive indistinguishable from
+    /// the operator's own instructions.
+    #[test]
+    fn profile_observations_are_never_loaded_into_the_assistants_context() {
+        const OBSERVATIONS_NOTE: &str = "09 - System/Profile Observations.md";
+        assert!(
+            STABLE_NOTES.iter().all(|(_, relative)| *relative != OBSERVATIONS_NOTE),
+            "{OBSERVATIONS_NOTE} must stay out of STABLE_NOTES"
+        );
+        assert_ne!(DECISION_HISTORY_NOTE, OBSERVATIONS_NOTE);
     }
 
     #[test]

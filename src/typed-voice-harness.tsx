@@ -41,7 +41,7 @@ function Fixture(){
     });
     return ()=>realtimeVoice.stop();
   },[]);
-  return <><output id="results" style={{position:"fixed",top:24,left:24,color:"white",maxWidth:500}}>Ready — simulated typed speech</output><div style={{position:"fixed",right:24,bottom:24,width:480,maxWidth:"calc(100vw - 48px)"}}><ChatPanel autoSpeak={autoSpeak} onAutoSpeakChange={setAutoSpeak} messages={messages} pending={pending} onSendMessage={text=>void realtimeVoice.sendText(text)} onRecordObservation={async()=>({tone:"success",message:"Fixture only"})}/></div></>;
+  return <><output id="results" style={{position:"fixed",top:24,left:24,color:"white",maxWidth:500}}>Ready — simulated typed speech</output><div style={{position:"fixed",right:24,bottom:24,width:480,maxWidth:"calc(100vw - 48px)"}}><ChatPanel autoSpeak={autoSpeak} onAutoSpeakChange={setAutoSpeak} messages={messages} pending={pending} onSendMessage={text=>void realtimeVoice.sendText(text)}/></div></>;
 }
 createRoot(document.getElementById("root")!).render(<Fixture/>);
 const wait=()=>new Promise(resolve=>setTimeout(resolve,120));
