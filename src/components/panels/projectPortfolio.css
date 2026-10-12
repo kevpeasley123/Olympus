@@ -117,11 +117,11 @@
 .portfolio-overview .project-ecosystem::before { display:none; }
 
 /* Reference lighting: open sky, saturated luminous limbs, warm metallic type. */
-body:has(.mode-project .project-ecosystem) .background-image {
- background:#040c17 url('../../assets/ecosystem-night-sky.png') center bottom/cover no-repeat;
+body:has(.mode-project) .background-image {
+ background:#040c17 url('../../assets/projects-olympus-space.png') left bottom/cover no-repeat;
  filter:saturate(.9) brightness(.86);translate:none;
 }
-body:has(.mode-project .project-ecosystem) .background-vignette {
+body:has(.mode-project) .background-vignette {
  background:linear-gradient(180deg,#02061138,transparent 30%,#02061116 75%,#0206115c);
 }
 .ecosystem-star-points { position:absolute;inset:0;pointer-events:none;z-index:-1; }

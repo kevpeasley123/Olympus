@@ -30,3 +30,6 @@ Reviewed two native passes: corrected stretched stars, restrained the upper surf
 
 ## Olympus is both harness and project
 The exact Olympus (or Project Olympus) project is represented by the central hub rather than a duplicate satellite. Its hub is a keyboard-accessible button opening the same project detail, with task count in its accessible label. Pagination applies to the other projects. If filters exclude Olympus, the harness remains visible but noninteractive; no excluded project is silently reintroduced. The Cards view still includes the Olympus project.
+
+## Shared Projects space and Olympus backdrop
+Operator requested visible Olympus at the left while retaining predominantly open space, shared by Cards and Ecosystem. Edited the generated sky into projects-olympus-space.png: 3:2 desktop composition, warm temple complex on the left mountain, open navy starfield centrally/right. Left-bottom cover alignment preserves the temple under viewport cropping. Scoped to Project mode; Command and other modes retain their existing environment. Supersedes the ecosystem-only background choice above.
