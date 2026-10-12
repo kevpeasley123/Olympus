@@ -3,7 +3,7 @@
 Shipped in 0.3.0 (`5cdc397`). Two later changes govern how to read this file:
 
 - Since 0.26.0 (`2dcdeec`) the default request path is indexed memory retrieval, described in [MEMORY-RETRIEVAL.md](MEMORY-RETRIEVAL.md). The per-turn research selection and the bounded Decision Log context described under Behavior run only when `OLYMPUS_MEMORY_MODE=legacy` is set.
-- Since 0.28.0 (`74fd5de`) the app has no **Save memory** button. The backend promotion path described below still exists and `promote_chat_memory` is still registered, but nothing in the app calls it. Whether the button returns is undecided.
+- Chat promotion to the Decision Log has been removed; see the last section.
 
 ## Behavior (legacy memory mode)
 
@@ -15,26 +15,23 @@ Research evidence is serialized as quoted JSON data after the prompt-cache break
 
 Replies return a research snapshot separately from model prose. Chat exposes it in a disclosure labelled **Research supplied to this reply** (since 2026-09-28 each source there has **Open in library**; see below). SQLite's new `conversation_research` table stores the snapshot alongside the message; existing databases gain the table through the existing idempotent schema application. Old messages deserialize with no research snapshot. The snapshot says what was supplied, not what the model necessarily used or endorsed. In the default indexed mode the snapshot is empty, so the disclosure appears only on legacy-mode replies; indexed evidence is shown in the reply's model attribution disclosure (see MEMORY-RETRIEVAL.md).
 
-## Deliberate promotion (backend only since 0.28.0)
+## Chat promotion (removed)
 
-The removed **Save memory** composer (`MemoryPromotion.tsx`, still in the tree but imported nowhere) seeded an editable title and memory text from a chat message. `promote_chat_memory` limits the title to 120 characters and the memory text to 2,000. Oversized text is rejected, never silently shortened.
-
-The backend resolves the source message from SQLite by ID. It appends to the fixed Decision Log path, includes the original message role, ID, content fingerprint, a labelled source excerpt, and supplied research provenance. User-entered text and source content are quoted separately from app-authored provenance. The entry states that it is historical memory, not a task commitment or delegation approval.
-
-The existing write gate previews the entire proposed addition. Decline, timeout, or a lost confirmation denies the write. Changes to the source message or note while review is open reject it. Read errors are not treated as missing files. App-internal promotions are serialized; the append preserves existing bytes and stages a unique sibling file before replacement. External editors do not participate in an OS-wide lock, so a concurrent external write at the final replace remains a narrow filesystem race.
-
-Successful writes enter the vault-write log and receive an exact-file Git commit. A Git failure is reported as “saved, but commit failed,” so it does not encourage a duplicate submission. Promotion grants no process-launch authority and never writes `next_step`.
-
-On a later turn, a promoted entry reaches the model through the bounded historical Decision Log context in legacy mode or, in the default indexed mode, when retrieval selects it from the indexed `04 - Decisions/Decision Log.md`. Profile Observations remain excluded either way. Model/API selection is unchanged.
-
-The 2026-09-06 verification record and the original desktop acceptance list, which assumed the Save memory button, are in this file as of `eaae7df`. Unit tests prove selection and write helpers, not the quality of a model's reasoning or a desktop flow.
+Chat no longer writes to the vault. The Save memory button went in 0.28.0
+(`74fd5de`) and the Observation button in 0.30.0 (`a155cd5`), both at Kevin's
+direction; their backend commands, `promote_chat_memory` and
+`append_profile_observation`, were deleted on 2026-10-12. Entries already in
+`04 - Decisions/Decision Log.md` still reach the model: through the bounded
+historical context in legacy mode, or when indexed retrieval selects them.
+`09 - System/Profile Observations.md` is never read into context. The design and
+verification of the removed path are in this file's history as of `eaae7df`.
 
 ## Research library and the evidence path — September 28, 2026
 
 Design-review items U3, U5, U7 and F3. Code: `LibraryPanel.tsx` and
 `src/components/panels/library/` (`libraryModel.ts` holds the pure rules, tested by
 `scripts/test-library.mjs`); `pantheon.rs` for the new entry fields. The retrieval
-and promotion behaviour above is unchanged.
+behaviour above is unchanged.
 
 **Views.** The Library | Questions (verified) | Audits segmented control was
 removed in 0.30.0 (`96c97e8`); Research now opens on the library. A saved

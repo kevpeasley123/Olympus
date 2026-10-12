@@ -63,7 +63,7 @@ Tauri commands exposed by the desktop shell — every entry in the `generate_han
 | Voice | `create_voice_session`, `record_voice_request`, `voice_usage`, `elevenlabs_status`, `elevenlabs_connect`, `elevenlabs_disconnect`, `elevenlabs_check`, `elevenlabs_synthesize`, `elevenlabs_cancel` |
 | Persistence | `load_persisted_state`, `begin_operator_session`, `save_settings`, `save_tool_states`, `append_conversation_messages`, `clear_conversation` |
 | Memory index | `memory_status`, `memory_preview`, `memory_rebuild`, `memory_request_evidence` |
-| Vault | `write_memory_artifact`, `fetch_pantheon_entries`, `write_pantheon_entry`, `migrate_pantheon_schema`, `save_attachment_to_vault`, `append_profile_observation`, `promote_chat_memory`, `fetch_operator_profile`, `fetch_recent_vault_writes`, `fetch_vault_graph`, `open_vault_note` |
+| Vault | `write_memory_artifact`, `fetch_pantheon_entries`, `write_pantheon_entry`, `migrate_pantheon_schema`, `save_attachment_to_vault`, `fetch_operator_profile`, `fetch_recent_vault_writes`, `fetch_vault_graph`, `open_vault_note` |
 | Write gate | `resolve_vault_write` |
 | Projects | `scan_tracked_projects`, `fetch_action_queue`, `project_members`, `link_project`, `set_project_visibility`, `save_project_intake`, `pick_project_folder`, `inspect_project`, `confirm_project_brief` |
 | Organizer | `create_organizer_task`, `update_organizer_task`, `list_organizer_tasks`, `fetch_organizer_task`, `set_organizer_intent`, `move_organizer_task`, `prepare_organizer_delegation`, `accept_organizer_result`, `finish_organizer_task`, `acknowledge_organizer_event`, `organizer_overview` |
@@ -92,27 +92,30 @@ The webview renders untrusted text (research notes, email, repository output), s
 
 ## Vault writes
 
-Seven commands write to the vault. All six resolve the vault root in Rust via `commands::get_vault_path()`; **no caller supplies a path** (this was unified in `62c957e` — `write_memory_artifact` previously took the root from the frontend).
+Five commands write to the vault. All of them resolve the vault root in Rust via `commands::get_vault_path()`; **no caller supplies a path** (this was unified in `62c957e` — `write_memory_artifact` previously took the root from the frontend).
 
 | Command | Operation | Target | Declared intent | Asks first? |
 | --- | --- | --- | --- | --- |
 | `write_pantheon_entry` | create | `02 - Research/<date> <title>.md` | `CreateUnique` | No — `create_unique` (`pantheon.rs`) claims a free suffixed name with `create_new`, so nothing is destroyed |
 | `save_attachment_to_vault` | create | `02 - Research/_attachments/<file>` | `CreateUnique` | No — `copy_to_unique` (`attachments.rs`) claims a free suffixed name with `create_new`; the source is a file the operator picked, named to the webview only by a one-use token |
 | `write_memory_artifact` | **overwrite** | `00 - Dashboard/Olympus Research.base`, `Olympus Projects.canvas` | `RegenerateDerived` | Only when the file diverged from what Olympus last wrote, or was never fingerprinted |
-| `promote_chat_memory` | **append** | `04 - Decisions/Decision Log.md` | `AppendAuthored` | **Always**, with the complete bounded addition |
-| `append_profile_observation` | **append** | `09 - System/Profile Observations.md` | `AppendAuthored` | **Always** |
 | `migrate_pantheon_schema` | **modify** | frontmatter of `02 - Research/*.md` entries | `ModifyAuthored` | **Always**, one confirmation per file with a diff summary |
 | `confirm_project_brief` | **create or modify** | the linked project's note, default `01 - Projects/Linked <id>.md` | `ModifyAuthored` | **Always**, with the diff and the complete purpose and constraints |
 
 No command deletes or renames a note the operator can see.
 
-Three of these have no entry point in the app. The chat buttons that called
-`promote_chat_memory` and `append_profile_observation` were removed on
-2026-10-11 (`74fd5de`, `a155cd5`). `write_memory_artifact` has none either:
-Update Canvas went with Sources & project tools in `df3db81`, and View
-Database is in the Library strip that `LibraryPanel` renders only when not
-`resident`, while `App.tsx` mounts it only as `resident`. The commands, their
-gate and their tests are unchanged.
+`write_memory_artifact` has no entry point in the app: Update Canvas went with
+Sources & project tools in `df3db81`, and View Database is in the Library strip
+that `LibraryPanel` renders only when not `resident`, while `App.tsx` mounts it
+only as `resident`.
+
+Chat no longer writes to the vault. Kevin removed the Save memory and
+Observation buttons on 2026-10-11 (`74fd5de`, `a155cd5`) and their backend
+commands, `promote_chat_memory` and `append_profile_observation`, were deleted
+on 2026-10-12. `09 - System/Profile Observations.md` may still exist in the
+vault; it stays out of the assistant's context (`vault_context.rs` tests the
+absence), because inferences fed back into the prompt become
+indistinguishable from the operator's own instructions.
 
 ### The write gate
 
@@ -129,19 +132,9 @@ After a successful approved write, `vault_git::commit_vault_file` commits only
 that vault-relative path. It uses a temporary Git index seeded from `HEAD`,
 proves the resulting commit tree contains exactly one changed path, atomically
 advances the vault branch, then refreshes only that path in the operator's real
-index. Unrelated staged and unstaged vault work is never adopted.
-`confirm_project_brief` is the exception: it writes through the gate but does
-not call `commit_vault_file`, so an approved brief is left as an uncommitted
-vault change.
-
-### The appender
-
-`append_profile_observation` and `promote_chat_memory` append to existing notes and always ask. The observation-specific invariants below remain unchanged; the separate promotion path is documented in `docs/CURATED-MEMORY.md`. Two properties are load-bearing:
-
-- **The write is atomic.** The whole file is composed in memory, written to a uniquely named dot-prefixed temp file claimed with `create_new` in the same directory, flushed with `sync_all`, and renamed over the target, with one writer at a time behind a mutex. A plain append interrupted mid-write leaves half an entry in a note the operator reads by hand.
-- **The note is not read back.** `09 - System/Profile Observations.md` is deliberately absent from `vault_context::STABLE_NOTES`. Inferences that re-entered the assistant's context would arrive on the next turn indistinguishable from the operator's own stated preferences. `observations.rs` carries a test asserting the absence.
-
-Because the gate can hold for up to two minutes, the appender re-resolves the path and compares the note's exact bytes after approval, and refuses to write if it changed while the dialog was open — otherwise a concurrent append or an edit in Obsidian would be silently dropped by the full-file replace. Only a missing file counts as absent; any other read error fails closed.
+index. Unrelated staged and unstaged vault work is never adopted. A Rust test
+(`every_vault_writer_commits_its_file` in `vault_git.rs`) fails if a module
+declares a `WriteIntent` without calling `commit_vault_file`.
 
 ## Process spawns
 
@@ -307,7 +300,7 @@ Dashboard panels compose from `src/App.tsx`. Live data sources:
   newest 16,000 characters of `04 - Decisions/Decision Log.md`, labelled as
   historical evidence, plus per-question Pantheon excerpts. In both, current
   operator direction and current project vision outrank recalled history, and
-  `09 - System/Profile Observations.md` is never read back. Content
+  `09 - System/Profile Observations.md` is never read. Content
   another party could have written (project state, the command board, research
   excerpts, Gmail evidence) travels in one `<olympus_evidence>` user item before
   the latest turn, not in the system prompt. See `docs/MODEL-ROUTING.md` for
@@ -400,7 +393,9 @@ statement is `CREATE … IF NOT EXISTS`, so a new table reaches an existing
 database, but a column or constraint added to an existing table does not. The
 one exception is a hand-written check that adds `delegation_runs.process_id`.
 There is no schema version. Tests build fresh databases from `schema.sql`, so
-they cannot catch this; a change to an existing table needs its own migration.
+they cannot catch this; until a migration runner exists, do not change an
+existing table. The runner is designed but deferred: see
+[SCHEMA-MIGRATIONS.md](docs/SCHEMA-MIGRATIONS.md).
 
 ## Speech output
 
@@ -411,7 +406,7 @@ audio. See [ELEVENLABS-VOICE.md](docs/ELEVENLABS-VOICE.md).
 
 ## Curated-memory implementation
 
-See [CURATED-MEMORY.md](docs/CURATED-MEMORY.md) for bounded retrieval, persisted source snapshots, and reviewed chat promotion. These additions grant no delegation authority. [OPERATOR-APPROVAL-DESIGN.md](docs/OPERATOR-APPROVAL-DESIGN.md) is implemented; no delegation run has completed against a real project yet.
+See [CURATED-MEMORY.md](docs/CURATED-MEMORY.md) for bounded retrieval and persisted source snapshots. These additions grant no delegation authority. [OPERATOR-APPROVAL-DESIGN.md](docs/OPERATOR-APPROVAL-DESIGN.md) is implemented; no delegation run has completed against a real project yet.
 
 
 ## Voice adapter

@@ -18,7 +18,7 @@ Repository inspection found substantial existing machinery:
 | --- | --- |
 | `assistant.rs`, `vault_context.rs` | Shared text/voice context, stable operator notes, bounded historical decisions; preserve their distinct authority |
 | `research_retrieval.rs`, `pantheon.rs` | Deterministic topic ranking, at most 3 sources / 4,000 excerpt characters; source stance, origin, body fingerprints |
-| `conversation_research`, `memory_promotion.rs` | Durable supplied-source snapshots and exact reviewed chat promotion; not a generated knowledge store |
+| `conversation_research` | Durable supplied-source snapshots; not a generated knowledge store |
 | `vault_write.rs` | Contained paths, normalized SHA-256 fingerprints, explicit write intents; source reads in this slice reuse containment |
 | `projects.rs`, `project_notes.rs`, `projectBriefing.ts`, `projectCommandBoard.ts` | Git/intent reconciliation, since-opened briefs, deterministic attention and next-move projection |
 | `approvals.rs`, `delegation.rs`, `delegation_review.rs` | Exact-scope approval consumption, isolated worktrees, events, workspace-bound checks, operator acceptance; never bypass |

@@ -475,7 +475,14 @@ pub async fn confirm_project_brief(
     publish_brief(&mut c,&id,&after).map_err(|e|format!("The brief was saved in {relative}. Its recovery record is retained; reload to finish updating the dashboard: {e}"))?;
     drop(c);
     super::projects::clear_cache();
+    // Logged before the commit, which can fail after the file has landed.
     super::persistence::log_vault_write(db.inner(), &relative, "confirm_project_brief");
+    super::vault_git::commit_vault_file(&relative, "update").map_err(|error| {
+        format!(
+            "The brief was written at {relative}, but its automatic Git commit failed: {error}. \
+             The file remains in the vault."
+        )
+    })?;
     Ok(true)
 }
 

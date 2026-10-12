@@ -20,8 +20,6 @@ use commands::delegation::{
     cancel_delegation_run, fetch_delegation_diff, list_delegation_runs,
     resume_delegation_run, start_delegation_run, prepare_delegation_run, prepare_delegation_resume, DelegationProcesses,
 };
-use commands::observations::append_profile_observation;
-use commands::memory_promotion::promote_chat_memory;
 use commands::pantheon::{fetch_pantheon_entries, write_pantheon_entry};
 use commands::pantheon_migrate::migrate_pantheon_schema;
 use commands::profile::fetch_operator_profile;
@@ -444,8 +442,6 @@ pub fn run() {
             fetch_operator_profile,
             resolve_vault_write,
             commands::external_link::open_external_link,
-            append_profile_observation,
-            promote_chat_memory,
             write_pantheon_entry,
             migrate_pantheon_schema,
             fetch_recent_vault_writes,

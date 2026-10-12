@@ -45,8 +45,9 @@ until the completed reply. `conversationStream` now batches actual text deltas a
 and only the console subscribes, avoiding full-app rerenders per chunk. The final reply
 uses existing append persistence. On failure after text arrives, partial output is
 saved with an interrupted/truncated notice; it is never presented as a completed reply.
-Raw reasoning is not requested or displayed. Research disclosure and both reviewed
-memory/observation flows remain on completed messages.
+Raw reasoning is not requested or displayed. Completed messages keep the research
+disclosure; the chat memory and observation actions were removed in 0.28.0 and
+0.30.0.
 
 `command-received` and `response-start` are real events on the existing instrument
 bus. Send illuminates the input/core; the first text delta triggers the outward core
@@ -56,7 +57,7 @@ no invented activity feed or hidden reasoning is shown.
 
 Keyboard: focus opens live; Enter sends, Shift+Enter adds a line, IME composition does
 not submit. Escape steps Transcript → Engaged → Dormant without clearing the draft.
-An active memory/observation edit is not discarded by console dismissal. Ctrl/Cmd+K
+Ctrl/Cmd+K
 focuses the input and respects an active modal (since 2026-09-28 it is the console's
 only; the library's Ctrl+K binding was removed and library search is `/`); `olympus:focus-console` is the programmatic
 focus entry point. Clicking outside engaged dialogue recedes to the command bar.
@@ -74,7 +75,7 @@ renders without raw HTML; linked images are explicit links rather than automatic
 Verification: production TypeScript/Vite build; six service harnesses; the isolated
 `console-harness.html?run` browser fixture checks all modes, opening/latest, stream
 following and interruption, anchor-preserving history prepend, draft-safe Escape,
-Ctrl+K, completed text, and availability of memory/observation forms. The fixture
+Ctrl+K and completed text. The fixture
 uses no live API or vault writes. Production desktop visual inspection and paid-model
 turns are separate evidence, recorded in the old handoff
 (`docs/archive/HANDOFF-through-2026-09-28.md`).
@@ -166,8 +167,7 @@ day separator ("Today", "Yesterday", a date) opens each new calendar day; undate
 legacy rows show their old `HH:MM` and neither get nor break a separator. The footer
 names the route ("Sol · medium", "Astra · high (one request)") with provider, model
 and request id in the tooltip. Replay is a visible button with an icon on every
-spoken reply that has a summary. Save memory and Note observation are quiet until
-hover or focus. The newest settled message is shown in full.
+spoken reply that has a summary. The newest settled message is shown in full.
 
 **Links and evidence.** Markdown links and linked images in chat open through
 `openExternalLink` (Rust `open_external_link` on desktop, http and https only)

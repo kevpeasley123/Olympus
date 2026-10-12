@@ -144,6 +144,42 @@ fn commit_exact_file_in(
 mod tests {
     use super::*;
 
+    /// A module that declares a `WriteIntent` writes to the vault, and every
+    /// approved vault write gets its own commit so the operator can see and undo
+    /// exactly what Olympus wrote. `confirm_project_brief` once skipped it.
+    #[test]
+    fn every_vault_writer_commits_its_file() {
+        fn sources(dir: &Path, out: &mut Vec<PathBuf>) {
+            for entry in fs::read_dir(dir).unwrap() {
+                let path = entry.unwrap().path();
+                if path.is_dir() {
+                    sources(&path, out);
+                } else if path.extension().is_some_and(|ext| ext == "rs") {
+                    out.push(path);
+                }
+            }
+        }
+        let mut files = Vec::new();
+        sources(&Path::new(env!("CARGO_MANIFEST_DIR")).join("src"), &mut files);
+        let mut writers = 0;
+        for file in files {
+            // The gate itself defines and tests the intents; it writes nothing.
+            if file.ends_with("vault_write.rs") || file.ends_with("vault_git.rs") {
+                continue;
+            }
+            let text = fs::read_to_string(&file).unwrap();
+            if text.contains("WriteIntent::") {
+                writers += 1;
+                assert!(
+                    text.contains("commit_vault_file("),
+                    "{} declares a WriteIntent but never calls commit_vault_file",
+                    file.display()
+                );
+            }
+        }
+        assert!(writers >= 4, "expected the vault writers to be found, found {writers}");
+    }
+
     fn run(root: &Path, args: &[&str]) {
         git(root, args, None).unwrap();
     }

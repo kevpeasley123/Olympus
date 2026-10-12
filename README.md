@@ -174,7 +174,7 @@ What is stored, by area (`src-tauri/schema.sql` declares every table and sets
 | Reusable skills | `resource_skills` | One row per saved skill |
 | Gmail | `gmail_accounts`, `gmail_messages`, `gmail_search` (FTS), `gmail_sync_runs`, `gmail_candidates` | Cache and history cursor commit in one transaction |
 | Communications | `communication_runs`, `communication_events`, `communication_evaluations`, and six `communication_situation*` tables | Account-scoped; Remove cache deletes them with the mailbox |
-| Reserved | `tasks`, `research_items`, `skill_recipes`, `dashboard_modules`, `operator_briefs` | Declared, never read or written |
+| Removed | `tasks`, `research_items`, `skill_recipes`, `dashboard_modules`, `operator_briefs` | No longer created (2026-10-12); existing databases keep them, empty, until a migration drops them (`docs/SCHEMA-MIGRATIONS.md`) |
 
 The indexed memory search cache is a separate, derived `memory-index.sqlite` in the app-local data directory; it can be rebuilt from the vault (see `docs/MEMORY-RETRIEVAL.md`).
 

@@ -10,8 +10,6 @@ pub mod assistant;
 pub mod attachments;
 pub mod delegation;
 pub mod external_link;
-pub mod observations;
-pub mod memory_promotion;
 pub mod research_retrieval;
 pub mod research_agents;
 pub mod command_agents;

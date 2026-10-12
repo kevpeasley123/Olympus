@@ -67,7 +67,7 @@ Background Communications situation analysis, approved by the operator and recor
 
 **It acts, with an approval gate, and advises when needed.** Reads run freely; writes surface a confirmation before touching disk or project state. This is already the README's stated safety model.
 
-**It remembers, selectively.** Two tiers: SQLite holds the raw conversation log (complete, searchable, invisible); the vault holds promoted notes (curated, human-readable, permanent). Not every exchange earns a vault note — that would bury the vault in "what's the weather" within a month.
+**It remembers, selectively.** Two tiers: SQLite holds the raw conversation log (complete, searchable, invisible); the vault holds curated notes (human-readable, permanent). Not every exchange earns a vault note — that would bury the vault in "what's the weather" within a month. Chat itself does not write to the vault: Kevin removed the Save memory and Observation actions on 2026-10-11. Vault notes come from Kevin, or from explicit reviewed workflows such as research entries and project briefs.
 
 ## Vault
 
@@ -101,11 +101,11 @@ The owner's standing instruction, decided 2026-09-30. When he says it (or plainl
 1. **Push this session's work.** Commit and push finished work on the session's branch. Half-done work stays on its branch and is named in the report.
 2. **Find pending work.** Branches on `origin` that are ahead of `master` and whose last commit is newer than master's latest release commit. Older branches (the July 2026 experiments) are superseded: leave them and do not list them.
 3. **Check each one.** Merge `master` into it and run `npm run build`, `cargo test --lib --manifest-path src-tauri/Cargo.toml`, every `scripts/test-*.mjs`, and `npm run visual:review`. If anything is red, fix it when it is plainly this branch's fault. Otherwise, stop for that branch and report it; never merge red.
-4. **Release.** Bump the minor version in `package.json`, `package-lock.json`, `src-tauri/Cargo.toml`, `src-tauri/Cargo.lock` and `src-tauri/tauri.conf.json`. Add a line to `docs/RELEASES.md`: the version, what it includes, and what is not yet accepted in the desktop app. Rewrite `docs/NEXT-SESSION.md` for the new version, then run `node scripts/test-guidance-docs.mjs` again; it fails until both docs name the version.
+4. **Release.** Bump the minor version in `package.json`, `package-lock.json`, `src-tauri/Cargo.toml`, `src-tauri/Cargo.lock` and `src-tauri/tauri.conf.json`. Add a line to `docs/RELEASES.md`: the version, what it includes, and which paths have never run against real data (a paid provider call, a delegated run, a live Gmail action). Add the install date when Kevin confirms it. Rewrite `docs/NEXT-SESSION.md` for the new version, then run `node scripts/test-guidance-docs.mjs` again; it fails until both docs name the version.
 5. **Merge.** Open a pull request into `master` with a merge commit, and merge it. Delete nothing.
 6. **Install.** In a session on the owner's PC, run `npm run update` from the Olympus checkout (`scripts/update-olympus.ps1`). It fast-forwards to `origin/master`, closes the app, builds and installs the MSI, and relaunches. A cloud session cannot reach the PC: finish by telling him to double-click **Update Olympus** on his desktop.
 
-It never authorizes force-pushes, history rewrites, skipped or disabled tests, touching `.env`, credentials, production data or the vault, or widening Gmail permissions. Desktop acceptance is not a gate; the release line records what has not been accepted. Report in three lines: what was released (version, branches), what was held back and why, and what he has to do (usually nothing, or the icon).
+It never authorizes force-pushes, history rewrites, skipped or disabled tests, touching `.env`, credentials, production data or the vault, or widening Gmail permissions. Desktop acceptance is not a gate; the release line records what has never run against real data. Report in three lines: what was released (version, branches), what was held back and why, and what he has to do (usually nothing, or the icon).
 
 ## Conventions
 
