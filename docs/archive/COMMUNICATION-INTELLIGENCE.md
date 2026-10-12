@@ -1,3 +1,5 @@
+> Archived on 2026-10-12: v1/v2 design. Current: `docs/COMMUNICATION-INTELLIGENCE-V3.md`. Historical record, not current guidance; links inside it are not maintained.
+
 Status, 2026-09-28: historical design record for v1 and v2. Released through 0.19.0. The live analysis graph is `communication-intelligence/v4` ([COMMUNICATION-INTELLIGENCE-V3.md](COMMUNICATION-INTELLIGENCE-V3.md), [WORKFLOW-INSPECTION.md](WORKFLOW-INSPECTION.md)); it calls the primary model on explicit Analyze/Refresh, and background situation understanding ([COMMUNICATION-SITUATIONS.md](COMMUNICATION-SITUATIONS.md)) calls it while the app is open. Statements below that no model calls are made describe earlier versions.
 
 # Communication Intelligence v2 — current design

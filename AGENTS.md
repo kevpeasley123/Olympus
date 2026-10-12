@@ -80,8 +80,12 @@ Look at what you changed, don't only compile it. For any change to Command or
 shared UI:
 
 1. Run the focused tests (`node scripts/test-*.mjs` for what you touched).
-2. Run `npm run visual:review` and read the screenshots it writes to
-   `output/visual-review/latest/` for the affected scenarios and viewports.
+2. Capture the screens you changed and read the screenshots. `npm run
+   visual:review` writes to `output/visual-review/latest/`, but it drives the
+   Command harness without `?flagship`, so it shows the pre-October-7
+   composition, not the shipped Command. For the shipped Command, capture
+   `command-agent-harness.html?flagship` (as `scripts/flagship-review.mjs`
+   does) until visual review is pointed at it.
 3. Critique them, fix what is wrong, capture again, and look again.
 4. Finish with the full `npm run visual:review` as a regression pass.
 

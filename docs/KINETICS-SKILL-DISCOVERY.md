@@ -51,8 +51,8 @@ does not list them. The runtime Armory and Codex folders remain separate stores.
 
 ## Delivery and verification
 
-This source change requires rebuilding the native desktop application before
-Olympus's installed assistant can use the new matcher. Browser preview has no
+The matcher is part of the installed 0.30.0 desktop app; any change to it needs
+a rebuilt desktop app before the installed assistant uses it. Browser preview has no
 native assistant or shared SQLite store. Unit tests verify all 153 names, specific
 synonyms, unrelated requests, missing/changed documents, bounded exact excerpts,
 and approval replay/task/route/session/expiry failures. No live provider request

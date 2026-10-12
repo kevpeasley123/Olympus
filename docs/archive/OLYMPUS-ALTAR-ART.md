@@ -1,3 +1,5 @@
+> Archived on 2026-10-12: art prompt record; its image is still the Command backdrop. Historical record, not current guidance; links inside it are not maintained.
+
 # Olympus altar
 
 Generated with the built-in GPT image-generation tool. Integrated asset: `src/assets/olympus-altar-v5.png`.

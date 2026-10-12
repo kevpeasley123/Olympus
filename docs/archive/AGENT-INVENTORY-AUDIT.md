@@ -1,3 +1,5 @@
+> Archived on 2026-10-12: dated 2026-09-23 audit. Current: `docs/RESEARCH-VERIFICATION-AGENTS.md` and the Armory loadouts (`command_agents.rs`). Historical record, not current guidance; links inside it are not maintained.
+
 # Olympus — Agent Inventory Audit and Multi-Agent Architectural Direction
 
 September 23, 2026, Phoenix. Audit and design recommendation only.

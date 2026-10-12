@@ -1,3 +1,5 @@
+> Archived on 2026-10-12: Superpowers plan or spec for work that has shipped. Current: `docs/ORGANIZER.md`, `docs/PROJECT-LINKING.md`, `docs/ELEVENLABS-VOICE.md`. Historical record; links inside it are not maintained.
+
 # Organizer-to-result Implementation Plan
 
 > **For agentic workers:** Use superpowers:executing-plans for inline execution, or superpowers:subagent-driven-development if Kevin selects delegation. Complete tasks in dependency order. Do not start implementation from this proposal without review.

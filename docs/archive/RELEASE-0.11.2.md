@@ -1,3 +1,5 @@
+> Archived on 2026-10-12: release notes. Release history: `docs/RELEASES.md`. Historical record, not current guidance; links inside it are not maintained.
+
 # Olympus 0.11.2
 
 Command now keeps its 3D renderer across mode changes, without falling back to the legacy Omega/orbits. Equivalent data refreshes retain meshes; graphics recovery offers a 3D retry. Live scale is 0.896 while the material study stays at 1.4.

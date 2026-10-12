@@ -1,3 +1,5 @@
+> Archived on 2026-10-12: 2026-09-08 proposal, built and since superseded. Current: `docs/COMMAND-3D-LIFECYCLE.md`, `docs/COMMAND-FLAGSHIP.md`. Historical record, not current guidance; links inside it are not maintained.
+
 # Command core dimensional rendering proposal
 
 ## Inspected implementation

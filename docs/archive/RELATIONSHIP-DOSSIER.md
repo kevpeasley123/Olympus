@@ -1,3 +1,5 @@
+> Archived on 2026-10-12: pass record; its disclosures became the dossier tabs. Current: `docs/OPERATIONAL-DOSSIERS.md`. Historical record, not current guidance; links inside it are not maintained.
+
 # Relationship dossier — September 13, 2026
 
 ## Profile redesign

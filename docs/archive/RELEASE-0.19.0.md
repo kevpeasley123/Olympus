@@ -1,3 +1,5 @@
+> Archived on 2026-10-12: release notes. Release history: `docs/RELEASES.md`. Historical record, not current guidance; links inside it are not maintained.
+
 # Olympus 0.19.0
 
 This release makes the current runtime inspectable without expanding its authority.

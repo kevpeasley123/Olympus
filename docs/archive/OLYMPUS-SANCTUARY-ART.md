@@ -1,3 +1,5 @@
+> Archived on 2026-10-12: art prompt record; the image is not referenced by the app. Historical record, not current guidance; links inside it are not maintained.
+
 # Olympus sanctuary backdrop
 
 Generated with the built-in GPT image-generation tool. Integrated asset: `src/assets/olympus-sanctuary-v3.png`.

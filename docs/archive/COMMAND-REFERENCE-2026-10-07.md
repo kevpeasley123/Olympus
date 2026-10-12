@@ -1,3 +1,5 @@
+> Archived on 2026-10-12: the orbital-cards composition, now rendered only by the harness. Current: `docs/COMMAND-FLAGSHIP.md`. Historical record, not current guidance; links inside it are not maintained.
+
 # Command reference implementation — October 7, 2026
 
 The owner requested implementing the supplied Command screenshot, then iterating in the Windows desktop app. This explicitly revises the earlier segmented capability-ring presentation.

@@ -1,3 +1,5 @@
+> Archived on 2026-10-12: release notes. Release history: `docs/RELEASES.md`. Historical record, not current guidance; links inside it are not maintained.
+
 # Olympus 0.9.0 local installation receipt
 
 Installed 2026-09-08 from release commit `0c61f96`; local master and the implementation worktree were fast-forwarded together. No remote push.

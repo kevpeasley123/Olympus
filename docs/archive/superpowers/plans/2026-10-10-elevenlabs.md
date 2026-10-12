@@ -1,3 +1,5 @@
+> Archived on 2026-10-12: Superpowers plan or spec for work that has shipped. Current: `docs/ORGANIZER.md`, `docs/PROJECT-LINKING.md`, `docs/ELEVENLABS-VOICE.md`. Historical record; links inside it are not maintained.
+
 # ElevenLabs speech implementation plan
 
 > Execute inline using superpowers:executing-plans, with a fresh final review.

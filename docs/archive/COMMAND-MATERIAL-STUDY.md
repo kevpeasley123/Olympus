@@ -1,3 +1,5 @@
+> Archived on 2026-10-12: 2026-09-08 material study. Current: `docs/COMMAND-FLAGSHIP.md`. Historical record, not current guidance; links inside it are not maintained.
+
 # Current checkpoint — September 8, 2026
 
 This checkpoint preserves the operator-reviewed material study. The sections below record earlier iterations; this summary describes the current implementation.

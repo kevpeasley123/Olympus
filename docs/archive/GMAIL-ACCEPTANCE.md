@@ -1,3 +1,5 @@
+> Archived on 2026-10-12: 2026-09-12 acceptance record. Current: `docs/GMAIL.md`; open items in `docs/NEXT-SESSION.md`. Historical record, not current guidance; links inside it are not maintained.
+
 # Gmail acceptance record — 2026-09-12
 
 ## Update — 2026-09-28

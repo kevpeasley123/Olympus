@@ -1,3 +1,5 @@
+> Archived on 2026-10-12: 2026-09-13 Communications pass report. Current: `docs/COMMUNICATION-SITUATIONS.md`. Historical record, not current guidance; links inside it are not maintained.
+
 # Final overview polish — September 13, 2026
 
 ## Briefing polish

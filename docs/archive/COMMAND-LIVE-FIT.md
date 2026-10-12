@@ -1,3 +1,5 @@
+> Archived on 2026-10-12: the dial scaling it records is overridden in the flagship. Current: `docs/COMMAND-FLAGSHIP.md`. Historical record, not current guidance; links inside it are not maintained.
+
 # Live Command fit — September 9, 2026
 
 The live dial previously applied a 1.12 CSS scale to its responsive square. This pass reduces that to 0.896 (20% smaller). The study retains 1.4. Internal project geometry, materials, constellation layout, camera, and centering are unchanged.

@@ -1,3 +1,5 @@
+> Archived on 2026-10-12: 2026-09-13 polish pass. Current: `docs/COMMUNICATION-SITUATIONS.md` and `docs/EXECUTIVE-PRIORITIZATION.md`. Historical record, not current guidance; links inside it are not maintained.
+
 # Situation Maps — cohesion and drill-down quality
 
 Implemented September 13, 2026. This is a refinement of the existing Home surface, not a layout redesign. No commit, push, or installation was requested for this pass.

@@ -1,3 +1,5 @@
+> Archived on 2026-10-12: describes `AmbientOrbits.tsx`, since deleted. Current: `docs/COMMAND-3D-LIFECYCLE.md`. Historical record, not current guidance; links inside it are not maintained.
+
 # Command ambient motion
 
 Status, 2026-09-28: partly historical. Command now renders only the 3D core

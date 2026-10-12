@@ -1,3 +1,5 @@
+> Archived on 2026-10-12: 2026-09-09 art pass. Current: `docs/COMMAND-FLAGSHIP.md`. Historical record, not current guidance; links inside it are not maintained.
+
 # Command art direction — milestone 1
 
 ## Scope and review sequence

@@ -1,3 +1,5 @@
+> Archived on 2026-10-12: one-off polish pass. Current: `docs/COMMUNICATIONS.md`. Historical record, not current guidance; links inside it are not maintained.
+
 # Situation Map polish — September 13, 2026
 
 Status, 2026-09-28: historical. The design-review changes in

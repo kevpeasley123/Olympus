@@ -1,6 +1,8 @@
 # Visual review
 
-`npm run visual:review` lets an agent (or a person) see the Command UI, not just compile it. It starts the Vite preview, drives the Command harness through fixed scenarios at desktop viewports, checks geometry and text mechanically, saves screenshots, and writes a report. The agent then reads the screenshots and critiques them.
+`npm run visual:review` lets an agent (or a person) see a Command composition, not just compile it. It starts the Vite preview, drives the Command harness through fixed scenarios at desktop viewports, checks geometry and text mechanically, saves screenshots, and writes a report. The agent then reads the screenshots and critiques them.
+
+**It does not cover the shipped Command.** The harness runs without `?flagship`, so every scenario captures the older composition: the Agent Catalog on the left, orbital capability cards around the Omega, the left tool rail. The app has rendered the flagship (Olympus Armory, Pantheon with mission planets, companion console) since 2026-10-07 ([COMMAND-FLAGSHIP.md](COMMAND-FLAGSHIP.md)). The flagship is covered only by the ad-hoc `scripts/*-review.mjs` scripts, such as `flagship-review.mjs` and `mission-review.mjs`, which launch Edge and are not part of this command. A green visual review therefore says nothing about the screen the owner uses.
 
 It proves layout and rendering in Chromium. It does not prove WebView2, Tauri IPC, real data or the installed app; that is the Windows native pass below.
 
@@ -19,9 +21,10 @@ Output goes to `output/visual-review/latest/` (ignored by git; replaced each run
 
 - `<scenario>@<w>x<h>.png` — one screenshot per capture;
 - `report.md` — a table of captures, mechanical failures and notes, plus the functional result;
-- `report.json` — the same, with region rectangles, for tooling.
+- `report.json` — the same, with region rectangles, for tooling;
+- `organizer/` — screenshots from the Organizer browser workflow checks (below).
 
-Exit code 1 when any mechanical check or the functional harness fails.
+Exit code 1 when any mechanical check or the functional harness fails. A failing Organizer check also exits 1, before the report is written.
 
 Browser: Playwright 1.56.1 (a devDependency). On Linux it uses Playwright's Chromium (preinstalled in the cloud container at `/opt/pw-browsers`). On Windows it tries the installed Edge first (`channel: "msedge"`), so no browser download is needed; if that fails, `npx playwright install chromium`. WebGL runs on SwiftShader, so the 3D instrument renders headless.
 
@@ -35,7 +38,7 @@ Browser: Playwright 1.56.1 (a devDependency). On Linux it uses Playwright's Chro
 
 ## Scenarios
 
-All run in `command-agent-harness.html?scenario=<name>` against `src/services/capabilitiesFixture.json` (generated from a synthetic database by the Rust fixture writer) with a fixed clock (2026-09-29 07:20 UTC). The mail fixture uses `operator@example.invalid`; no real Gmail content is used anywhere.
+All run in `command-agent-harness.html?scenario=<name>` (no `?flagship`, so the older composition) against `src/services/capabilitiesFixture.json` (generated from a synthetic database by the Rust fixture writer) with a fixed clock (2026-09-29 07:20 UTC). The mail fixture uses `operator@example.invalid`; no real Gmail content is used anywhere.
 
 | Scenario | State |
 | --- | --- |
@@ -67,7 +70,7 @@ No pixel baselines: the 3D scene and fonts vary slightly between machines, and a
 - per-scenario truth: e.g. a running mission must show an active step, a working agent, an active domain and an active capability; a completed mission must show none; compact must be dormant;
 - console errors.
 
-After the captures it runs the Command harness's `?check` functional suite (53 checks: lenses, domain keyboard, compact/expand, suggestions fill without sending, reduced motion, and the IPC allowlist — every invoked command is a read).
+After the captures it runs the Command harness's `?check` functional suite (58 checks on 2026-10-12: lenses, domain keyboard, compact/expand, suggestions fill without sending, reduced motion, and the IPC allowlist — every invoked command is a read), then the Organizer browser workflow in `organizer-harness.html` (`scripts/organizer-browser.mjs`, 22 checks on 2026-10-12). `--no-checks` skips both.
 
 ## The review loop
 
@@ -82,7 +85,7 @@ Mechanical checks catch geometry; they do not judge whether it looks right. Afte
 
 ## Windows native acceptance (separate)
 
-The visual review does not replace the native pass. On the owner's PC, with the isolated acceptance profile (`docs/NEXT-SESSION.md`): build and launch the desktop app, walk the manual review list in `docs/COMMAND-ARMORY-REDESIGN.md` §4, and capture the window. Only that shows WebView2 rendering, real Tauri commands, real availability (keys, vault, Claude Code) and real run history.
+The visual review does not replace the native pass. On the owner's PC, with the isolated acceptance profile (`OLYMPUS_ACCEPTANCE_DIR`, described in `ARCHITECTURE.md`): build and launch the desktop app, walk the checks in `docs/COMMAND-ARMORY-REDESIGN.md` §4 (mapped onto the flagship there), and capture the window. Only that shows WebView2 rendering, real Tauri commands, real availability (keys, vault, Claude Code) and real run history.
 
 A later layer could drive the desktop window itself (WebView2 remote debugging, or OS-level screen capture) so the same scenarios run against the real app. Not built.
 
@@ -90,4 +93,4 @@ A later layer could drive the desktop window itself (WebView2 remote debugging, 
 
 - Chromium with SwiftShader, not WebView2 on the owner's GPU; colours and antialiasing differ slightly.
 - The fixture is synthetic; real availability and history come only from the desktop app.
-- Only Command is covered. Other harness pages still have their own `?check` runs.
+- Only the older Command composition and the Organizer workflow are covered; the shipped flagship Command is not. Other harness pages still have their own `?check` runs.

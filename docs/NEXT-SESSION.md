@@ -67,8 +67,15 @@ Not the desktop app, WebView2, Tauri IPC or real data.
 - **Visual review covers the wrong screen.** `npm run visual:review` drives
   `command-agent-harness.html` without `?flagship`, so it captures the
   pre-October-7 Agent Catalog and orbital cards, not the shipped Command. The
-  shipped composition is covered only by ad hoc scripts such as
-  `scripts/flagship-review.mjs`, which nothing runs automatically.
+  shipped composition is covered only by ad hoc scripts, which nothing runs
+  automatically. Two of them fail at `b288ddf` on stale assertions:
+  - `scripts/flagship-review.mjs` expects the two inner rings, which have been
+    hidden since 0.25.0.
+  - `scripts/mission-review.mjs` looks for "Obsidian constellation", which is
+    now "Obsidian Memory constellation".
+- **Stale fixture.** `src/services/capabilitiesFixture.json` predates
+  `hephaestus-engineering` and lists 7 skills, so browser previews show one
+  fewer than the desktop app.
 - **Tests only run on Kevin's machine.** 12 browser test scripts hard-code
   `channel:'msedge'`, and 11 of them expect a dev server already running on
   `127.0.0.1:31420` (one uses `31448`). There is no `npm test` and no CI.

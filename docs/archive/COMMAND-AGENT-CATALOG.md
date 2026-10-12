@@ -1,3 +1,5 @@
+> Archived on 2026-10-12: the Agent Catalog panel is no longer rendered by the app. Current: `docs/COMMAND-FLAGSHIP.md`. Historical record, not current guidance; links inside it are not maintained.
+
 # Command HUD — operational Agent Catalog
 
 September 24, 2026. Implemented in the source worktree; released in 0.19.0 the same day ([RELEASE-0.19.0.md](RELEASE-0.19.0.md)). Statements below that it is not installed describe the pre-release stage. On 2026-09-28 the Coding Delegate's completed-run count was corrected to count phase `complete`; before that it always read UNPROVEN.

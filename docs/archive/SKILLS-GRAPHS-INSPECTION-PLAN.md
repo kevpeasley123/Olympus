@@ -1,3 +1,5 @@
+> Archived on 2026-10-12: 2026-09-23 planning report; Phases 1–2 shipped as `docs/WORKFLOW-INSPECTION.md`. Its Semantic Zoom section and Phase 4 are still the only written design for Home semantic navigation (approved, not started). Historical record, not current guidance; links inside it are not maintained.
+
 # Olympus — Skills, Graphs, Run Inspection, and Semantic Zoom
 
 Planning report · September 23, 2026 · **Approved for the first slice and Home pilot**

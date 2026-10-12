@@ -1,3 +1,5 @@
+> Archived on 2026-10-12: 0.10.0 prototype notes. Current: `docs/COMMAND-3D-LIFECYCLE.md`. Historical record, not current guidance; links inside it are not maintained.
+
 # Hybrid command core prototype — 0.10.0
 
 Historical. The optional Dimensional core preference and the SVG default described here were removed; Command renders only the 3D core. See [COMMAND-3D-LIFECYCLE.md](COMMAND-3D-LIFECYCLE.md).

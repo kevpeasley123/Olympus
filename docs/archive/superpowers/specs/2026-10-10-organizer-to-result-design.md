@@ -1,3 +1,5 @@
+> Archived on 2026-10-12: Superpowers plan or spec for work that has shipped. Current: `docs/ORGANIZER.md`, `docs/PROJECT-LINKING.md`, `docs/ELEVENLABS-VOICE.md`. Historical record; links inside it are not maintained.
+
 # Organizer-to-result workflow — proposed design
 
 Date: 2026-10-10 (America/Phoenix). Status: proposed for review; planning requested, implementation not authorized by this document.

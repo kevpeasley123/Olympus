@@ -1,3 +1,5 @@
+> Archived on 2026-10-12: Superpowers plan or spec for work that has shipped. Current: `docs/ORGANIZER.md`, `docs/PROJECT-LINKING.md`, `docs/ELEVENLABS-VOICE.md`. Historical record; links inside it are not maintained.
+
 # Project linking, assessment and dashboard membership
 
 Status: proposed implementation specification, grounded in Kevin's approved conversational flow on October 11, 2026. This document needs review under the installed architectural workflow before implementation. It does not authorize live provider tests or destructive project deletion.

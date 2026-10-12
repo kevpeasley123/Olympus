@@ -1,3 +1,5 @@
+> Archived on 2026-10-12: art prompt record; the image is not visible in the shipped app. Historical record, not current guidance; links inside it are not maintained.
+
 # Mountain sanctuary revision
 
 Generated with the built-in GPT image-generation tool. Saved as `src/assets/olympus-mountain-sanctuary-v4.png` and integrated in Command.

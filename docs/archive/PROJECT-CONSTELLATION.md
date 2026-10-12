@@ -1,3 +1,5 @@
+> Archived on 2026-10-12: the constellation it describes is not drawn in the shipped Command. Current: `docs/COMMAND-MISSION-PANTHEON.md`. Historical record, not current guidance; links inside it are not maintained.
+
 # Adaptive project constellation
 
 Command now presents linked vault notes as small luminous stars across the interior

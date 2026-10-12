@@ -1,5 +1,26 @@
 # Olympus Command Console
 
+## Current layouts
+
+Since the flagship (2026-10-07) and the shared console (2026-10-11, `ab0b766`),
+`App.tsx` renders one `ChatPanel` with `companion` in every mode, in one of two
+layouts:
+
+- **Expanded.** Command's default; Command remembers the choice per viewer in
+  `localStorage` (`olympus.commandChatLayout`). A header, then Overview and
+  Conversation tabs. Overview holds the Mission brief and Active missions;
+  Conversation renders the whole stored history with a ↓ Latest reply control.
+  Escape does not step this layout back.
+- **Compact.** The three modes described below. Outside Command the compact
+  console is hidden behind an "Ask Olympus…" dock; the dock, Ctrl/Cmd+K or
+  `olympus:focus-console` opens the expanded panel, and its collapse control
+  closes it again.
+
+The rest of this document was written for the compact console and still
+describes it, except where noted.
+
+## Compact console
+
 The permanent chat sidebar is replaced by three local UI modes in ChatPanel:
 
 - Dormant: a bottom-right command bar and actual ready/processing/response state.
@@ -55,11 +76,13 @@ Verification: production TypeScript/Vite build; six service harnesses; the isola
 following and interruption, anchor-preserving history prepend, draft-safe Escape,
 Ctrl+K, completed text, and availability of memory/observation forms. The fixture
 uses no live API or vault writes. Production desktop visual inspection and paid-model
-turns are separate evidence, recorded in HANDOFF.
+turns are separate evidence, recorded in the old handoff
+(`docs/archive/HANDOFF-through-2026-09-28.md`).
 
 Later improvements: history search, named sessions, database-backed history pagination,
 and observable activity entries once actual action telemetry is available. Current
-history is paged for rendering but still loaded from SQLite at startup.
+history is paged for rendering only in the compact transcript; the expanded
+Conversation tab renders all of it. All of it is loaded from SQLite at startup.
 
 ## Changed files
 
@@ -70,7 +93,7 @@ src/services/instrumentEvents.ts, and both CommandInstrument.tsx and
 OmegaInstrument.tsx under src/components/panels.
 Checks: src/services/commandConsole.harness.ts, console-harness.html,
 src/console-harness.tsx. Product docs: OLYMPUS-MANUAL.md, this document, and
-docs/HANDOFF.md. Version metadata: package.json/package-lock.json, Cargo.toml/
+the handoff (now docs/archive/HANDOFF-through-2026-09-28.md). Version metadata: package.json/package-lock.json, Cargo.toml/
 Cargo.lock, and tauri.conf.json.
 
 ## Design-review changes — September 28, 2026
