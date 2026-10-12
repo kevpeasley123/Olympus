@@ -4,7 +4,8 @@ await mkdir('output/preferences-review',{recursive:true});const browser=await ch
 try{const page=await browser.newPage();
 for(const [width,height] of [[1440,960],[1280,800]]){
  await page.setViewportSize({width,height});await page.goto(base+'/');await page.getByRole('button',{name:'Command',exact:true}).click();
- check(await page.getByRole('switch',{name:'Spoken replies',exact:true}).count()===0,'Composer pill removed');
+ check(await page.locator('.command-console').getByRole('switch',{name:'Spoken replies',exact:true}).count()===0,'Composer pill removed');
+ check(await page.getByRole('switch',{name:'Spoken replies',exact:true}).count()===1,'One dedicated spoken replies control remains below Omega');
  const opener=page.getByRole('button',{name:'Open preferences',exact:true});await opener.click();const dialog=page.getByRole('dialog',{name:'Olympus Preferences',exact:true});await dialog.waitFor();
  await page.getByLabel('Speech provider',{exact:true}).selectOption('elevenlabs');
  const fields=await page.locator('.preferences-dialog .voice-setting-row input:not([type=checkbox]), .preferences-dialog select[aria-label="Speech provider"]').evaluateAll(els=>els.map(el=>({x:el.getBoundingClientRect().x,width:el.getBoundingClientRect().width})));

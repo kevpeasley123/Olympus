@@ -19,10 +19,9 @@ try {
  await olympus.waitFor();
  assert.match(await olympus.innerText(),/A private, local-first AI command station/,'The card leads with real project vision');
  assert.equal(await olympus.getByText('Owner: Unknown',{exact:true}).isVisible(),false);
- assert.equal(await olympus.getByRole('button').count(),1,'One primary action per project');
- await olympus.locator('.command-row-details summary').click();
- assert.equal(await olympus.getByText('Olympus recommends',{exact:true}).isVisible(),true);
- await olympus.locator('.command-row-details summary').click();
+ assert.equal(await olympus.locator('.command-project-action').count(),1,'One primary action per project');
+ assert.equal(await page.locator('.command-row-details').count(),0,'No redundant card details disclosure');
+ assert(await olympus.locator('.portfolio-workload').isVisible(),'Task badge visible');
  for(const width of [1440,1280,980]) {
   await page.setViewportSize({width,height:960});
   const board=page.locator('.command-board-scroll');
@@ -30,8 +29,10 @@ try {
   await page.screenshot({path:`${output}/projects-${width}.png`});
  }
  await olympus.getByRole('button',{name:'Continue project Olympus',exact:true}).click();
- await page.getByRole('heading',{name:'Your tasks',exact:true}).waitFor();
+ await page.locator('.project-overview').waitFor();
  assert.equal(await page.getByRole('button',{name:'Open project note',exact:true}).isVisible(),false,'Vault shortcut stays behind details');
+ assert.equal(await page.getByText('Error: Organizer requires the Olympus desktop connection.',{exact:true}).count(),0);
+ for(const heading of ['Vision','Recent changes','Where it stands','Recommended next step'])assert(await page.getByRole('heading',{name:heading,exact:true}).isVisible());
  await page.screenshot({path:`${output}/project-detail.png`});
  await page.goto(base+'project-board-harness.html?run',{waitUntil:'domcontentloaded',timeout:60000});
  await page.waitForFunction(()=>/^(PASS|FAIL)/.test(document.querySelector('#results')?.textContent??''),{},{timeout:60000});
@@ -46,6 +47,14 @@ try {
  });
  assert.equal(await page.locator('.panel-slot-library').count(),0,'Project mode is focused on projects');
  await page.screenshot({path:`${output}/project-mode-1440.png`});
+ await page.setViewportSize({width:1200,height:900});
+ await page.getByRole('article',{name:'Obsidian Visual Project',exact:true}).getByRole('heading').click();
+ await page.locator('.project-overview').waitFor();
+ assert(await page.getByRole('heading',{name:'Obsidian Visual Project',exact:true}).isVisible(),'Card surface opens matching project overview');
+ const records=page.locator('.command-project-background');
+ assert(await records.evaluate(e=>e.getBoundingClientRect().bottom<=e.closest('.command-board-scroll').getBoundingClientRect().bottom),'Overview and tool rows fit at 1200x900');
+ await page.screenshot({path:`${output}/compact-overview-1200.png`});
+
  assert.deepEqual(errors,[]);
  console.log('PASS project presentation, responsive layout, project navigation and existing board browser checks. '+result);
 } catch(error) { console.error(error);process.exitCode=1; }

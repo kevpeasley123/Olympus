@@ -33,9 +33,7 @@ async function run(){
  check(document.querySelectorAll(".command-project-row").length===seedState.projects.length,"All projects summarized");
  check(!document.querySelector(".command-project-detail"),"No hidden reports mounted");
  check(text().includes("Demo data"),"Demo data keeps its label");
- const filter=document.querySelector<HTMLSelectElement>('[aria-label="Filter projects by operational status"]')!;
- if([...filter.options].some(option=>option.value==='MONITORING')){filter.value='MONITORING';filter.dispatchEvent(new Event('change',{bubbles:true}));await wait();check([...document.querySelectorAll('.command-operational-status')].every(n=>n.textContent==='MONITORING'),'Filter restricts rows');}
- filter.value='ALL';filter.dispatchEvent(new Event('change',{bubbles:true}));await wait();
+ check(!document.querySelector('.command-board-controls'),'Portfolio toolbar removed');
  check(![...document.querySelectorAll(".command-operational-status")].some(n=>n.textContent==="COMPLETE"),"Archived projects never read COMPLETE");
  const open=document.querySelector<HTMLButtonElement>(".command-project-row .command-project-action")!;
  check(open.textContent===`Continue project ${open.closest("article")?.getAttribute("aria-label")} ↗`,"Continue has the project in its accessible name");

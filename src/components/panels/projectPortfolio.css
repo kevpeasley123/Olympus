@@ -115,3 +115,199 @@
 }
 
 .portfolio-overview .project-ecosystem::before { display:none; }
+
+/* Reference lighting: open sky, saturated luminous limbs, warm metallic type. */
+body:has(.mode-project) .background-image {
+ background:#040c17 url('../../assets/projects-olympus-space.png') left bottom/cover no-repeat;
+ filter:saturate(.9) brightness(.86);translate:none;
+}
+body:has(.mode-project) .background-vignette {
+ background:linear-gradient(180deg,#02061138,transparent 30%,#02061116 75%,#0206115c);
+}
+.ecosystem-star-points { position:absolute;inset:0;pointer-events:none;z-index:-1; }
+.ecosystem-star-points i { position:absolute;background:#c8def2;border-radius:50%;opacity:.48; }
+.ecosystem-star-points .is-bright { background:#eefaff;opacity:.9;box-shadow:0 0 4px #b4e7ff,0 0 11px #60b7e66b;animation:ecosystem-twinkle 7s ease-in-out infinite; }
+.ecosystem-constellations polyline { stroke:#9dbbda;opacity:.24;stroke-width:.045; }
+.ecosystem-constellations circle { fill:#edf6ff;filter:drop-shadow(0 0 .28px #9cdbff); }
+.ecosystem-surface { background:radial-gradient(ellipse at 25% 18%,hsl(var(--project-hue) 80% 70% / .5),transparent 38%),radial-gradient(ellipse at 65% 69%,#01040bef,transparent 68%),radial-gradient(circle at 36% 28%,hsl(var(--project-hue) 68% 28%),hsl(var(--project-hue) 65% 8%) 74%,#01050a);
+ box-shadow:inset 2px 3px 5px hsl(var(--project-hue) 95% 83% / .9),inset -1px -1px 3px hsl(var(--project-hue) 85% 66% / .7),0 0 3px hsl(var(--project-hue) 90% 72% / .9),0 0 13px hsl(var(--project-hue) 85% 58% / .4),0 0 32px hsl(var(--project-hue) 85% 52% / .17);
+}
+.ecosystem-surface::after { opacity:.47;filter:grayscale(1) contrast(1.2);mix-blend-mode:luminosity; }
+.ecosystem-center { width:132px;height:132px; }
+.ecosystem-center .ecosystem-surface { box-shadow:inset 3px 4px 7px #ffe9bce6,inset -1px -1px 3px #eabe6dcc,0 0 5px #ffe4aab3,0 0 23px #efbc6066,0 0 54px #e9ae4545; }
+.ecosystem-center .ecosystem-surface::after { opacity:.67;mix-blend-mode:screen; }
+.ecosystem-center>span { font:54px/1 Georgia,serif;color:#f5d391;text-shadow:0 0 3px #ffcf8273,0 0 12px #e9aa434d,0 2px 3px #000; }
+.ecosystem-center strong { font:500 14px/1.1 Georgia,serif;letter-spacing:1.3px;color:#eac079;text-shadow:0 0 6px #e9aa435e,0 1px 3px #000; }
+.ecosystem-planet .project-emblem { color:hsl(var(--project-hue) 90% 80%);filter:drop-shadow(0 0 4px hsl(var(--project-hue) 90% 68% / .45)); }
+.ecosystem-planet .project-emblem svg { width:26px;height:26px;stroke-width:1.65; }
+.ecosystem-node-label strong { color:#ede7dd;font:500 15px/1.3 Georgia,serif;text-shadow:0 0 9px #d1dfed24,0 2px 4px #000; }
+.ecosystem-node-label small { color:#a8c6e6;text-shadow:0 0 7px #90b7e126,0 1px 3px #000; }
+@container(max-width:700px){.ecosystem-center{width:100px;height:100px}.ecosystem-center>span{font-size:40px}.ecosystem-center strong{font-size:11px}.ecosystem-node-label strong{font-size:12px}}
+@media(prefers-reduced-motion:reduce){.ecosystem-star-points .is-bright{animation:none}}
+
+/* Pinpoint stars keep their shape at wide and narrow aspect ratios. */
+.ecosystem-beacon { position:absolute;width:2.5px;height:2.5px;border-radius:50%;background:#f0f8ff;box-shadow:0 0 4px #c6edff,0 0 10px #79bfff80;transform:translate(-50%,-50%); }
+.ecosystem-beacon::before,.ecosystem-beacon::after { content:"";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:linear-gradient(90deg,transparent,#b6dcf599,transparent);width:11px;height:1px; }
+.ecosystem-beacon::after { transform:translate(-50%,-50%) rotate(90deg);width:8px; }
+.ecosystem-node-label { background:radial-gradient(ellipse at 35% 50%,#040c17c9,transparent 75%); }
+.ecosystem-center .ecosystem-surface::after { opacity:.54; }
+.ecosystem-surface::after { opacity:.42; }
+
+button.ecosystem-center { padding:0;border:0;background:none;cursor:pointer; }
+button.ecosystem-center:hover .ecosystem-surface { filter:brightness(1.1); }
+button.ecosystem-center:focus-visible { outline:2px solid #f1d39a;outline-offset:7px; }
+
+/* Project detail: readable context first, operational tools on demand. */
+.project-command.portfolio-detail .command-board-heading { margin-bottom: 0; }
+.project-command .project-overview { padding: 22px 0 12px; }
+.project-overview-intro { display:flex; align-items:center; gap:18px; padding:0 0 24px; border-bottom:1px solid #b5cce21c; margin-bottom:22px; }
+.project-overview-emblem { display:grid; place-items:center; width:58px; height:58px; flex-shrink:0; border:1px solid #d3aa6055; border-radius:16px; background:linear-gradient(135deg,#bc924921,#081421); color:#e5be79; }
+.project-overview-emblem svg { width:28px; height:28px; }
+.project-section-label { color:#b79b6b; font-size:10px; font-weight:600; letter-spacing:.16em; }
+.project-command .project-overview h3 { margin:7px 0 12px; color:#eef0ef; font-family:Georgia,serif; font-size:21px; font-weight:400; letter-spacing:0; }
+.project-command .project-overview-intro h3 { font-size:26px; margin:5px 0 8px; }
+.project-command .project-overview p { font-size:13px; line-height:1.7; color:#bac9d7; max-width:85ch; overflow-wrap:anywhere; }
+.project-overview-layout { display:grid; grid-template-columns:minmax(0,1.2fr) minmax(0,1fr); gap:20px; align-items:start; }
+.project-overview-main,.project-overview-side { display:grid; gap:18px; min-width:0; }
+.project-overview-card { padding:21px 23px; border:1px solid #8ba9bd29; border-radius:12px; background:linear-gradient(135deg,#1223309e,#08121ccc); min-width:0; }
+.project-overview-card small { display:block; font-size:11px; color:#8196a9; line-height:1.6; margin-top:12px; }
+.project-command .project-overview-card p+p { margin-top:10px; }
+.project-overview-status { display:inline-block; font-size:10px; letter-spacing:.08em; color:#acc4d8; border:1px solid #8eafc33b; padding:4px 8px; border-radius:5px; margin-bottom:12px; }
+.project-overview-card.project-next-step { border-color:#c19b5745; background:linear-gradient(135deg,#aa813116,#08121ce6); }
+.project-next-step button { margin-top:16px; border-color:#c19b575c; color:#ecc889; }
+.project-change-list { list-style:none; margin:0; padding:0; }
+.project-change-list li { position:relative; padding:0 0 14px 17px; margin:0 0 12px; border-bottom:1px solid #a3bfd617; font-size:13px; line-height:1.55; color:#c8d5e1; overflow-wrap:anywhere; }
+.project-change-list li:before { content:""; position:absolute; width:5px; height:5px; top:7px; left:0; background:#cba566; border-radius:50%; }
+.project-change-list li:last-child { border-bottom:0; margin-bottom:0; padding-bottom:0; }
+.project-change-list time { display:block; color:#8398ac; font-size:11px; margin-top:4px; }
+.project-pending-review { margin-top:18px; border-color:#d5a54a80; }
+.project-work-disclosure { padding:17px 0; border-top:1px solid #a3bfd621; color:#afc2d2; font-size:13px; }
+.project-work-disclosure>summary { cursor:pointer; font-weight:500; }
+.project-work-disclosure[open]>summary { margin-bottom:18px; }
+@container (max-width:680px) {
+ .project-overview-layout { grid-template-columns:1fr; gap:16px; }
+ .project-overview-side { grid-row:1; }
+ .project-overview-card { padding:18px; }
+ .project-overview-intro { align-items:flex-start; }
+}
+
+.project-command .project-overview h3 { text-transform:none; }
+
+/* Combined portfolio keeps the map close to the compact card overview. */
+.portfolio-combined .command-board-rows { gap:12px; }
+.portfolio-combined .command-project-row { padding:12px 14px 8px; }
+.portfolio-combined .command-project-row .command-project-purpose { margin:8px 0; }
+.portfolio-combined .portfolio-workload { margin-bottom:8px; }
+.portfolio-combined .command-project-next { margin:0 -14px; padding:8px 14px; }
+.portfolio-combined .command-row-details { margin-top:6px; }
+@container(min-width:900px) { .portfolio-combined .command-board-rows { grid-template-columns:repeat(4,minmax(0,1fr)); } }
+
+/* Wide combined view reserves room for the entire map, not just its first row. */
+@container(min-width:900px) {
+ .portfolio-combined .command-project-row { padding:8px 12px 6px; }
+ .portfolio-combined .command-project-row > header { flex-wrap:nowrap; gap:7px; }
+ .portfolio-combined .command-project-row h3 { min-width:0; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+ .portfolio-combined .project-emblem { width:28px; height:28px; }
+ .portfolio-combined .command-project-row .command-project-purpose { height:1.6em; -webkit-line-clamp:1; margin:5px 0; }
+ .portfolio-combined .portfolio-workload { display:none; }
+ .portfolio-combined .command-project-next { margin:0 -12px; padding:4px 12px; }
+ .portfolio-combined .command-project-next h4 { display:none; }
+ .portfolio-combined .command-project-next p { -webkit-line-clamp:1; }
+ .portfolio-combined .command-project-next .command-project-action { min-height:28px; }
+ .portfolio-combined .command-row-details { margin-top:4px; }
+ .portfolio-combined .ecosystem-canvas { height:300px; margin:32px 18px 24px; }
+ .portfolio-combined .is-dense .ecosystem-canvas { height:300px; margin-bottom:32px; }
+}
+
+/* Reference card treatment: illustrated body and one crisp action footer. */
+.portfolio-art .command-project-row { padding:14px 14px 0; border-radius:6px; }
+.portfolio-art .command-project-row > header { flex-wrap:nowrap; gap:10px; }
+.portfolio-art .command-project-row h3 { min-width:0; font-size:15px; text-transform:none; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.portfolio-art .command-project-row .portfolio-workload { display:block; flex-shrink:0; margin:0; padding:4px 7px; border:1px solid hsl(var(--project-hue) 45% 60% / .4); border-radius:20px; background:hsl(var(--project-hue) 40% 25% / .5); color:hsl(var(--project-hue) 50% 82%); font-size:10px; white-space:nowrap; }
+.portfolio-art .command-project-row .command-project-purpose { margin:7px 0 12px 46px; font:12px/1.55 Georgia,serif; height:3.1em; -webkit-line-clamp:2; }
+.portfolio-art .command-project-next { margin:0 -14px; padding:4px 14px; border-radius:0 0 6px 6px; }
+.portfolio-art .command-project-next .command-recommendation { display:flex; align-items:center; gap:7px; }
+.portfolio-art .command-recommendation > svg { flex-shrink:0; color:#aebdca; }
+.portfolio-art .command-project-next p { font-size:11px; -webkit-line-clamp:1; }
+.portfolio-art .command-project-next .command-project-action { min-height:28px; }
+.portfolio-art .command-project-row.is-pinned > header { flex-wrap:wrap; }
+@container(min-width:900px) {
+ .portfolio-combined .command-project-row { padding:10px 12px 0; }
+ .portfolio-combined .command-project-row > header { gap:7px; }
+ .portfolio-combined .command-project-row h3 { font-size:14px; }
+ .portfolio-combined .command-project-row .command-project-purpose { margin:6px 0 10px 35px; }
+ .portfolio-combined .command-project-next { margin:0 -12px; padding:4px 12px; }
+}
+
+/* Two next-step lines within the original compact card footprint. */
+.portfolio-art .command-project-next { align-items:center; padding-top:4px; padding-bottom:4px; }
+.portfolio-art .command-project-next .command-recommendation { align-items:flex-start; }
+.portfolio-art .command-project-next .command-recommendation > svg { margin-top:2px; }
+.portfolio-art .command-project-next p { display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; white-space:normal; overflow-wrap:anywhere; line-height:1.5; }
+.portfolio-art .command-project-row .command-project-purpose { margin-bottom:7px; }
+@container(min-width:900px) { .portfolio-combined .command-project-row .command-project-purpose { margin-bottom:5px; } }
+
+.project-next-copy { min-width:0; flex:1; }
+.portfolio-art .command-project-next p.is-expanded { display:block; -webkit-line-clamp:unset; overflow:visible; }
+.portfolio-art .project-next-toggle { display:block; border:0; background:none; color:#bda67d; font:10px/1.4 var(--font-sans); padding:3px 0 0; cursor:pointer; }
+.portfolio-art .project-next-toggle:hover { color:#f0d29d; }
+
+/* Compact downstream overview: one useful screen before optional tools. */
+.portfolio-art .command-project-row { cursor:pointer; }
+.portfolio-detail .command-board-inner { gap:8px; }
+.project-command .project-overview { padding:8px 0 2px; }
+.project-overview-intro { gap:12px; padding:10px 12px; margin-bottom:12px; border:1px solid #8ba9bd29; border-radius:7px; background:#0c1b2790; }
+.project-overview-emblem { width:34px; height:34px; border-radius:8px; }
+.project-overview-emblem svg { width:21px; height:21px; }
+.project-overview-layout { grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:12px; }
+.project-overview-main,.project-overview-side { gap:12px; }
+.project-overview-card { padding:12px 14px; border-radius:7px; }
+.project-overview-card > .project-section-label { display:none; }
+.project-command .project-overview h3 { font-size:18px; margin:0 0 8px; }
+.project-command .project-overview p { font-size:13px; line-height:1.5; }
+.project-overview-card small { margin-top:7px; line-height:1.4; }
+.project-overview-status { padding:3px 7px; margin-bottom:7px; }
+.project-next-step button { margin-top:9px; }
+.project-change-list li { padding-bottom:7px; margin-bottom:7px; font-size:12px; line-height:1.4; }
+.project-change-list time { margin-top:2px; }
+.project-pending-review { margin-top:10px; }
+.portfolio-detail .project-work-disclosure { padding:10px 12px; border:1px solid #8ba9bd29; border-radius:6px; background:#0a172180; }
+.portfolio-detail .project-brief-disclosure { margin:0; padding:0 12px; border:1px solid #8ba9bd29; border-radius:6px; background:#0a172180; }
+.portfolio-detail .project-brief-disclosure>summary { padding:10px 0; }
+@container(max-width:680px) { .project-overview-layout { grid-template-columns:1fr; } }
+
+/* Match the approved render's gold labels, light copy and shared row edges. */
+.portfolio-detail .command-board-heading h2 { font:400 28px/1.2 Georgia,serif; text-transform:none; color:#edf0f6; }
+.project-overview-main,.project-overview-side { display:contents; }
+.project-overview-main > :first-child { grid-column:1; grid-row:1; }
+.project-overview-main > :nth-child(2) { grid-column:1; grid-row:2; }
+.project-overview-side > :first-child { grid-column:2; grid-row:1; }
+.project-overview-side > :nth-child(2) { grid-column:2; grid-row:2; }
+.project-overview-layout { align-items:stretch; }
+.project-command .project-overview-card h3 { font:600 11px/1.4 var(--font-sans); letter-spacing:.15em; text-transform:uppercase; color:#e6b65e; margin:0 0 12px; }
+.project-command .project-overview p { color:#dce5f2; font-size:14px; line-height:1.5; }
+.project-overview-card small { color:#94a9bb; font-size:11px; }
+.project-overview-card { padding:15px 17px; border-color:#36506199; background:linear-gradient(135deg,#0c1d29,#091620); }
+.project-overview-card.project-next-step { border-color:#36506199; background:linear-gradient(135deg,#0c1d29,#091620); }
+.project-overview-intro { padding:12px 14px; gap:15px; }
+.project-overview-emblem { width:44px; height:44px; display:flex; align-items:center; justify-content:center; }
+.project-overview-emblem > .project-emblem { display:flex; align-items:center; justify-content:center; width:100%; height:100%; margin:0; padding:0; border:0; border-radius:0; background:none; box-shadow:none; color:#edc778; }
+.project-overview-emblem svg { display:block; width:23px; height:23px; flex-shrink:0; margin:0; }
+.project-command .project-next-step .ghost-action { border:1px solid #dfaf55; border-radius:4px; color:#f0c36e; font-size:12px; padding:7px 12px; background:#08131c; }
+.portfolio-detail .project-work-disclosure>summary,.portfolio-detail .project-brief-disclosure>summary { color:#dce5f2; font-size:13px; }
+@container(max-width:680px) {
+ .project-overview-main > :nth-child(n),.project-overview-side > :nth-child(n) { grid-column:1; grid-row:auto; }
+}
+
+.project-command .project-overview p { font-weight:400; }
+
+/* Link the ecosystem inspection to the matching card without shifting layout. */
+.portfolio-combined .command-project-row.is-orb-highlighted {
+ border-color:hsl(var(--project-hue) 65% 76% / .95);
+ box-shadow:0 0 0 1px hsl(var(--project-hue) 60% 70% / .28),0 0 24px hsl(var(--project-hue) 65% 60% / .23),inset 0 0 20px hsl(var(--project-hue) 50% 60% / .08);
+}
+/* Use the shared reading face; reserve serif type for titles. */
+.portfolio-art .command-project-row .command-project-purpose { font-family:var(--font-sans); font-weight:400; color:var(--secondary); }
+.project-command .project-overview p { color:var(--primary); font-family:var(--font-sans); font-weight:400; text-shadow:var(--text-shadow-body); }
+.project-command .project-overview-card h3 { font-weight:500; text-shadow:var(--text-shadow-body); }
+.portfolio-detail .command-board-heading h2 { font-family:var(--font-display); font-weight:400; text-shadow:var(--text-shadow-title); }

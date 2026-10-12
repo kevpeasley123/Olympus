@@ -49,6 +49,7 @@ export interface LibrarySection {
 // ---- Labels -----------------------------------------------------------------
 
 const TYPE_LABELS: Record<ResearchRecord["sourceType"], string> = {
+  book: "Book",
   article: "Article",
   transcript: "Transcript",
   note: "Note",

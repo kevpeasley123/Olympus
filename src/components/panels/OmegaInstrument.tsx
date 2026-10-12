@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { subscribeToInstrumentEvents } from "../../services/instrumentEvents";
 import type { InstrumentEvent } from "../../services/instrumentEvents";
 import type { TrackedProject } from "../../types";
+import './headerOmegaPulse.css';
 
 interface OmegaInstrumentProps {
   projects: TrackedProject[];
@@ -93,6 +94,9 @@ export function OmegaInstrument({ projects }: OmegaInstrumentProps) {
         aria-hidden="true"
       >
         <svg width="56" height="56" viewBox="0 0 100 100" fill="none" className="olympus-sigil-svg">
+          {/* Ambient presence only; the separate event ring still represents real activity. */}
+          <circle className="header-omega-wave" cx="50" cy="50" r="38" />
+          <circle className="header-omega-wave header-omega-wave--echo" cx="50" cy="50" r="38" />
           <g className="ring-outer" style={{ transformOrigin: "50px 50px" }}>
             <circle cx="50" cy="50" r="48" stroke="#d97706" strokeWidth="0.6" opacity="0.25" fill="none" />
           </g>
@@ -125,6 +129,7 @@ export function OmegaInstrument({ projects }: OmegaInstrumentProps) {
           ) : null}
 
           <text
+            className="header-omega-light"
             x="50"
             y="68"
             textAnchor="middle"

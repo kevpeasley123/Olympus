@@ -5,7 +5,7 @@ import type { Mission } from "../../services/capabilities";
 import "./pantheonMissions.css";
 import { VaultConstellation } from "./VaultConstellation";
 import { ArmoryConstellation } from "./ArmoryConstellation";
-import { VoiceConversationControl } from "./VoiceConversationControl";
+import { SpokenRepliesControl } from "./SpokenRepliesControl";
 import type {VoiceSnapshot} from "../../services/realtimeVoice";
 import { HybridCommandCore } from "./HybridCommandCore";
 import { OrbitalAtmosphere } from "./OrbitalAtmosphere";
@@ -47,7 +47,8 @@ interface CommandInstrumentProps {
   visualState?: OlympusVisualState;
   voiceLevel?: number;
   voiceSnapshot?:VoiceSnapshot;
-  onVoiceToggle?:()=>void;
+  onSpokenRepliesToggle?:()=>void;
+  spokenReplies?:boolean;
   voiceReady?:boolean;
   /** Only the ambient note field's placement; Command draws no project names. */
   projects: TrackedProject[];
@@ -140,7 +141,7 @@ export function CommandInstrument({
   active = true,
   visualState,
   voiceLevel = 0,
-  voiceSnapshot, onVoiceToggle, voiceReady=false,
+  voiceSnapshot, onSpokenRepliesToggle, spokenReplies=false, voiceReady=false,
   assistantPending = false,
   assistantProducing = false,
   assistantModel = null,
@@ -357,7 +358,7 @@ export function CommandInstrument({
           that has not spoken would be the same invisible wrongness as reading
           the request constant. */}
       {flagship && <div className="pantheon-caption"><h2>Pantheon</h2>
-      <VoiceConversationControl voice={voiceSnapshot} onToggle={onVoiceToggle} ready={voiceReady}/>
+      <SpokenRepliesControl voice={voiceSnapshot} enabled={spokenReplies} onToggle={onSpokenRepliesToggle} ready={voiceReady}/>
       </div>}
       {!flagship && previewLabel && <p className="command-instrument__preview" role="note">{previewLabel}</p>}
       {hybridError && <div className="hybrid-status" role="status">

@@ -7,20 +7,69 @@ const browser=await chromium.launch({channel:'msedge'});let checks=0;const check
 try{const page=await browser.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));
 for(const width of [1440,1280,980,600]){
 await page.setViewportSize({width,height:960});await page.goto(base+'/project-board-harness.html');await page.locator('.command-project-row').first().waitFor();if(width===600)await page.locator('#layout').evaluate(e=>{e.style.gridTemplateColumns='1fr';e.lastElementChild.style.display='none'});
-check(await page.getByRole('button',{name:'Cards',exact:true}).getAttribute('aria-pressed')==='true','Cards initial');
+check(await page.getByRole('button',{name:'All',exact:true}).getAttribute('aria-pressed')==='true','All initial');
+check(await page.locator('.command-project-row').count()===4 && await page.locator('.ecosystem-node').count()===3,'All includes cards and ecosystem');
+check(await page.locator('.command-board-rows').evaluate(e=>e.getBoundingClientRect().bottom<=document.querySelector('.project-ecosystem').getBoundingClientRect().top),'Cards precede ecosystem');
+await page.evaluate(()=>document.fonts.ready);await page.waitForTimeout(250);
+const more=page.getByRole('button',{name:/Expand next step for/}).first();
+if(await more.count()) {
+ const cardName=await more.locator('xpath=ancestor::article').getAttribute('aria-label');
+ const card=page.getByRole('article',{name:cardName,exact:true});const before=(await card.boundingBox()).height;
+ await more.focus();await page.keyboard.press('Enter');
+ const less=card.getByRole('button',{name:/Collapse next step for/});
+ check(await less.getAttribute('aria-expanded')==='true','Next step expands with keyboard');
+ check(await card.locator('.project-next-copy p').evaluate(e=>e.scrollHeight<=e.clientHeight+1),'Expanded next text is fully visible');
+ check((await card.boundingBox()).height>before,'Expansion grows the card downward');
+ await less.click();check(Math.abs((await card.boundingBox()).height-before)<2,'Collapse restores compact card');
+}
+const highlights=page.locator('.command-project-row.is-orb-highlighted');
+for(const name of ['Pokedex','Olympus']) {
+ const orb=page.getByRole('button',{name:new RegExp(`^Open ${name}(?: project)?,`)});
+ await orb.hover();
+ await page.waitForFunction(name=>document.querySelector('.is-orb-highlighted')?.getAttribute('aria-label')===name,name);
+ check(await highlights.count()===1 && await highlights.getAttribute('aria-label')===name,`Orb hover highlights only ${name}`);
+ if(width===1440&&name==='Pokedex'){await page.waitForTimeout(250);await page.screenshot({path:'output/portfolio-review/orb-card-highlight.png'});}
+ await page.getByRole('button',{name:'All',exact:true}).hover();
+ await page.waitForFunction(()=>!document.querySelector('.is-orb-highlighted'));
+ check(await highlights.count()===0,'Pointer exit clears highlight');
+ await orb.focus();
+ await page.waitForFunction(name=>document.querySelector('.is-orb-highlighted')?.getAttribute('aria-label')===name,name);
+ check(await highlights.count()===1,'Keyboard focus highlights matching card');
+ await page.getByRole('button',{name:'All',exact:true}).focus();
+ await page.waitForFunction(()=>!document.querySelector('.is-orb-highlighted'));
+ check(await highlights.count()===0,'Blur clears highlight');
+}
+await page.screenshot({path:`output/portfolio-review/all-${width}.png`});
+await page.locator('.command-project-row .command-project-action').first().click();
+await page.locator('.project-overview').waitFor();
+await page.getByRole('button',{name:'← All projects',exact:true}).click();
+check(await page.getByRole('button',{name:'All',exact:true}).getAttribute('aria-pressed')==='true' && await page.locator('.ecosystem-node').count()===3,'All retained after project detail');
+await page.getByRole('button',{name:'Cards',exact:true}).click();
+check(await page.locator('.ecosystem-node').count()===0,'Cards hides ecosystem');
 check(await page.locator('.portfolio-demo').isVisible(),'Demo badge visible');
 check(await page.locator('.command-board-scroll').evaluate(e=>e.scrollWidth<=e.clientWidth+1),'No horizontal card overflow');
 await page.screenshot({path:`output/portfolio-review/cards-${width}.png`});
 await page.getByRole('button',{name:'Ecosystem',exact:true}).focus();await page.keyboard.press('Enter');
-check(await page.locator('.ecosystem-node').count()===4,'Every project has a node');
+check(await page.locator('.command-project-row').count()===0,'Ecosystem hides cards');
+check(await page.locator('.ecosystem-node').count()===3,'Olympus is represented only by the central hub');
 check(await page.locator('.is-unmeasured').count()===4,'Unavailable tasks stay unknown');
+const hub=page.getByRole('button',{name:'Open Olympus project, task count unknown',exact:true});
+check(await hub.count()===1,'One interactive Olympus hub');
+await hub.focus();await page.keyboard.press('Enter');await page.locator('.project-overview').waitFor();
+check(await page.locator('.command-detail-vision').count()===1,'Central hub opens the project detail');
+await page.getByRole('button',{name:'← All projects',exact:true}).click();
+
 check(await page.locator('.ecosystem-toolbar,.ecosystem-orbits,.command-portfolio-tools').count()===0,'Removed scene controls and tools stay absent');
 check(await page.locator('.command-board-scroll').evaluate(e=>e.scrollWidth<=e.clientWidth+1),'No horizontal ecosystem overflow');
 await page.screenshot({path:`output/portfolio-review/ecosystem-${width}.png`});
-await page.getByRole('textbox',{name:'Search projects'}).fill('Pokedex');check(await page.locator('.ecosystem-node').count()===1,'Search filters ecosystem');
-await page.locator('.ecosystem-node').click();await page.getByRole('heading',{name:'Your tasks',exact:true}).waitFor();await page.getByRole('button',{name:'← All projects',exact:true}).click();check(await page.getByRole('button',{name:'Ecosystem',exact:true}).getAttribute('aria-pressed')==='true','View retained across detail');
+check(await page.locator('.command-board-controls').count()===0,'Portfolio toolbar removed');
+await page.locator('.ecosystem-node').filter({hasText:'Pokedex'}).click();await page.locator('.project-overview').waitFor();
+for(const name of ['Vision','Recent changes','Where it stands','Recommended next step'])check(await page.getByRole('heading',{name,exact:true}).isVisible(),`Visible detail section: ${name}`);
+check(await page.locator('.command-board-scroll').evaluate(e=>e.scrollWidth<=e.clientWidth+1),'No horizontal detail overflow');
+await page.screenshot({path:`output/portfolio-review/detail-${width}.png`});
+await page.getByRole('button',{name:'← All projects',exact:true}).click();check(await page.getByRole('button',{name:'Ecosystem',exact:true}).getAttribute('aria-pressed')==='true','View retained across detail');
 }
-await page.emulateMedia({reducedMotion:'reduce'});await page.getByRole('textbox',{name:'Search projects'}).fill('');check(await page.locator('.ecosystem-planet').first().evaluate(e=>getComputedStyle(e).animationName)==='none','Reduced motion respected');
+await page.emulateMedia({reducedMotion:'reduce'});check(await page.locator('.ecosystem-planet').first().evaluate(e=>getComputedStyle(e).animationName)==='none','Reduced motion respected');
 await page.goto(base+'/project-board-harness.html?ecosystem-metrics');
 const fixture=page.locator('#metric-fixture');await fixture.locator('.ecosystem-node').first().waitFor();check(await fixture.locator('.ecosystem-node').count()===8,'Large portfolios paginated');
 const sizes=await fixture.locator('.ecosystem-planet').evaluateAll(nodes=>nodes.map(n=>n.getBoundingClientRect().width));check(sizes[0]<sizes[1]&&sizes[1]<sizes[2],'Narrow planet sizing preserves workload order');

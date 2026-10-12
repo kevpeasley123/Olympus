@@ -2,21 +2,21 @@
 .command-brief h3{font:12px var(--font-display,serif);letter-spacing:.14em;color:#e4d5b9;margin:0 0 7px;font-weight:400;text-transform:uppercase}
 .command-brief-summary{font:500 13px/1.5 var(--font-sans);color:#e7edf0;margin:0 0 2px}
 .command-brief-line{font:12px/1.5 var(--font-sans);color:#cfdae1;margin:0}.command-brief-line span{color:#adc2ce}
-html .mode-command:has(.olympus-armory) .console-idle[data-command-brief]{justify-content:flex-start;padding:15px 18px 16px;gap:0;flex:0 0 auto;max-height:none;min-height:0}
-html .mode-command:has(.olympus-armory) .console-workspace-header{padding:13px 18px}
-html .mode-command:has(.olympus-armory) .command-console[data-idle] .active-mission-list{flex:1 1 0;max-height:none;min-height:145px;padding-top:14px}
-html .mode-command:has(.olympus-armory) .console-command-bar .console-inspect-project{order:0;margin:0 0 6px;font-size:9px;text-align:left}
-html .mode-command:has(.olympus-armory) .console-command-bar .console-inspect-project[open]{max-height:140px;overflow:auto}
+html .app-shell .command-console[data-conversation-panel] .console-idle[data-command-brief]{justify-content:flex-start;padding:15px 18px 16px;gap:0;flex:0 0 auto;max-height:none;min-height:0}
+html .app-shell .command-console[data-conversation-panel] .console-workspace-header{padding:13px 18px}
+html .app-shell .command-console[data-idle] .active-mission-list{flex:1 1 0;max-height:none;min-height:145px;padding-top:14px}
+html .app-shell .command-console[data-conversation-panel] .console-command-bar .console-inspect-project{order:0;margin:0 0 6px;font-size:9px;text-align:left}
+html .app-shell .command-console[data-conversation-panel] .console-command-bar .console-inspect-project[open]{max-height:140px;overflow:auto}
 /* Surface colors transition; text remains fully opaque and blur stays fixed. */
-html .mode-command:has(.olympus-armory) :is(.olympus-armory,.command-console[data-layout="expanded"]){background:rgba(3,12,19,.64);border-color:#9db7c52b;backdrop-filter:blur(2px);box-shadow:inset 0 1px 0 #e8d1a312,0 8px 24px #0002;transition:background-color 240ms ease,border-color 240ms ease,box-shadow 240ms ease}
-html .mode-command:has(.olympus-armory) .olympus-armory::before{display:none}
-html .mode-command:has(.olympus-armory) :is(.olympus-armory,.command-console[data-layout="expanded"]):is(:hover,:focus-within,:has([aria-expanded="true"])){background:rgba(3,12,19,.92);border-color:#b6c5ce4d;box-shadow:inset 0 1px 0 #e8d1a31c,0 12px 28px #0005}
-html .mode-command:has(.olympus-armory) :is(.armory-index,.active-mission-card,.console-command-bar){background-color:#030c123b;background-image:none}
-html .mode-command:has(.olympus-armory) .olympus-armory .armory-roster-copy{text-shadow:0 1px 3px #000c}
-@media(hover:none){html .mode-command:has(.olympus-armory) :is(.olympus-armory,.command-console[data-layout="expanded"]){background:rgba(3,12,19,.85)}}
-@media(prefers-reduced-motion:reduce){html .mode-command:has(.olympus-armory) :is(.olympus-armory,.command-console[data-layout="expanded"]){transition:none}}
+html .app-shell :is(.olympus-armory,.command-console[data-layout="expanded"]){background:rgba(3,12,19,.64);border-color:#9db7c52b;backdrop-filter:blur(2px);box-shadow:inset 0 1px 0 #e8d1a312,0 8px 24px #0002;transition:background-color 240ms ease,border-color 240ms ease,box-shadow 240ms ease}
+html .app-shell .olympus-armory::before{display:none}
+html .app-shell :is(.olympus-armory,.command-console[data-layout="expanded"]):is(:hover,:focus-within,:has([aria-expanded="true"])){background:rgba(3,12,19,.92);border-color:#b6c5ce4d;box-shadow:inset 0 1px 0 #e8d1a31c,0 12px 28px #0005}
+html .app-shell :is(.armory-index,.active-mission-card,.console-command-bar){background-color:#030c123b;background-image:none}
+html .app-shell .olympus-armory .armory-roster-copy{text-shadow:0 1px 3px #000c}
+@media(hover:none){html .app-shell :is(.olympus-armory,.command-console[data-layout="expanded"]){background:rgba(3,12,19,.85)}}
+@media(prefers-reduced-motion:reduce){html .app-shell :is(.olympus-armory,.command-console[data-layout="expanded"]){transition:none}}
 
 @media(max-height:850px){
  .command-brief{gap:3px}.command-brief-line{font-size:11px}
- html .mode-command:has(.olympus-armory) .console-idle[data-command-brief]{padding:12px 18px 13px}
+ html .app-shell .command-console[data-conversation-panel] .console-idle[data-command-brief]{padding:12px 18px 13px}
 }

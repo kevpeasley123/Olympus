@@ -1,12 +1,13 @@
 import type { CapabilitySnapshot } from "../../services/capabilities";
 import { armoryPlugins, pluginStatus } from "../../services/armoryPresentation";
 import { inspectArmoryCapability } from "../../services/armoryNavigation";
+import { constellationLinks } from "../../services/constellationLinks";
 
-/** Stable adapter stars; edges indicate shared recorded workflow membership. */
+/** Stable adapter stars; hover lines identify the plugin group. */
 export function ArmoryConstellation({capabilities}:{capabilities:CapabilitySnapshot|null}) {
   const plugins=armoryPlugins(capabilities);
   const points=plugins.map((_,i)=>{const angle=i*2.399963,radius=18+Math.sqrt(i+1)*14;return {x:50+Math.cos(angle)*radius*.6,y:50+Math.sin(angle)*radius*.6}});
-  const edges=plugins.flatMap((a,i)=>plugins.slice(i+1).flatMap((b,j)=>a.workflows.some(id=>b.workflows.includes(id))?[{a:points[i],b:points[i+j+1],id:`${a.id}/${b.id}`}]:[])).slice(0,12);
+  const edges=constellationLinks(points);
   return <div className="armory-constellation" role="group" aria-label={`Plugins constellation: ${capabilities?plugins.length:'unknown'} plugins`}>
     <span className="armory-constellation__label">Plugins <b>{capabilities?plugins.length:'—'}</b></span>
     <div className="armory-constellation__orbit">

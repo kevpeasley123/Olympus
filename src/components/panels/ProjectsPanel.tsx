@@ -5,10 +5,10 @@ import { formatPath } from "../../utils/formatPath";
 import type { ObsidianActionResult } from "../../services/obsidian";
 import { useActionQueue, type ActionQueueTask } from "../../hooks/useActionQueue";
 import { attributeTasks, groupBySourceFile } from "../../services/taskAttribution";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useId } from "react";
 import { useDelegationRuns } from "../../hooks/useDelegationRuns";
 import {
-  buildProjectCommandBoard, isPinnedStatus, operationalStatuses, operationalStatusLabels, ownerLabels,
+  buildProjectCommandBoard, isPinnedStatus, operationalStatusLabels, ownerLabels,
   prepareBlocker, reviewProjectContext, sortCommandProjects,
   type OperationalStatus, type ProjectCommandState
 } from "../../services/projectCommandBoard";
@@ -117,9 +117,8 @@ export function ProjectsPanel({
     consumedVoiceRevision = requestedStatus.revision;
     setFilter(requestedStatus.status);
   }, [requestedStatus]);
-  const [portfolioView,setPortfolioView]=useState<"cards"|"ecosystem">("cards");
-  const [search,setSearch]=useState("");
-  const [sort, setSort] = useState<"priority" | "recent" | "name">("priority");
+  const [highlightedProject,setHighlightedProject]=useState<string|null>(null);
+  const [portfolioView,setPortfolioView]=useState<"all"|"cards"|"ecosystem">("all");
   const { tasks, error: tasksError, loading: tasksLoading } = useActionQueue();
   const { data: runs, error: runsError, loading: runsLoading } = useDelegationRuns();
   const organizer=useOrganizer();
@@ -127,7 +126,7 @@ export function ProjectsPanel({
   const rows = useMemo(() => buildProjectCommandBoard(allProjects, tasks, runs, { tasks: tasksAvailable, runs: runsAvailable },undefined,demoData?undefined:{rows:organizer.data,available:!organizer.error&&organizer.lastSuccessAt!==null}),
     [allProjects, tasks, runs, tasksAvailable, runsAvailable,organizer.data,organizer.error,organizer.lastSuccessAt,demoData]);
   const selected = rows.find(row => row.project.id === projectFilter);
-  const visible = sortCommandProjects(rows.filter(row => (filter === "ALL" || row.operationalStatus === filter) && row.project.name.toLowerCase().includes(search.toLowerCase())), sort);
+  const visible = sortCommandProjects(rows.filter(row => filter === "ALL" || row.operationalStatus === filter), "priority");
   const { perProject, unattributed } = attributeTasks(allProjects, tasks);
   const warnings = [...noteWarnings, ...allProjects.flatMap(project => project.warnings)];
   const scanLoading = !demoData && (projectScan.status === "loading" || (native&&members===null&&!membershipError));
@@ -170,21 +169,15 @@ export function ProjectsPanel({
 
   // Below the rows on the board: they qualify the data, they are not the first thing to read.
   const boardWarnings = warnings.length > 0 ? <details className="command-board-notice"><summary>{plural(warnings.length, "source warning", "source warnings")}</summary>{warnings.map((warning,i) => <p key={i}>{warning}</p>)}</details> : null;
-  const counts = (value: OperationalStatus) => rows.filter(row => row.operationalStatus === value).length;
 
-  return <section className={`dashboard-panel projects-panel project-command portfolio-art ${projectFilter ? "portfolio-detail" : "portfolio-overview"} ${focusMode ? "focus-projects" : ""}`}>
+  return <section className={`dashboard-panel projects-panel project-command portfolio-art ${projectFilter ? "portfolio-detail" : "portfolio-overview"} ${!projectFilter && portfolioView === "all" ? "portfolio-combined" : ""} ${focusMode ? "focus-projects" : ""}`}>
     <header className="command-board-heading">
       <div><h2>{selected ? selected.project.name : <>Projects <span className="portfolio-count">{rows.length}</span></>}</h2></div>
       {demoData&&<span className="portfolio-demo" title="Browser preview · example project data. Desktop provides live records.">Demo data</span>}
-      {!projectFilter&&<div className="portfolio-switch" role="group" aria-label="Project view"><button aria-pressed={portfolioView==="cards"} onClick={()=>setPortfolioView("cards")}>Cards</button><button aria-pressed={portfolioView==="ecosystem"} onClick={()=>setPortfolioView("ecosystem")}>Ecosystem</button></div>}
+      {!demoData && (tasksError || runsError) && <details className="portfolio-source-status"><summary>Records incomplete</summary><p>{tasksError ? "Saved tasks are unavailable. " : ""}{runsError ? "Work and review records are unavailable. " : ""}Status and counts may be incomplete.</p></details>}
+      {!projectFilter&&<div className="portfolio-switch" role="group" aria-label="Project view"><button aria-pressed={portfolioView==="all"} onClick={()=>setPortfolioView("all")}>All</button><button aria-pressed={portfolioView==="cards"} onClick={()=>setPortfolioView("cards")}>Cards</button><button aria-pressed={portfolioView==="ecosystem"} onClick={()=>setPortfolioView("ecosystem")}>Ecosystem</button></div>}
       {projectFilter ? <button className="ghost-action" onClick={backToBoard}>← All projects</button> : <button className="command-project-action" disabled={!native} title={native?undefined:"Add projects in the desktop app"} onClick={()=>setAddTarget(null)}>+ Add project</button>}
-      {!projectFilter && rows.length > 0 && (<div className="command-board-controls">{(tasksError || runsError || ((tasksLoading || runsLoading) && !scanLoading)) && <details className="portfolio-source-status"><summary>{tasksError || runsError ? "Some sources unavailable" : "Reading task records"}</summary><p>Counts and execution state may be incomplete. Unavailable task counts are shown as unknown.</p></details>}<input className="portfolio-search" aria-label="Search projects" placeholder="Search projects…" value={search} onChange={e=>setSearch(e.target.value)}/>
-            <label className="command-board-sort">Show <select aria-label="Filter projects by operational status" value={filter} onChange={event => setFilter(event.target.value as typeof filter)}>
-              <option value="ALL">All projects ({rows.length})</option>
-              {operationalStatuses.filter(value => value === filter || counts(value) > 0).map(value => <option key={value} value={value}>{operationalStatusLabels[value]} ({counts(value)})</option>)}
-            </select></label>
-            <label className="command-board-sort">Sort <select value={sort} onChange={event => setSort(event.target.value as typeof sort)}><option value="priority">Priority</option><option value="recent">Recently changed</option><option value="name">Name</option></select></label>
-          </div>)}
+      {!projectFilter && filter !== "ALL" && <button className="ghost-action" onClick={() => setFilter("ALL")}>{operationalStatusLabels[filter]} · Clear filter</button>}
     </header>
     <div className="command-board-scroll" ref={scrollRef} onScroll={event => { scrollTop.current = event.currentTarget.scrollTop; }}>
       <div className="command-board-inner">
@@ -195,20 +188,20 @@ export function ProjectsPanel({
         {!projectFilter&&members?.some(m=>m.visibility!=="visible")&&<div className="project-management-bar">{members&&members.some(m=>m.visibility!=="visible")&&<details><summary>Available &amp; removed projects</summary><div className="project-membership-list">{members.filter(m=>m.visibility!=="visible").map(m=><div key={m.project.id}><span>{m.project.name}<small> · {m.visibility==="removed"?"Removed":"Discovered"}</small></span><button disabled={!!membershipBusy} onClick={()=>void changeVisibility(m,"visible")}>{m.visibility==="removed"?"Restore":"Add"}</button></div>)}</div></details>}</div>}
         <ScanStatus scan={projectScan} demoData={demoData} empty={allProjects.length === 0} root={projectsRootPath} onRescan={onRescan} />
 
-        {projectFilter && (tasksError || runsError) && <p role="status" className="command-board-notice">Some sources are unavailable. Counts and execution state may be incomplete.</p>}
-        {projectFilter && boardWarnings}
-        {selected&&members?.find(m=>m.project.id===selected.project.id)&&<details key={selected.project.id} className="project-brief-disclosure" open={!selected.project.vision}><summary>Project brief &amp; sources</summary><ProjectBrief member={members.find(m=>m.project.id===selected.project.id)!} onChanged={updateMember} onLink={()=>setAddTarget(members.find(m=>m.project.id===selected.project.id)!)}/></details>}
         {projectFilter && !selected ? (scanLoading ? <BoardSkeleton /> : <p className="command-board-notice">Project is no longer available. Return to the portfolio.</p>) : selected ? <ProjectDetail
             row={selected} runs={runsAvailable ? runs : null} tasks={perProject.get(selected.project.id) ?? []}
-            sessionBoundary={sessionBoundary} onOpenNote={onOpenNote} />
+            sessionBoundary={sessionBoundary} onOpenNote={onOpenNote} tasksAvailable={tasksAvailable} />
         : scanLoading ? <BoardSkeleton /> : rows.length === 0 ? boardWarnings : <>
-          {portfolioView==="ecosystem" ? <ProjectEcosystem rows={visible} onOpen={openProject}/> : <div className="command-board-rows">
-            {visible.map(row => <ProjectRow key={row.project.id} row={row} onOpen={openProject} management={native&&members?.some(m=>m.project.id===row.project.id)?<details className="project-row-options" onKeyDown={event=>{if(event.key==="Escape"){event.currentTarget.open=false;event.currentTarget.querySelector("summary")?.focus();event.stopPropagation()}}}><summary aria-label={`Options for ${row.project.name}`}>•••</summary><div><button disabled={!!membershipBusy} onClick={()=>setAddTarget(members!.find(m=>m.project.id===row.project.id)!)}>Link another source</button><button disabled={!!membershipBusy||!!row.openRun||row.operatorDecisions.length>0} onClick={()=>void changeVisibility(members!.find(m=>m.project.id===row.project.id)!,"removed")}>Remove from dashboard</button><p>{row.openRun||row.operatorDecisions.length?"Resolve active work or its review first.":"Keeps project files and history. You can restore it later."}</p></div></details>:undefined}/>)}
+          {portfolioView!=="ecosystem" && <div className="command-board-rows">
+            {visible.map(row => <ProjectRow key={row.project.id} row={row} highlighted={portfolioView==="all"&&highlightedProject===row.project.id} onOpen={openProject} management={native&&members?.some(m=>m.project.id===row.project.id)?<details className="project-row-options" onKeyDown={event=>{if(event.key==="Escape"){event.currentTarget.open=false;event.currentTarget.querySelector("summary")?.focus();event.stopPropagation()}}}><summary aria-label={`Options for ${row.project.name}`}>•••</summary><div><button disabled={!!membershipBusy} onClick={()=>setAddTarget(members!.find(m=>m.project.id===row.project.id)!)}>Link another source</button><button disabled={!!membershipBusy||!!row.openRun||row.operatorDecisions.length>0} onClick={()=>void changeVisibility(members!.find(m=>m.project.id===row.project.id)!,"removed")}>Remove from dashboard</button><p>{row.openRun||row.operatorDecisions.length?"Resolve active work or its review first.":"Keeps project files and history. You can restore it later."}</p></div></details>:undefined}/>)}
             {!visible.length && <p className="command-board-notice">No projects match this status.</p>}
           </div>}
+          {portfolioView!=="cards" && <ProjectEcosystem rows={visible} onOpen={openProject} onHighlight={setHighlightedProject}/>}
           {boardWarnings}
           {unattributed.length > 0 && <details className="command-unattributed"><summary>{plural(unattributed.length, "task", "tasks")} without a project</summary><UnattributedTasks tasks={unattributed} /></details>}
         </>}
+        {selected&&members?.find(m=>m.project.id===selected.project.id)&&<details key={selected.project.id} className="project-brief-disclosure"><summary>Edit project brief &amp; sources</summary><ProjectBrief member={members.find(m=>m.project.id===selected.project.id)!} onChanged={updateMember} onLink={()=>setAddTarget(members.find(m=>m.project.id===selected.project.id)!)}/></details>}
+        {selected && boardWarnings}
 
       </div>
     </div>
@@ -247,83 +240,108 @@ function OwnerChip({ row }: { row: ProjectCommandState }) {
   return <span className={`command-owner-chip owner-${(row.nextMoveOwner ?? "unknown").toLowerCase()}`}>Owner: {owner}</span>;
 }
 
-function ProjectRow({ row, onOpen, management }: { row: ProjectCommandState; onOpen: (projectId: string) => void; management?:React.ReactNode }) {
+function ProjectRow({ row, onOpen, management, highlighted=false }: { highlighted?:boolean; row: ProjectCommandState; onOpen: (projectId: string) => void; management?:React.ReactNode }) {
+  const [nextExpanded, setNextExpanded] = useState(false);
+  const [nextOverflows, setNextOverflows] = useState(false);
+  const nextRef = useRef<HTMLParagraphElement>(null);
+  const nextId = useId();
+  const nextText = row.nextMove || row.olympusRecommendation;
+  useLayoutEffect(() => {
+    const node = nextRef.current;
+    if (!node) return;
+    const measure = () => {
+      if (!nextExpanded) setNextOverflows(node.scrollHeight > node.clientHeight + 1);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [nextText, nextExpanded]);
   const pinned = isPinnedStatus(row.operationalStatus);
   const decision = row.operatorDecisions[0];
   const action = decision ? (decision.phase === "waiting" ? "Review plan" : "Review result")
     : row.openRun ? "View progress" : row.operationalStatus === "COMPLETE" ? "View project" : "Continue project";
-  return <article className={`command-project-row status-${row.operationalStatus.toLowerCase()} ${pinned ? "is-pinned" : ""}`} aria-label={row.project.name} style={{"--project-hue":projectColor(row.project.id)} as React.CSSProperties}>
+  return <article className={`command-project-row ${highlighted ? "is-orb-highlighted" : ""} status-${row.operationalStatus.toLowerCase()} ${pinned ? "is-pinned" : ""}`} aria-label={row.project.name} onClick={event => {
+    const target = event.target as HTMLElement;
+    if (target.closest("button, a, input, select, textarea, summary, details") || window.getSelection()?.toString()) return;
+    onOpen(row.project.id);
+  }} style={{"--project-hue":projectColor(row.project.id,row.project.name)} as React.CSSProperties}>
     <header>
-      <ProjectEmblem id={row.project.id}/><h3>{row.project.name}</h3>
-      {row.operationalStatus !== "UNKNOWN" && <span className="command-operational-status">{operationalStatusLabels[row.operationalStatus]}</span>}
+      <ProjectEmblem id={row.project.id} name={row.project.name}/><h3 title={row.project.name}>{row.project.name}</h3>
+      {pinned && <span className="command-operational-status">{operationalStatusLabels[row.operationalStatus]}</span>}
+    <div className="portfolio-workload" title="Open tasks recorded in the vault task ledger">{row.openTaskCount===null?"Tasks unknown":`${row.openTaskCount} open tasks`}</div>
       {management}
     </header>
     <p className={`command-project-purpose ${row.project.vision.trim() ? "" : "is-missing"}`}>{row.project.vision.trim() || "This project's purpose and vision haven't been recorded yet."}</p>
-    <div className="portfolio-workload" title="Open tasks recorded in the vault task ledger">{row.openTaskCount===null?"Tasks unknown":`${row.openTaskCount} open tasks`}</div>
     <div className="command-project-next">
       <section className="command-recommendation">
-        <h4>{row.nextMove ? "Next step" : "Olympus recommends"}</h4>
-        <p title={row.nextMove || row.olympusRecommendation}>{row.nextMove || row.olympusRecommendation}</p>
+        <ListChecks size={13} aria-hidden="true"/>
+        <div className="project-next-copy"><p ref={nextRef} id={nextId} className={nextExpanded ? "is-expanded" : undefined}><span>{row.nextMove ? "Next: " : "Suggested: "}</span>{nextText}</p>
+        {(nextOverflows || nextExpanded) && <button type="button" className="project-next-toggle" aria-expanded={nextExpanded} aria-controls={nextId} aria-label={`${nextExpanded ? "Collapse" : "Expand"} next step for ${row.project.name}`} onClick={() => setNextExpanded(value => !value)}>{nextExpanded ? "Less ▴" : "More ▾"}</button>}</div>
       </section>
       <button className="command-project-action" onClick={() => onOpen(row.project.id)}>{action==="Continue project"?<>Continue<span className="projects-sr-only"> project</span></>:action}<span className="projects-sr-only"> {row.project.name}</span><span aria-hidden="true"> ↗</span></button>
     </div>
-    <details className="command-row-details">
-      <summary>Project details{row.operatorDecisions.length > 1 ? ` · ${row.operatorDecisions.length} reviews pending` : ""}</summary>
-      <p><strong>Olympus recommends</strong> · {row.olympusRecommendation}</p>
-      <p>{row.currentState}</p>
-      <OwnerChip row={row} />
-      {row.operationalStatus === "UNKNOWN" && <p>Operational status has not been confirmed.</p>}
-      {row.operatorDecisions.length > 1 && <ul>{row.operatorDecisions.map(decision => <li key={decision.runId}>{decision.text}</li>)}</ul>}
-      {row.attention.length > 0 && <ul>{row.attention.map((item,i) => <li key={i}>{item.text} <small>· {item.source}</small></li>)}</ul>}
-      {row.lastMeaningfulChange && <p>{row.lastMeaningfulChange.source} · {formatWhen(row.lastMeaningfulChange.at)}</p>}
-    </details>
+
   </article>;
 }
 
-function ProjectDetail({ row, runs, tasks, sessionBoundary, onOpenNote }: {
+function ProjectDetail({ row, runs, tasks, sessionBoundary, onOpenNote, tasksAvailable }: {
   row: ProjectCommandState; runs: DelegationRun[] | null; tasks: ActionQueueTask[];
-  sessionBoundary: SessionBoundary | null; onOpenNote: (notePath: string) => void;
+  sessionBoundary: SessionBoundary | null; onOpenNote: (notePath: string) => void; tasksAvailable: boolean;
 }) {
   const project = row.project;
   const commits = sessionBoundary?.previousSessionStartedAt ? project.sinceSessionCommits : project.recentCommits;
-  const blocker = prepareBlocker(project, runs, isTauriRuntime());
+  const visibleCommits = commits.length ? commits : project.lastCommit && project.lastCommitAt ? [{subject:project.lastCommit, at:project.lastCommitAt}] : [];
+  const native = isTauriRuntime();
+  const blocker = prepareBlocker(project, runs, native);
+  const summary = project.summary.trim();
   return <>
-    <section className="command-project-detail" aria-label={`${project.name} detail`}>
-      <p className="command-detail-vision">{project.vision.trim() || "This project's purpose and vision haven't been recorded yet."}</p>
-      <div className="command-detail-grid">
-        <section className="command-recommendation"><h3>Ω Olympus recommends <span>rule-based suggestion · not approval</span></h3><p>{row.olympusRecommendation}</p></section>
+    <section className="command-project-detail project-overview" aria-label={`${project.name} detail`}>
+      <div className="project-overview-intro">
+        <span className="project-overview-emblem"><ProjectEmblem id={project.id} name={project.name} /></span>
+        <div>
+          <p>{summary || project.vision.trim() || "Add a project brief to describe its purpose."}</p></div>
       </div>
-      <div className="command-board-actions"><button className="ghost-action" onClick={() => reviewProjectContext([row])}>Review with Olympus</button></div>
+      <div className="project-overview-layout">
+        <div className="project-overview-main">
+          <section className="project-overview-card"><span className="project-section-label">DIRECTION</span><h3>Vision</h3>
+            <p className="command-detail-vision">{project.vision.trim() || "No vision recorded."}</p>
+            {project.visionReviewedAt && <small>Reviewed {dayLabel(`${project.visionReviewedAt}T00:00:00`)}</small>}
+          </section>
+          <section className="project-overview-card"><span className="project-section-label">PROGRESS</span><h3>Recent changes</h3>
+            {visibleCommits.length ? <ul className="project-change-list">{visibleCommits.slice(0,3).map((commit,i) => <li key={`${commit.at}-${i}`}><span>{commit.subject}</span><time dateTime={commit.at}>{formatWhen(commit.at)}</time></li>)}</ul>
+              : <p className="project-overview-muted">{sessionBoundary?.previousSessionStartedAt ? "No commits recorded since the previous session." : "No commits recorded in the last 24 hours."}</p>}
+            <small>{visibleCommits.length > 3 ? "Latest 3 · full history in project records. " : ""}{commits.length ? "From Git history" : visibleCommits.length ? "Latest recorded commit" : "Git history"} · code changes do not confirm task completion.</small>
+          </section>
+        </div>
+        <div className="project-overview-side">
+          <section className="project-overview-card"><span className="project-section-label">STATUS</span><h3>Where it stands</h3>
+            <span className="project-overview-status">{operationalStatusLabels[row.operationalStatus].replace(/_/g, " ")}</span>
+            <p>{row.currentState}</p>
+            {row.lastMeaningfulChange && <small>Last change {formatWhen(row.lastMeaningfulChange.at)} · {row.lastMeaningfulChange.source}</small>}
+          </section>
+          <section className="project-overview-card project-next-step"><span className="project-section-label">WHAT’S NEXT</span><h3>Recommended next step</h3>
+            {row.nextAction && <p><strong>Recorded next action</strong><br/>{row.nextAction}</p>}
+            <p>{row.olympusRecommendation}</p>
+            {row.nextMove && row.nextMove !== row.nextAction && <p>{row.nextMove}</p>}
+            {row.nextMoveOwner && row.nextMoveOwner !== "NONE" && <OwnerChip row={row}/>}
+            <button className="ghost-action" onClick={() => reviewProjectContext([row])}>Review with Olympus</button>
+            <small>Based on project records. Review opens a conversation; it does not start work.</small>
+          </section>
+        </div>
+      </div>
+      {row.operatorDecisions.length > 0 && <section className="project-overview-card project-pending-review"><h3>Your review is needed</h3><ul>{row.operatorDecisions.map(decision => <li key={decision.runId}>{decision.text}</li>)}</ul></section>}
     </section>
-
-    <OrganizerPanel key={project.id} projectId={project.id} blocker={blocker} />
-    {project.path ? <details className="command-project-detail" open={Boolean(row.openRun)}><summary>{row.openRun ? "Current work & reviews" : "Other coding runs"}</summary><DelegationPanel project={project} blocker={blocker} /></details> : null}
-
-    <details className="command-project-detail command-project-background">
-      <summary>Project background &amp; activity</summary>
-      <div className="command-detail-chips">
-        <span className="command-operational-status">{operationalStatusLabels[row.operationalStatus]}</span>
-        <OwnerChip row={row} />
-        <span className={`project-state ${project.status} ${project.statusSource}`}
-          title={project.statusSource === "declared" ? `Declared in ${project.notePath ?? "the vault"}` : "No project note declares a status for this one"}>
-          Vault: {STATUS_LABELS[project.status] ?? STATUS_LABELS.unclassified}{project.statusSource === "inferred" ? " (inferred)" : ""}
-        </span>
-      </div>
+    <details className="project-work-disclosure"><summary>Tasks &amp; planning</summary>
+      {native ? <OrganizerPanel key={project.id} projectId={project.id} blocker={blocker} /> : <p className="project-help">Task management is available in the desktop app.</p>}
+      {tasksAvailable ? <ProjectTasks project={project} tasks={tasks} /> : <p className="project-help">Saved task records are unavailable. Task counts are unconfirmed.</p>}
+    </details>
+    {native && project.path ? <details className="project-work-disclosure" open={Boolean(row.openRun)}><summary>{row.openRun ? "Current work & reviews" : "Coding runs"}</summary><DelegationPanel project={project} blocker={blocker} /></details> : null}
+    <details className="project-work-disclosure command-project-background"><summary>Project records &amp; source details</summary>
       <ProjectFacts project={project} onOpenNote={onOpenNote} />
-
-      {row.attention.length > 0 && <section className="command-detail-attention" aria-label="Attention">
-        <h3>Attention <span>observations · not blockers</span></h3>
-        <ul>{row.attention.map((item, i) => <li key={i}>{item.text}<small> · {item.source}</small></li>)}</ul>
-      </section>}
-
-      <h3>Current state</h3><p>{row.currentState}</p>
-      <h3>Recorded next action</h3><p>{row.nextAction || "Not recorded"}</p>
-      {project.vision && <p className="command-detail-note">{project.visionReviewedAt ? `Vision reviewed ${dayLabel(`${project.visionReviewedAt}T00:00:00`)}` : "Vision has no review date."}</p>}
-      <h3>{sessionBoundary?.previousSessionStartedAt ? "Commits since previous session" : "Recent commits"}</h3>
-      {commits.length ? <ul className="command-commit-list">{commits.map((commit,i) => <li key={i}><span>{commit.subject}</span><time dateTime={commit.at}>{formatWhen(commit.at)}</time></li>)}</ul>
-        : <p className="command-detail-note">{sessionBoundary?.previousSessionStartedAt ? "No commits since the previous Olympus session." : "No commits in the last 24 hours."}</p>}
-      <p className="command-detail-note">Blockers and general operator decisions are not recorded as structured fields. Delegation checkpoints appear above.</p>
-      <ProjectTasks project={project} tasks={tasks} />
+      {visibleCommits.length > 3 && <section><h3>Recent commit history</h3><ul className="project-change-list">{visibleCommits.map((commit,i) => <li key={i}><span>{commit.subject}</span><time dateTime={commit.at}>{formatWhen(commit.at)}</time></li>)}</ul></section>}
+      <p className="project-help">Vault status: {STATUS_LABELS[project.status] ?? STATUS_LABELS.unclassified}{project.statusSource === "inferred" ? " (inferred)" : ""}</p>
+      {row.attention.length > 0 && <ul>{row.attention.map((item,i) => <li key={i}>{item.text}<small> · {item.source}</small></li>)}</ul>}
     </details>
   </>;
 }

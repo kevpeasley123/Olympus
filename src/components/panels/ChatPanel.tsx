@@ -5,7 +5,7 @@ import { realtimeVoice, voicePreview, useVoiceState } from "../../services/realt
 import { isModalOpen, SHORTCUTS } from "../../services/shortcuts";
 import { ReplyModeToggle } from "./ReplyModeToggle";
 import { Mic, MicOff, Volume2, VolumeX, Square, Keyboard } from "lucide-react";
-import { ChevronRight, NotebookPen, X, History, Settings2, Paperclip, Maximize2, Minimize2 } from "lucide-react";
+import { ChevronRight, X, Settings2, Paperclip, Maximize2, Minimize2 } from "lucide-react";
 import type { CSSProperties } from "react";
 import { Fragment, memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
@@ -68,6 +68,8 @@ interface ChatPanelProps {
   inspectionProjects?: string[];
   error?: string | null;
   /** This launch's opening briefing, until the operator has seen it (review U10). */
+  onNewBriefing?: () => Promise<void>;
+  briefingPending?: boolean;
   briefing?: { id: string; text: string } | null;
   /**
    * `expanded` fills Command's right column: header, conversation or idle
@@ -89,7 +91,7 @@ interface ChatPanelProps {
 }
 function collapse(text: string): string { return text.split(/\s+/).filter(Boolean).join(" "); }
 
-export function ChatPanel({ companion = false, onVoiceConversationToggle, messages, onSendMessage, onRecordObservation, pending = false, progress = null, onStop, inspectionProjects = [], error = null,onOpenPreferences,autoSpeak=false,onAutoSpeakChange,voiceSettingsReady=true,briefing=null,
+export function ChatPanel({ companion = false, onVoiceConversationToggle, messages, onSendMessage, onRecordObservation, pending = false, progress = null, onStop, inspectionProjects = [], error = null,onOpenPreferences,autoSpeak=false,onAutoSpeakChange,voiceSettingsReady=true,briefing=null,onNewBriefing,briefingPending=false,
   activeMissions = [], selectedMissionId = null, onSelectMission, missionsError = null, missionsLoading = false,
   layout = "compact", onLayoutChange, onActivate, collapseLabel, mission = null, capabilities = null, suggestions = [], onOpenMission, onDismissMission }: ChatPanelProps) {
   const expanded = layout === "expanded";
@@ -249,10 +251,6 @@ export function ChatPanel({ companion = false, onVoiceConversationToggle, messag
     return () => document.removeEventListener("pointerdown", outside);
   }, [mode, editingMemory, expanded]);
 
-  const openComposer = useCallback((seed: string) => {
-    setObservation(collapse(seed).slice(0, OBSERVATION_MAX_CHARS));
-    setObservationStatus(null);
-  }, []);
 
   const observationLength = observation ? collapse(observation).length : 0;
   const observationTooLong = observationLength > OBSERVATION_MAX_CHARS;
@@ -293,9 +291,7 @@ export function ChatPanel({ companion = false, onVoiceConversationToggle, messag
           <span role="status" className="console-status" data-status={status.toLowerCase().replace(/\s+/g, "-")}>{status.replace(/^OLYMPUS /, "")}</span></div>
         {(pending || voice.active || voice.connecting) && <ActivityTrace level={voice.active ? voice.level : 0} busy />}
         <div className="console-header-actions">
-          {expanded && <><button type="button" className="ghost-icon-action" title="Record an observation" aria-label="Record an observation" disabled={recording}
-            onClick={() => { setConversationOpened(true); if (observation === null) openComposer(""); else setObservation(null); }}><NotebookPen size={14} /></button>
-          <button type="button" className="ghost-icon-action" aria-label="Open conversation history" title="Conversation history" onClick={showHistory}><History size={14} /></button></>}
+          {onNewBriefing && <button type="button" className="ghost-action" disabled={briefingPending || pending || voice.active || voice.connecting || !voiceSettingsReady || !isTauriRuntime()} title={!isTauriRuntime() ? "Live briefings require the desktop app" : "Refresh project records and give a new situation briefing"} onClick={() => { setConversationOpened(true); showLive(); void onNewBriefing(); }}>{briefingPending ? "Refreshing…" : "New briefing"}</button>}
           {onLayoutChange && <button type="button" className={expanded ? "ghost-icon-action" : "ghost-action console-restore"} aria-label={expanded ? collapseLabel ?? "Compact console" : "Expand conversation"} title={expanded ? collapseLabel ?? "Compact console" : "Expand conversation"} onClick={() => { onLayoutChange(expanded ? "compact" : "expanded"); if(!collapseLabel)requestAnimationFrame(() => panelRef.current?.querySelector<HTMLButtonElement>(".console-header-actions button:last-child")?.focus()); }}>{expanded ? <><Minimize2 size={14} />{collapseLabel&&<span>{collapseLabel}</span>}</> : <><Maximize2 size={14} /> Expand</>}</button>}
         </div>
       </header>}
@@ -328,8 +324,7 @@ export function ChatPanel({ companion = false, onVoiceConversationToggle, messag
         {!expanded && <header className="console-header">
           <span>{mode === "transcript" ? "TRANSCRIPT" : "LIVE CONVERSATION"}</span>
           <div className="console-header-actions">
-            <button type="button" className="ghost-icon-action" title="Record an observation" aria-label="Record an observation" disabled={recording}
-              onClick={() => observation === null ? openComposer("") : setObservation(null)}><NotebookPen size={14} /></button>
+          {onNewBriefing && <button type="button" className="ghost-action" disabled={briefingPending || pending || voice.active || voice.connecting || !voiceSettingsReady || !isTauriRuntime()} title={!isTauriRuntime() ? "Live briefings require the desktop app" : "Refresh project records and give a new situation briefing"} onClick={() => { setConversationOpened(true); showLive(); void onNewBriefing(); }}>{briefingPending ? "Refreshing…" : "New briefing"}</button>}
             <button type="button" className="ghost-icon-action" aria-label={mode === "transcript" ? "Return to live conversation" : "Minimize console"}
               disabled={editingMemory} onClick={stepBack}><X size={15} /></button>
           </div>
@@ -430,7 +425,6 @@ export function ChatPanel({ companion = false, onVoiceConversationToggle, messag
           {!companion&&onAutoSpeakChange&&<ReplyModeToggle compact={companion} autoSpeak={autoSpeak} onChange={onAutoSpeakChange} disabled={!voiceSettingsReady}/>}
           <ModelRouteControl disabled={pending}/>
           {onOpenPreferences&&<button type="button" className="ghost-icon-action" aria-label="Open preferences" title="Open preferences" onClick={onOpenPreferences}><Settings2 size={14}/></button>}
-          {!expanded && <button type="button" className="ghost-icon-action" aria-label="Open conversation history" title="Conversation history" onClick={showHistory}><History size={14} /></button>}
 
         </div>
         {/* Non-modal: one line under the status, and reading it is the operator's
@@ -456,7 +450,7 @@ export function ChatPanel({ companion = false, onVoiceConversationToggle, messag
           <textarea ref={inputRef} id="olympus-console-input" aria-label="Command to Olympus" rows={1} placeholder="Ask Olympus anything…" value={draft}
             onFocus={() => { if(conversationPanel)setConversationOpened(true); if (mode === "dormant") showLive(); }} onChange={event => setDraft(event.target.value)}
             onKeyDown={event => { if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); submit(); } }} />
-          {!companion&&<button type="button" className="voice-mic-button" aria-label={microphoneActive ? "Stop voice and microphone" : "Start voice conversation"} aria-pressed={microphoneActive} data-live={micLive || undefined} title={microphoneActive ? "Microphone live · Ctrl+Shift+M to stop" : "Microphone · Ctrl+Shift+M"} onClick={() => { if (microphoneActive) realtimeVoice.stop(); else { voicePreview.stop(); realtimeVoice.stop(); void realtimeVoice.start(); } }}>{microphoneActive ? <MicOff size={16}/> : <Mic size={16}/>}</button>}
+          {<button type="button" className="voice-mic-button" disabled={!voiceSettingsReady} aria-label={microphoneActive ? "Stop voice and microphone" : "Start voice conversation"} aria-pressed={microphoneActive} data-live={micLive || undefined} title={microphoneActive ? "Microphone live · Ctrl+Shift+M to stop" : "Microphone · Ctrl+Shift+M"} onClick={() => { if(onVoiceConversationToggle){onVoiceConversationToggle();return;} if (microphoneActive) realtimeVoice.stop(); else { voicePreview.stop(); realtimeVoice.stop(); void realtimeVoice.start(); } }}>{microphoneActive ? <MicOff size={16}/> : <Mic size={16}/>}</button>}
           <button type="button" className="send-button" aria-label="Send command" onClick={submit} disabled={!draft.trim() || pending || !voiceSettingsReady}><ChevronRight size={18} /></button>
         </div>
       </div>
@@ -496,11 +490,11 @@ const ConversationBubble = memo(function ConversationBubble({
     : textReplies ? "Not spoken (Text replies)" : quietPlayback;
   return (
     <article className={`conversation-bubble ${message.role}`} data-message-id={message.id} data-same-speaker={sameSpeaker} data-live={live || undefined}
-      data-kind={briefing ? "briefing" : undefined} aria-label={message.role === "user" ? "You" : briefing ? "Olympus opening briefing" : message.role === "assistant" ? "Olympus" : "System event"}>
+      data-kind={briefing ? "briefing" : undefined} aria-label={message.role === "user" ? "You" : briefing ? "Olympus briefing" : message.role === "assistant" ? "Olympus" : "System event"}>
       <p className="console-message-label">
         {message.role === "assistant" && <span className="console-omega" aria-hidden="true">Ω</span>}
         {message.role === "user" ? "YOU" : message.role === "assistant" ? "OLYMPUS" : "SYSTEM"}
-        {briefing ? <span className="console-briefing-label">Opening briefing · from project state, no model</span>
+        {briefing ? <span className="console-briefing-label">{message.id.includes("-sitrep-") ? "Situation briefing" : "Opening briefing"} · from project state, no model</span>
           : <span className="console-modality" title={message.voice ? "Voice message" : "Typed message"}>{message.voice ? <Mic size={10} aria-label="Voice"/> : <Keyboard size={10} aria-label="Text"/>}</span>}
         {turn?.scope === "gmail-workspace" && <span className="console-turn-scope" title="Asked from Communications; retrieval was scoped to cached Gmail">Communications</span>}
         {live && <span className="console-turn-state">Listening</span>}

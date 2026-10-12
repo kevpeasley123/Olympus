@@ -20,3 +20,16 @@ Native pass one exposed excessive height and broad lighting. Pass two reduced sc
 
 ## Integrated cleanup
 Operator requested removing circular traces, dotted unknown outlines, the size/pause toolbar and Sources & project tools. Unknown remains a text state; reduced-motion and offscreen/hidden pausing remain supported. Increased the cloud-texture contribution while keeping directional dark shading. Integrated the concurrent full-width conversation dock and transparent Projects overview; removed the local ecosystem background overlay so the actual mountain scene remains visible.
+
+## Celestial light and semantic identities
+Operator requested returning to the reference's open sky, luminous warm Omega/text, colored rims and meaningful project symbols. Added generated ecosystem-night-sky.png (built-in image generation; midnight navy stars with mountains limited to lower and outer edges, no baked UI/orbs/text). It replaces the global backdrop only while Project Ecosystem is mounted; Cards and other modes retain their existing environment. Stars and constellation beacons use pixel dimensions to avoid stretching at wide aspect ratios.
+
+Names now select deliberate subject identities consistently across cards and orbs: Pokédex/Pokémon uses a custom Poké Ball; Olympus a mountain; learning a graduation cap; scaffolding blocks; Obsidian a network; health a heartbeat; fruit an apple; agent development a robot. Additional explicit research/studio/website/automation mappings use matching icons. Unknown names use a neutral folder; colors do not depend on sort order or opaque ID hashes. This is presentation mapping, not a claim of backend activity.
+
+Reviewed two native passes: corrected stretched stars, restrained the upper surface brightness and protected label readability. Build, focused identity/portfolio/connection checks and final browser visual regression are tracked separately from native screenshot inspection.
+
+## Olympus is both harness and project
+The exact Olympus (or Project Olympus) project is represented by the central hub rather than a duplicate satellite. Its hub is a keyboard-accessible button opening the same project detail, with task count in its accessible label. Pagination applies to the other projects. If filters exclude Olympus, the harness remains visible but noninteractive; no excluded project is silently reintroduced. The Cards view still includes the Olympus project.
+
+## Shared Projects space and Olympus backdrop
+Operator requested visible Olympus at the left while retaining predominantly open space, shared by Cards and Ecosystem. Edited the generated sky into projects-olympus-space.png: 3:2 desktop composition, warm temple complex on the left mountain, open navy starfield centrally/right. Left-bottom cover alignment preserves the temple under viewport cropping. Scoped to Project mode; Command and other modes retain their existing environment. Supersedes the ecosystem-only background choice above.
