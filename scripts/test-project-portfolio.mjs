@@ -10,6 +10,17 @@ await page.setViewportSize({width,height:960});await page.goto(base+'/project-bo
 check(await page.getByRole('button',{name:'All',exact:true}).getAttribute('aria-pressed')==='true','All initial');
 check(await page.locator('.command-project-row').count()===4 && await page.locator('.ecosystem-node').count()===3,'All includes cards and ecosystem');
 check(await page.locator('.command-board-rows').evaluate(e=>e.getBoundingClientRect().bottom<=document.querySelector('.project-ecosystem').getBoundingClientRect().top),'Cards precede ecosystem');
+const more=page.getByRole('button',{name:/Expand next step for/}).first();
+if(await more.count()) {
+ const cardName=await more.locator('xpath=ancestor::article').getAttribute('aria-label');
+ const card=page.getByRole('article',{name:cardName,exact:true});const before=(await card.boundingBox()).height;
+ await more.focus();await page.keyboard.press('Enter');
+ const less=card.getByRole('button',{name:/Collapse next step for/});
+ check(await less.getAttribute('aria-expanded')==='true','Next step expands with keyboard');
+ check(await card.locator('.project-next-copy p').evaluate(e=>e.scrollHeight<=e.clientHeight+1),'Expanded next text is fully visible');
+ check((await card.boundingBox()).height>before,'Expansion grows the card downward');
+ await less.click();check(Math.abs((await card.boundingBox()).height-before)<2,'Collapse restores compact card');
+}
 await page.screenshot({path:`output/portfolio-review/all-${width}.png`});
 await page.locator('.command-project-row .command-project-action').first().click();
 await page.getByRole('heading',{name:'At a glance',exact:true}).waitFor();

@@ -5,7 +5,7 @@ import { formatPath } from "../../utils/formatPath";
 import type { ObsidianActionResult } from "../../services/obsidian";
 import { useActionQueue, type ActionQueueTask } from "../../hooks/useActionQueue";
 import { attributeTasks, groupBySourceFile } from "../../services/taskAttribution";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useId } from "react";
 import { useDelegationRuns } from "../../hooks/useDelegationRuns";
 import {
   buildProjectCommandBoard, isPinnedStatus, operationalStatusLabels, ownerLabels,
@@ -240,6 +240,22 @@ function OwnerChip({ row }: { row: ProjectCommandState }) {
 }
 
 function ProjectRow({ row, onOpen, management }: { row: ProjectCommandState; onOpen: (projectId: string) => void; management?:React.ReactNode }) {
+  const [nextExpanded, setNextExpanded] = useState(false);
+  const [nextOverflows, setNextOverflows] = useState(false);
+  const nextRef = useRef<HTMLParagraphElement>(null);
+  const nextId = useId();
+  const nextText = row.nextMove || row.olympusRecommendation;
+  useLayoutEffect(() => {
+    const node = nextRef.current;
+    if (!node) return;
+    const measure = () => {
+      if (!nextExpanded) setNextOverflows(node.scrollHeight > node.clientHeight + 1);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [nextText, nextExpanded]);
   const pinned = isPinnedStatus(row.operationalStatus);
   const decision = row.operatorDecisions[0];
   const action = decision ? (decision.phase === "waiting" ? "Review plan" : "Review result")
@@ -255,7 +271,8 @@ function ProjectRow({ row, onOpen, management }: { row: ProjectCommandState; onO
     <div className="command-project-next">
       <section className="command-recommendation">
         <ListChecks size={13} aria-hidden="true"/>
-        <p title={row.nextMove || row.olympusRecommendation}><span>{row.nextMove ? "Next: " : "Suggested: "}</span>{row.nextMove || row.olympusRecommendation}</p>
+        <div className="project-next-copy"><p ref={nextRef} id={nextId} className={nextExpanded ? "is-expanded" : undefined}><span>{row.nextMove ? "Next: " : "Suggested: "}</span>{nextText}</p>
+        {(nextOverflows || nextExpanded) && <button type="button" className="project-next-toggle" aria-expanded={nextExpanded} aria-controls={nextId} aria-label={`${nextExpanded ? "Collapse" : "Expand"} next step for ${row.project.name}`} onClick={() => setNextExpanded(value => !value)}>{nextExpanded ? "Less ▴" : "More ▾"}</button>}</div>
       </section>
       <button className="command-project-action" onClick={() => onOpen(row.project.id)}>{action==="Continue project"?<>Continue<span className="projects-sr-only"> project</span></>:action}<span className="projects-sr-only"> {row.project.name}</span><span aria-hidden="true"> ↗</span></button>
     </div>
