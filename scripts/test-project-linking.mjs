@@ -15,6 +15,7 @@ try{
  await page.getByRole('button',{name:'Browse…',exact:true}).click();
  assert.equal(await page.getByRole('textbox',{name:'Project folder'}).inputValue(),'C:/Fixture/Folder project');
  await page.getByRole('button',{name:'Add project',exact:true}).click();
+ await page.locator('.project-brief-disclosure > summary').click();
  await page.getByRole('region',{name:'Project brief',exact:true}).waitFor();
  await page.waitForFunction(()=>!document.querySelector('.project-command')?.textContent.includes('Updating project…'));
  const purpose=page.getByRole('textbox',{name:'What should this project achieve?'});
@@ -32,7 +33,7 @@ try{
  assert(!(await page.evaluate(()=>window.projectFixture.calls)).some(c=>/assistant|start_delegation/.test(c)));
  await page.getByRole('button',{name:'← All projects',exact:true}).click();
  const card=page.getByRole('article',{name:'Folder project',exact:true});
- await card.getByRole('button',{name:'Continue project Folder project',exact:true}).click();assert.equal(await purpose.inputValue(),'Make project decisions simple and reliable.');
+ await card.getByRole('button',{name:'Continue project Folder project',exact:true}).click();await page.locator('.project-brief-disclosure > summary').click();assert.equal(await purpose.inputValue(),'Make project decisions simple and reliable.');
  await page.getByRole('button',{name:'← All projects',exact:true}).click();
  await card.getByLabel('Options for Folder project').click();await page.evaluate(()=>window.projectFixture.blockRemoval(true));
  await card.getByRole('button',{name:'Remove from dashboard',exact:true}).click();await page.getByRole('alert').filter({hasText:'Resolve this project'}).waitFor();assert(await card.isVisible());
@@ -41,9 +42,9 @@ try{
  await page.getByRole('button',{name:'Undo',exact:true}).click();await card.waitFor();
  await card.getByLabel('Options for Folder project').click();await card.getByRole('button',{name:'Remove from dashboard',exact:true}).click();await page.getByRole('button',{name:'Undo',exact:true}).waitFor();
  await page.getByRole('button',{name:'+ Add project',exact:true}).click();await page.getByRole('textbox',{name:'Project folder'}).fill('C:/Fixture/Folder project');await page.getByRole('button',{name:'Add project',exact:true}).click();
- await page.getByRole('button',{name:'Restore project',exact:true}).click();await purpose.waitFor();await page.getByRole('button',{name:'← All projects',exact:true}).click();
+ await page.getByRole('button',{name:'Restore project',exact:true}).click();await page.locator('.project-brief-disclosure > summary').click();await purpose.waitFor();await page.getByRole('button',{name:'← All projects',exact:true}).click();
  for(const [kind,field,value] of [['Git repository','Repository URL','https://github.com/example/repository'],['An idea','Project name','A new idea']]){
-  await page.getByRole('button',{name:'+ Add project',exact:true}).click();await page.getByRole('button',{name:kind,exact:true}).click();await page.getByRole('textbox',{name:field,exact:true}).fill(value);await page.getByRole('button',{name:'Add project',exact:true}).click();await purpose.waitFor();await page.waitForFunction(()=>!document.querySelector('.project-command')?.textContent.includes('Updating project…'));await page.getByRole('button',{name:'← All projects',exact:true}).click();
+  await page.getByRole('button',{name:'+ Add project',exact:true}).click();await page.getByRole('button',{name:kind,exact:true}).click();await page.getByRole('textbox',{name:field,exact:true}).fill(value);await page.getByRole('button',{name:'Add project',exact:true}).click();await page.locator('.project-brief-disclosure > summary').click();await purpose.waitFor();await page.waitForFunction(()=>!document.querySelector('.project-command')?.textContent.includes('Updating project…'));await page.getByRole('button',{name:'← All projects',exact:true}).click();
  }
  for(const width of [1440,980,640]){await page.setViewportSize({width,height:960});assert(await page.locator('.command-board-scroll').evaluate(e=>e.scrollWidth<=e.clientWidth+1));await page.screenshot({path:`output/project-linking/portfolio-${width}.png`})}
  await page.setViewportSize({width:1440,height:960});

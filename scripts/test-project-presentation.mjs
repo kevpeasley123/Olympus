@@ -30,8 +30,10 @@ try {
   await page.screenshot({path:`${output}/projects-${width}.png`});
  }
  await olympus.getByRole('button',{name:'Continue project Olympus',exact:true}).click();
- await page.getByRole('heading',{name:'Your tasks',exact:true}).waitFor();
+ await page.getByRole('heading',{name:'At a glance',exact:true}).waitFor();
  assert.equal(await page.getByRole('button',{name:'Open project note',exact:true}).isVisible(),false,'Vault shortcut stays behind details');
+ assert.equal(await page.getByText('Error: Organizer requires the Olympus desktop connection.',{exact:true}).count(),0);
+ for(const heading of ['Vision','Recent changes','Where it stands','Recommended next step'])assert(await page.getByRole('heading',{name:heading,exact:true}).isVisible());
  await page.screenshot({path:`${output}/project-detail.png`});
  await page.goto(base+'project-board-harness.html?run',{waitUntil:'domcontentloaded',timeout:60000});
  await page.waitForFunction(()=>/^(PASS|FAIL)/.test(document.querySelector('#results')?.textContent??''),{},{timeout:60000});

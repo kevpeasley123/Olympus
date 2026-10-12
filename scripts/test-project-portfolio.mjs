@@ -16,17 +16,21 @@ check(await page.locator('.ecosystem-node').count()===3,'Olympus is represented 
 check(await page.locator('.is-unmeasured').count()===4,'Unavailable tasks stay unknown');
 const hub=page.getByRole('button',{name:'Open Olympus project, task count unknown',exact:true});
 check(await hub.count()===1,'One interactive Olympus hub');
-await hub.focus();await page.keyboard.press('Enter');await page.getByRole('heading',{name:'Your tasks',exact:true}).waitFor();
+await hub.focus();await page.keyboard.press('Enter');await page.getByRole('heading',{name:'At a glance',exact:true}).waitFor();
 check(await page.locator('.command-detail-vision').count()===1,'Central hub opens the project detail');
 await page.getByRole('button',{name:'← All projects',exact:true}).click();
 
 check(await page.locator('.ecosystem-toolbar,.ecosystem-orbits,.command-portfolio-tools').count()===0,'Removed scene controls and tools stay absent');
 check(await page.locator('.command-board-scroll').evaluate(e=>e.scrollWidth<=e.clientWidth+1),'No horizontal ecosystem overflow');
 await page.screenshot({path:`output/portfolio-review/ecosystem-${width}.png`});
-await page.getByRole('textbox',{name:'Search projects'}).fill('Pokedex');check(await page.locator('.ecosystem-node').count()===1,'Search filters ecosystem');check(await page.locator('button.ecosystem-center').count()===0,'Filtered-out Olympus stays a noninteractive harness');
-await page.locator('.ecosystem-node').click();await page.getByRole('heading',{name:'Your tasks',exact:true}).waitFor();await page.getByRole('button',{name:'← All projects',exact:true}).click();check(await page.getByRole('button',{name:'Ecosystem',exact:true}).getAttribute('aria-pressed')==='true','View retained across detail');
+check(await page.locator('.command-board-controls').count()===0,'Portfolio toolbar removed');
+await page.locator('.ecosystem-node').filter({hasText:'Pokedex'}).click();await page.getByRole('heading',{name:'At a glance',exact:true}).waitFor();
+for(const name of ['Vision','Recent changes','Where it stands','Recommended next step'])check(await page.getByRole('heading',{name,exact:true}).isVisible(),`Visible detail section: ${name}`);
+check(await page.locator('.command-board-scroll').evaluate(e=>e.scrollWidth<=e.clientWidth+1),'No horizontal detail overflow');
+await page.screenshot({path:`output/portfolio-review/detail-${width}.png`});
+await page.getByRole('button',{name:'← All projects',exact:true}).click();check(await page.getByRole('button',{name:'Ecosystem',exact:true}).getAttribute('aria-pressed')==='true','View retained across detail');
 }
-await page.emulateMedia({reducedMotion:'reduce'});await page.getByRole('textbox',{name:'Search projects'}).fill('');check(await page.locator('.ecosystem-planet').first().evaluate(e=>getComputedStyle(e).animationName)==='none','Reduced motion respected');
+await page.emulateMedia({reducedMotion:'reduce'});check(await page.locator('.ecosystem-planet').first().evaluate(e=>getComputedStyle(e).animationName)==='none','Reduced motion respected');
 await page.goto(base+'/project-board-harness.html?ecosystem-metrics');
 const fixture=page.locator('#metric-fixture');await fixture.locator('.ecosystem-node').first().waitFor();check(await fixture.locator('.ecosystem-node').count()===8,'Large portfolios paginated');
 const sizes=await fixture.locator('.ecosystem-planet').evaluateAll(nodes=>nodes.map(n=>n.getBoundingClientRect().width));check(sizes[0]<sizes[1]&&sizes[1]<sizes[2],'Narrow planet sizing preserves workload order');

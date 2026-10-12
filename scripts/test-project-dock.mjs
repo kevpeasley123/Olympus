@@ -16,7 +16,7 @@ try{
  await page.screenshot({path:output+'/projects-wide.png'});
  await dock.click();const input=page.getByRole('textbox',{name:'Command to Olympus',exact:true});await input.fill('Keep this project draft');
  await page.waitForTimeout(300);assert((await projects.boundingBox()).width<closedWidth-300,'Conversation makes room alongside projects');
- await page.getByPlaceholder('Search projects…').click();assert.equal(await input.isVisible(),true,'Outside clicks do not collapse chat');
+ await page.getByRole('heading',{name:/Projects/}).first().click();assert.equal(await input.isVisible(),true,'Outside clicks do not collapse chat');
  await page.screenshot({path:output+'/conversation-open.png'});
  await page.getByRole('button',{name:'Back to projects',exact:true}).click();assert.equal(await input.isVisible(),false);assert(await dock.evaluate(el=>el===document.activeElement),'Focus returns to the dock');
  await dock.click();assert.equal(await input.inputValue(),'Keep this project draft','Draft survives collapse');
