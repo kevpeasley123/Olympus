@@ -54,6 +54,9 @@ pub struct AssistantContext {
     #[serde(default)] pub capability: super::models::Capability,
     #[serde(default)] pub voice_depth: Option<String>,
     #[serde(default)] pub command_board: serde_json::Value,
+    /// A temporary chat: never stored, and it neither reads nor feeds learned
+    /// memory or past chats (docs/CONVERSATIONS-AND-MEMORY.md).
+    #[serde(default)] pub temporary: bool,
     pub projects_root_path: String,
     #[serde(default)]
     pub projects: Vec<ProjectSummary>,
@@ -1499,7 +1502,7 @@ mod tests {
             gmail_context: String::new(),
             repository_context: String::new(),
             capability: crate::commands::models::Capability::Primary,
-            voice_depth: None, command_board: serde_json::Value::Null,
+            voice_depth: None, command_board: serde_json::Value::Null, temporary: false,
             projects_root_path: "C:/projects".to_string(),
             projects: vec![ProjectSummary {
                 name: "Olympus".to_string(),

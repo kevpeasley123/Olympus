@@ -148,13 +148,17 @@ pub struct ConversationSummary {
     pub vault_path: Option<String>,
 }
 
+/// Every launch opens a chat with its briefing in it. Until the operator says
+/// something there, it is not a chat worth listing, searching or learning from.
+pub const HAS_OPERATOR_TURN: &str = "EXISTS (SELECT 1 FROM conversation_messages u WHERE u.conversation_id = c.id AND u.role = 'user')";
+
 pub fn list(connection: &Connection, limit: u32) -> Result<Vec<ConversationSummary>, String> {
     connection
-        .prepare(
+        .prepare(&format!(
             "SELECT c.id, c.title, c.summary, c.created_at, c.updated_at, count(m.id), c.legacy, c.vault_path \
              FROM conversations c JOIN conversation_messages m ON m.conversation_id = c.id \
-             GROUP BY c.id ORDER BY c.updated_at DESC, c.id DESC LIMIT ?1",
-        )
+             WHERE {HAS_OPERATOR_TURN} GROUP BY c.id ORDER BY c.updated_at DESC, c.id DESC LIMIT ?1"
+        ))
         .map_err(|e| e.to_string())?
         .query_map([limit], |r| {
             Ok(ConversationSummary {
@@ -194,6 +198,8 @@ pub struct SearchHit {
     pub title: String,
     pub message_id: String,
     pub role: String,
+    /// Matched words sit between U+0002 and U+0003, which stored text never
+    /// carries, so a literal bracket in a message is not read as a match.
     pub snippet: String,
     pub at: String,
 }
@@ -213,11 +219,11 @@ fn fts_query(query: &str) -> Option<String> {
 pub fn search(connection: &Connection, query: &str, limit: u32) -> Result<Vec<SearchHit>, String> {
     let Some(fts) = fts_query(query) else { return Ok(Vec::new()) };
     connection
-        .prepare(
-            "SELECT s.conversation_id, c.title, s.message_id, m.role, snippet(conversation_search, 0, '[', ']', '…', 12), m.created_at \
+        .prepare(&format!(
+            "SELECT s.conversation_id, c.title, s.message_id, m.role, snippet(conversation_search, 0, char(2), char(3), '…', 12), m.created_at \
              FROM conversation_search s JOIN conversation_messages m ON m.id = s.message_id JOIN conversations c ON c.id = s.conversation_id \
-             WHERE conversation_search MATCH ?1 ORDER BY bm25(conversation_search) LIMIT ?2",
-        )
+             WHERE conversation_search MATCH ?1 AND {HAS_OPERATOR_TURN} ORDER BY bm25(conversation_search) LIMIT ?2"
+        ))
         .map_err(|e| e.to_string())?
         .query_map(params![fts, limit], |r| {
             Ok(SearchHit {
@@ -360,7 +366,7 @@ mod tests {
         let hits = search(&c, "notes edit", 10).unwrap();
         assert_eq!(hits.len(), 1);
         assert_eq!((hits[0].conversation_id.as_str(), hits[0].message_id.as_str()), ("chat-1", "a1"));
-        assert!(hits[0].snippet.contains('['), "the match is marked: {}", hits[0].snippet);
+        assert!(hits[0].snippet.contains("\u{2}notes\u{3}"), "the match is marked: {}", hits[0].snippet);
         assert!(search(&c, "\"*) OR (", 10).unwrap().is_empty(), "punctuation never reaches FTS syntax");
         assert_eq!(load_messages(&c, Some("chat-2")).unwrap().len(), 1);
     }
@@ -388,6 +394,18 @@ mod tests {
         assert_eq!(search(&c, "keep", 10).unwrap().len(), 1);
         let research: i64 = c.query_row("SELECT count(*) FROM conversation_research WHERE message_id='d'", [], |r| r.get(0)).unwrap();
         assert_eq!(research, 0);
+    }
+
+    #[test]
+    fn a_briefing_alone_is_not_listed_or_searched_until_the_operator_speaks() {
+        let mut c = db();
+        store_messages(&mut c, "launch", vec![message("briefing-1", "assistant", "Two commits landed on Olympus since yesterday.")]).unwrap();
+        assert!(list(&c, 10).unwrap().is_empty());
+        assert!(search(&c, "commits", 10).unwrap().is_empty());
+        store_messages(&mut c, "launch", vec![message("u", "user", "Which commits?")]).unwrap();
+        let chats = list(&c, 10).unwrap();
+        assert_eq!((chats.len(), chats[0].title.as_str(), chats[0].message_count), (1, "Which commits?", 2));
+        assert_eq!(search(&c, "landed", 10).unwrap().len(), 1);
     }
 
     #[test]

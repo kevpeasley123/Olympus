@@ -36,6 +36,8 @@ import { runAmbientMotionHarness } from "./services/ambientMotion.harness";
 import { runCapabilitiesHarness } from "./services/capabilities.harness";
 import { suggestionsFor, type CapabilitySnapshot, type MissionSnapshot } from "./services/capabilities";
 import { useCommandView } from "./hooks/useCommandView";
+import type { ChatControls } from "./components/panels/ChatHistory";
+import type { ChatSession, ConversationSummary } from "./services/conversations";
 import catalogFixture from "./services/commandAgentsFixture.json";
 import capabilityFixture from "./services/capabilitiesFixture.json";
 import inspectionFixture from "./services/researchVerificationFixture.json";
@@ -52,6 +54,7 @@ export const SCENARIOS = {
   "capability-detail": "Claim Verification inspected from the Research domain",
   "chat-compact": "Compact console, instrument unobstructed",
   "chat-expanded": "Expanded chat with a conversation from this launch",
+  "chats": "The chat list over the expanded conversation",
   "mission-active": "Recorded mail-analysis mission in progress",
   "mission-research": "Recorded research verification in progress",
   "mission-complete": "Research verification finished: result ready",
@@ -83,6 +86,11 @@ mockIPC(command => {
   if (command === "memory_request_evidence") return structuredClone(memoryFixture);
   if (command === "model_routes") return modelPickerFixture;
   if (command === "save_model_selection") return null;
+  if (command === "list_conversations") return structuredClone(chatFixture);
+  if (command === "load_conversation") return [...history, ...thisLaunch];
+  if (command === "search_conversations") return [{ conversationId: "chat-memory", title: chatFixture[1].title, messageId: "m3", role: "assistant", at: chatFixture[0].updatedAt,
+    snippet: "…every chat is kept, and the \u0002memory\u0003 note in Obsidian is updated after a chat goes quiet…" }];
+  if (command === "rename_conversation" || command === "delete_conversation") { mutations++; return null; }
   throw Error(`Unexpected fixture IPC: ${command}`);
 });
 const client: CommandCatalogClient = { read: async () => {
@@ -105,9 +113,14 @@ const missionSets = capabilityFixture.missions as unknown as Record<"none" | "co
 const missionFor: Record<Scenario, MissionSnapshot> = {
   "idle": missionSets.none, "agent-olympus": missionSets.none, "agent-research": missionSets.none, "agent-verification": missionSets.none,
   "agent-coding": missionSets.none, "domain-communications": missionSets.none, "capability-detail": missionSets.none, "chat-compact": missionSets.none,
-  "chat-expanded": missionSets.none, "mission-active": missionSets.mailActive, "mission-research": missionSets.researchActive,
+  "chat-expanded": missionSets.none, "chats": missionSets.none, "mission-active": missionSets.mailActive, "mission-research": missionSets.researchActive,
   "mission-complete": missionSets.completed, "reduced-motion": missionSets.none
 };
+const chatFixture: ConversationSummary[] = [
+  { id: "chat-launch", title: "Which of my research notes support evidence-first review?", summary: "", createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), messageCount: 4, legacy: false, vaultPath: null },
+  { id: "chat-memory", title: "How Olympus should remember", summary: "Agreed that every chat is kept, saved to Obsidian and learned from automatically; temporary chats are not.", createdAt: new Date(Date.now() - 26 * 3600_000).toISOString(), updatedAt: new Date(Date.now() - 25 * 3600_000).toISOString(), messageCount: 14, legacy: false, vaultPath: "10 - Conversations/2026/10/How Olympus should remember.md" },
+  { id: "legacy-41", title: "Pokedex sprite pipeline", summary: "", createdAt: "2026-09-21T15:02:00Z", updatedAt: "2026-09-21T16:40:00Z", messageCount: 31, legacy: true, vaultPath: null }
+];
 // The fixture's clock: completed runs are "recent" only relative to this instant.
 const fixtureNow = Date.parse("2026-09-29T07:20:00Z");
 const earlier = new Date(Date.now() - 26 * 3600_000).toISOString();
@@ -134,10 +147,17 @@ function Harness() {
     window.addEventListener("fixture:conversation-reply",receive);
     return()=>window.removeEventListener("fixture:conversation-reply",receive);
   },[]);
-  const messages = [...(scenario === "chat-expanded" ? [...history, ...thisLaunch] : history),...extraMessages];
+  const messages = [...(scenario === "chat-expanded" || scenario === "chats" ? [...history, ...thisLaunch] : history),...extraMessages];
   if(params.has("memory-evidence"))messages.push({id:"memory-response",role:"assistant",timestamp:"Now",content:"The conversation layout separates discussion from mission oversight. See response details for the prepared memory evidence.",request:{id:"fixture-memory-request",provider:"fixture",requestedModel:"requested-fixture",actualModel:"actual-fixture",capability:"PRIMARY",purpose:"command",reasoningEffort:"medium",requestedAt:new Date().toISOString(),latencyMs:30,firstTokenMs:10,status:"completed",fallbackFrom:null,escalationReason:null,usage:null,errorCode:null}});
 
   const suggestions = useMemo(() => suggestionsFor(capabilities), []);
+  const [chatSession, setChatSession] = useState<ChatSession>({ id: "chat-launch", title: "", temporary: false });
+  const chats: ChatControls = {
+    session: chatSession,
+    onNew: temporary => { setChatSession({ id: `fixture-${Date.now()}`, title: "", temporary: Boolean(temporary) }); return null; },
+    onOpen: async (id, title) => { setChatSession({ id, title, temporary: false }); return null; },
+    onRename: async () => { mutations++; }, onDelete: async () => { mutations++; }
+  };
   useEffect(() => {
     if (scenario === "agent-research") command.selectAgent("research");
     if (scenario === "agent-verification") command.selectAgent("verification");
@@ -166,7 +186,7 @@ function Harness() {
       <section className="right-stack dashboard-column"><div className="panel-slot panel-slot-chat">
         <ChatPanel companion={flagship} inspectionProjects={["fixture-repo"]} messages={messages} autoSpeak={false} onAutoSpeakChange={() => {}} onOpenPreferences={() => {}} onSendMessage={() => { mutations++; }}
           activeMissions={command.liveMissions} selectedMissionId={command.selectedMissionId} onSelectMission={command.selectMission} layout={layout} onLayoutChange={setLayout} mission={command.mission} capabilities={capabilities} suggestions={flagship?suggestions.slice(0,3):suggestions}
-          onOpenMission={destination => setDestination(destination === "research" ? {} : { projects: true })} onDismissMission={command.dismissMission} />
+          onOpenMission={destination => setDestination(destination === "research" ? {} : { projects: true })} onDismissMission={command.dismissMission} chats={flagship ? chats : undefined} />
       </div></section>
     </section></div>
     {!params.has("scenario") && <div className="command-fixture-controls"><span>SYNTHETIC · no live observations</span><label>Fixture <select aria-label="Agent catalog fixture" defaultValue="empty" onChange={e => { catalogScenario = e.target.value; setKey(n => n + 1); }}>{["empty", "history", "unavailable", "six", "error"].map(s => <option key={s}>{s}</option>)}</select></label>

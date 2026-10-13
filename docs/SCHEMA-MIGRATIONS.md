@@ -1,8 +1,22 @@
-# Schema migrations (plan)
+# Schema migrations
 
-Status: **deferred.** Kevin decided on 2026-10-12 to record this and do it
-properly later, not to patch around it. Nothing below is built. The current
-behaviour is described in `ARCHITECTURE.md`, "Schema evolution".
+Status: **built on 2026-10-13** (`src-tauri/src/commands/migrations.rs`), as
+the first step of separate conversations (`docs/CONVERSATIONS-AND-MEMORY.md`).
+Recorded on 2026-10-12, when Kevin deferred it until it could be done properly.
+The rules in force are in `ARCHITECTURE.md`, "Schema evolution". This document
+keeps the reasoning; where the build differs from the plan, the build notes say
+so.
+
+## Build notes
+
+- Migration 2 (`migrations/0002_conversations.sql` plus
+  `conversations::backfill`) is the first real migration, not the table drops
+  queued below.
+- Backups are named `olympus.sqlite.pre-v{target}-from-v{current}.bak`.
+- Plain test fixtures use `migrations::TEST_SCHEMA` (the baseline, every later
+  migration's SQL and the version); tests about migrating call
+  `migrations::apply`. A Rust test pins the baseline's fingerprint, so editing
+  `schema.sql` fails it.
 
 ## The problem
 
@@ -90,8 +104,3 @@ These go into `ARCHITECTURE.md` and `AGENTS.md` when the runner lands:
 2. Optionally: point `organizer_tasks.project_id` at the project registry
    instead of the legacy `projects` table. This is a design decision, not just a
    migration.
-
-## Effort
-
-About a day: the runner, the backup, the refusal, moving the test helpers, the
-equivalence test, and one real migration (the table drops) to prove it.

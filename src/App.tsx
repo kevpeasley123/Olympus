@@ -55,6 +55,7 @@ function App() {
     openingBriefing, requestBriefing, briefingPending,
     projectNoteWarnings,
     chat,
+    chatSession, newChat, openChat, renameChat, deleteChat, syncChatTitle,
     chatPending, chatProgress, cancelChat,
     chatError,
     chatModel,
@@ -352,6 +353,7 @@ function App() {
                   suggestions={suggestionsFor(armory.capabilities).slice(0, 3)}
                   onOpenMission={openMission}
                   onDismissMission={commandView.dismissMission}
+                  chats={{session:chatSession,onNew:newChat,onOpen:openChat,onRename:renameChat,onDelete:deleteChat,onTitleSeen:syncChatTitle}}
                 />
               </ErrorBoundary>
             </FadeInPanel>

@@ -61,7 +61,8 @@ Tauri commands exposed by the desktop shell — every entry in the `generate_han
 | --- | --- |
 | Assistant and models | `send_assistant_message`, `cancel_assistant_message`, `model_routes`, `save_model_selection`, `model_diagnostics` |
 | Voice | `create_voice_session`, `record_voice_request`, `voice_usage`, `elevenlabs_status`, `elevenlabs_connect`, `elevenlabs_disconnect`, `elevenlabs_check`, `elevenlabs_synthesize`, `elevenlabs_cancel` |
-| Persistence | `load_persisted_state`, `begin_operator_session`, `save_settings`, `save_tool_states`, `append_conversation_messages`, `clear_conversation` |
+| Persistence | `load_persisted_state`, `begin_operator_session`, `save_settings`, `save_tool_states`, `append_conversation_messages` |
+| Conversations | `list_conversations`, `load_conversation`, `search_conversations`, `rename_conversation`, `delete_conversation` (see `docs/CONVERSATIONS-AND-MEMORY.md`) |
 | Memory index | `memory_status`, `memory_preview`, `memory_rebuild`, `memory_request_evidence` |
 | Vault | `fetch_pantheon_entries`, `write_pantheon_entry`, `migrate_pantheon_schema`, `save_attachment_to_vault`, `fetch_operator_profile`, `fetch_recent_vault_writes`, `fetch_vault_graph`, `open_vault_note` |
 | Write gate | `resolve_vault_write` |
@@ -84,6 +85,8 @@ Tauri commands exposed by the desktop shell — every entry in the `generate_han
 Read-only additions to existing command results (2026-09-28, design review): `load_persisted_state` returns each message's `at` (the row's `created_at` as ISO 8601 UTC; nothing new is written); `create_voice_session` names a plain provider error code such as `insufficient_quota`, never the response body; `fetch_pantheon_entries` carries each entry's body fingerprint (the value a reply's research snapshot stores), whole-file fingerprint (the value Research Verification binds) and frontmatter `source_url`; `prepare_delegation_run` and `prepare_delegation_resume` return display-only `permitted` and `baseBranch` beside the bound `subject`; `fetch_delegation_review` returns `reviewedAt`; `situation_snapshot` reports understanding freshness (last publish, last attempt, consecutive failures, the worker's real resume time during backoff) and a content revision, answering `{unchanged, revision}` when the caller already holds that revision. `gmail_cache_counts` counts what cache removal, or a narrower history range, would delete; it validates the range like `gmail_set_horizon` and deletes nothing.
 
 2026-09-29: `append_conversation_messages` takes an optional `imported` flag, set only by the one-time `localStorage` import; the rows it inserts are recorded in the additive `conversation_imports` table in the same transaction, and `load_persisted_state` returns `importedAt` instead of `at` for them.
+
+2026-10-13: chats are separate. `append_conversation_messages` requires a `conversationId`; the first append creates the chat, the first operator message titles it, and each new message is indexed for `search_conversations`. `load_persisted_state` returns the chat to reopen (`conversationId`, set only when one was used in the last 30 minutes) with only that chat's messages, and `hasConversations`, which decides the one-time `localStorage` import. A chat with no operator message yet (a launch briefing alone) is not listed or searched. A Temporary chat is never appended; `send_assistant_message` receives `context.temporary`.
 
 `pick_attachment_file` keeps the chosen path in Rust and returns a one-use token; `extract_pdf_text` and `save_attachment_to_vault` accept only that token.
 
@@ -391,13 +394,20 @@ current task revision. `organizer_tasks.project_id` references the legacy
 
 ## Schema evolution
 
-`open_database` (`lib.rs`) runs all of `schema.sql` on every start. Every
-statement is `CREATE … IF NOT EXISTS`, so a new table reaches an existing
-database, but a column or constraint added to an existing table does not. The
-one exception is a hand-written check that adds `delegation_runs.process_id`.
-There is no schema version. Tests build fresh databases from `schema.sql`, so
-they cannot catch this; until a migration runner exists, do not change an
-existing table. The runner is designed but deferred: see
+`PRAGMA user_version` is the schema version, and `commands/migrations.rs`
+brings every database to the latest one by the same ordered steps, so a fresh
+database and Kevin's cannot diverge. Migration 1 is `schema.sql`, frozen on
+2026-10-13 (a test pins its fingerprint), plus the old `process_id` fix-up;
+later migrations live in `src-tauri/migrations/`. Each runs in one transaction
+that also sets the version. Before applying any, `open_database` writes a
+`VACUUM INTO` backup beside the database (the newest three are kept). A
+database newer than the binary is refused, not opened.
+
+Rules: never edit a shipped migration or `schema.sql`; any change to an
+existing table is a new migration. A migration that drops or rewrites data
+needs Kevin's approval; the backup is recovery, not permission. Tests build
+databases through the runner (`migrations::apply`, or `TEST_SCHEMA` for plain
+fixtures), and a test proves a fresh database equals a migrated one. See
 [SCHEMA-MIGRATIONS.md](docs/SCHEMA-MIGRATIONS.md).
 
 ## Speech output
