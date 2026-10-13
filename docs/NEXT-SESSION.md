@@ -7,24 +7,26 @@ file replaced is `docs/archive/NEXT-SESSION-through-2026-10-11.md`.
 
 ## State — 2026-10-13
 
-- **Version 0.33.0** on `master`, released through "Bring everything current"
-  from `claude/modest-mayer-nvawru` with `claude/bold-ptolemy-bwywj1` merged in.
-  Kevin confirmed on 2026-10-12 that 0.30.0 was installed and in daily use;
-  whether 0.31.0 to 0.33.0 are installed is not yet confirmed.
-- **0.33.0** brings in:
-  - **Conversations and memory** (`docs/CONVERSATIONS-AND-MEMORY.md`):
-    - versioned schema migrations, with a backup before each upgrade;
-    - separate, searchable chats, with New chat and Temporary chat;
-    - each chat saved to `10 - Conversations/`;
-    - an automatic memory note, `09 - System/Olympus Memory.md`;
-    - recall of earlier chats;
-    - Preferences > Memory.
-  - **The voice signal** beneath the Omega, from the other session: a canvas
-    energy signal and waveform driven by real audio analysis, a compact
-    speaker switch in place of the Spoken replies pill, and an Omega glow that
-    follows the reply. See the Voice signal section of
-    `docs/COMMAND-FLAGSHIP.md`.
+- **Version 0.34.0** on `master`, released through "Bring everything current"
+  from `claude/project-thread-lp4tw8`. Kevin confirmed on 2026-10-12 that
+  0.30.0 was installed and in daily use; whether 0.31.0 to 0.34.0 are
+  installed is not yet confirmed.
+- **0.34.0** brings in the **Living Pantheon**
+  ([PANTHEON-FIGURES.md](PANTHEON-FIGURES.md)): the five agents stand around
+  the Omega in Command as small marble and gold statues (Zeus above it, Athena
+  and Hephaestus upper left and right, Dionysus and Themis lower left and
+  right).
+  - The statues are built in Blender by `scripts/pantheon/build_figures.py`
+    and skinned in the app to one shared skeleton, so one set of clips and an
+    independent idle behaviour drive all five.
+  - Each god works, waits, completes or slumps only from recorded mission
+    steps; Zeus sends a pulse when a step is assigned and receives one when it
+    completes. Clicking a god opens its Armory loadout.
+  - The Agents constellation moved below the Omega, right of Obsidian Memory.
 - **Earlier releases.**
+  - 0.33.0 brought conversations and memory
+    (`docs/CONVERSATIONS-AND-MEMORY.md`) and the voice signal beneath the
+    Omega.
   - 0.31.0 recorded the Armory direction and built Phase 0b (engine sign-in
     checks, turn limits for delegated Claude Code; `docs/ARMORY-PLAN.md`).
   - 0.32.0 was the guidance cleanup and the removal of proven dead weight.
@@ -33,29 +35,29 @@ file replaced is `docs/archive/NEXT-SESSION-through-2026-10-11.md`.
 
 ## Last verification — 2026-10-13, Linux cloud container
 
-The 0.33.0 merge:
+The 0.34.0 merge:
 - `cargo test --lib`: 539 passed, 18 ignored;
 - `npm run build`;
-- all 47 `scripts/test-*.mjs`, the browser ones on headless Chromium
+- all 48 `scripts/test-*.mjs`, the browser ones on headless Chromium
   through a shim that drops `channel:'msedge'`;
-- `npm run visual:review`: 21/21 captures and 14 functional checks.
+- `npm run visual:review`: 21/21 captures, 14 functional checks and 22
+  Organizer checks.
 
-An independent code review of the conversations work also ran; its findings
-are fixed.
-
-Not the desktop app, WebView2, Tauri IPC or real data.
+Not the desktop app, WebView2, Tauri IPC or real data. The statues have been
+seen only in Chromium with software WebGL.
 
 ## In flight
 
-- **Living Pantheon** on `claude/project-thread-lp4tw8`, not merged: the gods
-  stand around the Omega and act on recorded mission state. Hephaestus is the
-  proof of concept on a stand-in model; the five real models are being made
-  from the reference render (AI image-to-3D, Mixamo rig). Contract, prompts
-  and states: [PANTHEON-FIGURES.md](PANTHEON-FIGURES.md).
+Nothing.
 
 ## Next
 
-1. **Check 0.33.0 on the PC** after Update Olympus.
+1. **Look at the Living Pantheon on the PC** after Update Olympus. All five
+   gods should stand on their pedestals and idle out of step with each other.
+   Under software WebGL the statues took 20 to 30 seconds to appear; note how
+   long they take in WebView2 and whether a pedestal stays empty (a model that
+   fails to load logs a warning). Start a delegated run to see Hephaestus work.
+2. **Check 0.33.0 on the PC**, if not done.
    - The first launch migrates the database and writes
      `olympus.sqlite.pre-v2-from-v1.bak` beside it.
    - Old history appears in the Chats list. Over the next minutes, chat notes
@@ -65,18 +67,18 @@ Not the desktop app, WebView2, Tauri IPC or real data.
      follow the voice and settle in pauses, and the Omega should brighten
      slightly. If the bars keep their small ambient rhythm while audio plays,
      the analysis found no source; note which provider was speaking.
-2. **Armory Phase 0 on the PC.** Open Preferences > Subscription engines. Both
+3. **Armory Phase 0 on the PC.** Open Preferences > Subscription engines. Both
    engines should be found and show a subscription. If either shows "Not
    confirmed", record the output of `claude auth status --json` or
    `codex login status`, so the parser can learn that shape.
-3. **Armory Phase 1, the engine layer**, per `docs/ARMORY-PLAN.md`, after the
+4. **Armory Phase 1, the engine layer**, per `docs/ARMORY-PLAN.md`, after the
    engine spike runs on the PC. Monid belongs to Phase 3b; the spending policy is
    in `OLYMPUS-MANUAL.md`, and the earlier step-by-step plan is the first
    section of `docs/archive/NEXT-SESSION-through-2026-10-11.md`.
-4. **Home semantic navigation.** Approved as an independent slice, not
+5. **Home semantic navigation.** Approved as an independent slice, not
    started. The only written design is the Semantic Zoom section and Phase 4 of
    `docs/archive/SKILLS-GRAPHS-INSPECTION-PLAN.md`.
-5. **One paid Research run from the UI**, once API credit is available.
+6. **One paid Research run from the UI**, once API credit is available.
 
 ## Decisions waiting on Kevin
 
@@ -125,6 +127,7 @@ Not the desktop app, WebView2, Tauri IPC or real data.
 These are recorded in the release lines and still open. Kevin's daily use
 covers the screens he uses; these paths each need a deliberate trigger.
 
+- The Living Pantheon in WebView2, and any god driven by a real mission step.
 - A Coding Delegate (Hephaestus) run that completes under the turn limit, and
   Organizer acceptance of its real result.
 - The engine sign-in checks against Kevin's real Codex and Claude Code installs.
