@@ -7,58 +7,56 @@ file replaced is `docs/archive/NEXT-SESSION-through-2026-10-11.md`.
 
 ## State — 2026-10-13
 
-- **Version 0.32.0** on `master`, released from `claude/modest-mayer-nvawru`
-  through "Bring everything current". Kevin confirmed on 2026-10-12 that 0.30.0
-  was installed and in daily use; whether 0.31.0 and 0.32.0 are installed is
-  not yet confirmed.
-- **0.31.0** (another session, `claude/bold-ptolemy-bwywj1`) recorded the
-  Armory direction and built Phase 0b:
-  - Codex and Claude Code are found and their sign-ins checked (`engines.rs`,
-    Preferences > Subscription engines).
-  - Delegated Claude Code refuses to start without a confirmed subscription and
-    runs within turn limits instead of a dollar budget.
-  - See `docs/ARMORY-PLAN.md`.
-- **0.32.0** brings in:
-  - the guidance cleanup and its drift check;
-  - removal of the chat memory writers, the dashboard exports and proven dead
-    weight (with a before/after style proof on 51 screens);
-  - the project-brief vault commit;
-  - a visual review of the shipped Command.
-- **In flight, not released: conversations and memory**, on
-  `claude/modest-mayer-nvawru`. Kevin approved it on 2026-10-13. See
-  `docs/CONVERSATIONS-AND-MEMORY.md`.
-  - Versioned schema migrations, with a backup before each upgrade
-    (`docs/SCHEMA-MIGRATIONS.md`).
-  - Separate, searchable chats, with New chat and Temporary chat.
-  - Each chat saved to `10 - Conversations/`.
-  - An automatic memory note, `09 - System/Olympus Memory.md`.
-  - Recall of earlier chats.
-  - Preferences > Memory.
+- **Version 0.33.0** on `master`, released through "Bring everything current"
+  from `claude/modest-mayer-nvawru` with `claude/bold-ptolemy-bwywj1` merged in.
+  Kevin confirmed on 2026-10-12 that 0.30.0 was installed and in daily use;
+  whether 0.31.0 to 0.33.0 are installed is not yet confirmed.
+- **0.33.0** brings in:
+  - **Conversations and memory** (`docs/CONVERSATIONS-AND-MEMORY.md`):
+    - versioned schema migrations, with a backup before each upgrade;
+    - separate, searchable chats, with New chat and Temporary chat;
+    - each chat saved to `10 - Conversations/`;
+    - an automatic memory note, `09 - System/Olympus Memory.md`;
+    - recall of earlier chats;
+    - Preferences > Memory.
+  - **The voice signal** beneath the Omega, from the other session: a canvas
+    energy signal and waveform driven by real audio analysis, a compact
+    speaker switch in place of the Spoken replies pill, and an Omega glow that
+    follows the reply. See the Voice signal section of
+    `docs/COMMAND-FLAGSHIP.md`.
+- **Earlier releases.**
+  - 0.31.0 recorded the Armory direction and built Phase 0b (engine sign-in
+    checks, turn limits for delegated Claude Code; `docs/ARMORY-PLAN.md`).
+  - 0.32.0 was the guidance cleanup and the removal of proven dead weight.
 - Every other remote branch ahead of `master` predates the 2026-09-07 history
   restart and shares no history with it; all are superseded.
 
 ## Last verification — 2026-10-13, Linux cloud container
 
-The conversations-and-memory branch:
-- `cargo test --lib`: 539 passed;
+The 0.33.0 merge:
+- `cargo test --lib`: 539 passed, 18 ignored;
 - `npm run build`;
-- the guidance and acceptance-seed scripts;
-- the full visual review (21 captures, 14 functional checks), including chats,
-  chat search and Preferences > Memory;
-- an independent code review, whose findings are fixed.
+- all 47 `scripts/test-*.mjs`, the browser ones on headless Chromium
+  through a shim that drops `channel:'msedge'`;
+- `npm run visual:review`: 21/21 captures and 14 functional checks.
+
+An independent code review of the conversations work also ran; its findings
+are fixed.
 
 Not the desktop app, WebView2, Tauri IPC or real data.
 
 ## Next
 
-1. **Release conversations and memory** when Kevin says "bring everything
-   current". After installing, on the PC:
-   - the first launch migrates his database and writes
-     `olympus.sqlite.pre-v2-from-v1.bak` beside it;
-   - old history appears as chats in the Chats list;
-   - over the following minutes, chat notes appear in `10 - Conversations/`,
-     each with its own vault commit;
-   - a chat left quiet for ten minutes updates `09 - System/Olympus Memory.md`.
+1. **Check 0.33.0 on the PC** after Update Olympus.
+   - The first launch migrates the database and writes
+     `olympus.sqlite.pre-v2-from-v1.bak` beside it.
+   - Old history appears in the Chats list. Over the next minutes, chat notes
+     appear in `10 - Conversations/`, each with its own vault commit.
+   - A chat left quiet for ten minutes updates `09 - System/Olympus Memory.md`.
+   - Listen to a spoken reply and use the microphone. The waveform should
+     follow the voice and settle in pauses, and the Omega should brighten
+     slightly. If the bars keep their small ambient rhythm while audio plays,
+     the analysis found no source; note which provider was speaking.
 2. **Armory Phase 0 on the PC.** Open Preferences > Subscription engines. Both
    engines should be found and show a subscription. If either shows "Not
    confirmed", record the output of `claude auth status --json` or
@@ -85,9 +83,10 @@ Not the desktop app, WebView2, Tauri IPC or real data.
 
 ## Known issues
 
-- **Tests only run on Kevin's machine.** 12 browser test scripts hard-code
-  `channel:'msedge'`, and 11 of them expect a dev server already running on
-  `127.0.0.1:31420` (one uses `31448`). There is no `npm test` and no CI.
+- **Browser tests assume Kevin's machine.** 16 test scripts hard-code
+  `channel:'msedge'`, and most expect a dev server already running on
+  `127.0.0.1:31420` (one uses `31448`). A cloud session runs them on Chromium
+  only through a preload shim. There is no `npm test` and no CI.
 - **One-off review scripts are stale.** `scripts/*-review.mjs` launch Edge only
   and nothing runs them; `mission-review.mjs` looks for "Obsidian
   constellation", now "Obsidian Memory constellation". `npm run visual:review`

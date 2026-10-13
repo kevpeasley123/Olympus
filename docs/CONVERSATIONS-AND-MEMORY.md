@@ -5,9 +5,9 @@ automatically, the way ChatGPT and Claude do. You never approve a memory; you
 can read and edit everything Olympus remembers, in Obsidian, at any time. This
 replaced the earlier "not every exchange earns a vault note" decision.
 
-Built on 2026-10-13 on `claude/modest-mayer-nvawru`. Compiled and unit-tested in
-a Linux container. Not yet run in the desktop app, against Kevin's database, or
-with a real paid memory request.
+Released in 0.33.0 (2026-10-13). Verified in a Linux container only: not yet
+run in the desktop app, against Kevin's database, or with a real paid memory
+request (see `docs/RELEASES.md`).
 
 ## What Kevin sees
 
