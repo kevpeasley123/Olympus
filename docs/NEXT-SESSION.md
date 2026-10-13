@@ -5,7 +5,7 @@ that changes state and at every release (see "Keeping guidance current" in
 `AGENTS.md`). History is in `docs/RELEASES.md` and `docs/archive/`; the log this
 file replaced is `docs/archive/NEXT-SESSION-through-2026-10-11.md`.
 
-## State — 2026-10-12
+## State — 2026-10-13
 
 - **Version 0.32.0** on `master`, released from `claude/modest-mayer-nvawru`
   through "Bring everything current". Kevin confirmed on 2026-10-12 that 0.30.0
@@ -24,6 +24,15 @@ file replaced is `docs/archive/NEXT-SESSION-through-2026-10-11.md`.
     weight (with a before/after style proof on 51 screens);
   - the project-brief vault commit;
   - a visual review of the shipped Command.
+- **In flight:** `claude/bold-ptolemy-bwywj1`, restarted from 0.32.0. It
+  redesigns the voice visualization beneath the Omega from Kevin's reference
+  render. Not merged; see the Voice signal section of
+  `docs/COMMAND-FLAGSHIP.md`.
+  - The PANTHEON heading and the Spoken replies pill are removed.
+  - A canvas energy signal and waveform are driven by real audio analysis
+    (`voiceSignal.ts`).
+  - A compact speaker switch replaces the pill.
+  - The Omega's glow follows the reply envelope.
 - Every other remote branch ahead of `master` predates the 2026-09-07 history
   restart and shares no history with it; all are superseded.
 
@@ -33,6 +42,12 @@ Not the desktop app, WebView2, Tauri IPC or real data. The counts are in the
 0.32.0 release commit message.
 
 ## Next
+
+0. **Voice signal on the PC**, once released. Listen to a spoken reply and use
+   the microphone. The waveform should follow the voice, pauses should settle
+   it, and the Omega should brighten slightly. If the bars stay at their small
+   ambient rhythm while audio plays, the analysis found no source: report
+   which provider was speaking.
 
 1. **Armory Phase 0 on the PC.** Open Preferences > Subscription engines. Both
    engines should be found and show a subscription. If either shows "Not
@@ -108,6 +123,8 @@ covers the screens he uses; these paths each need a deliberate trigger.
 - A Coding Delegate (Hephaestus) run that completes under the turn limit, and
   Organizer acceptance of its real result.
 - The engine sign-in checks against Kevin's real Codex and Claude Code installs.
+- The voice signal against real ElevenLabs replies, realtime voice and the
+  microphone in WebView2. The harness uses synthetic audio only.
 - A paid Research / Verification run from the UI.
 - Live-provider skill guidance.
 - A project brief saved since the 2026-10-12 vault-commit change.
