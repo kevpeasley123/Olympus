@@ -20,7 +20,7 @@ with a real paid memory request.
   - **Temporary chat**.
 
   A chat holding only a launch briefing is not listed until Kevin says something
-  in it.
+  in it. The browser preview has one local conversation and no chat bar.
 - **Temporary chat.** A throwaway chat. It is never saved, never written to the
   vault, and neither uses nor feeds memory or past-chat recall. Leaving it
   discards it.
@@ -41,7 +41,8 @@ with a real paid memory request.
   - **Save chats to Obsidian**, **Learn from chats** and **Use what Olympus
     remembers**, all on by default.
   - Turning learning off stops new updates; it does not delete the note.
-  - The panel shows how many chats are saved and when memory last changed.
+  - The panel shows how many chats are saved, when Olympus last learned from a
+    chat, and any chats it stopped retrying.
   - It offers to learn from the chats kept before this change, after saying how
     many paid requests that is.
 
@@ -56,7 +57,8 @@ with a real paid memory request.
 
 Existing history is split into chats at gaps of more than four hours. Rows
 imported from the browser era form one chat. Every append carries the chat's
-id; the first operator message titles the chat.
+id; the first operator message titles the chat. Messages an older build writes
+into a migrated database are adopted into chats the same way on the next open.
 
 **The background pass** (`commands/chat_memory.rs`). A worker checks once a
 minute while Olympus is open. For each chat that has an operator message, has
@@ -73,10 +75,16 @@ per tick and oldest first:
      skipped).
 
    It returns a title (kept if Kevin renamed the chat), a summary of the whole
-   chat, and the complete updated memory note. The request is recorded with
-   purpose `memory` in Model diagnostics. A failure is recorded on the chat and
-   retried after 30 minutes.
-2. **Save the note**, when saving is on.
+   chat, and the complete updated memory sections. The request has 16,000
+   output tokens, double a chat answer's, since it returns the whole note, and
+   is recorded with purpose `memory` in Model diagnostics.
+   - If only Olympus spoke since the last pass (a briefing added to a reopened
+     chat), the messages are marked seen and no request is made.
+   - A failure is recorded on the chat and retried after 30 minutes, then 60,
+     then 120. After four failures in a row the chat stops retrying until Kevin
+     turns learning off and on.
+2. **Save the note**, when saving is on. A note written before the pass is
+   saved again after it, so it carries the new title and summary.
 
 If the vault is not reachable, nothing is attempted, so no paid request is spent.
 
@@ -87,9 +95,12 @@ intent, which never asks:
   fingerprint Olympus recorded (`artifact_hashes`). Once Kevin edits it, his
   version stays and new messages are only appended at the end. A note he
   deleted is not recreated.
-- **The memory note.** The memory pass reads Kevin's edits as current memory and
-  is told to keep them. It replaces the note only if its bytes are still what
-  was read before the request; otherwise the chat is retried.
+- **The memory note.** The pass rewrites only the sections, from the first
+  `## ` heading on. Kevin's frontmatter (except its `updated` date) and anything
+  he writes above the sections are kept as he left them. The pass reads his
+  edits as current memory and is told to keep them. It replaces the note only
+  if its bytes are still what was read before the request; otherwise the chat
+  is retried.
 
 Every write gets its own vault Git commit and a row in the vault write log.
 Chat notes are left out of the vault graph.
@@ -127,6 +138,7 @@ rule:
 ## Cost
 
 The memory pass is a paid OpenAI request, about one per chat that goes quiet
-with new messages; a long chat can take more than one. It uses the same route as
+with new messages from Kevin; a long chat can take more than one, and a failing
+chat at most four in a row. It uses the same route as
 chat. Turning off "Learn from chats" stops it. Learning from earlier chats is
 one request per chat, started only from Preferences.

@@ -91,11 +91,14 @@ fn relative(vault: &Path, path: &Path) -> String {
 /// working when a third scaffold folder appears, without anyone editing a list.
 fn scaffold_roots(vault: &Path) -> HashSet<PathBuf> {
     let mut by_shape: HashMap<String, Vec<PathBuf>> = HashMap::new();
+    // Chat notes' year and month folders could otherwise share a shape with a
+    // real folder and hide it as scaffolding.
+    let chats = vault.join(super::chat_memory::CHATS_FOLDER);
 
     for entry in WalkDir::new(vault)
         .follow_links(false)
         .into_iter()
-        .filter_entry(|e| !e.file_name().to_string_lossy().starts_with('.'))
+        .filter_entry(|e| !e.file_name().to_string_lossy().starts_with('.') && e.path() != chats)
         .flatten()
     {
         if !entry.file_type().is_dir() {

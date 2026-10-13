@@ -94,7 +94,7 @@ mockIPC(command => {
   if (command === "search_conversations") return [{ conversationId: "chat-memory", title: chatFixture[1].title, messageId: "m3", role: "assistant", at: chatFixture[0].updatedAt,
     snippet: "…every chat is kept, and the \u0002memory\u0003 note in Obsidian is updated after a chat goes quiet…" }];
   if (command === "rename_conversation" || command === "delete_conversation") { mutations++; return null; }
-  if (command === "chat_memory_status") return { saveChats: true, learn: true, useMemory: true, savedChats: 42, earlierNotLearned: 37, earlierQueued: 0,
+  if (command === "chat_memory_status") return { saveChats: true, learn: true, useMemory: true, savedChats: 42, earlierWaiting: 37, earlierQueued: 0, stoppedChats: 0,
     lastLearnedAt: new Date(Date.now() - 3 * 3600_000).toISOString(), lastError: null, memoryNote: "09 - System/Olympus Memory.md", chatsFolder: "10 - Conversations" };
   throw Error(`Unexpected fixture IPC: ${command}`);
 });

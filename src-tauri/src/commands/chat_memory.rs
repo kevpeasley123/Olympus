@@ -22,8 +22,14 @@ pub const CHATS_FOLDER: &str = "10 - Conversations";
 pub const MEMORY_NOTE: &str = "09 - System/Olympus Memory.md";
 /// A chat is left alone until it has been quiet this long.
 const QUIET_MINUTES: i64 = 10;
-/// After a failed memory pass, the chat waits this long before another paid try.
+/// After a failed memory pass the chat waits before another paid try: this
+/// long, doubling each time, and it stops after `MAX_FAILURES` in a row until
+/// Kevin turns learning off and on again.
 const RETRY_MINUTES: i64 = 30;
+const MAX_FAILURES: i64 = 4;
+/// The pass returns the whole memory note plus reasoning, so it gets more room
+/// than a chat answer.
+const PASS_OUTPUT_TOKENS: u32 = 16_000;
 const CHATS_PER_TICK: i64 = 3;
 /// Bounds on one memory pass. Longer chats are learned from in order, one
 /// bounded batch per pass, so nothing is skipped.
@@ -82,6 +88,7 @@ struct Chat {
     memory_watermark: i64,
     vault_due: bool,
     memory_due: bool,
+    legacy: bool,
 }
 
 /// Quiet chats with something left to do, oldest first so memory learns in the
@@ -91,16 +98,18 @@ fn due(connection: &Connection, settings: Settings) -> rusqlite::Result<Vec<Chat
         "WITH quiet AS (SELECT c.id, c.title, c.title_source, c.summary, c.created_at, c.vault_path, c.vault_watermark, \
            c.memory_watermark, c.memory_attempted_at, c.updated_at, \
            (SELECT max(m.rowid) FROM conversation_messages m WHERE m.conversation_id = c.id) AS last_rowid \
+           , c.memory_error, c.memory_failures, c.legacy \
          FROM conversations c WHERE {HAS_OPERATOR_TURN} AND c.updated_at <= ?1), \
          flagged AS (SELECT *, (?3 = 1 AND vault_watermark < last_rowid) AS vault_due, \
-           (?4 = 1 AND memory_watermark < last_rowid AND (memory_attempted_at IS NULL OR memory_attempted_at <= ?2)) AS memory_due FROM quiet) \
-         SELECT id, title, title_source, summary, created_at, vault_path, vault_watermark, memory_watermark, vault_due, memory_due \
+           (?4 = 1 AND memory_watermark < last_rowid AND memory_failures < {MAX_FAILURES} AND (memory_error IS NULL \
+             OR memory_attempted_at <= datetime('now', printf('-%d minutes', ?2 * (1 << max(memory_failures - 1, 0)))))) AS memory_due FROM quiet) \
+         SELECT id, title, title_source, summary, created_at, vault_path, vault_watermark, memory_watermark, vault_due, memory_due, legacy \
          FROM flagged WHERE vault_due OR memory_due ORDER BY updated_at, id LIMIT ?5"
     );
     connection
         .prepare(&sql)?
         .query_map(
-            params![sql_minutes_ago(QUIET_MINUTES), sql_minutes_ago(RETRY_MINUTES), settings.save_chats, settings.learn, CHATS_PER_TICK],
+            params![sql_minutes_ago(QUIET_MINUTES), RETRY_MINUTES, settings.save_chats, settings.learn, CHATS_PER_TICK],
             |r| {
                 Ok(Chat {
                     id: r.get(0)?,
@@ -113,6 +122,7 @@ fn due(connection: &Connection, settings: Settings) -> rusqlite::Result<Vec<Chat
                     memory_watermark: r.get(7)?,
                     vault_due: r.get(8)?,
                     memory_due: r.get(9)?,
+                    legacy: r.get(10)?,
                 })
             },
         )?
@@ -204,6 +214,8 @@ fn render_note(chat: &Chat, title: &str, lines: &[Line], learning: bool) -> Stri
     let iso = |raw: &str| local(raw).map(|t| t.to_rfc3339_opts(chrono::SecondsFormat::Secs, false)).unwrap_or_default();
     let summary = if !chat.summary.is_empty() {
         chat.summary.clone()
+    } else if chat.legacy && chat.memory_watermark > 0 {
+        "_No summary: this chat is from before Olympus learned from chats. Preferences > Memory can learn from it._".into()
     } else if learning {
         "_Summary pending: Olympus writes one after the chat goes quiet._".into()
     } else {
@@ -243,6 +255,8 @@ enum NotePlan {
     /// Kevin removed a note Olympus had written. That is his call; it is not
     /// brought back.
     Removed,
+    /// Kevin edited the note and nothing new has been said since.
+    Unchanged,
 }
 
 fn plan_note(chat: &Chat, title: &str, all: &[Line], on_disk: Option<&str>, recorded: Option<&str>, learning: bool) -> NotePlan {
@@ -254,12 +268,10 @@ fn plan_note(chat: &Chat, title: &str, all: &[Line], on_disk: Option<&str>, reco
         }
         Some(text) => {
             let unseen: Vec<Line> = all.iter().filter(|l| l.rowid > chat.vault_watermark).cloned().collect();
-            let mut content = text.trim_end().to_string();
-            if !unseen.is_empty() {
-                content.push_str("\n\n");
-                content.push_str(render_lines(&unseen).trim_end());
+            if unseen.is_empty() {
+                return NotePlan::Unchanged;
             }
-            content.push('\n');
+            let content = format!("{}\n\n{}\n", text.trim_end(), render_lines(&unseen).trim_end());
             NotePlan::Write { content, whole: false }
         }
     }
@@ -304,6 +316,7 @@ fn save_note(db: &Db, chat: &Chat, root: &Path) -> Result<(), String> {
     };
     let (content, whole) = match plan_note(chat, &title, &all, on_disk.as_deref(), recorded.as_deref(), learning) {
         NotePlan::Removed => return mark(None),
+        NotePlan::Unchanged => return mark(Some(&relative)),
         NotePlan::Write { content, whole } => (content, whole),
     };
     if on_disk.as_deref() == Some(content.as_str()) {
@@ -327,31 +340,56 @@ fn save_note(db: &Db, chat: &Chat, root: &Path) -> Result<(), String> {
 
 // ---- The memory note ----------------------------------------------------------
 
-fn strip_frontmatter(text: &str) -> &str {
-    let text = text.trim_start_matches('\u{feff}');
-    if let Some(rest) = text.strip_prefix("---\n").or_else(|| text.strip_prefix("---\r\n")) {
-        if let Some(end) = rest.find("\n---") {
-            return rest[end + 4..].trim_start_matches(['\r', '\n']);
-        }
+/// The memory note in three parts. The pass rewrites only `sections`, from the
+/// first `## ` heading on; Kevin's frontmatter and anything he puts above the
+/// sections are kept as he left them.
+struct MemoryNote<'a> {
+    frontmatter: Option<&'a str>,
+    preamble: &'a str,
+    sections: &'a str,
+}
+
+fn split_memory(note: &str) -> MemoryNote<'_> {
+    let text = note.trim_start_matches('\u{feff}');
+    let (frontmatter, rest) = match text.strip_prefix("---\n").or_else(|| text.strip_prefix("---\r\n")) {
+        Some(inner) => match inner.find("\n---") {
+            Some(end) => (Some(inner[..end].trim_end_matches('\r')), inner[end + 4..].trim_start_matches(['\r', '\n'])),
+            None => (None, text),
+        },
+        None => (None, text),
+    };
+    let start = if rest.starts_with("## ") { Some(0) } else { rest.find("\n## ").map(|i| i + 1) };
+    match start {
+        Some(i) => MemoryNote { frontmatter, preamble: rest[..i].trim(), sections: rest[i..].trim() },
+        None => MemoryNote { frontmatter, preamble: rest.trim(), sections: "" },
     }
-    text
 }
 
-/// The note without its frontmatter, heading and fixed introduction: the part
-/// the memory pass maintains and the assistant reads.
-pub fn memory_body(note: &str) -> String {
-    let body = strip_frontmatter(note).trim_start();
-    let body = body.strip_prefix("# Olympus Memory").map(str::trim_start).unwrap_or(body);
-    let body = body.strip_prefix(MEMORY_INTRO).unwrap_or(body);
-    body.trim().to_string()
+/// What the note says, for the assistant and the pass: everything but the
+/// frontmatter and Olympus's own heading and introduction.
+pub fn memory_text(note: &str) -> String {
+    let parts = split_memory(note);
+    let preamble = parts.preamble.strip_prefix("# Olympus Memory").map(str::trim_start).unwrap_or(parts.preamble);
+    let preamble = preamble.strip_prefix(MEMORY_INTRO).unwrap_or(preamble).trim();
+    [preamble, parts.sections].iter().filter(|p| !p.is_empty()).copied().collect::<Vec<_>>().join("\n\n")
 }
 
-fn render_memory(body: &str) -> String {
-    format!(
-        "---\ntype: olympus-memory\nmemory_exclude: true\nupdated: {}\n---\n# Olympus Memory\n\n{MEMORY_INTRO}\n\n{}\n",
-        chrono::Local::now().format("%Y-%m-%d"),
-        body.trim()
-    )
+fn render_memory(before: Option<&str>, sections: &str) -> String {
+    let today = chrono::Local::now().format("%Y-%m-%d");
+    let parts = before.map(split_memory);
+    let frontmatter = match parts.as_ref().and_then(|p| p.frontmatter) {
+        Some(existing) => {
+            let mut lines: Vec<String> = existing.lines().map(|l| if l.starts_with("updated:") { format!("updated: {today}") } else { l.to_string() }).collect();
+            if !lines.iter().any(|l| l.starts_with("updated:")) {
+                lines.push(format!("updated: {today}"));
+            }
+            lines.join("\n")
+        }
+        None => format!("type: olympus-memory\nmemory_exclude: true\nupdated: {today}"),
+    };
+    let preamble = parts.as_ref().map(|p| p.preamble).filter(|p| !p.is_empty()).map(str::to_string)
+        .unwrap_or_else(|| format!("# Olympus Memory\n\n{MEMORY_INTRO}"));
+    format!("---\n{frontmatter}\n---\n{preamble}\n\n{}\n", sections.trim())
 }
 
 /// The memory note for this turn's evidence, bounded. Empty when the note does
@@ -359,7 +397,7 @@ fn render_memory(body: &str) -> String {
 pub fn memory_for_prompt() -> String {
     let Ok(target) = vw::resolve_vault_path(Path::new(MEMORY_NOTE)) else { return String::new() };
     let Ok(Some(note)) = vw::read_existing(&target) else { return String::new() };
-    let body = memory_body(&note);
+    let body = memory_text(&note);
     if body.chars().count() <= MEMORY_PROMPT_CHARS {
         return body;
     }
@@ -373,7 +411,7 @@ Input: today's date; the current memory note, which Kevin may have edited (his w
 Return three fields.\n\
 title: what the chat is about, 3 to 8 plain words, no quotes or trailing period. If titleChosenByKevin is true, return the current title unchanged.\n\
 summary: 2 to 4 sentences covering the whole chat so far, building on the earlier summary: what Kevin asked, what was decided, what is still open.\n\
-memory: the complete updated note body in Markdown, with these sections in this order, each a list of one-line bullets: ## About Kevin, ## Preferences, ## Projects, ## In progress, ## Other. Leave a section with no bullets out. Keep it under 1200 words; merge or drop the least useful bullets to stay under.\n\
+memory: the complete updated note body in Markdown, starting at its first section heading, with these sections in this order, each a list of one-line bullets: ## About Kevin, ## Preferences, ## Projects, ## In progress, ## Other. Leave a section with no bullets out. Keep it under 1200 words; merge or drop the least useful bullets to stay under.\n\
 Record only what would help in a later conversation: stable facts about Kevin and his circumstances, how he likes to work and be answered, decisions and their reasons, and work or plans in progress. Skip one-off requests, small talk, and anything true only for the moment.\n\
 Write time-relative facts as absolute dates using today's date (\"going to Singapore next month\" becomes \"planned a Singapore trip for November 2026\"); move a plan whose date has passed to the past tense.\n\
 Update or remove bullets the new messages contradict. Keep everything else exactly as written.\n\
@@ -442,20 +480,32 @@ fn checked(answer: Answer) -> Result<Answer, String> {
     if answer.summary.chars().count() > 2_000 || answer.memory.chars().count() > MEMORY_NOTE_CHARS {
         return Err("memory_pass_output_too_long".into());
     }
-    Ok(Answer { title, ..answer })
+    // Text before the first section would land above the sections, where the
+    // next pass treats it as Kevin's and never rewrites it.
+    let memory = answer.memory.trim();
+    let memory = if memory.is_empty() || memory.starts_with("## ") { memory.to_string() } else { format!("## Other\n{memory}") };
+    Ok(Answer { title, memory, ..answer })
 }
 
 async fn learn(db: &Db, chat: &Chat, root: &Path) -> Result<(), String> {
     let target = vw::resolve_within(root, Path::new(MEMORY_NOTE)).map_err(|e| e.to_string())?;
     let before = vw::read_existing(&target)?;
-    let current = before.as_deref().map(memory_body).unwrap_or_default();
+    let current = before.as_deref().map(memory_text).unwrap_or_default();
     let (lines, more) = {
         let c = db.0.lock().map_err(|e| e.to_string())?;
         batch(lines_after(&c, &chat.id, chat.memory_watermark).map_err(|e| e.to_string())?)
     };
     let Some(seen) = lines.last().map(|l| l.rowid) else { return Ok(()) };
+    if !lines.iter().any(|l| l.role == "user") {
+        // Only Olympus spoke (a briefing added to a reopened chat): nothing of
+        // Kevin's to learn, so no paid request.
+        let c = db.0.lock().map_err(|e| e.to_string())?;
+        c.execute("UPDATE conversations SET memory_watermark = ?2 WHERE id = ?1", params![chat.id, seen]).map_err(|e| e.to_string())?;
+        return Ok(());
+    }
 
-    let route = super::models::resolve(super::models::Capability::Primary);
+    let mut route = super::models::resolve(super::models::Capability::Primary);
+    route.max_output_tokens = route.max_output_tokens.max(PASS_OUTPUT_TOKENS);
     let mut record = super::models::RequestRecord::new(&route, "memory");
     super::models::save(db, &record)?;
     let result = super::responses::structured(&route, INSTRUCTIONS, pass_input(chat, &current, &lines, more), schema(), &mut record).await;
@@ -465,13 +515,13 @@ async fn learn(db: &Db, chat: &Chat, root: &Path) -> Result<(), String> {
 }
 
 fn store_answer(db: &Db, chat: &Chat, root: &Path, target: &Path, before: Option<&str>, answer: &Answer, seen: i64) -> Result<(), String> {
-    let unchanged = before.map(memory_body).unwrap_or_default() == answer.memory.trim();
+    let unchanged = before.map(|note| split_memory(note).sections.to_string()).unwrap_or_default() == answer.memory.trim();
     if !unchanged {
         // Kevin's edits are folded in by the pass itself, which read them as the
         // current memory. If he edited again while it ran, nothing is replaced
         // and the chat is retried.
         let _intent = WriteIntent::MaintainAuthored;
-        vw::replace_if_unchanged(target, before, &render_memory(&answer.memory))?;
+        vw::replace_if_unchanged(target, before, &render_memory(before, &answer.memory))?;
         super::persistence::log_vault_write(db, MEMORY_NOTE, "update_memory");
         commit(root, MEMORY_NOTE, "update memory");
     }
@@ -480,7 +530,7 @@ fn store_answer(db: &Db, chat: &Chat, root: &Path, target: &Path, before: Option
         "UPDATE conversations SET \
            title = CASE WHEN title_source = 'operator' THEN title ELSE ?2 END, \
            title_source = CASE WHEN title_source = 'operator' THEN title_source ELSE 'model' END, \
-           summary = ?3, memory_watermark = ?4, memory_attempted_at = ?5, memory_error = NULL \
+           summary = ?3, memory_watermark = ?4, memory_attempted_at = ?5, memory_error = NULL, memory_failures = 0 \
          WHERE id = ?1",
         params![chat.id, answer.title, answer.summary.trim(), seen, now_sql()],
     )
@@ -491,7 +541,7 @@ fn store_answer(db: &Db, chat: &Chat, root: &Path, target: &Path, before: Option
 fn record_failure(db: &Db, id: &str, error: &str) {
     if let Ok(c) = db.0.lock() {
         let _ = c.execute(
-            "UPDATE conversations SET memory_attempted_at = ?2, memory_error = ?3 WHERE id = ?1",
+            "UPDATE conversations SET memory_attempted_at = ?2, memory_error = ?3, memory_failures = memory_failures + 1 WHERE id = ?1",
             params![id, now_sql(), error.chars().take(500).collect::<String>()],
         );
     }
@@ -500,14 +550,14 @@ fn record_failure(db: &Db, id: &str, error: &str) {
 /// One pass over quiet chats: learn first, so a new note carries the model's
 /// title and summary, then save the note.
 pub async fn tick(db: &Db) {
-    let chats = {
+    let (chats, settings) = {
         let Ok(c) = db.0.lock() else { return };
         let settings = settings(&c);
         if !settings.save_chats && !settings.learn {
             return;
         }
         match due(&c, settings) {
-            Ok(chats) => chats,
+            Ok(chats) => (chats, settings),
             Err(error) => {
                 eprintln!("[Olympus::ChatMemory] could not read chats: {error}");
                 return;
@@ -533,6 +583,9 @@ pub async fn tick(db: &Db) {
                             chat.summary = summary;
                         }
                     }
+                    // A note written before this pass still shows the old title
+                    // and no summary.
+                    chat.vault_due |= settings.save_chats && chat.vault_path.is_some();
                 }
                 Err(error) => record_failure(db, &chat.id, &error),
             }
@@ -564,11 +617,15 @@ pub struct Status {
     #[serde(flatten)]
     pub settings: Settings,
     pub saved_chats: i64,
-    /// Chats from before 2026-10-13 that memory has not learned from, and of
-    /// those, how many Kevin has queued.
-    pub earlier_not_learned: i64,
+    /// Chats from before 2026-10-13 that memory has not been asked to learn
+    /// from, and those Kevin queued that are still in progress.
+    pub earlier_waiting: i64,
     pub earlier_queued: i64,
+    /// Chats whose memory pass failed `MAX_FAILURES` times in a row.
+    pub stopped_chats: i64,
+    /// The last pass that succeeded.
     pub last_learned_at: Option<String>,
+    /// Set when the most recent pass failed.
     pub last_error: Option<String>,
     pub memory_note: String,
     pub chats_folder: String,
@@ -576,29 +633,30 @@ pub struct Status {
 
 fn status(connection: &Connection) -> Result<Status, String> {
     let count = |sql: &str| connection.query_row(sql, [], |r| r.get::<_, i64>(0)).map_err(|e| e.to_string());
-    let (last_learned_at, last_error) = connection
-        .query_row(
-            "SELECT memory_attempted_at, memory_error FROM conversations WHERE memory_attempted_at IS NOT NULL ORDER BY memory_attempted_at DESC LIMIT 1",
-            [],
-            |r| Ok((r.get::<_, Option<String>>(0)?, r.get::<_, Option<String>>(1)?)),
-        )
+    let last_error: Option<String> = connection
+        .query_row("SELECT memory_error FROM conversations WHERE memory_attempted_at IS NOT NULL ORDER BY memory_attempted_at DESC LIMIT 1", [], |r| r.get(0))
         .optional()
         .map_err(|e| e.to_string())?
-        .unwrap_or((None, None));
+        .flatten();
+    let last_learned_at: Option<String> = connection
+        .query_row("SELECT max(memory_attempted_at) FROM conversations WHERE memory_error IS NULL", [], |r| r.get(0))
+        .map_err(|e| e.to_string())?;
+    let unseen = "c.memory_watermark < (SELECT max(m.rowid) FROM conversation_messages m WHERE m.conversation_id = c.id)";
     Ok(Status {
         settings: settings(connection),
         saved_chats: count("SELECT count(*) FROM conversations WHERE vault_path IS NOT NULL")?,
-        earlier_not_learned: count(&format!("SELECT count(*) FROM conversations c WHERE legacy = 1 AND memory_attempted_at IS NULL AND {HAS_OPERATOR_TURN}"))?,
-        earlier_queued: count(&format!("SELECT count(*) FROM conversations c WHERE legacy = 1 AND memory_attempted_at IS NULL AND memory_watermark = 0 AND {HAS_OPERATOR_TURN}"))?,
-        last_learned_at: last_learned_at.as_deref().and_then(|t| local(t)).map(|t| t.to_rfc3339_opts(chrono::SecondsFormat::Secs, false)),
+        earlier_waiting: count(&format!("SELECT count(*) FROM conversations c WHERE legacy = 1 AND memory_attempted_at IS NULL AND NOT {unseen} AND {HAS_OPERATOR_TURN}"))?,
+        earlier_queued: count(&format!("SELECT count(*) FROM conversations c WHERE legacy = 1 AND {unseen} AND memory_failures < {MAX_FAILURES} AND {HAS_OPERATOR_TURN}"))?,
+        stopped_chats: count(&format!("SELECT count(*) FROM conversations c WHERE {unseen} AND memory_failures >= {MAX_FAILURES} AND {HAS_OPERATOR_TURN}"))?,
+        last_learned_at: last_learned_at.as_deref().and_then(local).map(|t| t.to_rfc3339_opts(chrono::SecondsFormat::Secs, false)),
         last_error,
         memory_note: MEMORY_NOTE.into(),
         chats_folder: CHATS_FOLDER.into(),
     })
 }
 
-/// Queues the earlier chats for the memory pass. Each is one paid request, so
-/// Preferences shows the count before Kevin asks.
+/// Queues the earlier chats for the memory pass. Each is at least one paid
+/// request, so Preferences shows the count before Kevin asks.
 fn learn_from_earlier(connection: &Connection) -> Result<i64, String> {
     connection
         .execute(
@@ -621,6 +679,10 @@ pub fn chat_memory_status(db: State<Db>) -> Result<Status, String> {
 #[tauri::command]
 pub fn set_chat_memory(db: State<Db>, settings: Settings) -> Result<Status, String> {
     let c = locked(&db)?;
+    if settings.learn && !self::settings(&c).learn {
+        // Turning learning back on is how stopped chats get another try.
+        c.execute(&format!("UPDATE conversations SET memory_failures = 0 WHERE memory_failures >= {MAX_FAILURES}"), []).map_err(|e| e.to_string())?;
+    }
     for (key, on) in [(SAVE_KEY, settings.save_chats), (LEARN_KEY, settings.learn), (USE_KEY, settings.use_memory)] {
         c.execute(
             "INSERT INTO settings (key, value, updated_at) VALUES (?1, ?2, CURRENT_TIMESTAMP) \
@@ -751,6 +813,26 @@ mod tests {
     }
 
     #[test]
+    fn a_chat_where_only_olympus_spoke_since_is_marked_seen_without_a_request() {
+        let root = vault("briefing");
+        let mut c = db();
+        store_messages(&mut c, "talk", vec![message("u", "user", "Plan the week")]).unwrap();
+        let first = lines_after(&c, "talk", 0).unwrap()[0].rowid;
+        c.execute("UPDATE conversations SET memory_watermark = ?1", [first]).unwrap();
+        store_messages(&mut c, "talk", vec![message("briefing-2", "assistant", "Two commits landed since.")]).unwrap();
+        quiet(&c);
+        let db = Db(std::sync::Mutex::new(c));
+        let chat = due(&db.0.lock().unwrap(), Settings { save_chats: false, learn: true, use_memory: true }).unwrap().remove(0);
+        // No network in tests: this returns only because no request is made.
+        tauri::async_runtime::block_on(learn(&db, &chat, &root)).unwrap();
+        let c = db.0.lock().unwrap();
+        assert!(due(&c, Settings { save_chats: false, learn: true, use_memory: true }).unwrap().is_empty());
+        let requests: i64 = c.query_row("SELECT count(*) FROM model_requests", [], |r| r.get(0)).unwrap();
+        assert_eq!(requests, 0);
+        std::fs::remove_dir_all(&root).ok();
+    }
+
+    #[test]
     fn switches_default_on_and_turn_off_individually() {
         let c = db();
         assert_eq!(settings(&c), Settings { save_chats: true, learn: true, use_memory: true });
@@ -774,11 +856,22 @@ mod tests {
         assert!(due(&c, all).unwrap().is_empty(), "nothing unseen");
 
         c.execute("UPDATE conversations SET memory_watermark = 0, memory_attempted_at = ?1", [now_sql()]).unwrap();
+        assert_eq!(due(&c, all).unwrap().len(), 1, "a pass that succeeded does not hold back the next one");
+        let db = Db(std::sync::Mutex::new(c));
+        record_failure(&db, "talk", "assessment_provider_incomplete_or_refused");
+        let c = db.0.into_inner().unwrap();
         assert!(due(&c, all).unwrap().is_empty(), "a failed pass waits before a paid retry");
         c.execute("UPDATE conversations SET vault_watermark = 0", []).unwrap();
         let note_only = due(&c, all).unwrap();
         assert!(note_only[0].vault_due && !note_only[0].memory_due, "a due note does not cut the retry wait short");
-        c.execute("UPDATE conversations SET memory_attempted_at = NULL", []).unwrap();
+        c.execute("UPDATE conversations SET memory_attempted_at = datetime('now', '-31 minutes')", []).unwrap();
+        assert!(due(&c, all).unwrap()[0].memory_due, "one failure waits thirty minutes");
+        c.execute("UPDATE conversations SET memory_failures = 2", []).unwrap();
+        assert!(!due(&c, all).unwrap()[0].memory_due, "the wait doubles");
+        c.execute("UPDATE conversations SET memory_failures = ?1, memory_attempted_at = '2026-01-01 00:00:00' WHERE id = 'talk'", [MAX_FAILURES]).unwrap();
+        assert!(!due(&c, all).unwrap()[0].memory_due, "repeated failures stop the paid retries");
+        assert_eq!(status(&c).unwrap().stopped_chats, 1);
+        c.execute("UPDATE conversations SET memory_failures = 0, memory_error = NULL", []).unwrap();
         assert!(!due(&c, Settings { learn: false, ..all }).unwrap()[0].memory_due);
     }
 
@@ -824,12 +917,19 @@ mod tests {
     }
 
     #[test]
-    fn the_memory_body_survives_a_round_trip_through_the_note() {
+    fn the_memory_note_keeps_kevins_frontmatter_and_preamble_and_only_its_sections_change() {
         let body = "## About Kevin\n- Builds Olympus.";
-        let note = render_memory(body);
-        assert!(note.contains("memory_exclude: true"));
-        assert_eq!(memory_body(&note), body);
-        assert_eq!(memory_body("- Kevin wrote this by hand."), "- Kevin wrote this by hand.");
+        let note = render_memory(None, body);
+        assert!(note.contains("memory_exclude: true") && note.contains("# Olympus Memory"));
+        assert_eq!(memory_text(&note), body, "Olympus's own heading and introduction are not memory");
+
+        let edited = "---\ntype: olympus-memory\ntags: [kevin]\nupdated: 2026-01-01\n---\n# What Olympus knows\n\nMy intro.\n\n## About Kevin\n- Builds Olympus.\n";
+        let next = render_memory(Some(edited), "## About Kevin\n- Builds Olympus.\n- Lives in Lisbon.");
+        assert!(next.contains("tags: [kevin]") && !next.contains("updated: 2026-01-01"), "his frontmatter stays; only the date changes");
+        assert_eq!(next.matches("My intro.").count(), 1);
+        assert!(!next.contains("# Olympus Memory"), "his heading is not replaced");
+        assert!(memory_text(&next).starts_with("# What Olympus knows\n\nMy intro.") && memory_text(&next).contains("Lives in Lisbon"));
+        assert_eq!(memory_text("- Kevin wrote this by hand."), "- Kevin wrote this by hand.");
     }
 
     #[test]
@@ -845,8 +945,9 @@ mod tests {
 
     #[test]
     fn model_output_is_bounded_and_titles_are_tidied() {
-        let ok = checked(Answer { title: "  Weekly   plan ".into(), summary: "s".into(), memory: "m".into() }).unwrap();
+        let ok = checked(Answer { title: "  Weekly   plan ".into(), summary: "s".into(), memory: "- stray line".into() }).unwrap();
         assert_eq!(ok.title, "Weekly plan");
+        assert_eq!(ok.memory, "## Other\n- stray line", "text before the first section is kept inside one");
         assert!(checked(Answer { title: "".into(), summary: "s".into(), memory: "m".into() }).is_err());
         assert!(checked(Answer { title: "t".into(), summary: "s".into(), memory: "m".repeat(MEMORY_NOTE_CHARS + 1) }).is_err());
     }
@@ -863,10 +964,11 @@ mod tests {
         .unwrap();
         crate::commands::migrations::apply(&c).unwrap();
         let s = status(&c).unwrap();
-        assert_eq!((s.earlier_not_learned, s.earlier_queued), (1, 0), "the briefing-only chat is not offered");
+        assert_eq!((s.earlier_waiting, s.earlier_queued), (1, 0), "the briefing-only chat is not offered");
         assert!(due(&c, Settings { save_chats: false, learn: true, use_memory: true }).unwrap().is_empty(), "not learned until asked");
         assert_eq!(learn_from_earlier(&c).unwrap(), 1);
-        assert_eq!(status(&c).unwrap().earlier_queued, 1);
+        let s = status(&c).unwrap();
+        assert_eq!((s.earlier_waiting, s.earlier_queued), (0, 1));
         assert_eq!(due(&c, Settings { save_chats: false, learn: true, use_memory: true }).unwrap().len(), 1);
     }
 }

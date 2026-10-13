@@ -11,8 +11,9 @@ interface ChatMemorySwitches {
 
 interface ChatMemoryStatus extends ChatMemorySwitches {
   savedChats: number;
-  earlierNotLearned: number;
+  earlierWaiting: number;
   earlierQueued: number;
+  stoppedChats: number;
   lastLearnedAt: string | null;
   lastError: string | null;
   memoryNote: string;
@@ -50,7 +51,7 @@ export function MemorySettings() {
     finally { setBusy(false); }
   }
 
-  const waiting = status ? status.earlierNotLearned - status.earlierQueued : 0;
+  const waiting = status?.earlierWaiting ?? 0;
   return <>
     <h3 id="preferences-memory" className="preferences-section__title">Memory</h3>
     {!available && <p className="voice-settings-hint">Chats and memory are kept by the desktop app.</p>}
@@ -68,8 +69,11 @@ export function MemorySettings() {
       </p>
       {status && <p className="voice-settings-hint" role="status">
         {status.savedChats} {status.savedChats === 1 ? "chat" : "chats"} saved.
-        {status.lastLearnedAt ? ` Memory last updated ${formatWhen(status.lastLearnedAt, { withDate: true })}.` : " Memory has not been updated yet."}
-        {status.lastError ? ` The last update failed (${status.lastError}); it is retried after half an hour.` : ""}
+        {status.lastLearnedAt ? ` Last learned from a chat ${formatWhen(status.lastLearnedAt, { withDate: true })}.` : " Nothing learned yet."}
+        {status.lastError ? ` The last attempt failed (${status.lastError}); it is retried after half an hour, then less often.` : ""}
+      </p>}
+      {status && status.stoppedChats > 0 && <p className="voice-settings-hint" role="status">
+        Stopped retrying {status.stoppedChats} {status.stoppedChats === 1 ? "chat" : "chats"} after repeated failures. Turn Learn from chats off and on to try again.
       </p>}
       {status && status.earlierQueued > 0 && <p className="voice-settings-hint">Learning from {status.earlierQueued} earlier {status.earlierQueued === 1 ? "chat" : "chats"} in the background, oldest first.</p>}
       {status && waiting > 0 && !confirming && <div className="voice-setting-row">
@@ -77,7 +81,7 @@ export function MemorySettings() {
         <button type="button" className="ghost-action" disabled={busy || !status.learn} title={status.learn ? undefined : "Turn on Learn from chats first"} onClick={() => setConfirming(true)}>Learn from them</button>
       </div>}
       {confirming && <div className="voice-setting-row" role="group" aria-label="Confirm learning from earlier chats">
-        <span>Sends each of the {waiting} chats to OpenAI, oldest first: {waiting} paid {waiting === 1 ? "request" : "requests"}.</span>
+        <span>Sends each of the {waiting} chats to OpenAI, oldest first: at least {waiting} paid {waiting === 1 ? "request" : "requests"}, more for long chats.</span>
         <span className="memory-confirm-actions"><button type="button" className="ghost-action" disabled={busy} onClick={() => void learnEarlier()}>Learn from {waiting} {waiting === 1 ? "chat" : "chats"}</button>
           <button type="button" className="ghost-action" onClick={() => setConfirming(false)}>Cancel</button></span>
       </div>}

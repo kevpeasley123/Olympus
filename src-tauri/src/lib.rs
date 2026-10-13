@@ -50,6 +50,10 @@ fn open_database(app: &tauri::AppHandle) -> Result<Connection, String> {
         }
     }
     commands::migrations::apply(&connection)?;
+    let adopted = commands::conversations::adopt_orphans(&connection)?;
+    if adopted > 0 {
+        eprintln!("[Olympus::Db] adopted {adopted} messages written without a chat by an older build");
+    }
 
     eprintln!(
         "[Olympus::Db] opened {} (schema {})",

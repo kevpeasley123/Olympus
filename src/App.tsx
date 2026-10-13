@@ -353,7 +353,7 @@ function App() {
                   suggestions={suggestionsFor(armory.capabilities).slice(0, 3)}
                   onOpenMission={openMission}
                   onDismissMission={commandView.dismissMission}
-                  chats={{session:chatSession,onNew:newChat,onOpen:openChat,onRename:renameChat,onDelete:deleteChat,onTitleSeen:syncChatTitle}}
+                  chats={isTauriRuntime()?{session:chatSession,onNew:newChat,onOpen:openChat,onRename:renameChat,onDelete:deleteChat,onTitleSeen:syncChatTitle}:undefined}
                 />
               </ErrorBoundary>
             </FadeInPanel>

@@ -135,6 +135,21 @@ pub fn backfill(transaction: &Transaction) -> rusqlite::Result<()> {
     Ok(())
 }
 
+/// Messages without a chat, written by an older Olympus after this database
+/// was migrated (a rolled-back install, or a dev build of an older branch).
+/// They are adopted on open the way migration 2 adopted the old history.
+pub fn adopt_orphans(connection: &Connection) -> Result<usize, String> {
+    let orphans: usize = connection
+        .query_row("SELECT count(*) FROM conversation_messages WHERE conversation_id IS NULL", [], |r| r.get(0))
+        .map_err(|e| e.to_string())?;
+    if orphans > 0 {
+        let transaction = connection.unchecked_transaction().map_err(|e| e.to_string())?;
+        backfill(&transaction).map_err(|e| e.to_string())?;
+        transaction.commit().map_err(|e| e.to_string())?;
+    }
+    Ok(orphans)
+}
+
 #[derive(Debug, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct ConversationSummary {
@@ -493,6 +508,19 @@ mod tests {
         assert!(found[0].matching_lines[0].starts_with("Kevin: ") && found[0].matching_lines[0].contains("Singapore"));
         assert!(recall(&c, "what did we talk about?", None).unwrap().is_empty(), "stop words alone recall nothing");
         assert!(recall(&c, "\"*) OR (", None).unwrap().is_empty());
+    }
+
+    #[test]
+    fn messages_an_older_build_wrote_after_the_migration_are_adopted_on_open() {
+        let mut c = db();
+        store_messages(&mut c, "chat", vec![message("u", "user", "Already in a chat")]).unwrap();
+        c.execute("INSERT INTO conversation_messages (id, role, content, timestamp) VALUES ('old', 'user', 'Written by 0.32.0', '10:00')", []).unwrap();
+        assert_eq!(adopt_orphans(&c).unwrap(), 1);
+        let chats = list(&c, 10).unwrap();
+        assert_eq!(chats.len(), 2);
+        assert!(chats.iter().any(|ch| ch.title == "Written by 0.32.0" && ch.legacy));
+        assert_eq!(search(&c, "0.32.0", 10).unwrap().len(), 1);
+        assert_eq!(adopt_orphans(&c).unwrap(), 0, "nothing left to adopt");
     }
 
     #[test]

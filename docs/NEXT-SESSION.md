@@ -40,10 +40,12 @@ file replaced is `docs/archive/NEXT-SESSION-through-2026-10-11.md`.
 ## Last verification — 2026-10-13, Linux cloud container
 
 The conversations-and-memory branch:
-- `cargo test --lib`: 537 passed;
+- `cargo test --lib`: 539 passed;
 - `npm run build`;
 - the guidance and acceptance-seed scripts;
-- the visual review scenarios for chats, chat search and Preferences > Memory.
+- the full visual review (21 captures, 14 functional checks), including chats,
+  chat search and Preferences > Memory;
+- an independent code review, whose findings are fixed.
 
 Not the desktop app, WebView2, Tauri IPC or real data.
 

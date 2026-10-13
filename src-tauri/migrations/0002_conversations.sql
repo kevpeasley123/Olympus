@@ -18,7 +18,10 @@ CREATE TABLE IF NOT EXISTS conversations (
   vault_watermark INTEGER NOT NULL DEFAULT 0,
   memory_watermark INTEGER NOT NULL DEFAULT 0,
   memory_attempted_at TEXT,
-  memory_error TEXT
+  memory_error TEXT,
+  -- Failed memory passes in a row. Retries back off and stop at a limit, since
+  -- each one is a paid request.
+  memory_failures INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE INDEX IF NOT EXISTS idx_conversations_updated_at ON conversations(updated_at);

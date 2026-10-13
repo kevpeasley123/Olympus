@@ -399,7 +399,9 @@ current task revision. `organizer_tasks.project_id` references the legacy
 
 `PRAGMA user_version` is the schema version, and `commands/migrations.rs`
 brings every database to the latest one by the same ordered steps, so a fresh
-database and Kevin's cannot diverge. Migration 1 is `schema.sql`, frozen on
+database and Kevin's cannot diverge. After migrating, `open_database` adopts
+any messages an older build wrote without a chat
+(`conversations::adopt_orphans`). Migration 1 is `schema.sql`, frozen on
 2026-10-13 (a test pins its fingerprint), plus the old `process_id` fix-up;
 later migrations live in `src-tauri/migrations/`. Each runs in one transaction
 that also sets the version. Before applying any, `open_database` writes a

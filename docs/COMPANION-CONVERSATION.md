@@ -21,7 +21,7 @@ introduced. Model selection, voice controls, evidence and approval boundaries ar
 preserved. The chat memory and observation actions were removed in 0.28.0 and
 0.30.0; see `CURATED-MEMORY.md`.
 
-Since 2026-10-13 the Conversation view opens on a bar naming the open chat, with
+Since 2026-10-13 the desktop app's Conversation view opens on a bar naming the open chat, with
 Chats (the list of earlier chats and a search over every saved message), New
 chat and Temporary chat. Opening the list replaces the transcript until a chat is
 chosen or the list is closed (Escape closes it first). The chat cannot change
