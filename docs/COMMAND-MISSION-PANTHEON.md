@@ -27,6 +27,11 @@ bodies. Armory remains left, Pantheon center, Olympus conversation right.
   hovered or focused. The Plugins, Skills, Obsidian Memory and (since 0.25.0)
   Agents labels persist independently of missions. Existing inspection actions
   are retained.
+- The agents themselves stand around the Omega as animated gods
+  ([PANTHEON-FIGURES.md](PANTHEON-FIGURES.md)). A god with a figure keeps a
+  plain star in the Agents constellation. Skills moved to the upper right
+  corner, clear of Hephaestus's station, and Agents moved below the Omega,
+  right of Obsidian Memory, clear of Themis's.
 
 ## Rendering and performance
 

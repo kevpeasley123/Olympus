@@ -1,5 +1,6 @@
 import { AgentsConstellation } from "./AgentsConstellation";
 import { MissionTargets } from "./PantheonMissions";
+import { PantheonFigures } from "./PantheonFigures";
 import { SkillsConstellation } from "./SkillsConstellation";
 import type { Mission } from "../../services/capabilities";
 import "./pantheonMissions.css";
@@ -277,6 +278,7 @@ export function CommandInstrument({
         <div className="command-orbital-atmosphere" aria-hidden="true"/>
         {flagship && <><ArmoryConstellation capabilities={capabilities??null}/><SkillsConstellation capabilities={capabilities}/><AgentsConstellation/><VaultConstellation graph={graph} error={vaultGraphError} loading={vaultGraphLoading}/></>}
         {flagship && <MissionTargets missions={missions} selected={selectedMission} onSelect={onSelectMission} fallback={!sceneShown}/>}
+        {flagship && <PantheonFigures missions={missions}/>}
         {/* Unmounted on failure so its GPU resources, listeners and timers go
             with it; Retry mounts a fresh one. */}
         {sceneWanted && !hybridError && <HybridCommandCore key={renderAttempt} layout={{...layout, orbitalCards: true, flagship}} state={ambientState} voiceLevel={voiceLevel} voiceEnergy={voiceSnapshot?.muted ? undefined : omegaVoiceEnergy} execution={execution}

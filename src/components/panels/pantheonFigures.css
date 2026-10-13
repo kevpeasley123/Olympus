@@ -1,0 +1,26 @@
+.pantheon-figures{position:absolute;inset:0;pointer-events:none;z-index:5}
+/* The scene sets left/top to the figure's head and --figure-height to its feet; the label clears the pedestal. */
+.pantheon-figure{position:absolute;left:-100%;top:-100%;width:64px;height:var(--figure-height,9%);transform:translateX(-50%);padding:0;border:0;border-radius:10px;background:transparent;color:#e8d3a4;pointer-events:auto;cursor:pointer}
+.pantheon-figure:focus-visible{outline:1px solid #edcc8c;outline-offset:4px}
+.pantheon-figure__label{position:absolute;left:50%;top:calc(100% + 20px);display:grid;justify-items:center;gap:1px;width:180px;transform:translateX(-50%);text-align:center;text-shadow:0 2px 6px #000,0 0 14px #000;pointer-events:none}
+.pantheon-figure__label strong{font:500 12.5px var(--font-display,"Cinzel",serif);letter-spacing:.2em;text-transform:uppercase;color:#f1dfb6}
+.pantheon-figure__label em{font:500 9.5px var(--font-display,"Cinzel",serif);font-style:normal;letter-spacing:.18em;text-transform:uppercase;color:#d9a85a}
+.pantheon-figure__label small{font:500 8px var(--font-mono,"JetBrains Mono",monospace);letter-spacing:.16em;text-transform:uppercase;color:#b7ab92;opacity:.8}
+.pantheon-figure:hover .pantheon-figure__label strong,.pantheon-figure:focus-visible .pantheon-figure__label strong,.pantheon-figure[data-inspecting="true"] .pantheon-figure__label strong{color:#fff3d3}
+.pantheon-figure[data-figure-state="dormant"] .pantheon-figure__label,.pantheon-figure[data-figure-state="unavailable"] .pantheon-figure__label{opacity:.55}
+/* One compact indicator per live god, above the head; the text is the recorded step. */
+.pantheon-figure__session{position:absolute;left:50%;bottom:calc(100% + 8px);display:grid;gap:1px;min-width:172px;max-width:220px;padding:6px 10px 6px 12px;transform:translateX(-50%);border:1px solid #d79a4c66;border-left:2px solid #f0a95a;border-radius:6px;background:#0a1118e6;box-shadow:0 6px 18px #000a,0 0 18px #ff9a4a1f;text-align:left;pointer-events:none;animation:pantheon-session-in .45s cubic-bezier(.2,.8,.2,1)}
+.pantheon-figure__session b{font:500 9px var(--font-display,"Cinzel",serif);letter-spacing:.2em;text-transform:uppercase;color:#f0c27e}
+.pantheon-figure__session span{overflow:hidden;font:500 11px var(--font-body,"Inter",sans-serif);color:#ece6d8;text-overflow:ellipsis;white-space:nowrap}
+.pantheon-figure__session small{display:flex;white-space:nowrap;align-items:center;gap:6px;font:500 8.5px var(--font-mono,"JetBrains Mono",monospace);letter-spacing:.08em;color:#a9c6b6}
+.pantheon-figure__session small::before{content:"";width:5px;height:5px;border-radius:50%;background:#6fd39b;box-shadow:0 0 6px #6fd39b}
+.pantheon-figure__session[data-kind="waiting"]{border-left-color:#e7b76b}
+.pantheon-figure__session[data-kind="waiting"] small{color:#e7c48c}
+.pantheon-figure__session[data-kind="waiting"] small::before{background:#e7b76b;box-shadow:0 0 6px #e7b76b}
+.pantheon-figure__session[data-kind="failed"]{border-left-color:#c9826f}
+.pantheon-figure__session[data-kind="failed"] small{color:#d9a493}
+.pantheon-figure__session[data-kind="failed"] small::before{background:#c9826f;box-shadow:none}
+@keyframes pantheon-session-in{from{opacity:0;transform:translate(-50%,6px)}}
+@media (prefers-reduced-motion:reduce){.pantheon-figure__session{animation:none}}
+/* Before the scene places a figure (and on graphics failure) nothing floats at the origin. */
+.command-instrument[data-renderer="svg"] .pantheon-figures{display:none}

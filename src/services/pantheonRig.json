@@ -1,0 +1,41 @@
+{
+  "joints": [
+    ["Hips", null, 0, 0.98, 0],
+    ["Spine", "Hips", 0, 0.1, 0],
+    ["Spine1", "Spine", 0, 0.12, 0],
+    ["Spine2", "Spine1", 0, 0.14, 0],
+    ["Neck", "Spine2", 0, 0.16, 0],
+    ["Head", "Neck", 0, 0.08, 0],
+    ["LeftShoulder", "Spine2", 0.07, 0.12, 0],
+    ["LeftArm", "LeftShoulder", 0.13, -0.01, 0],
+    ["LeftForeArm", "LeftArm", 0, -0.29, 0],
+    ["LeftHand", "LeftForeArm", 0, -0.26, 0],
+    ["RightShoulder", "Spine2", -0.07, 0.12, 0],
+    ["RightArm", "RightShoulder", -0.13, -0.01, 0],
+    ["RightForeArm", "RightArm", 0, -0.29, 0],
+    ["RightHand", "RightForeArm", 0, -0.26, 0],
+    ["LeftUpLeg", "Hips", 0.1, -0.05, 0],
+    ["LeftLeg", "LeftUpLeg", 0, -0.43, 0],
+    ["LeftFoot", "LeftLeg", 0, -0.44, 0],
+    ["RightUpLeg", "Hips", -0.1, -0.05, 0],
+    ["RightLeg", "RightUpLeg", 0, -0.43, 0],
+    ["RightFoot", "RightLeg", 0, -0.44, 0]
+  ],
+  "height": 1.86,
+  "groups": {
+    "body": ["Hips", "Spine", "Spine1", "Spine2", "Neck", "Head", "LeftShoulder", "RightShoulder", "LeftUpLeg", "LeftLeg", "LeftFoot", "RightUpLeg", "RightLeg", "RightFoot"],
+    "armL": ["Spine2", "LeftShoulder", "LeftArm", "LeftForeArm", "LeftHand"],
+    "armR": ["Spine2", "RightShoulder", "RightArm", "RightForeArm", "RightHand"],
+    "robe": ["Hips", "LeftUpLeg", "RightUpLeg", "LeftLeg", "RightLeg"],
+    "skirt": ["Hips", "LeftUpLeg", "RightUpLeg"],
+    "chest": ["Spine", "Spine1", "Spine2", "LeftShoulder", "RightShoulder"]
+  },
+  "scale": {"zeus": 1.04, "athena": 0.97, "hephaestus": 1, "dionysus": 0.98, "themis": 0.96},
+  "hold": {
+    "zeus": {"RightArm": [-0.45, 0, -0.5], "RightForeArm": [-1.75, 0, 0], "RightHand": [0, 0, 0], "LeftArm": [-0.2, 0, 0.22], "LeftForeArm": [-0.9, 0, 0], "LeftHand": [0, 0, 0], "LeftUpLeg": [0, 0, 0.03], "RightUpLeg": [0, 0, -0.03]},
+    "athena": {"RightArm": [-0.18, 0, -0.2], "RightForeArm": [-1.2, 0, 0], "RightHand": [0, 0, 0], "LeftArm": [-0.12, 0, 0.18], "LeftForeArm": [-1.35, 0, 0], "LeftHand": [0, 0, 0], "LeftUpLeg": [0, 0, 0.02], "RightUpLeg": [0, 0, -0.03]},
+    "hephaestus": {"RightArm": [-0.12, 0, -0.1], "RightForeArm": [-0.75, 0, 0], "RightHand": [0, 0, 0], "LeftArm": [0.05, 0, 0.12], "LeftForeArm": [-0.18, 0, 0], "LeftHand": [0, 0, 0], "LeftUpLeg": [0, 0, 0.02], "RightUpLeg": [0, 0, -0.04]},
+    "dionysus": {"RightArm": [0, 0, -0.14], "RightForeArm": [-0.4, 0, 0], "RightHand": [0, 0, 0], "LeftArm": [-0.3, 0, 0.35], "LeftForeArm": [-1.55, 0, 0], "LeftHand": [0, 0, 0], "LeftUpLeg": [0, 0, 0.03], "RightUpLeg": [0, 0, -0.02]},
+    "themis": {"RightArm": [-0.45, 0, -0.7], "RightForeArm": [-0.8, 0, 0], "RightHand": [0, 0, 0], "LeftArm": [-0.1, -0.45, 0.1], "LeftForeArm": [-1.3, 0, 0], "LeftHand": [0, 0, 0], "LeftUpLeg": [0, 0, 0.02], "RightUpLeg": [0, 0, -0.02]}
+  }
+}

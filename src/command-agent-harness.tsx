@@ -35,7 +35,7 @@ import { runProjectRingHarness } from "./services/projectRing.harness";
 import { runGlyphStateHarness } from "./services/glyphState.harness";
 import { runAmbientMotionHarness } from "./services/ambientMotion.harness";
 import { runCapabilitiesHarness } from "./services/capabilities.harness";
-import { suggestionsFor, type CapabilitySnapshot, type MissionSnapshot } from "./services/capabilities";
+import { suggestionsFor, type CapabilitySnapshot, type Mission, type MissionSnapshot, type MissionStep } from "./services/capabilities";
 import { useCommandView } from "./hooks/useCommandView";
 import type { ChatControls } from "./components/panels/ChatHistory";
 import { MemorySettings } from "./components/panels/MemorySettings";
@@ -62,6 +62,7 @@ export const SCENARIOS = {
   "mission-active": "Recorded mail-analysis mission in progress",
   "mission-research": "Recorded research verification in progress",
   "mission-complete": "Research verification finished: result ready",
+  "mission-coding": "Recorded coding delegation: Hephaestus editing (add &cycle to walk assigned, working, waiting, completed)",
   "reduced-motion": "Idle with reduced motion"
 } as const;
 type Scenario = keyof typeof SCENARIOS;
@@ -120,8 +121,18 @@ const missionFor: Record<Scenario, MissionSnapshot> = {
   "idle": missionSets.none, "agent-olympus": missionSets.none, "agent-research": missionSets.none, "agent-verification": missionSets.none,
   "agent-coding": missionSets.none, "domain-communications": missionSets.none, "capability-detail": missionSets.none, "chat-compact": missionSets.none,
   "chat-expanded": missionSets.none, "chats": missionSets.none, "preferences-memory": missionSets.none, "mission-active": missionSets.mailActive, "mission-research": missionSets.researchActive,
-  "mission-complete": missionSets.completed, "reduced-motion": missionSets.none
+  "mission-complete": missionSets.completed, "mission-coding": missionSets.none, "reduced-motion": missionSets.none
 };
+// A synthetic delegation for the living Pantheon. `cycle` walks one run
+// through every figure transition on a fixed schedule (seconds since load).
+const codingStart = new Date(Date.now() - 134_000).toISOString();
+function codingMission(phase: "editing" | "approval" | "verifying"): Mission {
+  const step = (id: string, label: string, agent: string | null, state: MissionStep["state"]): MissionStep => ({ id, label, agent, state, recorded: state === "completed" ? "completed" : state === "active" ? "running" : null, tools: agent === "coding-delegate" ? ["claude-code", "git"] : [], skills: [] });
+  return { id: "delegation-fixture", kind: "coding-delegation", workflow: "Project delegation", title: "Project delegation", request: "Build the interface components", status: phase === "approval" ? "waiting" : "running", startedAt: codingStart, finishedAt: null,
+    approval: phase === "approval" ? { required: true, detail: "Synthetic implementation approval" } : null, result: null, destination: "project", source: "fixture",
+    steps: [step("planning", "Plan the change", "coding-delegate", "completed"), step("editing", "Building interface components", "coding-delegate", phase === "verifying" ? "completed" : "active"), step("review", "Verify the result", "verification", phase === "verifying" ? "active" : "pending")] };
+}
+const CODING_CYCLE: readonly [number, "editing" | "approval" | "verifying" | null][] = [[0, null], [5, "editing"], [17, "approval"], [24, "editing"], [30, "verifying"], [36, null]];
 const chatFixture: ConversationSummary[] = [
   { id: "chat-launch", title: "Which of my research notes support evidence-first review?", summary: "", createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), messageCount: 4, legacy: false, vaultPath: null },
   { id: "chat-memory", title: "How Olympus should remember", summary: "Agreed that every chat is kept, saved to Obsidian and learned from automatically; temporary chats are not.", createdAt: new Date(Date.now() - 26 * 3600_000).toISOString(), updatedAt: new Date(Date.now() - 25 * 3600_000).toISOString(), messageCount: 14, legacy: false, vaultPath: "10 - Conversations/2026/10/How Olympus should remember.md" },
@@ -145,7 +156,14 @@ function Harness() {
   const [layout, setLayout] = useState<"compact" | "expanded">(scenario === "chat-compact" ? "compact" : "expanded");
   const [catalogReady, setCatalogReady] = useState(false);
   const missions = params.get("missions") === "2" ? {observedAt:missionSets.researchActive.observedAt, missions:[...missionSets.researchActive.missions.filter(m=>m.status==="running"), ...missionSets.mailActive.missions.filter(m=>m.status==="running").map(m=>({...m,status:"waiting" as const,approval:{required:true,detail:"Synthetic approval checkpoint"}}))]} : missionFor[scenario];
-  const command = useCommandView(capabilities, missions, fixtureNow);
+  const [codingPhase, setCodingPhase] = useState<"editing" | "approval" | "verifying" | null>(scenario === "mission-coding" && !params.has("cycle") ? "editing" : null);
+  useEffect(() => {
+    if (scenario !== "mission-coding" || !params.has("cycle")) return;
+    const timers = CODING_CYCLE.map(([at, phase]) => window.setTimeout(() => setCodingPhase(phase), at * 1000));
+    return () => timers.forEach(clearTimeout);
+  }, []);
+  const missionSnapshot = useMemo(() => scenario === "mission-coding" ? { observedAt: new Date().toISOString(), missions: codingPhase ? [codingMission(codingPhase)] : [] } : missions, [codingPhase]);
+  const command = useCommandView(capabilities, missionSnapshot, fixtureNow);
   const [extraMessages,setExtraMessages]=useState<ConversationMessage[]>([]);
   useEffect(()=>{
     if(!params.has("conversation-test"))return;
@@ -181,7 +199,7 @@ function Harness() {
   return <><BackgroundLayer /><main className="app-shell mode-command" data-chat-layout={layout}><div className="panel-slot panel-slot-header"><HeaderBar mode="command" onSelectMode={() => {}} projects={projects} /></div>
     <div className="dashboard-body"><section className="main-grid">
       <aside className="tools-rail dashboard-column panel-shell surface-chrome" aria-label="Global icon rail">{[Layers, MessageSquare, BookOpen, Network].map((Icon, i) => <span key={i} style={{ padding: "12px 8px", color: "#a9b7c5" }}><Icon size={17} /></span>)}</aside>
-      {flagship ? <OlympusArmory capabilities={capabilities} missions={missions} preview selectedAgent={command.agent} onSelectAgent={command.selectAgent} onDestination={destination=>setDestination(destination==="project"?{projects:true}:{})}/> : <CommandAgentCatalog key={key} client={client} available selectedId={command.agent} onSelect={command.selectAgent}
+      {flagship ? <OlympusArmory capabilities={capabilities} missions={missionSnapshot} preview selectedAgent={command.agent} onSelectAgent={command.selectAgent} onDestination={destination=>setDestination(destination==="project"?{projects:true}:{})}/> : <CommandAgentCatalog key={key} client={client} available selectedId={command.agent} onSelect={command.selectAgent}
         onResearch={runId => setDestination({ runId })} onProjects={() => setDestination({ projects: true })}
         capabilities={capabilities} working={command.focus.agents} orchestrating={command.focus.running} selectedCapability={command.selectedCapability} onSelectCapability={command.setSelectedCapability} />}
       <section className="center-stack dashboard-column"><div className="panel-slot panel-slot-instrument">

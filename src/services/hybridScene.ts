@@ -10,6 +10,8 @@ export const SCENE_FINISH={
 };
 import { buildCommandMaterialStudy } from "./commandMaterialStudy";
 import { buildMissionScene } from "./pantheonMissionScene";
+import { buildPantheonFigures } from "./pantheonFigures";
+import { agentConstellationSnapshot } from "./agentConstellation";
 import { buildPantheonGalaxy } from "./pantheonGalaxy";
 import { buildConstellationField } from "./constellationField";
 import { layoutBackdropStars } from "./constellationBackdrop";
@@ -119,6 +121,7 @@ export function mountHybridScene(host: HTMLDivElement, layout: CommandLayout, cu
   const canyonBackground=layout.flagship?document.querySelector<HTMLElement>(".background-image"):null;
   const architecture=layout.flagship?architectureOrbits(host,camera):undefined;
   const missionScene = layout.flagship ? buildMissionScene(scene, host, camera) : undefined;
+  const figures = layout.flagship ? buildPantheonFigures(scene, host, camera, renderer) : undefined;
   const field = buildConstellationField(scene, layout.orbitalCards, layout.flagship);
   renderer.info.autoReset=false;
   const sceneTarget=new T.WebGLRenderTarget(1,1,{type:T.HalfFloatType,samples:4});
@@ -321,6 +324,9 @@ export function mountHybridScene(host: HTMLDivElement, layout: CommandLayout, cu
     scene.updateMatrixWorld(true);camera.updateMatrixWorld(true);
     architecture?.update(time);
     const missionCount=missionScene?.update(value.missions??[],value.selectedMission??null,delta)??0;
+    // Figure states keep wall-clock time so brief transitions end even when motion is reduced.
+    const figureStates=figures?.update(value.missions??[],agentConstellationSnapshot(),delta,now/1000,moving)??"";
+    if(HARNESS_ATTRIBUTES)canvas.dataset.figureStates=figureStates;
     if(HARNESS_ATTRIBUTES&&galaxy){canvas.dataset.galaxyTime=String(time);canvas.dataset.galaxyYaw=String(galaxy.group.rotation.y);canvas.dataset.galaxyBodies=String(missionCount);canvas.dataset.missionPlanets=String(missionCount);canvas.dataset.galaxyDust="680";}
     constellationMotion.yaw=advanceConstellationYaw(constellationMotion.yaw,delta,moving);
     constellationGroup.rotation.y=constellationMotion.yaw;
@@ -432,7 +438,7 @@ export function mountHybridScene(host: HTMLDivElement, layout: CommandLayout, cu
     });
     if(HARNESS_ATTRIBUTES)canvas.dataset.executionSignals=String(executionSignals.filter(orb=>orb.visible).length);
     if(signal.visible){const e=edges[Math.floor(time/4.5)%edges.length];signal.position.copy(pos(executing?e.to:e.from)).lerp(pos(executing?e.from:e.to),(time%4.5)/2);}
-    const signature = `${value.state}/${moving?value.voiceLevel:0}/${JSON.stringify(light)}/${canvas.width}/${canvas.height}/${value.running}/${moving ? "" : JSON.stringify(value.missions)}/${value.selectedMission}`;
+    const signature = `${value.state}/${moving?value.voiceLevel:0}/${JSON.stringify(light)}/${canvas.width}/${canvas.height}/${value.running}/${moving ? "" : JSON.stringify(value.missions)}/${value.selectedMission}/${figureStates}`;
     try { if(document.visibilityState==="visible" && host.getBoundingClientRect().width>0 && (moving || signature !== lastSignature)) { renderer.info.reset();composer.render(); renderCount++; lastSignature=signature; } }
     catch { stopped=true; fail("Rendering stopped unexpectedly."); return; }
     if(!announced && renderCount){announced=true;ready();}
@@ -451,7 +457,7 @@ export function mountHybridScene(host: HTMLDivElement, layout: CommandLayout, cu
     const geometries=new Set<T.BufferGeometry>(),materials=new Set<T.Material>();
     for(const root of [scene,networkScene])root.traverse(o=>{const drawable=o as T.Mesh;if(drawable.geometry)geometries.add(drawable.geometry);if(drawable.material)(Array.isArray(drawable.material)?drawable.material:[drawable.material]).forEach(m=>materials.add(m));});
     canyonBackground?.style.removeProperty('--omega-canyon-light');
-    architecture?.dispose();missionScene?.dispose();
+    architecture?.dispose();missionScene?.dispose();figures?.dispose();
     halos.dispose();backdrop?.dispose();haloTexture.dispose();backdropTexture?.dispose();
     geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose()); structural.dispose();cool.dispose();glow.dispose();study.dispose();bloomPass.dispose();outputPass.dispose();composer.dispose();renderer.dispose();renderer.forceContextLoss();canvas.remove();
   };
