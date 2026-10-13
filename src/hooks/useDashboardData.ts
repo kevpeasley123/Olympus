@@ -410,7 +410,7 @@ export function useDashboardData() {
                 break;
             }
           },
-          {requestId: activeRequest.current ?? undefined, capability, voiceDepth, commandBoard: boardRef.current, temporary: session.temporary}
+          {requestId: activeRequest.current ?? undefined, capability, voiceDepth, commandBoard: boardRef.current, temporary: session.temporary, conversationId: session.id}
         );
         const assistant = createAssistantMessage(reply.content, reply.notice, reply.research);
         assistant.mail = reply.mail;

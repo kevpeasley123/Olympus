@@ -240,6 +240,79 @@ pub fn search(connection: &Connection, query: &str, limit: u32) -> Result<Vec<Se
         .map_err(|e| e.to_string())
 }
 
+/// An earlier chat recalled for the assistant: what it was, and the lines that
+/// matched.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Recalled {
+    pub title: String,
+    pub last_active: String,
+    pub summary: String,
+    pub matching_lines: Vec<String>,
+}
+
+const RECALL_CHATS: usize = 3;
+const RECALL_LINES: usize = 2;
+const RECALL_STOP: &[&str] = &[
+    "the", "and", "for", "with", "this", "that", "from", "what", "when", "where", "why", "how", "who", "which",
+    "should", "could", "would", "about", "have", "has", "had", "does", "did", "your", "you", "our", "are", "was",
+    "were", "can", "will", "please", "tell", "more", "just", "any", "anything", "something", "there", "their",
+    "them", "they", "then", "than", "into", "out", "not", "but", "all", "also", "get", "got", "let", "know",
+    "think", "want", "need", "like", "make", "say", "said", "talk", "talked", "remember", "earlier", "before",
+    "last", "time", "today", "yesterday", "olympus", "again", "now", "its", "it's", "i'm", "im", "me", "my",
+];
+
+/// Earlier chats sharing words with the question, best match first. Keyword
+/// matching only, so a hit can be unrelated; the prompt says so.
+pub fn recall(connection: &Connection, question: &str, exclude: Option<&str>) -> Result<Vec<Recalled>, String> {
+    let mut terms: Vec<String> = question
+        .split(|c: char| !c.is_alphanumeric() && c != '\'')
+        .map(|t| t.trim_matches('\'').to_lowercase())
+        .filter(|t| t.chars().count() > 2 && !RECALL_STOP.contains(&t.as_str()))
+        .collect();
+    terms.sort();
+    terms.dedup();
+    if terms.is_empty() {
+        return Ok(Vec::new());
+    }
+    let fts = terms.iter().take(16).map(|t| format!("\"{}\"", t.replace('"', ""))).collect::<Vec<_>>().join(" OR ");
+    let hits: Vec<(String, String, String)> = connection
+        .prepare(&format!(
+            "SELECT s.conversation_id, m.role, snippet(conversation_search, 0, '', '', '…', 24) \
+             FROM conversation_search s JOIN conversation_messages m ON m.id = s.message_id JOIN conversations c ON c.id = s.conversation_id \
+             WHERE conversation_search MATCH ?1 AND s.conversation_id != ?2 AND {HAS_OPERATOR_TURN} \
+             ORDER BY bm25(conversation_search) LIMIT 60"
+        ))
+        .map_err(|e| e.to_string())?
+        .query_map(params![fts, exclude.unwrap_or("")], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))
+        .map_err(|e| e.to_string())?
+        .collect::<Result<_, _>>()
+        .map_err(|e| e.to_string())?;
+    let mut order: Vec<String> = Vec::new();
+    let mut lines: std::collections::HashMap<String, Vec<String>> = std::collections::HashMap::new();
+    for (id, role, snippet) in hits {
+        if !order.contains(&id) {
+            if order.len() == RECALL_CHATS {
+                continue;
+            }
+            order.push(id.clone());
+        }
+        let found = lines.entry(id).or_default();
+        if found.len() < RECALL_LINES {
+            found.push(format!("{}: {}", if role == "user" { "Kevin" } else { "Olympus" }, snippet.split_whitespace().collect::<Vec<_>>().join(" ")));
+        }
+    }
+    order
+        .into_iter()
+        .map(|id| {
+            let (title, summary, updated): (String, String, String) = connection
+                .query_row("SELECT title, summary, updated_at FROM conversations WHERE id = ?1", [&id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))
+                .map_err(|e| e.to_string())?;
+            Ok(Recalled { title, last_active: iso(&updated), summary, matching_lines: lines.remove(&id).unwrap_or_default() })
+        })
+        .collect()
+}
+
 pub fn rename(connection: &Connection, id: &str, title: &str) -> Result<(), String> {
     let title = title.split_whitespace().collect::<Vec<_>>().join(" ");
     if title.is_empty() || title.chars().count() > 120 {
@@ -406,6 +479,20 @@ mod tests {
         let chats = list(&c, 10).unwrap();
         assert_eq!((chats.len(), chats[0].title.as_str(), chats[0].message_count), (1, "Which commits?", 2));
         assert_eq!(search(&c, "landed", 10).unwrap().len(), 1);
+    }
+
+    #[test]
+    fn recall_finds_other_chats_by_topic_and_skips_the_open_one() {
+        let mut c = db();
+        store_messages(&mut c, "trip", vec![message("t1", "user", "Book flights to Singapore for the conference"), message("t2", "assistant", "Two options under $900.")]).unwrap();
+        store_messages(&mut c, "build", vec![message("b1", "user", "Why did the Olympus build fail?")]).unwrap();
+        store_messages(&mut c, "now", vec![message("n1", "user", "What did we decide about Singapore flights?")]).unwrap();
+        let found = recall(&c, "What did we decide about Singapore flights?", Some("now")).unwrap();
+        assert_eq!(found.len(), 1, "{found:?}");
+        assert_eq!(found[0].title, "Book flights to Singapore for the conference");
+        assert!(found[0].matching_lines[0].starts_with("Kevin: ") && found[0].matching_lines[0].contains("Singapore"));
+        assert!(recall(&c, "what did we talk about?", None).unwrap().is_empty(), "stop words alone recall nothing");
+        assert!(recall(&c, "\"*) OR (", None).unwrap().is_empty());
     }
 
     #[test]

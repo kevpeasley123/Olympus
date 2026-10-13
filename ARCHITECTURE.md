@@ -63,6 +63,7 @@ Tauri commands exposed by the desktop shell — every entry in the `generate_han
 | Voice | `create_voice_session`, `record_voice_request`, `voice_usage`, `elevenlabs_status`, `elevenlabs_connect`, `elevenlabs_disconnect`, `elevenlabs_check`, `elevenlabs_synthesize`, `elevenlabs_cancel` |
 | Persistence | `load_persisted_state`, `begin_operator_session`, `save_settings`, `save_tool_states`, `append_conversation_messages` |
 | Conversations | `list_conversations`, `load_conversation`, `search_conversations`, `rename_conversation`, `delete_conversation` (see `docs/CONVERSATIONS-AND-MEMORY.md`) |
+| Chat memory | `chat_memory_status`, `set_chat_memory`, `learn_from_earlier_chats` (Preferences > Memory) |
 | Memory index | `memory_status`, `memory_preview`, `memory_rebuild`, `memory_request_evidence` |
 | Vault | `fetch_pantheon_entries`, `write_pantheon_entry`, `migrate_pantheon_schema`, `save_attachment_to_vault`, `fetch_operator_profile`, `fetch_recent_vault_writes`, `fetch_vault_graph`, `open_vault_note` |
 | Write gate | `resolve_vault_write` |

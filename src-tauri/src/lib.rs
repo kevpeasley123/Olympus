@@ -232,6 +232,7 @@ pub fn run() {
                 commands::gmail::start_cadence(app.handle().clone());
                 commands::gmail::situations::start_cadence(app.handle().clone());
             }
+            commands::chat_memory::start(app.handle().clone());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -285,6 +286,8 @@ pub fn run() {
             commands::conversations::list_conversations, commands::conversations::load_conversation,
             commands::conversations::search_conversations, commands::conversations::rename_conversation,
             commands::conversations::delete_conversation,
+            commands::chat_memory::chat_memory_status, commands::chat_memory::set_chat_memory,
+            commands::chat_memory::learn_from_earlier_chats,
             begin_operator_session,
             launch_quick_app,
             open_vault_note,

@@ -37,6 +37,8 @@ import { runCapabilitiesHarness } from "./services/capabilities.harness";
 import { suggestionsFor, type CapabilitySnapshot, type MissionSnapshot } from "./services/capabilities";
 import { useCommandView } from "./hooks/useCommandView";
 import type { ChatControls } from "./components/panels/ChatHistory";
+import { MemorySettings } from "./components/panels/MemorySettings";
+import "./components/panels/PreferencesDialog.css";
 import type { ChatSession, ConversationSummary } from "./services/conversations";
 import catalogFixture from "./services/commandAgentsFixture.json";
 import capabilityFixture from "./services/capabilitiesFixture.json";
@@ -55,6 +57,7 @@ export const SCENARIOS = {
   "chat-compact": "Compact console, instrument unobstructed",
   "chat-expanded": "Expanded chat with a conversation from this launch",
   "chats": "The chat list over the expanded conversation",
+  "preferences-memory": "Preferences > Memory with saved chats and earlier chats not yet learned from",
   "mission-active": "Recorded mail-analysis mission in progress",
   "mission-research": "Recorded research verification in progress",
   "mission-complete": "Research verification finished: result ready",
@@ -91,6 +94,8 @@ mockIPC(command => {
   if (command === "search_conversations") return [{ conversationId: "chat-memory", title: chatFixture[1].title, messageId: "m3", role: "assistant", at: chatFixture[0].updatedAt,
     snippet: "…every chat is kept, and the \u0002memory\u0003 note in Obsidian is updated after a chat goes quiet…" }];
   if (command === "rename_conversation" || command === "delete_conversation") { mutations++; return null; }
+  if (command === "chat_memory_status") return { saveChats: true, learn: true, useMemory: true, savedChats: 42, earlierNotLearned: 37, earlierQueued: 0,
+    lastLearnedAt: new Date(Date.now() - 3 * 3600_000).toISOString(), lastError: null, memoryNote: "09 - System/Olympus Memory.md", chatsFolder: "10 - Conversations" };
   throw Error(`Unexpected fixture IPC: ${command}`);
 });
 const client: CommandCatalogClient = { read: async () => {
@@ -113,7 +118,7 @@ const missionSets = capabilityFixture.missions as unknown as Record<"none" | "co
 const missionFor: Record<Scenario, MissionSnapshot> = {
   "idle": missionSets.none, "agent-olympus": missionSets.none, "agent-research": missionSets.none, "agent-verification": missionSets.none,
   "agent-coding": missionSets.none, "domain-communications": missionSets.none, "capability-detail": missionSets.none, "chat-compact": missionSets.none,
-  "chat-expanded": missionSets.none, "chats": missionSets.none, "mission-active": missionSets.mailActive, "mission-research": missionSets.researchActive,
+  "chat-expanded": missionSets.none, "chats": missionSets.none, "preferences-memory": missionSets.none, "mission-active": missionSets.mailActive, "mission-research": missionSets.researchActive,
   "mission-complete": missionSets.completed, "reduced-motion": missionSets.none
 };
 const chatFixture: ConversationSummary[] = [
@@ -193,6 +198,8 @@ function Harness() {
       <button onClick={() => { reduced = !reduced; listeners.forEach(f => f()); }}>Toggle reduced motion</button>
       <label>Scenario <select aria-label="Visual scenario" value={scenario} onChange={e => { location.search = `?scenario=${e.target.value}`; }}>{Object.keys(SCENARIOS).map(s => <option key={s}>{s}</option>)}</select></label>
       <details><summary>Test results</summary><pre id="result">Manual visual study</pre></details></div>}
+    {scenario === "preferences-memory" && <div className="modal-backdrop"><div className="modal-dialog preferences-dialog" role="dialog" aria-label="Olympus Preferences" style={{ position: "fixed", top: 90, left: "50%", transform: "translateX(-50%)", maxHeight: "calc(100vh - 120px)", overflow: "auto", zIndex: 50 }}>
+      <section className="preferences-section" aria-labelledby="preferences-memory"><MemorySettings /></section></div></div>}
     {destination && <section className="command-fixture-inspector" aria-label="Existing inspection destination">{destination.projects ? <><button onClick={() => setDestination(null)}>Return to Command catalog</button><p>Project destination · fixture only</p></> :
       <ResearchVerification client={readOnlyResearch} available requestedRunId={destination.runId} inspectionOnly onReturn={() => setDestination(null)} />}</section>}
   </main><style>{`.command-fixture-controls{position:fixed;left:18px;bottom:3px;right:18px;display:flex;align-items:center;gap:14px;font:9px monospace;z-index:30;color:#acbacb}.command-fixture-controls button,.command-fixture-controls select{font:9px monospace;background:#10202d;color:#bdcbd8;border:1px solid #64798c55;padding:2px 5px}.command-fixture-controls details{margin-left:auto}.command-fixture-controls pre{position:absolute;bottom:20px;right:0;max-height:55vh;max-width:80vw;overflow:auto;white-space:pre-wrap;background:#07121e;padding:14px;border:1px solid #526479}.command-fixture-inspector{position:fixed;inset:90px 20px 35px;overflow:auto;z-index:40;background:#0a1522;border:1px solid #64798c;padding:15px}`}</style></>;
