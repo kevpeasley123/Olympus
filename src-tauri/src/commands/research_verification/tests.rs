@@ -37,7 +37,7 @@ fn fixture(values: Vec<Value>) -> Fixture {
 }
 fn setup() -> (Db, PathBuf, Run) {
     let c = rusqlite::Connection::open_in_memory().unwrap();
-    c.execute_batch(include_str!("../../../schema.sql"))
+    c.execute_batch(crate::commands::migrations::TEST_SCHEMA)
         .unwrap();
     recover(&c).unwrap();
     let db = Db(Mutex::new(c));

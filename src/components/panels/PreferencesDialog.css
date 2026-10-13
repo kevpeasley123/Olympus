@@ -10,6 +10,7 @@
 .modal-dialog.preferences-dialog .voice-setting-row select,.modal-dialog.preferences-dialog .voice-setting-row input:not([type="checkbox"]){width:100%;max-width:none;min-width:0;height:38px;padding:8px 11px;box-sizing:border-box;background:#10212d;border:1px solid #344d5b;border-radius:6px;color:#e1e8ef;font:12px/1.4 var(--font-ui,sans-serif)}
 .modal-dialog.preferences-dialog .voice-setting-row input[type="checkbox"]{justify-self:end;width:17px;height:17px;margin:0;accent-color:#d4ae68}
 .modal-dialog.preferences-dialog .voice-setting-row .console-reply-mode{justify-self:end}
+.modal-dialog.preferences-dialog .voice-setting-row>.ghost-action,.modal-dialog.preferences-dialog .memory-confirm-actions{justify-self:end;display:flex;gap:8px}
 .modal-dialog.preferences-dialog .voice-settings-hint{font:11px/1.65 var(--font-ui,sans-serif);color:#94aabb;margin:10px 0 0;max-width:62ch}
 .modal-dialog.preferences-dialog .eleven-voice-settings{padding:0;margin:10px 0 20px;border:0;border-radius:0;background:none}
 .modal-dialog.preferences-dialog .eleven-voice-settings>.voice-settings-hint:first-child{padding:10px 12px;border:1px solid #29463f;border-radius:6px;background:#0b201f;color:#a8cbbf;margin-bottom:12px}

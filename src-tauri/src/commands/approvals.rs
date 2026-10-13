@@ -187,7 +187,7 @@ mod tests {
     }
     fn db() -> Connection {
         let db = Connection::open_in_memory().unwrap();
-        db.execute_batch(include_str!("../../schema.sql")).unwrap();
+        db.execute_batch(crate::commands::migrations::TEST_SCHEMA).unwrap();
         db.execute("INSERT INTO operator_sessions(id) VALUES ('session')", [])
             .unwrap();
         db

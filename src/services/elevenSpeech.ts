@@ -10,10 +10,13 @@ export function nativeVoiceCommand<T>(command:string,args?:Record<string,unknown
 export const synthesizeEleven=(request:ElevenRequest)=>nativeVoiceCommand<ElevenAudio>("elevenlabs_synthesize",{...request});
 export const cancelEleven=(requestId:string)=>nativeVoiceCommand<void>("elevenlabs_cancel",{requestId});
 
-/** Only transient audio bytes cross IPC. Never persist the Blob or provider key. */
-export function speechUrl(audio:ElevenAudio):string{
+export function speechBytes(audio:ElevenAudio):Uint8Array<ArrayBuffer>{
   const decoded=atob(audio.audioBase64);
   const bytes=new Uint8Array(decoded.length);
   for(let i=0;i<decoded.length;i++)bytes[i]=decoded.charCodeAt(i);
-  return URL.createObjectURL(new Blob([bytes],{type:"audio/mpeg"}));
+  return bytes;
+}
+/** Only transient audio bytes cross IPC. Never persist the Blob or provider key. */
+export function speechUrl(audio:ElevenAudio):string{
+  return URL.createObjectURL(new Blob([speechBytes(audio)],{type:"audio/mpeg"}));
 }

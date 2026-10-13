@@ -23,7 +23,7 @@ use commands::pantheon::{fetch_pantheon_entries, write_pantheon_entry};
 use commands::pantheon_migrate::migrate_pantheon_schema;
 use commands::profile::fetch_operator_profile;
 use commands::persistence::{
-    append_conversation_messages, begin_operator_session, clear_conversation, fetch_recent_vault_writes,
+    append_conversation_messages, begin_operator_session, fetch_recent_vault_writes,
     load_persisted_state, save_settings, save_tool_states, Db,
 };
 use commands::projects::scan_tracked_projects;
@@ -32,10 +32,9 @@ use rusqlite::Connection;
 use std::sync::Mutex;
 use tauri::Manager;
 
-const SCHEMA: &str = include_str!("../schema.sql");
-
-/// Opens the local database and applies the schema. Runs once at startup so the
-/// frontend can assume persistence is ready by the time it can invoke anything.
+/// Opens the local database and brings its schema current. Runs once at
+/// startup so the frontend can assume persistence is ready by the time it can
+/// invoke anything. A database that needs migrating is backed up first.
 fn open_database(app: &tauri::AppHandle) -> Result<Connection, String> {
     let app_dir = app
         .path()
@@ -45,30 +44,22 @@ fn open_database(app: &tauri::AppHandle) -> Result<Connection, String> {
     fs::create_dir_all(&app_dir).map_err(|error| error.to_string())?;
     let db_path = app_dir.join("olympus.sqlite");
     let connection = Connection::open(&db_path).map_err(|error| error.to_string())?;
-    connection
-        .execute_batch(SCHEMA)
-        .map_err(|error| error.to_string())?;
-    let has_process_id = {
-        let mut columns = connection
-            .prepare("PRAGMA table_info(delegation_runs)")
-            .map_err(|error| error.to_string())?;
-        let found = columns
-            .query_map([], |row| row.get::<_, String>(1))
-            .map_err(|error| error.to_string())?
-            .filter_map(Result::ok)
-            .any(|name| name == "process_id");
-        found
-    };
-    if !has_process_id {
-        connection
-            .execute(
-                "ALTER TABLE delegation_runs ADD COLUMN process_id INTEGER",
-                [],
-            )
-            .map_err(|error| error.to_string())?;
+    if commands::migrations::pending(&connection)? {
+        if let Some(backup) = commands::migrations::backup(&connection, &db_path)? {
+            eprintln!("[Olympus::Db] backed up to {} before migrating", backup.display());
+        }
+    }
+    commands::migrations::apply(&connection)?;
+    let adopted = commands::conversations::adopt_orphans(&connection)?;
+    if adopted > 0 {
+        eprintln!("[Olympus::Db] adopted {adopted} messages written without a chat by an older build");
     }
 
-    eprintln!("[Olympus::Db] opened {}", db_path.display());
+    eprintln!(
+        "[Olympus::Db] opened {} (schema {})",
+        db_path.display(),
+        commands::migrations::latest()
+    );
     Ok(connection)
 }
 
@@ -245,6 +236,7 @@ pub fn run() {
                 commands::gmail::start_cadence(app.handle().clone());
                 commands::gmail::situations::start_cadence(app.handle().clone());
             }
+            commands::chat_memory::start(app.handle().clone());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -295,8 +287,12 @@ pub fn run() {
             save_settings,
             save_tool_states,
             append_conversation_messages,
+            commands::conversations::list_conversations, commands::conversations::load_conversation,
+            commands::conversations::search_conversations, commands::conversations::rename_conversation,
+            commands::conversations::delete_conversation,
+            commands::chat_memory::chat_memory_status, commands::chat_memory::set_chat_memory,
+            commands::chat_memory::learn_from_earlier_chats,
             begin_operator_session,
-            clear_conversation,
             launch_quick_app,
             open_vault_note,
             restart_olympus,

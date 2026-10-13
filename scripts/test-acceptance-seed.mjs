@@ -1,16 +1,20 @@
 // Regression checks for scripts/acceptance/seed-db.mjs destination identity.
 // Everything is built under a fresh temporary directory: a fixture, scratch
-// databases from src-tauri/schema.sql, and directory links. The links are
-// junctions on Windows and symlinks elsewhere, and the output says which ran.
+// databases built like a fresh launch (the frozen baseline, then each
+// migration's SQL; no data step matters on an empty database), and directory
+// links. The links are junctions on Windows and symlinks elsewhere, and the
+// output says which ran.
 import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync } from "node:fs";
 import { tmpdir, platform } from "node:os";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
 const LINK = platform() === "win32" ? "junction" : "dir";
 const LINK_NAME = platform() === "win32" ? "junction" : "symlink";
-const schema = readFileSync("src-tauri/schema.sql", "utf8");
+const migrations = readdirSync("src-tauri/migrations").filter((name) => /^\d{4}_.*\.sql$/.test(name)).sort();
+const schema = [readFileSync("src-tauri/schema.sql", "utf8"), ...migrations.map((name) => readFileSync(`src-tauri/migrations/${name}`, "utf8")),
+  `PRAGMA user_version = ${migrations.length + 1};`].join("\n");
 const root = mkdtempSync(join(tmpdir(), "olympus-seed-test-"));
 let passed = 0;
 

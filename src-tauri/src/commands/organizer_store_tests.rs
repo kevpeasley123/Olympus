@@ -2,7 +2,7 @@ use super::*;
 
 fn db() -> Connection {
     let c = Connection::open_in_memory().unwrap();
-    c.execute_batch(include_str!("../../schema.sql")).unwrap();
+    c.execute_batch(crate::commands::migrations::TEST_SCHEMA).unwrap();
     c.execute("INSERT INTO projects(id,name,status,signal,description,payload_json) VALUES('p','Project','active','','','{}')", []).unwrap();
     c
 }
@@ -24,7 +24,7 @@ fn input() -> TaskInput {
 fn organizer_schema_is_additive_and_identity_survives_edits() {
     let mut c = db();
     let t = create(&mut c, input()).unwrap();
-    c.execute_batch(include_str!("../../schema.sql")).unwrap();
+    crate::commands::migrations::apply(&c).unwrap();
     let mut edit = input();
     edit.title = "Edited title".into();
     let next = update(&mut c, &t.id, t.revision, edit).unwrap();
@@ -111,7 +111,7 @@ fn organizer_persists_across_database_reopen() {
     let p = std::env::temp_dir().join(format!("organizer-{}.sqlite", new_id()));
     let id = {
         let mut c = Connection::open(&p).unwrap();
-        c.execute_batch(include_str!("../../schema.sql")).unwrap();
+        c.execute_batch(crate::commands::migrations::TEST_SCHEMA).unwrap();
         c.execute("INSERT INTO projects(id,name,status,signal,description,payload_json) VALUES('p','P','active','','','{}')",[]).unwrap();
         create(&mut c, input()).unwrap().id
     };

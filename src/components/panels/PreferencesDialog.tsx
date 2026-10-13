@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Modal } from "../Modal";
 import { EngineSettings } from "./EngineSettings";
 import { GmailSettings } from "./GmailSettings";
+import { MemorySettings } from "./MemorySettings";
 import { ModelDiagnostics } from "./ModelSettings";
 import { ReplyModeToggle } from "./ReplyModeToggle";
 import { VoiceSettings } from "./VoiceSettings";
@@ -17,8 +18,9 @@ import type { DelegationPhase } from "../../services/delegation";
  * Preferences, as a real dialog (review U9) that opens below the header.
  *
  * Ordered by how often each is touched: how Olympus replies and whether it
- * briefs on open first; the voice lab, Gmail and diagnostics behind their own
- * disclosures; Restart last, behind a confirmation (review U4).
+ * briefs on open first, then what it remembers; the voice lab, Gmail and
+ * diagnostics behind their own disclosures; Restart last, behind a
+ * confirmation (review U4).
  */
 
 interface PreferencesDialogProps {
@@ -39,7 +41,7 @@ export function PreferencesDialog({ open, onClose, preferences, onPreferences, s
         <div>
           <p className="eyebrow">Settings</p>
           <h2 id="preferences-title">Olympus Preferences</h2>
-          <p className="preferences-subtitle">Voice, replies, and connected services.</p>
+          <p className="preferences-subtitle">Replies, memory, voice, and connected services.</p>
         </div>
         <button className="ghost-icon-action" type="button" aria-label="Close preferences" title="Close preferences (Esc)" onClick={onClose}>
           <X size={18} aria-hidden="true" />
@@ -63,6 +65,9 @@ export function PreferencesDialog({ open, onClose, preferences, onPreferences, s
         </p>
       </section>
 
+      <section className="preferences-section" aria-labelledby="preferences-memory">
+        <MemorySettings />
+      </section>
       <section className="preferences-section">
         <VoiceSettings preferences={preferences} onChange={onPreferences} ready={settingsReady} replyControls={false} />
       </section>

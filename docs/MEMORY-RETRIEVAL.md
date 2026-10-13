@@ -1,10 +1,10 @@
 # Indexed curated memory
 
-Implemented on October 8, 2026 (`2dcdeec`) and shipped in 0.26.0; this is the default request path. This is the first retrieval slice of the approved [durability review](reviews/2026-10-08-memory-retrieval.md). It does not collect Codex/Claude chats automatically. Contributors must write curated records using the [continuity protocol](MEMORY-CONTINUITY.md).
+Implemented on October 8, 2026 (`2dcdeec`) and shipped in 0.26.0; this is the default request path. This is the first retrieval slice of the approved [durability review](reviews/2026-10-08-memory-retrieval.md). It does not collect Codex/Claude chats automatically, and it does not index Olympus's own chats: past-chat recall reads SQLite (see [CONVERSATIONS-AND-MEMORY.md](CONVERSATIONS-AND-MEMORY.md)). Contributors must write curated records using the [continuity protocol](MEMORY-CONTINUITY.md).
 
 ## Request behavior
 
-Each native assistant request resolves project scope and prepares one evidence packet, reused by the OpenAI and Anthropic routes. Explicit project names take precedence over the active project; recent operator questions and the preceding request's single project scope support follow-ups. The present app has one persisted conversation; clearing it removes those saved scope/evidence receipts. A future multiple-conversation implementation must partition scope and receipts by conversation identity.
+Each native assistant request resolves project scope and prepares one evidence packet, reused by the OpenAI and Anthropic routes. Explicit project names take precedence over the active project; recent operator questions and the preceding request's single project scope support follow-ups. Since 2026-10-13 chats are separate: the carried-over scope is the open chat's own last answered request, so a new or temporary chat starts with none, and deleting a chat removes its receipts.
 
 Ambiguous project aliases require clarification. Resumption without an established project returns `scope_required`. Portfolio questions receive bounded project summaries and explicit partial-coverage warnings. Current project sessions/decisions take priority over global research during resumption. General research may cross project boundaries; it does not establish another project's commitments.
 
@@ -19,7 +19,7 @@ At dispatch, selected files are re-read and their exact SHA-256 revisions checke
 - `retrieve.rs`: scope resolution, ranked retrieval, correction bundles and bounded evidence packets.
 - `mod.rs`: background worker, native commands and immutable request receipts.
 
-`memory-index.sqlite` is derived data under Tauri's application-local data directory, outside the vault and its OneDrive synchronization. The existing operational database retains `request_memory` receipts keyed to real backend model requests. Index rebuilds do not erase response evidence. Source deletion removes future retrieval after a successful scan; saved request excerpts remain until the conversation is cleared. Index archives retained during explicit corruption recovery are local diagnostic copies; source retention is independent.
+`memory-index.sqlite` is derived data under Tauri's application-local data directory, outside the vault and its OneDrive synchronization. The existing operational database retains `request_memory` receipts keyed to real backend model requests. Index rebuilds do not erase response evidence. Source deletion removes future retrieval after a successful scan; saved request excerpts remain until their chat is deleted. Index archives retained during explicit corruption recovery are local diagnostic copies; source retention is independent.
 
 The single index writer reconciles at startup, after debounced filesystem notifications, and every 60 seconds. A full source-hash sweep runs approximately every ten minutes while the process is running; these intervals are scheduling targets, not cross-machine consistency guarantees. Watcher failure is reported and periodic reconciliation continues. Metadata avoids needless parsing; hashes establish revisions. Queries use separate read-only connections and never enumerate the vault.
 

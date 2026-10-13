@@ -135,7 +135,7 @@ Text and voice reasoning use OpenAI Responses from Rust. Add `OPENAI_API_KEY` to
 
 - Default: Sol (`gpt-6-sol`, medium). The console's model control offers Deep Analysis (`gpt-6-astra`, high) and Claude comparison, applied to the next answer (then back to Sol) or to this chat until changed.
 - `src-tauri/src/commands/models.rs` owns model IDs and routes. There is no automatic provider fallback.
-- OpenAI requests use `store: false`, local history (last 40 messages, at most 120,000 characters), and shared Olympus/vault/project instructions. OpenAI Realtime handles microphone transcription and, unless ElevenLabs is the selected speech provider ([ElevenLabs voice](docs/ELEVENLABS-VOICE.md)), spoken output; it does not replace the reasoning layer.
+- OpenAI requests use `store: false`, the open chat's history (last 40 messages, at most 120,000 characters), shared Olympus/vault/project instructions, and, unless the chat is temporary, learned memory and recalled earlier chats as labelled evidence ([conversations and memory](docs/CONVERSATIONS-AND-MEMORY.md)). OpenAI Realtime handles microphone transcription and, unless ElevenLabs is the selected speech provider ([ElevenLabs voice](docs/ELEVENLABS-VOICE.md)), spoken output; it does not replace the reasoning layer.
 - Preferences → Model diagnostics shows backend request records and reported token usage; assistant messages retain model provenance across reloads. Client-reported audio/transcription records are explicitly distinguished from confirmed reasoning model metadata.
 - See [model routing](docs/MODEL-ROUTING.md) for contracts and verification limits.
 
@@ -162,9 +162,9 @@ What is stored, by area (`src-tauri/schema.sql` declares every table and sets
 | Area | Tables | Write pattern |
 | --- | --- | --- |
 | Settings and tool flags | `settings`, `tool_states` | Upsert on change |
-| Chat history | `conversation_messages`, with `conversation_research`, `conversation_mail`, `conversation_voice`, `conversation_model`, `conversation_turn_context` and `conversation_imports` keyed by message ID | Append at send time; a re-append cannot rewrite content or provenance |
+| Chats | `conversations` (title, summary, vault note and memory progress); `conversation_messages`, with `conversation_research`, `conversation_mail`, `conversation_voice`, `conversation_model`, `conversation_turn_context` and `conversation_imports` keyed by message ID; `conversation_search` (FTS) | Append at send time; a re-append cannot rewrite content or provenance |
 | Desktop session boundaries | `operator_sessions` | One idempotent row per launch |
-| Vault write log | `processing_logs`; `artifact_hashes` (fingerprints of derived files; no current writer) | Written by the write gate |
+| Vault write log | `processing_logs`; `artifact_hashes` (fingerprints of chat notes Olympus wrote whole) | Written by the vault writers |
 | Delegation and approval | `delegation_runs`, `delegation_events`, `delegation_contracts`, `delegation_checks`, `delegation_reviews`, `operator_approvals`, `approval_consumptions`, `approval_revocations` | Durable run state, append-only milestones, immutable approval records |
 | Organizer | `organizer_tasks`, `organizer_sources`, `organizer_proposal_links`, `organizer_run_links`, `organizer_results`, `organizer_events`, plus a row in `projects` for each project that holds tasks | Revisioned tasks with linked runs, reviewable results and an event log (see `docs/ORGANIZER.md`) |
 | Project membership | `project_members`, `project_links`, `project_membership_state`, `project_identity_conflicts`, `project_brief_writes` | Revisioned membership; removals kept as tombstones; briefs staged before the vault write (see `docs/PROJECT-LINKING.md`) |

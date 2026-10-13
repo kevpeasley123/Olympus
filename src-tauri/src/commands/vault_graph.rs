@@ -91,11 +91,14 @@ fn relative(vault: &Path, path: &Path) -> String {
 /// working when a third scaffold folder appears, without anyone editing a list.
 fn scaffold_roots(vault: &Path) -> HashSet<PathBuf> {
     let mut by_shape: HashMap<String, Vec<PathBuf>> = HashMap::new();
+    // Chat notes' year and month folders could otherwise share a shape with a
+    // real folder and hide it as scaffolding.
+    let chats = vault.join(super::chat_memory::CHATS_FOLDER);
 
     for entry in WalkDir::new(vault)
         .follow_links(false)
         .into_iter()
-        .filter_entry(|e| !e.file_name().to_string_lossy().starts_with('.'))
+        .filter_entry(|e| !e.file_name().to_string_lossy().starts_with('.') && e.path() != chats)
         .flatten()
     {
         if !entry.file_type().is_dir() {
@@ -211,10 +214,13 @@ fn build_vault_graph_at(
     let mut files: Vec<PathBuf> = Vec::new();
     let mut excluded_scaffold = 0u32;
 
+    // Chat notes are records of conversations, not knowledge structure: one per
+    // chat, rarely linked, they would fill the graph with unconnected points.
+    let chats = vault.join(super::chat_memory::CHATS_FOLDER);
     for entry in WalkDir::new(&vault)
         .follow_links(false)
         .into_iter()
-        .filter_entry(|e| !e.file_name().to_string_lossy().starts_with('.'))
+        .filter_entry(|e| !e.file_name().to_string_lossy().starts_with('.') && e.path() != chats)
         .flatten()
     {
         let path = entry.path();
@@ -428,6 +434,18 @@ mod tests {
             .filter(|node| !node.is_project && node.hop.is_some())
             .map(|node| node.id.clone())
             .collect()
+    }
+
+    #[test]
+    fn chat_notes_are_not_graph_nodes() {
+        let (vault, projects) = temp_vault("chats");
+        fs::write(vault.join("01 - Projects/Project Alpha.md"), "# Alpha\n").unwrap();
+        let chats = vault.join("10 - Conversations/2026/10");
+        fs::create_dir_all(&chats).unwrap();
+        fs::write(chats.join("2026-10-13 Plan the week a1b2c3.md"), "[[Project Alpha]]\n").unwrap();
+        let graph = build_vault_graph_at(vault.clone(), projects).unwrap();
+        assert!(graph.nodes.iter().all(|node| !node.id.starts_with("10 - Conversations/")));
+        fs::remove_dir_all(&vault).ok();
     }
 
     #[test]

@@ -69,19 +69,21 @@ Background Communications situation analysis, approved by the operator and recor
 
 **It acts, with an approval gate, and advises when needed.** Reads run freely; writes surface a confirmation before touching disk or project state. This is already the README's stated safety model.
 
-**It remembers, selectively.** Two tiers: SQLite holds the raw conversation log (complete, searchable, invisible); the vault holds curated notes (human-readable, permanent). Not every exchange earns a vault note — that would bury the vault in "what's the weather" within a month. Chat itself does not write to the vault: Kevin removed the Save memory and Observation actions on 2026-10-11. Vault notes come from Kevin, or from explicit reviewed workflows such as research entries and project briefs.
+**It keeps every chat and remembers automatically.** Decided 2026-10-13, replacing "remembers, selectively": Olympus works like ChatGPT and Claude here. Each conversation is a separate, titled, searchable chat, saved to the vault as a note in `10 - Conversations/`; a background pass keeps `09 - System/Olympus Memory.md` current after a chat goes quiet, with no approval step. Kevin can read and edit both in Obsidian, and his edits win. Learned memory reaches the model only as labelled, lower-authority evidence, never as instruction. A Temporary chat is never saved and neither uses nor feeds memory. Preferences > Memory switches each part off. The Save memory and Observation buttons Kevin removed on 2026-10-11 stay removed; memory needs no button. See `docs/CONVERSATIONS-AND-MEMORY.md`.
 
 ## Vault
 
-Ten folders at `C:\Users\kevpe\OneDrive\Desktop\Projects\Obsidian vaults\Olympus Obsidian Vault`:
+Eleven folders at `C:\Users\kevpe\OneDrive\Desktop\Projects\Obsidian vaults\Olympus Obsidian Vault`:
 
 ```
-00 - Dashboard   05 - Skills
+00 - Dashboard   05 - Skills          10 - Conversations
 01 - Projects    06 - Agents
 02 - Research    07 - Templates
 03 - Tasks       08 - Daily Briefs
 04 - Decisions   09 - System
 ```
+
+`10 - Conversations` is created by Olympus on the first saved chat.
 
 Every app write to the vault goes through the write gate and gets its own vault Git commit (see `ARCHITECTURE.md`, "Vault writes"). PowerShell scripts in `scripts/` scaffold and repair the structure.
 

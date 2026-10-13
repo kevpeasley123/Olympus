@@ -49,7 +49,7 @@ Harness scenarios run in `command-agent-harness.html?flagship&scenario=<state>` 
 | `conversation` | the companion's Conversation tab with history |
 | `chat-compact` | compact, dormant console |
 | `armory-agents` | the Armory dialog open on Athena's loadout |
-| `voice-speaking` | the Spoken replies wave at 0.8 level |
+| `voice-speaking` | the voice signal reading synthetic reply audio at 0.8 level |
 | `reduced-motion` | reduced motion |
 | `app-command` | the real App (`/`) in browser mode, Command selected |
 

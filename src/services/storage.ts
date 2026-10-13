@@ -24,7 +24,16 @@ interface PersistedToolState {
 interface PersistedState {
   settings: Record<string, string>;
   toolStates: PersistedToolState[];
+  /** The chat reopened at launch, if one was used in the last half hour. */
+  conversationId: string | null;
   conversation: ConversationMessage[];
+  hasConversations: boolean;
+}
+
+/** Stored state plus the chat it opens on; `null` means a new chat. */
+export interface LoadedSession {
+  state: OlympusState;
+  conversationId: string | null;
 }
 
 /**
@@ -45,9 +54,9 @@ export function initialDashboardState(): OlympusState {
  * On desktop a database read failure is thrown, not papered over: falling back
  * to seed state would let the next preference save overwrite the real settings.
  */
-export async function loadState(): Promise<OlympusState> {
+export async function loadSession(): Promise<LoadedSession> {
   if (!isTauriRuntime()) {
-    return readLocalState();
+    return { state: readLocalState(), conversationId: null };
   }
 
   const persisted = await invoke<PersistedState>("load_persisted_state");
@@ -60,7 +69,11 @@ export async function loadState(): Promise<OlympusState> {
   }
 
   clearLegacyState();
-  return applyPersistedState(persisted);
+  return { state: applyPersistedState(persisted), conversationId: persisted.conversationId };
+}
+
+export async function loadState(): Promise<OlympusState> {
+  return (await loadSession()).state;
 }
 
 /**
@@ -90,13 +103,14 @@ export async function persistPreferences(state: OlympusState): Promise<void> {
 }
 
 export async function appendConversationMessages(
+  conversationId: string,
   messages: ConversationMessage[],
   options: { imported?: boolean } = {}
 ): Promise<boolean> {
   if (messages.length === 0 || !isTauriRuntime()) return false;
 
   try {
-    await invoke("append_conversation_messages", { messages, imported: options.imported ?? false });
+    await invoke("append_conversation_messages", { conversationId, messages, imported: options.imported ?? false });
     return true;
   } catch (error) {
     console.warn("[Olympus] Could not append conversation history.", error);
@@ -136,7 +150,7 @@ function isEmptyPersistedState(persisted: PersistedState): boolean {
   return (
     Object.keys(persisted.settings).length === 0 &&
     persisted.toolStates.length === 0 &&
-    persisted.conversation.length === 0
+    !persisted.hasConversations
   );
 }
 
@@ -151,16 +165,20 @@ function hasLocalPayload(): boolean {
  * later load will: with the import time and no message date, since the only
  * date the database can give them is the moment of this import.
  */
-async function migrateLocalState(local: OlympusState): Promise<OlympusState> {
+async function migrateLocalState(local: OlympusState): Promise<LoadedSession> {
   console.info("[Olympus] Importing existing localStorage state into the local database.");
   await persistPreferences(local);
-  const imported = await appendConversationMessages(local.conversation, { imported: true });
+  const conversationId = crypto.randomUUID();
+  const imported = await appendConversationMessages(conversationId, local.conversation, { imported: true });
   clearLegacyState();
-  if (!imported) return local;
+  if (!imported) return { state: local, conversationId: null };
   const importedAt = new Date().toISOString();
   return {
-    ...local,
-    conversation: local.conversation.map(({ at: _at, ...message }) => ({ ...message, importedAt }))
+    state: {
+      ...local,
+      conversation: local.conversation.map(({ at: _at, ...message }) => ({ ...message, importedAt }))
+    },
+    conversationId
   };
 }
 

@@ -5,76 +5,88 @@ that changes state and at every release (see "Keeping guidance current" in
 `AGENTS.md`). History is in `docs/RELEASES.md` and `docs/archive/`; the log this
 file replaced is `docs/archive/NEXT-SESSION-through-2026-10-11.md`.
 
-## State — 2026-10-12
+## State — 2026-10-13
 
-- **Version 0.32.0** on `master`, released from `claude/modest-mayer-nvawru`
-  through "Bring everything current". Kevin confirmed on 2026-10-12 that 0.30.0
-  was installed and in daily use; whether 0.31.0 and 0.32.0 are installed is
-  not yet confirmed.
-- **0.31.0** (another session, `claude/bold-ptolemy-bwywj1`) recorded the
-  Armory direction and built Phase 0b:
-  - Codex and Claude Code are found and their sign-ins checked (`engines.rs`,
-    Preferences > Subscription engines).
-  - Delegated Claude Code refuses to start without a confirmed subscription and
-    runs within turn limits instead of a dollar budget.
-  - See `docs/ARMORY-PLAN.md`.
-- **0.32.0** brings in:
-  - the guidance cleanup and its drift check;
-  - removal of the chat memory writers, the dashboard exports and proven dead
-    weight (with a before/after style proof on 51 screens);
-  - the project-brief vault commit;
-  - a visual review of the shipped Command.
+- **Version 0.33.0** on `master`, released through "Bring everything current"
+  from `claude/modest-mayer-nvawru` with `claude/bold-ptolemy-bwywj1` merged in.
+  Kevin confirmed on 2026-10-12 that 0.30.0 was installed and in daily use;
+  whether 0.31.0 to 0.33.0 are installed is not yet confirmed.
+- **0.33.0** brings in:
+  - **Conversations and memory** (`docs/CONVERSATIONS-AND-MEMORY.md`):
+    - versioned schema migrations, with a backup before each upgrade;
+    - separate, searchable chats, with New chat and Temporary chat;
+    - each chat saved to `10 - Conversations/`;
+    - an automatic memory note, `09 - System/Olympus Memory.md`;
+    - recall of earlier chats;
+    - Preferences > Memory.
+  - **The voice signal** beneath the Omega, from the other session: a canvas
+    energy signal and waveform driven by real audio analysis, a compact
+    speaker switch in place of the Spoken replies pill, and an Omega glow that
+    follows the reply. See the Voice signal section of
+    `docs/COMMAND-FLAGSHIP.md`.
+- **Earlier releases.**
+  - 0.31.0 recorded the Armory direction and built Phase 0b (engine sign-in
+    checks, turn limits for delegated Claude Code; `docs/ARMORY-PLAN.md`).
+  - 0.32.0 was the guidance cleanup and the removal of proven dead weight.
 - Every other remote branch ahead of `master` predates the 2026-09-07 history
   restart and shares no history with it; all are superseded.
 
-## Last verification — 2026-10-12, Linux cloud container
+## Last verification — 2026-10-13, Linux cloud container
 
-Not the desktop app, WebView2, Tauri IPC or real data. The counts are in the
-0.32.0 release commit message.
+The 0.33.0 merge:
+- `cargo test --lib`: 539 passed, 18 ignored;
+- `npm run build`;
+- all 47 `scripts/test-*.mjs`, the browser ones on headless Chromium
+  through a shim that drops `channel:'msedge'`;
+- `npm run visual:review`: 21/21 captures and 14 functional checks.
+
+An independent code review of the conversations work also ran; its findings
+are fixed.
+
+Not the desktop app, WebView2, Tauri IPC or real data.
 
 ## Next
 
-1. **Armory Phase 0 on the PC.** Open Preferences > Subscription engines. Both
+1. **Check 0.33.0 on the PC** after Update Olympus.
+   - The first launch migrates the database and writes
+     `olympus.sqlite.pre-v2-from-v1.bak` beside it.
+   - Old history appears in the Chats list. Over the next minutes, chat notes
+     appear in `10 - Conversations/`, each with its own vault commit.
+   - A chat left quiet for ten minutes updates `09 - System/Olympus Memory.md`.
+   - Listen to a spoken reply and use the microphone. The waveform should
+     follow the voice and settle in pauses, and the Omega should brighten
+     slightly. If the bars keep their small ambient rhythm while audio plays,
+     the analysis found no source; note which provider was speaking.
+2. **Armory Phase 0 on the PC.** Open Preferences > Subscription engines. Both
    engines should be found and show a subscription. If either shows "Not
    confirmed", record the output of `claude auth status --json` or
    `codex login status`, so the parser can learn that shape.
-2. **Armory Phase 1, the engine layer**, per `docs/ARMORY-PLAN.md`, after the
+3. **Armory Phase 1, the engine layer**, per `docs/ARMORY-PLAN.md`, after the
    engine spike runs on the PC. Monid belongs to Phase 3b; the spending policy is
    in `OLYMPUS-MANUAL.md`, and the earlier step-by-step plan is the first
    section of `docs/archive/NEXT-SESSION-through-2026-10-11.md`.
-3. **Home semantic navigation.** Approved as an independent slice, not
+4. **Home semantic navigation.** Approved as an independent slice, not
    started. The only written design is the Semantic Zoom section and Phase 4 of
    `docs/archive/SKILLS-GRAPHS-INSPECTION-PLAN.md`.
-4. **One paid Research run from the UI**, once API credit is available.
+5. **One paid Research run from the UI**, once API credit is available.
 
 ## Decisions waiting on Kevin
 
-1. **Chat memory in Obsidian.** Kevin wants chats stored in the vault and
-   remembered the way ChatGPT and Claude do. Today:
-   - Chat is one continuous SQLite log on the PC.
-   - The model sees only the last 40 messages, plus indexed recall over curated
-     vault notes.
-   - Chats are never written to the vault, and past chats are not searchable.
-
-   This changes the settled "remembers, selectively" decision in `CLAUDE.md`,
-   so the design needs his choices before building. It also needs the
-   migration runner (item 2) for a conversation id.
-2. **Schema migrations.** Designed in `docs/SCHEMA-MIGRATIONS.md`, deferred by
-   Kevin until it can be done properly.
-3. **Knowledge audit.** A fixed read-only check of research and evidence
+1. **Knowledge audit.** A fixed read-only check of research and evidence
    health. Its screen went in 0.30.0, and nothing can start it now. Kevin's
    view: it probably needs no screen. Retire it (code, three commands, two
    tables via a migration) or run it on a schedule later.
-4. **Retired Command composition.** The Agent Catalog, the capability ring and
+2. **Retired Command composition.** The Agent Catalog, the capability ring and
    the non-flagship paths in `CommandInstrument` are now reachable only from
    `command-agent-harness.html` without `?flagship`. Proposed: remove them and
    their CSS with the same before/after style proof used on 2026-10-12.
 
 ## Known issues
 
-- **Tests only run on Kevin's machine.** 12 browser test scripts hard-code
-  `channel:'msedge'`, and 11 of them expect a dev server already running on
-  `127.0.0.1:31420` (one uses `31448`). There is no `npm test` and no CI.
+- **Browser tests assume Kevin's machine.** 16 test scripts hard-code
+  `channel:'msedge'`, and most expect a dev server already running on
+  `127.0.0.1:31420` (one uses `31448`). A cloud session runs them on Chromium
+  only through a preload shim. There is no `npm test` and no CI.
 - **One-off review scripts are stale.** `scripts/*-review.mjs` launch Edge only
   and nothing runs them; `mission-review.mjs` looks for "Obsidian
   constellation", now "Obsidian Memory constellation". `npm run visual:review`
@@ -82,7 +94,7 @@ Not the desktop app, WebView2, Tauri IPC or real data. The counts are in the
 - **Stale fixture.** `src/services/capabilitiesFixture.json` predates
   `hephaestus-engineering` and lists 7 skills, so browser previews show one
   fewer than the desktop app.
-- **No caller.** `clear_conversation`, `memory_status`, `memory_preview`,
+- **No caller.** `memory_status`, `memory_preview`,
   `memory_rebuild`, `list_organizer_tasks` and `communication_skills` are
   registered but nothing in the app calls them.
 - **Project identity is split.** `organizer_tasks.project_id` references the
@@ -108,7 +120,13 @@ covers the screens he uses; these paths each need a deliberate trigger.
 - A Coding Delegate (Hephaestus) run that completes under the turn limit, and
   Organizer acceptance of its real result.
 - The engine sign-in checks against Kevin's real Codex and Claude Code installs.
+- The voice signal against real ElevenLabs replies, realtime voice and the
+  microphone in WebView2. The harness uses synthetic audio only.
 - A paid Research / Verification run from the UI.
 - Live-provider skill guidance.
 - A project brief saved since the 2026-10-12 vault-commit change.
-- Process-crash timing, and running an older binary against a newer database.
+- Process-crash timing.
+- Migration 2 on Kevin's real database, its backup, and the refusal when an
+  older binary meets the migrated database.
+- A paid memory pass, a chat note and memory note written to the real vault with
+  their commits, and learning from earlier chats.

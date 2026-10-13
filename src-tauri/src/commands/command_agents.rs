@@ -79,7 +79,7 @@ mod tests {
     use rusqlite::params;
     fn db() -> Connection {
         let c = Connection::open_in_memory().unwrap();
-        c.execute_batch(include_str!("../../schema.sql")).unwrap();
+        c.execute_batch(crate::commands::migrations::TEST_SCHEMA).unwrap();
         super::super::research_verification::recover(&c).unwrap();
         c
     }

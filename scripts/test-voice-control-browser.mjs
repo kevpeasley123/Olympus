@@ -20,6 +20,6 @@ try{
   check(await page.getByRole('switch',{name:'Spoken replies',exact:true}).evaluate(el=>{const r=el.getBoundingClientRect();return el.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2));}),'Primary toggle receives pointer input');
   await page.screenshot({path:`output/voice-control-review/command-${width}.png`});
  }
- await page.emulateMedia({reducedMotion:'reduce'});check(await page.locator('.voice-conversation__switch>span').evaluate(el=>getComputedStyle(el).transitionDuration)==='0s','Reduced motion respected');
+ await page.emulateMedia({reducedMotion:'reduce'});check(await page.locator('.olympus-voice-toggle__track>span').evaluate(el=>getComputedStyle(el).transitionDuration)==='0s','Reduced motion respected');
  console.log(`PASS ${passed} voice-control browser checks (synthetic only)`);
 }finally{await browser.close();}

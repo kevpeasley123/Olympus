@@ -27,6 +27,7 @@ import { HeaderBar } from "./components/panels/HeaderBar";
 import { ResearchVerification } from "./components/panels/ResearchVerification";
 import type { CommandCatalog, CommandCatalogClient } from "./services/commandAgents";
 import type { VoiceSnapshot } from "./services/realtimeVoice";
+import { voiceSignal, type SignalSource } from "./services/voiceSignal";
 import type { ResearchClient, ResearchRun, AgentCatalog } from "./services/researchVerification";
 import type { TrackedProject, ConversationMessage } from "./types";
 import { EMPTY_VAULT_GRAPH, type VaultGraphPayload } from "./services/vaultGraph";
@@ -36,6 +37,10 @@ import { runAmbientMotionHarness } from "./services/ambientMotion.harness";
 import { runCapabilitiesHarness } from "./services/capabilities.harness";
 import { suggestionsFor, type CapabilitySnapshot, type MissionSnapshot } from "./services/capabilities";
 import { useCommandView } from "./hooks/useCommandView";
+import type { ChatControls } from "./components/panels/ChatHistory";
+import { MemorySettings } from "./components/panels/MemorySettings";
+import "./components/panels/PreferencesDialog.css";
+import type { ChatSession, ConversationSummary } from "./services/conversations";
 import catalogFixture from "./services/commandAgentsFixture.json";
 import capabilityFixture from "./services/capabilitiesFixture.json";
 import inspectionFixture from "./services/researchVerificationFixture.json";
@@ -52,6 +57,8 @@ export const SCENARIOS = {
   "capability-detail": "Claim Verification inspected from the Research domain",
   "chat-compact": "Compact console, instrument unobstructed",
   "chat-expanded": "Expanded chat with a conversation from this launch",
+  "chats": "The chat list over the expanded conversation",
+  "preferences-memory": "Preferences > Memory with saved chats and earlier chats not yet learned from",
   "mission-active": "Recorded mail-analysis mission in progress",
   "mission-research": "Recorded research verification in progress",
   "mission-complete": "Research verification finished: result ready",
@@ -83,6 +90,13 @@ mockIPC(command => {
   if (command === "memory_request_evidence") return structuredClone(memoryFixture);
   if (command === "model_routes") return modelPickerFixture;
   if (command === "save_model_selection") return null;
+  if (command === "list_conversations") return structuredClone(chatFixture);
+  if (command === "load_conversation") return [...history, ...thisLaunch];
+  if (command === "search_conversations") return [{ conversationId: "chat-memory", title: chatFixture[1].title, messageId: "m3", role: "assistant", at: chatFixture[0].updatedAt,
+    snippet: "…every chat is kept, and the \u0002memory\u0003 note in Obsidian is updated after a chat goes quiet…" }];
+  if (command === "rename_conversation" || command === "delete_conversation") { mutations++; return null; }
+  if (command === "chat_memory_status") return { saveChats: true, learn: true, useMemory: true, savedChats: 42, earlierWaiting: 37, earlierQueued: 0, stoppedChats: 0,
+    lastLearnedAt: new Date(Date.now() - 3 * 3600_000).toISOString(), lastError: null, memoryNote: "09 - System/Olympus Memory.md", chatsFolder: "10 - Conversations" };
   throw Error(`Unexpected fixture IPC: ${command}`);
 });
 const client: CommandCatalogClient = { read: async () => {
@@ -105,9 +119,14 @@ const missionSets = capabilityFixture.missions as unknown as Record<"none" | "co
 const missionFor: Record<Scenario, MissionSnapshot> = {
   "idle": missionSets.none, "agent-olympus": missionSets.none, "agent-research": missionSets.none, "agent-verification": missionSets.none,
   "agent-coding": missionSets.none, "domain-communications": missionSets.none, "capability-detail": missionSets.none, "chat-compact": missionSets.none,
-  "chat-expanded": missionSets.none, "mission-active": missionSets.mailActive, "mission-research": missionSets.researchActive,
+  "chat-expanded": missionSets.none, "chats": missionSets.none, "preferences-memory": missionSets.none, "mission-active": missionSets.mailActive, "mission-research": missionSets.researchActive,
   "mission-complete": missionSets.completed, "reduced-motion": missionSets.none
 };
+const chatFixture: ConversationSummary[] = [
+  { id: "chat-launch", title: "Which of my research notes support evidence-first review?", summary: "", createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), messageCount: 4, legacy: false, vaultPath: null },
+  { id: "chat-memory", title: "How Olympus should remember", summary: "Agreed that every chat is kept, saved to Obsidian and learned from automatically; temporary chats are not.", createdAt: new Date(Date.now() - 26 * 3600_000).toISOString(), updatedAt: new Date(Date.now() - 25 * 3600_000).toISOString(), messageCount: 14, legacy: false, vaultPath: "10 - Conversations/2026/10/How Olympus should remember.md" },
+  { id: "legacy-41", title: "Pokedex sprite pipeline", summary: "", createdAt: "2026-09-21T15:02:00Z", updatedAt: "2026-09-21T16:40:00Z", messageCount: 31, legacy: true, vaultPath: null }
+];
 // The fixture's clock: completed runs are "recent" only relative to this instant.
 const fixtureNow = Date.parse("2026-09-29T07:20:00Z");
 const earlier = new Date(Date.now() - 26 * 3600_000).toISOString();
@@ -134,10 +153,17 @@ function Harness() {
     window.addEventListener("fixture:conversation-reply",receive);
     return()=>window.removeEventListener("fixture:conversation-reply",receive);
   },[]);
-  const messages = [...(scenario === "chat-expanded" ? [...history, ...thisLaunch] : history),...extraMessages];
+  const messages = [...(scenario === "chat-expanded" || scenario === "chats" ? [...history, ...thisLaunch] : history),...extraMessages];
   if(params.has("memory-evidence"))messages.push({id:"memory-response",role:"assistant",timestamp:"Now",content:"The conversation layout separates discussion from mission oversight. See response details for the prepared memory evidence.",request:{id:"fixture-memory-request",provider:"fixture",requestedModel:"requested-fixture",actualModel:"actual-fixture",capability:"PRIMARY",purpose:"command",reasoningEffort:"medium",requestedAt:new Date().toISOString(),latencyMs:30,firstTokenMs:10,status:"completed",fallbackFrom:null,escalationReason:null,usage:null,errorCode:null}});
 
   const suggestions = useMemo(() => suggestionsFor(capabilities), []);
+  const [chatSession, setChatSession] = useState<ChatSession>({ id: "chat-launch", title: "", temporary: false });
+  const chats: ChatControls = {
+    session: chatSession,
+    onNew: temporary => { setChatSession({ id: `fixture-${Date.now()}`, title: "", temporary: Boolean(temporary) }); return null; },
+    onOpen: async (id, title) => { setChatSession({ id, title, temporary: false }); return null; },
+    onRename: async () => { mutations++; }, onDelete: async () => { mutations++; }
+  };
   useEffect(() => {
     if (scenario === "agent-research") command.selectAgent("research");
     if (scenario === "agent-verification") command.selectAgent("verification");
@@ -159,28 +185,61 @@ function Harness() {
         onResearch={runId => setDestination({ runId })} onProjects={() => setDestination({ projects: true })}
         capabilities={capabilities} working={command.focus.agents} orchestrating={command.focus.running} selectedCapability={command.selectedCapability} onSelectCapability={command.setSelectedCapability} />}
       <section className="center-stack dashboard-column"><div className="panel-slot panel-slot-instrument">
-        <CommandInstrument missions={command.liveMissions} selectedMission={command.selectedMissionId} onSelectMission={command.selectMission} visualState={params.get("voice")==="speaking"?"speaking":params.get("voice")==="listening"?"listening":undefined} voiceLevel={Number(params.get("level")??0)} voiceSnapshot={voiceFixture} spokenReplies={Boolean(voiceFixture)} flagship={flagship} onProjects={()=>setDestination({projects:true})} projects={projects} capabilities={capabilities} view={command.view} light={command.light} activeDomains={command.activeDomains}
+        <CommandInstrument missions={command.liveMissions} selectedMission={command.selectedMissionId} onSelectMission={command.selectMission} visualState={voiceParam==="speaking"||voiceParam==="listening"||voiceParam==="thinking"?voiceParam:undefined} voiceLevel={Number(params.get("level")??0)} voiceSnapshot={voiceFixture} spokenReplies={voiceParam!=="off"} voiceReady onSpokenRepliesToggle={() => {}} flagship={flagship} onProjects={()=>setDestination({projects:true})} projects={projects} capabilities={capabilities} view={command.view} light={command.light} activeDomains={command.activeDomains}
           missionOperation={command.missionOperation} working={command.working} selectedDomain={command.selectedDomain} selectedCapability={command.selectedCapability}
           onHoverDomain={command.setHoverDomain} onSelectDomain={command.setSelectedDomain} onSelectCapability={command.setSelectedCapability} />
       </div></section>
       <section className="right-stack dashboard-column"><div className="panel-slot panel-slot-chat">
         <ChatPanel companion={flagship} inspectionProjects={["fixture-repo"]} messages={messages} autoSpeak={false} onAutoSpeakChange={() => {}} onOpenPreferences={() => {}} onSendMessage={() => { mutations++; }}
           activeMissions={command.liveMissions} selectedMissionId={command.selectedMissionId} onSelectMission={command.selectMission} layout={layout} onLayoutChange={setLayout} mission={command.mission} capabilities={capabilities} suggestions={flagship?suggestions.slice(0,3):suggestions}
-          onOpenMission={destination => setDestination(destination === "research" ? {} : { projects: true })} onDismissMission={command.dismissMission} />
+          onOpenMission={destination => setDestination(destination === "research" ? {} : { projects: true })} onDismissMission={command.dismissMission} chats={flagship ? chats : undefined} />
       </div></section>
     </section></div>
     {!params.has("scenario") && <div className="command-fixture-controls"><span>SYNTHETIC · no live observations</span><label>Fixture <select aria-label="Agent catalog fixture" defaultValue="empty" onChange={e => { catalogScenario = e.target.value; setKey(n => n + 1); }}>{["empty", "history", "unavailable", "six", "error"].map(s => <option key={s}>{s}</option>)}</select></label>
       <button onClick={() => { reduced = !reduced; listeners.forEach(f => f()); }}>Toggle reduced motion</button>
       <label>Scenario <select aria-label="Visual scenario" value={scenario} onChange={e => { location.search = `?scenario=${e.target.value}`; }}>{Object.keys(SCENARIOS).map(s => <option key={s}>{s}</option>)}</select></label>
       <details><summary>Test results</summary><pre id="result">Manual visual study</pre></details></div>}
+    {scenario === "preferences-memory" && <div className="modal-backdrop"><div className="modal-dialog preferences-dialog" role="dialog" aria-label="Olympus Preferences" style={{ position: "fixed", top: 90, left: "50%", transform: "translateX(-50%)", maxHeight: "calc(100vh - 120px)", overflow: "auto", zIndex: 50 }}>
+      <section className="preferences-section" aria-labelledby="preferences-memory"><MemorySettings /></section></div></div>}
     {destination && <section className="command-fixture-inspector" aria-label="Existing inspection destination">{destination.projects ? <><button onClick={() => setDestination(null)}>Return to Command catalog</button><p>Project destination · fixture only</p></> :
       <ResearchVerification client={readOnlyResearch} available requestedRunId={destination.runId} inspectionOnly onReturn={() => setDestination(null)} />}</section>}
   </main><style>{`.command-fixture-controls{position:fixed;left:18px;bottom:3px;right:18px;display:flex;align-items:center;gap:14px;font:9px monospace;z-index:30;color:#acbacb}.command-fixture-controls button,.command-fixture-controls select{font:9px monospace;background:#10202d;color:#bdcbd8;border:1px solid #64798c55;padding:2px 5px}.command-fixture-controls details{margin-left:auto}.command-fixture-controls pre{position:absolute;bottom:20px;right:0;max-height:55vh;max-width:80vw;overflow:auto;white-space:pre-wrap;background:#07121e;padding:14px;border:1px solid #526479}.command-fixture-inspector{position:fixed;inset:90px 20px 35px;overflow:auto;z-index:40;background:#0a1522;border:1px solid #64798c;padding:15px}`}</style></>;
 }
 
-// `?voice=speaking&level=n` drives the shipped Spoken replies wave, which reads
-// the voice snapshot rather than the instrument's visual state.
-const voiceFixture = params.get("voice") === "speaking" ? { phase: "SPEAKING", level: Number(params.get("level") ?? 0), muted: false } as unknown as VoiceSnapshot : undefined;
+// `?voice=speaking|listening|thinking|off|error&level=n` drives the voice dock.
+// SYNTHETIC: with a level above 0 a generated, speech-shaped spectrum stands in
+// for real audio, through the same SignalSource interface the voice service
+// uses; `&audio=none` leaves the state without any analysable audio.
+const voiceParam = params.get("voice");
+const fixtureLevel = Number(params.get("level") ?? 0);
+const voiceFixture = ({
+  speaking: { phase: "SPEAKING", level: fixtureLevel, muted: params.has("muted"), active: true, microphoneOn: false },
+  listening: { phase: "LISTENING", level: fixtureLevel, muted: false, active: true, microphoneOn: true, microphoneCapturing: true },
+  thinking: { phase: "PROCESSING", level: 0, muted: false, active: true, microphoneOn: false },
+  error: { phase: "ERROR", level: 0, muted: false, active: false, microphoneOn: false, error: "Fixture failure" },
+} as Record<string, Partial<VoiceSnapshot>>)[voiceParam ?? ""] as VoiceSnapshot | undefined;
+function syntheticVoice(level: number): SignalSource {
+  const started = performance.now();
+  return {
+    read(spectrum) {
+      const t = (performance.now() - started) / 1000;
+      // Irregular syllables at speech rate, with drifting formants.
+      const syllable = Math.max(0, 0.55 * Math.sin(t * 9.1) + 0.3 * Math.sin(t * 5.3 + 1) + 0.25 * Math.sin(t * 13.7 + 2));
+      const envelope = level * Math.min(1, 0.2 + syllable);
+      const formants = [520 + 120 * Math.sin(t * 2.1), 1480 + 300 * Math.sin(t * 1.3 + 1), 2600 + 200 * Math.sin(t * 0.9)];
+      for (let k = 0; k < spectrum.length; k++) {
+        const hz = (k * 24000) / spectrum.length;
+        const shape = formants.reduce((sum, f, i) => sum + Math.exp(-(((hz - f) / (140 + i * 90)) ** 2)) / (i + 1), 0);
+        spectrum[k] = -105 + envelope * (38 + 42 * shape) - hz / 600;
+      }
+      return { rmsDb: -54 + 44 * envelope, sampleRate: 48000 };
+    },
+    dispose() {},
+  };
+}
+if (fixtureLevel > 0 && params.get("audio") !== "none" && (voiceParam === "speaking" || voiceParam === "listening")) {
+  voiceSignal.attach(voiceParam === "speaking" ? "output" : "input", syntheticVoice(fixtureLevel));
+}
 
 const frame = () => new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
 /** Sets `data-visual-ready` once the scenario is genuinely painted; never on a timer alone. */
