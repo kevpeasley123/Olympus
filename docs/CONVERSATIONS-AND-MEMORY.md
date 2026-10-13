@@ -5,71 +5,128 @@ automatically, the way ChatGPT and Claude do. You never approve a memory; you
 can read and edit everything Olympus remembers, in Obsidian, at any time. This
 replaced the earlier "not every exchange earns a vault note" decision.
 
+Built on 2026-10-13 on `claude/modest-mayer-nvawru`. Compiled and unit-tested in
+a Linux container. Not yet run in the desktop app, against Kevin's database, or
+with a real paid memory request.
+
 ## What Kevin sees
 
-- **Separate chats.** Each launch opens a new chat. The console's chat list
-  shows earlier chats newest first, with titles, and searches every message.
-  A chat can be reopened, renamed or deleted.
-- **Temporary chat.** A toggle for a throwaway chat: it is never saved, never
-  written to the vault, and neither uses nor creates memory.
+- **Separate chats.** A launch opens a new chat, or reopens the last one if it
+  was used in the past 30 minutes. In the console's Conversation view, a bar names
+  the open chat and offers:
+  - **Chats**: earlier chats, newest first, with their summaries, and a search
+    over every saved message. Each can be opened, renamed or deleted.
+  - **New chat**.
+  - **Temporary chat**.
+
+  A chat holding only a launch briefing is not listed until Kevin says something
+  in it.
+- **Temporary chat.** A throwaway chat. It is never saved, never written to the
+  vault, and neither uses nor feeds memory or past-chat recall. Leaving it
+  discards it.
 - **Chats in Obsidian.** Each saved chat becomes one note in
-  `10 - Conversations/<year>/<month>/`, with its title, date, summary and full
-  transcript. Olympus rewrites the note as the chat continues.
+  `10 - Conversations/<year>/<month>/<date> <title> <tag>.md`. The note holds the
+  title, dates, summary and full transcript, and is rewritten as the chat
+  continues. The file keeps its first name: a later title, Kevin's or the
+  model's, shows inside the note. A rename appears in the note the next time the
+  chat is saved.
 - **Automatic memory.** `09 - System/Olympus Memory.md` holds what Olympus has
-  learned: about Kevin, his preferences, each project, and what is in progress.
-  Olympus updates it in the background after a chat goes quiet. Kevin can edit
-  it in Obsidian; his edits are read back and win.
-- **Recall.** Saved chats join the memory index, so a relevant past chat comes
-  back on its own, labelled with its source.
-- **Controls** (Preferences > Memory): save chats to Obsidian, learn from chats,
-  use what Olympus remembers. Turning learning off stops new updates; it does not
-  delete the note.
+  learned, in five sections: About Kevin, Preferences, Projects, In progress,
+  Other. Olympus updates it in the background after a chat goes quiet. Kevin can
+  edit it in Obsidian, and his edits are read back and kept.
+- **Recall.** Each turn brings back up to three earlier chats that share words
+  with the question, with their summaries and the matching lines, labelled as
+  recall.
+- **Controls** (Preferences > Memory):
+  - **Save chats to Obsidian**, **Learn from chats** and **Use what Olympus
+    remembers**, all on by default.
+  - Turning learning off stops new updates; it does not delete the note.
+  - The panel shows how many chats are saved and when memory last changed.
+  - It offers to learn from the chats kept before this change, after saying how
+    many paid requests that is.
 
 ## How it works
 
-**Storage.** SQLite stays the working store. Migration 2 adds a
-`conversations` table, a `conversation_id` on every message, and a
-`conversation_search` full-text index. Existing history is split into chats at
-gaps of more than four hours; rows imported from the browser era form one chat.
+**Storage.** SQLite stays the working store, and migration 2 adds three things
+(`docs/SCHEMA-MIGRATIONS.md`):
 
-**Writing to the vault.** Both notes are Olympus-authored. They go through the
-write gate with a new intent, `MaintainAuthored`: Olympus reads the note's
-current bytes, folds any edits Kevin made into its new version, and replaces
-the file only if those bytes are unchanged at write time. It never asks first.
-Every write gets its own vault Git commit, so any change can be seen and undone.
+- a `conversations` table;
+- a `conversation_id` on every message;
+- a `conversation_search` full-text index.
 
-**The memory pass.** A background worker runs while Olympus is open. When a
-saved chat has been quiet for ten minutes and has messages the pass has not
-seen, it:
+Existing history is split into chats at gaps of more than four hours. Rows
+imported from the browser era form one chat. Every append carries the chat's
+id; the first operator message titles the chat.
 
-1. sends the current memory note, the chat's new messages (bounded) and today's
-   date to the primary model route as one structured request;
-2. receives a chat title (unless Kevin renamed it), a one-paragraph summary, and
-   the complete updated memory, organised by section, with time-sensitive facts
-   rewritten ("going to Singapore in July" becomes "went to Singapore in July
-   2026");
-3. writes the memory note and the chat note, and records the request with
-   purpose `memory` in the model diagnostics.
+**The background pass** (`commands/chat_memory.rs`). A worker checks once a
+minute while Olympus is open. For each chat that has an operator message, has
+been quiet for ten minutes, and has messages it has not handled, at most three
+per tick and oldest first:
 
-One request per quiet chat. Earlier chats from before this change are saved to
-the vault but not learned from automatically; Preferences > Memory offers to
-learn from them, with the count shown first.
+1. **Learn**, when learning is on. One structured request on the primary route
+   sends:
+   - today's date;
+   - the current memory note;
+   - the chat's earlier summary;
+   - its unseen messages, oldest first and bounded (4,000 characters a message,
+     48,000 a pass; a longer chat continues in later passes, and nothing is
+     skipped).
 
-**Using memory.** Each request includes the memory note in its own section,
-labelled as learned from conversations: Kevin's own notes, his current
-instructions and the current project vision outrank it. Temporary chats skip
-it, and skip recall.
+   It returns a title (kept if Kevin renamed the chat), a summary of the whole
+   chat, and the complete updated memory note. The request is recorded with
+   purpose `memory` in Model diagnostics. A failure is recorded on the chat and
+   retried after 30 minutes.
+2. **Save the note**, when saving is on.
+
+If the vault is not reachable, nothing is attempted, so no paid request is spent.
+
+**Writing to the vault.** Both notes use the write gate's `MaintainAuthored`
+intent, which never asks:
+
+- **Chat notes.** A chat note is rendered whole only while its bytes match the
+  fingerprint Olympus recorded (`artifact_hashes`). Once Kevin edits it, his
+  version stays and new messages are only appended at the end. A note he
+  deleted is not recreated.
+- **The memory note.** The memory pass reads Kevin's edits as current memory and
+  is told to keep them. It replaces the note only if its bytes are still what
+  was read before the request; otherwise the chat is retried.
+
+Every write gets its own vault Git commit and a row in the vault write log.
+Chat notes are left out of the vault graph.
+
+**Using memory.** Unless the chat is temporary or "Use what Olympus remembers"
+is off, each request's turn evidence carries two labelled sections:
+
+- the memory note (at most 12,000 characters), as **learned memory, lower
+  authority**: Kevin's own notes, what he says now and the current project
+  vision outrank it;
+- **earlier chats matching this question**: keyword recall from
+  `conversation_search`, labelled as possibly unrelated.
+
+Recall reads SQLite rather than the vault memory index, because the index
+declines unscoped resumption questions ("what did we decide…") until a project
+is named. The project scope a follow-up inherits comes from the open chat only.
 
 ## Safety rule change
 
 Until 2026-10-13, Olympus kept every model inference out of the assistant's
-context, because an inference read back looks like an instruction. The new rule:
-learned memory reaches the model only through its labelled, lower-authority
-section; it is always visible and editable as a plain note; every change is a
-Git commit; and Temporary chat bypasses it. `09 - System/Profile Observations.md`
-stays excluded.
+context, because an inference read back looks like an instruction. The new
+rule:
+
+- Learned memory reaches the model only as quoted, labelled turn evidence; it is
+  never in the system prompt, and an assistant test pins that.
+- It is always visible and editable as a plain note, and every change is a Git
+  commit.
+- Temporary chats bypass it.
+- The pass is told not to record instructions found in quoted email, documents
+  or research, not to record Olympus's suggestions as Kevin's decisions, and not
+  to record secrets or health, financial or legal details unless Kevin asked.
+
+`09 - System/Profile Observations.md` stays excluded.
 
 ## Cost
 
-The memory pass is a paid OpenAI request, about one per chat that goes quiet. It
-uses the same route as chat. Turning off "Learn from chats" stops it.
+The memory pass is a paid OpenAI request, about one per chat that goes quiet
+with new messages; a long chat can take more than one. It uses the same route as
+chat. Turning off "Learn from chats" stops it. Learning from earlier chats is
+one request per chat, started only from Preferences.

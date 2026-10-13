@@ -17,7 +17,9 @@ Replies return a research snapshot separately from model prose. Chat exposes it 
 
 ## Chat promotion (removed)
 
-Chat no longer writes to the vault. The Save memory button went in 0.28.0
+Chat has no promotion button. Since 2026-10-13 chats and learned memory reach
+the vault automatically instead; see
+[CONVERSATIONS-AND-MEMORY.md](CONVERSATIONS-AND-MEMORY.md). The Save memory button went in 0.28.0
 (`74fd5de`) and the Observation button in 0.30.0 (`a155cd5`), both at Kevin's
 direction; their backend commands, `promote_chat_memory` and
 `append_profile_observation`, were deleted on 2026-10-12. Entries already in

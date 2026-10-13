@@ -1038,7 +1038,7 @@ async fn send_assistant_message_inner(
     let _receipt = PendingReceipt::new(db.inner(), &record.id);
     let query=super::memory::Query {
         question:context.memory_question.clone().unwrap_or_else(||question.to_string()),
-        active_project:context.active_project.clone().or_else(||super::memory::previous_scope(db.inner())), recent_questions:context.memory_recent_questions.clone(),
+        active_project:context.active_project.clone().or_else(||super::memory::previous_scope(db.inner(),context.conversation_id.as_deref().filter(|_|!context.temporary))), recent_questions:context.memory_recent_questions.clone(),
     };
     let reader=memory_service.reader();
     let memory=tauri::async_runtime::spawn_blocking(move||super::memory::load_for_turn(&reader,&query)).await.map_err(|_|"Memory retrieval task failed")?;

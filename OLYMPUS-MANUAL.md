@@ -48,8 +48,9 @@ No one source owns the whole project:
 - Git owns branch, commit, and working-tree facts.
 - Project-local files own implementation context and technical handoffs.
 - The Obsidian vault owns distilled vision, decisions, commitments, and
-  cross-project memory.
-- SQLite owns private operational state, conversation history, write
+  cross-project memory, including each saved chat and what Olympus has learned
+  from chats (`docs/CONVERSATIONS-AND-MEMORY.md`).
+- SQLite owns private operational state, the working copy of every chat, write
   fingerprints, and processing logs.
 
 Olympus reconciles these sources. A disagreement is surfaced, never silently

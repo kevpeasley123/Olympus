@@ -1,5 +1,5 @@
 import { generateSituationBriefing } from "../services/situationBriefing";
-import {consumeNextModel} from "../services/modelRouting";
+import {consumeNextModel,endChatModelScope} from "../services/modelRouting";
 import { normalizeVoicePreferences, type VoicePreferences } from "../services/voicePreferences";
 import { refreshActionQueue, useActionQueue } from "./useActionQueue";
 import { refreshDelegationRuns, useDelegationRuns } from "./useDelegationRuns";
@@ -482,6 +482,7 @@ export function useDashboardData() {
   const busy = () => requestInFlight.current || briefingLock.current ? "Wait for the current reply to finish." : null;
   const newChat = useCallback((temporary = false): string | null => {
     const reason = busy(); if (reason) return reason;
+    void endChatModelScope();
     setChatSession(newChatSession(temporary));
     dashboardRef.current = { ...dashboardRef.current, conversation: [] };
     setDashboardState(dashboardRef.current);
@@ -495,6 +496,7 @@ export function useDashboardData() {
     try { messages = await loadConversation(id); }
     catch (error) { return `That chat could not be opened (${errorMessage(error)}).`; }
     const again = busy(); if (again) return again;
+    void endChatModelScope();
     setChatSession({ id, title, temporary: false });
     dashboardRef.current = { ...dashboardRef.current, conversation: messages };
     setDashboardState(dashboardRef.current);

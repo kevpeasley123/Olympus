@@ -179,9 +179,11 @@ pub fn save_packet(
     c.execute("INSERT INTO request_memory(request_id,packet_json) SELECT ?1,?2 WHERE EXISTS(SELECT 1 FROM model_requests WHERE id=?1) ON CONFLICT(request_id) DO NOTHING",params![request_id,packet.json()]).map_err(|e|e.to_string())?;
     Ok(())
 }
-pub fn previous_scope(db: &super::persistence::Db) -> Option<String> {
+/// The single project the open chat's last answered request was scoped to. A
+/// new or temporary chat starts with none: scope never crosses chats.
+pub fn previous_scope(db: &super::persistence::Db, conversation_id: Option<&str>) -> Option<String> {
     let c = db.0.lock().ok()?;
-    let raw:String=c.query_row("SELECT m.packet_json FROM request_memory m JOIN model_requests r ON r.id=m.request_id ORDER BY json_extract(r.record_json,'$.requestedAt') DESC,r.rowid DESC LIMIT 1",[],|r|r.get(0)).ok()?;
+    let raw:String=c.query_row("SELECT m.packet_json FROM request_memory m JOIN conversation_model cm ON cm.request_id=m.request_id JOIN conversation_messages msg ON msg.id=cm.message_id WHERE msg.conversation_id=?1 ORDER BY msg.created_at DESC,msg.rowid DESC LIMIT 1",[conversation_id?],|r|r.get(0)).ok()?;
     let packet: Packet = serde_json::from_str(&raw).ok()?;
     if packet.scope.len() == 1 {
         packet.scope.into_iter().next()
