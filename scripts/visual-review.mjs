@@ -41,7 +41,19 @@ const SCENARIO_SETUP = {
   "mission-active": { state: "mission-active" },
   "mission-complete": { state: "mission-complete" },
   "conversation": { state: "chat-expanded", after: async page => { await page.getByRole("button", { name: "Conversation", exact: true }).click(); await page.waitForTimeout(400); } },
+  "chats": { state: "chats", after: async page => {
+    await page.getByRole("button", { name: "Conversation", exact: true }).click();
+    await page.getByRole("button", { name: "Chats", exact: true }).click();
+    await page.locator(".chat-history-list > li").nth(2).waitFor(); await page.waitForTimeout(300);
+  } },
+  "chats-search": { state: "chats", after: async page => {
+    await page.getByRole("button", { name: "Conversation", exact: true }).click();
+    await page.getByRole("button", { name: "Chats", exact: true }).click();
+    await page.getByRole("searchbox", { name: "Search chats" }).fill("memory");
+    await page.locator(".chat-history-list mark").first().waitFor(); await page.waitForTimeout(300);
+  } },
   "chat-compact": { state: "chat-compact" },
+  "preferences-memory": { state: "preferences-memory", after: async page => { await page.getByRole("button", { name: "Learn from them" }).waitFor(); } },
   "armory-agents": { state: "idle", after: async page => {
     await page.getByRole("button", { name: /^Agents\s*5$/ }).first().click();
     const dialog = page.getByRole("dialog", { name: "Olympus Armory" }); await dialog.waitFor();
@@ -137,7 +149,7 @@ function inspectPage({ scenario, tolerance }) {
     return false;
   };
   let clamped = 0;
-  for (const element of document.querySelectorAll(":is(.olympus-armory, .command-console, .armory-dialog, .pantheon-voice) :is(h2,h3,h4,p,span,strong,small,dd,dt,li,button,label,time)")) {
+  for (const element of document.querySelectorAll(":is(.olympus-armory, .command-console, .armory-dialog, .olympus-voice-dock) :is(h2,h3,h4,p,span,strong,small,dd,dt,li,button,label,time)")) {
     if (!element.textContent?.trim() || element.children.length > 3) continue;
     const style = getComputedStyle(element);
     if (style.display === "none" || style.visibility === "hidden" || element.closest("[hidden], details:not([open]) > :not(summary)")) continue;
@@ -165,9 +177,12 @@ function inspectPage({ scenario, tolerance }) {
   if (scenario === "missions") expect(brief.includes("2 active missions. 1 awaiting approval."), "missions-brief", "Mission brief does not report two missions with one awaiting approval");
   if (scenario === "mission-active") expect(brief.includes("1 active mission."), "mission-brief", "Mission brief does not report one active mission");
   if (scenario === "conversation") expect($('.command-console .console-viewport') && document.querySelectorAll(".command-console .conversation-bubble").length > 0, "conversation", "Conversation tab shows no messages");
+  if (scenario === "chats") expect(document.querySelectorAll('.chat-history-list[aria-label="Earlier chats"] > li').length === 3 && $('.chat-history-list [aria-current="true"]'), "chats", "The chat list does not show three chats with the open one marked");
+  if (scenario === "chats-search") expect($(".chat-history-list mark")?.textContent === "memory", "chats-search", "Chat search does not show a marked result");
+  if (scenario === "preferences-memory") expect(document.querySelector('[role="dialog"]')?.textContent?.includes("37 earlier chats are saved but not learned from."), "memory-offer", "Preferences > Memory does not offer the earlier chats with their count");
   if (scenario === "chat-compact") expect($('.command-console[data-layout="compact"][data-mode="dormant"]'), "compact", "console is not compact and dormant");
   if (scenario === "armory-agents") expect([...document.querySelectorAll('[role="dialog"]')].some(d => d.textContent?.includes("Scoped Pantheon Research excerpts only")), "armory-loadout", "Athena's loadout does not show its real scope");
-  if (scenario === "voice-speaking") { const wave = [...document.querySelectorAll(".pantheon-voice__wave span")].map(n => n.getBoundingClientRect().height); expect(wave.length && Math.max(...wave) > 10, "voice-wave", `voice wave peak ${Math.max(0, ...wave)}px`); }
+  if (scenario === "voice-speaking") { const signal = $(".olympus-signal"); const peak = Number(signal?.dataset.signalPeak ?? 0); expect(signal?.dataset.signalSource === "live" && peak > 10, "voice-wave", `voice signal ${signal?.dataset.signalSource ?? "missing"}, peak ${peak}px`); }
   return { failures, notes, regions, renderer: document.documentElement.dataset.visualRenderer ?? canvas?.dataset.engine ?? "none", planets };
 }
 

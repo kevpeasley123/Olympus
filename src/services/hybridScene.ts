@@ -369,7 +369,9 @@ export function mountHybridScene(host: HTMLDivElement, layout: CommandLayout, cu
     if(HARNESS_ATTRIBUTES){canvas.dataset.listeningOpen=String(listening&&transition===1);
     canvas.dataset.listeningWaves=String(listeningWaves.filter(wave=>wave.mesh.visible).length);}
     ringLightMaterials.forEach((material,i)=>{material.uniforms.phase.value=ringFlowTime*.48+Math.floor(i/5)*2.1;});
-    const energy=value.state==="speaking"?(moving?Math.min(1,Math.max(0,value.voiceLevel)):.15):value.state==="thinking"?.35:value.state==="listening"?.22:executing?.18+operationPulse*.3:0;
+    // Real reply audio when it can be analysed, so the Omega brightens with the voice itself.
+    const speechLevel=value.state==="speaking"?value.voiceEnergy?.()??value.voiceLevel:value.voiceLevel;
+    const energy=value.state==="speaking"?(moving?Math.min(1,Math.max(0,speechLevel)):.15):value.state==="thinking"?.35:value.state==="listening"?.22:executing?.18+operationPulse*.3:0;
     field.update(energy);
     const speechTarget=value.state==='speaking'?energy:0;
     const voiceResponse=speechTarget>voiceUniforms.energy.value?VOICE_SIGNATURE.attackSeconds:VOICE_SIGNATURE.releaseSeconds;

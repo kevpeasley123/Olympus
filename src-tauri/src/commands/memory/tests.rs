@@ -369,7 +369,7 @@ fn supplied_evidence_receipts_are_backend_owned_and_survive_index_rebuild() {
         super::super::persistence::Db(std::sync::Mutex::new(Connection::open_in_memory().unwrap()));
     db.0.lock()
         .unwrap()
-        .execute_batch(include_str!("../../../schema.sql"))
+        .execute_batch(crate::commands::migrations::TEST_SCHEMA)
         .unwrap();
     let request = super::super::models::RequestRecord::new(
         &super::super::models::resolve(super::super::models::Capability::Primary),
@@ -676,4 +676,24 @@ fn scale_100_10000_100000_records() {
             "warm retrieval exceeded proposed 250ms target"
         );
     }
+}
+
+/// Scope carried into a follow-up comes from the open chat only.
+#[test]
+fn a_follow_up_inherits_scope_from_its_own_chat_only() {
+    let c = Connection::open_in_memory().unwrap();
+    c.execute_batch(crate::commands::migrations::TEST_SCHEMA).unwrap();
+    let packet = retrieve::Packet { scope: vec!["project-olympus".into()], ..Default::default() };
+    c.execute_batch(
+        "INSERT INTO conversations (id, created_at, updated_at) VALUES ('a', '2026-10-13 09:00:00', '2026-10-13 09:00:00');
+         INSERT INTO conversation_messages (id, role, content, timestamp, conversation_id) VALUES ('reply', 'assistant', 'x', '09:00', 'a');
+         INSERT INTO model_requests (id, record_json) VALUES ('req', '{}');
+         INSERT INTO conversation_model (message_id, request_id) VALUES ('reply', 'req');",
+    )
+    .unwrap();
+    c.execute("INSERT INTO request_memory (request_id, packet_json) VALUES ('req', ?1)", [packet.json()]).unwrap();
+    let db = crate::commands::persistence::Db(std::sync::Mutex::new(c));
+    assert_eq!(super::previous_scope(&db, Some("a")).as_deref(), Some("project-olympus"));
+    assert_eq!(super::previous_scope(&db, Some("b")), None, "a new chat starts unscoped");
+    assert_eq!(super::previous_scope(&db, None), None, "a temporary chat starts unscoped");
 }

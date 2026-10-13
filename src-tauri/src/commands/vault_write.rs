@@ -38,6 +38,12 @@ pub enum WriteIntent {
     AppendAuthored,
     /// Rewriting or removing lines a human may have written.
     ModifyAuthored,
+    /// Keeping an Olympus-authored note current that the operator may also
+    /// edit: a chat note, the learned-memory note. Approved by Kevin on
+    /// 2026-10-13 to run without asking. The writer keeps his edits (folds them
+    /// in, or only appends once he has edited), replaces only the bytes it read,
+    /// and commits every write, so any change can be seen and undone.
+    MaintainAuthored,
 }
 
 /// What the gate will require of a write. Computed today, enforced once the
@@ -67,13 +73,14 @@ pub fn operation_of(intent: WriteIntent) -> WriteOperation {
         WriteIntent::AppendAuthored => WriteOperation::Append,
         WriteIntent::CreateUnique
         | WriteIntent::RegenerateDerived
-        | WriteIntent::ModifyAuthored => WriteOperation::Overwrite,
+        | WriteIntent::ModifyAuthored
+        | WriteIntent::MaintainAuthored => WriteOperation::Overwrite,
     }
 }
 
 pub fn classify(intent: WriteIntent) -> WriteTier {
     match intent {
-        WriteIntent::CreateUnique => WriteTier::AutoApproved,
+        WriteIntent::CreateUnique | WriteIntent::MaintainAuthored => WriteTier::AutoApproved,
         WriteIntent::AppendAuthored => WriteTier::Confirm,
         // Pending the content-hash exemption: a derived file whose bytes still
         // match what the app last wrote can be regenerated silently, and one
@@ -743,6 +750,7 @@ mod tests {
             classify(WriteIntent::ModifyAuthored),
             WriteTier::ConfirmWithDiff
         );
+        assert_eq!(classify(WriteIntent::MaintainAuthored), WriteTier::AutoApproved);
     }
 
     /// Only the appender describes itself as adding to a file. Everything else
@@ -758,6 +766,7 @@ mod tests {
             WriteIntent::CreateUnique,
             WriteIntent::RegenerateDerived,
             WriteIntent::ModifyAuthored,
+            WriteIntent::MaintainAuthored,
         ] {
             assert_eq!(operation_of(intent), WriteOperation::Overwrite);
         }

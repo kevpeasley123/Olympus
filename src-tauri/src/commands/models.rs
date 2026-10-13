@@ -123,7 +123,7 @@ mod picker_tests {
     }
     #[test] fn chat_selection_is_saved_and_next_answer_removes_it() {
         let db=rusqlite::Connection::open_in_memory().unwrap();
-        db.execute_batch(include_str!("../../schema.sql")).unwrap();
+        db.execute_batch(crate::commands::migrations::TEST_SCHEMA).unwrap();
         store_selection(&db,Capability::DeepReasoning,"chat").unwrap();
         let text:String=db.query_row("SELECT value FROM settings WHERE key=?1",[SELECTION_KEY],|r|r.get(0)).unwrap();
         assert_eq!(serde_json::from_str::<Value>(&text).unwrap()["capability"],"DEEP_REASONING");
@@ -297,7 +297,7 @@ mod tests {
         ));
         db.0.lock()
             .unwrap()
-            .execute_batch(include_str!("../../schema.sql"))
+            .execute_batch(crate::commands::migrations::TEST_SCHEMA)
             .unwrap();
         let mut r = RequestRecord::new(&resolve(Capability::DeepReasoning), "voice_reasoning");
         save(&db, &r).unwrap();

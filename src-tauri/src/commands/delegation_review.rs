@@ -656,7 +656,7 @@ mod tests {
     fn an_interrupted_check_is_recorded_as_failed_and_blocks_completion() {
         let connection = rusqlite::Connection::open_in_memory().unwrap();
         connection
-            .execute_batch(include_str!("../../schema.sql"))
+            .execute_batch(crate::commands::migrations::TEST_SCHEMA)
             .unwrap();
         connection.execute("INSERT INTO delegation_checks(id,run_id,check_name,exit_code,output,workspace_hash,started_at,finished_at) VALUES ('c','run','rust-tests',NULL,'','','2026-09-28T00:00:00Z','')",[]).unwrap();
         assert_eq!(interrupt_checks(&connection, "run").unwrap(), 1);
@@ -679,7 +679,7 @@ mod tests {
     fn review_details_read_a_waiting_plan_and_the_review_time_without_writing() {
         let connection = rusqlite::Connection::open_in_memory().unwrap();
         connection
-            .execute_batch(include_str!("../../schema.sql"))
+            .execute_batch(crate::commands::migrations::TEST_SCHEMA)
             .unwrap();
         connection.execute("INSERT INTO delegation_runs(id,project_id,project_name,task,driver,model,phase,workspace,branch,base_commit,agent_session_id,milestone) VALUES ('run','p','P','Task','d','m','waiting','/nonexistent/olympus-run','b','abc','s','Plan recorded')",[]).unwrap();
         connection.execute("INSERT INTO delegation_contracts(run_id,criteria_json,plan) VALUES ('run','[\"Works\"]','1. Read. 2. Edit.')",[]).unwrap();

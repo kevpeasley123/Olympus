@@ -16,9 +16,9 @@
 // Inserts: an enabled synthetic Gmail account; one situation with document
 // context (the rows scripts/import-situation-context.py writes, inserted
 // directly so no Python is needed); a delegation run awaiting review in a git
-// worktree of acceptance-history; conversation across four days, including a
-// reply with research provenance and one row marked as imported from
-// localStorage. It also commits once in acceptance-history, so that project
+// worktree of acceptance-history; four chats across four days, the last from
+// twenty minutes ago so it reopens at launch, including a reply with research
+// provenance, and one chat imported from localStorage. It also commits once in acceptance-history, so that project
 // has a commit since the first launch. Refuses to run twice on one database.
 //
 // Needs node:sqlite: Node 22.13 or later runs it as is; 22.5–22.12 need
@@ -111,7 +111,7 @@ for (const required of [join(vault, researchFile), join(history, ".git"), join(v
 const db = new DatabaseSync(dbPath);
 db.exec("PRAGMA busy_timeout = 10000; PRAGMA foreign_keys = ON;");
 const tables = new Set(db.prepare("SELECT name FROM sqlite_master WHERE type IN ('table','view')").all().map((row) => row.name));
-for (const table of ["gmail_accounts", "communication_situations", "communication_situation_contexts", "delegation_runs", "delegation_contracts", "conversation_messages", "conversation_research", "conversation_imports", "processing_logs"]) {
+for (const table of ["gmail_accounts", "communication_situations", "communication_situation_contexts", "delegation_runs", "delegation_contracts", "conversations", "conversation_messages", "conversation_search", "conversation_research", "conversation_imports", "processing_logs"]) {
   if (!tables.has(table)) fail(`${dbPath} has no ${table} table. Launch this branch's build once so it applies the current schema.`);
 }
 if (db.prepare("SELECT 1 FROM processing_logs WHERE event_type = ?").get(SEED_EVENT)) fail(`${dbPath} is already seeded.`);
@@ -281,15 +281,17 @@ mkdirSync(join(workspace, "node_modules"), { recursive: true });
 
 // ---- Database ---------------------------------------------------------------
 
+// One chat per exchange ("acceptance-chat-<chat>"), as separate launches
+// would leave them.
 const conversation = [
-  { id: "acceptance-u1", role: "user", at: localAt(4, 9, 12), content: "What changed in acceptance-history this week?" },
-  { id: "acceptance-a1", role: "assistant", at: localAt(4, 9, 13), content: "Two commits: the request log and a fix for empty requests. No next step is recorded for the project." },
-  { id: "acceptance-u2", role: "user", at: localAt(2, 16, 40), content: "Should a delegated run be approved on the agent's summary?" },
-  { id: "acceptance-a2", role: "assistant", at: localAt(2, 16, 41), content: "No. Approve it against the recorded checks and the diff. Evidence Before Authority makes the same point; it is endorsed in your library.", research: provenance },
-  { id: "acceptance-u3", role: "user", at: localAt(1, 11, 5), content: "Is the office move on track?" },
-  { id: "acceptance-a3", role: "assistant", at: localAt(1, 11, 6), content: "The lease is signed. The move date and the floor plan are still open." },
-  { id: "acceptance-u4", role: "user", at: now - 20 * 60_000, content: "Anything waiting on me?" },
-  { id: "acceptance-a4", role: "assistant", at: now - 19 * 60_000, content: "One delegated run is awaiting your review in acceptance-history." }
+  { id: "acceptance-u1", chat: 1, role: "user", at: localAt(4, 9, 12), content: "What changed in acceptance-history this week?" },
+  { id: "acceptance-a1", chat: 1, role: "assistant", at: localAt(4, 9, 13), content: "Two commits: the request log and a fix for empty requests. No next step is recorded for the project." },
+  { id: "acceptance-u2", chat: 2, role: "user", at: localAt(2, 16, 40), content: "Should a delegated run be approved on the agent's summary?" },
+  { id: "acceptance-a2", chat: 2, role: "assistant", at: localAt(2, 16, 41), content: "No. Approve it against the recorded checks and the diff. Evidence Before Authority makes the same point; it is endorsed in your library.", research: provenance },
+  { id: "acceptance-u3", chat: 3, role: "user", at: localAt(1, 11, 5), content: "Is the office move on track?" },
+  { id: "acceptance-a3", chat: 3, role: "assistant", at: localAt(1, 11, 6), content: "The lease is signed. The move date and the floor plan are still open." },
+  { id: "acceptance-u4", chat: 4, role: "user", at: now - 20 * 60_000, content: "Anything waiting on me?" },
+  { id: "acceptance-a4", chat: 4, role: "assistant", at: now - 19 * 60_000, content: "One delegated run is awaiting your review in acceptance-history." }
 ];
 // Imported from localStorage at the first desktop launch, three days ago. Its
 // original date was never recorded; only its HH:MM survived.
@@ -314,19 +316,33 @@ try {
     .run(account.id, situationId, JSON.stringify(pack), stamp);
   db.prepare("UPDATE communication_situation_state SET context_revision = context_revision + 1, last_attempt = 0 WHERE account_id = ?").run(account.id);
 
-  // Side rows as store_messages writes them: empty provenance unless supplied.
-  const message = db.prepare("INSERT INTO conversation_messages (id, role, content, timestamp, created_at) VALUES (?, ?, ?, ?, ?)");
+  // Rows as store_messages writes them: the chat first, titled by its first
+  // operator message, then each message with empty provenance unless supplied
+  // and its search entry. Seeded chats are not learned from automatically, like
+  // history from before chats were separate: the memory watermark starts at the end.
+  const chat = db.prepare("INSERT INTO conversations (id, title, created_at, updated_at) VALUES (?, ?, ?, ?)");
+  const watermark = db.prepare("UPDATE conversations SET memory_watermark = (SELECT max(rowid) FROM conversation_messages WHERE conversation_id = ?1) WHERE id = ?1");
+  const message = db.prepare("INSERT INTO conversation_messages (id, role, content, timestamp, created_at, conversation_id) VALUES (?, ?, ?, ?, ?, ?)");
+  const search = db.prepare("INSERT INTO conversation_search (content, message_id, conversation_id) VALUES (?, ?, ?)");
   const research = db.prepare("INSERT INTO conversation_research (message_id, sources_json) VALUES (?, ?)");
   const mail = db.prepare("INSERT INTO conversation_mail (message_id, sources_json) VALUES (?, '[]')");
+  for (const n of [...new Set(conversation.map((row) => row.chat))]) {
+    const rows = conversation.filter((row) => row.chat === n);
+    chat.run(`acceptance-chat-${n}`, rows.find((row) => row.role === "user").content, sqliteTime(rows[0].at), sqliteTime(rows.at(-1).at));
+  }
   for (const row of conversation) {
-    message.run(row.id, row.role, row.content, clock(row.at), sqliteTime(row.at));
+    message.run(row.id, row.role, row.content, clock(row.at), sqliteTime(row.at), `acceptance-chat-${row.chat}`);
+    search.run(row.content, row.id, `acceptance-chat-${row.chat}`);
     research.run(row.id, JSON.stringify(row.research ?? []));
     mail.run(row.id);
   }
-  message.run(imported.id, imported.role, imported.content, imported.timestamp, sqliteTime(importedAt));
+  chat.run("acceptance-chat-imported", imported.content, sqliteTime(importedAt), sqliteTime(importedAt));
+  message.run(imported.id, imported.role, imported.content, imported.timestamp, sqliteTime(importedAt), "acceptance-chat-imported");
+  search.run(imported.content, imported.id, "acceptance-chat-imported");
   research.run(imported.id, "[]");
   mail.run(imported.id);
   db.prepare("INSERT INTO conversation_imports (message_id, imported_at) VALUES (?, ?)").run(imported.id, isoSeconds(importedAt));
+  for (const id of [...new Set(conversation.map((row) => `acceptance-chat-${row.chat}`)), "acceptance-chat-imported"]) watermark.run(id);
 
   db.prepare(`INSERT INTO delegation_runs (id, project_id, project_name, task, driver, model, phase, workspace, branch,
       base_commit, agent_session_id, process_id, milestone, checkpoint, outcome, changed_files_json, diff_summary, error, started_at, updated_at)
@@ -363,7 +379,7 @@ console.log(`Seeded ${dbPath}
   Situation   "Office move (synthetic)" with document context from ${docs}
   Delegation  run ${runId} awaiting review
               worktree ${workspace} (branch ${branch}, build script only echoes)
-  Chat        ${conversation.length} messages across four days; ${conversation.filter((m) => m.research).length} reply with research provenance
+  Chat        ${conversation.length} messages in four chats across four days, the last reopening at launch; ${conversation.filter((m) => m.research).length} reply with research provenance
               (${researchFile}, fingerprint ${provenance[0].fingerprint.slice(0, 12)}…)
               1 row imported from localStorage (${isoSeconds(importedAt)}, original time ${imported.timestamp})
   Projects    acceptance-history has one commit made now, after the first launch

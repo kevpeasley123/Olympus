@@ -25,6 +25,8 @@ import { formatWhen } from "../../services/time";
 import { isTauriRuntime } from "../../services/launcher";
 import type { CapabilitySnapshot, Mission, Suggestion } from "../../services/capabilities";
 import { ActiveMissionList } from "./PantheonMissions";
+import { ChatHistory, ChatSessionBar, type ChatControls } from "./ChatHistory";
+import { chatTitle } from "../../services/conversations";
 import { MissionView } from "./MissionView";
 import "./command.css";
 import "./commandArmory.css";
@@ -85,11 +87,13 @@ interface ChatPanelProps {
   suggestions?: Suggestion[];
   onOpenMission?: (destination: Mission["destination"]) => void;
   onDismissMission?: (id: string) => void;
+  /** Separate chats: the open one, New chat, Temporary chat and the chat list. */
+  chats?: ChatControls;
 }
 
 export function ChatPanel({ companion = false, onVoiceConversationToggle, messages, onSendMessage, pending = false, progress = null, onStop, inspectionProjects = [], error = null,onOpenPreferences,autoSpeak=false,onAutoSpeakChange,voiceSettingsReady=true,briefing=null,onNewBriefing,briefingPending=false,
   activeMissions = [], selectedMissionId = null, onSelectMission, missionsError = null, missionsLoading = false,
-  layout = "compact", onLayoutChange, onActivate, collapseLabel, mission = null, capabilities = null, suggestions = [], onOpenMission, onDismissMission }: ChatPanelProps) {
+  layout = "compact", onLayoutChange, onActivate, collapseLabel, mission = null, capabilities = null, suggestions = [], onOpenMission, onDismissMission, chats }: ChatPanelProps) {
   const expanded = layout === "expanded";
   const conversationPanel = companion && expanded;
   const voice = useVoiceState();
@@ -106,6 +110,7 @@ export function ChatPanel({ companion = false, onVoiceConversationToggle, messag
   const waitingForReply = useRef(false);
   const launchedAt = useRef(Date.now());
   const [conversationOpened, setConversationOpened] = useState(false);
+  const [chatsOpen, setChatsOpen] = useState(false);
   const panelRef = useRef<HTMLElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const streamText = useConversationStream();
@@ -141,6 +146,10 @@ export function ChatPanel({ companion = false, onVoiceConversationToggle, messag
   const voiceFailure = voice.error && !voice.active && !voice.connecting ? describeVoiceFailure(voice.error) : null;
   const separators = daySeparators(renderedMessages.map(message => "at" in message ? message.at : undefined));
   const lastId = renderedMessages[renderedMessages.length - 1]?.id;
+  // A reply in flight belongs to the chat it was asked in, so the chat cannot
+  // change under it.
+  const chatSwitchDisabled = pending || briefingPending || voice.active || voice.connecting || !voiceSettingsReady;
+  const chatOpened = () => { setChatsOpen(false); setConversationOpened(true); showLive(); };
   const quietPlayback = !isTauriRuntime() ? "Not spoken · audio plays in the desktop app" : "Not spoken";
   // Expanded and nothing said this launch: a calm ready state instead of old
   // history. History and the briefing stay one click away.
@@ -253,7 +262,7 @@ export function ChatPanel({ companion = false, onVoiceConversationToggle, messag
     <section ref={panelRef} tabIndex={-1} className="command-console" data-mode={mode} data-layout={layout} data-conversation-panel={conversationPanel || undefined} data-panel-view={conversationPanel ? (conversationOpened?"conversation":"overview") : undefined} data-idle={idle || undefined} data-signal={signal ?? undefined}
       aria-label="Olympus Command Console" style={{ "--console-transition": `${CONSOLE.transitionMs}ms`, "--console-signal": `${CONSOLE.signalMs}ms` } as CSSProperties}
       onKeyDown={event => {
-        if (event.key === "Escape" && !event.nativeEvent.isComposing) { event.preventDefault(); event.stopPropagation(); stepBack(); }
+        if (event.key === "Escape" && !event.nativeEvent.isComposing) { event.preventDefault(); event.stopPropagation(); if (chatsOpen) setChatsOpen(false); else stepBack(); }
       }}>
       <SkillApproval/>
       {(expanded || onLayoutChange) && <header className="console-workspace-header">
@@ -300,11 +309,14 @@ export function ChatPanel({ companion = false, onVoiceConversationToggle, messag
               onClick={stepBack}><X size={15} /></button>
           </div>
         </header>}
-        <div className="console-history-controls" hidden={conversationPanel}>
+        {chats && <ChatSessionBar chats={chats} title={chatTitle(chats.session, messages)} disabled={chatSwitchDisabled}
+          open={chatsOpen} onToggle={() => setChatsOpen(value => !value)} onOpened={chatOpened} />}
+        {chats && chatsOpen && <ChatHistory chats={chats} disabled={chatSwitchDisabled} onClose={() => setChatsOpen(false)} onOpened={chatOpened} />}
+        <div className="console-history-controls" hidden={conversationPanel || chatsOpen}>
           {mode === "engaged" ? <button type="button" onClick={showHistory}>↑ Earlier conversation{liveStart > 0 ? ` · ${liveStart} messages` : ""}</button> :
             <button type="button" onClick={() => showLive(true)}>↓ Return to latest</button>}
         </div>
-        <div ref={scroll.viewportRef} className="console-viewport" role="log" aria-label={mode === "transcript" ? "Conversation transcript" : "Recent conversation"}
+        <div ref={scroll.viewportRef} hidden={chatsOpen} className="console-viewport" role="log" aria-label={mode === "transcript" ? "Conversation transcript" : "Recent conversation"}
           aria-live="off" tabIndex={0} onScroll={()=>{if(!conversationPanel||conversationOpened)scroll.onScroll();}}
           onWheel={event => { if (event.deltaY < 0) scroll.interrupt(); }}
           onClickCapture={event => { if ((event.target as HTMLElement).closest("summary")) scroll.interrupt(); }}
@@ -329,7 +341,7 @@ export function ChatPanel({ companion = false, onVoiceConversationToggle, messag
             {renderedMessages.length === 0 && !pending && <p className="console-empty">The console is ready for your command.</p>}
           </div>
         </div>
-        {!scroll.isFollowing && <button type="button" className="console-latest" onClick={() => scroll.latest(true)}>{conversationPanel?"↓ Latest reply":"↓ Latest"}</button>}
+        {!scroll.isFollowing && !chatsOpen && <button type="button" className="console-latest" onClick={() => scroll.latest(true)}>{conversationPanel?"↓ Latest reply":"↓ Latest"}</button>}
       </div>}
       <div className="console-command-bar">
         {companion && !conversationOpened && inspectionControl}

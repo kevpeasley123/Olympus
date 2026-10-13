@@ -56,7 +56,7 @@ export async function requestAssistantReply(
   settings: OlympusSettings,
   projects: TrackedProject[],
   onEvent?: (event: AssistantStreamEvent) => void,
-  options?: {requestId?: string; capability?: import("./modelRouting").ModelCapability; voiceDepth?: import("./voiceContract").VoiceDepth; commandBoard?: unknown}
+  options?: {requestId?: string; capability?: import("./modelRouting").ModelCapability; voiceDepth?: import("./voiceContract").VoiceDepth; commandBoard?: unknown; temporary?: boolean; conversationId?: string}
 ): Promise<AssistantReply> {
   if (!isTauriRuntime()) {
     throw new Error(
@@ -92,6 +92,9 @@ export async function requestAssistantReply(
       activeProject: history[history.length-1]?.attachment?.kind === "project-snapshot" ? history[history.length-1]?.attachment?.label : undefined,
       capability: options?.capability,
       voiceDepth: options?.voiceDepth,
+      // A temporary chat neither uses nor feeds what Olympus has learned.
+      temporary: options?.temporary ?? false,
+      conversationId: options?.conversationId,
       commandBoard: assessmentProjectId?undefined:options?.commandBoard,
       projectsRootPath: settings.projectsRootPath,
       projects: contextProjects.map((project) => ({

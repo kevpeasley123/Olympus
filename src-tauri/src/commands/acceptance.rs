@@ -312,7 +312,7 @@ mod tests {
     #[test]
     fn the_launch_marker_names_the_fixture_directory() {
         let connection = rusqlite::Connection::open_in_memory().unwrap();
-        connection.execute_batch(crate::SCHEMA).unwrap();
+        crate::commands::migrations::apply(&connection).unwrap();
         let dir = std::env::temp_dir().join("olympus-acceptance-marker");
         record_launch(&connection, &dir, ACCEPTANCE_IDENTIFIER).unwrap();
         let payload: String = connection

@@ -61,7 +61,9 @@ Tauri commands exposed by the desktop shell — every entry in the `generate_han
 | --- | --- |
 | Assistant and models | `send_assistant_message`, `cancel_assistant_message`, `model_routes`, `save_model_selection`, `model_diagnostics` |
 | Voice | `create_voice_session`, `record_voice_request`, `voice_usage`, `elevenlabs_status`, `elevenlabs_connect`, `elevenlabs_disconnect`, `elevenlabs_check`, `elevenlabs_synthesize`, `elevenlabs_cancel` |
-| Persistence | `load_persisted_state`, `begin_operator_session`, `save_settings`, `save_tool_states`, `append_conversation_messages`, `clear_conversation` |
+| Persistence | `load_persisted_state`, `begin_operator_session`, `save_settings`, `save_tool_states`, `append_conversation_messages` |
+| Conversations | `list_conversations`, `load_conversation`, `search_conversations`, `rename_conversation`, `delete_conversation` (see `docs/CONVERSATIONS-AND-MEMORY.md`) |
+| Chat memory | `chat_memory_status`, `set_chat_memory`, `learn_from_earlier_chats` (Preferences > Memory) |
 | Memory index | `memory_status`, `memory_preview`, `memory_rebuild`, `memory_request_evidence` |
 | Vault | `fetch_pantheon_entries`, `write_pantheon_entry`, `migrate_pantheon_schema`, `save_attachment_to_vault`, `fetch_operator_profile`, `fetch_recent_vault_writes`, `fetch_vault_graph`, `open_vault_note` |
 | Write gate | `resolve_vault_write` |
@@ -85,6 +87,8 @@ Read-only additions to existing command results (2026-09-28, design review): `lo
 
 2026-09-29: `append_conversation_messages` takes an optional `imported` flag, set only by the one-time `localStorage` import; the rows it inserts are recorded in the additive `conversation_imports` table in the same transaction, and `load_persisted_state` returns `importedAt` instead of `at` for them.
 
+2026-10-13: chats are separate. `append_conversation_messages` requires a `conversationId`; the first append creates the chat, the first operator message titles it, and each new message is indexed for `search_conversations`. `load_persisted_state` returns the chat to reopen (`conversationId`, set only when one was used in the last 30 minutes) with only that chat's messages, and `hasConversations`, which decides the one-time `localStorage` import. A chat with no operator message yet (a launch briefing alone) is not listed or searched. A Temporary chat is never appended; `send_assistant_message` receives `context.temporary`.
+
 `pick_attachment_file` keeps the chosen path in Rust and returns a one-use token; `extract_pdf_text` and `save_attachment_to_vault` accept only that token.
 
 The SQLite connection is opened once during `setup()` and held in managed state, so the frontend can assume persistence is ready before it can invoke anything.
@@ -93,7 +97,7 @@ The webview renders untrusted text (research notes, email, repository output), s
 
 ## Vault writes
 
-Four commands write to the vault. All of them resolve the vault root in Rust via `commands::get_vault_path()`; **no caller supplies a path** (unified in `62c957e`).
+Four commands and one background worker write to the vault. All of them resolve the vault root in Rust via `commands::get_vault_path()`; **no caller supplies a path** (unified in `62c957e`).
 
 | Command | Operation | Target | Declared intent | Asks first? |
 | --- | --- | --- | --- | --- |
@@ -101,6 +105,7 @@ Four commands write to the vault. All of them resolve the vault root in Rust via
 | `save_attachment_to_vault` | create | `02 - Research/_attachments/<file>` | `CreateUnique` | No — `copy_to_unique` (`attachments.rs`) claims a free suffixed name with `create_new`; the source is a file the operator picked, named to the webview only by a one-use token |
 | `migrate_pantheon_schema` | **modify** | frontmatter of `02 - Research/*.md` entries | `ModifyAuthored` | **Always**, one confirmation per file with a diff summary |
 | `confirm_project_brief` | **create or modify** | the linked project's note, default `01 - Projects/Linked <id>.md` | `ModifyAuthored` | **Always**, with the diff and the complete purpose and constraints |
+| Chat memory worker (`chat_memory.rs`) | create or modify | `10 - Conversations/<year>/<month>/<date> <title> <tag>.md`, `09 - System/Olympus Memory.md` | `MaintainAuthored` | No — approved by Kevin on 2026-10-13. A chat note is rendered whole only while its bytes match the recorded fingerprint; once Kevin edits it, new messages are only appended, and a note he deleted is not recreated. The memory pass reads his edits as current memory and replaces only the bytes it read |
 
 No command deletes or renames a note the operator can see.
 
@@ -110,13 +115,14 @@ The dashboard exports (the Projects canvas and the Research base in
 earlier stay in the vault untouched. The `RegenerateDerived` intent and its
 fingerprint rule remain in the gate, tested, with no current caller.
 
-Chat no longer writes to the vault. Kevin removed the Save memory and
-Observation buttons on 2026-10-11 (`74fd5de`, `a155cd5`) and their backend
-commands, `promote_chat_memory` and `append_profile_observation`, were deleted
-on 2026-10-12. `09 - System/Profile Observations.md` may still exist in the
-vault; it stays out of the assistant's context (`vault_context.rs` tests the
-absence), because inferences fed back into the prompt become
-indistinguishable from the operator's own instructions.
+Chat has no memory buttons. Kevin removed Save memory and Observation on
+2026-10-11 (`74fd5de`, `a155cd5`) and their backend commands were deleted on
+2026-10-12. Since 2026-10-13 chats and learned memory reach the vault through
+the chat memory worker instead (`docs/CONVERSATIONS-AND-MEMORY.md`). Learned
+memory reaches the model only as labelled turn evidence, never through
+`STABLE_NOTES`, which carry the operator's own authority; an assistant test
+pins that. `09 - System/Profile Observations.md` stays out of the assistant's
+context (`vault_context.rs` tests the absence).
 
 ### The write gate
 
@@ -127,7 +133,7 @@ Every vault write goes through `commands::vault_write`, which does two separate 
 
 When a write needs a human, `write_confirm::request_confirmation` emits `vault-write-pending` to the webview and blocks on the answer. Timeout (120s), a dropped channel, and an emit failure all **deny**. The operator's answer returns through `resolve_vault_write`. `WriteConfirmDialog.tsx` renders it; declining is the default on Escape, the backdrop, and the focused button, and the dialog's wording comes from the intent-derived `operation` field so an append is never described as an overwrite. Concurrent requests queue by ID rather than replacing each other on screen. `resolve_vault_write` returns whether the answer reached a live request, and the dialog reports an approval that arrived after the timeout as nothing written instead of as a write.
 
-Fingerprints of app-authored derived files live in the SQLite `artifact_hashes` table (no writer uses it since the dashboard exports went), normalised for line endings and trailing whitespace before hashing — the vault syncs through OneDrive and is opened by Obsidian, and neither round-trip is a human edit. A file whose fingerprint still matches is regenerated silently; one that diverged, or was never recorded, prompts. **Absent must mean confirm** — treating a missing row as clean would make the check bypassable by deleting it.
+Fingerprints of app-authored files live in the SQLite `artifact_hashes` table (the chat memory worker records each whole chat note it writes), normalised for line endings and trailing whitespace before hashing — the vault syncs through OneDrive and is opened by Obsidian, and neither round-trip is a human edit. A file whose fingerprint still matches is regenerated silently; one that diverged, or was never recorded, prompts. **Absent must mean confirm** — treating a missing row as clean would make the check bypassable by deleting it.
 
 After a successful approved write, `vault_git::commit_vault_file` commits only
 that vault-relative path. It uses a temporary Git index seeded from `HEAD`,
@@ -391,13 +397,22 @@ current task revision. `organizer_tasks.project_id` references the legacy
 
 ## Schema evolution
 
-`open_database` (`lib.rs`) runs all of `schema.sql` on every start. Every
-statement is `CREATE … IF NOT EXISTS`, so a new table reaches an existing
-database, but a column or constraint added to an existing table does not. The
-one exception is a hand-written check that adds `delegation_runs.process_id`.
-There is no schema version. Tests build fresh databases from `schema.sql`, so
-they cannot catch this; until a migration runner exists, do not change an
-existing table. The runner is designed but deferred: see
+`PRAGMA user_version` is the schema version, and `commands/migrations.rs`
+brings every database to the latest one by the same ordered steps, so a fresh
+database and Kevin's cannot diverge. After migrating, `open_database` adopts
+any messages an older build wrote without a chat
+(`conversations::adopt_orphans`). Migration 1 is `schema.sql`, frozen on
+2026-10-13 (a test pins its fingerprint), plus the old `process_id` fix-up;
+later migrations live in `src-tauri/migrations/`. Each runs in one transaction
+that also sets the version. Before applying any, `open_database` writes a
+`VACUUM INTO` backup beside the database (the newest three are kept). A
+database newer than the binary is refused, not opened.
+
+Rules: never edit a shipped migration or `schema.sql`; any change to an
+existing table is a new migration. A migration that drops or rewrites data
+needs Kevin's approval; the backup is recovery, not permission. Tests build
+databases through the runner (`migrations::apply`, or `TEST_SCHEMA` for plain
+fixtures), and a test proves a fresh database equals a migrated one. See
 [SCHEMA-MIGRATIONS.md](docs/SCHEMA-MIGRATIONS.md).
 
 ## Speech output
@@ -406,6 +421,12 @@ Spoken replies use either OpenAI speech or ElevenLabs (`elevenlabs.rs`). The
 ElevenLabs key lives in Windows Credential Manager and never crosses IPC; Rust
 sends only the spoken text, voice, model and language, and returns transient
 audio. See [ELEVENLABS-VOICE.md](docs/ELEVENLABS-VOICE.md).
+
+`src/services/voiceSignal.ts` analyses voice audio for Command's energy signal and the Omega, without touching playback or capture:
+- the microphone and realtime streams through an AnalyserNode that is never connected to the output;
+- ElevenLabs replies by decoding the same bytes and reading them at the playing element's position.
+
+The voice service attaches and detaches these taps beside its existing meters; see the Voice signal section of [COMMAND-FLAGSHIP.md](docs/COMMAND-FLAGSHIP.md).
 
 ## Curated-memory implementation
 
@@ -459,4 +480,4 @@ The dossier is a UI projection of saved contextual references. Optional document
 
 ### Indexed curated memory
 
-The development backend maintains a separate, rebuildable SQLite/FTS5 cache in app-local data for eligible vault project/session/decision/research records. A background writer publishes transactional generations; request readers select bounded scope-aware evidence, include explicit correction relationships, and validate selected source revisions. Both assistant provider routes use the same quoted evidence packet. Immutable request receipts live in the operational database and appear in response Details. The index is outside the synced vault, never writes source records, and grants no execution authority. It does not collect other chats. See [MEMORY-RETRIEVAL.md](docs/MEMORY-RETRIEVAL.md) for limits, recovery, rollback and acceptance gaps.
+The development backend maintains a separate, rebuildable SQLite/FTS5 cache in app-local data for eligible vault project/session/decision/research records. A background writer publishes transactional generations; request readers select bounded scope-aware evidence, include explicit correction relationships, and validate selected source revisions. Both assistant provider routes use the same quoted evidence packet. Immutable request receipts live in the operational database and appear in response Details. The index is outside the synced vault, never writes source records, and grants no execution authority. It does not index chats: past-chat recall reads SQLite's `conversation_search` instead (`conversations::recall`), so an unscoped "what did we decide" question is not refused for lacking a project. See [MEMORY-RETRIEVAL.md](docs/MEMORY-RETRIEVAL.md) for limits, recovery, rollback and acceptance gaps.

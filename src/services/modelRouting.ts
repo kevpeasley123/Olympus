@@ -46,4 +46,11 @@ export async function saveModelSelection(capability:ModelCapability,scope:ModelS
   selectNextModel(capability,scope);
  }finally{savingSelection=false;}
 }
+/** "This chat" ends with the chat: a new or reopened chat starts on the default route. */
+export async function endChatModelScope(){
+ if(selection.scope!=="chat")return;
+ resetModelSelection();
+ // The stored choice is cleared too, or the next launch would restore it.
+ if(isTauriRuntime())await invoke("save_model_selection",{capability:selection.capability,scope:"next"}).catch(()=>{});
+}
 export const loadModelDiagnostics=()=>invoke<ModelRequest[]>("model_diagnostics");

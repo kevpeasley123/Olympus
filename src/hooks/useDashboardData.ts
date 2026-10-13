@@ -1,5 +1,5 @@
 import { generateSituationBriefing } from "../services/situationBriefing";
-import {consumeNextModel} from "../services/modelRouting";
+import {consumeNextModel,endChatModelScope} from "../services/modelRouting";
 import { normalizeVoicePreferences, type VoicePreferences } from "../services/voicePreferences";
 import { refreshActionQueue, useActionQueue } from "./useActionQueue";
 import { refreshDelegationRuns, useDelegationRuns } from "./useDelegationRuns";
@@ -21,7 +21,8 @@ import { cancelAssistantReply, createAssistantMessage, requestAssistantReply } f
 import { planTurnRelease } from "../services/glyphState";
 import { emitInstrumentEvent } from "../services/instrumentEvents";
 import { buildPantheonReply, createUserMessage } from "../services/pantheonChat";
-import { appendConversationMessages, initialDashboardState, loadState, persistPreferences } from "../services/storage";
+import { appendConversationMessages, initialDashboardState, loadSession, persistPreferences } from "../services/storage";
+import { deleteConversation, loadConversation, newChatSession, renameConversation, type ChatSession } from "../services/conversations";
 import { beginOperatorSession } from "../services/session";
 import type { OlympusState, SessionBoundary, TurnContext } from "../types";
 
@@ -157,14 +158,25 @@ export function useDashboardData() {
   const [chatFellBackFrom, setChatFellBackFrom] = useState<string | null>(null);
   /** The route of the current or last turn, for human labels (review D3). */
   const [chatCapability, setChatCapability] = useState<ModelCapability | null>(null);
+  /**
+   * The chat on screen. The ref is what appends read: a send captures it once,
+   * so its reply lands in the chat it was asked in.
+   */
+  const [chatSession, setChatSessionState] = useState<ChatSession>(newChatSession);
+  const sessionRef = useRef(chatSession);
+  const setChatSession = useCallback((session: ChatSession) => { sessionRef.current = session; setChatSessionState(session); }, []);
+  /** A temporary chat is never stored, so it never reaches the vault or memory. */
+  const remember = useCallback((messages: Parameters<typeof appendConversationMessages>[1], session: ChatSession = sessionRef.current) =>
+    session.temporary ? Promise.resolve(false) : appendConversationMessages(session.id, messages), []);
 
   useEffect(() => {
     let cancelled = false;
 
     void (async () => {
       let stored: OlympusState | null = null;
+      let conversationId: string | null = null;
       try {
-        stored = await loadState();
+        ({ state: stored, conversationId } = await loadSession());
       } catch (error) {
         // Desktop only. Stay unhydrated: seed state must never be saved over
         // the real settings, and a send would give the model seed history.
@@ -185,6 +197,7 @@ export function useDashboardData() {
       if (cancelled) return;
 
       if (stored) setDashboardState(stored);
+      if (conversationId) setChatSession({ id: conversationId, title: "", temporary: false });
       setSessionBoundary(boundary);
       setSessionReady(true);
       if (!stored) return;
@@ -283,7 +296,7 @@ export function useDashboardData() {
     message.voice = { kind: "output", spokenResponse: text, ...(dashboardRef.current.settings.autoSpeak ? {} : { playback: "skipped" as const }) };
     dashboardRef.current = { ...dashboardRef.current, conversation: [...dashboardRef.current.conversation, message] };
     setDashboardState(dashboardRef.current);
-    void appendConversationMessages([message]);
+    void remember([message]);
     setOpeningBriefing({ id: message.id, text });
   }, [hydrated, projectsScanned, taskStore.loading, runStore.loading, sessionBoundary, projectsError]);
 
@@ -302,7 +315,7 @@ export function useDashboardData() {
       message.voice = { kind: "output", spokenResponse: text, ...(dashboardRef.current.settings.autoSpeak ? {} : { playback: "skipped" as const }) };
       dashboardRef.current = { ...dashboardRef.current, conversation: [...dashboardRef.current.conversation, message] };
       setDashboardState(dashboardRef.current);
-      await appendConversationMessages([message]);
+      await remember([message]);
       setOpeningBriefing({ id: message.id, text });
     } catch (error) { setChatError(errorMessage(error)); }
     finally { briefingLock.current = false; setBriefingPending(false); }
@@ -331,13 +344,14 @@ export function useDashboardData() {
       // the attachment and scope composed back in (`turnAttachment`).
       if (turn?.attachment) user.attachment = turn.attachment;
       if (turn?.scope) user.scope = turn.scope;
+      const session = sessionRef.current;
 
       // The user's turn lands immediately and is part of the history the model
       // sees, so it is captured before the request goes out.
       const history = [...dashboardRef.current.conversation, user];
       dashboardRef.current = {...dashboardRef.current, conversation:history};
       setDashboardState(dashboardRef.current);
-      void appendConversationMessages([user]);
+      void remember([user], session);
 
       if (!isTauriRuntime()) {
         // Browser dev server: no API key available, so fall back to the local
@@ -396,7 +410,7 @@ export function useDashboardData() {
                 break;
             }
           },
-          {requestId: activeRequest.current ?? undefined, capability, voiceDepth, commandBoard: boardRef.current}
+          {requestId: activeRequest.current ?? undefined, capability, voiceDepth, commandBoard: boardRef.current, temporary: session.temporary, conversationId: session.id}
         );
         const assistant = createAssistantMessage(reply.content, reply.notice, reply.research);
         assistant.mail = reply.mail;
@@ -407,14 +421,14 @@ export function useDashboardData() {
         setDashboardState(dashboardRef.current);
         // Persist the planned summary before the transport can record a fast
         // connection failure or playback receipt for this same message.
-        await appendConversationMessages([assistant]);
+        await remember([assistant], session);
         return reply.voice ? {...reply.voice,messageId:assistant.id} : undefined;
       } catch (error) {
         const partial = conversationStream.current().trim();
         if (partial) {
           const interrupted = createAssistantMessage(partial, { kind: "truncated", message: "Response interrupted. This is the output received before the error." });
           setDashboardState(current => ({ ...current, conversation: [...current.conversation, interrupted] }));
-          void appendConversationMessages([interrupted]);
+          void remember([interrupted], session);
         }
         setChatError(errorMessage(error));
       } finally {
@@ -458,8 +472,52 @@ export function useDashboardData() {
     const updated = {...existing, voice:{...existing.voice,...metadata}};
     dashboardRef.current = {...dashboardRef.current,conversation:dashboardRef.current.conversation.map(message => message.id === id ? updated : message)};
     setDashboardState(dashboardRef.current);
-    void appendConversationMessages([updated]);
-  }, []);
+    void remember([updated]);
+  }, [remember]);
+
+  /**
+   * Switching chats waits for the turn in flight: its reply belongs to the chat
+   * it was asked in. Returns why it could not switch, or null.
+   */
+  const busy = () => requestInFlight.current || briefingLock.current ? "Wait for the current reply to finish." : null;
+  const newChat = useCallback((temporary = false): string | null => {
+    const reason = busy(); if (reason) return reason;
+    void endChatModelScope();
+    setChatSession(newChatSession(temporary));
+    dashboardRef.current = { ...dashboardRef.current, conversation: [] };
+    setDashboardState(dashboardRef.current);
+    setOpeningBriefing(null);
+    setChatError(null);
+    return null;
+  }, [setChatSession]);
+  const openChat = useCallback(async (id: string, title: string): Promise<string | null> => {
+    const reason = busy(); if (reason) return reason;
+    let messages;
+    try { messages = await loadConversation(id); }
+    catch (error) { return `That chat could not be opened (${errorMessage(error)}).`; }
+    const again = busy(); if (again) return again;
+    void endChatModelScope();
+    setChatSession({ id, title, temporary: false });
+    dashboardRef.current = { ...dashboardRef.current, conversation: messages };
+    setDashboardState(dashboardRef.current);
+    setOpeningBriefing(null);
+    setChatError(null);
+    return null;
+  }, [setChatSession]);
+  const renameChat = useCallback(async (id: string, title: string) => {
+    await renameConversation(id, title);
+    if (sessionRef.current.id === id) setChatSession({ ...sessionRef.current, title: title.trim().replace(/\s+/g, " ") });
+  }, [setChatSession]);
+  /** Removes the chat from Olympus; its vault note and memory stay (the UI says so). */
+  const deleteChat = useCallback(async (id: string) => {
+    if (sessionRef.current.id === id && busy()) throw new Error("Wait for the current reply to finish.");
+    await deleteConversation(id);
+    if (sessionRef.current.id === id) newChat();
+  }, [newChat]);
+  /** A title the backend gave the chat since it opened (a rename, the memory pass). */
+  const syncChatTitle = useCallback((id: string, title: string) => {
+    if (sessionRef.current.id === id && title && sessionRef.current.title !== title) setChatSession({ ...sessionRef.current, title });
+  }, [setChatSession]);
 
 
 
@@ -501,6 +559,7 @@ export function useDashboardData() {
       rescanProjects: refreshProjects,
       projectNoteWarnings,
       chat: dashboardState.conversation,
+      chatSession, newChat, openChat, renameChat, deleteChat, syncChatTitle,
       chatPending,
       chatProgress, cancelChat,
       chatError,
@@ -522,6 +581,7 @@ export function useDashboardData() {
       projectsError,
       refreshProjects,
       projectNoteWarnings,
+      chatSession, newChat, openChat, renameChat, deleteChat, syncChatTitle,
       chatPending,
       chatProgress, cancelChat,
       chatError,

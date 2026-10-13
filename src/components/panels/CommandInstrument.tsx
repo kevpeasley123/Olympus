@@ -6,7 +6,8 @@ import type { Mission } from "../../services/capabilities";
 import "./pantheonMissions.css";
 import { VaultConstellation } from "./VaultConstellation";
 import { ArmoryConstellation } from "./ArmoryConstellation";
-import { SpokenRepliesControl } from "./SpokenRepliesControl";
+import { OlympusVoiceDock } from "./OlympusVoiceDock";
+import { omegaVoiceEnergy } from "../../services/voiceSignal";
 import type {VoiceSnapshot} from "../../services/realtimeVoice";
 import { HybridCommandCore } from "./HybridCommandCore";
 import { OrbitalAtmosphere } from "./OrbitalAtmosphere";
@@ -280,7 +281,7 @@ export function CommandInstrument({
         {flagship && <PantheonFigures missions={missions}/>}
         {/* Unmounted on failure so its GPU resources, listeners and timers go
             with it; Retry mounts a fresh one. */}
-        {sceneWanted && !hybridError && <HybridCommandCore key={renderAttempt} layout={{...layout, orbitalCards: true, flagship}} state={ambientState} voiceLevel={voiceLevel} execution={execution}
+        {sceneWanted && !hybridError && <HybridCommandCore key={renderAttempt} layout={{...layout, orbitalCards: true, flagship}} state={ambientState} voiceLevel={voiceLevel} voiceEnergy={voiceSnapshot?.muted ? undefined : omegaVoiceEnergy} execution={execution}
           missions={missions} selectedMission={selectedMission} running={active && ambient.running} light={light} activeDomains={activeDomains}
           onReady={setHybridReady} onError={setHybridError} />}
         <svg
@@ -347,21 +348,9 @@ export function CommandInstrument({
         </svg>
       </motion.div>
 
-      {/* Where the tier counts used to sit, at the same weight.
-
-          The counts came out because they were a legend for a vocabulary the
-          ring already teaches better: the hover readout names a project's tier
-          beside its own name, which attaches the word to the thing instead of
-          to an aggregate. What is left here is the one fact about this mode the
-          instrument cannot draw — who is answering, and whether it is answering
-          right now.
-
-          Nothing renders before the first reply of a session. Naming a model
-          that has not spoken would be the same invisible wrongness as reading
-          the request constant. */}
-      {flagship && <div className="pantheon-caption"><h2>Pantheon</h2>
-      <SpokenRepliesControl voice={voiceSnapshot} enabled={spokenReplies} onToggle={onSpokenRepliesToggle} ready={voiceReady}/>
-      </div>}
+      {/* Olympus's voice beneath the Omega. Its waveform reads real audio per
+          frame from voiceSignal; React only passes the voice state. */}
+      {flagship && <OlympusVoiceDock voice={voiceSnapshot} spokenReplies={spokenReplies} onToggle={onSpokenRepliesToggle} ready={voiceReady} assistantPending={assistantPending} active={active} />}
       {!flagship && previewLabel && <p className="command-instrument__preview" role="note">{previewLabel}</p>}
       {hybridError && <div className="hybrid-status" role="status">
         <span>3D view unavailable · showing the flat instrument.</span>

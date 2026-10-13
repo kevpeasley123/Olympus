@@ -20,6 +20,16 @@ pub fn commit_vault_file(
     commit_exact_file_in(&get_vault_path(), Path::new(relative_path), operation)
 }
 
+/// The same commit against a vault root the caller already resolved, so a
+/// writer that checked the root commits to that root.
+pub fn commit_vault_file_in(
+    root: &Path,
+    relative_path: &str,
+    operation: &str,
+) -> Result<Option<String>, String> {
+    commit_exact_file_in(root, Path::new(relative_path), operation)
+}
+
 fn git(
     root: &Path,
     args: &[&str],
@@ -171,7 +181,7 @@ mod tests {
             if text.contains("WriteIntent::") {
                 writers += 1;
                 assert!(
-                    text.contains("commit_vault_file("),
+                    text.contains("commit_vault_file(") || text.contains("commit_vault_file_in("),
                     "{} declares a WriteIntent but never calls commit_vault_file",
                     file.display()
                 );

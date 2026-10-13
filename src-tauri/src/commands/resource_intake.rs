@@ -27,7 +27,7 @@ pub fn add_resource_skill(db:State<Db>,name:String,instructions:String)->Result<
 #[cfg(test)] mod tests {
  #[test] fn full_skill_and_utf8_boundaries_round_trip_without_trimming(){
   use sha2::{Digest,Sha256};
-  let c=Connection::open_in_memory().unwrap();c.execute_batch(include_str!("../../schema.sql")).unwrap();
+  let c=Connection::open_in_memory().unwrap();c.execute_batch(crate::commands::migrations::TEST_SCHEMA).unwrap();
   let original=include_str!("../../../scripts/fixtures/taste-skill-v2.txt");
   assert_eq!(original.len(),87253);
   assert_eq!(format!("{:x}",Sha256::digest(original.as_bytes())),"aa194351b246b8b4799099d4ed7b033d29eab6e6e3d58d8d2172978be7b3ec89");
@@ -46,6 +46,6 @@ pub fn add_resource_skill(db:State<Db>,name:String,instructions:String)->Result<
  }
 
  use super::*;
- #[test] fn skills_persist_and_duplicate_names_are_rejected(){let c=Connection::open_in_memory().unwrap();c.execute_batch(include_str!("../../schema.sql")).unwrap();let s=insert_skill(&c,"Extract decisions".into(),"Find decisions and evidence.".into()).unwrap();assert_eq!(read_skills(&c).unwrap()[0].id,s.id);assert!(insert_skill(&c,"extract DECISIONS".into(),"Different".into()).is_err());}
- #[test] fn no_empty_or_oversize_skill(){let c=Connection::open_in_memory().unwrap();c.execute_batch(include_str!("../../schema.sql")).unwrap();assert!(insert_skill(&c," ".into(),"a".into()).is_err());assert!(insert_skill(&c,"x".into(),"a".repeat(MAX_SKILL_INSTRUCTION_BYTES+1)).is_err());}
+ #[test] fn skills_persist_and_duplicate_names_are_rejected(){let c=Connection::open_in_memory().unwrap();c.execute_batch(crate::commands::migrations::TEST_SCHEMA).unwrap();let s=insert_skill(&c,"Extract decisions".into(),"Find decisions and evidence.".into()).unwrap();assert_eq!(read_skills(&c).unwrap()[0].id,s.id);assert!(insert_skill(&c,"extract DECISIONS".into(),"Different".into()).is_err());}
+ #[test] fn no_empty_or_oversize_skill(){let c=Connection::open_in_memory().unwrap();c.execute_batch(crate::commands::migrations::TEST_SCHEMA).unwrap();assert!(insert_skill(&c," ".into(),"a".into()).is_err());assert!(insert_skill(&c,"x".into(),"a".repeat(MAX_SKILL_INSTRUCTION_BYTES+1)).is_err());}
 }

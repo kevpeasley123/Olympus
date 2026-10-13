@@ -12,8 +12,8 @@ memory without a generation request. Editing the script or voice/model, starting
 a new generation, or closing settings releases the cached audio. No audio is saved
 to disk by Voice Lab.
 
-The quiet Voice session disclosure beneath Pantheon (inside the Spoken replies
-control, and repeated in the ElevenLabs preferences) totals this native app run.
+The quiet Voice session disclosure in the ElevenLabs preferences totals this
+native app run. (It left the Command voice dock in the 2026-10-13 redesign.)
 The backend captures valid `character-cost` response headers as confirmed
 ElevenLabs credits, including when audio delivery subsequently fails. Missing
 headers and in-flight/cancelled requests remain unconfirmed. Failures before

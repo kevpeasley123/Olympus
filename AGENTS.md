@@ -28,6 +28,9 @@ generated recommendations.
 - State which verification level was actually reached.
 - Kevin works in development mode (`npm run tauri dev`). Package or install
   only when he asks, or through "Bring everything current".
+- Database changes are migrations (`ARCHITECTURE.md`, "Schema evolution"):
+  never edit a shipped migration or `schema.sql`, and a migration that drops or
+  rewrites data needs Kevin's approval.
 
 ## Keeping guidance current
 

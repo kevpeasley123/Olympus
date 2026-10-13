@@ -585,7 +585,7 @@ mod tests {
     use super::*;
     fn db() -> Connection {
         let c = Connection::open_in_memory().unwrap();
-        c.execute_batch(include_str!("../../../schema.sql"))
+        c.execute_batch(crate::commands::migrations::TEST_SCHEMA)
             .unwrap();
         store::connect(&c, "fixture", "operator@example.invalid", 7).unwrap();
         c
