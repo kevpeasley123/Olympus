@@ -121,7 +121,7 @@ export function mountHybridScene(host: HTMLDivElement, layout: CommandLayout, cu
   const canyonBackground=layout.flagship?document.querySelector<HTMLElement>(".background-image"):null;
   const architecture=layout.flagship?architectureOrbits(host,camera):undefined;
   const missionScene = layout.flagship ? buildMissionScene(scene, host, camera) : undefined;
-  const figures = layout.flagship ? buildPantheonFigures(scene, host, camera) : undefined;
+  const figures = layout.flagship ? buildPantheonFigures(scene, host, camera, renderer) : undefined;
   const field = buildConstellationField(scene, layout.orbitalCards, layout.flagship);
   renderer.info.autoReset=false;
   const sceneTarget=new T.WebGLRenderTarget(1,1,{type:T.HalfFloatType,samples:4});

@@ -65,7 +65,9 @@ html .mode-command .command-instrument[data-flagship] .command-instrument__dial{
 .armory-constellation:has(.armory-star:hover,.armory-star:focus-visible) .architecture-lines{opacity:.5}
 .skills-constellation:has(.armory-star:hover,.armory-star:focus-visible) svg{opacity:.3}
 .vault-constellation:has(.vault-star:hover,.vault-star:focus-visible) .architecture-lines{opacity:.25}
-@media(max-width:1350px){.command-instrument[data-flagship] .skills-constellation{right:3%;width:80px;height:72px}}
+/* Agents sit below the Omega, right of Obsidian Memory, clear of Themis's station. */
+.command-instrument[data-flagship] .agents-constellation{right:17%;top:82%}
+@media(max-width:1350px){.command-instrument[data-flagship] .skills-constellation{right:3%;width:80px;height:72px}.command-instrument[data-flagship] .agents-constellation{right:15%;top:81%}}
 @media(prefers-reduced-motion:reduce){.skills-constellation svg,.armory-constellation .architecture-lines,.vault-constellation .architecture-lines{transition:none}}
 
 /* Inspection reticle stays outside the planet surface and does not intercept input. */

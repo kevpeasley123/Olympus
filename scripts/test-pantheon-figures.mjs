@@ -1,9 +1,11 @@
 import {build} from 'esbuild';
-import {mkdir} from 'node:fs/promises';
+import {mkdir,readFile} from 'node:fs/promises';
 import assert from 'node:assert/strict';
 await mkdir('output/tests',{recursive:true});
 await build({entryPoints:['src/services/pantheonFigureState.ts'],bundle:true,format:'esm',platform:'node',outfile:'output/tests/pantheon-figures.mjs'});
+await build({entryPoints:['src/services/pantheonRig.ts'],bundle:true,format:'esm',platform:'node',outfile:'output/tests/pantheon-rig.mjs',logLevel:'error'});
 const {PANTHEON_FIGURES,MANIFESTED_FIGURES,agentSessions,nextFigureState,sessionClock,ASSIGNED_SECONDS,COMPLETED_SECONDS}=await import('../output/tests/pantheon-figures.mjs');
+const {CLIP_NAMES,RIG_GROUPS,WORK_BEAT,boneSegments,buildSkeleton,figureClips}=await import('../output/tests/pantheon-rig.mjs');
 
 const spec=id=>PANTHEON_FIGURES.find(f=>f.id===id);
 const heph=spec('hephaestus'),themis=spec('themis'),dionysus=spec('dionysus'),zeus=spec('zeus');
@@ -60,4 +62,35 @@ assert.equal(sessionClock(null,0),null);assert.equal(sessionClock('not a date',0
 // An active step outranks a waiting one for the same agent.
 const two=[mission('waiting',[step('a','research','waiting')],{id:'w'}),mission('running',[step('b','research','active')],{id:'r'})];
 assert.equal(agentSessions(two).get('research').missionId,'r');
-console.log('PASS Pantheon figure states');
+
+// Every god has the full clip contract on the shared skeleton, and its beat lands inside its work loop.
+const {bones}=buildSkeleton(), segments=boneSegments();
+assert.equal(bones.size,20);
+for(const [group,list] of Object.entries(RIG_GROUPS))for(const b of list)assert.ok(bones.has(b),`group ${group} names unknown bone ${b}`);
+for(const f of PANTHEON_FIGURES){
+  const clips=figureClips(f.id);
+  assert.deepEqual(clips.map(c=>c.name).sort(),[...CLIP_NAMES].sort(),`${f.id} clips`);
+  for(const c of clips)for(const t of c.tracks)assert.ok(bones.has(t.name.split('.')[0]),`${f.id} ${c.name} animates unknown ${t.name}`);
+  for(const c of clips)assert.ok(!c.tracks.some(t=>/^(Neck|Head)\./.test(t.name)),`${f.id} ${c.name} keys the head, which the gaze owns`);
+  const work=clips.find(c=>c.name==='work');assert.ok(WORK_BEAT[f.id]>0&&WORK_BEAT[f.id]<work.duration,`${f.id} beat inside work`);
+}
+for(const [name,[start,end]] of segments)assert.ok(start.distanceTo(end)>.01,`${name} has a segment`);
+
+// The shipped statues: one per god, and every part binds to known bones.
+const manifest=JSON.parse(await readFile('public/pantheon/manifest.json','utf8'));
+assert.deepEqual(Object.keys(manifest).sort(),PANTHEON_FIGURES.map(f=>f.id).sort(),'manifest names all five');
+for(const [id,file] of Object.entries(manifest)){
+  const glb=await readFile(`public/pantheon/${file}`), length=glb.readUInt32LE(12), json=JSON.parse(glb.subarray(20,20+length).toString('utf8'));
+  assert.equal(glb.readUInt32LE(0),0x46546c67,`${file} is binary glTF`);
+  let tool=0;
+  for(const node of json.nodes){
+    const [label,binding]=node.name.split('@');
+    assert.ok(binding,`${id}: ${node.name} carries a binding`);
+    const [names,power]=binding.split('~');
+    if(power)assert.ok(/^\d+$/.test(power),`${id}: ${node.name} falloff is a whole number`);
+    if(names!=='root')for(const b of RIG_GROUPS[names]??names.split('+'))assert.ok(bones.has(b),`${id}: ${node.name} binds unknown bone ${b}`);
+    if(/^Tool/.test(label))tool++;
+  }
+  assert.equal(tool,1,`${id} has one Tool`);
+}
+console.log('PASS Pantheon figure states, rig and statues');
