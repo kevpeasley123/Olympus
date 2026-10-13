@@ -27,6 +27,7 @@ import { HeaderBar } from "./components/panels/HeaderBar";
 import { ResearchVerification } from "./components/panels/ResearchVerification";
 import type { CommandCatalog, CommandCatalogClient } from "./services/commandAgents";
 import type { VoiceSnapshot } from "./services/realtimeVoice";
+import { voiceSignal, type SignalSource } from "./services/voiceSignal";
 import type { ResearchClient, ResearchRun, AgentCatalog } from "./services/researchVerification";
 import type { TrackedProject, ConversationMessage } from "./types";
 import { EMPTY_VAULT_GRAPH, type VaultGraphPayload } from "./services/vaultGraph";
@@ -184,7 +185,7 @@ function Harness() {
         onResearch={runId => setDestination({ runId })} onProjects={() => setDestination({ projects: true })}
         capabilities={capabilities} working={command.focus.agents} orchestrating={command.focus.running} selectedCapability={command.selectedCapability} onSelectCapability={command.setSelectedCapability} />}
       <section className="center-stack dashboard-column"><div className="panel-slot panel-slot-instrument">
-        <CommandInstrument missions={command.liveMissions} selectedMission={command.selectedMissionId} onSelectMission={command.selectMission} visualState={params.get("voice")==="speaking"?"speaking":params.get("voice")==="listening"?"listening":undefined} voiceLevel={Number(params.get("level")??0)} voiceSnapshot={voiceFixture} spokenReplies={Boolean(voiceFixture)} flagship={flagship} onProjects={()=>setDestination({projects:true})} projects={projects} capabilities={capabilities} view={command.view} light={command.light} activeDomains={command.activeDomains}
+        <CommandInstrument missions={command.liveMissions} selectedMission={command.selectedMissionId} onSelectMission={command.selectMission} visualState={voiceParam==="speaking"||voiceParam==="listening"||voiceParam==="thinking"?voiceParam:undefined} voiceLevel={Number(params.get("level")??0)} voiceSnapshot={voiceFixture} spokenReplies={voiceParam!=="off"} voiceReady onSpokenRepliesToggle={() => {}} flagship={flagship} onProjects={()=>setDestination({projects:true})} projects={projects} capabilities={capabilities} view={command.view} light={command.light} activeDomains={command.activeDomains}
           missionOperation={command.missionOperation} working={command.working} selectedDomain={command.selectedDomain} selectedCapability={command.selectedCapability}
           onHoverDomain={command.setHoverDomain} onSelectDomain={command.setSelectedDomain} onSelectCapability={command.setSelectedCapability} />
       </div></section>
@@ -205,9 +206,40 @@ function Harness() {
   </main><style>{`.command-fixture-controls{position:fixed;left:18px;bottom:3px;right:18px;display:flex;align-items:center;gap:14px;font:9px monospace;z-index:30;color:#acbacb}.command-fixture-controls button,.command-fixture-controls select{font:9px monospace;background:#10202d;color:#bdcbd8;border:1px solid #64798c55;padding:2px 5px}.command-fixture-controls details{margin-left:auto}.command-fixture-controls pre{position:absolute;bottom:20px;right:0;max-height:55vh;max-width:80vw;overflow:auto;white-space:pre-wrap;background:#07121e;padding:14px;border:1px solid #526479}.command-fixture-inspector{position:fixed;inset:90px 20px 35px;overflow:auto;z-index:40;background:#0a1522;border:1px solid #64798c;padding:15px}`}</style></>;
 }
 
-// `?voice=speaking&level=n` drives the shipped Spoken replies wave, which reads
-// the voice snapshot rather than the instrument's visual state.
-const voiceFixture = params.get("voice") === "speaking" ? { phase: "SPEAKING", level: Number(params.get("level") ?? 0), muted: false } as unknown as VoiceSnapshot : undefined;
+// `?voice=speaking|listening|thinking|off|error&level=n` drives the voice dock.
+// SYNTHETIC: with a level above 0 a generated, speech-shaped spectrum stands in
+// for real audio, through the same SignalSource interface the voice service
+// uses; `&audio=none` leaves the state without any analysable audio.
+const voiceParam = params.get("voice");
+const fixtureLevel = Number(params.get("level") ?? 0);
+const voiceFixture = ({
+  speaking: { phase: "SPEAKING", level: fixtureLevel, muted: params.has("muted"), active: true, microphoneOn: false },
+  listening: { phase: "LISTENING", level: fixtureLevel, muted: false, active: true, microphoneOn: true, microphoneCapturing: true },
+  thinking: { phase: "PROCESSING", level: 0, muted: false, active: true, microphoneOn: false },
+  error: { phase: "ERROR", level: 0, muted: false, active: false, microphoneOn: false, error: "Fixture failure" },
+} as Record<string, Partial<VoiceSnapshot>>)[voiceParam ?? ""] as VoiceSnapshot | undefined;
+function syntheticVoice(level: number): SignalSource {
+  const started = performance.now();
+  return {
+    read(spectrum) {
+      const t = (performance.now() - started) / 1000;
+      // Irregular syllables at speech rate, with drifting formants.
+      const syllable = Math.max(0, 0.55 * Math.sin(t * 9.1) + 0.3 * Math.sin(t * 5.3 + 1) + 0.25 * Math.sin(t * 13.7 + 2));
+      const envelope = level * Math.min(1, 0.2 + syllable);
+      const formants = [520 + 120 * Math.sin(t * 2.1), 1480 + 300 * Math.sin(t * 1.3 + 1), 2600 + 200 * Math.sin(t * 0.9)];
+      for (let k = 0; k < spectrum.length; k++) {
+        const hz = (k * 24000) / spectrum.length;
+        const shape = formants.reduce((sum, f, i) => sum + Math.exp(-(((hz - f) / (140 + i * 90)) ** 2)) / (i + 1), 0);
+        spectrum[k] = -105 + envelope * (38 + 42 * shape) - hz / 600;
+      }
+      return { rmsDb: -54 + 44 * envelope, sampleRate: 48000 };
+    },
+    dispose() {},
+  };
+}
+if (fixtureLevel > 0 && params.get("audio") !== "none" && (voiceParam === "speaking" || voiceParam === "listening")) {
+  voiceSignal.attach(voiceParam === "speaking" ? "output" : "input", syntheticVoice(fixtureLevel));
+}
 
 const frame = () => new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
 /** Sets `data-visual-ready` once the scenario is genuinely painted; never on a timer alone. */

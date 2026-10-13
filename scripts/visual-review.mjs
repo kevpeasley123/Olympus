@@ -149,7 +149,7 @@ function inspectPage({ scenario, tolerance }) {
     return false;
   };
   let clamped = 0;
-  for (const element of document.querySelectorAll(":is(.olympus-armory, .command-console, .armory-dialog, .pantheon-voice) :is(h2,h3,h4,p,span,strong,small,dd,dt,li,button,label,time)")) {
+  for (const element of document.querySelectorAll(":is(.olympus-armory, .command-console, .armory-dialog, .olympus-voice-dock) :is(h2,h3,h4,p,span,strong,small,dd,dt,li,button,label,time)")) {
     if (!element.textContent?.trim() || element.children.length > 3) continue;
     const style = getComputedStyle(element);
     if (style.display === "none" || style.visibility === "hidden" || element.closest("[hidden], details:not([open]) > :not(summary)")) continue;
@@ -182,7 +182,7 @@ function inspectPage({ scenario, tolerance }) {
   if (scenario === "preferences-memory") expect(document.querySelector('[role="dialog"]')?.textContent?.includes("37 earlier chats are saved but not learned from."), "memory-offer", "Preferences > Memory does not offer the earlier chats with their count");
   if (scenario === "chat-compact") expect($('.command-console[data-layout="compact"][data-mode="dormant"]'), "compact", "console is not compact and dormant");
   if (scenario === "armory-agents") expect([...document.querySelectorAll('[role="dialog"]')].some(d => d.textContent?.includes("Scoped Pantheon Research excerpts only")), "armory-loadout", "Athena's loadout does not show its real scope");
-  if (scenario === "voice-speaking") { const wave = [...document.querySelectorAll(".pantheon-voice__wave span")].map(n => n.getBoundingClientRect().height); expect(wave.length && Math.max(...wave) > 10, "voice-wave", `voice wave peak ${Math.max(0, ...wave)}px`); }
+  if (scenario === "voice-speaking") { const signal = $(".olympus-signal"); const peak = Number(signal?.dataset.signalPeak ?? 0); expect(signal?.dataset.signalSource === "live" && peak > 10, "voice-wave", `voice signal ${signal?.dataset.signalSource ?? "missing"}, peak ${peak}px`); }
   return { failures, notes, regions, renderer: document.documentElement.dataset.visualRenderer ?? canvas?.dataset.engine ?? "none", planets };
 }
 

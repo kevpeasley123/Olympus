@@ -66,8 +66,9 @@ for(const [voice,level] of [['speaking',0],['speaking',.8],['listening',.4]]){
  await page.goto(`${base}/command-agent-harness.html?flagship&scenario=idle&voice=${voice}&level=${level}`);
  await page.waitForSelector('[data-scene-ready="true"]');
  check(await page.getByRole('img',{name:`Voice ${voice}`}).isVisible(),`Voice state ${voice} ${level}`);
- const heights=await page.locator('.pantheon-voice__wave span').evaluateAll(nodes=>nodes.map(n=>n.getBoundingClientRect().height));
- check(level===0?Math.max(...heights)===2:Math.max(...heights)>10,`Wave reflects actual level ${level}`);
+ await page.waitForFunction(()=>document.querySelector('.olympus-signal')?.dataset.signalPeak!==undefined);
+ const source=await page.locator('.olympus-signal').getAttribute('data-signal-source');
+ check(level===0?source==='none':source==='live',`Signal reads synthetic audio only when there is some (level ${level})`);
  await page.screenshot({path:`${out}/voice-${voice}-${level}.png`,fullPage:true});
 }
 check(errors.length===0,'No page errors');

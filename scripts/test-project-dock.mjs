@@ -22,7 +22,7 @@ try{
  await dock.click();assert.equal(await input.inputValue(),'Keep this project draft','Draft survives collapse');
  await page.getByRole('button',{name:'Back to projects',exact:true}).click();
  await page.evaluate(()=>window.dispatchEvent(new CustomEvent('olympus:focus-console',{detail:{label:'Olympus',context:'Selected project only',prompt:'Evaluate this project',projectId:'olympus'}})));
- await input.waitFor({state:'visible'});assert.equal(await input.inputValue(),'Keep this project draft','Assessment preserves existing draft');assert(await input.evaluate(el=>el===document.activeElement),'Assessment focuses the opened input');
+ await input.waitFor({state:'visible'});assert.equal(await input.inputValue(),'Keep this project draft','Assessment preserves existing draft');await page.waitForFunction(()=>document.activeElement?.id==='olympus-console-input',null,{timeout:2000}).catch(()=>{});assert(await input.evaluate(el=>el===document.activeElement),'Assessment focuses the opened input');
  for(const width of [1280,980,640]){
   await page.setViewportSize({width,height:900});await page.waitForTimeout(300);
   assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'No horizontal page overflow');

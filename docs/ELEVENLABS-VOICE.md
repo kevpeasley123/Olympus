@@ -2,7 +2,7 @@
 
 Olympus can use ElevenLabs for spoken answers while keeping the current reasoning route and OpenAI microphone transcription. Typed replies and manual replay do not open a microphone or OpenAI audio session when ElevenLabs is selected.
 
-Shipped in 0.27.0. Since 0.30.0 (`388969e`) the **Spoken replies** switch beneath Pantheon in Command controls ElevenLabs spoken replies only: turning it on sets Voice replies and selects ElevenLabs; turning it off sets Text replies. Toggling it stops any active voice session and never starts a microphone session. The explicit voice conversation control added on 2026-10-11 was unmounted the same day and survives only in `src/voice-control-harness.tsx`; the console microphone button remains.
+Shipped in 0.27.0. Since 0.30.0 (`388969e`) the **Spoken replies** switch beneath the Omega in Command controls ElevenLabs spoken replies only: turning it on sets Voice replies and selects ElevenLabs; turning it off sets Text replies. Toggling it stops any active voice session and never starts a microphone session. The explicit voice conversation control added on 2026-10-11 was unmounted the same day and survives only in `src/voice-control-harness.tsx`; the console microphone button remains.
 
 ## Setup
 1. Open Preferences, then select **ElevenLabs** under Speech provider.

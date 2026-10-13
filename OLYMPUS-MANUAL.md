@@ -101,7 +101,9 @@ beside another interface.
 - **Pantheon** (centre). The Omega glyph in real perspective. Recorded
   missions orbit it as planets, and the Plugins, Skills, Agents and Obsidian
   memory constellations surround it. Hovering or selecting reveals detail and
-  never invokes anything. The Spoken replies switch sits beneath it.
+  never invokes anything. Beneath it runs the Olympus energy signal: a thin
+  amber line with a central waveform that follows real reply and microphone
+  audio, with a small Spoken replies switch under it.
 - **Companion console** (right). Overview (Mission brief, Active missions) and
   Conversation tabs. The same console serves every mode.
 
@@ -276,11 +278,11 @@ No wake word or background activation. While armed, microphone capture is clearl
 labelled, including during answers; Stop voice ends capture. Silence ends a session
 after two minutes; sessions have a fifteen-minute cap.
 
-Spoken replies (Preferences > Replies & briefing, or the switch beneath the
-Pantheon) control reply output independently of microphone capture. Text keeps
+Spoken replies (Preferences > Replies & briefing, or the speaker switch beneath
+the Omega) control reply output independently of microphone capture. Text keeps
 replies written; Voice also speaks a concise answer, including for typed
 messages, through the selected speech provider: OpenAI or ElevenLabs. The
-Pantheon switch selects ElevenLabs. Turning spoken replies on never activates
+Command switch selects ElevenLabs. Turning spoken replies on never activates
 the microphone.
 
 Each voice answer has a concise spoken abstraction and full visual detail from one

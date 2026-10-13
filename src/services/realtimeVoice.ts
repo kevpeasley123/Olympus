@@ -6,7 +6,8 @@ import { voiceHttpError } from "./voiceHttpError";
 import { VOICE_CLIENT, voiceErrorMessage } from "./voiceContract";
 import type { VoiceAnswer, VoiceDepth, VoiceMessageMetadata, VoicePhase, VoiceUiAction } from "./voiceContract";
 import type { TurnContext } from "../types";
-import { synthesizeEleven, cancelEleven, speechUrl, type ElevenRequest, type ElevenAudio } from "./elevenSpeech";
+import { synthesizeEleven, cancelEleven, speechUrl, speechBytes, type ElevenRequest, type ElevenAudio } from "./elevenSpeech";
+import { voiceSignal, type VoiceSignalBus } from "./voiceSignal";
 
 /** `failures` counts voice failures this session; `retryable` says Retry audio has something to repeat. */
 export interface VoiceSnapshot { phase:VoicePhase; captionsEnabled:boolean; active:boolean; connecting:boolean; microphoneOn:boolean; microphoneCapturing?:boolean; muted:boolean; inputText:string; inputMessageId?:string; outputMessageId?:string; outputText:string; error:string|null; level:number; failures:number; retryable:boolean }
@@ -27,6 +28,8 @@ export interface VoiceDependencies {
   audio:()=>HTMLAudioElement;
   exchange:(sdp:string,secret:string,signal:AbortSignal)=>Promise<string>;
   meter?:(stream:MediaStream,level:(n:number)=>void)=>()=>void;
+  /** Analysis for the Command signal; never part of playback or capture. */
+  signal?:Pick<VoiceSignalBus,"attachStream"|"attachClip">;
 }
 const browserDependencies: VoiceDependencies = {
   secret: async(settings,preview)=>{if(!isTauriRuntime())throw Error("Voice connects in the Olympus desktop app. Text remains available in this preview.");return invoke("create_voice_session",{settings,preview});},
@@ -44,7 +47,8 @@ const browserDependencies: VoiceDependencies = {
     void context.resume().catch(()=>{});
     const timer=window.setInterval(()=>{analyser.getByteTimeDomainData(samples);const rms=Math.sqrt(samples.reduce((sum,n)=>sum+((n-128)/128)**2,0)/samples.length);level(Math.min(1,rms*5));},100);
     return ()=>{window.clearInterval(timer);source.disconnect();void context.close();};
-  }
+  },
+  signal:voiceSignal
 };
 /** A transport adapter, not a second agent. All answers come through the common turn handler. */
 export class RealtimeVoice {
@@ -53,7 +57,9 @@ export class RealtimeVoice {
   private elevenAudio:HTMLAudioElement|null=null;
   private elevenUrl:string|null=null;
   private speechSerial=0;
+  private clipSignalStop:(()=>void)|null=null;
   private cancelElevenOutput(){
+    this.clipSignalStop?.();this.clipSignalStop=null;
     const id=this.elevenRequest;this.elevenRequest=null;
     if(id)void (this.deps.elevenCancel??cancelEleven)(id).catch(()=>{});
     if(this.elevenAudio){this.elevenAudio.onended=null;this.elevenAudio.onerror=null;this.elevenAudio.pause();this.elevenAudio.removeAttribute("src");this.elevenAudio.load();this.elevenAudio=null;}
@@ -83,6 +89,8 @@ export class RealtimeVoice {
   private abort:AbortController|null=null;
   private inputMeterStop:(()=>void)|null=null;
   private meterStop:(()=>void)|null=null;
+  private inputSignalStop:(()=>void)|null=null;
+  private outputSignalStop:(()=>void)|null=null;
   private timers:ReturnType<typeof setTimeout>[]=[];
   private idleTimer:ReturnType<typeof setTimeout>|undefined;
   private connectionGeneration=0;
@@ -164,6 +172,7 @@ export class RealtimeVoice {
       if(generation!==this.connectionGeneration){stream?.getTracks().forEach(track=>track.stop());return;}
       this.stream=stream;this.captureEnabled(true);
       if(stream)try{this.inputMeterStop=this.deps.meter?.(stream,level=>{if(generation===this.connectionGeneration&&this.snapshot.microphoneCapturing&&this.snapshot.phase!=="SPEAKING")this.patch({level});})??null;}catch{/* Meter failure does not disable capture. */}
+      if(stream)this.inputSignalStop=this.deps.signal?.attachStream("input",stream)??null;
       const pc=this.deps.peer();this.pc=pc;
       const audio=this.deps.audio();this.audio=audio;audio.autoplay=true;audio.muted=true;
       audio.onerror=()=>{if(generation===this.connectionGeneration)this.fail("Voice playback failed. Your answer remains on screen.");};
@@ -173,6 +182,7 @@ export class RealtimeVoice {
         if(generation!==this.connectionGeneration)return;
         const remote=event.streams[0]??new MediaStream([event.track]);audio.srcObject=remote;
         try{this.meterStop?.();this.meterStop=this.deps.meter?.(remote,level=>{if(this.snapshot.phase==="SPEAKING"&&!this.snapshot.muted)this.patch({level:level>0.15 ? 0.2 : 0});})??null;}catch{/* Meter is decorative; playback and transcript remain available. */}
+        this.outputSignalStop?.();this.outputSignalStop=this.deps.signal?.attachStream("output",remote)??null;
         void audio.play().catch(()=>{if(generation===this.connectionGeneration)this.fail("Audio playback was blocked. Check your output device and reactivate voice. The answer remains readable.");});
       };
       pc.onconnectionstatechange=()=>{if(generation===this.connectionGeneration && ["failed","disconnected"].includes(pc.connectionState))this.fail("Voice connection dropped. Retry voice or Replay; text remains available.");};
@@ -203,6 +213,7 @@ export class RealtimeVoice {
     this.stream?.getTracks().forEach(track=>{track.onended=null;track.stop();});this.stream=null;
     this.audio?.pause();if(this.audio)this.audio.srcObject=null;this.audio=null;
     this.meterStop?.();this.meterStop=null;this.inputMeterStop?.();this.inputMeterStop=null;
+    this.outputSignalStop?.();this.outputSignalStop=null;this.inputSignalStop?.();this.inputSignalStop=null;
     // Completed utterances were accepted commands. Let their queued visual answers
     // finish even after mic exit, but never deliver their audio into a new session.
     this.order=this.order.filter(id=>this.ready.has(id));
@@ -334,6 +345,7 @@ export class RealtimeVoice {
       if(!current())return;
       const audio=this.deps.audio();this.elevenAudio=audio;
       this.elevenUrl=speechUrl(result);audio.src=this.elevenUrl;audio.muted=this.snapshot.muted;
+      this.clipSignalStop=this.deps.signal?.attachClip(audio,speechBytes(result))??null;
       audio.onerror=()=>{if(current())this.fail("ElevenLabs audio could not play. Your written answer remains available.");};
       audio.onended=()=>{
         if(!current())return;

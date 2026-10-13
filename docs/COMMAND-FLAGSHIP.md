@@ -18,7 +18,7 @@ integrations are retained. No dependency was added.
   in the companion's Active missions list ([COMMAND-MISSION-PANTHEON.md](COMMAND-MISSION-PANTHEON.md)).
 - `armoryPresentation` derives adapter membership, conservative connection states,
   and live operations. Models/executors are not inflated into plugin counts.
-- `CommandInstrument` uses a flagship presentation variant. Navigation stays in the HTML header, with Preferences in the companion controls; loss of graphics cannot remove navigation. Under the PANTHEON caption, a Spoken replies switch with a level-driven wave replaces the redundant lower destination row; since 2026-10-11 it controls ElevenLabs spoken replies only and does not open the microphone.
+- `CommandInstrument` uses a flagship presentation variant. Navigation stays in the HTML header, with Preferences in the companion controls; loss of graphics cannot remove navigation. Beneath the Omega, the voice dock (`OlympusVoiceDock`) holds the energy signal, a status word and a compact Spoken replies switch; see "Voice signal" below. The switch controls ElevenLabs spoken replies only and does not open the microphone.
   The older composition (Agent Catalog, orbital capability cards) is no longer rendered by the app; it survives only in `command-agent-harness.html` without `?flagship`.
 - `ChatPanel` runs as the companion: Overview (Mission brief and Active missions)
   and Conversation tabs. Since 2026-10-11 (`ab0b766`) the same console is shared
@@ -40,6 +40,34 @@ Pixel ratio stays capped at 2. Existing hidden-tab/mode suspension, reduced-moti
 freeze, lazy scene loading, context-loss SVG fallback and shared geometry/material
 cleanup remain. New meshes participate in the existing disposal traversal.
 No React Three Fiber, Drei, GSAP or additional postprocessing was needed.
+
+## Voice signal
+
+Redesigned 2026-10-13 from Kevin's reference render; the PANTHEON heading and the "Spoken replies: On" pill are gone.
+
+- **Drawing.** `services/olympusSignal.ts` draws a 2D canvas (`OlympusSignal`) once per animation frame, outside React, composited with `mix-blend-mode: screen`. The canvas shows:
+  - a thin amber core with a soft pre-rendered glow, tapered at both ends;
+  - drifting concentrations of current and traveling glimmers;
+  - rare teal glints and fine motes;
+  - short-lived branching gold filaments, made by midpoint displacement and re-jittered as they fade;
+  - 15 central bars inside a faint halo.
+
+  States blend over about 0.3 s.
+- **States.** `signalStateFor` maps the voice snapshot to idle, listening, thinking, speaking, off or error.
+  - Thinking means voice processing, or a typed request while spoken replies are on.
+  - The status word appears only for listening, thinking, speaking and errors.
+  - Off (spoken replies off) dims the line and stops audio reactivity.
+- **Real audio.** `services/voiceSignal.ts` analyses without changing playback or capture:
+  - the microphone and realtime voice streams through an AnalyserNode that is never connected to the output;
+  - ElevenLabs replies by decoding the same bytes and reading them at the element's `currentTime`.
+
+  Each frame it supplies a level (RMS mapped from -54 to -12 dBFS) and 16 log bands (120 Hz–6 kHz) relative to a decaying peak, gated at silence. Loudness sets bar height; each bar's band shapes it. Centre bars read the low bands and outer bars the high, so the waveform follows syllables and pauses.
+
+  When no source can be analysed the waveform shows the state's ambient rhythm and the harness reports `signalSource=none`; it never imitates speech.
+- **Omega coupling.** While speaking, the scene reads `omegaVoiceEnergy()`: the reply envelope (80 ms rise, 400 ms fall), mapped to 0.08–0.35 of the scene's energy. Glow and canyon light lift slightly with the voice; there is no shared timer.
+- **Controls.** One `role="switch"` named Spoken replies (speaker icon and a 22×12 track) has a tooltip. A microphone mark appears only while the microphone is on (teal while capturing). Voice usage now lives only in the ElevenLabs preferences.
+- **Performance.** The signal costs about 0.5 ms per frame in headless Chromium. It drops its widest glows if it averages over 6 ms per frame for two seconds. It stops with the page, the mode and reduced motion; reduced motion draws one composed still frame.
+- **Tests.** `voice-signal-harness.html` measures the dock without WebGL. Its sources are synthetic: a generated speech-shaped WAV through the real clip path, or an oscillator stream through the real stream path. `scripts/test-voice-signal.mjs` covers the analysis, state mapping, every state, keyboard use, reduced motion and placement in Command.
 
 ## Data truth
 

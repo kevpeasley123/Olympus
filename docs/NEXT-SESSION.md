@@ -121,6 +121,8 @@ covers the screens he uses; these paths each need a deliberate trigger.
 - A Coding Delegate (Hephaestus) run that completes under the turn limit, and
   Organizer acceptance of its real result.
 - The engine sign-in checks against Kevin's real Codex and Claude Code installs.
+- The voice signal against real ElevenLabs replies, realtime voice and the
+  microphone in WebView2. The harness uses synthetic audio only.
 - A paid Research / Verification run from the UI.
 - Live-provider skill guidance.
 - A project brief saved since the 2026-10-12 vault-commit change.

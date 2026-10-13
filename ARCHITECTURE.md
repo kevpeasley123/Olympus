@@ -422,6 +422,12 @@ ElevenLabs key lives in Windows Credential Manager and never crosses IPC; Rust
 sends only the spoken text, voice, model and language, and returns transient
 audio. See [ELEVENLABS-VOICE.md](docs/ELEVENLABS-VOICE.md).
 
+`src/services/voiceSignal.ts` analyses voice audio for Command's energy signal and the Omega, without touching playback or capture:
+- the microphone and realtime streams through an AnalyserNode that is never connected to the output;
+- ElevenLabs replies by decoding the same bytes and reading them at the playing element's position.
+
+The voice service attaches and detaches these taps beside its existing meters; see the Voice signal section of [COMMAND-FLAGSHIP.md](docs/COMMAND-FLAGSHIP.md).
+
 ## Curated-memory implementation
 
 See [CURATED-MEMORY.md](docs/CURATED-MEMORY.md) for bounded retrieval and persisted source snapshots. These additions grant no delegation authority. [OPERATOR-APPROVAL-DESIGN.md](docs/OPERATOR-APPROVAL-DESIGN.md) is implemented; no delegation run has completed against a real project yet.
