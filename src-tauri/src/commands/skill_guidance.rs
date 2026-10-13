@@ -105,7 +105,7 @@ pub fn consume(c:&mut Connection,state:&ApprovalState,proposal_id:&str,task:&str
 #[cfg(test)] mod tests {
  use super::*;
  fn setup()->(Connection,ApprovalState){
-  let c=Connection::open_in_memory().unwrap();c.execute_batch(include_str!("../../schema.sql")).unwrap();
+  let c=Connection::open_in_memory().unwrap();c.execute_batch(crate::commands::migrations::TEST_SCHEMA).unwrap();
   c.execute("INSERT INTO operator_sessions(id) VALUES ('test-session')",[]).unwrap();
   c.execute("INSERT INTO resource_skills(id,name,instructions,created_at) VALUES ('taste','Taste',?1,'now')",[include_str!("../../../scripts/fixtures/taste-skill-v2.txt")]).unwrap();
   (c,ApprovalState::new("test-session".into()))

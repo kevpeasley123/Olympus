@@ -7,7 +7,7 @@ use std::{
 };
 fn db() -> Connection {
     let c = Connection::open_in_memory().unwrap();
-    c.execute_batch(include_str!("../../../schema.sql"))
+    c.execute_batch(crate::commands::migrations::TEST_SCHEMA)
         .unwrap();
     store::connect(&c, "fixture-account", "operator@example.invalid", 90).unwrap();
     c
@@ -437,7 +437,7 @@ fn sqlite_reopen_preserves_sources_and_cursor() {
     ));
     {
         let mut c = Connection::open(&path).unwrap();
-        c.execute_batch(include_str!("../../../schema.sql"))
+        c.execute_batch(crate::commands::migrations::TEST_SCHEMA)
             .unwrap();
         store::connect(&c, "fixture-account", "operator@example.invalid", 90).unwrap();
         let a = store::account(&c).unwrap().unwrap();
@@ -547,7 +547,7 @@ fn conversation_roundtrip_keeps_mail_provenance() {
         attachment: None,
         scope: None,
     };
-    super::super::persistence::store_messages(&mut c, vec![item]).unwrap();
+    super::super::persistence::store_messages(&mut c, "chat", vec![item]).unwrap();
     let raw: String = c
         .query_row(
             "SELECT sources_json FROM conversation_mail WHERE message_id='fixture-answer'",

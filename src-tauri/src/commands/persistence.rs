@@ -92,7 +92,12 @@ fn created_at_iso(raw: &str) -> Option<String> {
 pub struct PersistedState {
     pub settings: HashMap<String, String>,
     pub tool_states: Vec<ToolState>,
+    /// The chat reopened at launch (see `conversations::resumable`), if any.
+    pub conversation_id: Option<String>,
     pub conversation: Vec<LoadedMessage>,
+    /// Whether any chat is stored, so the webview never mistakes a fresh
+    /// launch for an empty database and re-imports browser-era history.
+    pub has_conversations: bool,
 }
 
 #[derive(Debug, Deserialize)]
@@ -292,14 +297,35 @@ fn load_state_from(connection: &Connection) -> Result<PersistedState, String> {
         .collect::<Result<Vec<ToolState>, _>>()
         .map_err(|error| error.to_string())?;
 
+    let conversation_id = super::conversations::resumable(connection)?;
+    let conversation = match &conversation_id {
+        Some(id) => load_messages(connection, Some(id))?,
+        None => Vec::new(),
+    };
+    let has_conversations = connection
+        .query_row("SELECT EXISTS (SELECT 1 FROM conversation_messages)", [], |r| r.get(0))
+        .map_err(|error| error.to_string())?;
+
+    Ok(PersistedState {
+        settings,
+        tool_states,
+        conversation_id,
+        conversation,
+        has_conversations,
+    })
+}
+
+/// One chat's messages in order, with their side rows; `None` reads every
+/// message (tests and diagnostics).
+pub fn load_messages(connection: &Connection, conversation_id: Option<&str>) -> Result<Vec<LoadedMessage>, String> {
     let mut conversation_query = connection
         .prepare(
             "SELECT id, role, content, timestamp, COALESCE((SELECT sources_json FROM conversation_research WHERE message_id = conversation_messages.id), '[]'), (SELECT metadata_json FROM conversation_voice WHERE message_id = conversation_messages.id), (SELECT record_json FROM model_requests WHERE id=(SELECT request_id FROM conversation_model WHERE message_id=conversation_messages.id)), COALESCE((SELECT sources_json FROM conversation_mail WHERE message_id=conversation_messages.id), '[]'), created_at, (SELECT context_json FROM conversation_turn_context WHERE message_id=conversation_messages.id), (SELECT imported_at FROM conversation_imports WHERE message_id=conversation_messages.id) FROM conversation_messages \
-             ORDER BY created_at ASC, rowid ASC",
+             WHERE ?1 IS NULL OR conversation_id = ?1 ORDER BY created_at ASC, rowid ASC",
         )
         .map_err(|error| error.to_string())?;
-    let conversation = conversation_query
-        .query_map([], |row| {
+    let rows = conversation_query
+        .query_map([conversation_id], |row| {
             let id: String = row.get(0)?;
             let imported_at: Option<String> = row.get(10)?;
             let at = match imported_at {
@@ -322,13 +348,8 @@ fn load_state_from(connection: &Connection) -> Result<PersistedState, String> {
         })
         .map_err(|error| error.to_string())?
         .collect::<Result<Vec<LoadedMessage>, _>>()
-        .map_err(|error| error.to_string())?;
-
-    Ok(PersistedState {
-        settings,
-        tool_states,
-        conversation,
-    })
+        .map_err(|error| error.to_string());
+    rows
 }
 
 #[tauri::command]
@@ -378,20 +399,28 @@ pub fn save_tool_states(db: State<Db>, states: Vec<ToolState>) -> Result<(), Str
 #[tauri::command]
 pub fn append_conversation_messages(
     db: State<Db>,
+    conversation_id: String,
     messages: Vec<ConversationMessage>,
     imported: Option<bool>,
 ) -> Result<(), String> {
     let mut connection = locked(&db)?;
-    store_messages_as(&mut connection, messages, imported.unwrap_or(false))
+    store_messages_as(&mut connection, &conversation_id, messages, imported.unwrap_or(false))
 }
 
 #[cfg(test)]
-pub(crate) fn store_messages(connection: &mut Connection, messages: Vec<ConversationMessage>) -> Result<(), String> {
-    store_messages_as(connection, messages, false)
+pub(crate) fn store_messages(connection: &mut Connection, conversation_id: &str, messages: Vec<ConversationMessage>) -> Result<(), String> {
+    store_messages_as(connection, conversation_id, messages, false)
 }
 
-fn store_messages_as(connection: &mut Connection, messages: Vec<ConversationMessage>, imported: bool) -> Result<(), String> {
+fn store_messages_as(connection: &mut Connection, conversation_id: &str, messages: Vec<ConversationMessage>, imported: bool) -> Result<(), String> {
+    let conversation_id = conversation_id.trim();
+    if conversation_id.is_empty() || conversation_id.len() > 128 {
+        return Err("A message must belong to a conversation.".into());
+    }
     let transaction = connection.transaction().map_err(|e| e.to_string())?;
+    let first_user = messages.iter().find(|m| m.role == "user").map(|m| m.content.as_str());
+    super::conversations::ensure(&transaction, conversation_id, first_user).map_err(|e| e.to_string())?;
+    let mut inserted_any = false;
 
     for message in messages {
         // Provenance is fixed when a message is first stored. A later append of
@@ -414,65 +443,63 @@ fn store_messages_as(connection: &mut Connection, messages: Vec<ConversationMess
         ).map_err(|e| e.to_string())?;
         let inserted = transaction
             .execute(
-                "INSERT INTO conversation_messages (id, role, content, timestamp) \
-                 VALUES (?1, ?2, ?3, ?4) \
+                "INSERT INTO conversation_messages (id, role, content, timestamp, conversation_id) \
+                 VALUES (?1, ?2, ?3, ?4, ?5) \
                  ON CONFLICT(id) DO NOTHING",
-                params![message.id, message.role, message.content, message.timestamp],
+                params![message.id, message.role, message.content, message.timestamp, conversation_id],
             )
             .map_err(|error| error.to_string())?;
+        if inserted == 1 {
+            inserted_any = true;
+            super::conversations::index_message(&transaction, conversation_id, &message.id, &message.content).map_err(|e| e.to_string())?;
+        }
         if imported && inserted == 1 {
             transaction
                 .execute("INSERT INTO conversation_imports (message_id) VALUES (?1) ON CONFLICT(message_id) DO NOTHING", params![message.id])
                 .map_err(|error| error.to_string())?;
         }
     }
+    if inserted_any {
+        super::conversations::touch(&transaction, conversation_id).map_err(|e| e.to_string())?;
+    }
 
     transaction.commit().map_err(|error| error.to_string())
-}
-
-#[tauri::command]
-pub fn clear_conversation(db: State<Db>) -> Result<(), String> {
-    let connection = locked(&db)?;
-    connection.execute("DELETE FROM settings WHERE key='conversationModelSelection'", []).map_err(|e|e.to_string())?;
-    connection.execute("DELETE FROM request_memory", []).map_err(|e|e.to_string())?;
-    connection.execute("DELETE FROM conversation_model", []).map_err(|e|e.to_string())?;
-    connection.execute("DELETE FROM conversation_voice", []).map_err(|e| e.to_string())?;
-    connection.execute("DELETE FROM conversation_mail", []).map_err(|_|"Mail provenance removal failed")?;
-    connection.execute("DELETE FROM conversation_research", []).map_err(|e| e.to_string())?;
-    connection.execute("DELETE FROM conversation_turn_context", []).map_err(|e| e.to_string())?;
-    connection.execute("DELETE FROM conversation_imports", []).map_err(|e| e.to_string())?;
-    connection
-        .execute("DELETE FROM conversation_messages", [])
-        .map(|_| ())
-        .map_err(|error| error.to_string())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
+    /// Every stored message, as `load_persisted_state` shaped it before chats
+    /// were separate: these tests are about what a loaded message carries.
+    fn all(db: &Connection) -> PersistedState {
+        let mut state = load_state_from(db).expect("one bad side row must not fail the whole load");
+        state.conversation = load_messages(db, None).expect("one bad side row must not fail the whole load");
+        state
+    }
+
 
     #[test]
     fn model_provenance_survives_message_updates_and_cannot_be_forged(){
-      let mut c=Connection::open_in_memory().unwrap();c.execute_batch(include_str!("../../schema.sql")).unwrap();
+      let mut c=Connection::open_in_memory().unwrap();c.execute_batch(crate::commands::migrations::TEST_SCHEMA).unwrap();
       let r=super::super::models::RequestRecord::new(&super::super::models::resolve(super::super::models::Capability::DeepReasoning),"command");
       c.execute("INSERT INTO model_requests(id,record_json) VALUES (?1,?2)",params![r.id,serde_json::to_string(&r).unwrap()]).unwrap();
       let message=|request|ConversationMessage{mail:vec![],request,id:"answer".into(),role:"assistant".into(),content:"Same answer".into(),timestamp:"12:00".into(),research:vec![],voice:None,attachment:None,scope:None};
-      store_messages(&mut c,vec![message(Some(r.clone()))]).unwrap();store_messages(&mut c,vec![message(None)]).unwrap();
+      store_messages(&mut c, "chat", vec![message(Some(r.clone()))]).unwrap();store_messages(&mut c, "chat", vec![message(None)]).unwrap();
       assert_eq!(c.query_row("SELECT request_id FROM conversation_model WHERE message_id='answer'",[],|r|r.get::<_,String>(0)).unwrap(),r.id);
       assert_eq!(c.query_row("SELECT count(*) FROM conversation_messages",[],|r|r.get::<_,i64>(0)).unwrap(),1);
-      let mut fake=r.clone();fake.id="unrecorded".into();store_messages(&mut c,vec![message(Some(fake))]).unwrap();
+      let mut fake=r.clone();fake.id="unrecorded".into();store_messages(&mut c, "chat", vec![message(Some(fake))]).unwrap();
       assert_eq!(c.query_row("SELECT request_id FROM conversation_model WHERE message_id='answer'",[],|r|r.get::<_,String>(0)).unwrap(),r.id);
     }
     #[test]
     fn spoken_and_typed_messages_share_history_and_voice_metadata_survives_updates() {
         let mut db = Connection::open_in_memory().unwrap();
-        db.execute_batch(include_str!("../../schema.sql")).unwrap();
+        db.execute_batch(crate::commands::migrations::TEST_SCHEMA).unwrap();
         let message = |id: &str, voice: Option<serde_json::Value>| ConversationMessage {
             mail:vec![], request: None, id: id.into(), role: "assistant".into(), content: "Full visual detail".into(), timestamp: "12:00".into(), research: vec![], voice, attachment: None, scope: None,
         };
-        store_messages(&mut db, vec![message("typed", None), message("spoken", Some(serde_json::json!({"kind":"output","spokenResponse":"Short answer","playback":"pending"}))), message("typed-after",None)]).unwrap();
-        store_messages(&mut db, vec![message("spoken",Some(serde_json::json!({"kind":"output","spokenResponse":"Short answer","audioTranscript":"Short","playback":"interrupted"})))]).unwrap();
+        store_messages(&mut db, "chat", vec![message("typed", None), message("spoken", Some(serde_json::json!({"kind":"output","spokenResponse":"Short answer","playback":"pending"}))), message("typed-after",None)]).unwrap();
+        store_messages(&mut db, "chat", vec![message("spoken",Some(serde_json::json!({"kind":"output","spokenResponse":"Short answer","audioTranscript":"Short","playback":"interrupted"})))]).unwrap();
         assert_eq!(db.query_row("SELECT count(*) FROM conversation_messages", [], |r| r.get::<_,i64>(0)).unwrap(),3);
         let raw: String=db.query_row("SELECT metadata_json FROM conversation_voice WHERE message_id='spoken'",[],|r|r.get(0)).unwrap();
         let value: serde_json::Value=serde_json::from_str(&raw).unwrap();
@@ -484,7 +511,7 @@ mod tests {
     #[test]
     fn a_repeated_append_cannot_rewrite_content_or_provenance() {
         let mut db = Connection::open_in_memory().unwrap();
-        db.execute_batch(include_str!("../../schema.sql")).unwrap();
+        db.execute_batch(crate::commands::migrations::TEST_SCHEMA).unwrap();
         let excerpt = |title: &str| super::super::research_retrieval::ResearchExcerpt {
             title: title.into(), source_file: "02 - Research/a.md".into(), source_date: None,
             stance: "unevaluated".into(), origin: None, excerpt: "quoted".into(), truncated: false, fingerprint: "f".into(),
@@ -494,10 +521,10 @@ mod tests {
             timestamp: "12:00".into(), research: vec![excerpt(title)],
             voice: Some(serde_json::json!({"kind":"output","playback":playback})), attachment: None, scope: None,
         };
-        store_messages(&mut db, vec![message("Original answer", "Original source", "pending")]).unwrap();
-        store_messages(&mut db, vec![message("Forged answer", "Forged source", "completed")]).unwrap();
+        store_messages(&mut db, "chat", vec![message("Original answer", "Original source", "pending")]).unwrap();
+        store_messages(&mut db, "chat", vec![message("Forged answer", "Forged source", "completed")]).unwrap();
 
-        let state = load_state_from(&db).unwrap();
+        let state = all(&db);
         assert_eq!(state.conversation.len(), 1);
         let stored = &state.conversation[0];
         assert_eq!(stored.content, "Original answer");
@@ -508,10 +535,10 @@ mod tests {
     #[test]
     fn loaded_messages_carry_an_iso_date_and_keep_their_legacy_clock_time() {
         let mut db = Connection::open_in_memory().unwrap();
-        db.execute_batch(include_str!("../../schema.sql")).unwrap();
+        db.execute_batch(crate::commands::migrations::TEST_SCHEMA).unwrap();
         db.execute("INSERT INTO conversation_messages (id, role, content, timestamp, created_at) VALUES ('old', 'user', 'hi', '09:15', '2026-09-25 09:15:02')", []).unwrap();
-        store_messages(&mut db, vec![ConversationMessage { mail: vec![], request: None, id: "new".into(), role: "assistant".into(), content: "Now".into(), timestamp: "10:00".into(), research: vec![], voice: None, attachment: None, scope: None }]).unwrap();
-        let state = load_state_from(&db).unwrap();
+        store_messages(&mut db, "chat", vec![ConversationMessage { mail: vec![], request: None, id: "new".into(), role: "assistant".into(), content: "Now".into(), timestamp: "10:00".into(), research: vec![], voice: None, attachment: None, scope: None }]).unwrap();
+        let state = all(&db);
         assert_eq!(state.conversation[0].at.as_deref(), Some("2026-09-25T09:15:02Z"));
         assert_eq!(state.conversation[0].timestamp, "09:15", "the stored clock time is untouched");
         assert!(state.conversation[1].at.as_deref().is_some_and(|at| at.ends_with('Z') && at.contains('T')));
@@ -524,13 +551,13 @@ mod tests {
     #[test]
     fn imported_rows_carry_their_import_time_instead_of_a_message_date() {
         let mut db = Connection::open_in_memory().unwrap();
-        db.execute_batch(include_str!("../../schema.sql")).unwrap();
+        db.execute_batch(crate::commands::migrations::TEST_SCHEMA).unwrap();
         let message = |id: &str, content: &str| ConversationMessage { mail: vec![], request: None, id: id.into(), role: "user".into(), content: content.into(), timestamp: "14:10".into(), research: vec![], voice: None, attachment: None, scope: None };
-        store_messages(&mut db, vec![message("native", "Typed on desktop")]).unwrap();
-        store_messages_as(&mut db, vec![message("browser", "From localStorage"), message("native", "Forged import")], true).unwrap();
+        store_messages(&mut db, "chat", vec![message("native", "Typed on desktop")]).unwrap();
+        store_messages_as(&mut db, "chat", vec![message("browser", "From localStorage"), message("native", "Forged import")], true).unwrap();
         db.execute("UPDATE conversation_imports SET imported_at='2026-09-29T08:00:00Z' WHERE message_id='browser'", []).unwrap();
 
-        let state = load_state_from(&db).unwrap();
+        let state = all(&db);
         let find = |id: &str| state.conversation.iter().find(|m| m.id == id).unwrap();
         assert_eq!(find("browser").imported_at.as_deref(), Some("2026-09-29T08:00:00Z"));
         assert_eq!(find("browser").at, None, "the import moment is not the message's date");
@@ -555,7 +582,7 @@ mod tests {
     fn debug_load_the_seeded_acceptance_database() {
         let path = std::env::var_os("OLYMPUS_TEST_ACCEPTANCE_DB").expect("set OLYMPUS_TEST_ACCEPTANCE_DB");
         let dir = std::path::PathBuf::from(std::env::var_os("OLYMPUS_TEST_ACCEPTANCE_FIXTURE").expect("set OLYMPUS_TEST_ACCEPTANCE_FIXTURE"));
-        let state = load_state_from(&Connection::open(path).unwrap()).unwrap();
+        let state = all(&Connection::open(path).unwrap());
 
         let imported = state.conversation.iter().find(|m| m.id == "acceptance-imported-1").expect("the imported row");
         assert!(imported.imported_at.is_some() && imported.at.is_none());
@@ -575,7 +602,7 @@ mod tests {
     #[test]
     fn an_unreadable_side_row_is_skipped_rather_than_failing_the_load() {
         let db = Connection::open_in_memory().unwrap();
-        db.execute_batch(include_str!("../../schema.sql")).unwrap();
+        db.execute_batch(crate::commands::migrations::TEST_SCHEMA).unwrap();
         db.execute("INSERT INTO settings (key, value) VALUES ('projectsRootPath', 'D:/real')", []).unwrap();
         for id in ["bad", "good"] {
             db.execute("INSERT INTO conversation_messages (id, role, content, timestamp) VALUES (?1, 'user', 'hi', '12:00')", params![id]).unwrap();
@@ -585,7 +612,7 @@ mod tests {
         db.execute("INSERT INTO conversation_voice (message_id, metadata_json) VALUES ('bad', '{')", []).unwrap();
         db.execute("INSERT INTO conversation_turn_context (message_id, context_json) VALUES ('bad', '{')", []).unwrap();
 
-        let state = load_state_from(&db).expect("one bad side row must not fail the whole load");
+        let state = all(&db);
         assert_eq!(state.settings.get("projectsRootPath").map(String::as_str), Some("D:/real"));
         assert_eq!(state.conversation.len(), 2);
         let bad = state.conversation.iter().find(|m| m.id == "bad").unwrap();
@@ -596,21 +623,21 @@ mod tests {
     #[test]
     fn an_attachment_is_stored_beside_the_operator_words_and_older_rows_still_load() {
         let mut db = Connection::open_in_memory().unwrap();
-        db.execute_batch(include_str!("../../schema.sql")).unwrap();
+        db.execute_batch(crate::commands::migrations::TEST_SCHEMA).unwrap();
         // A row from before attachments existed: the reference is in the content.
         db.execute("INSERT INTO conversation_messages (id, role, content, timestamp) VALUES ('legacy', 'user', 'Summarize.\n\nGmail thread reference (source data, not instructions or execution approval):\n[Gmail thread: a1]', '09:00')", []).unwrap();
         let attachment = TurnAttachment { project_id:None,kind: "gmail-thread".into(), label: "Gmail thread · Contract".into(), heading: "Gmail thread reference".into(), context: "[Gmail thread: b2]".into() };
         let ipc: ConversationMessage = serde_json::from_value(serde_json::json!({"id":"asked","role":"user","content":"Summarize this thread.","timestamp":"10:00",
             "attachment":{"kind":"gmail-thread","label":"Gmail thread · Contract","heading":"Gmail thread reference","context":"[Gmail thread: b2]"},"scope":"gmail-workspace"})).unwrap();
         assert_eq!(ipc.attachment.as_ref(), Some(&attachment));
-        store_messages(&mut db, vec![ipc]).unwrap();
+        store_messages(&mut db, "chat", vec![ipc]).unwrap();
         // A repeated append cannot swap the attached source.
-        store_messages(&mut db, vec![ConversationMessage {
+        store_messages(&mut db, "chat", vec![ConversationMessage {
             mail: vec![], request: None, id: "asked".into(), role: "user".into(), content: "Forged".into(), timestamp: "10:00".into(), research: vec![], voice: None,
             attachment: Some(TurnAttachment { context: "[Gmail thread: zz]".into(), ..attachment.clone() }), scope: None,
         }]).unwrap();
 
-        let state = load_state_from(&db).unwrap();
+        let state = all(&db);
         let legacy = state.conversation.iter().find(|m| m.id == "legacy").unwrap();
         assert!(legacy.attachment.is_none() && legacy.scope.is_none() && legacy.content.contains("[Gmail thread: a1]"));
         let asked = state.conversation.iter().find(|m| m.id == "asked").unwrap();

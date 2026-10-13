@@ -493,7 +493,7 @@ mod tests {
     fn approved_brief_recovers_after_either_registry_statement_fails() {
         for table in ["project_members", "project_links"] {
             let mut c = rusqlite::Connection::open_in_memory().unwrap();
-            c.execute_batch(include_str!("../../schema.sql")).unwrap();
+            c.execute_batch(crate::commands::migrations::TEST_SCHEMA).unwrap();
             let m = store::add(&mut c, "idea", "", "Example", None).unwrap();
             let id = &m.project.id;
             let note = format!("01 - Projects/Linked {id}.md");

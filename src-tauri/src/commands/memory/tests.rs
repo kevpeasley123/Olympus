@@ -369,7 +369,7 @@ fn supplied_evidence_receipts_are_backend_owned_and_survive_index_rebuild() {
         super::super::persistence::Db(std::sync::Mutex::new(Connection::open_in_memory().unwrap()));
     db.0.lock()
         .unwrap()
-        .execute_batch(include_str!("../../../schema.sql"))
+        .execute_batch(crate::commands::migrations::TEST_SCHEMA)
         .unwrap();
     let request = super::super::models::RequestRecord::new(
         &super::super::models::resolve(super::super::models::Capability::Primary),

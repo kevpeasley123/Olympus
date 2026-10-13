@@ -58,7 +58,7 @@ mod tests {
     }
     fn fixture() -> (Db, std::path::PathBuf) {
         let c = Connection::open_in_memory().unwrap();
-        c.execute_batch(include_str!("../../../schema.sql"))
+        c.execute_batch(crate::commands::migrations::TEST_SCHEMA)
             .unwrap();
         store::connect(&c, "fixture", "operator@example.invalid", 7).unwrap();
         let root = std::env::temp_dir().join(format!(

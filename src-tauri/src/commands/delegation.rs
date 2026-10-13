@@ -2136,7 +2136,7 @@ mod process_boundary_tests {
     fn database(run: &DelegationRun) -> Db {
         let connection = Connection::open_in_memory().unwrap();
         connection
-            .execute_batch(include_str!("../../schema.sql"))
+            .execute_batch(crate::commands::migrations::TEST_SCHEMA)
             .unwrap();
         let db = Db(Mutex::new(connection));
         insert_run(&db, run).unwrap();

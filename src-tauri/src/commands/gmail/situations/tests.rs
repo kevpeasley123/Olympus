@@ -11,7 +11,7 @@ fn private_context_is_ui_only_and_account_scoped() {
 }
 pub(super) fn database() -> Db {
     let c = Connection::open_in_memory().unwrap();
-    c.execute_batch(include_str!("../../../../schema.sql"))
+    c.execute_batch(crate::commands::migrations::TEST_SCHEMA)
         .unwrap();
     store::connect(&c, "fixture", "operator@example.invalid", 30).unwrap();
     ensure(&c, "fixture").unwrap();

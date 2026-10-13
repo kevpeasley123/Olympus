@@ -698,7 +698,7 @@ mod tests {
         fs::create_dir_all(root.join("02 - Research")).unwrap();
         let connection = rusqlite::Connection::open(root.join("audit.sqlite")).unwrap();
         connection
-            .execute_batch(include_str!("../../schema.sql"))
+            .execute_batch(crate::commands::migrations::TEST_SCHEMA)
             .unwrap();
         (Db(Mutex::new(connection)), root)
     }
@@ -943,10 +943,7 @@ mod tests {
         let (db, root) = fixture();
         let entry = source(&root, "endorsed");
         run(&db, &root, "audit-test-18", entry);
-        lock(&db)
-            .unwrap()
-            .execute_batch(include_str!("../../schema.sql"))
-            .unwrap();
+        crate::commands::migrations::apply(&lock(&db).unwrap()).unwrap();
         assert_eq!(get(&db, "audit-test-18").unwrap().status, "snapshot_ready");
     }
     fn checkpoint(db: &Db) {
