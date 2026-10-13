@@ -59,7 +59,7 @@ html .mode-command .command-instrument[data-flagship] .command-instrument__dial{
 
 /* The architecture belongs to the distant canyon field, clear of the foreground dais. */
 /* Upper right corner, clear of Hephaestus's station (the reference render's arrangement). */
-.command-instrument[data-flagship] .skills-constellation{right:5%;top:8%;width:100px;height:86px}
+.command-instrument[data-flagship] .skills-constellation{right:3%;top:3.5%;width:100px;height:74px}
 .command-instrument[data-flagship] .vault-constellation{left:28%;bottom:25%;width:25%;height:14%}
 .skills-constellation svg,.armory-constellation .architecture-lines,.vault-constellation .architecture-lines{opacity:0;transition:opacity .18s ease}
 .armory-constellation:has(.armory-star:hover,.armory-star:focus-visible) .architecture-lines{opacity:.5}
