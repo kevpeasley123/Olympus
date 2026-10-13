@@ -32,6 +32,14 @@ file replaced is `docs/archive/NEXT-SESSION-through-2026-10-11.md`.
 Not the desktop app, WebView2, Tauri IPC or real data. The counts are in the
 0.32.0 release commit message.
 
+## In flight
+
+- **Living Pantheon** on `claude/project-thread-lp4tw8`, not merged: the gods
+  stand around the Omega and act on recorded mission state. Hephaestus is the
+  proof of concept on a stand-in model; the five real models are being made
+  from the reference render (AI image-to-3D, Mixamo rig). Contract, prompts
+  and states: [PANTHEON-FIGURES.md](PANTHEON-FIGURES.md).
+
 ## Next
 
 1. **Armory Phase 0 on the PC.** Open Preferences > Subscription engines. Both

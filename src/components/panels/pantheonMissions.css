@@ -58,13 +58,14 @@ html .mode-command .command-instrument[data-flagship] .command-instrument__dial{
 @media(prefers-reduced-motion:reduce){.mission-planet-label{transition:none}}
 
 /* The architecture belongs to the distant canyon field, clear of the foreground dais. */
-.command-instrument[data-flagship] .skills-constellation{right:18%;top:25%;width:100px;height:86px}
+/* Upper right corner, clear of Hephaestus's station (the reference render's arrangement). */
+.command-instrument[data-flagship] .skills-constellation{right:5%;top:8%;width:100px;height:86px}
 .command-instrument[data-flagship] .vault-constellation{left:28%;bottom:25%;width:25%;height:14%}
 .skills-constellation svg,.armory-constellation .architecture-lines,.vault-constellation .architecture-lines{opacity:0;transition:opacity .18s ease}
 .armory-constellation:has(.armory-star:hover,.armory-star:focus-visible) .architecture-lines{opacity:.5}
 .skills-constellation:has(.armory-star:hover,.armory-star:focus-visible) svg{opacity:.3}
 .vault-constellation:has(.vault-star:hover,.vault-star:focus-visible) .architecture-lines{opacity:.25}
-@media(max-width:1350px){.command-instrument[data-flagship] .skills-constellation{right:15%;width:80px;height:72px}}
+@media(max-width:1350px){.command-instrument[data-flagship] .skills-constellation{right:3%;width:80px;height:72px}}
 @media(prefers-reduced-motion:reduce){.skills-constellation svg,.armory-constellation .architecture-lines,.vault-constellation .architecture-lines{transition:none}}
 
 /* Inspection reticle stays outside the planet surface and does not intercept input. */
@@ -88,6 +89,7 @@ html .mode-command .command-instrument[data-flagship] .command-instrument__dial{
 .agent-architecture-star{position:absolute;transform:translate(-50%,-50%);display:grid;place-items:center;width:26px;height:26px;padding:0;border:1px solid transparent;border-radius:50%;background:transparent;color:#d5b77d;cursor:pointer}
 .agent-architecture-star .agent-emblem-mark{opacity:.7;filter:drop-shadow(0 0 3px #e8bb6144)}
 .agent-architecture-star[data-placeholder="true"]{color:#9a92b2}
+.agent-architecture-dot{width:5px;height:5px;border-radius:50%;background:#f3d79d;box-shadow:0 0 6px #e8bb61aa}
 .agent-architecture-star:hover,.agent-architecture-star:focus-visible{outline:none;border-color:#d5b77d80;background:#08131bea}
 .agent-architecture-star:hover .agent-emblem-mark,.agent-architecture-star:focus-visible .agent-emblem-mark{opacity:1}
 .agent-architecture-name{display:none;position:absolute;top:29px;left:50%;transform:translateX(-50%);width:max-content;max-width:180px;padding:6px 9px;border:1px solid #d5b77d44;border-radius:4px;background:#071019f5;color:#eee0c3;font:11px var(--font-sans);pointer-events:none}
