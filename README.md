@@ -102,7 +102,8 @@ releases.
 `npm run update` (`scripts/update-olympus.ps1`) is the everyday path: it brings
 the local checkout to `origin/master` and, when master is newer than the installed
 app, builds and installs it through the same script. It stops on a dirty or
-diverged checkout. Running the script with `-CreateShortcut` puts an **Update
+diverged checkout; a tracked file whose only change is its line endings (the
+build rewrites `src-tauri/Cargo.toml`) is re-staged rather than counted. Running the script with `-CreateShortcut` puts an **Update
 Olympus** icon on the desktop that runs it.
 
 ## Delegate a coding task
