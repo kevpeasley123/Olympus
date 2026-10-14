@@ -25,7 +25,7 @@ once all five stood; the Armory keeps the agent count and roster.
 | Rig and clips | `src/services/pantheonRig.ts`, `src/services/pantheonRig.json` | The shared skeleton, bone groups, each god's hold pose and clips |
 | Skins | `src/services/pantheonSkins.ts` | The four material presets, the selected skin, and the comparison picker switch |
 | Scene | `src/services/pantheonFigures.ts` | Pedestals, statue skinning, AnimationMixer per god, gaze layer, work effects, signals |
-| Overlay | `src/components/panels/PantheonFigures.tsx` | Hit target, name plate, hover card and session indicator per god; the skin picker while a skin is being chosen |
+| Overlay | `src/components/panels/PantheonFigures.tsx` | Hit target, name plate (name and role) and session indicator per god; the skin picker while a skin is being chosen |
 | Statues | `scripts/pantheon/build_figures.py` → `public/pantheon/` | Builds the five glTF statues and the manifest |
 | Harness | `pantheon-harness.html` | The gods close up under Command's lights, for checking models and clips |
 
@@ -77,9 +77,8 @@ once all five stood; the Armory keeps the agent count and roster.
   brightens its rim, reflections, fill light and platform, backlit by the
   gold halo; it
   glances at the viewer unless it is at work, and the running clip carries on
-  underneath. A small card beside it, on the Omega side, gives its name,
-  specialty and the state the scene is showing. The Armory row gets a gold
-  edge, a lit ground and a soft glow without moving.
+  underneath. No card appears; the name plate below brightens. The Armory row
+  gets a gold edge, a lit ground and a soft glow without moving.
 - **Performance.** One mixer per god, one pooled particle draw (72 points) for
   every spark and ember, six pooled signal pulses, two shade quads per god.
   Hidden views stop rendering and reduced motion freezes the figures, as for
@@ -89,7 +88,7 @@ once all five stood; the Armory keeps the agent count and roster.
 
 | God | Holds | Work clip | Work display |
 | --- | --- | --- | --- |
-| Zeus | A thunderbolt raised in his right hand, a small light over his left | Raises the bolt overhead and casts it forward | Lightning crawling over the bolt; his platform glows brighter for each god at work. Signals to and from the others start at the bolt |
+| Zeus | A stepped lightning bolt raised in his right hand, a small light over his left | Raises the bolt overhead and casts it forward | Lightning crawling over the bolt; his platform glows brighter for each god at work. Signals to and from the others start at the bolt |
 | Athena | Spear upright, round shield with an owl, crested helm pushed back, gold aegis | Sweeps the spear tip across her panels | Four research panels in an arc that trade places |
 | Hephaestus | Hammer; anvil beside him; leather apron over a short tunic | Strikes the anvil | Engineering surface where parts assemble and a circuit traces itself; sparks on each strike, embers at rest |
 | Dionysus | Kantharos raised in his left hand, thyrsus in his right, vine crown | Sways and draws an arc with the cup | Violet ribbons of light around him |
@@ -112,8 +111,8 @@ rim and weathering (and, for Celestial, the starfield: stars fixed in
 screen space that twinkle, so the figure reads as a window into the sky),
 plus the skin's back shadow, platform glow, fill light,
 occlusion and form shading. It never changes geometry, proportions or
-stations. While Kevin chooses a skin, every build shows a small Skin switch in
-the bottom left of the scene for comparing them, remembered in local storage
+stations. While Kevin chooses a skin, every build shows a faint dot in the
+bottom left of the scene that opens the skin list, remembered in local storage
 (`COMPARING` in `pantheonSkins.ts`). Once he picks, that skin becomes the
 default and production builds always use it; a dev build, or a build with
 `VITE_PANTHEON_SKIN_PICKER=1`, keeps the switch.

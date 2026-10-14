@@ -5,7 +5,6 @@
 .pantheon-figure__label{position:absolute;left:50%;top:calc(100% + 20px);display:grid;justify-items:center;gap:1px;width:180px;transform:translateX(-50%);text-align:center;text-shadow:0 2px 6px #000,0 0 14px #000;pointer-events:none}
 .pantheon-figure__label strong{font:500 12.5px var(--font-display,"Cinzel",serif);letter-spacing:.2em;text-transform:uppercase;color:#f1dfb6}
 .pantheon-figure__label em{font:500 9.5px var(--font-display,"Cinzel",serif);font-style:normal;letter-spacing:.18em;text-transform:uppercase;color:#d9a85a}
-.pantheon-figure__label small{font:500 8px var(--font-mono,"JetBrains Mono",monospace);letter-spacing:.16em;text-transform:uppercase;color:#b7ab92;opacity:.8}
 .pantheon-figure:hover .pantheon-figure__label strong,.pantheon-figure:focus-visible .pantheon-figure__label strong,.pantheon-figure[data-inspecting="true"] .pantheon-figure__label strong{color:#fff3d3}
 .pantheon-figure[data-figure-state="dormant"] .pantheon-figure__label,.pantheon-figure[data-figure-state="unavailable"] .pantheon-figure__label{opacity:.55}
 /* One compact indicator per live god, above the head; the text is the recorded step. */
@@ -24,35 +23,15 @@
 @media (prefers-reduced-motion:reduce){.pantheon-figure__session{animation:none}}
 /* Before the scene places a figure (and on graphics failure) nothing floats at the origin. */
 .command-instrument[data-renderer="svg"] .pantheon-figures{display:none}
-/* Hover card: name, specialty and the state the figure is in, beside the god on the Omega side, clear of the side panels. */
-.pantheon-figure__card{position:absolute;top:22%;left:calc(100% + 10px);display:grid;gap:2px;min-width:132px;padding:7px 11px 7px 10px;border:1px solid #e3b56a55;border-radius:5px;background:#080d13ee;box-shadow:0 8px 22px #000b,0 0 16px #e0a85a1a;text-align:left;white-space:nowrap;opacity:0;transform:translateY(4px);transition:opacity .22s ease,transform .28s cubic-bezier(.2,.8,.2,1);pointer-events:none}
-.pantheon-figure[data-side="left"] .pantheon-figure__card{left:auto;right:calc(100% + 10px)}
-.pantheon-figure__card b{font:500 10px var(--font-display,"Cinzel",serif);letter-spacing:.2em;text-transform:uppercase;color:#f3dcaa}
-.pantheon-figure__card span{font:500 10.5px var(--font-body,"Inter",sans-serif);color:#d8cfbd}
-.pantheon-figure__card small{display:flex;align-items:center;gap:6px;font:500 8.5px var(--font-mono,"JetBrains Mono",monospace);letter-spacing:.12em;text-transform:uppercase;color:#b9ad95}
-.pantheon-figure__card small::before{content:"";width:5px;height:5px;border-radius:50%;background:#a99d86}
-.pantheon-figure__state::after{content:"Idle"}
-.pantheon-figure[data-figure-state="dormant"] .pantheon-figure__state::after{content:"Planned role"}
-.pantheon-figure[data-figure-state="unavailable"] .pantheon-figure__state::after{content:"Unavailable"}
-.pantheon-figure[data-figure-state="assigned"] .pantheon-figure__state::after{content:"Assigned"}
-.pantheon-figure[data-figure-state="working"] .pantheon-figure__state::after{content:"Working"}
-.pantheon-figure[data-figure-state="reviewing"] .pantheon-figure__state::after{content:"Reviewing"}
-.pantheon-figure[data-figure-state="waiting"] .pantheon-figure__state::after{content:"Waiting"}
-.pantheon-figure[data-figure-state="completed"] .pantheon-figure__state::after{content:"Completed"}
-.pantheon-figure[data-figure-state="blocked"] .pantheon-figure__state::after{content:"Blocked"}
-.pantheon-figure:is([data-figure-state="working"],[data-figure-state="reviewing"],[data-figure-state="assigned"],[data-figure-state="completed"]) .pantheon-figure__state::before{background:#6fd39b;box-shadow:0 0 6px #6fd39b}
-.pantheon-figure[data-figure-state="waiting"] .pantheon-figure__state::before{background:#e7b76b;box-shadow:0 0 6px #e7b76b}
-.pantheon-figure[data-figure-state="blocked"] .pantheon-figure__state::before{background:#c9826f}
-.pantheon-figure:is(:hover,:focus-visible,[data-inspecting="true"]) .pantheon-figure__card{opacity:1;transform:none}
-/* While a session indicator is up the card moves below it, so the two never overlap. */
-.pantheon-figure:has(.pantheon-figure__session) .pantheon-figure__card{top:48%}
 .pantheon-figure__label{transition:transform .28s cubic-bezier(.2,.8,.2,1)}
 .pantheon-figure:is(:hover,:focus-visible,[data-inspecting="true"]) .pantheon-figure__label{transform:translate(-50%,-2px)}
 .pantheon-figure:is(:hover,:focus-visible,[data-inspecting="true"]) .pantheon-figure__label em{color:#f0c27e}
-@media (prefers-reduced-motion:reduce){.pantheon-figure__card,.pantheon-figure__label{transition:none}}
-/* Evaluation-only skin picker. */
-.pantheon-skin-picker{position:absolute;left:12px;bottom:12px;display:flex;align-items:center;gap:4px;padding:4px;border:1px solid #d7a85a44;border-radius:6px;background:#070b10e6;pointer-events:auto;z-index:6}
-.pantheon-skin-picker span{padding:0 6px;font:500 8px var(--font-mono,"JetBrains Mono",monospace);letter-spacing:.18em;text-transform:uppercase;color:#a7998a}
-.pantheon-skin-picker button{padding:4px 8px;border:1px solid transparent;border-radius:4px;background:transparent;color:#cdbfa6;font:500 10px var(--font-body,"Inter",sans-serif);cursor:pointer}
-.pantheon-skin-picker button:hover{color:#f3dcaa;border-color:#d7a85a33}
-.pantheon-skin-picker button[aria-pressed="true"]{border-color:#e3b56a88;background:#e3b56a1f;color:#ffe7b8}
+@media (prefers-reduced-motion:reduce){.pantheon-figure__label{transition:none}}
+/* Evaluation-only skin picker: a faint dot in the scene's bottom-left corner that opens the list upward. */
+.pantheon-skin-picker{position:absolute;left:10px;bottom:10px;display:flex;flex-direction:column-reverse;align-items:flex-start;gap:6px;pointer-events:auto;z-index:6}
+.pantheon-skin-picker__toggle{width:12px;height:12px;padding:0;border:1px solid #d7a85a66;border-radius:50%;background:radial-gradient(circle at 35% 35%,#f3dcaa66,#3a2a1a 70%);opacity:.35;cursor:pointer;transition:opacity .2s ease}
+.pantheon-skin-picker__toggle:is(:hover,:focus-visible),.pantheon-skin-picker[data-open="true"] .pantheon-skin-picker__toggle{opacity:.9}
+.pantheon-skin-picker__list{display:grid;gap:2px;padding:4px;border:1px solid #d7a85a44;border-radius:6px;background:#070b10ee;box-shadow:0 8px 22px #000b}
+.pantheon-skin-picker__list button{padding:4px 10px;border:1px solid transparent;border-radius:4px;background:transparent;color:#cdbfa6;font:500 10px var(--font-body,"Inter",sans-serif);text-align:left;white-space:nowrap;cursor:pointer}
+.pantheon-skin-picker__list button:hover{color:#f3dcaa;border-color:#d7a85a33}
+.pantheon-skin-picker__list button[aria-pressed="true"]{border-color:#e3b56a88;background:#e3b56a1f;color:#ffe7b8}

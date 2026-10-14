@@ -7,32 +7,33 @@ file replaced is `docs/archive/NEXT-SESSION-through-2026-10-11.md`.
 
 ## State — 2026-10-14
 
-- **Version 0.35.0** on `master`, from `claude/project-thread-lp4tw8`. Kevin
-  confirmed 0.34.0 running on his PC on 2026-10-13 (screenshot); 0.35.0 is
-  installed when he next runs Update Olympus.
+- **Version 0.36.0** on `master`, from `claude/project-thread-lp4tw8`. 0.35.0
+  was installed on Kevin's PC through Update Olympus on 2026-10-14; 0.36.0 is
+  installed when he next runs it.
+- **0.36.0** polishes the Pantheon at Kevin's request: no hover card, no
+  motto line under the name plates, the Skin switch reduced to a faint dot in
+  the scene's bottom-left corner, and a stepped lightning bolt for Zeus.
 - **0.35.0** gives the Pantheon statues skins and depth
   ([PANTHEON-FIGURES.md](PANTHEON-FIGURES.md)):
   - Four material presets: Aged Bronze (default, crisp white garments),
     Obsidian Gold, Mythic Color and Celestial (a translucent starfield body).
-    A Skin switch under the Omega compares them and ships until Kevin picks
+    A skin switch compares them and ships until Kevin picks
     one; then make it the default and set `COMPARING` to false in
     `src/services/pantheonSkins.ts`.
   - Baked occlusion from the Blender build, form shading, a soft back veil and
     contact shadows.
   - Hovering a god or its Armory row lifts and brightens it behind a gold
-    halo and shows a card with its name, specialty and real state; the Armory
-    row lights without moving.
+    halo; the Armory row lights without moving.
   - The Agents constellation and its "AGENTS 5" label are gone; Plugins,
     Skills, Obsidian Memory and the Omega are unchanged.
-- **Earlier releases.** 0.34.0 brought the Living Pantheon; 0.33.0
-  conversations and memory (`docs/CONVERSATIONS-AND-MEMORY.md`) and the voice
-  signal; 0.31.0 Armory Phase 0b (`docs/ARMORY-PLAN.md`).
+- **Earlier.** 0.34.0 the Living Pantheon; 0.33.0 conversations and memory
+  and the voice signal; 0.31.0 Armory Phase 0b (`docs/ARMORY-PLAN.md`).
 - Every other remote branch ahead of `master` is older than the 0.34.0 release
   or predates the 2026-09-07 history restart; all are superseded.
 
 ## Last verification — 2026-10-14, Linux cloud container
 
-The 0.35.0 branch, with `master` already merged in:
+The 0.36.0 branch, with `master` already merged in:
 - `cargo test --lib`: 539 passed, 18 ignored;
 - `npm run build`;
 - all 48 `scripts/test-*.mjs`, the browser ones on headless Chromium
@@ -47,14 +48,14 @@ have been seen only in Chromium with software WebGL.
 ## In flight
 
 - **Skin choice.** Kevin is comparing the four skins in the installed app.
-- **A live view on Kevin's PC.** A Remote Control session running
-  `npm run tauri dev` from the branch was offered on 2026-10-14 so he can
-  watch visual edits without installing; not yet approved.
+- **A live view on Kevin's PC.** Remote Control works on his PC (first used
+  2026-10-14 to install 0.35.0). A session running `npm run tauri dev` from
+  the branch would let him watch visual edits without installing.
 
 ## Next
 
-1. **Look at the Pantheon on the PC** after Update Olympus. Switch skins under
-   the Omega, hover each god and its Armory row, and note how long the statues
+1. **Look at the Pantheon on the PC** after Update Olympus. Switch skins from
+   the dot in the scene's bottom-left corner, hover each god and its Armory row, and note how long the statues
    take to appear in WebView2 and whether a pedestal stays empty (a model that
    fails to load logs a warning). Start a delegated run to see Hephaestus work.
 2. **Check 0.33.0 on the PC**, if not done.

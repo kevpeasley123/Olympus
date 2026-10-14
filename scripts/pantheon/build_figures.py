@@ -507,15 +507,22 @@ def zeus(m, pose):
     tube('Fall', m['cloth'], [(.2, 1.4, -.05), (.24, 1.2, -.07), (.25, 1.0, -.06), (.24, .82, -.05)],
          [(.04, .014), (.05, .014), (.055, .014), (.045, .01)], 'Spine2+LeftShoulder+LeftArm~2', sides=14,
          outward=lambda p: (1, 0, -.4), ripples=3, ripple=.01)
-    # Thunderbolt in the raised right fist, standing upright.
+    # A lightning bolt in the raised right fist, standing upright: the classic stepped zigzag, faceted and
+    # thin, gripped across its middle step. The outline runs clockwise from the top left, facing the viewer.
     fist = pose.point('RightHand', (0, -.06, .012))
-    bolt = [(0, -.2, 0), (.02, -.08, .004), (-.035, .02, 0), (.02, .1, .004), (-.03, .22, 0), (.015, .34, .003), (-.01, .44, 0)]
-    pts = [fist + np.array(p) for p in bolt]
-    o = tube('Tool', m['glow'], pts, [.012, .02, .024, .022, .02, .014, .004], 'RightHand', sides=6, subdiv=2, smooth=False)
-    pose_to_rest(o, pose, 'RightHand')
-    for side in (-1, 1):
-        prong = [fist + np.array(p) for p in [(0, -.08, 0), (side * .05, -.16, 0), (side * .03, -.24, 0)]]
-        pose_to_rest(tube('Prong', m['glow'], prong, [.012, .01, .003], 'RightHand', sides=6, subdiv=2, smooth=False), pose, 'RightHand')
+    outline = [(-.01, .42), (.075, .42), (.025, .16), (.085, .16), (-.065, -.27), (-.012, .04), (-.075, .04)]
+    n, depth = len(outline), .016
+    # Front and back faces sit a little inside the rim, so the bolt is bevelled to a sharp edge.
+    centre = np.mean([np.array(q) for q in outline], axis=0)
+    verts = []
+    for z, shrink in ((depth, .86), (0, 1.), (-depth, .86)):
+        for x, y in outline:
+            q = centre + (np.array((x, y)) - centre) * shrink
+            verts.append(fist + np.array((q[0], q[1], z)))
+    faces = [tuple(range(n)), tuple(range(3 * n - 1, 2 * n - 1, -1))]
+    for layer in (0, n):
+        faces += [(layer + k, layer + (k + 1) % n, layer + n + (k + 1) % n, layer + n + k) for k in range(n)]
+    pose_to_rest(mesh('Tool', verts, faces, m['glow'], 'RightHand', smooth=False), pose, 'RightHand')
     # A small sphere of light over the open left hand.
     palm = pose.point('LeftHand', (0, -.06, .03))
     pose_to_rest(ellipsoid('Orb', m['glow'], palm + np.array([0, .07, .03]), (.03, .03, .03), 'LeftHand', seg=16, rings=10), pose, 'LeftHand')
