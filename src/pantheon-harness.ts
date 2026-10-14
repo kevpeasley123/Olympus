@@ -7,17 +7,24 @@ import type { Mission } from './services/capabilities';
 import { FIGURE_HEIGHT, buildPantheonFigures } from './services/pantheonFigures';
 import { PANTHEON_FIGURES } from './services/pantheonFigureState';
 import { SCENE_FINISH } from './services/hybridScene';
+import { setPantheonSkin, type SkinId } from './services/pantheonSkins';
+import { setAgentHighlight } from './services/agentConstellation';
 
 /**
  * Pantheon figure harness: the gods close up, under Command's lights, camera
  * and bloom, for checking models and clips. `?god=athena` frames one god (all
  * five otherwise); `&state=working|waiting|blocked` records a synthetic step
- * for every agent; `&pose=hold` stops the clock; `&at`, `&dist` and `&turn` move the camera. Nothing here touches live data.
+ * for every agent; `&pose=hold` stops the clock; `&at`, `&dist` and `&turn` move the camera;
+ * `&skin=aged-bronze|obsidian-gold|mythic|celestial` picks the skin and `&hover=athena`
+ * holds the pointer over a god. Nothing here touches live data.
  * `<html data-figures-ready>` is set once every statue has loaded.
  */
 const params = new URLSearchParams(location.search);
 const god = PANTHEON_FIGURES.find(f => f.id === params.get('god'));
 const state = params.get('state') ?? 'idle';
+if (params.get('skin')) setPantheonSkin(params.get('skin') as SkinId);
+const hovered = PANTHEON_FIGURES.find(f => f.id === params.get('hover'));
+if (hovered) setAgentHighlight({}, hovered.agent);
 const host = document.getElementById('stage') as HTMLDivElement;
 const renderer = new T.WebGLRenderer({ antialias: true, alpha: true });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));

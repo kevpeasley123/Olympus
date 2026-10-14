@@ -4,8 +4,10 @@ import assert from 'node:assert/strict';
 await mkdir('output/tests',{recursive:true});
 await build({entryPoints:['src/services/pantheonFigureState.ts'],bundle:true,format:'esm',platform:'node',outfile:'output/tests/pantheon-figures.mjs'});
 await build({entryPoints:['src/services/pantheonRig.ts'],bundle:true,format:'esm',platform:'node',outfile:'output/tests/pantheon-rig.mjs',logLevel:'error'});
+await build({entryPoints:['src/services/pantheonSkins.ts'],bundle:true,format:'esm',platform:'node',outfile:'output/tests/pantheon-skins.mjs',logLevel:'error',define:{'import.meta.env.DEV':'false','import.meta.env.VITE_PANTHEON_SKIN_PICKER':'undefined'}});
 const {PANTHEON_FIGURES,MANIFESTED_FIGURES,agentSessions,nextFigureState,sessionClock,ASSIGNED_SECONDS,COMPLETED_SECONDS}=await import('../output/tests/pantheon-figures.mjs');
 const {CLIP_NAMES,RIG_GROUPS,WORK_BEAT,boneSegments,buildSkeleton,figureClips}=await import('../output/tests/pantheon-rig.mjs');
+const {SKINS,DEFAULT_SKIN,SKIN_PICKER,finishFor,pantheonSkin,setPantheonSkin,subscribePantheonSkin}=await import('../output/tests/pantheon-skins.mjs');
 
 const spec=id=>PANTHEON_FIGURES.find(f=>f.id===id);
 const heph=spec('hephaestus'),themis=spec('themis'),dionysus=spec('dionysus'),zeus=spec('zeus');
@@ -92,5 +94,29 @@ for(const [id,file] of Object.entries(manifest)){
     if(/^Tool/.test(label))tool++;
   }
   assert.equal(tool,1,`${id} has one Tool`);
+  // Every part carries its baked occlusion, and every material is one the skins dress.
+  for(const mesh of json.meshes)for(const primitive of mesh.primitives){
+    assert.ok('COLOR_0' in primitive.attributes,`${id}: ${mesh.name} has baked occlusion`);
+    const material=json.materials[primitive.material].name;
+    for(const skin of SKINS)assert.ok(finishFor(skin,id,material),`${id}: ${skin.name} dresses ${material}`);
+  }
 }
+
+// Skins: four presets, Aged Bronze by default, production builds without the picker.
+assert.deepEqual(SKINS.map(s=>s.id),['aged-bronze','obsidian-gold','mythic','celestial']);
+assert.equal(DEFAULT_SKIN,'aged-bronze');
+assert.equal(SKIN_PICKER,false,'the skin picker is for evaluation builds only');
+assert.equal(pantheonSkin(),'aged-bronze');
+for(const skin of SKINS)for(const god of PANTHEON_FIGURES){
+  for(const slot of ['marble','cloth']){
+    const f=finishFor(skin,god.id,slot);
+    // Never pure white: the togas are a crisp white that still leaves room for shading.
+    const c=f.color, max=Math.max(c>>16,(c>>8)&255,c&255);
+    assert.ok(max<=0xf0,`${skin.name} ${god.id} ${slot} stays below pure white`);
+  }
+  assert.ok(skin.lighting.backShadow>0&&skin.lighting.backShadow<.7,`${skin.name} shadow stays soft`);
+}
+const shown=[];const stop=subscribePantheonSkin(()=>shown.push(pantheonSkin()));
+setPantheonSkin('mythic');setPantheonSkin('mythic');setPantheonSkin('nonsense');stop();
+assert.deepEqual(shown,['mythic'],'a skin change notifies once, and unknown skins are ignored');
 console.log('PASS Pantheon figure states, rig and statues');

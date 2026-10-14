@@ -18,13 +18,6 @@
   12%{opacity:.45}47%{opacity:.35}82%{opacity:.55}
 }
 
-/* Specificity keeps the old active/inspection halo from returning on hover. */
-.agents-constellation .agent-architecture-star[data-agent-id="olympus"]{border-color:transparent;background:transparent;box-shadow:none}
-.agents-constellation .agent-architecture-star[data-agent-id="olympus"]::before{content:none;animation:none}
-.agents-constellation .agent-architecture-star[data-agent-id="olympus"] .agent-emblem-spark{display:none}
-.agents-constellation .agent-architecture-star[data-agent-id="olympus"]:focus-visible{outline:1px solid #f0d296;outline-offset:7px;border-radius:4px}
-.agents-constellation .agent-architecture-star[data-agent-id="olympus"] .agent-emblem-mark{opacity:1;filter:drop-shadow(0 0 2px #efbc6266)}
-
 .olympus-armory .armory-roster-row[data-agent-id="olympus"] .armory-roster-emblem{overflow:visible;border-color:transparent;background:transparent;box-shadow:none}
 .olympus-armory .armory-roster-row[data-agent-id="olympus"] .armory-roster-emblem::after{content:none;animation:none}
 .armory-roster-emblem .zeus-lightning{width:47px;height:47px}
@@ -35,7 +28,6 @@
 .armory-roster-emblem .zeus-lightning__glow{stroke-width:1.6;opacity:.55}
 .armory-roster-emblem .zeus-lightning__core{stroke-width:.65}
 
-.agents-constellation[data-motion-paused="true"] .zeus-lightning *,
 .armory-roster-row[data-motion-paused="true"] .zeus-lightning *{animation-play-state:paused}
 @media(prefers-reduced-motion:reduce){
   .zeus-lightning *{animation:none!important}

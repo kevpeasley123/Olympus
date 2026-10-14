@@ -4,6 +4,8 @@ import type { Mission } from './capabilities';
 import type { CommandCatalog } from './commandAgents';
 import { MANIFESTED_FIGURES, PANTHEON_FIGURES, nextFigureState, type FigureId, type FigureMemory, type FigureSpec, type FigureState } from './pantheonFigureState';
 import { CLIP_NAMES, RIG_GROUPS, RIG_HEIGHT, WORK_BEAT, boneSegments, buildSkeleton, figureClips, figureScale, rimmed, type ClipName } from './pantheonRig';
+import { finishFor, pantheonSkin, rimColorFor, skinById, type Lighting, type Skin, type SkinId } from './pantheonSkins';
+import { agentHighlightSnapshot } from './agentConstellation';
 
 /**
  * The living Pantheon in Command's scene: each god stands on a pedestal at its
@@ -33,7 +35,21 @@ export const FIGURE_HEIGHT = 84;
 const UNIT = FIGURE_HEIGHT / RIG_HEIGHT;
 
 const BASE: Record<FigureState, ClipName> = { dormant: 'idle', unavailable: 'idle', idle: 'idle', assigned: 'work', working: 'work', reviewing: 'work', waiting: 'wait', completed: 'idle', blocked: 'blocked' };
-const IDLE_GESTURES: readonly (readonly [ClipName, number])[] = [['idle_shift', .38], ['idle_inspect', .32], ['idle_adjust', .3]];
+/** Each god's habits at rest: what it tends to do with its hands and where it tends to look. */
+const IDLE_GESTURES: Record<FigureId, readonly (readonly [ClipName, number])[]> = {
+  zeus: [['idle_shift', .3], ['idle_inspect', .25], ['idle_adjust', .45]],
+  athena: [['idle_shift', .3], ['idle_inspect', .25], ['idle_adjust', .45]],
+  hephaestus: [['idle_shift', .3], ['idle_inspect', .5], ['idle_adjust', .2]],
+  dionysus: [['idle_shift', .3], ['idle_inspect', .35], ['idle_adjust', .35]],
+  themis: [['idle_shift', .25], ['idle_inspect', .5], ['idle_adjust', .25]],
+};
+const IDLE_GAZE: Record<FigureId, readonly [string, number][]> = {
+  zeus: [['forward', .26], ['omega', .38], ['neighbour', .14], ['tool', .14], ['sky', .08]],
+  athena: [['forward', .22], ['omega', .2], ['neighbour', .1], ['zeus', .1], ['tool', .1], ['sky', .28]],
+  hephaestus: [['forward', .28], ['omega', .2], ['neighbour', .12], ['zeus', .1], ['tool', .3]],
+  dionysus: [['forward', .3], ['omega', .18], ['neighbour', .22], ['zeus', .1], ['tool', .14], ['sky', .06]],
+  themis: [['forward', .26], ['omega', .22], ['neighbour', .1], ['zeus', .14], ['tool', .28]],
+};
 /** A dormant god still breathes, slowly, and makes no gestures. */
 const DORMANT_TEMPO = .35;
 
@@ -44,7 +60,12 @@ interface Figure {
   gaze: { yaw: number; pitch: number; vyaw: number; vpitch: number; neck: T.Quaternion; head: T.Quaternion }; tool: T.Object3D | null; live: Map<string, T.Object3D>;
   platform: { disc: T.Mesh; ring: T.LineLoop; uniforms: { glow: { value: number }; tint: { value: T.Color } } };
   light: T.PointLight; flash: number; source: 'pending' | 'statue' | 'model'; surface: Surface | null; target: HTMLElement | null; anchor: string; ember: number; model: T.Object3D | null;
+  shade: { back: { value: number }; contact: { value: number }; halo: { value: number } }; halo: T.Mesh; materials: Dressed[]; skin: SkinId | null; lighting: Lighting; hover: number; shown: number; attended: boolean;
 }
+/** A statue material and what the skin and hover write into it, so neither recompiles a shader. */
+interface Dressed { material: T.MeshStandardMaterial; uniforms: StatueUniforms; color: T.Color; emissive: T.Color; emissiveIntensity: number; rim: T.Color; env: number }
+/** Hover: about a quarter second to acknowledge, and a little slower to settle back. */
+const HOVER_IN = 11, HOVER_OUT = 8;
 /** A god's work display: present while it works, dimmed while it waits. */
 interface Surface { group: T.Object3D; presence: number; age: number; update(dt: number, clock: number, active: boolean): void; beat(): void; dispose(): void }
 
@@ -71,6 +92,7 @@ export function buildPantheonFigures(scene: T.Scene, host: HTMLElement, camera: 
   const zeusPoint = (out: T.Vector3) => zeusFigure?.tool ? zeusFigure.tool.getWorldPosition(out) : out.copy(zeusFallback);
 
   function update(missions: readonly Mission[], catalog: CommandCatalog | null, delta: number, clock: number, moving: boolean) {
+    const skin = skinById(pantheonSkin()), highlighted = agentHighlightSnapshot();
     let signature = '';
     let working = 0;
     for (const f of figures) {
@@ -84,8 +106,11 @@ export function buildPantheonFigures(scene: T.Scene, host: HTMLElement, camera: 
     for (const f of figures) {
       const state = f.memory!.state;
       const dt = delta * f.spec.temperament.tempo * (state === 'dormant' ? DORMANT_TEMPO : 1);
+      if (f.skin !== skin.id) applySkin(f, skin);
+      attend(f, highlighted === f.spec.agent, state, delta, clock, moving);
+      for (const d of f.materials) d.uniforms.time.value = clock;
       if (moving && state === 'idle' && clock >= f.nextGesture && f.current === f.actions.get('idle')) {
-        play(f, pick(f, IDLE_GESTURES), true);
+        play(f, pick(f, IDLE_GESTURES[f.spec.id]), true);
         f.nextGesture = clock + span(f.random, f.spec.temperament.gesture);
       }
       if (f.gestureEnds && f.current && f.current.time >= f.current.getClip().duration - .55) { f.gestureEnds = false; play(f, f.base, false); }
@@ -94,7 +119,7 @@ export function buildPantheonFigures(scene: T.Scene, host: HTMLElement, camera: 
       const work = f.actions.get('work'), before = work?.time ?? 0, beat = WORK_BEAT[f.spec.id];
       f.mixer.update(dt);
       if (moving && work && work.isRunning() && work.getEffectiveWeight() > .5 && (before < beat && work.time >= beat || before > work.time && work.time >= beat)) onBeat(f);
-      if (moving && clock >= f.nextGaze) { f.gazeTarget = chooseGaze(f, state); f.nextGaze = clock + span(f.random, state === 'working' || state === 'reviewing' ? [1.6, 3.4] : state === 'dormant' ? [9, 14] : f.spec.temperament.gaze); }
+      if (moving && clock >= f.nextGaze && !f.attended) { f.gazeTarget = chooseGaze(f, state); f.nextGaze = clock + span(f.random, state === 'working' || state === 'reviewing' ? [1.6, 3.4] : state === 'dormant' ? [9, 14] : f.spec.temperament.gaze); }
       f.group.updateMatrixWorld(true);
       applyGaze(f, dt, moving);
       animateLiveParts(f, state, clock);
@@ -104,6 +129,30 @@ export function buildPantheonFigures(scene: T.Scene, host: HTMLElement, camera: 
     sparks.update(delta);
     signals.update(delta);
     return signature;
+  }
+
+  /**
+   * Hover from the god or its Armory row: the figure lifts a little, grows
+   * by about eight percent, brightens its rim, reflections and platform, is
+   * backlit by a gold halo in the Armory highlight's colour, and glances at
+   * the viewer unless it is at work. It blends over whatever clip is running.
+   */
+  function attend(f: Figure, wanted: boolean, state: FigureState, delta: number, clock: number, moving: boolean) {
+    const want = wanted ? 1 : 0;
+    f.hover = moving ? f.hover + (want - f.hover) * (1 - Math.exp(-delta * (want > f.hover ? HOVER_IN : HOVER_OUT))) : want;
+    const busy = state === 'working' || state === 'reviewing' || state === 'assigned' || state === 'dormant';
+    if (wanted && !f.attended && !busy) { f.attended = true; f.gazeTarget = 'viewer'; }
+    if ((!wanted || busy) && f.attended) { f.attended = false; f.nextGaze = clock + .4; }
+    const h = f.hover * f.hover * (3 - 2 * f.hover);
+    if (Math.abs(h - f.shown) < 1e-4) return;
+    f.shown = h;
+    f.body.scale.setScalar(figureScale(f.spec.id) * (1 + .08 * h));
+    f.body.position.y = .022 * h;
+    for (const d of f.materials) { d.uniforms.rimColor.value.copy(d.rim).multiplyScalar(1 + h); d.material.envMapIntensity = d.env * (1 + .3 * h); }
+    // The halo replaces the dark veil behind the figure rather than fighting it.
+    f.shade.back.value = f.lighting.backShadow * (1 - .7 * h);
+    f.shade.halo.value = h; f.halo.visible = h > .002;
+    f.shade.contact.value = .72 * (1 + .25 * h);
   }
 
   function enter(f: Figure, state: FigureState, previous: FigureState | null, clock: number) {
@@ -144,7 +193,7 @@ export function buildPantheonFigures(scene: T.Scene, host: HTMLElement, camera: 
     if (state === 'waiting') return r < .7 ? 'holo' : 'omega';
     if (state === 'completed') return 'zeus';
     if (f.current === f.actions.get('idle_inspect')) return 'tool';
-    const options: [string, number][] = [['forward', .32], ['omega', .26], ['neighbour', .16], ['zeus', .12], ['tool', .14]];
+    const options = IDLE_GAZE[f.spec.id];
     const pool = options.filter(([n]) => n !== f.gazeTarget && !(n === 'zeus' && f.spec.id === 'zeus')), total = pool.reduce((s, [, w]) => s + w, 0);
     let pickValue = r * total;
     for (const [n, w] of pool) if ((pickValue -= w) <= 0) return n;
@@ -160,6 +209,9 @@ export function buildPantheonFigures(scene: T.Scene, host: HTMLElement, camera: 
       case 'tool': return f.tool ? f.tool.getWorldPosition(out) : f.frame.localToWorld(out.set(-.2, .75, .56));
       case 'holo': return f.surface ? f.surface.group.getWorldPosition(out) : f.frame.localToWorld(out.set(.4, 1.2, .5));
       case 'down': return f.frame.localToWorld(out.set(0, .2, 1.2));
+      case 'viewer': return out.copy(camera.position);
+      // The constellations overhead: Plugins above the left of the Omega, Skills in the upper right.
+      case 'sky': return out.set(station.x < 0 ? -150 : 320, 260, -60);
       default: return f.frame.localToWorld(out.set(0, 1.62, 3));
     }
   }
@@ -221,10 +273,11 @@ export function buildPantheonFigures(scene: T.Scene, host: HTMLElement, camera: 
     const aura = f.spec.id === 'zeus' && active ? Math.min(working, 4) * .12 : 0;
     const glow = state === 'dormant' ? .12 : state === 'unavailable' ? .18 : active ? 1 + aura : state === 'waiting' ? .62 : state === 'blocked' ? .4 : state === 'completed' ? .9 : .42;
     const u = f.platform.uniforms.glow;
-    u.value += (glow - u.value) * (moving ? 1 - Math.exp(-dt * 3) : 1);
+    const target = glow * f.lighting.pedestal + .32 * f.hover;
+    u.value += (target - u.value) * (moving ? 1 - Math.exp(-dt * 3) : 1);
     f.flash = Math.max(0, f.flash - dt * 5);
     const flicker = moving ? Math.sin(clock * 9.1) * .08 + Math.sin(clock * 23.7) * .05 : 0;
-    f.light.intensity = (state === 'dormant' ? 0 : 900 * (.18 + u.value * .55 + flicker * u.value)) + f.flash * 2600;
+    f.light.intensity = (state === 'dormant' ? 0 : 900 * f.lighting.fill * (.18 + u.value * .55 + flicker * u.value) * (1 + .5 * f.hover)) + f.flash * 2600;
     if (f.surface) {
       const s = f.surface, want = active ? 1 : state === 'waiting' ? .55 : 0;
       s.presence += (want - s.presence) * (moving ? 1 - Math.exp(-dt * (want > s.presence ? 2.4 : 1.6)) : 1);
@@ -279,6 +332,7 @@ function createFigure(spec: FigureSpec, parent: T.Group, pedestal: T.Mesh, sprit
   const frame = new T.Group(); frame.scale.setScalar(UNIT); group.add(frame);
   const stand = pedestal.clone(); stand.name = 'Pedestal'; frame.add(stand);
   const platform = buildPlatform(spec.accent); frame.add(platform.disc, platform.ring);
+  const shade = buildShade(); frame.add(shade.halo, shade.back, shade.contact);
   const light = new T.PointLight(spec.accent, 0, FIGURE_HEIGHT * 2.2, 1.6); light.position.set(-.1, .95, .7); frame.add(light);
   parent.add(group);
   const body = new T.Group(); body.name = `${spec.name} body`; body.scale.setScalar(figureScale(spec.id)); frame.add(body);
@@ -289,6 +343,7 @@ function createFigure(spec: FigureSpec, parent: T.Group, pedestal: T.Mesh, sprit
     spec, group, frame, body, bones: skeleton.bones, rest: restPose(skeleton.bones), mixer: new T.AnimationMixer(body), actions: new Map(), current: null, base: 'idle', gestureEnds: false,
     memory: null, random: seeded(spec.id), nextGesture: 0, lastGesture: null, nextGaze: 0, gazeTarget: 'forward', gaze: { yaw: 0, pitch: 0, vyaw: 0, vpitch: 0, neck: new T.Quaternion(), head: new T.Quaternion() },
     tool: null, live: new Map(), platform, light, flash: 0, source: 'pending', surface, target: null, anchor: '', ember: 1, model: null,
+    shade: shade.uniforms, halo: shade.halo, materials: [], skin: null, lighting: skinById(pantheonSkin()).lighting, hover: 0, shown: -1, attended: false,
   };
   bindClips(figure, figureClips(spec.id));
   figure.nextGesture = span(figure.random, spec.temperament.gesture) * .6;
@@ -327,8 +382,34 @@ const span = (random: () => number, [a, b]: readonly [number, number]) => a + ra
 /** Dark bronze drum with a gold lip; the glowing disc sits on its top face. */
 function buildPedestal() {
   const profile = [[0, -.2], [.6, -.2], [.66, -.185], [.67, -.15], [.64, -.135], [.61, -.115], [.6, -.035], [.64, -.022], [.645, -.006], [.62, 0], [0, 0]].map(([x, y]) => new T.Vector2(x, y));
-  const material = rimmed(new T.MeshStandardMaterial({ color: 0x3a2a1c, metalness: .85, roughness: .38 }), 0xd9a24e, .45);
+  const material = rimmed(new T.MeshStandardMaterial({ color: 0x2c2018, metalness: .85, roughness: .46 }), 0xd9a24e, .16);
   return new T.Mesh(new T.LatheGeometry(profile, 56), material);
+}
+
+/**
+ * Depth without real-time shadow maps: a soft dark veil behind the figure
+ * that separates it from stars and mountains, and a contact shadow under its
+ * feet on the pedestal. On hover a gold halo shines from behind the figure.
+ * All are single quads; the skin and hover set their strength.
+ */
+function buildShade() {
+  const uniforms = { back: { value: .5 }, contact: { value: .72 }, halo: { value: 0 } };
+  const veil = (fragment: string, strength: { value: number }) => new T.ShaderMaterial({
+    uniforms: { strength }, transparent: true, depthWrite: false,
+    vertexShader: 'varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
+    fragmentShader: `uniform float strength;varying vec2 vUv;void main(){vec2 p=(vUv-.5)*2.;${fragment}}`,
+  });
+  // Shaped like the figure: narrow, tallest at the shoulders, gone before the pedestal's rim.
+  const back = new T.Mesh(new T.PlaneGeometry(1.5, 2.3), veil('float d=length(vec2(p.x*(1.15-.25*p.y),p.y*.92));float a=pow(1.-smoothstep(.12,1.,d),1.5)*smoothstep(-1.,-.72,p.y);gl_FragColor=vec4(.008,.01,.016,a*strength);', uniforms.back));
+  back.position.set(0, 1.18, -.44); back.renderOrder = -1; back.name = 'Back shadow';
+  const contact = new T.Mesh(new T.CircleGeometry(.36, 40), veil('float r=length(p);gl_FragColor=vec4(.01,.008,.006,pow(1.-smoothstep(0.,1.,r),1.6)*strength);', uniforms.contact));
+  contact.rotation.x = -Math.PI / 2; contact.position.set(0, .003, .02); contact.renderOrder = 1; contact.name = 'Contact shadow';
+  // The Armory row's gold (#f2cf86), hot at the shoulders, with faint rays; it fades before the pedestal so the platform keeps its own glow.
+  const halo = new T.Mesh(new T.PlaneGeometry(2.5, 2.9), veil('float d=length(vec2(p.x*1.15,(p.y-.1)*1.02));float rays=.78+.22*pow(abs(sin(atan(p.y-.1,p.x)*7.)),6.);float wide=pow(1.-smoothstep(0.,1.,d),2.2)*.55*rays,core=exp(-d*d*10.);vec3 c=mix(vec3(.95,.64,.28),vec3(1.,.92,.76),core);c*=(core+wide)*smoothstep(-.95,-.5,p.y)*strength;gl_FragColor=vec4(c,min(max(c.r,max(c.g,c.b)),1.));', uniforms.halo));
+  // Light adds to the scene, and its alpha lets it show over the page behind a transparent canvas.
+  Object.assign(halo.material, { blending: T.CustomBlending, blendSrc: T.OneFactor, blendDst: T.OneFactor, blendSrcAlpha: T.OneFactor, blendDstAlpha: T.OneMinusSrcAlphaFactor });
+  halo.position.set(0, 1.2, -.52); halo.renderOrder = -.5; halo.visible = false; halo.name = 'Hover halo';
+  return { back, contact, halo, uniforms };
 }
 
 function buildPlatform(accent: number) {
@@ -336,9 +417,9 @@ function buildPlatform(accent: number) {
   const disc = new T.Mesh(new T.CircleGeometry(.62, 48), new T.ShaderMaterial({
     uniforms, transparent: true, depthWrite: false, blending: T.AdditiveBlending, side: T.DoubleSide,
     vertexShader: 'varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
-    fragmentShader: 'uniform float glow;uniform vec3 tint;varying vec2 vUv;void main(){float r=length(vUv-.5)*2.;float rim=smoothstep(.78,.93,r)*(1.-smoothstep(.93,1.,r));float pool=(1.-smoothstep(0.,.9,r))*.35;gl_FragColor=vec4(tint*(rim*.9+pool)*glow,1.);}',
+    fragmentShader: 'uniform float glow;uniform vec3 tint;varying vec2 vUv;void main(){float r=length(vUv-.5)*2.;float rim=smoothstep(.78,.93,r)*(1.-smoothstep(.93,1.,r));float pool=(1.-smoothstep(0.,.9,r))*.16;gl_FragColor=vec4(tint*(rim*.6+pool)*glow,1.);}',
   }));
-  disc.rotation.x = -Math.PI / 2; disc.position.y = .005;
+  disc.rotation.x = -Math.PI / 2; disc.position.y = .005; disc.renderOrder = 2;
   const ring = new T.LineLoop(new T.BufferGeometry().setFromPoints(Array.from({ length: 96 }, (_, i) => new T.Vector3(Math.cos(i / 96 * Math.PI * 2) * .78, -.1, Math.sin(i / 96 * Math.PI * 2) * .78))), new T.LineBasicMaterial({ color: accent, transparent: true, opacity: .22, depthWrite: false, blending: T.AdditiveBlending }));
   return { disc, ring, uniforms };
 }
@@ -627,23 +708,103 @@ function adopt(f: Figure, model: LoadedModel, environment: T.Texture) {
   let rigged = false;
   model.root.traverse(o => { if ((o as T.SkinnedMesh).isSkinnedMesh || (o as T.Bone).isBone || RIG_NAMES.test(o.name)) rigged = true; });
   if (rigged) adoptRigged(f, model); else adoptStatue(f, model);
+  f.materials = [];
   f.model?.traverse(o => {
     const mesh = o as T.Mesh;
-    for (const m of (Array.isArray(mesh.material) ? mesh.material : mesh.material ? [mesh.material] : [])) dress(m, f.spec.accent, environment);
+    if (!mesh.isMesh) return;
+    occlusion(mesh.geometry);
+    for (const m of (Array.isArray(mesh.material) ? mesh.material : [mesh.material])) {
+      const standard = m as T.MeshStandardMaterial;
+      if (!standard.isMeshStandardMaterial || standard.userData.dressed) continue;
+      standard.userData.dressed = true;
+      // Baked occlusion arrives as vertex colour and is read by the statue shader instead.
+      standard.vertexColors = false;
+      standard.envMap = environment;
+      f.materials.push({ material: standard, uniforms: statueShader(standard), color: standard.color.clone(), emissive: standard.emissive.clone(), emissiveIntensity: standard.emissiveIntensity, rim: new T.Color(), env: standard.envMapIntensity });
+    }
   });
+  f.skin = null;
   f.anchor = ''; if (f.target) f.target.dataset.figureSource = f.source;
 }
 
-/** Statue materials by name: reflections for marble and metal, the god's rim light; glows are left to bloom. */
-const FINISH: Record<string, [number, number]> = { marble: [.35, .24], stone: [.35, .22], gold: [1.1, .45], bronze: [.9, .38], iron: [.8, .32], leather: [.5, .22] };
-function dress(material: T.Material, accent: number, environment: T.Texture) {
-  const standard = material as T.MeshStandardMaterial;
-  if (!standard.isMeshStandardMaterial || standard.userData.dressed) return;
-  standard.userData.dressed = true;
-  const finish = FINISH[standard.name];
-  if (!finish) return;
-  standard.envMap = environment; standard.envMapIntensity = finish[0];
-  rimmed(standard, standard.name === 'gold' ? 0xffd08a : accent, finish[1]);
+/** Writes a skin into a god's materials: uniforms and parameters only, so switching never recompiles. */
+function applySkin(f: Figure, skin: Skin) {
+  f.skin = skin.id; f.lighting = skin.lighting; f.shown = -1;
+  const rim = rimColorFor(skin, f.spec.id);
+  for (const d of f.materials) {
+    const m = d.material, finish = finishFor(skin, f.spec.id, m.name);
+    if (!finish) { d.rim.setRGB(0, 0, 0); d.uniforms.occlusion.value = skin.lighting.ao; d.uniforms.form.value = skin.lighting.form; d.uniforms.celestial.value = 0; continue; }
+    if (finish.color === undefined) m.color.copy(d.color); else m.color.setHex(finish.color);
+    // An accent recoloured by the skin glows in its new colour.
+    if (m.name === 'accent') { if (finish.color === undefined) m.emissive.copy(d.emissive); else m.emissive.setHex(finish.color); }
+    m.metalness = finish.metalness; m.roughness = finish.roughness; d.env = finish.env;
+    if (finish.emissive !== undefined) m.emissiveIntensity = d.emissiveIntensity * finish.emissive;
+    d.rim.setHex(rim).multiplyScalar(finish.rim * 1.35);
+    d.uniforms.grain.value = finish.grain; d.uniforms.occlusion.value = skin.lighting.ao; d.uniforms.form.value = skin.lighting.form; d.uniforms.celestial.value = finish.celestial ?? 0;
+  }
+}
+
+/** The statues' baked occlusion as one float per vertex; parts without it are fully open. */
+function occlusion(geometry: T.BufferGeometry) {
+  if (geometry.attributes.ao) return;
+  const color = geometry.attributes.color, count = geometry.attributes.position.count, ao = new Float32Array(count).fill(1);
+  if (color) for (let i = 0; i < count; i++) ao[i] = color.getX(i);
+  geometry.setAttribute('ao', new T.BufferAttribute(ao, 1));
+  geometry.deleteAttribute('color');
+}
+
+type StatueUniforms = { rimColor: { value: T.Color }; grain: { value: number }; occlusion: { value: number }; form: { value: number }; celestial: { value: number }; time: { value: number } };
+const VALUE_NOISE = `float pantheonHash(vec3 p){p=fract(p*.3183099+.1);p*=17.;return fract(p.x*p.y*p.z*(p.x+p.y+p.z));}
+float pantheonNoise(vec3 x){vec3 i=floor(x),f=fract(x);f=f*f*(3.-2.*f);
+return mix(mix(mix(pantheonHash(i),pantheonHash(i+vec3(1,0,0)),f.x),mix(pantheonHash(i+vec3(0,1,0)),pantheonHash(i+vec3(1,1,0)),f.x),f.y),
+mix(mix(pantheonHash(i+vec3(0,0,1)),pantheonHash(i+vec3(1,0,1)),f.x),mix(pantheonHash(i+vec3(0,1,1)),pantheonHash(i+vec3(1,1,1)),f.x),f.y),f.z);}`;
+/**
+ * The statue surface on top of three's standard material: weathering noise
+ * fixed to the rest pose (it does not swim as the god moves), baked
+ * occlusion on ambient light and in the folds, and a rim light that is
+ * strongest from above and behind.
+ */
+function statueShader(material: T.MeshStandardMaterial): StatueUniforms {
+  const uniforms: StatueUniforms = { rimColor: { value: new T.Color() }, grain: { value: 0 }, occlusion: { value: 0 }, form: { value: 0 }, celestial: { value: 0 }, time: { value: 0 } };
+  material.onBeforeCompile = shader => {
+    Object.assign(shader.uniforms, uniforms);
+    shader.vertexShader = 'attribute float ao;\nvarying float vAo;\nvarying vec3 vRest;\n' + shader.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nvAo=ao;vRest=position;');
+    shader.fragmentShader = 'uniform vec3 rimColor;uniform float grain;uniform float occlusion;uniform float form;uniform float celestial;uniform float time;varying float vAo;varying vec3 vRest;\n' + VALUE_NOISE + '\n' + shader.fragmentShader
+      .replace('#include <color_fragment>', `#include <color_fragment>
+float weather=pantheonNoise(vRest*23.)*.65+pantheonNoise(vRest*67.)*.35;
+float cavity=mix(1.,max(vAo,.22),occlusion);
+// Form shading, as a sculpture photographed under one soft key: surfaces turned from the upper left fall
+// gently into shade, and the figure darkens a little toward its feet. Hemisphere fill alone reads flat.
+float keyFacing=dot(normalize(vNormal),normalize(vec3(-.45,.62,.65)));
+float sculpt=mix(1.,smoothstep(-.55,.85,keyFacing)*.72+.28,form)*mix(1.,.72+.28*smoothstep(.1,1.35,vRest.y),form);
+diffuseColor.rgb*=(1.+(weather-.5)*grain*1.6)*mix(1.,cavity,.7)*sculpt;
+// Celestial: a nebula that drifts slowly through the figure, darkest in its folds.
+float nebula=pantheonNoise(vRest*5.5+vec3(0.,time*.025,0.))*.7+pantheonNoise(vRest*13.-vec3(time*.02))*.3;
+vec3 deepSky=mix(vec3(.015,.035,.11),vec3(.09,.2,.46),smoothstep(.25,.85,nebula))*cavity;
+diffuseColor.rgb=mix(diffuseColor.rgb,deepSky*.18,celestial);`)
+      .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
+roughnessFactor=clamp(roughnessFactor+(weather-.5)*grain,.04,1.);`)
+      .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
+vec3 rimNormal=normalize(vNormal);
+float rimLight=pow(1.-clamp(dot(rimNormal,normalize(vViewPosition)),0.,1.),2.6)*mix(.45,1.2,clamp(rimNormal.y*.5+.5,0.,1.));
+totalEmissiveRadiance+=rimColor*rimLight*cavity;
+if(celestial>.001){
+  // Stars sit in screen space, so the figure reads as a window onto the sky behind it.
+  vec2 starGrid=gl_FragCoord.xy/2.2;vec2 starCell=floor(starGrid);vec2 starOffset=fract(starGrid)-.5;
+  float starSeed=pantheonHash(vec3(starCell,3.7));
+  float star=step(.8,starSeed)*smoothstep(.45,0.,length(starOffset))*(.5+.5*sin(time*(1.2+starSeed*2.)+starSeed*60.));
+  float bright=step(.975,starSeed);
+  // Fine dust between the stars, then a cool edge glow, so the centre stays deep like glass.
+  float dust=pantheonHash(vec3(floor(gl_FragCoord.xy),9.1));
+  float facing=clamp(dot(normalize(vNormal),normalize(vViewPosition)),0.,1.);
+  totalEmissiveRadiance+=celestial*(deepSky*.3+vec3(.78,.87,1.)*(star*(.6+bright*1.1)+step(.93,dust)*.12)*cavity+vec3(.3,.55,1.)*pow(1.-facing,3.2)*.5);
+}`)
+      .replace('#include <aomap_fragment>', `#include <aomap_fragment>
+reflectedLight.indirectDiffuse*=cavity*sculpt;reflectedLight.indirectSpecular*=cavity*mix(1.,sculpt,.6);`);
+  };
+  material.customProgramCacheKey = () => 'pantheon-statue';
+  material.needsUpdate = true;
+  return uniforms;
 }
 
 /**
@@ -670,7 +831,8 @@ function adoptStatue(f: Figure, model: LoadedModel) {
     const mesh = o as T.Mesh;
     if (!mesh.isMesh) return;
     const geometry = mesh.geometry.clone().applyMatrix4(mesh.matrixWorld);
-    for (const name of Object.keys(geometry.attributes)) if (name !== 'position' && name !== 'normal') geometry.deleteAttribute(name);
+    occlusion(geometry);
+    for (const name of Object.keys(geometry.attributes)) if (name !== 'position' && name !== 'normal' && name !== 'ao') geometry.deleteAttribute(name);
     const material = mesh.material as T.Material;
     if (binding === 'root') { add(fixed, material, geometry); return; }
     const [names, power] = binding.split('~');

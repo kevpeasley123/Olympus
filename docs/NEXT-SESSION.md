@@ -48,7 +48,13 @@ seen only in Chromium with software WebGL.
 
 ## In flight
 
-Nothing.
+- **Pantheon skins** on `claude/project-thread-lp4tw8`, not released: four
+  material presets for the gods (Aged Bronze default with crisp white
+  garments; Obsidian Gold; Mythic Color; Celestial starfield), baked occlusion
+  and form shading, back and contact shadows, a stronger hover synced with the Armory
+  with a gold halo behind the hovered god, and the Agents constellation removed. Waiting on Kevin's choice of
+  skin; the comparison picker shows only in dev and evaluation builds. See
+  [PANTHEON-FIGURES.md](PANTHEON-FIGURES.md).
 
 ## Next
 

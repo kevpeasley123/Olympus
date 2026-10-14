@@ -17,7 +17,7 @@ export function architectureOrbits(host:HTMLElement,camera:T.Camera){
    const bounds=host.getBoundingClientRect();if(!bounds.width||!bounds.height)return;
    if(bounds.width!==width||bounds.height!==height||!records.length){
     reset();width=bounds.width;height=bounds.height;
-    for(const element of dial.querySelectorAll<HTMLElement>('.armory-constellation,.skills-constellation,.vault-constellation,.agents-constellation')){
+    for(const element of dial.querySelectorAll<HTMLElement>('.armory-constellation,.skills-constellation,.vault-constellation')){
      const rect=element.getBoundingClientRect(),x=rect.left+rect.width/2-bounds.left,y=rect.top+rect.height/2-bounds.top;
      ndc.set(x/width*2-1,1-y/height*2);ray.setFromCamera(ndc,camera);
      if(ray.ray.intersectPlane(plane,point))records.push({element,base:point.clone().applyQuaternion(initial),x,y});
@@ -43,13 +43,11 @@ export function architectureOrbits(host:HTMLElement,camera:T.Camera){
      r.element.dataset.orbitPhase=String(memoryTime*Math.PI*2/120);
      continue;
     }
-    const isNest=r.element.classList.contains('agents-constellation');
     point.copy(r.base).applyQuaternion(rotation).project(camera);
-    if(isNest)point.set(r.x/width*2-1,1-r.y/height*2,0);
-    r.element.style.transform=isNest?'none':'translate('+((point.x*.5+.5)*width-r.x).toFixed(2)+'px,'+((.5-point.y*.5)*height-r.y).toFixed(2)+'px)';
+    r.element.style.transform='translate('+((point.x*.5+.5)*width-r.x).toFixed(2)+'px,'+((.5-point.y*.5)*height-r.y).toFixed(2)+'px)';
     // Architecture is an always-readable overlay, even across Omega's silhouette.
     r.element.style.visibility='visible';
-    r.element.dataset.orbitPhase=String(isNest?0:time*Math.PI*2/120);
+    r.element.dataset.orbitPhase=String(time*Math.PI*2/120);
 
    }
   },dispose:()=>reset(),
