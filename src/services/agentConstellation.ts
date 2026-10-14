@@ -12,21 +12,25 @@ export function onConstellationAgent(f:(id:string)=>void){inspectors.add(f);retu
 // Transient inspection is separate from selection and execution authority.
 const highlights=new Map<object,string>();
 const highlightListeners=new Set<()=>void>();
-const highlightSnapshot=()=>{const values=Array.from(highlights.values());return values[values.length-1]??null;};
+let highlighted:string|null=null;
+const highlightSnapshot=()=>highlighted;
 const subscribeHighlight=(f:()=>void)=>{highlightListeners.add(f);return ()=>{highlightListeners.delete(f)};};
+/** The agent under the pointer or keyboard focus anywhere (Armory row, god, constellation); read per frame by the scene. */
+export const agentHighlightSnapshot=highlightSnapshot;
+export function setAgentHighlight(source:object,id:string|null){
+ highlights.delete(source);if(id!==null)highlights.set(source,id);
+ const values=Array.from(highlights.values());highlighted=values[values.length-1]??null;
+ highlightListeners.forEach(f=>f());
+}
 export function useAgentHighlight(){
  const pointer=useRef({}),keyboard=useRef({});
  const active=useSyncExternalStore(subscribeHighlight,highlightSnapshot,highlightSnapshot);
- function set(source:object,id:string|null){
-  if(id===null)highlights.delete(source);else{highlights.delete(source);highlights.set(source,id);}
-  highlightListeners.forEach(f=>f());
- }
- useEffect(()=>()=>{set(pointer.current,null);set(keyboard.current,null);},[]);
+ useEffect(()=>()=>{setAgentHighlight(pointer.current,null);setAgentHighlight(keyboard.current,null);},[]);
  return {active,bind:(id:string)=>({
   'data-agent-id':id,'data-inspecting':active===id,
-  onPointerEnter:()=>set(pointer.current,id),onPointerLeave:()=>set(pointer.current,null),
-  onPointerCancel:()=>set(pointer.current,null),
-  onFocus:()=>set(keyboard.current,id),onBlur:()=>set(keyboard.current,null),
+  onPointerEnter:()=>setAgentHighlight(pointer.current,id),onPointerLeave:()=>setAgentHighlight(pointer.current,null),
+  onPointerCancel:()=>setAgentHighlight(pointer.current,null),
+  onFocus:()=>setAgentHighlight(keyboard.current,id),onBlur:()=>setAgentHighlight(keyboard.current,null),
  })};
 }
 

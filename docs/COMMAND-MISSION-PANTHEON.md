@@ -24,14 +24,14 @@ bodies. Armory remains left, Pantheon center, Olympus conversation right.
   decorative nearest-neighbour group lines, not shared workflow or tool
   membership. Obsidian Memory uses the bounded vault graph and real note links
   (at most 60 drawn). Lines in each group show only while one of its stars is
-  hovered or focused. The Plugins, Skills, Obsidian Memory and (since 0.25.0)
-  Agents labels persist independently of missions. Existing inspection actions
-  are retained.
+  hovered or focused. The Plugins, Skills and Obsidian Memory labels persist
+  independently of missions. Existing inspection actions are retained.
 - The agents themselves stand around the Omega as animated gods
-  ([PANTHEON-FIGURES.md](PANTHEON-FIGURES.md)). A god with a figure keeps a
-  plain star in the Agents constellation. Skills moved to the upper right
-  corner, clear of Hephaestus's station, and Agents moved below the Omega,
-  right of Obsidian Memory, clear of Themis's.
+  ([PANTHEON-FIGURES.md](PANTHEON-FIGURES.md)), and they are the scene's only
+  representation of the agents: the Agents constellation (a star per agent and
+  its "Agents 5" label) was removed once the five figures stood. The Armory
+  keeps the Agents count and roster, and hovering a row highlights its god.
+  Skills sits in the upper right corner, clear of Hephaestus's station.
 
 ## Rendering and performance
 

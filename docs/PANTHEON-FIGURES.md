@@ -6,10 +6,16 @@ lower left and right, following the operator's reference render. Each figure
 idles on its own (breathing, glances, weight shifts, handling what it holds)
 and works only while a recorded mission step names its runtime agent.
 
-The gods are marble and gold statues modelled in Blender by a script in this
-repository, then skinned in the app to one shared skeleton, so the same clips
-and behaviour drive all five. They replaced the primitive stand-in that proved
-Hephaestus first.
+The gods are statues modelled in Blender by a script in this repository, then
+skinned in the app to one shared skeleton, so the same clips and behaviour
+drive all five. Their look comes from a skin: Aged Bronze by default (bronze
+figures in crisp white garments), with Obsidian Gold, Mythic Color and
+Celestial as alternatives. No external or paid assets are used. They replaced the
+primitive stand-in that proved Hephaestus first.
+
+The figures are the scene's only representation of the agents. The Agents
+constellation that sat beside Plugins, Skills and Obsidian Memory was removed
+once all five stood; the Armory keeps the agent count and roster.
 
 ## Architecture
 
@@ -17,8 +23,9 @@ Hephaestus first.
 | --- | --- | --- |
 | Roster and states | `src/services/pantheonFigureState.ts` | Stations, accents, temperament per god; the pure state machine from mission data |
 | Rig and clips | `src/services/pantheonRig.ts`, `src/services/pantheonRig.json` | The shared skeleton, bone groups, each god's hold pose and clips |
+| Skins | `src/services/pantheonSkins.ts` | The four material presets, the selected skin, and the comparison picker switch |
 | Scene | `src/services/pantheonFigures.ts` | Pedestals, statue skinning, AnimationMixer per god, gaze layer, work effects, signals |
-| Overlay | `src/components/panels/PantheonFigures.tsx` | Hit target, name plate and session indicator per god |
+| Overlay | `src/components/panels/PantheonFigures.tsx` | Hit target, name plate, hover card and session indicator per god; the skin picker while a skin is being chosen |
 | Statues | `scripts/pantheon/build_figures.py` → `public/pantheon/` | Builds the five glTF statues and the manifest |
 | Harness | `pantheon-harness.html` | The gods close up under Command's lights, for checking models and clips |
 
@@ -33,6 +40,18 @@ Hephaestus first.
   (`label@bones~falloff`), merges parts by material into one skinned mesh
   each, and attaches held props to their hand. A god is a few draw calls and
   about 30 000 to 37 000 triangles.
+- **Surface.** One shader patch on three's standard material gives every
+  statue material weathering noise fixed to the rest pose, the baked
+  occlusion on ambient light and in the folds, a soft form shading (surfaces
+  turned from an upper-left key fall into shade, and the figure darkens a
+  little toward its feet), and a rim light strongest from above. A skin or a
+  hover writes uniforms and material parameters only, so neither recompiles a
+  shader.
+- **Depth.** No real-time shadow maps. Each god has a soft dark veil behind
+  its silhouette, which separates it from stars, clouds and mountains, and a
+  contact shadow under its feet on the pedestal. The platform glow is muted
+  and scaled by the skin. On hover a gold halo, the Armory highlight's
+  colour, shines from behind the figure and the dark veil fades out.
 - **Animation layers.** The mixer applies the weighted clips (with
   cross-fades between them), then a procedural gaze turns the neck and head
   toward a chosen target through a damped spring, which gives each glance
@@ -42,16 +61,29 @@ Hephaestus first.
   tool, its work display.
 - **Independent behaviour.** Each god has a seeded random stream and a
   temperament (tempo, gesture interval, gaze interval). Idle gestures are
-  weighted and never repeat back to back; looping clips start at random
-  phases, so no two gods breathe or move together.
+  weighted per god and never repeat back to back; looping clips start at
+  random phases, so no two gods breathe or move together. Habits differ:
+  Zeus looks to the Omega and adjusts his bolt most, Athena watches the
+  constellations and shifts her spear, Hephaestus inspects his hammer,
+  Themis examines her scales, Dionysus gestures with his cup and looks to his
+  neighbours.
 - **Overlay.** HTML targets sit above the canvas like the mission targets. The
   scene projects each figure and writes `left`, `top`, `--figure-height` and
   `data-figure-state` only when they change. Clicking a figure opens the same
-  Armory loadout as the Armory list (`inspectConstellationAgent`); hovering
-  highlights the same agent in both places.
+  Armory loadout as the Armory list (`inspectConstellationAgent`).
+- **Hover.** Hovering a god or its Armory row highlights both (one shared
+  highlight in `agentConstellation.ts`, read by the scene each frame). Over
+  about a quarter second the god grows by eight percent, lifts slightly, and
+  brightens its rim, reflections, fill light and platform, backlit by the
+  gold halo; it
+  glances at the viewer unless it is at work, and the running clip carries on
+  underneath. A small card beside it, on the Omega side, gives its name,
+  specialty and the state the scene is showing. The Armory row gets a gold
+  edge, a lit ground and a soft glow without moving.
 - **Performance.** One mixer per god, one pooled particle draw (72 points) for
-  every spark and ember, six pooled signal pulses. Hidden views stop rendering
-  and reduced motion freezes the figures, as for the rest of the scene.
+  every spark and ember, six pooled signal pulses, two shade quads per god.
+  Hidden views stop rendering and reduced motion freezes the figures, as for
+  the rest of the scene; hover then applies at once instead of easing.
 
 ## The gods
 
@@ -65,6 +97,26 @@ Hephaestus first.
 
 The work displays are animation, not data: the checks, panels and circuit
 cycle while the step is active and say nothing about its progress.
+
+## Skins
+
+| Skin | Figure | Garments | Trims and light |
+| --- | --- | --- | --- |
+| Aged Bronze (default) | Light antique bronze | Crisp white | Muted gold, amber rim, strongest occlusion and form shading |
+| Obsidian Gold | Near-black obsidian | Charcoal | Fine gold, golden rim, restrained glow |
+| Mythic Color | Each god's own | Each god's own | Zeus charcoal and muted gold with amber; Athena bronze and steel blue with cyan; Hephaestus copper and dark iron with ember; Dionysus bronze and plum with violet; Themis muted ivory and sandstone with gold |
+| Celestial | Deep translucent night blue with a dense starfield and a cool edge glow | Crisp white | Pale gold, blue-grey bronze, cool blue rim |
+
+A skin sets each material slot's colour, metalness, roughness, reflection,
+rim and weathering (and, for Celestial, the starfield: stars fixed in
+screen space that twinkle, so the figure reads as a window into the sky),
+plus the skin's back shadow, platform glow, fill light,
+occlusion and form shading. It never changes geometry, proportions or
+stations. While Kevin chooses a skin, every build shows a small Skin switch in
+the bottom left of the scene for comparing them, remembered in local storage
+(`COMPARING` in `pantheonSkins.ts`). Once he picks, that skin becomes the
+default and production builds always use it; a dev build, or a build with
+`VITE_PANTHEON_SKIN_PICKER=1`, keeps the switch.
 
 ## States
 
@@ -111,9 +163,13 @@ its left at +X), exported without the Y-up conversion.
   the pedestal. A label starting `Tool` or `Live` stays a separate node under
   its bone: `Tool` is where effects start and eyes go, and `Live` parts are
   animated by the app (Themis's beam and pans).
-- **Materials by name.** `marble`, `stone`, `gold`, `bronze`, `iron` and
-  `leather` get the environment reflection and the god's rim light. `glow` and
-  `accent` are emissive and left to bloom.
+- **Materials by name.** They are the skin slots: `marble` is the figure
+  itself (body and hair), `cloth` its garments, and `stone`, `gold`, `bronze`,
+  `iron` and `leather` its trims and props. `glow` and `accent` are emissive.
+- **Occlusion.** After building, each part's self-occlusion is baked with
+  Cycles into an `AO` vertex colour (exported as `COLOR_0`). Parts shadow
+  only themselves, because bodies are built in the rest pose while the arms
+  hold another.
 
 ## Replacing a statue with a rigged model
 
@@ -148,11 +204,13 @@ the gaze layer fights them.
 ## Verification
 
 - `node scripts/test-pantheon-figures.mjs` covers the roster, every state
-  rule, the clips and hold poses for all five, and the shipped statues'
-  manifest and bindings.
+  rule, the clips and hold poses for all five, the shipped statues'
+  manifest, bindings and baked occlusion, and that every skin dresses every
+  material the statues use.
 - `pantheon-harness.html?god=athena&state=working` frames one god at work
   (`state` is `idle`, `working`, `waiting` or `blocked`; `at`, `dist` and
-  `turn` move the camera). Without `god` it shows all five from Command's
+  `turn` move the camera; `skin` picks a skin; `hover=athena` holds the
+  pointer over a god). Without `god` it shows all five from Command's
   camera.
 - `command-agent-harness.html?flagship&scenario=mission-coding` shows
   Hephaestus working on a synthetic delegation with Zeus coordinating; add
@@ -161,3 +219,12 @@ the gaze layer fights them.
 
 All of this is browser verification (Chromium with software WebGL), not
 WebView2 or the installed app.
+
+## Limits
+
+- The statues are procedural sculptures, not character models: faces and
+  hands are simple at close range, and garments are rigid (they move with the
+  body, not on their own). At Command's scale silhouette, pose and material
+  carry them.
+- The occlusion is per part, so an arm does not shade the torso beside it.
+- Lighting is shared with the Omega; the shade quads stand in for shadows.

@@ -93,6 +93,7 @@ def material(name, color, metallic=0., roughness=.5, emission=None, strength=0.)
 def palette(accent, glow):
     return {
         'marble': material('marble', 0xcdbfa6, 0, .5),
+        'cloth': material('cloth', 0xc4b59a, 0, .62),
         'stone': material('stone', 0xa89c88, 0, .55),
         'gold': material('gold', 0xe0ac55, 1, .3),
         'bronze': material('bronze', 0x8a5a30, 1, .42),
@@ -457,10 +458,10 @@ def hephaestus(m, pose):
     curls('Beard', m['marble'], 'Head', (0, 1.6, .03), (.07, .065, .07), 140, .02,
           lambda u: u[1] < .15 and u[2] > -.05 and not (u[1] > -.2 and abs(u[0]) < .3 and u[2] > .85),
           seed=5, drop=lambda p, u: p + np.array([0, -.02 * max(0, -u[1]), .01]))
-    robe('Skirt', m['marble'], SKIRT, 1.03, .58, (.158, .124), (.205, .17), folds=13, amp=(.004, .016), flare=1.1, hem=.008)
+    robe('Skirt', m['cloth'], SKIRT, 1.03, .58, (.158, .124), (.205, .17), folds=13, amp=(.004, .016), flare=1.1, hem=.008)
     robe('Apron', m['leather'], SKIRT, 1.0, .52, (.172, .14), (.228, .192), folds=5, amp=(.002, .006), sector=(-.62, .62), lip=False, hem=0, seg=24)
     torus('Belt', m['gold'], (0, 1.02, 0), (.163, .128), .016, 'Hips')
-    tube('Strap', m['marble'], [(-.12, 1.0, .12), (-.02, 1.18, .13), (.1, 1.36, .1), (.16, 1.47, .0), (.1, 1.36, -.115), (-.02, 1.18, -.13), (-.12, 1.0, -.12)],
+    tube('Strap', m['cloth'], [(-.12, 1.0, .12), (-.02, 1.18, .13), (.1, 1.36, .1), (.16, 1.47, .0), (.1, 1.36, -.115), (-.02, 1.18, -.13), (-.12, 1.0, -.12)],
          [(.036, .007)] * 7, CHEST, sides=10, outward=lambda p: (p[0] * .4, max(0, p[1] - 1.4) * 4, p[2]))
     # Hammer in the right fist: handle forward and down, the head's striking face down the swing.
     grip = np.array([0, -.06, .02]); d = np.array([0, -.565, .825]); e = np.array([0, .825, .565])
@@ -494,16 +495,16 @@ def zeus(m, pose):
           lambda u: u[1] < .1 and u[2] > -.1 and not (u[1] > -.25 and abs(u[0]) < .3 and u[2] > .85),
           seed=9, drop=lambda p, u: p + np.array([0, -.05 * max(0, -u[1]), .015 * max(0, -u[1])]))
     torus('Fillet', m['gold'], (0, 1.735, -.01), (.094, .1), .008, 'Head', rotation=(-.18, 0, 0))
-    robe('Himation', m['marble'], ROBE, 1.04, .03, (.16, .125), (.25, .205), folds=17, amp=(.003, .02), flare=1.35, hem=.012,
+    robe('Himation', m['cloth'], ROBE, 1.04, .03, (.16, .125), (.25, .205), folds=17, amp=(.003, .02), flare=1.35, hem=.012,
          bulges=((.15, .5, .03, .5),), phase=.4)
-    torus('Roll', m['marble'], (0, 1.035, .0), (.168, .132), .022, 'Hips', rotation=(0, 0, .04),
+    torus('Roll', m['cloth'], (0, 1.035, .0), (.168, .132), .022, 'Hips', rotation=(0, 0, .04),
           wave=lambda th: .012 * math.sin(7 * th))
     # The drape climbs the back to the left shoulder and falls across the chest to the right hip.
-    tube('Drape', m['marble'], [(-.15, 1.0, -.1), (-.02, 1.2, -.13), (.1, 1.38, -.1), (.17, 1.47, -.01), (.13, 1.4, .1),
+    tube('Drape', m['cloth'], [(-.15, 1.0, -.1), (-.02, 1.2, -.13), (.1, 1.38, -.1), (.17, 1.47, -.01), (.13, 1.4, .1),
                                 (.04, 1.26, .125), (-.08, 1.12, .135), (-.17, 1.03, .1)],
          [(.05, .016), (.075, .018), (.07, .02), (.06, .03), (.07, .022), (.08, .02), (.08, .02), (.06, .018)], CHEST,
          sides=16, outward=lambda p: (p[0] * .5, max(0, p[1] - 1.4) * 4, p[2]), ripples=3, ripple=.012)
-    tube('Fall', m['marble'], [(.2, 1.4, -.05), (.24, 1.2, -.07), (.25, 1.0, -.06), (.24, .82, -.05)],
+    tube('Fall', m['cloth'], [(.2, 1.4, -.05), (.24, 1.2, -.07), (.25, 1.0, -.06), (.24, .82, -.05)],
          [(.04, .014), (.05, .014), (.055, .014), (.045, .01)], 'Spine2+LeftShoulder+LeftArm~2', sides=14,
          outward=lambda p: (1, 0, -.4), ripples=3, ripple=.01)
     # Thunderbolt in the raised right fist, standing upright.
@@ -532,9 +533,9 @@ def athena(m, pose):
     curls('Hair', m['marble'], 'Head', (0, 1.66, -.035), (.088, .105, .09), 120, .024,
           lambda u: u[2] < .2 and u[1] < .5, seed=11,
           drop=lambda p, u: p + np.array([0, -.06 * max(0, -u[2]), -.01]))
-    robe('Peplos', m['marble'], ROBE, 1.02, .03, (.15, .118), (.24, .19), folds=21, amp=(.003, .016), flare=1.3, hem=.01, phase=1.1,
+    robe('Peplos', m['cloth'], ROBE, 1.02, .03, (.15, .118), (.24, .19), folds=21, amp=(.003, .016), flare=1.3, hem=.01, phase=1.1,
          bulges=((-.2, .5, .025, .5),))
-    robe('Overfold', m['marble'], SKIRT, 1.14, .84, (.152, .12), (.21, .165), folds=15, amp=(.004, .014), flare=1.1, hem=.014, phase=2.)
+    robe('Overfold', m['cloth'], SKIRT, 1.14, .84, (.152, .12), (.21, .165), folds=15, amp=(.004, .014), flare=1.1, hem=.014, phase=2.)
     torus('Girdle', m['gold'], (0, 1.13, .004), (.147, .116), .012, 'Spine')
     ellipsoid('Aegis', m['gold'], (0, 1.29, .008), (.172, .15, .135), CHEST, part=lambda x, y, z: z > .12 and y > -.7)
     ellipsoid('Gorgon', m['accent'], (0, 1.33, .112), (.028, .028, .012), 'Spine2', seg=14, rings=8)
@@ -557,7 +558,7 @@ def athena(m, pose):
     normal = np.array([.55, 0, .84]); normal /= np.linalg.norm(normal)
     centre = fore + normal * .05
     ry = math.atan2(normal[0], normal[2])
-    pose_to_rest(ellipsoid('Shield', m['marble'], centre, (.25, .25, .045), 'LeftForeArm', rotation=(0, ry, 0), seg=40, rings=10,
+    pose_to_rest(ellipsoid('Shield', m['bronze'], centre, (.25, .25, .045), 'LeftForeArm', rotation=(0, ry, 0), seg=40, rings=10,
                            part=lambda x, y, z: z > -.2), pose, 'LeftForeArm')
     pose_to_rest(torus('Rim', m['gold'], centre - normal * .006, (.25, .25), .016, 'LeftForeArm', rotation=rot(0, ry, 0) @ rot(math.pi / 2), seg=64, sides=8), pose, 'LeftForeArm')
     rim2 = torus('Ring', m['gold'], centre + normal * .03, (.15, .15), .008, 'LeftForeArm', rotation=rot(0, ry, 0) @ rot(math.pi / 2), seg=48, sides=6)
@@ -587,10 +588,10 @@ def dionysus(m, pose):
     for i, (dx, dy) in enumerate([(0, 0), (.012, -.018), (-.012, -.018), (0, -.034), (.022, -.004), (-.022, -.004)]):
         for s in (-1, 1):
             ellipsoid('Grape', m['accent'], (s * (.09 + dx * .5), 1.7 + dy, .05 + dx * .3), (.011, .011, .011), 'Head', seg=8, rings=6)
-    robe('Chiton', m['marble'], ROBE, 1.04, .03, (.152, .12), (.235, .19), folds=19, amp=(.003, .018), flare=1.4, hem=.012, phase=2.6,
+    robe('Chiton', m['cloth'], ROBE, 1.04, .03, (.152, .12), (.235, .19), folds=19, amp=(.003, .018), flare=1.4, hem=.012, phase=2.6,
          bulges=((.25, .5, .03, .5),))
     torus('Sash', m['gold'], (0, 1.04, .0), (.155, .122), .011, 'Hips')
-    tube('Nebris', m['marble'], [(.14, 1.0, -.12), (.17, 1.2, -.11), (.16, 1.46, -.02), (.08, 1.37, .11), (-.04, 1.21, .13), (-.15, 1.06, .11)],
+    tube('Nebris', m['cloth'], [(.14, 1.0, -.12), (.17, 1.2, -.11), (.16, 1.46, -.02), (.08, 1.37, .11), (-.04, 1.21, .13), (-.15, 1.06, .11)],
          [(.05, .015), (.07, .018), (.06, .03), (.075, .02), (.08, .02), (.06, .018)], CHEST, sides=16,
          outward=lambda p: (p[0] * .5, max(0, p[1] - 1.4) * 4, p[2]), ripples=3, ripple=.012)
     # Kantharos raised in the left hand: bowl, two high handles, stem and foot.
@@ -627,14 +628,14 @@ def themis(m, pose):
     ellipsoid('Bun', m['marble'], (0, 1.68, -.115), (.05, .045, .04), 'Head', seg=16, rings=10)
     torus('Diadem', m['gold'], (0, 1.725, -.004), (.094, .088), .007, 'Head', rotation=(-.3, -math.pi / 2, 0), arc=math.pi, seg=24)
     ellipsoid('Jewel', m['accent'], (0, 1.79, .07), (.012, .016, .008), 'Head', seg=10, rings=6)
-    robe('Chiton', m['marble'], ROBE, 1.2, .03, (.135, .108), (.235, .19), folds=24, amp=(.002, .014), flare=1.25, hem=.008, phase=.9,
+    robe('Chiton', m['cloth'], ROBE, 1.2, .03, (.135, .108), (.235, .19), folds=24, amp=(.002, .014), flare=1.25, hem=.008, phase=.9,
          bulges=((.3, .5, .02, .5), (-.15, 1.15, .015, .6)), top_folds=.5)
     torus('Band', m['gold'], (0, 1.205, .004), (.137, .112), .009, 'Spine1')
     for s in (-1, 1):
         ellipsoid('Clasp', m['gold'], (s * .13, 1.455, .02), (.014, .014, .01), 'Spine2', seg=10, rings=6)
-        tube('Fold', m['marble'], [(s * .12, 1.44, .04), (s * .09, 1.36, .095), (s * .07, 1.26, .11), (s * .055, 1.21, .115)],
+        tube('Fold', m['cloth'], [(s * .12, 1.44, .04), (s * .09, 1.36, .095), (s * .07, 1.26, .11), (s * .055, 1.21, .115)],
              [.007, .008, .008, .006], CHEST, sides=8)
-    tube('Mantle', m['marble'], [(.11, 1.06, -.1), (.16, 1.2, -.1), (.15, 1.45, -.03), (.06, 1.36, .1), (-.06, 1.22, .12), (-.16, 1.1, .09)],
+    tube('Mantle', m['cloth'], [(.11, 1.06, -.1), (.16, 1.2, -.1), (.15, 1.45, -.03), (.06, 1.36, .1), (-.06, 1.22, .12), (-.16, 1.1, .09)],
          [(.02, .01), (.065, .018), (.06, .028), (.075, .02), (.075, .02), (.05, .018)], CHEST, sides=16,
          outward=lambda p: (p[0] * .5, max(0, p[1] - 1.4) * 4, p[2]), ripples=3, ripple=.01)
     # Scales hanging from the raised right hand; the beam and pans are animated parts.
@@ -714,6 +715,33 @@ GODS = {
 }
 
 
+def bake_occlusion(distance=.14, samples=64):
+    """Self-occlusion of every part into an `AO` vertex colour: folds, curls and crevices.
+
+    Each part shadows only itself. Bodies are built in the rest pose while the
+    arms hold another, so occlusion between parts would land where nothing is.
+    """
+    scene = bpy.context.scene
+    scene.render.engine = 'CYCLES'
+    scene.cycles.device = 'CPU'
+    scene.cycles.samples = samples
+    scene.render.bake.target = 'VERTEX_COLORS'
+    world = bpy.data.worlds.new('Occlusion'); scene.world = world
+    world.light_settings.distance = distance
+    meshes = [o for o in scene.objects if o.type == 'MESH']
+    for o in meshes:
+        for other in meshes:
+            other.hide_render = other is not o
+        attribute = o.data.color_attributes.new('AO', 'BYTE_COLOR', 'POINT')
+        o.data.color_attributes.active_color = attribute
+        o.data.attributes.active_color = attribute
+        bpy.ops.object.select_all(action='DESELECT')
+        o.select_set(True); bpy.context.view_layer.objects.active = o
+        bpy.ops.object.bake(type='AO')
+    for o in meshes:
+        o.hide_render = False
+
+
 def build(god):
     bpy.ops.wm.read_factory_settings(use_empty=True)
     COUNT[0] = 0
@@ -724,11 +752,12 @@ def build(god):
     for o in bpy.context.scene.objects:
         if o.name.startswith('Tool'):
             centre_origin(o)
+    bake_occlusion()
     tris = sum(sum(len(p.vertices) - 2 for p in o.data.polygons) for o in bpy.context.scene.objects if o.type == 'MESH')
     path = os.path.join(OUT, f'{god}.glb')
     bpy.ops.export_scene.gltf(filepath=path, export_format='GLB', export_yup=False, export_apply=True,
                               export_animations=False, export_skins=False, export_texcoords=False,
-                              export_normals=True, export_extras=False, export_lights=False, export_cameras=False)
+                              export_normals=True, export_colors=True, export_extras=False, export_lights=False, export_cameras=False)
     print(f'[pantheon] {god}: {len(bpy.context.scene.objects)} parts, {tris} triangles, {os.path.getsize(path) // 1024} KB')
 
 

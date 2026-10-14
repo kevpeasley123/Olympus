@@ -1,4 +1,3 @@
-import { AgentsConstellation } from "./AgentsConstellation";
 import { MissionTargets } from "./PantheonMissions";
 import { PantheonFigures } from "./PantheonFigures";
 import { SkillsConstellation } from "./SkillsConstellation";
@@ -276,7 +275,7 @@ export function CommandInstrument({
       style={{ ...ambientVariables, "--ambient-drift": `${2 / renderScale}px` } as CSSProperties}>
       <motion.div className="command-instrument__dial" ref={dialRef} style={instrumentParallax}>
         <div className="command-orbital-atmosphere" aria-hidden="true"/>
-        {flagship && <><ArmoryConstellation capabilities={capabilities??null}/><SkillsConstellation capabilities={capabilities}/><AgentsConstellation/><VaultConstellation graph={graph} error={vaultGraphError} loading={vaultGraphLoading}/></>}
+        {flagship && <><ArmoryConstellation capabilities={capabilities??null}/><SkillsConstellation capabilities={capabilities}/><VaultConstellation graph={graph} error={vaultGraphError} loading={vaultGraphLoading}/></>}
         {flagship && <MissionTargets missions={missions} selected={selectedMission} onSelect={onSelectMission} fallback={!sceneShown}/>}
         {flagship && <PantheonFigures missions={missions}/>}
         {/* Unmounted on failure so its GPU resources, listeners and timers go
