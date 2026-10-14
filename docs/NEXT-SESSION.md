@@ -5,63 +5,57 @@ that changes state and at every release (see "Keeping guidance current" in
 `AGENTS.md`). History is in `docs/RELEASES.md` and `docs/archive/`; the log this
 file replaced is `docs/archive/NEXT-SESSION-through-2026-10-11.md`.
 
-## State — 2026-10-13
+## State — 2026-10-14
 
-- **Version 0.34.0** on `master`, released through "Bring everything current"
-  from `claude/project-thread-lp4tw8`. Kevin confirmed on 2026-10-12 that
-  0.30.0 was installed and in daily use; whether 0.31.0 to 0.34.0 are
-  installed is not yet confirmed.
-- **0.34.0** brings in the **Living Pantheon**
-  ([PANTHEON-FIGURES.md](PANTHEON-FIGURES.md)): the five agents stand around
-  the Omega in Command as small marble and gold statues (Zeus above it, Athena
-  and Hephaestus upper left and right, Dionysus and Themis lower left and
-  right).
-  - The statues are built in Blender by `scripts/pantheon/build_figures.py`
-    and skinned in the app to one shared skeleton, so one set of clips and an
-    independent idle behaviour drive all five.
-  - Each god works, waits, completes or slumps only from recorded mission
-    steps; Zeus sends a pulse when a step is assigned and receives one when it
-    completes. Clicking a god opens its Armory loadout.
-  - The Agents constellation moved below the Omega, right of Obsidian Memory.
-- **Earlier releases.**
-  - 0.33.0 brought conversations and memory
-    (`docs/CONVERSATIONS-AND-MEMORY.md`) and the voice signal beneath the
-    Omega.
-  - 0.31.0 recorded the Armory direction and built Phase 0b (engine sign-in
-    checks, turn limits for delegated Claude Code; `docs/ARMORY-PLAN.md`).
-  - 0.32.0 was the guidance cleanup and the removal of proven dead weight.
-- Every other remote branch ahead of `master` predates the 2026-09-07 history
-  restart and shares no history with it; all are superseded.
+- **Version 0.35.0** on `master`, from `claude/project-thread-lp4tw8`. Kevin
+  confirmed 0.34.0 running on his PC on 2026-10-13 (screenshot); 0.35.0 is
+  installed when he next runs Update Olympus.
+- **0.35.0** gives the Pantheon statues skins and depth
+  ([PANTHEON-FIGURES.md](PANTHEON-FIGURES.md)):
+  - Four material presets: Aged Bronze (default, crisp white garments),
+    Obsidian Gold, Mythic Color and Celestial (a translucent starfield body).
+    A Skin switch under the Omega compares them and ships until Kevin picks
+    one; then make it the default and set `COMPARING` to false in
+    `src/services/pantheonSkins.ts`.
+  - Baked occlusion from the Blender build, form shading, a soft back veil and
+    contact shadows.
+  - Hovering a god or its Armory row lifts and brightens it behind a gold
+    halo and shows a card with its name, specialty and real state; the Armory
+    row lights without moving.
+  - The Agents constellation and its "AGENTS 5" label are gone; Plugins,
+    Skills, Obsidian Memory and the Omega are unchanged.
+- **Earlier releases.** 0.34.0 brought the Living Pantheon; 0.33.0
+  conversations and memory (`docs/CONVERSATIONS-AND-MEMORY.md`) and the voice
+  signal; 0.31.0 Armory Phase 0b (`docs/ARMORY-PLAN.md`).
+- Every other remote branch ahead of `master` is older than the 0.34.0 release
+  or predates the 2026-09-07 history restart; all are superseded.
 
-## Last verification — 2026-10-13, Linux cloud container
+## Last verification — 2026-10-14, Linux cloud container
 
-The 0.34.0 merge:
+The 0.35.0 branch, with `master` already merged in:
 - `cargo test --lib`: 539 passed, 18 ignored;
 - `npm run build`;
 - all 48 `scripts/test-*.mjs`, the browser ones on headless Chromium
-  through a shim that drops `channel:'msedge'`;
+  through a shim that drops `channel:'msedge'` (`test-eleven-browser` given
+  the dev server URL);
 - `npm run visual:review`: 21/21 captures, 14 functional checks and 22
   Organizer checks.
 
-Not the desktop app, WebView2, Tauri IPC or real data. The statues have been
-seen only in Chromium with software WebGL.
+Not the desktop app, WebView2, Tauri IPC or real data. The statues and skins
+have been seen only in Chromium with software WebGL.
 
 ## In flight
 
-- **Pantheon skins** on `claude/project-thread-lp4tw8`, not released: four
-  material presets for the gods (Aged Bronze default with crisp white
-  garments; Obsidian Gold; Mythic Color; Celestial starfield), baked occlusion
-  and form shading, back and contact shadows, a stronger hover synced with the Armory
-  with a gold halo behind the hovered god, and the Agents constellation removed. Waiting on Kevin's choice of
-  skin; the comparison picker ships until he picks (`COMPARING`). See
-  [PANTHEON-FIGURES.md](PANTHEON-FIGURES.md).
+- **Skin choice.** Kevin is comparing the four skins in the installed app.
+- **A live view on Kevin's PC.** A Remote Control session running
+  `npm run tauri dev` from the branch was offered on 2026-10-14 so he can
+  watch visual edits without installing; not yet approved.
 
 ## Next
 
-1. **Look at the Living Pantheon on the PC** after Update Olympus. All five
-   gods should stand on their pedestals and idle out of step with each other.
-   Under software WebGL the statues took 20 to 30 seconds to appear; note how
-   long they take in WebView2 and whether a pedestal stays empty (a model that
+1. **Look at the Pantheon on the PC** after Update Olympus. Switch skins under
+   the Omega, hover each god and its Armory row, and note how long the statues
+   take to appear in WebView2 and whether a pedestal stays empty (a model that
    fails to load logs a warning). Start a delegated run to see Hephaestus work.
 2. **Check 0.33.0 on the PC**, if not done.
    - The first launch migrates the database and writes
@@ -99,6 +93,10 @@ seen only in Chromium with software WebGL.
 
 ## Known issues
 
+- **No reasoning on Kevin's PC.** On 2026-10-14 Sol showed "Unavailable": the
+  desktop `.env` has no `OPENAI_API_KEY`, so typed and spoken replies fail and
+  ElevenLabs reads the error. He is weighing API credits against Armory
+  Phase 1 (subscription engines) and asked to hold Phase 1 for now.
 - **Browser tests assume Kevin's machine.** 16 test scripts hard-code
   `channel:'msedge'`, and most expect a dev server already running on
   `127.0.0.1:31420` (one uses `31448`). A cloud session runs them on Chromium
@@ -133,7 +131,8 @@ seen only in Chromium with software WebGL.
 These are recorded in the release lines and still open. Kevin's daily use
 covers the screens he uses; these paths each need a deliberate trigger.
 
-- The Living Pantheon in WebView2, and any god driven by a real mission step.
+- The Living Pantheon and its skins, halo and hover in WebView2, and any god
+  driven by a real mission step.
 - A Coding Delegate (Hephaestus) run that completes under the turn limit, and
   Organizer acceptance of its real result.
 - The engine sign-in checks against Kevin's real Codex and Claude Code installs.
