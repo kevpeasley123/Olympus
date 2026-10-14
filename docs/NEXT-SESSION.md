@@ -53,7 +53,7 @@ seen only in Chromium with software WebGL.
   garments; Obsidian Gold; Mythic Color; Celestial starfield), baked occlusion
   and form shading, back and contact shadows, a stronger hover synced with the Armory
   with a gold halo behind the hovered god, and the Agents constellation removed. Waiting on Kevin's choice of
-  skin; the comparison picker shows only in dev and evaluation builds. See
+  skin; the comparison picker ships until he picks (`COMPARING`). See
   [PANTHEON-FIGURES.md](PANTHEON-FIGURES.md).
 
 ## Next

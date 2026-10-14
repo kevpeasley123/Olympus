@@ -32,7 +32,7 @@ export function PantheonFigures({missions}:{missions:readonly Mission[]}){
  </div>;
 }
 
-/** Evaluation only (dev builds, or a preview built with VITE_PANTHEON_SKIN_PICKER=1): compares the statue skins in place. */
+/** Evaluation only (while a skin is being chosen, in dev builds, or with VITE_PANTHEON_SKIN_PICKER=1): compares the statue skins in place. */
 function SkinPicker(){
  const skin=useSyncExternalStore(subscribePantheonSkin,pantheonSkin,pantheonSkin);
  return <div className="pantheon-skin-picker" role="group" aria-label="Pantheon skin (evaluation)"><span>Skin</span>{SKINS.map(s=><button key={s.id} type="button" aria-pressed={skin===s.id} onClick={()=>setPantheonSkin(s.id)}>{s.name}</button>)}</div>;

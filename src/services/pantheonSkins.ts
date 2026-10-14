@@ -112,8 +112,10 @@ export function finishFor(skin: Skin, god: FigureId, slot: string): Finish | nul
 }
 export const rimColorFor = (skin: Skin, god: FigureId) => skin.gods?.[god]?.rimColor ?? skin.rimColor;
 
-// The comparison picker is for evaluation only: production builds always use the default skin.
-export const SKIN_PICKER = import.meta.env.DEV || import.meta.env.VITE_PANTHEON_SKIN_PICKER === '1';
+// Kevin is choosing a skin in the installed app (0.35.0), so the comparison picker ships for now.
+// Once he picks, make that the default and set COMPARING to false: production then always uses the default.
+const COMPARING = true;
+export const SKIN_PICKER = COMPARING || import.meta.env.DEV || import.meta.env.VITE_PANTHEON_SKIN_PICKER === '1';
 const STORAGE_KEY = 'olympus.pantheonSkin';
 let current: SkinId = DEFAULT_SKIN;
 if (SKIN_PICKER) try { const stored = localStorage.getItem(STORAGE_KEY); if (stored && byId.has(stored as SkinId)) current = stored as SkinId; } catch { /* storage unavailable */ }

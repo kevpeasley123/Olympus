@@ -23,9 +23,9 @@ once all five stood; the Armory keeps the agent count and roster.
 | --- | --- | --- |
 | Roster and states | `src/services/pantheonFigureState.ts` | Stations, accents, temperament per god; the pure state machine from mission data |
 | Rig and clips | `src/services/pantheonRig.ts`, `src/services/pantheonRig.json` | The shared skeleton, bone groups, each god's hold pose and clips |
-| Skins | `src/services/pantheonSkins.ts` | The four material presets, the selected skin, and the evaluation picker switch |
+| Skins | `src/services/pantheonSkins.ts` | The four material presets, the selected skin, and the comparison picker switch |
 | Scene | `src/services/pantheonFigures.ts` | Pedestals, statue skinning, AnimationMixer per god, gaze layer, work effects, signals |
-| Overlay | `src/components/panels/PantheonFigures.tsx` | Hit target, name plate, hover card and session indicator per god; the skin picker in evaluation builds |
+| Overlay | `src/components/panels/PantheonFigures.tsx` | Hit target, name plate, hover card and session indicator per god; the skin picker while a skin is being chosen |
 | Statues | `scripts/pantheon/build_figures.py` → `public/pantheon/` | Builds the five glTF statues and the manifest |
 | Harness | `pantheon-harness.html` | The gods close up under Command's lights, for checking models and clips |
 
@@ -112,9 +112,11 @@ rim and weathering (and, for Celestial, the starfield: stars fixed in
 screen space that twinkle, so the figure reads as a window into the sky),
 plus the skin's back shadow, platform glow, fill light,
 occlusion and form shading. It never changes geometry, proportions or
-stations. Production builds always use the default. A dev build, or a build
-with `VITE_PANTHEON_SKIN_PICKER=1`, shows a small Skin switch in the bottom
-left of the scene for comparing them, remembered in local storage.
+stations. While Kevin chooses a skin, every build shows a small Skin switch in
+the bottom left of the scene for comparing them, remembered in local storage
+(`COMPARING` in `pantheonSkins.ts`). Once he picks, that skin becomes the
+default and production builds always use it; a dev build, or a build with
+`VITE_PANTHEON_SKIN_PICKER=1`, keeps the switch.
 
 ## States
 

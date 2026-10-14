@@ -102,10 +102,10 @@ for(const [id,file] of Object.entries(manifest)){
   }
 }
 
-// Skins: four presets, Aged Bronze by default, production builds without the picker.
+// Skins: four presets, Aged Bronze by default, the picker shipped while Kevin chooses.
 assert.deepEqual(SKINS.map(s=>s.id),['aged-bronze','obsidian-gold','mythic','celestial']);
 assert.equal(DEFAULT_SKIN,'aged-bronze');
-assert.equal(SKIN_PICKER,false,'the skin picker is for evaluation builds only');
+assert.equal(SKIN_PICKER,true,'the installed build shows the skin picker until a skin is chosen');
 assert.equal(pantheonSkin(),'aged-bronze');
 for(const skin of SKINS)for(const god of PANTHEON_FIGURES){
   for(const slot of ['marble','cloth']){
