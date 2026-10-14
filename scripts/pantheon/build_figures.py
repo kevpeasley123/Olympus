@@ -227,6 +227,14 @@ def box(label, mat, c, size, binding, rotation=(0, 0, 0), taper=(1, 1)):
     return mesh(label, verts, faces, mat, binding, smooth=False)
 
 
+def plate(label, mat, outline, tris, thickness, binding):
+    """A flat outline extruded along Z. `tris` triangulates the outline, which may be concave."""
+    n = len(outline); h = np.array([0, 0, thickness / 2])
+    verts = [np.array(p) + h for p in outline] + [np.array(p) - h for p in outline]
+    faces = list(tris) + [tuple(n + i for i in t) for t in tris] + [(i, (i + 1) % n, n + (i + 1) % n, n + i) for i in range(n)]
+    return mesh(label, verts, faces, mat, binding, smooth=False)
+
+
 def torus(label, mat, c, radii, tube_r, binding, rotation=(0, 0, 0), seg=48, sides=10, arc=TAU, wave=None):
     R = rot(*rotation)
     verts = []
@@ -479,6 +487,11 @@ def hephaestus(m, pose):
     box('Work', m['glow'], (ax + .03, .552, az + .01), (.13, .02, .035), 'root')
 
 
+# Zeus's bolt around the fist: top tip, down the right edge and its two shelves, bottom tip, back up the left.
+BOLT = [(.12, .414), (.008, .153), (.12, .153), (0, -.063), (.096, -.063), (-.12, -.306), (-.019, -.117), (-.112, -.117), (-.013, .09), (-.12, .09)]
+BOLT_TRIS = [(9, 1, 0), (9, 8, 1), (8, 2, 1), (8, 3, 2), (8, 7, 3), (7, 6, 3), (6, 4, 3), (6, 5, 4)]
+
+
 def zeus(m, pose):
     """The king: robed below, bare right shoulder, full beard; a thunderbolt held high."""
     b = Blob('Body')
@@ -507,15 +520,9 @@ def zeus(m, pose):
     tube('Fall', m['cloth'], [(.2, 1.4, -.05), (.24, 1.2, -.07), (.25, 1.0, -.06), (.24, .82, -.05)],
          [(.04, .014), (.05, .014), (.055, .014), (.045, .01)], 'Spine2+LeftShoulder+LeftArm~2', sides=14,
          outward=lambda p: (1, 0, -.4), ripples=3, ripple=.01)
-    # Thunderbolt in the raised right fist, standing upright.
+    # Thunderbolt in the raised right fist: a flat zigzag blade, upright, its face to the viewer.
     fist = pose.point('RightHand', (0, -.06, .012))
-    bolt = [(0, -.2, 0), (.02, -.08, .004), (-.035, .02, 0), (.02, .1, .004), (-.03, .22, 0), (.015, .34, .003), (-.01, .44, 0)]
-    pts = [fist + np.array(p) for p in bolt]
-    o = tube('Tool', m['glow'], pts, [.012, .02, .024, .022, .02, .014, .004], 'RightHand', sides=6, subdiv=2, smooth=False)
-    pose_to_rest(o, pose, 'RightHand')
-    for side in (-1, 1):
-        prong = [fist + np.array(p) for p in [(0, -.08, 0), (side * .05, -.16, 0), (side * .03, -.24, 0)]]
-        pose_to_rest(tube('Prong', m['glow'], prong, [.012, .01, .003], 'RightHand', sides=6, subdiv=2, smooth=False), pose, 'RightHand')
+    pose_to_rest(plate('Tool', m['glow'], [fist + np.array([x, y, 0]) for x, y in BOLT], BOLT_TRIS, .022, 'RightHand'), pose, 'RightHand')
     # A small sphere of light over the open left hand.
     palm = pose.point('LeftHand', (0, -.06, .03))
     pose_to_rest(ellipsoid('Orb', m['glow'], palm + np.array([0, .07, .03]), (.03, .03, .03), 'LeftHand', seg=16, rings=10), pose, 'LeftHand')

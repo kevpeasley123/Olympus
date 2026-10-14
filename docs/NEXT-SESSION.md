@@ -8,22 +8,14 @@ file replaced is `docs/archive/NEXT-SESSION-through-2026-10-11.md`.
 ## State — 2026-10-14
 
 - **Version 0.35.0** on `master`, from `claude/project-thread-lp4tw8`. Kevin
-  confirmed 0.34.0 running on his PC on 2026-10-13 (screenshot); 0.35.0 is
-  installed when he next runs Update Olympus.
+  confirmed 0.34.0 running on his PC on 2026-10-13 (screenshot); 0.35.0 was
+  installed there by `npm run update` the same evening.
 - **0.35.0** gives the Pantheon statues skins and depth
-  ([PANTHEON-FIGURES.md](PANTHEON-FIGURES.md)):
-  - Four material presets: Aged Bronze (default, crisp white garments),
-    Obsidian Gold, Mythic Color and Celestial (a translucent starfield body).
-    A Skin switch under the Omega compares them and ships until Kevin picks
-    one; then make it the default and set `COMPARING` to false in
-    `src/services/pantheonSkins.ts`.
-  - Baked occlusion from the Blender build, form shading, a soft back veil and
-    contact shadows.
-  - Hovering a god or its Armory row lifts and brightens it behind a gold
-    halo and shows a card with its name, specialty and real state; the Armory
-    row lights without moving.
-  - The Agents constellation and its "AGENTS 5" label are gone; Plugins,
-    Skills, Obsidian Memory and the Omega are unchanged.
+  ([PANTHEON-FIGURES.md](PANTHEON-FIGURES.md)): four material presets with a
+  picker that ships until Kevin chooses one (then make it the default and set
+  `COMPARING` to false in `src/services/pantheonSkins.ts`), baked occlusion,
+  form shading, shadows, and a hover lift with a gold halo. The Agents
+  constellation is gone.
 - **Earlier releases.** 0.34.0 brought the Living Pantheon; 0.33.0
   conversations and memory (`docs/CONVERSATIONS-AND-MEMORY.md`) and the voice
   signal; 0.31.0 Armory Phase 0b (`docs/ARMORY-PLAN.md`).
@@ -47,6 +39,13 @@ have been seen only in Chromium with software WebGL.
 ## In flight
 
 - **Skin choice.** Kevin is comparing the four skins in the installed app.
+- **Pantheon tidy-up, unreleased**, on `claude/project-thread-q68cad`, asked
+  for by Kevin from a 0.35.0 screenshot: the hover card and the three-verb line
+  under each god are removed, the skin picker is a dim mark in the scene's
+  bottom left that opens on a click, and Zeus's bolt is a flat zigzag blade
+  without prongs. Blender is not on the PC, so `zeus.glb` was edited directly
+  (Limits in PANTHEON-FIGURES.md). Seen in Chromium through the dev server
+  only. Release it with "bring everything current".
 - **A live view on Kevin's PC.** A Remote Control session running
   `npm run tauri dev` from the branch was offered on 2026-10-14 so he can
   watch visual edits without installing; not yet approved.
