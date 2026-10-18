@@ -4,7 +4,7 @@ Current handoff; prior verification is in `archive/NEXT-SESSION-through-0.39.0.m
 
 ## State - 2026-10-17 (America/Phoenix)
 
-- **Version 0.40.0 built; 0.39.0 installed** on `codex/engine-status-usage`, based
+- **Version 0.40.0 installed without launch** on `codex/engine-status-usage`, based
   on master `218e6e09a19614b379e3456f63953c3d1c2be7fd`. No master merge authorized.
 - Passive Claude quota collector enabled after fresh settings/script comparisons.
   Original statusline and unrelated settings preserved; reversible backups in
@@ -19,8 +19,12 @@ Current handoff; prior verification is in `archive/NEXT-SESSION-through-0.39.0.m
   after a fresh-browser Armory rerun resolved a resource-buffer error; full-run
   functional checks: 14 passed, Organizer: 22 passed. Collector/installer and
   mounted expiry fixtures pass. Independent final review found no blockers.
-- 0.39.0 executable/MSI and integrity-checked SQLite rollback copies retained in
-  ignored output. Installed app is closed; production launch is not requested.
+- Build commit `469aaf24b6aceccf25cd27ec5715279c7880eea5` pushed and remote-verified.
+  Windows registry/executable version and exact MSI payload verified at 21:40 Phoenix.
+  Installed executable SHA-256:
+  `f066edda07f5504936a6787e0b059592da08c67e85fa2ea1c515da4e3160f9b0`.
+  Production SQLite hash unchanged; no Olympus process running. 0.39.0 executable/
+  MSI and integrity-checked SQLite rollback copies retained in ignored output.
 - Subscription generation/delegation remain blocked by billing and tool isolation;
   Claude conversation is unfinished. No extra credits/refill authorized.
 
