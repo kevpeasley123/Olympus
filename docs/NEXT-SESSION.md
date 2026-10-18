@@ -45,7 +45,6 @@ Current handoff; rewrite at milestones per `AGENTS.md`. History: `docs/RELEASES.
 - Codex expected control socket absent; app-server lacks `--ignore-user-config`.
   No fresh server, restart or generation. Claude uses an honest account link.
   Details in `ENGINE-STATUS-USAGE.md`.
-
 ## In flight
 - **Development branch delivery (October 17, Phoenix):** engine discovery, separate always-visible Command usage panel, subscription/API management reusing Preferences and Armory, and offline-tested Codex conversation adapter; see `ENGINE-STATUS-USAGE.md` and `SUBSCRIPTION-CONVERSATION.md`. Subscription generation remains blocked on billing and tool isolation; telemetry is not connected. Installed without launch.
 - **Skin choice.** Kevin is comparing the four skins in the installed app.
