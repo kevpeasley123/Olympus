@@ -4,15 +4,15 @@ Current handoff; rewrite at milestones per `AGENTS.md`. History: `docs/RELEASES.
 
 ## State - 2026-10-17 (America/Phoenix)
 
-- **Version 0.39.0 prepared; 0.38.0 installed** on `codex/engine-status-usage`, based on master
+- **Version 0.39.0 installed** on `codex/engine-status-usage`, based on master
   `218e6e09a19614b379e3456f63953c3d1c2be7fd`. No master merge authorized.
-- Build commit `13c5365cbb78c4265a8f9ad94026d40c0fe9f8b8` pushed and remote-verified.
+- Build commit `b29f15c8c48139868d4ae5c5cb3f946b436a8e18` pushed and remote-verified.
   Includes engine discovery, Usage, subscription/API management, the offline-tested
   Codex conversation adapter, and explicit read-only account Refresh. See
   `ENGINE-STATUS-USAGE.md` and `SUBSCRIPTION-CONVERSATION.md`.
 - Installed through the supported local MSI installer without launch. Windows
   registry/executable version and exact extracted MSI payload match. Production
-  SQLite hash unchanged; 0.37.0 executable/MSI and integrity-checked database
+  SQLite hash unchanged; 0.38.0 executable/MSI and integrity-checked database
   rollback copies retained in the delivery checkout's ignored output directory.
 - Subscription generation/delegation remain blocked by billing and tool isolation;
   Claude conversation is unfinished. No extra credits/refill authorized.
@@ -21,22 +21,23 @@ Current handoff; rewrite at milestones per `AGENTS.md`. History: `docs/RELEASES.
 
 - Production/MSI build, TypeScript and guidance checks passed. Rust: 556 passed,
   20 ignored; final telemetry tests: 4 passed, 2 ignored.
-- All 58 release test scripts passed after one Organizer initial-load timeout
-  rerun with a 90-second initial-screen allowance; all assertions unchanged.
+- All 58 release test scripts passed after targeted reruns for engine navigation
+  (isolated dependency cache) and Organizer initial load (90 seconds); assertions unchanged.
   Organizer's 10 contract and 22 browser workflow checks passed on that rerun.
 - Visual regression: 21/21 captures, 14 functional and 22 Organizer checks.
   Refresh, retained readings, management round trips, responsive layout and
   keyboard behavior verified with synthetic browser fixtures. Independent review
   findings fixed and re-reviewed.
 - Installed executable SHA-256:
-  `0053d5569d28f34a1dd63b434a98f806f657a14c2538b97798e0bc5d08d86260`.
+  `5c8505cad16de6a632462fa230d5f7b6034e641124971eb339a73997dbf0b941`.
   Matches extracted MSI payload; no Olympus process after installation.
 - Native WebView2 Refresh, successful live quota and provider generation remain
   unverified. No production launch: existing background analysis, opening speech
   and memory-learning settings remain unchanged.
-## Percentage formatting follow-on
-- Shared one-decimal display formatting; raw values unchanged. Ready Build/Rust/58 scripts/21 visual captures pass; two startup
-  timeouts passed targeted reruns with unchanged assertions. App closed; backup ready.
+## Percentage formatting delivered
+- One decimal in compact labels, expanded rings and window details; raw values
+  unchanged. Fractional/0/100/unknown and 360px layout checks pass. Installed
+  without launch; native WebView2 rendering remains unverified here.
 ## Live telemetry blockers
 - ElevenLabs quota GET succeeded after Kevin confirmed User access enabled.
   Observed 2026-10-17 20:36:23 Phoenix: 975 used, 22,761 remaining characters;
