@@ -42,10 +42,17 @@ if(new URLSearchParams(location.search).has("passive")) {
  claude.windows=[{label:"5-hour window",remaining:{value:89.875,unit:"%",period:"5 hours"},resetsAt:new Date(Date.now()+3000).toISOString()},{label:"Weekly window",remaining:{value:90,unit:"%",period:"7 days"},resetsAt:new Date(Date.now()+10000).toISOString()}];
  claude.balance=null;
 }
+if(new URLSearchParams(location.search).has("historical")) {
+ const claude=synthetic.find(s=>s.provider==="Claude")!;
+ Object.assign(claude,{evidence:"historical",source:"https://claude.ai/settings/usage (manually observed)",observedAt:"2026-01-01T12:00:00Z",status:"ready",balance:null,ytdConsumption:null,ytdSpend:null,windows:[{label:"Weekly window — last observed",remaining:{value:90,unit:"%",period:"7 days"},resetsAt:null}],detail:"Historical snapshot, not current usage. Observation time is approximate. Reset unknown; absolute token allowance unknown."});
+}
 if (new URLSearchParams(location.search).has("fractional")) {
   const edge = new URLSearchParams(location.search).get("edge");
   const value = edge === "0" ? 0 : edge === "100" ? 100 : 95.8923154701719;
   for (const item of synthetic) for (const window of item.windows) if (window.remaining?.unit === "%") window.remaining.value = value;
+}
+if(new URLSearchParams(location.search).has("many")) {
+ for(let i=0;i<6;i++)synthetic.push({...synthetic[i%3],provider:`Test service ${i+1}`});
 }
 const stateParam = new URLSearchParams(location.search).get("state");
 
@@ -70,7 +77,7 @@ createRoot(document.getElementById("root")!).render(<main style={{maxWidth:740,m
 
   <p className="eyebrow">Synthetic acceptance · no provider calls</p><h2>Olympus usage &amp; engines</h2>
 
-  <section className="command-brief" style={{maxWidth:380}}><h3>Mission brief</h3><p>No active missions reported.</p></section><UsageSummary telemetryApi={telemetryApi} managementApi={usageManagementFixture} previewLabel="Synthetic usage fixture / no provider calls" snapshots={populated ? synthetic : undefined}/>
+  <section className="command-brief" style={{maxWidth:380}}><h3>Mission brief</h3><p>No active missions reported.</p></section><UsageSummary layout={new URLSearchParams(location.search).has("dock")?"dock":"widget"} telemetryApi={telemetryApi} managementApi={usageManagementFixture} previewLabel="Synthetic usage fixture / no provider calls" snapshots={populated ? synthetic : undefined}/>
 
   <section className="preferences-section" style={{marginTop:24}}><EngineSettings/></section>
 

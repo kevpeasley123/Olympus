@@ -215,3 +215,13 @@ html:has(.olympus-armory) .olympus-wordmark{font-size:30px;letter-spacing:4px}
  html .mode-command:has(.olympus-armory) :is(.center-stack,.olympus-armory){grid-row:1}
  html .mode-command:has(.olympus-armory) .right-stack{grid-row:2;height:auto;max-height:none;min-height:0;overflow:visible}
 }
+
+/* Reserve the center's bottom edge for telemetry; chat owns its whole column. */
+html .mode-command:has(.olympus-armory) .center-stack:has(>.usage-summary--dock){overflow:visible;gap:10px}
+html .mode-command:has(.olympus-armory) .center-stack:has(>.usage-summary--dock)>.panel-slot-instrument{height:0;flex:1 1 0;min-height:0}
+html .mode-command:has(.olympus-armory) .center-stack:has(>.usage-summary--dock) .command-instrument__dial{width:min(100cqw,calc(100dvh - 410px),740px);height:min(100cqw,calc(100dvh - 410px),740px);margin-top:0}
+@media(max-width:1050px){
+ html .mode-command:has(.olympus-armory) .center-stack:has(>.usage-summary--dock)>.panel-slot-instrument{min-height:520px}
+ html .mode-command:has(.olympus-armory) .right-stack>.panel-slot-chat{height:600px;flex:none}
+ html .mode-command:has(.olympus-armory) .right-stack>.panel-slot-chat>.command-console{height:100%;max-height:100%;overflow:hidden}
+}

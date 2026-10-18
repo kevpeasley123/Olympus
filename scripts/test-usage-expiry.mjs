@@ -10,3 +10,7 @@ assert.equal(expired.observedAt,base.observedAt);assert.equal(usage.usageFreshne
 console.log('PASS meter expiry clears only expired windows, preserves raw input and stale timestamps');
 
 for(const provider of ['ElevenLabs','Codex']){const s={...base,provider};assert.equal(usage.expireUsageWindows(s,Date.parse('2026-01-09T00:00:00Z')),s);}
+
+const historical={...base,evidence:'historical',observedAt:'2026-01-01T01:00:00Z'};
+assert.equal(usage.snapshotFreshness(historical,Date.parse('2026-01-01T01:00:01Z')),'Stale','Historical evidence never becomes recent');
+assert.equal(usage.snapshotFreshness({...historical,evidence:undefined},Date.parse('2026-01-01T01:00:01Z')),'Recent');

@@ -12,7 +12,13 @@ Sign-in and billing eligibility are separate. A subscription can allow extra pai
 
 ## Usage surface
 
-Command has a compact 320px Usage widget above and outside the chat console. Expand opens a dark glass modal with two semantic groups: Models & subscriptions and APIs & services. Explicit capabilityCategory controls placement. The compact view selects the first valid percentage window; its tooltip identifies the window. The expanded view names all supplied windows, their units, periods and reset dates. Reported percentage allowances use remaining bars and rings. Currency balances display actual currency; credits retain their unit. A balance alone never supplies a percentage denominator.
+Command has a shallow horizontal Usage dock below the central scene, outside the
+chat column. Separate subscription and API rails scroll as configured services grow;
+arrow buttons and keyboard scrolling retain access without increasing dock height.
+On narrow layouts the dock stays with the scene and chat follows in document flow.
+The reusable standalone widget retains its compact width. Expand opens a dark glass modal with two semantic groups: Models & subscriptions and APIs & services. Explicit capabilityCategory controls placement. Subscription tiles select the first valid percentage window. API tiles show native
+balances alongside allowance bars when supplied. Tooltips preserve provenance and
+observation time; historical data remains explicitly stale. The expanded view names all supplied windows, their units, periods and reset dates. Reported percentage allowances use remaining bars and rings. Currency balances display actual currency; credits retain their unit. A balance alone never supplies a percentage denominator.
 
 Unknown allowances render neutral dashes without empty progress tracks or numeric accessibility values. Disconnected, unsupported, loading and failed states are distinct. Failed checks may retain a supplied last-known snapshot, explicitly labelled stale. Readings older than five minutes are marked stale. Source, scope, observation time and any supplied YTD values live in the expanded view. Refresh reads supported sources explicitly; no trends, plan names, unlimited allowances or service quotas are invented.
 
@@ -134,3 +140,17 @@ snapshot. Displayed windows expire at their reset even without another Refresh.
 Absolute token allowances and billing balances stay unknown. No browser reading
 is seeded into automatic telemetry. First real capture and native rendering are
 separate acceptance steps; fixture verification requires no generation.
+
+### Historical Claude observation fallback
+
+If no newer valid passive Claude sample exists, the reader can display a manually
+observed weekly percentage from `%LOCALAPPDATA%\Olympus\telemetry\claude-observed.json`.
+The bounded local JSON has `version: 1`, `source: "https://claude.ai/settings/usage"`,
+`observedAt` (RFC 3339), and `usedPercentage` (0–100). Account-specific values stay
+outside the repository. This file is separate from the collector output.
+
+Historical snapshots always display as stale, retain their source and approximate
+observation time, and have an unknown reset and absolute token allowance. They
+are loaded on explicit Refresh, never seeded as live or assumed to be 100%.
+A newer valid passive observation supersedes the fallback on Refresh, even after
+that passive window expires; old history is not resurrected as current quota.

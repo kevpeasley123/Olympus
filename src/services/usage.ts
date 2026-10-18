@@ -10,6 +10,7 @@ export interface UsageWindow {
   resetsAt: string | null;
 }
 export interface UsageSnapshot {
+  evidence?: "historical";
   status?: "disconnected" | "unsupported" | "loading" | "failed" | "ready";
   detail?: string;
   consumption?: UsageMetric | null;
@@ -58,4 +59,9 @@ export function mergeUsageReading(previous: UsageSnapshot, next: UsageSnapshot):
 export function expireUsageWindows(snapshot: UsageSnapshot, now=Date.now()): UsageSnapshot {
   if(snapshot.provider!=="Claude" || snapshot.source!=="Claude Code statusline (passive local)") return snapshot;
   return {...snapshot, windows:snapshot.windows.map(w=>w.resetsAt && Date.parse(w.resetsAt)<=now?{...w,remaining:null}:w)};
+}
+
+/** Historical observations are never presented as fresh account telemetry. */
+export function snapshotFreshness(snapshot: UsageSnapshot, now=Date.now()) {
+  return snapshot.evidence === "historical" ? "Stale" : usageFreshness(snapshot.observedAt,now);
 }

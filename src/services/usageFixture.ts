@@ -1,7 +1,7 @@
 import type {UsageSnapshot} from "./usage";
 const fixtureObservedAt = new Date(Date.now()-1000).toISOString();
 /** Synthetic test-only data. Imported only by harness entry points. */
-export function usageFixture(fresh = false): UsageSnapshot[] {
+export function usageFixture(fresh = false, historical = false): UsageSnapshot[] {
 const snapshots: UsageSnapshot[] = [
 
   {provider:"Codex",capabilityCategory:"models-subscriptions",scope:"Account",source:"Synthetic fixture - no provider call",observedAt:"2026-01-01T00:00:00Z",
@@ -20,5 +20,9 @@ const snapshots: UsageSnapshot[] = [
 
 
 if(fresh) for(const s of snapshots) {s.observedAt=fixtureObservedAt; for(const w of s.windows) if(w.resetsAt) w.resetsAt=new Date(Date.now()+6*86400000).toISOString();}
+if(historical){
+ const claude=snapshots[1];Object.assign(claude,{evidence:"historical",source:"https://claude.ai/settings/usage (manually observed)",detail:"Historical snapshot, not current usage. Observation time is approximate. Reset unknown; absolute token allowance unknown."});claude.windows=[{label:"Weekly window — last observed",remaining:{value:90,unit:"%",period:"7 days"},resetsAt:null}];
+ snapshots[2].balance={value:72000,unit:"characters",period:"Current billing period remaining"};snapshots[2].windows[0].remaining={value:72,unit:"%",period:"Current allowance"};
+}
 return snapshots;
 }
