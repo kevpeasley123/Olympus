@@ -7,7 +7,7 @@ file replaced is `docs/archive/NEXT-SESSION-through-2026-10-11.md`.
 
 ## State - 2026-10-18
 
-- **Version 0.37.0** installed on `codex/engine-status-usage`, based on master
+- **Version 0.38.0** prepared for installation on `codex/engine-status-usage`, based on master
   `218e6e09a19614b379e3456f63953c3d1c2be7fd`. No master merge authorized.
 - Includes engine discovery, compact/expanded Usage, subscription/API management,
   and the offline-tested Codex conversation adapter. See `ENGINE-STATUS-USAGE.md`
@@ -37,7 +37,7 @@ file replaced is `docs/archive/NEXT-SESSION-through-2026-10-11.md`.
   selects its synthetic API route). Rust: 552 passed, 18 ignored. MSI built.
 
 ## Telemetry follow-on - 2026-10-18
-- Not installed. Build, TypeScript, guidance, Refresh and management checks pass.
+- Installation pending. Build, TypeScript, guidance, Refresh and management checks pass.
 - Rust: 556 passed, 20 ignored; final telemetry tests: 4 passed, 2 ignored.
 - Visual: 21/21 captures, 22 Organizer checks pass. Two cold-start browser
   timeouts passed unchanged assertions with a 90-second navigation budget.
