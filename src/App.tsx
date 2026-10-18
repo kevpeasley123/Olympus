@@ -319,11 +319,11 @@ function App() {
 
               </>
             )}
+            {command && <UsageSummary layout="dock"/>}
           </section>
 
           {/* The console stays anchored while its transcript aperture opens upward. */}
           <section className="right-stack dashboard-column">
-            {command && <UsageSummary/>}
             {!command&&!projectChatOpen&&<button ref={projectDockRef} type="button" className="project-chat-dock" aria-label="Ask Olympus" aria-expanded={false} onClick={()=>window.dispatchEvent(new CustomEvent("olympus:focus-console"))}>
               <span aria-hidden="true" className="project-chat-dock-symbol">Ω</span><span>Ask Olympus…</span>
               <small role="status">{chatPending?"Working…":voice.active||voice.connecting?"Voice active":chatError?"Needs attention":projectReplyReady?"Reply ready":"Open conversation"}</small><span aria-hidden="true">↗</span>

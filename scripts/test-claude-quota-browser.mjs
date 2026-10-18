@@ -23,4 +23,16 @@ try {
  await page.screenshot({path:'output/claude-quota/after-expiry.png',fullPage:true});
  assert.deepEqual(await page.evaluate(()=>window.telemetryCalls),[],'Expiry makes no account requests');
  console.log('PASS passive window expiry in mounted UI without account requests');
+ await page.goto(server.resolvedUrls.local[0]+'engine-usage-harness.html?populated&historical');
+ assert((await page.locator('.usage-summary footer').innerText()).includes('Historical snapshot'));
+ await page.getByRole('button',{name:'Expand usage'}).click();
+ const historical=page.locator('.usage-card').filter({has:page.getByRole('heading',{name:'Claude',exact:true})});
+ assert.equal(await historical.getByRole('progressbar').getAttribute('aria-valuenow'),'90');
+ const text=await historical.innerText();
+ for(const expected of ['90.0','Historical · stale','Reset unknown','Observation time is approximate','claude.ai/settings/usage'])assert(text.includes(expected),expected);
+ assert.equal(await historical.locator('time').count(),1);
+ assert(!text.includes('Resets '));
+ await page.screenshot({path:'output/claude-quota/historical.png',fullPage:true});
+ assert.deepEqual(await page.evaluate(()=>window.telemetryCalls),[]);
+ console.log('PASS historical snapshot shows provenance, stale state, approximate time and unknown reset without account requests');
 }finally{await browser?.close();await server.close();}

@@ -4,32 +4,41 @@ Current handoff; prior verification is in `archive/NEXT-SESSION-through-0.40.0.m
 
 ## State - 2026-10-18 (America/Phoenix)
 
-- **Version 0.41.0 prepared; 0.40.0 installed** on `codex/engine-status-usage`, based
-  on master `218e6e09a19614b379e3456f63953c3d1c2be7fd`. Kevin authorized merging
-  the full delivery branch to master and installing on October 18.
-- Codex transport root cause: desktop servers use private stdio; the expected
-  shared daemon socket is absent. The fix uses a bounded private-stdio account
-  reader with verified disabled integrations and no daemon or config changes.
-  See `ENGINE-STATUS-USAGE.md`. Seven focused tests and independent review passed.
-- Real Olympus Rust read at 2026-10-17 21:56:03 Phoenix: 70.0% weekly used,
-  30.0% remaining, 62.6701 credits; reset October 24 17:04:59 Phoenix.
-  Absolute token allowance unknown. Returned lifetime activity is separate.
-- Release checks: production MSI built; 561 Rust tests passed (20 ignored);
-  all 61 scripts passed, including the Organizer startup-timeout retry with
-  unchanged assertions (10 contract and 22 browser checks). Full visual review
-  passed 21/21 captures, 14 functional and 22 Organizer checks. Browser
-  screenshots preserve the existing design; native acceptance remains separate.
-  Installed version remains 0.40.0 pending merge and installation verification.
+- **Release 0.42.0**, branch `codex/claude-observed-snapshot`, based on master
+  `7fdffcb7f83fe6200bc1dfcd6108d858d57e10ad`: center-column Usage dock restores
+  full-height chat; independent service rails share the expanded dashboard and
+  management actions. Historical Claude fallback is always stale and yields to
+  newer passive samples. ElevenLabs is preserved.
+- Final release checks passed: frontend/MSI builds, 563 Rust tests (20 ignored),
+  all 62 test scripts, 21/21 visual captures, 14 functional and 22 Organizer
+  checks. Independent review found no blockers. Minor follow-up: compact tile
+  tooltips could name the selected quota window; the expanded view already does.
+- Final reference-sized previews are `output/usage-dock/final-collapsed.png`
+  and `output/usage-dock/final-expanded.png`. These are synthetic browser
+  fixtures. Native WebView2/IPC acceptance and first real passive Claude capture
+  remain outstanding. Dock height is about 123 px; chat occupies its full column.
+- Kevin approved commit, push, merge and installation, without production
+  relaunch. Installation follows this release commit; its local receipt is
+  `output/release-0.42-install-evidence.json`, with data comparison in
+  `output/release042-data-verification.json` (created by installation checks).
+  Last verified prior installation: 0.41.0. Olympus was already closed before
+  backup. Rollback files are in `output/rollback-0.41.0-before-0.42.0`;
+  database backup integrity passed, and collector/statusline/snapshot were saved.
 - Claude passive collector remains enabled with original statusline preserved.
-  Reversible backups are in `%USERPROFILE%/.claude/olympus-quota`. First real
-  Claude sample awaits ordinary authorized activity; app loads it on Refresh.
-- ElevenLabs reader preserved. Last verified quota GET at 20:36:23 Phoenix:
-  975 used, 22,761 remaining characters; reset November 6 11:09:07 Phoenix.
-- No paid generation, reset, purchase, new credentials, existing-process restart,
-  security/network setting change or production app launch was performed.
-- Native WebView2 Refresh remains unverified. Existing background analysis,
-  speech and memory settings remain unchanged. Subscription generation/delegation
-  still fail closed on billing/tool isolation; this fix grants no inference access.
+  Normal authorized Claude Code activity supplies a new sample; app Refresh
+  loads it locally. The manually observed fallback stays in local telemetry,
+  outside Git, with unknown reset and absolute token allowance.
+- Codex transport uses a bounded private-stdio account reader; the desktop's
+  expected shared daemon socket is absent. See `ENGINE-STATUS-USAGE.md`.
+  Last real backend read, October 17 21:56:03 Phoenix: 70.0% weekly used,
+  30.0% remaining, 62.6701 credits, reset October 24 17:04:59 Phoenix.
+  Absolute token allowance unknown; this is historical evidence, not a new read.
+- Last verified ElevenLabs quota, October 17 20:36:23 Phoenix: 975 used,
+  22,761 remaining characters; reset November 6 11:09:07 Phoenix.
+- No paid generation, reset, purchase, new credentials, live Gmail action or
+  production launch was used for this release. Existing background settings
+  are unchanged. Subscription generation/delegation still fail closed on
+  billing/tool isolation. Vault memory was not updated in this scoped release.
 
 ## In flight
 - **Development branch delivery (October 17, Phoenix):** engine discovery, separate always-visible Command usage panel, subscription/API management reusing Preferences and Armory, and offline-tested Codex conversation adapter; see `ENGINE-STATUS-USAGE.md` and `SUBSCRIPTION-CONVERSATION.md`. Subscription generation remains blocked on billing and tool isolation; Codex telemetry now has a real backend reading. Installed without launch.
