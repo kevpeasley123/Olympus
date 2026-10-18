@@ -1,48 +1,38 @@
 # Next session
 
-Current handoff; prior verification is in `archive/NEXT-SESSION-through-0.39.0.md`.
+Current handoff; prior verification is in `archive/NEXT-SESSION-through-0.40.0.md`.
 
-## State - 2026-10-17 (America/Phoenix)
+## State - 2026-10-18 (America/Phoenix)
 
-- **Version 0.40.0 installed without launch** on `codex/engine-status-usage`, based
-  on master `218e6e09a19614b379e3456f63953c3d1c2be7fd`. No master merge authorized.
-- Passive Claude quota collector enabled after fresh settings/script comparisons.
-  Original statusline and unrelated settings preserved; reversible backups in
-  `%USERPROFILE%/.claude/olympus-quota`. See `ENGINE-STATUS-USAGE.md`.
-- First real sample awaits ordinary authorized Claude Code activity. No test
-  generation requested. Olympus Refresh reads the local file; missing/expired
-  windows remain unknown and unchanged observations do not freshen the meter.
-- Production/MSI build and TypeScript passed. Host Rust: 558 passed, 20 ignored.
-  Sandbox failures resolved with the ordinary authorized host rerun.
-- All 61 script checks passed after the targeted Organizer initial-load rerun
-  (90-second wait, identical assertions). Visual regression: 21 captures passed
-  after a fresh-browser Armory rerun resolved a resource-buffer error; full-run
-  functional checks: 14 passed, Organizer: 22 passed. Collector/installer and
-  mounted expiry fixtures pass. Independent final review found no blockers.
-- Build commit `469aaf24b6aceccf25cd27ec5715279c7880eea5` pushed and remote-verified.
-  Windows registry/executable version and exact MSI payload verified at 21:40 Phoenix.
-  Installed executable SHA-256:
-  `f066edda07f5504936a6787e0b059592da08c67e85fa2ea1c515da4e3160f9b0`.
-  Production SQLite hash unchanged; no Olympus process running. 0.39.0 executable/
-  MSI and integrity-checked SQLite rollback copies retained in ignored output.
-- Subscription generation/delegation remain blocked by billing and tool isolation;
-  Claude conversation is unfinished. No extra credits/refill authorized.
-
-## Telemetry and acceptance limits
-
-- ElevenLabs secure quota GET succeeded at 2026-10-17 20:36:23 Phoenix:
+- **Version 0.41.0 prepared; 0.40.0 installed** on `codex/engine-status-usage`, based
+  on master `218e6e09a19614b379e3456f63953c3d1c2be7fd`. Kevin authorized merging
+  the full delivery branch to master and installing on October 18.
+- Codex transport root cause: desktop servers use private stdio; the expected
+  shared daemon socket is absent. The fix uses a bounded private-stdio account
+  reader with verified disabled integrations and no daemon or config changes.
+  See `ENGINE-STATUS-USAGE.md`. Seven focused tests and independent review passed.
+- Real Olympus Rust read at 2026-10-17 21:56:03 Phoenix: 70.0% weekly used,
+  30.0% remaining, 62.6701 credits; reset October 24 17:04:59 Phoenix.
+  Absolute token allowance unknown. Returned lifetime activity is separate.
+- Release checks: production MSI built; 561 Rust tests passed (20 ignored);
+  all 61 scripts passed, including the Organizer startup-timeout retry with
+  unchanged assertions (10 contract and 22 browser checks). Full visual review
+  passed 21/21 captures, 14 functional and 22 Organizer checks. Browser
+  screenshots preserve the existing design; native acceptance remains separate.
+  Installed version remains 0.40.0 pending merge and installation verification.
+- Claude passive collector remains enabled with original statusline preserved.
+  Reversible backups are in `%USERPROFILE%/.claude/olympus-quota`. First real
+  Claude sample awaits ordinary authorized activity; app loads it on Refresh.
+- ElevenLabs reader preserved. Last verified quota GET at 20:36:23 Phoenix:
   975 used, 22,761 remaining characters; reset November 6 11:09:07 Phoenix.
-  Reader preserved; no repeated provider probe for this release.
-- Codex existing-daemon proxy exited 1 before a response: expected socket absent,
-  Windows error 10050. Account access in Codex itself does not prove this connection.
-  No restart, fresh daemon, security change or generation attempted.
-- Percentages display one decimal, with raw precision retained. Absolute Claude
-  token allowance remains unknown; browser observations are not seeded as telemetry.
-- First real Claude capture, native WebView2 rendering/Refresh and generation remain
-  unverified. Existing background analysis, speech and memory settings are unchanged.
+- No paid generation, reset, purchase, new credentials, existing-process restart,
+  security/network setting change or production app launch was performed.
+- Native WebView2 Refresh remains unverified. Existing background analysis,
+  speech and memory settings remain unchanged. Subscription generation/delegation
+  still fail closed on billing/tool isolation; this fix grants no inference access.
 
 ## In flight
-- **Development branch delivery (October 17, Phoenix):** engine discovery, separate always-visible Command usage panel, subscription/API management reusing Preferences and Armory, and offline-tested Codex conversation adapter; see `ENGINE-STATUS-USAGE.md` and `SUBSCRIPTION-CONVERSATION.md`. Subscription generation remains blocked on billing and tool isolation; Codex telemetry remains blocked. Installed without launch.
+- **Development branch delivery (October 17, Phoenix):** engine discovery, separate always-visible Command usage panel, subscription/API management reusing Preferences and Armory, and offline-tested Codex conversation adapter; see `ENGINE-STATUS-USAGE.md` and `SUBSCRIPTION-CONVERSATION.md`. Subscription generation remains blocked on billing and tool isolation; Codex telemetry now has a real backend reading. Installed without launch.
 - **Skin choice.** Kevin is comparing the four skins in the installed app.
 - **A live view on Kevin's PC.** Remote Control works on his PC (first used
   2026-10-14 to install 0.35.0). A session running `npm run tauri dev` from

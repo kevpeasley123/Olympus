@@ -489,10 +489,12 @@ The development backend maintains a separate, rebuildable SQLite/FTS5 cache in a
 
 ### Explicit account telemetry
 
-`commands/account_usage.rs` launches only the discovered Codex executable's
-`app-server proxy`, using the delegation environment allowlist and hidden console.
-The fixed protocol initializes and reads account limits/activity only. It kills
-its proxy after a bounded exchange; it never launches a fresh server. ElevenLabs
+`commands/account_usage.rs` uses the discovered Codex executable, the delegation
+environment allowlist, a neutral temporary directory and hidden console. Bounded
+CLI metadata reads identify and verify disabled MCP integrations and execution
+features before starting a short-lived private-stdio app server. The fixed protocol
+initializes and reads account limits/activity only, then kills and reaps its child.
+It exposes no socket, starts no daemon and changes no Codex configuration. ElevenLabs
 quota uses the existing native credential and redirect-free HTTP client for a
 fixed GET endpoint. Account checks write no SQLite or vault state. See
 `docs/ENGINE-STATUS-USAGE.md` for current integration limits.

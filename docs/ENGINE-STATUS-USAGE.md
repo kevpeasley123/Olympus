@@ -43,11 +43,19 @@ independent reads; there is no mount timer or automatic retry. Errors keep the
 last successful observation and timestamp, with a failed status. No dollars or
 YTD totals are inferred from characters, credits, or tokens.
 
-- Codex uses only `app-server proxy` to an existing daemon, initializes the
-  protocol, and requests `account/rateLimits/read` followed by optional
-  `account/usage/read`. It bounds stdout and time, rejects server requests,
-  passes the existing credential environment allowlist, and kills its proxy.
-  It never starts a daemon, thread, turn, login, reset, or credit purchase.
+- Codex uses a transient private-stdio `app-server` instead of assuming the desktop
+  exposes a daemon socket. In a neutral temporary directory, bounded `mcp list`
+  metadata identifies configured server names; plain dotted overrides disable
+  them for this invocation. A second inventory and `features list` verify that
+  MCP servers, hooks, apps, plugins, remote plugins, code-mode host, automatic
+  daemon startup and skill dependency installation are disabled. Failure or an
+  unsafe server name stops before server launch. Metadata is never logged or
+  forwarded to the frontend. No persistent settings are changed.
+  The protocol requests `account/rateLimits/read` and optional `account/usage/read`
+  after initialization. It bounds stdout/time, rejects server requests, retains
+  the environment allowlist and kills/reaps its child. It creates no thread,
+  turn, listener, daemon, login, reset or purchase. Native credit balances remain
+  credits; token activity never supplies an absolute token-allowance denominator.
 - ElevenLabs uses the existing Windows credential entirely inside Rust for
   `GET https://api.elevenlabs.io/v1/user/subscription`. Redirects are refused;
   the request times out after 20 seconds and the body is capped at 256 KiB.
@@ -56,7 +64,7 @@ YTD totals are inferred from characters, credits, or tokens.
 - Claude reads the bounded local passive quota file described below. The account
   page remains available; no generation is started to manufacture a reading.
 
-### Local read-only verification, October 18
+### Earlier proxy investigation, October 18
 
 Installed Codex 0.163.0-alpha.10.2 generated schemas include both account reads.
 Its daemon-version probe failed with control-socket OS error 10050 in the sandbox
@@ -68,8 +76,9 @@ or startup changes were attempted. Both installed
 app-server versions (0.163.0-alpha.10.2 and 0.130.0-alpha.5) reject
 `--ignore-user-config`; the newer CLI accepts that flag only under `exec`.
 No fresh server was started because isolation from user-configured executable
-integrations was not established. This is an unresolved Codex integration
-blocker, not a completed live meter and not a request to sign in again.
+integrations was not established. This explained the original proxy failure, not an authentication failure. The
+private-stdio reader above replaces that dependency and has returned real account
+data through the Olympus Rust command; native UI acceptance remains separate.
 
 The ElevenLabs quota GET reached the service and returned HTTP 401. A single
 follow-up diagnostic retained only an allowlisted structured identifier:
