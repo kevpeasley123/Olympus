@@ -1,52 +1,51 @@
 # Next session
 
-The current handoff. Rewrite it, don't append to it: at the end of a session
-that changes state and at every release (see "Keeping guidance current" in
-`AGENTS.md`). History is in `docs/RELEASES.md` and `docs/archive/`; the log this
-file replaced is `docs/archive/NEXT-SESSION-through-2026-10-11.md`.
+Current handoff; rewrite at milestones per `AGENTS.md`. History: `docs/RELEASES.md` and `docs/archive/`.
 
-## State - 2026-10-18
+## State - 2026-10-17 (America/Phoenix)
 
-- **Version 0.38.0** prepared for installation on `codex/engine-status-usage`, based on master
+- **Version 0.38.0 installed** on `codex/engine-status-usage`, based on master
   `218e6e09a19614b379e3456f63953c3d1c2be7fd`. No master merge authorized.
-- Includes engine discovery, compact/expanded Usage, subscription/API management,
-  and the offline-tested Codex conversation adapter. See `ENGINE-STATUS-USAGE.md`
-  and `SUBSCRIPTION-CONVERSATION.md` for behavior and limits.
-- Build commit `311de62725ad35a3ebb364dbca54f79e08ac7567` pushed and remote-verified.
-  Installed through the supported local MSI installer; registry/executable version
-  and exact MSI payload verified. Production SQLite hash unchanged; rollback
-  executable/database backup retained locally. Olympus was not launched.
-- Development follow-on adds explicit account Refresh; not installed. Codex proxy
-  is blocked by the local control socket; ElevenLabs quota GET returned 401.
-  See `ENGINE-STATUS-USAGE.md`. Subscription generation and delegation
-  remain blocked by billing and tool isolation; Claude conversation is unfinished.
-- No extra credits/refill authorized. Live integration is a separate follow-on.
+- Build commit `13c5365cbb78c4265a8f9ad94026d40c0fe9f8b8` pushed and remote-verified.
+  Includes engine discovery, Usage, subscription/API management, the offline-tested
+  Codex conversation adapter, and explicit read-only account Refresh. See
+  `ENGINE-STATUS-USAGE.md` and `SUBSCRIPTION-CONVERSATION.md`.
+- Installed through the supported local MSI installer without launch. Windows
+  registry/executable version and exact extracted MSI payload match. Production
+  SQLite hash unchanged; 0.37.0 executable/MSI and integrity-checked database
+  rollback copies retained in the delivery checkout's ignored output directory.
+- Subscription generation/delegation remain blocked by billing and tool isolation;
+  Claude conversation is unfinished. No extra credits/refill authorized.
 
-## Verification - 2026-10-18, Windows browser
+## Verification - 2026-10-17, Windows
 
-- Production build, focused engine/Usage/management tests, guidance checks passed.
-- Full visual regression: 21/21 captures, 14 functional and 22 Organizer checks.
-- Preferences/Armory round trips, retained inspection evidence, draft preservation,
-  keyboard focus and modal shortcut suppression passed using synthetic fixtures.
-- Independent review findings fixed and re-reviewed. Native WebView2, actual
-  account telemetry and provider generation remain unverified. Startup smoke is
-  blocked pending approval to pause background analysis, opening speech and memory
-  learning; existing controls remain unchanged.
-- Release suite: all 56 scripts passed (four navigation timeouts passed on
-  rerun after preview-cache isolation; project contract fixture now explicitly
-  selects its synthetic API route). Rust: 552 passed, 18 ignored. MSI built.
+- Production/MSI build, TypeScript and guidance checks passed. Rust: 556 passed,
+  20 ignored; final telemetry tests: 4 passed, 2 ignored.
+- All 58 release test scripts passed after one Organizer initial-load timeout
+  rerun with a 90-second initial-screen allowance; all assertions unchanged.
+  Organizer's 10 contract and 22 browser workflow checks passed on that rerun.
+- Visual regression: 21/21 captures, 14 functional and 22 Organizer checks.
+  Refresh, retained readings, management round trips, responsive layout and
+  keyboard behavior verified with synthetic browser fixtures. Independent review
+  findings fixed and re-reviewed.
+- Installed executable SHA-256:
+  `0053d5569d28f34a1dd63b434a98f806f657a14c2538b97798e0bc5d08d86260`.
+  Matches extracted MSI payload; no Olympus process after installation.
+- Native WebView2 Refresh, successful live quota and provider generation remain
+  unverified. No production launch: existing background analysis, opening speech
+  and memory-learning settings remain unchanged.
 
-## Telemetry follow-on - 2026-10-18
-- Installation pending. Build, TypeScript, guidance, Refresh and management checks pass.
-- Rust: 556 passed, 20 ignored; final telemetry tests: 4 passed, 2 ignored.
-- Visual: 21/21 captures, 22 Organizer checks pass. Two cold-start browser
-  timeouts passed unchanged assertions with a 90-second navigation budget.
-- ElevenLabs: HTTP 401 `missing_permissions`. Kevin approved subscription/user
-  read access, but no browser is available to apply it. No permission changed.
-- Codex: expected control socket absent; app-server lacks `--ignore-user-config`.
-  No restart or generation. Details in `ENGINE-STATUS-USAGE.md`.
+## Live telemetry blockers
+- ElevenLabs quota GET returned HTTP 401 `missing_permissions`. Kevin approved
+  subscription/user read access; Olympus S1 is handling that narrow permission
+  change. No change confirmed in this delivery session. Recheck the secure backend
+  request only after confirmation; never replace or expose the key.
+- Codex expected control socket absent; app-server lacks `--ignore-user-config`.
+  No fresh server, restart or generation. Claude uses an honest account link.
+  Details in `ENGINE-STATUS-USAGE.md`.
+
 ## In flight
-- **Development branch delivery (October 18):** engine discovery, separate always-visible Command usage panel, subscription/API management reusing Preferences and Armory, and offline-tested Codex conversation adapter; see `ENGINE-STATUS-USAGE.md` and `SUBSCRIPTION-CONVERSATION.md`. Subscription generation remains blocked on billing and tool isolation; telemetry is not connected. Installed without launch.
+- **Development branch delivery (October 17, Phoenix):** engine discovery, separate always-visible Command usage panel, subscription/API management reusing Preferences and Armory, and offline-tested Codex conversation adapter; see `ENGINE-STATUS-USAGE.md` and `SUBSCRIPTION-CONVERSATION.md`. Subscription generation remains blocked on billing and tool isolation; telemetry is not connected. Installed without launch.
 - **Skin choice.** Kevin is comparing the four skins in the installed app.
 - **A live view on Kevin's PC.** Remote Control works on his PC (first used
   2026-10-14 to install 0.35.0). A session running `npm run tauri dev` from
