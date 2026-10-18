@@ -30,9 +30,15 @@ export const unavailableUsage: UsageSnapshot[] = [{provider:"Codex", capabilityC
   windows: [], balance: null, ytdConsumption: null, ytdSpend: null,
 }));
 
+/** Display precision only; meter geometry and quota values remain unchanged. */
+export function formatUsagePercentage(value: number | null): string {
+  return value === null || !Number.isFinite(value) || value < 0 || value > 100
+    ? "-" : value.toLocaleString(undefined, {minimumFractionDigits: 1, maximumFractionDigits: 1});
+}
+
 export function formatUsageMetric(metric: UsageMetric | null): string {
   if (!metric || !Number.isFinite(metric.value) || metric.value < 0 || !metric.unit.trim() || !metric.period.trim()) return "Unavailable";
-  return `${metric.value.toLocaleString(undefined, {maximumFractionDigits: 4})} ${metric.unit} · ${metric.period}`;
+  return `${metric.unit === "%" ? formatUsagePercentage(metric.value) : metric.value.toLocaleString(undefined, {maximumFractionDigits: 4})} ${metric.unit} · ${metric.period}`;
 }
 
 export function usageFreshness(observedAt: string | null, now = Date.now()): "Not checked" | "Recent" | "Stale" {

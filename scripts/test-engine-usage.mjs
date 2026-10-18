@@ -6,7 +6,7 @@ assert.equal(typeof engines.describeBilling,'function','Billing must be distinct
 assert.match(engines.describeBilling({state:'unknown',detail:'Overage is unverified'}),/blocked/i);
 assert.doesNotThrow(()=>engines.describeSignIn({engine:'claude-code',signIn:{state:'subscription',plan:''}}));
 await build({entryPoints:['src/services/usage.ts'],bundle:true,platform:'node',format:'esm',outfile:'output/tests/usage.mjs'});
-const {formatUsageMetric,usageFreshness,unavailableUsage}=await import('../output/tests/usage.mjs');
+const {formatUsagePercentage,formatUsageMetric,usageFreshness,unavailableUsage}=await import('../output/tests/usage.mjs');
 assert.equal(formatUsageMetric(null),'Unavailable');
 assert.equal(formatUsageMetric({value:NaN,unit:'credits',period:'2026 YTD'}),'Unavailable');
 assert.equal(formatUsageMetric({value:-1,unit:'credits',period:'2026 YTD'}),'Unavailable');
@@ -28,3 +28,7 @@ for(const snapshot of unavailableUsage){
   assert.equal(snapshot.scope,'Account');
 }
 console.log('PASS engine billing disclosure, empty plan, usage units/periods, unknown values and freshness');
+
+for (const [value, expected] of [[95.8923154701719,'95.9'],[0,'0.0'],[100,'100.0'],[null,'-'],[NaN,'-'],[-1,'-'],[101,'-']]) assert.equal(formatUsagePercentage(value),expected);
+assert.equal(formatUsageMetric({value:95.8923154701719,unit:'%',period:'Billing period'}),'95.9 % · Billing period');
+assert.equal(formatUsageMetric({value:22761,unit:'characters',period:'Remaining'}),'22,761 characters · Remaining');

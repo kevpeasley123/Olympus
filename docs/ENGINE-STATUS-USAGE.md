@@ -77,7 +77,7 @@ follow-up diagnostic retained only an allowlisted structured identifier:
 `detail.status = missing_permissions`. This establishes a permission failure,
 not an invalid/expired-key diagnosis. The existing key needs access to read user
 subscription information. No key replacement, new grant or permission change
-was performed. A successful live quota reading remains unverified. Do not retry
+was performed. A later authorized backend check succeeded after Kevin confirmed the User access grant. Do not retry
 provider probes automatically or treat an ignored probe's process exit as a
 successful account reading.
 
@@ -88,9 +88,12 @@ Official contracts consulted:
 - https://code.claude.com/docs/en/statusline
 
 Kevin subsequently approved enabling only the existing key's subscription/user
-read permission. The UI action remains blocked: computer-use inventory returned
-no apps or browsers, and creating an official ElevenLabs tab in `iab` returned
-`Browser is not available: iab`. No key identity or account permission UI could
-be inspected. No permission was changed and no further provider read was made.
-A connected signed-in browser is required to identify the existing Olympus key
-and apply that already-approved scope; never reveal, copy or replace its secret.
+read permission and confirmed that Olympus S1 saved User access. The existing
+secure Rust quota reader then returned a successful 2xx response and a ready
+reading at 2026-10-17 20:36:23 Phoenix: 975 used and 22,761 remaining characters,
+with a November 6 11:09:07 Phoenix reset. The previous missing-permissions error
+is resolved. This verifies the backend request, not native UI rendering.
+
+Displayed percentages round to one decimal place in compact labels, expanded
+rings and window details. Underlying quota values, geometry and accessibility
+numeric values retain their original precision; unknown readings stay unknown.

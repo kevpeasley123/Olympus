@@ -4,7 +4,7 @@ Current handoff; rewrite at milestones per `AGENTS.md`. History: `docs/RELEASES.
 
 ## State - 2026-10-17 (America/Phoenix)
 
-- **Version 0.38.0 installed** on `codex/engine-status-usage`, based on master
+- **Version 0.39.0 prepared; 0.38.0 installed** on `codex/engine-status-usage`, based on master
   `218e6e09a19614b379e3456f63953c3d1c2be7fd`. No master merge authorized.
 - Build commit `13c5365cbb78c4265a8f9ad94026d40c0fe9f8b8` pushed and remote-verified.
   Includes engine discovery, Usage, subscription/API management, the offline-tested
@@ -34,12 +34,13 @@ Current handoff; rewrite at milestones per `AGENTS.md`. History: `docs/RELEASES.
 - Native WebView2 Refresh, successful live quota and provider generation remain
   unverified. No production launch: existing background analysis, opening speech
   and memory-learning settings remain unchanged.
-
+## Percentage formatting follow-on
+- Shared one-decimal display formatting; raw values unchanged. Ready Build/Rust/58 scripts/21 visual captures pass; two startup
+  timeouts passed targeted reruns with unchanged assertions. App closed; backup ready.
 ## Live telemetry blockers
-- ElevenLabs quota GET returned HTTP 401 `missing_permissions`. Kevin approved
-  subscription/user read access; Olympus S1 is handling that narrow permission
-  change. No change confirmed in this delivery session. Recheck the secure backend
-  request only after confirmation; never replace or expose the key.
+- ElevenLabs quota GET succeeded after Kevin confirmed User access enabled.
+  Observed 2026-10-17 20:36:23 Phoenix: 975 used, 22,761 remaining characters;
+  reset November 6 11:09:07 Phoenix. Backend verified, installed UI not exercised here.
 - Codex expected control socket absent; app-server lacks `--ignore-user-config`.
   No fresh server, restart or generation. Claude uses an honest account link.
   Details in `ENGINE-STATUS-USAGE.md`.

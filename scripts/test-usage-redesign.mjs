@@ -93,6 +93,30 @@ try{
 
  }
 
+ for (const width of [1440, 360]) {
+  await page.setViewportSize({width,height:1000});
+  await page.goto(server.resolvedUrls.local[0]+'engine-usage-harness.html?populated&fractional');
+  await page.locator('.usage-row > strong').first().waitFor();
+  assert((await page.locator('.usage-row > strong').allTextContents()).includes('95.9%'));
+  assert(await page.locator('.usage-row > strong').evaluateAll(nodes=>nodes.every(e=>e.scrollWidth<=e.clientWidth)), 'Compact percentage fits its column');
+  await page.screenshot({path:`output/usage-redesign/fractional-compact-${width}.png`,fullPage:true});
+  await page.getByRole('button',{name:'Expand usage'}).click();
+  assert((await page.locator('.usage-ring strong').allTextContents()).every(t=>t==='95.9%'));
+  assert.equal(await page.locator('.usage-ring').first().getAttribute('aria-valuenow'),'95.8923154701719','Raw percentage retained');
+  assert(await page.locator('.usage-dialog').evaluate(e=>e.scrollWidth<=e.clientWidth),'Expanded narrow layout fits');
+  await page.screenshot({path:`output/usage-redesign/fractional-expanded-${width}.png`,fullPage:true});
+  await page.keyboard.press('Escape');
+ }
+
+ for (const value of [0,100]) {
+  await page.goto(server.resolvedUrls.local[0]+`engine-usage-harness.html?populated&fractional&edge=${value}`);
+  await page.locator('.usage-row > strong').first().waitFor();
+  assert((await page.locator('.usage-row > strong').allTextContents()).every(t=>t===`${value.toFixed(1)}%`));
+  assert(await page.locator('.usage-row > strong').evaluateAll(nodes=>nodes.every(e=>e.scrollWidth<=e.clientWidth)));
+  await page.getByRole('button',{name:'Expand usage'}).click();
+  assert((await page.locator('.usage-ring strong').allTextContents()).every(t=>t===`${value.toFixed(1)}%`));
+  await page.keyboard.press('Escape');
+ }
  console.log('PASS compact width, neutral unknown, expanded rings, Escape/close/focus, fixture/stale evidence, responsive screenshots');
 
 }finally{await browser.close();await server.close();}

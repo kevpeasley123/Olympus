@@ -34,6 +34,11 @@ Object.assign(window, {__TAURI_INTERNALS__: {invoke: async (command: string) => 
 }}});
 
 const synthetic = usageFixture(new URLSearchParams(location.search).has("fresh"));
+if (new URLSearchParams(location.search).has("fractional")) {
+  const edge = new URLSearchParams(location.search).get("edge");
+  const value = edge === "0" ? 0 : edge === "100" ? 100 : 95.8923154701719;
+  for (const item of synthetic) for (const window of item.windows) if (window.remaining?.unit === "%") window.remaining.value = value;
+}
 const stateParam = new URLSearchParams(location.search).get("state");
 
 if (stateParam && ["loading","failed","unsupported","disconnected"].includes(stateParam)) {
