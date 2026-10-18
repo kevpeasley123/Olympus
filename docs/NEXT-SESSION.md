@@ -7,13 +7,15 @@ file replaced is `docs/archive/NEXT-SESSION-through-2026-10-11.md`.
 
 ## State - 2026-10-18
 
-- **Version 0.37.0** prepared on `codex/engine-status-usage`, based on master
+- **Version 0.37.0** installed on `codex/engine-status-usage`, based on master
   `218e6e09a19614b379e3456f63953c3d1c2be7fd`. No master merge authorized.
 - Includes engine discovery, compact/expanded Usage, subscription/API management,
   and the offline-tested Codex conversation adapter. See `ENGINE-STATUS-USAGE.md`
   and `SUBSCRIPTION-CONVERSATION.md` for behavior and limits.
-- Delivery authorized: commit/push this branch and install through the supported
-  local installer. Installation and remote confirmation remain pending.
+- Build commit `311de62725ad35a3ebb364dbca54f79e08ac7567` pushed and remote-verified.
+  Installed through the supported local MSI installer; registry/executable version
+  and exact MSI payload verified. Production SQLite hash unchanged; rollback
+  executable/database backup retained locally. Olympus was not launched.
 - Account telemetry remains unconnected. Subscription generation and delegation
   remain blocked by billing and tool isolation; Claude conversation is unfinished.
 - No extra credits/refill authorized. Live integration is a separate follow-on.
@@ -25,13 +27,15 @@ file replaced is `docs/archive/NEXT-SESSION-through-2026-10-11.md`.
 - Preferences/Armory round trips, retained inspection evidence, draft preservation,
   keyboard focus and modal shortcut suppression passed using synthetic fixtures.
 - Independent review findings fixed and re-reviewed. Native WebView2, actual
-  account telemetry and provider generation remain unverified.
+  account telemetry and provider generation remain unverified. Startup smoke is
+  blocked pending approval to pause background analysis, opening speech and memory
+  learning; existing controls remain unchanged.
 - Release suite: all 56 scripts passed (four navigation timeouts passed on
   rerun after preview-cache isolation; project contract fixture now explicitly
   selects its synthetic API route). Rust: 552 passed, 18 ignored. MSI built.
 
 ## In flight
-- **Development branch delivery (October 18):** engine discovery, separate always-visible Command usage panel, subscription/API management reusing Preferences and Armory, and offline-tested Codex conversation adapter; see `ENGINE-STATUS-USAGE.md` and `SUBSCRIPTION-CONVERSATION.md`. Subscription generation remains blocked on billing and tool isolation; telemetry is not connected. Installation pending.
+- **Development branch delivery (October 18):** engine discovery, separate always-visible Command usage panel, subscription/API management reusing Preferences and Armory, and offline-tested Codex conversation adapter; see `ENGINE-STATUS-USAGE.md` and `SUBSCRIPTION-CONVERSATION.md`. Subscription generation remains blocked on billing and tool isolation; telemetry is not connected. Installed without launch.
 - **Skin choice.** Kevin is comparing the four skins in the installed app.
 - **A live view on Kevin's PC.** Remote Control works on his PC (first used
   2026-10-14 to install 0.35.0). A session running `npm run tauri dev` from
