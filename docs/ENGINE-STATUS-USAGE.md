@@ -1,6 +1,6 @@
 # Engine status and usage
 
-This bounded slice inspects installed engines and displays account telemetry availability. Provider account-usage adapters remain unwired. A later offline-tested Codex conversation adapter is described in [Subscription conversation](SUBSCRIPTION-CONVERSATION.md); live generation stays blocked.
+This bounded slice inspects installed engines and displays account telemetry availability. Explicit account readers are available; availability differs by provider. A later offline-tested Codex conversation adapter is described in [Subscription conversation](SUBSCRIPTION-CONVERSATION.md); live generation stays blocked.
 
 ## Discovery and eligibility
 
@@ -14,13 +14,13 @@ Sign-in and billing eligibility are separate. A subscription can allow extra pai
 
 Command has a compact 320px Usage widget above and outside the chat console. Expand opens a dark glass modal with two semantic groups: Models & subscriptions and APIs & services. Explicit capabilityCategory controls placement. The compact view selects the first valid percentage window; its tooltip identifies the window. The expanded view names all supplied windows, their units, periods and reset dates. Reported percentage allowances use remaining bars and rings. Currency balances display actual currency; credits retain their unit. A balance alone never supplies a percentage denominator.
 
-Unknown allowances render neutral dashes without empty progress tracks or numeric accessibility values. Disconnected, unsupported, loading and failed states are distinct. Failed checks may retain a supplied last-known snapshot, explicitly labelled stale. Readings older than five minutes are marked stale. Source, scope, observation time and any supplied YTD values live in the expanded view. No refresh control or invented trends, plan names, unlimited allowances or service quotas are offered.
+Unknown allowances render neutral dashes without empty progress tracks or numeric accessibility values. Disconnected, unsupported, loading and failed states are distinct. Failed checks may retain a supplied last-known snapshot, explicitly labelled stale. Readings older than five minutes are marked stale. Source, scope, observation time and any supplied YTD values live in the expanded view. Refresh reads supported sources explicitly; no trends, plan names, unlimited allowances or service quotas are invented.
 
-Account telemetry is not connected. Production Codex, Claude and ElevenLabs therefore show no fabricated numbers or reset dates. Populated and failure-state data exist only in the isolated engine-usage and Command test harnesses. The widget makes no provider calls. Existing Voice usage remains a separate current-app-run ledger.
+Production starts with unknown values. Explicit Refresh invokes the native readers below; populated test harnesses use only synthetic data. Existing Voice usage remains a separate current-app-run ledger.
 
 The native HTML dialog traps keyboard focus, closes with Escape or Close and restores focus to Expand. Its content scrolls on short/narrow windows. The design uses static CSS/SVG with reduced-motion protection. Browser verification does not establish native WebView2 behavior.
 
-Future adapters may use supported Codex account-limit reporting and ElevenLabs subscription/analytics endpoints. Claude quota/overage availability must be established through supported interfaces. Unknown account-wide data must stay unavailable; local receipts must not be relabelled as account-wide totals.
+The native readers below use supported account-limit and subscription interfaces. Claude quota comes only from passive statusline observations; overage eligibility remains unverified. Unknown account-wide data stays unavailable; local receipts are not account-wide totals.
 
 ## Management paths
 
@@ -36,7 +36,7 @@ Run `node scripts/test-engine-usage.mjs` and `node scripts/test-engine-usage-bro
 
 Native UI, live generation, inference cancellation, real limit-hit streams and account-usage adapters require separate acceptance. No model request is needed to run the focused tests.
 
-## Explicit account refresh (development follow-on, not installed)
+## Explicit account refresh
 
 `account_usage_read` reads one fixed provider at a time. Usage Refresh starts
 independent reads; there is no mount timer or automatic retry. Errors keep the
@@ -53,9 +53,8 @@ YTD totals are inferred from characters, credits, or tokens.
   the request times out after 20 seconds and the body is capped at 256 KiB.
   Character quota is labelled as characters, with billing-period consumption
   and reset time. Credentials and response bodies never reach the webview.
-- Claude links to `https://claude.ai/settings/usage`. Its documented status-line
-  limits require a previous model response; no standalone account reader is
-  integrated and no generation is started to manufacture a reading.
+- Claude reads the bounded local passive quota file described below. The account
+  page remains available; no generation is started to manufacture a reading.
 
 ### Local read-only verification, October 18
 
@@ -97,3 +96,32 @@ is resolved. This verifies the backend request, not native UI rendering.
 Displayed percentages round to one decimal place in compact labels, expanded
 rings and window details. Underlying quota values, geometry and accessibility
 numeric values retain their original precision; unknown readings stay unknown.
+
+## Passive Claude quota collector
+
+`scripts/claude-quota-collector.mjs` accepts ordinary Claude Code statusline input
+in memory and persists only version, observation timestamps and the five-hour/
+seven-day used percentages and reset times. It never retains prompts, transcripts,
+session identifiers or credentials. There are no network requests or model calls.
+The quota file is `%LOCALAPPDATA%\Olympus\telemetry\claude-quota.json`.
+
+`scripts/install-claude-quota.py` compares inspected settings/script hashes, backs
+up the current settings and statusline, and installs a wrapper that forwards the
+original input to the existing command. Its `--baseline` option ENABLES it; it is
+not a preview. `--restore` restores the original command and retains unrelated
+settings, concurrent formatting changes and backup files.
+
+Writes serialize with a bounded lock and atomic replacement. An abandoned lock
+fails closed: recovery requires confirming no collector is running before removing
+that quota file's lock directory. It is never automatically reclaimed. Missing,
+invalid or expired windows are unknown; unchanged consecutive payloads retain
+observation times. A reappearing window is a new local observation, not proof of
+a new provider request. The app labels observations over five minutes stale.
+
+`commands/claude_quota.rs` reads at most 8 KiB and validates each window. Refresh
+reads that file without contacting Claude. The collector updates during ordinary
+authorized Claude Code activity; the app uses explicit Refresh to load a new
+snapshot. Displayed windows expire at their reset even without another Refresh.
+Absolute token allowances and billing balances stay unknown. No browser reading
+is seeded into automatic telemetry. First real capture and native rendering are
+separate acceptance steps; fixture verification requires no generation.

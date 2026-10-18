@@ -63,3 +63,4 @@ pub mod project_registry;
 pub mod project_management;
 pub mod project_intake;
 pub mod account_usage;
+pub mod claude_quota;

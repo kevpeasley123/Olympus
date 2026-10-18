@@ -34,6 +34,14 @@ Object.assign(window, {__TAURI_INTERNALS__: {invoke: async (command: string) => 
 }}});
 
 const synthetic = usageFixture(new URLSearchParams(location.search).has("fresh"));
+if(new URLSearchParams(location.search).has("passive")) {
+ const claude=synthetic.find(s=>s.provider==="Claude")!;
+ claude.source="Claude Code statusline (passive local)";
+ claude.observedAt=new Date().toISOString();
+ claude.status="ready";
+ claude.windows=[{label:"5-hour window",remaining:{value:89.875,unit:"%",period:"5 hours"},resetsAt:new Date(Date.now()+3000).toISOString()},{label:"Weekly window",remaining:{value:90,unit:"%",period:"7 days"},resetsAt:new Date(Date.now()+10000).toISOString()}];
+ claude.balance=null;
+}
 if (new URLSearchParams(location.search).has("fractional")) {
   const edge = new URLSearchParams(location.search).get("edge");
   const value = edge === "0" ? 0 : edge === "100" ? 100 : 95.8923154701719;

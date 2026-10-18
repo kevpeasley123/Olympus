@@ -496,3 +496,9 @@ its proxy after a bounded exchange; it never launches a fresh server. ElevenLabs
 quota uses the existing native credential and redirect-free HTTP client for a
 fixed GET endpoint. Account checks write no SQLite or vault state. See
 `docs/ENGINE-STATUS-USAGE.md` for current integration limits.
+
+Claude quota is a passive local statusline snapshot. The opt-in wrapper preserves
+the existing statusline and allowlists only quota values/reset/observation times;
+`commands/claude_quota.rs` bounds and validates the file read. UI reset timers only
+expire displayed evidence; they do not poll providers. See the same usage document
+for installation, rollback and unknown/stale semantics.

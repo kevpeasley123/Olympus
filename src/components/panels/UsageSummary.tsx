@@ -7,7 +7,7 @@ import { useEffect, useRef, useState } from "react";
 import { siClaude, siElevenlabs } from "simple-icons";
 import { createPortal } from "react-dom";
 import { BarChart3, Maximize2, X, Layers, Link2, CodeXml } from "lucide-react";
-import { mergeUsageReading, formatUsageMetric, formatUsagePercentage, unavailableUsage, usageFreshness, type UsageSnapshot, type UsageMetric } from "../../services/usage";
+import { mergeUsageReading, expireUsageWindows, formatUsageMetric, formatUsagePercentage, unavailableUsage, usageFreshness, type UsageSnapshot, type UsageMetric } from "../../services/usage";
 import "./UsageSummary.css";
 const groups = [{ id: "models-subscriptions", label: "Models & subscriptions", Icon: Layers }, { id: "apis-services", label: "APIs & services", Icon: Link2 }] as const;
 const colors: Record<string, string> = { Codex: "blue", Claude: "orange", ChatGPT: "teal", ElevenLabs: "violet" };
@@ -35,7 +35,14 @@ export function UsageSummary({ snapshots: suppliedSnapshots, previewLabel, manag
     managementApi?:ManagementClient;
 }) {
     const [liveSnapshots,setLiveSnapshots]=useState(unavailableUsage);
-    const snapshots=suppliedSnapshots??liveSnapshots;
+    const [now, setNow] = useState(Date.now);
+    const snapshots=(suppliedSnapshots??liveSnapshots).map(s=>expireUsageWindows(s,now));
+    useEffect(()=>{
+      const resets=(suppliedSnapshots??liveSnapshots).filter(s=>s.provider==="Claude"&&s.source==="Claude Code statusline (passive local)").flatMap(s=>s.windows.map(w=>Date.parse(w.resetsAt??""))).filter(t=>Number.isFinite(t)&&t>now);
+      if(!resets.length)return;
+      const timer=window.setTimeout(()=>setNow(Date.now()),Math.min(Math.min(...resets)-now+1,2147483647));
+      return ()=>window.clearTimeout(timer);
+    },[suppliedSnapshots,liveSnapshots,now]);
     const [refreshing,setRefreshing]=useState(false);
     const busy=useRef(false);
     async function refresh(){
@@ -54,7 +61,6 @@ export function UsageSummary({ snapshots: suppliedSnapshots, previewLabel, manag
     const [selection,setSelection]=useState<string|null>(null);
     const returnManager=useRef<ManagementView|null>(null);
     const [open, setOpen] = useState(false);
-    const [now, setNow] = useState(Date.now);
     const trigger = useRef<HTMLButtonElement>(null);
     const dialog = useRef<HTMLDialogElement>(null);
     useEffect(() => { const t = window.setInterval(() => setNow(Date.now()), 60000); return () => clearInterval(t); }, []);

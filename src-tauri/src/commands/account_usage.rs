@@ -196,10 +196,10 @@ pub async fn account_usage_read(provider: String) -> Result<Value, String> {
     }
     let mut s = empty(&provider);
     if provider == "Claude" {
-        s["status"] = json!("unsupported");
-        s["source"] = json!("Claude account usage page");
-        s["detail"]=json!("No standalone read-only subscription query is integrated. Claude Code status-line limits require a prior model response. View your account usage directly.");
-        return Ok(s);
+        return match super::claude_quota::read() {
+            Ok(reading)=>Ok(reading),
+            Err(detail)=>{s["source"]=json!("Claude Code statusline (passive local)");s["detail"]=json!(detail);Ok(s)}
+        };
     }
     let flag = if provider == "Codex" {
         &CODEX_BUSY

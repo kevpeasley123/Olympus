@@ -1,52 +1,44 @@
 # Next session
 
-Current handoff; rewrite at milestones per `AGENTS.md`. History: `docs/RELEASES.md` and `docs/archive/`.
+Current handoff; prior verification is in `archive/NEXT-SESSION-through-0.39.0.md`.
 
 ## State - 2026-10-17 (America/Phoenix)
 
-- **Version 0.39.0 installed** on `codex/engine-status-usage`, based on master
-  `218e6e09a19614b379e3456f63953c3d1c2be7fd`. No master merge authorized.
-- Build commit `b29f15c8c48139868d4ae5c5cb3f946b436a8e18` pushed and remote-verified.
-  Includes engine discovery, Usage, subscription/API management, the offline-tested
-  Codex conversation adapter, and explicit read-only account Refresh. See
-  `ENGINE-STATUS-USAGE.md` and `SUBSCRIPTION-CONVERSATION.md`.
-- Installed through the supported local MSI installer without launch. Windows
-  registry/executable version and exact extracted MSI payload match. Production
-  SQLite hash unchanged; 0.38.0 executable/MSI and integrity-checked database
-  rollback copies retained in the delivery checkout's ignored output directory.
+- **Version 0.40.0 built; 0.39.0 installed** on `codex/engine-status-usage`, based
+  on master `218e6e09a19614b379e3456f63953c3d1c2be7fd`. No master merge authorized.
+- Passive Claude quota collector enabled after fresh settings/script comparisons.
+  Original statusline and unrelated settings preserved; reversible backups in
+  `%USERPROFILE%/.claude/olympus-quota`. See `ENGINE-STATUS-USAGE.md`.
+- First real sample awaits ordinary authorized Claude Code activity. No test
+  generation requested. Olympus Refresh reads the local file; missing/expired
+  windows remain unknown and unchanged observations do not freshen the meter.
+- Production/MSI build and TypeScript passed. Host Rust: 558 passed, 20 ignored.
+  Sandbox failures resolved with the ordinary authorized host rerun.
+- All 61 script checks passed after the targeted Organizer initial-load rerun
+  (90-second wait, identical assertions). Visual regression: 21 captures passed
+  after a fresh-browser Armory rerun resolved a resource-buffer error; full-run
+  functional checks: 14 passed, Organizer: 22 passed. Collector/installer and
+  mounted expiry fixtures pass. Independent final review found no blockers.
+- 0.39.0 executable/MSI and integrity-checked SQLite rollback copies retained in
+  ignored output. Installed app is closed; production launch is not requested.
 - Subscription generation/delegation remain blocked by billing and tool isolation;
   Claude conversation is unfinished. No extra credits/refill authorized.
 
-## Verification - 2026-10-17, Windows
+## Telemetry and acceptance limits
 
-- Production/MSI build, TypeScript and guidance checks passed. Rust: 556 passed,
-  20 ignored; final telemetry tests: 4 passed, 2 ignored.
-- All 58 release test scripts passed after targeted reruns for engine navigation
-  (isolated dependency cache) and Organizer initial load (90 seconds); assertions unchanged.
-  Organizer's 10 contract and 22 browser workflow checks passed on that rerun.
-- Visual regression: 21/21 captures, 14 functional and 22 Organizer checks.
-  Refresh, retained readings, management round trips, responsive layout and
-  keyboard behavior verified with synthetic browser fixtures. Independent review
-  findings fixed and re-reviewed.
-- Installed executable SHA-256:
-  `5c8505cad16de6a632462fa230d5f7b6034e641124971eb339a73997dbf0b941`.
-  Matches extracted MSI payload; no Olympus process after installation.
-- Native WebView2 Refresh, successful live quota and provider generation remain
-  unverified. No production launch: existing background analysis, opening speech
-  and memory-learning settings remain unchanged.
-## Percentage formatting delivered
-- One decimal in compact labels, expanded rings and window details; raw values
-  unchanged. Fractional/0/100/unknown and 360px layout checks pass. Installed
-  without launch; native WebView2 rendering remains unverified here.
-## Live telemetry blockers
-- ElevenLabs quota GET succeeded after Kevin confirmed User access enabled.
-  Observed 2026-10-17 20:36:23 Phoenix: 975 used, 22,761 remaining characters;
-  reset November 6 11:09:07 Phoenix. Backend verified, installed UI not exercised here.
-- Codex expected control socket absent; app-server lacks `--ignore-user-config`.
-  No fresh server, restart or generation. Claude uses an honest account link.
-  Details in `ENGINE-STATUS-USAGE.md`.
+- ElevenLabs secure quota GET succeeded at 2026-10-17 20:36:23 Phoenix:
+  975 used, 22,761 remaining characters; reset November 6 11:09:07 Phoenix.
+  Reader preserved; no repeated provider probe for this release.
+- Codex existing-daemon proxy exited 1 before a response: expected socket absent,
+  Windows error 10050. Account access in Codex itself does not prove this connection.
+  No restart, fresh daemon, security change or generation attempted.
+- Percentages display one decimal, with raw precision retained. Absolute Claude
+  token allowance remains unknown; browser observations are not seeded as telemetry.
+- First real Claude capture, native WebView2 rendering/Refresh and generation remain
+  unverified. Existing background analysis, speech and memory settings are unchanged.
+
 ## In flight
-- **Development branch delivery (October 17, Phoenix):** engine discovery, separate always-visible Command usage panel, subscription/API management reusing Preferences and Armory, and offline-tested Codex conversation adapter; see `ENGINE-STATUS-USAGE.md` and `SUBSCRIPTION-CONVERSATION.md`. Subscription generation remains blocked on billing and tool isolation; telemetry is not connected. Installed without launch.
+- **Development branch delivery (October 17, Phoenix):** engine discovery, separate always-visible Command usage panel, subscription/API management reusing Preferences and Armory, and offline-tested Codex conversation adapter; see `ENGINE-STATUS-USAGE.md` and `SUBSCRIPTION-CONVERSATION.md`. Subscription generation remains blocked on billing and tool isolation; Codex telemetry remains blocked. Installed without launch.
 - **Skin choice.** Kevin is comparing the four skins in the installed app.
 - **A live view on Kevin's PC.** Remote Control works on his PC (first used
   2026-10-14 to install 0.35.0). A session running `npm run tauri dev` from
@@ -122,10 +114,6 @@ Current handoff; rewrite at milestones per `AGENTS.md`. History: `docs/RELEASES.
   `OLYMPUS_EMAIL_ANALYSIS_PROVIDER=ollama` is set.
 - **Monid text without Monid.** `SkillCollection.tsx` copy mentions Monid
   approvals, but no Monid integration exists.
-- **Leftovers.**
-  - `gmail_workspace` still returns `signals`, which the UI no longer renders.
-  - A quota test message in `gmail/auth.rs` still says ten minutes; the budget
-    is 30.
 
 ## Never exercised against real data
 

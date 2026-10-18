@@ -53,3 +53,9 @@ export function mergeUsageReading(previous: UsageSnapshot, next: UsageSnapshot):
     ? {...previous, status: "failed", detail: next.detail}
     : next;
 }
+
+/** A passive Claude window expires even if no new activity or Refresh occurs. */
+export function expireUsageWindows(snapshot: UsageSnapshot, now=Date.now()): UsageSnapshot {
+  if(snapshot.provider!=="Claude" || snapshot.source!=="Claude Code statusline (passive local)") return snapshot;
+  return {...snapshot, windows:snapshot.windows.map(w=>w.resetsAt && Date.parse(w.resetsAt)<=now?{...w,remaining:null}:w)};
+}
