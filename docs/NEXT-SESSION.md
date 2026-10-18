@@ -5,48 +5,33 @@ that changes state and at every release (see "Keeping guidance current" in
 `AGENTS.md`). History is in `docs/RELEASES.md` and `docs/archive/`; the log this
 file replaced is `docs/archive/NEXT-SESSION-through-2026-10-11.md`.
 
-## State — 2026-10-14
+## State - 2026-10-18
 
-- **Version 0.36.0** on `master`, from `claude/project-thread-lp4tw8`. 0.35.0
-  was installed on Kevin's PC through Update Olympus on 2026-10-14; 0.36.0 is
-  installed when he next runs it.
-- **0.36.0** polishes the Pantheon at Kevin's request: no hover card, no
-  motto line under the name plates, the Skin switch reduced to a faint dot in
-  the scene's bottom-left corner, and a stepped lightning bolt for Zeus.
-- **0.35.0** gives the Pantheon statues skins and depth
-  ([PANTHEON-FIGURES.md](PANTHEON-FIGURES.md)):
-  - Four material presets: Aged Bronze (default, crisp white garments),
-    Obsidian Gold, Mythic Color and Celestial (a translucent starfield body).
-    A skin switch compares them and ships until Kevin picks
-    one; then make it the default and set `COMPARING` to false in
-    `src/services/pantheonSkins.ts`.
-  - Baked occlusion from the Blender build, form shading, a soft back veil and
-    contact shadows.
-  - Hovering a god or its Armory row lifts and brightens it behind a gold
-    halo; the Armory row lights without moving.
-  - The Agents constellation and its "AGENTS 5" label are gone; Plugins,
-    Skills, Obsidian Memory and the Omega are unchanged.
-- **Earlier.** 0.34.0 the Living Pantheon; 0.33.0 conversations and memory
-  and the voice signal; 0.31.0 Armory Phase 0b (`docs/ARMORY-PLAN.md`).
-- Every other remote branch ahead of `master` is older than the 0.34.0 release
-  or predates the 2026-09-07 history restart; all are superseded.
+- **Version 0.37.0** prepared on `codex/engine-status-usage`, based on master
+  `218e6e09a19614b379e3456f63953c3d1c2be7fd`. No master merge authorized.
+- Includes engine discovery, compact/expanded Usage, subscription/API management,
+  and the offline-tested Codex conversation adapter. See `ENGINE-STATUS-USAGE.md`
+  and `SUBSCRIPTION-CONVERSATION.md` for behavior and limits.
+- Delivery authorized: commit/push this branch and install through the supported
+  local installer. Installation and remote confirmation remain pending.
+- Account telemetry remains unconnected. Subscription generation and delegation
+  remain blocked by billing and tool isolation; Claude conversation is unfinished.
+- No extra credits/refill authorized. Live integration is a separate follow-on.
 
-## Last verification — 2026-10-14, Linux cloud container
+## Verification - 2026-10-18, Windows browser
 
-The 0.36.0 branch, with `master` already merged in:
-- `cargo test --lib`: 539 passed, 18 ignored;
-- `npm run build`;
-- all 48 `scripts/test-*.mjs`, the browser ones on headless Chromium
-  through a shim that drops `channel:'msedge'` (`test-eleven-browser` given
-  the dev server URL);
-- `npm run visual:review`: 21/21 captures, 14 functional checks and 22
-  Organizer checks.
-
-Not the desktop app, WebView2, Tauri IPC or real data. The statues and skins
-have been seen only in Chromium with software WebGL.
+- Production build, focused engine/Usage/management tests, guidance checks passed.
+- Full visual regression: 21/21 captures, 14 functional and 22 Organizer checks.
+- Preferences/Armory round trips, retained inspection evidence, draft preservation,
+  keyboard focus and modal shortcut suppression passed using synthetic fixtures.
+- Independent review findings fixed and re-reviewed. Native WebView2, actual
+  account telemetry and provider generation remain unverified.
+- Release suite: all 56 scripts passed (four navigation timeouts passed on
+  rerun after preview-cache isolation; project contract fixture now explicitly
+  selects its synthetic API route). Rust: 552 passed, 18 ignored. MSI built.
 
 ## In flight
-
+- **Development branch delivery (October 18):** engine discovery, separate always-visible Command usage panel, subscription/API management reusing Preferences and Armory, and offline-tested Codex conversation adapter; see `ENGINE-STATUS-USAGE.md` and `SUBSCRIPTION-CONVERSATION.md`. Subscription generation remains blocked on billing and tool isolation; telemetry is not connected. Installation pending.
 - **Skin choice.** Kevin is comparing the four skins in the installed app.
 - **A live view on Kevin's PC.** Remote Control works on his PC (first used
   2026-10-14 to install 0.35.0). A session running `npm run tauri dev` from

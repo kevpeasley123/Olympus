@@ -250,8 +250,13 @@ Processes started here:
 - Sign-in checks, with the same environment and a 20-second limit:
   `claude auth status --json` when a delegation proposal is prepared and before
   each launch, and both it and `codex login status` when Preferences checks the
-  engines (`engine_status`). Codex is resolved from `OLYMPUS_CODEX`, `PATH` or
-  npm's global install; nothing else launches it yet.
+  engines (`engine_status`). Codex also discovers desktop-managed binaries;
+  explicit overrides fail closed and ambiguous desktop installs require selection.
+  Claude status ignores user/project settings like its launch. Subscription sign-in
+  does not prove paid overage is disabled: the generation/delegation gate refuses
+  unknown billing eligibility. An offline-tested Codex conversation transport is gated before launch;
+  explicit session-only selection branches before API enrichment, with no API fallback. Tool/config
+  isolation remains unverified. See `docs/ENGINE-STATUS-USAGE.md` and `docs/SUBSCRIPTION-CONVERSATION.md`.
 - `taskkill /PID <pid> /T /F` on cancellation, only while the process's
   creation time still matches the one recorded with the PID.
 

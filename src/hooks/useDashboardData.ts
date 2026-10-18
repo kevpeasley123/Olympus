@@ -1,5 +1,6 @@
 import { generateSituationBriefing } from "../services/situationBriefing";
 import {consumeNextModel,endChatModelScope} from "../services/modelRouting";
+import {requireConversationProvider} from "../services/conversationProvider";
 import { normalizeVoicePreferences, type VoicePreferences } from "../services/voicePreferences";
 import { refreshActionQueue, useActionQueue } from "./useActionQueue";
 import { refreshDelegationRuns, useDelegationRuns } from "./useDelegationRuns";
@@ -333,7 +334,7 @@ export function useDashboardData() {
 
       let capability: import("../services/modelRouting").ModelCapability = "PRIMARY";
       if (isTauriRuntime()) {
-        try { capability=consumeNextModel(); }
+        try { if (requireConversationProvider() === "legacy-api") capability=consumeNextModel(); }
         catch(error) { setChatError(errorMessage(error)); return; }
       }
       const user = createUserMessage(trimmed);

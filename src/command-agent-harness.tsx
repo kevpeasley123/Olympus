@@ -1,3 +1,8 @@
+import {AmbientDock} from "./components/panels/AmbientDock";
+import {DEFAULT_VOICE_PREFERENCES} from "./services/voicePreferences";
+import {usageManagementFixture} from "./services/usageManagementFixture";
+import {usageFixture} from "./services/usageFixture";
+import {UsageSummary} from "./components/panels/UsageSummary";
 import {memoryFixture} from "./services/memoryFixture";
 import modelPickerFixture from "./services/modelCatalogFixture.json";
 import { OlympusArmory } from "./components/panels/OlympusArmory";
@@ -154,6 +159,7 @@ function Harness() {
   const flagship = params.has("flagship");
   const [key, setKey] = useState(0), [destination, setDestination] = useState<null | { runId?: string; projects?: boolean }>(null);
   const [layout, setLayout] = useState<"compact" | "expanded">(scenario === "chat-compact" ? "compact" : "expanded");
+  const [preferencesOpen,setPreferencesOpen]=useState(false);
   const [catalogReady, setCatalogReady] = useState(false);
   const missions = params.get("missions") === "2" ? {observedAt:missionSets.researchActive.observedAt, missions:[...missionSets.researchActive.missions.filter(m=>m.status==="running"), ...missionSets.mailActive.missions.filter(m=>m.status==="running").map(m=>({...m,status:"waiting" as const,approval:{required:true,detail:"Synthetic approval checkpoint"}}))]} : missionFor[scenario];
   const [codingPhase, setCodingPhase] = useState<"editing" | "approval" | "verifying" | null>(scenario === "mission-coding" && !params.has("cycle") ? "editing" : null);
@@ -207,7 +213,7 @@ function Harness() {
           missionOperation={command.missionOperation} working={command.working} selectedDomain={command.selectedDomain} selectedCapability={command.selectedCapability}
           onHoverDomain={command.setHoverDomain} onSelectDomain={command.setSelectedDomain} onSelectCapability={command.setSelectedCapability} />
       </div></section>
-      <section className="right-stack dashboard-column"><div className="panel-slot panel-slot-chat">
+      <section className="right-stack dashboard-column">{params.has("usage-fixture")&&<span className="usage-fixture-label">SYNTHETIC USAGE PREVIEW</span>}{flagship && <UsageSummary managementApi={usageManagementFixture} previewLabel={params.has("usage-fixture")?"Synthetic usage fixture / no provider calls":undefined} snapshots={params.has("usage-fixture")?usageFixture(params.get("usage-fixture")==="fresh"):undefined}/>}<div className="panel-slot panel-slot-chat">
         <ChatPanel companion={flagship} inspectionProjects={["fixture-repo"]} messages={messages} autoSpeak={false} onAutoSpeakChange={() => {}} onOpenPreferences={() => {}} onSendMessage={() => { mutations++; }}
           activeMissions={command.liveMissions} selectedMissionId={command.selectedMissionId} onSelectMission={command.selectMission} layout={layout} onLayoutChange={setLayout} mission={command.mission} capabilities={capabilities} suggestions={flagship?suggestions.slice(0,3):suggestions}
           onOpenMission={destination => setDestination(destination === "research" ? {} : { projects: true })} onDismissMission={command.dismissMission} chats={flagship ? chats : undefined} />
@@ -221,7 +227,7 @@ function Harness() {
       <section className="preferences-section" aria-labelledby="preferences-memory"><MemorySettings /></section></div></div>}
     {destination && <section className="command-fixture-inspector" aria-label="Existing inspection destination">{destination.projects ? <><button onClick={() => setDestination(null)}>Return to Command catalog</button><p>Project destination · fixture only</p></> :
       <ResearchVerification client={readOnlyResearch} available requestedRunId={destination.runId} inspectionOnly onReturn={() => setDestination(null)} />}</section>}
-  </main><style>{`.command-fixture-controls{position:fixed;left:18px;bottom:3px;right:18px;display:flex;align-items:center;gap:14px;font:9px monospace;z-index:30;color:#acbacb}.command-fixture-controls button,.command-fixture-controls select{font:9px monospace;background:#10202d;color:#bdcbd8;border:1px solid #64798c55;padding:2px 5px}.command-fixture-controls details{margin-left:auto}.command-fixture-controls pre{position:absolute;bottom:20px;right:0;max-height:55vh;max-width:80vw;overflow:auto;white-space:pre-wrap;background:#07121e;padding:14px;border:1px solid #526479}.command-fixture-inspector{position:fixed;inset:90px 20px 35px;overflow:auto;z-index:40;background:#0a1522;border:1px solid #64798c;padding:15px}`}</style></>;
+  </main>{params.has("management-harness")&&<AmbientDock preferencesOpen={preferencesOpen} onPreferencesOpen={setPreferencesOpen} voicePreferences={DEFAULT_VOICE_PREFERENCES} onVoicePreferences={()=>{throw Error("No preference writes in management fixture")}} settingsReady mode="command" onRefresh={()=>{document.documentElement.dataset.fixtureRefresh="called"}} onCycleMode={()=>{document.documentElement.dataset.fixtureCycle="called"}}/>}<style>{`.command-fixture-controls{position:fixed;left:18px;bottom:3px;right:18px;display:flex;align-items:center;gap:14px;font:9px monospace;z-index:30;color:#acbacb}.command-fixture-controls button,.command-fixture-controls select{font:9px monospace;background:#10202d;color:#bdcbd8;border:1px solid #64798c55;padding:2px 5px}.command-fixture-controls details{margin-left:auto}.command-fixture-controls pre{position:absolute;bottom:20px;right:0;max-height:55vh;max-width:80vw;overflow:auto;white-space:pre-wrap;background:#07121e;padding:14px;border:1px solid #526479}.command-fixture-inspector{position:fixed;inset:90px 20px 35px;overflow:auto;z-index:40;background:#0a1522;border:1px solid #64798c;padding:15px}`}</style></>;
 }
 
 // `?voice=speaking|listening|thinking|off|error&level=n` drives the voice dock.

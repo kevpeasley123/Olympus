@@ -1,9 +1,11 @@
+import {selectConversationProvider} from "./conversationProvider";
 import {mockIPC} from "@tauri-apps/api/mocks";
 import {requestAssistantReply} from "./assistant";
 import {seedState} from "../data/seed";
 import {applyProjectMember,subscribeProjectMembers,publishProjectMember,type ProjectMember} from "./projectMembership";
 export async function runProjectLinkingContracts(){
  let payload:any;mockIPC((command,args)=>{if(command==="recommend_resource_skills")return [];if(command==="send_assistant_message"){payload=args;return {content:"Fixture",model:"Fixture",research:[]}}throw Error(command)});
+ selectConversationProvider("legacy-api"); // Explicit route in this synthetic IPC contract.
  const a={...seedState.projects[0],id:"a",name:"Selected"},b={...seedState.projects[0],id:"b",name:"Unrelated",vision:"PRIVATE OTHER PROJECT"};
  const check=(ok:unknown,label:string)=>{if(!ok)throw Error(label)};
  await requestAssistantReply([{id:"u",role:"user",timestamp:"now",content:"Evaluate",attachment:{kind:"project-snapshot",label:a.name,heading:"Project assessment",context:"Selected source",projectId:"a"}}],seedState.settings,[a,b],undefined,{commandBoard:[{project:a},{project:b}]});

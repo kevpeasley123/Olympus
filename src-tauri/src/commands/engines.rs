@@ -4,7 +4,7 @@
 //! The two are equal engines and neither is required (docs/ARMORY-PLAN.md,
 //! principle 7). The sign-in check runs each CLI's own status command with the
 //! environment Olympus launches it with, so the answer describes a launch, not
-//! the operator's shell. Olympus never launches an engine on API billing.
+//! the operator's shell. Unknown paid-overage eligibility blocks generation.
 
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output, Stdio};
@@ -62,6 +62,77 @@ pub struct EngineStatus {
     pub executable: Option<String>,
     pub version: Option<String>,
     pub sign_in: SignIn,
+    pub observed_at: String,
+    pub selection: &'static str,
+    pub capabilities: EngineCapabilities,
+    pub billing: BillingState,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EngineCapabilities {
+    streaming: Option<bool>,
+    structured_output: Option<bool>,
+    ephemeral: Option<bool>,
+    source: &'static str,
+}
+
+fn capabilities(engine: Engine, version: Option<&str>) -> EngineCapabilities {
+    // CLI help inspected locally; this does not claim live inference acceptance.
+    let inspected = matches!((engine, version),
+        (Engine::ClaudeCode, Some("2.1.74 (Claude Code)" | "2.1.284 (Claude Code)")) |
+        (Engine::Codex, Some("codex-cli 0.163.0-alpha.10.2")));
+    EngineCapabilities {
+        streaming: inspected.then_some(true), structured_output: inspected.then_some(true),
+        ephemeral: inspected.then_some(true),
+        source: if inspected { "Installed-version CLI help: streaming, structured output and ephemeral sessions advertised; live behavior unverified." }
+            else { "Version capabilities not verified. No generation is enabled." },
+    }
+}
+
+#[derive(Debug, Serialize)]
+pub struct BillingState { state: &'static str, detail: &'static str }
+
+fn billing_state(sign_in: &SignIn) -> BillingState {
+    if matches!(sign_in, SignIn::Subscription { .. }) {
+        BillingState { state: "unknown", detail: "Subscription confirmed; paid-overage eligibility has not been verified." }
+    } else {
+        BillingState { state: "ineligible", detail: "A subscription sign-in has not been confirmed." }
+    }
+}
+
+/// No supported no-overage proof is wired yet. All subscription generation fails closed.
+pub(crate) fn require_generation_eligibility(sign_in: &SignIn) -> Result<(), String> {
+    Err(format!("{} Nothing was started. Check subscription and paid-overage settings before enabling generation.", billing_state(sign_in).detail))
+}
+
+pub(crate) fn select_executable(explicit: Option<PathBuf>, candidates: Vec<PathBuf>) -> Result<PathBuf, String> {
+    if let Some(path) = explicit {
+        return if path.is_absolute() && path.is_file() { Ok(path) }
+            else { Err("The explicit engine executable must be an existing absolute file path. No other installation was selected.".into()) };
+    }
+    candidates.into_iter().find(|path| path.is_absolute() && path.is_file())
+        .ok_or_else(|| "No engine executable was found in the configured locations.".into())
+}
+
+/// Desktop app-managed installations are not on PATH. Inspect only this bounded directory.
+fn desktop_codex_candidates(local_app_data: &Path) -> Vec<PathBuf> {
+    let root = local_app_data.join("OpenAI/Codex/bin");
+    let Ok(entries) = std::fs::read_dir(root) else { return Vec::new() };
+    let entries: Vec<_> = entries.take(65).collect();
+    // Do not select from an incomplete directory scan.
+    if entries.len() > 64 { return Vec::new(); }
+    let mut paths: Vec<_> = entries.into_iter().filter_map(Result::ok)
+        .map(|entry| entry.path().join("codex.exe")).filter(|path| path.is_file()).collect();
+    paths.sort();
+    paths
+}
+
+fn select_desktop_codex(paths: Vec<PathBuf>) -> Result<PathBuf, String> {
+    if paths.len() > 1 {
+        return Err("Multiple desktop Codex installations were found. Set OLYMPUS_CODEX to the exact executable to inspect; no version was chosen silently.".into());
+    }
+    select_executable(None, paths)
 }
 
 /// Where Codex may be installed, most specific first: an explicit `OLYMPUS_CODEX`
@@ -93,12 +164,12 @@ pub(crate) fn codex_candidates(var: impl Fn(&str) -> Option<std::ffi::OsString>)
 }
 
 pub(crate) fn codex_executable() -> Result<PathBuf, String> {
-    codex_candidates(|key| std::env::var_os(key))
-        .into_iter()
-        .find(|candidate| candidate.is_file())
-        .ok_or_else(|| {
-            "Codex was not found on PATH or in the npm global install. Set OLYMPUS_CODEX to the full path of codex.exe.".to_string()
-        })
+    let explicit = std::env::var_os("OLYMPUS_CODEX").filter(|value| !value.is_empty()).map(PathBuf::from);
+    let selected = select_executable(explicit.clone(), codex_candidates(|key| std::env::var_os(key)));
+    if explicit.is_some() || selected.is_ok() { return selected; }
+    let desktop = std::env::var_os("LOCALAPPDATA").map(PathBuf::from)
+        .map(|path| desktop_codex_candidates(&path)).unwrap_or_default();
+    select_desktop_codex(desktop).map_err(|reason| format!("{reason} Set OLYMPUS_CODEX to the full path of codex.exe."))
 }
 
 /// Runs a CLI's own status command in the launch environment. A CLI that does not
@@ -188,10 +259,10 @@ pub(crate) fn classify_codex(stdout: &str, stderr: &str) -> SignIn {
 fn sign_in(engine: Engine, executable: &Path) -> SignIn {
     let args: &[&str] = match engine {
         Engine::Codex => &["login", "status"],
-        Engine::ClaudeCode => &["auth", "status", "--json"],
+        Engine::ClaudeCode => &["--setting-sources", "", "auth", "status", "--json"],
     };
     match run_cli(executable, args) {
-        Ok(output) => {
+        Ok(output) if output.status.success() => {
             let stdout = String::from_utf8_lossy(&output.stdout);
             let stderr = String::from_utf8_lossy(&output.stderr);
             match engine {
@@ -199,6 +270,7 @@ fn sign_in(engine: Engine, executable: &Path) -> SignIn {
                 Engine::ClaudeCode => classify_claude(&stdout),
             }
         }
+        Ok(_) => SignIn::Unknown { detail: "the sign-in check did not succeed; no credentials or raw output are shown".into() },
         Err(error) => SignIn::Unknown { detail: format!("the sign-in check could not run: {error}") },
     }
 }
@@ -218,20 +290,17 @@ fn status(engine: Engine) -> EngineStatus {
         Ok(path) => (Some(path.display().to_string()), version(&path), sign_in(engine, &path)),
         Err(detail) => (None, None, SignIn::NotFound { detail }),
     };
-    EngineStatus { engine: engine.id(), name: engine.name(), executable, version, sign_in }
+    let capabilities = capabilities(engine, version.as_deref());
+    let billing = billing_state(&sign_in);
+    let override_name = match engine { Engine::Codex => "OLYMPUS_CODEX", Engine::ClaudeCode => "OLYMPUS_CLAUDE_CODE" };
+    let selection = if std::env::var_os(override_name).is_some_and(|value| !value.is_empty()) { "explicit executable override" } else { "automatic discovery" };
+    EngineStatus { engine: engine.id(), name: engine.name(), executable, version, sign_in,
+        observed_at: chrono::Utc::now().to_rfc3339(), selection, capabilities, billing }
 }
 
-/// Delegation's gate: Claude Code launches only on a subscription sign-in.
+/// Delegation's gate: sign-in alone cannot establish that paid overage is disabled.
 pub(crate) fn require_claude_subscription(executable: &Path) -> Result<(), String> {
-    let reason = match sign_in(Engine::ClaudeCode, executable) {
-        SignIn::Subscription { .. } => return Ok(()),
-        SignIn::SignedOut => "Claude Code is not signed in. Run `claude auth login` and sign in with your Claude subscription".to_string(),
-        SignIn::ApiBilled { detail } => format!("Claude Code would bill the API: {detail}"),
-        SignIn::NotFound { detail } | SignIn::Unknown { detail } => {
-            format!("Olympus could not confirm Claude Code's sign-in: {detail}")
-        }
-    };
-    Err(format!("{reason}. Delegation runs only on a subscription sign-in, so nothing was started."))
+    require_generation_eligibility(&sign_in(Engine::ClaudeCode, executable))
 }
 
 #[tauri::command]
@@ -245,6 +314,50 @@ pub async fn engine_status(app: AppHandle) -> Result<Vec<EngineStatus>, String> 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn subscription_does_not_authorize_unknown_overage() {
+        let sign = SignIn::Subscription { plan: Some("max".into()) };
+        assert_eq!(billing_state(&sign).state, "unknown");
+        assert!(require_generation_eligibility(&sign).is_err());
+        assert_eq!(billing_state(&SignIn::SignedOut).state, "ineligible");
+        assert!(require_generation_eligibility(&SignIn::ApiBilled { detail: "key".into() }).is_err());
+    }
+
+    #[test]
+    fn explicit_executable_never_falls_back_and_must_be_absolute() {
+        let root = std::env::temp_dir().join(format!("olympus-engine-selection-{}",std::process::id()));
+        std::fs::create_dir_all(&root).unwrap();
+        let fallback = root.join("fallback.exe");
+        std::fs::write(&fallback, b"fixture").unwrap();
+        assert!(select_executable(Some(root.join("missing.exe")), vec![fallback.clone()]).is_err());
+        assert!(select_executable(Some(PathBuf::from("fallback.exe")), vec![fallback.clone()]).is_err());
+        assert_eq!(select_executable(Some(fallback.clone()), vec![]).unwrap(), fallback);
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn desktop_discovery_is_bounded_and_ambiguous_installs_need_selection() {
+        let root = std::env::temp_dir().join(format!("olympus-desktop-discovery-{}",std::process::id()));
+        let bin = root.join("OpenAI/Codex/bin");
+        std::fs::create_dir_all(bin.join("build-a")).unwrap();
+        std::fs::write(bin.join("build-a/codex.exe"), b"fixture").unwrap();
+        let paths = desktop_codex_candidates(&root);
+        assert_eq!(paths, vec![bin.join("build-a/codex.exe")]);
+        std::fs::create_dir_all(bin.join("build-b")).unwrap();
+        std::fs::write(bin.join("build-b/codex.exe"), b"fixture").unwrap();
+        assert!(select_desktop_codex(desktop_codex_candidates(&root)).is_err());
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn capability_claims_require_an_inspected_version() {
+        assert_eq!(capabilities(Engine::ClaudeCode, Some("2.1.74 (Claude Code)")).streaming, Some(true));
+        assert_eq!(capabilities(Engine::ClaudeCode, Some("2.1.284 (Claude Code)")).ephemeral, Some(true));
+        assert_eq!(capabilities(Engine::Codex, Some("codex-cli 0.163.0-alpha.10.2")).structured_output, Some(true));
+        assert_eq!(capabilities(Engine::Codex, Some("codex-cli 999.0.0")).streaming, None);
+        assert_eq!(capabilities(Engine::ClaudeCode, None).ephemeral, None);
+    }
 
     #[test]
     fn claude_counts_only_a_claude_ai_sign_in_without_an_api_key_as_a_subscription() {

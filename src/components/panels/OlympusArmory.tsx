@@ -1,3 +1,4 @@
+import {onManagementHandoff} from "../../services/managementNavigation";
 import {SkillCollection} from "./SkillCollection";
 import {onSuperpowersInspection} from "../../services/skillCollections";
 import {publishAgentConstellation,onConstellationAgent,useAgentHighlight,publishWorkingAgents} from "../../services/agentConstellation";
@@ -42,6 +43,9 @@ export function OlympusArmory({capabilities, missions, error, missionsError, pre
   const [catalogError, setCatalogError] = useState("");
   const [revision, setRevision] = useState(0);
   const [agentFilter,setAgentFilter]=useState("All");
+  const intakeDrawer=useRef<HTMLDetailsElement>(null);
+  const [intakeReturn,setIntakeReturn]=useState<(()=>void)|null>(null);
+  useEffect(()=>onManagementHandoff(request=>{if(request.target!=="armory")return;setIntakeReturn(()=>request.returnToUsage);if(intakeDrawer.current){intakeDrawer.current.open=true;intakeDrawer.current.scrollIntoView({block:"nearest"});intakeDrawer.current.querySelector<HTMLElement>("summary")?.focus();}}),[]);
   const [category, setCategory] = useState<Category>("Agents");
   const [open, setOpen] = useState(false);
   const [agentId, setAgentId] = useState<string | null>(null);
@@ -108,7 +112,7 @@ export function OlympusArmory({capabilities, missions, error, missionsError, pre
       </button>})}</div>
       {!catalog?<p>Reading catalog…</p>:!visibleAgents?.length?<p className="armory-filter-empty">No {agentFilter.toLowerCase()} agents in this snapshot.</p>:null}
     </div>
-    <div className="armory-panel-actions"><button className="armory-deploy" onClick={()=>show("Agents")} title="Choose an agent and review its available workflows"><Plus size={14}/>Deploy agent</button><details className="armory-resource-drawer"><summary>Add resources &amp; skills</summary><ResourceIntake/></details></div>
+    <div className="armory-panel-actions"><button className="armory-deploy" onClick={()=>show("Agents")} title="Choose an agent and review its available workflows"><Plus size={14}/>Deploy agent</button><details ref={intakeDrawer} className="armory-resource-drawer"><summary>Add resources &amp; skills</summary>{intakeReturn&&<button onClick={()=>{const back=intakeReturn;setIntakeReturn(null);if(intakeDrawer.current)intakeDrawer.current.open=false;back();}}>Back to API management</button>}<ResourceIntake/></details></div>
 
     <Modal open={open} onClose={leave} title="Olympus Armory" showTitle={false} className="armory-dialog">
       <header className="armory-dialog-header"><div><h2>Olympus Armory</h2></div><button className="armory-close" onClick={leave} aria-label="Close Armory"><X size={20}/></button></header>
