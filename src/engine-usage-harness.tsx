@@ -1,3 +1,4 @@
+import {unavailableUsage} from "./services/usage";
 import {usageManagementFixture} from "./services/usageManagementFixture";
 import {usageFixture} from "./services/usageFixture";
 import {createRoot} from "react-dom/client";
@@ -47,13 +48,16 @@ if (stateParam && ["loading","failed","unsupported","disconnected"].includes(sta
 
 }
 
+const telemetryCalls: string[]=[];
+Object.assign(window,{telemetryCalls});
+const telemetryApi={available:true,async read(provider:string){telemetryCalls.push(provider);await new Promise(resolve=>setTimeout(resolve,150));const base=unavailableUsage.find(s=>s.provider===provider)!;return provider==="Claude"?{...base,status:"unsupported" as const,detail:"Use the account usage page"}:telemetryCalls.filter(p=>p===provider).length>1?{...base,status:"failed" as const,detail:"Synthetic connection failure"}:{...base,status:"ready" as const,observedAt:new Date().toISOString(),balance:provider==="ElevenLabs"?{value:72000,unit:"characters",period:"Current billing period remaining"}:null,windows:[{label:"5-hour window",remaining:{value:72,unit:"%",period:"5 hours"},resetsAt:null}]};}};
 const populated = location.search.includes("populated");
 
 createRoot(document.getElementById("root")!).render(<main style={{maxWidth:740,margin:"24px auto",padding:20}}>
 
   <p className="eyebrow">Synthetic acceptance · no provider calls</p><h2>Olympus usage &amp; engines</h2>
 
-  <section className="command-brief" style={{maxWidth:380}}><h3>Mission brief</h3><p>No active missions reported.</p></section><UsageSummary managementApi={usageManagementFixture} previewLabel="Synthetic usage fixture / no provider calls" snapshots={populated ? synthetic : undefined}/>
+  <section className="command-brief" style={{maxWidth:380}}><h3>Mission brief</h3><p>No active missions reported.</p></section><UsageSummary telemetryApi={telemetryApi} managementApi={usageManagementFixture} previewLabel="Synthetic usage fixture / no provider calls" snapshots={populated ? synthetic : undefined}/>
 
   <section className="preferences-section" style={{marginTop:24}}><EngineSettings/></section>
 

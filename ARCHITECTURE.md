@@ -69,7 +69,7 @@ Tauri commands exposed by the desktop shell — every entry in the `generate_han
 | Write gate | `resolve_vault_write` |
 | Projects | `scan_tracked_projects`, `fetch_action_queue`, `project_members`, `link_project`, `set_project_visibility`, `save_project_intake`, `pick_project_folder`, `inspect_project`, `confirm_project_brief` |
 | Organizer | `create_organizer_task`, `update_organizer_task`, `list_organizer_tasks`, `fetch_organizer_task`, `set_organizer_intent`, `move_organizer_task`, `prepare_organizer_delegation`, `accept_organizer_result`, `finish_organizer_task`, `acknowledge_organizer_event`, `organizer_overview` |
-| Engines | `engine_status` |
+| Engines | `engine_status`, `account_usage_read` |
 | Delegation | `prepare_delegation_run`, `prepare_delegation_resume`, `cancel_delegation_proposal`, `start_delegation_run`, `resume_delegation_run`, `cancel_delegation_run`, `list_delegation_runs`, `fetch_delegation_diff` |
 | Delegation review | `fetch_delegation_review`, `run_delegation_check`, `delegation_review_fingerprint`, `complete_delegation_review` |
 | Knowledge audit | `start_knowledge_audit`, `list_knowledge_audits`, `inspect_knowledge_audit` (no UI entry point; the view is rendered only by its harness) |
@@ -486,3 +486,13 @@ The dossier is a UI projection of saved contextual references. Optional document
 ### Indexed curated memory
 
 The development backend maintains a separate, rebuildable SQLite/FTS5 cache in app-local data for eligible vault project/session/decision/research records. A background writer publishes transactional generations; request readers select bounded scope-aware evidence, include explicit correction relationships, and validate selected source revisions. Both assistant provider routes use the same quoted evidence packet. Immutable request receipts live in the operational database and appear in response Details. The index is outside the synced vault, never writes source records, and grants no execution authority. It does not index chats: past-chat recall reads SQLite's `conversation_search` instead (`conversations::recall`), so an unscoped "what did we decide" question is not refused for lacking a project. See [MEMORY-RETRIEVAL.md](docs/MEMORY-RETRIEVAL.md) for limits, recovery, rollback and acceptance gaps.
+
+### Explicit account telemetry
+
+`commands/account_usage.rs` launches only the discovered Codex executable's
+`app-server proxy`, using the delegation environment allowlist and hidden console.
+The fixed protocol initializes and reads account limits/activity only. It kills
+its proxy after a bounded exchange; it never launches a fresh server. ElevenLabs
+quota uses the existing native credential and redirect-free HTTP client for a
+fixed GET endpoint. Account checks write no SQLite or vault state. See
+`docs/ENGINE-STATUS-USAGE.md` for current integration limits.

@@ -35,3 +35,62 @@ Add service leads to the existing Armory resource intake and preserves its draft
 Run `node scripts/test-engine-usage.mjs` and `node scripts/test-engine-usage-browser.mjs`, `node scripts/test-usage-redesign.mjs`, `node scripts/test-usage-management.mjs` and `node scripts/test-usage-management-handoffs.mjs`, then `npm run build`. Management browser scripts use the isolated loopback Vite preview on port 31426. The browser script starts an isolated Vite server and uses synthetic IPC only; screenshots go under `output/engine-usage/`. The fixture page is `engine-usage-harness.html`; it is not part of the production build. Rust engine tests cover billing refusal, override precedence, desktop discovery and version capability boundaries.
 
 Native UI, live generation, inference cancellation, real limit-hit streams and account-usage adapters require separate acceptance. No model request is needed to run the focused tests.
+
+## Explicit account refresh (development follow-on, not installed)
+
+`account_usage_read` reads one fixed provider at a time. Usage Refresh starts
+independent reads; there is no mount timer or automatic retry. Errors keep the
+last successful observation and timestamp, with a failed status. No dollars or
+YTD totals are inferred from characters, credits, or tokens.
+
+- Codex uses only `app-server proxy` to an existing daemon, initializes the
+  protocol, and requests `account/rateLimits/read` followed by optional
+  `account/usage/read`. It bounds stdout and time, rejects server requests,
+  passes the existing credential environment allowlist, and kills its proxy.
+  It never starts a daemon, thread, turn, login, reset, or credit purchase.
+- ElevenLabs uses the existing Windows credential entirely inside Rust for
+  `GET https://api.elevenlabs.io/v1/user/subscription`. Redirects are refused;
+  the request times out after 20 seconds and the body is capped at 256 KiB.
+  Character quota is labelled as characters, with billing-period consumption
+  and reset time. Credentials and response bodies never reach the webview.
+- Claude links to `https://claude.ai/settings/usage`. Its documented status-line
+  limits require a previous model response; no standalone account reader is
+  integrated and no generation is started to manufacture a reading.
+
+### Local read-only verification, October 18
+
+Installed Codex 0.163.0-alpha.10.2 generated schemas include both account reads.
+Its daemon-version probe failed with control-socket OS error 10050 in the sandbox
+and again with requested host execution. The bounded proxy also failed before
+any account response. A subsequent host check found the expected control-socket path absent while
+.NET could construct a Unix socket and an app-server process existed. The
+existing process is not reachable through this control-socket path; no restart
+or startup changes were attempted. Both installed
+app-server versions (0.163.0-alpha.10.2 and 0.130.0-alpha.5) reject
+`--ignore-user-config`; the newer CLI accepts that flag only under `exec`.
+No fresh server was started because isolation from user-configured executable
+integrations was not established. This is an unresolved Codex integration
+blocker, not a completed live meter and not a request to sign in again.
+
+The ElevenLabs quota GET reached the service and returned HTTP 401. A single
+follow-up diagnostic retained only an allowlisted structured identifier:
+`detail.status = missing_permissions`. This establishes a permission failure,
+not an invalid/expired-key diagnosis. The existing key needs access to read user
+subscription information. No key replacement, new grant or permission change
+was performed. A successful live quota reading remains unverified. Do not retry
+provider probes automatically or treat an ignored probe's process exit as a
+successful account reading.
+
+Official contracts consulted:
+- https://learn.chatgpt.com/docs/app-server
+- https://elevenlabs.io/docs/api-reference/user/subscription/get
+- https://elevenlabs.io/docs/api-reference/authentication
+- https://code.claude.com/docs/en/statusline
+
+Kevin subsequently approved enabling only the existing key's subscription/user
+read permission. The UI action remains blocked: computer-use inventory returned
+no apps or browsers, and creating an official ElevenLabs tab in `iab` returned
+`Browser is not available: iab`. No key identity or account permission UI could
+be inspected. No permission was changed and no further provider read was made.
+A connected signed-in browser is required to identify the existing Olympus key
+and apply that already-approved scope; never reveal, copy or replace its secret.

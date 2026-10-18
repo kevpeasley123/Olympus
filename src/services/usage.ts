@@ -11,6 +11,8 @@ export interface UsageWindow {
 }
 export interface UsageSnapshot {
   status?: "disconnected" | "unsupported" | "loading" | "failed" | "ready";
+  detail?: string;
+  consumption?: UsageMetric | null;
   provider: string;
   capabilityCategory: "models-subscriptions" | "apis-services";
   scope: "Account" | "Workspace" | "Olympus only";
@@ -37,4 +39,11 @@ export function usageFreshness(observedAt: string | null, now = Date.now()): "No
   const observed = observedAt ? Date.parse(observedAt) : NaN;
   if (!Number.isFinite(observed) || observed > now) return "Not checked";
   return now - observed > 5 * 60_000 ? "Stale" : "Recent";
+}
+
+/** A failed refresh never makes old evidence look newly observed. */
+export function mergeUsageReading(previous: UsageSnapshot, next: UsageSnapshot): UsageSnapshot {
+  return next.status === "failed" && previous.observedAt
+    ? {...previous, status: "failed", detail: next.detail}
+    : next;
 }

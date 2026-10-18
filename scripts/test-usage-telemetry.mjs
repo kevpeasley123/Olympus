@@ -1,0 +1,11 @@
+import {build} from 'esbuild';
+import assert from 'node:assert/strict';
+await build({entryPoints:['src/services/usage.ts'],bundle:true,platform:'node',format:'esm',outfile:'output/tests/usage-telemetry.mjs'});
+const u=await import('../output/tests/usage-telemetry.mjs');
+assert.equal(typeof u.mergeUsageReading,'function','Refresh must preserve a last successful reading on failure');
+const old={...u.unavailableUsage[0],status:'ready',observedAt:'2026-10-18T00:00:00Z',windows:[{label:'5 hours',remaining:{value:80,unit:'%',period:'5 hours'},resetsAt:null}]};
+const failed={...u.unavailableUsage[0],status:'failed',detail:'Connection unavailable'};
+const kept=u.mergeUsageReading(old,failed);
+assert.equal(kept.observedAt,old.observedAt);assert.deepEqual(kept.windows,old.windows);assert.equal(kept.status,'failed');assert.equal(kept.detail,failed.detail);
+assert.equal(u.mergeUsageReading(old,{...failed,status:'ready',observedAt:'2026-10-18T01:00:00Z'}).observedAt,'2026-10-18T01:00:00Z');
+console.log('PASS refresh retains previous evidence and failure status');

@@ -16,7 +16,9 @@ file replaced is `docs/archive/NEXT-SESSION-through-2026-10-11.md`.
   Installed through the supported local MSI installer; registry/executable version
   and exact MSI payload verified. Production SQLite hash unchanged; rollback
   executable/database backup retained locally. Olympus was not launched.
-- Account telemetry remains unconnected. Subscription generation and delegation
+- Development follow-on adds explicit account Refresh; not installed. Codex proxy
+  is blocked by the local control socket; ElevenLabs quota GET returned 401.
+  See `ENGINE-STATUS-USAGE.md`. Subscription generation and delegation
   remain blocked by billing and tool isolation; Claude conversation is unfinished.
 - No extra credits/refill authorized. Live integration is a separate follow-on.
 
@@ -34,6 +36,15 @@ file replaced is `docs/archive/NEXT-SESSION-through-2026-10-11.md`.
   rerun after preview-cache isolation; project contract fixture now explicitly
   selects its synthetic API route). Rust: 552 passed, 18 ignored. MSI built.
 
+## Telemetry follow-on - 2026-10-18
+- Not installed. Build, TypeScript, guidance, Refresh and management checks pass.
+- Rust: 556 passed, 20 ignored; final telemetry tests: 4 passed, 2 ignored.
+- Visual: 21/21 captures, 22 Organizer checks pass. Two cold-start browser
+  timeouts passed unchanged assertions with a 90-second navigation budget.
+- ElevenLabs: HTTP 401 `missing_permissions`. Kevin approved subscription/user
+  read access, but no browser is available to apply it. No permission changed.
+- Codex: expected control socket absent; app-server lacks `--ignore-user-config`.
+  No restart or generation. Details in `ENGINE-STATUS-USAGE.md`.
 ## In flight
 - **Development branch delivery (October 18):** engine discovery, separate always-visible Command usage panel, subscription/API management reusing Preferences and Armory, and offline-tested Codex conversation adapter; see `ENGINE-STATUS-USAGE.md` and `SUBSCRIPTION-CONVERSATION.md`. Subscription generation remains blocked on billing and tool isolation; telemetry is not connected. Installed without launch.
 - **Skin choice.** Kevin is comparing the four skins in the installed app.
