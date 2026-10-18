@@ -273,3 +273,23 @@ mod lab_tests {
     #[test] fn lab_bounds_are_enforced_before_network(){assert!(validate_lab("Olympus, tell me something useful.").is_ok());assert!(validate_lab("one two three four five six").is_err());assert!(validate_lab(&"x".repeat(201)).is_err());assert!(validate_lab(" ").is_err());}
     #[test] fn only_valid_reported_credits_are_accepted(){let mut headers=reqwest::header::HeaderMap::new();assert_eq!(generation_credits(&headers),None);for invalid in ["NaN","-1","infinity","invalid"] {headers.insert("character-cost",invalid.parse().unwrap());assert_eq!(generation_credits(&headers),None);}headers.insert("character-cost","12.5".parse().unwrap());assert_eq!(generation_credits(&headers),Some(12.5));}
 }
+
+/// Read-only quota using the existing backend credential; never returned over IPC.
+pub(crate) async fn subscription_quota()->Result<Value,String>{
+ guard()?;let secret=key()?;let client=client()?;
+ let response=request(&client,reqwest::Method::GET,"user/subscription",&secret)?.timeout(Duration::from_secs(20)).send().await.map_err(|_|"ElevenLabs quota connection failed or timed out.".to_string())?;
+ match response.status().as_u16(){
+  401=>{
+   // Inspect only bounded structured error identifiers; never expose raw bodies.
+   let mut response=response;let mut bytes=Vec::new();
+   while let Ok(Some(chunk))=response.chunk().await{if bytes.len()+chunk.len()>8192{break;}bytes.extend_from_slice(&chunk);}
+   let v:Value=serde_json::from_slice(&bytes).unwrap_or(Value::Null);
+   let code=match v["detail"]["status"].as_str(){Some("invalid_api_key")=>"invalid_api_key",Some("missing_permissions")=>"missing_permissions",Some("unauthorized")=>"unauthorized",_=>"unclassified_authentication_error"};
+   return Err(if code=="missing_permissions"{"ElevenLabs quota returned HTTP 401 (missing_permissions). The saved key needs permission to read user subscription information. No permissions were changed.".into()}else{format!("ElevenLabs quota returned HTTP 401 ({code}). Verify the saved credential in Voice Settings. No account changes were made.")});
+  },
+  403=>return Err("The saved ElevenLabs key cannot read subscription quota. Account user-read permission is required; no permissions were changed.".into()),
+  429=>return Err("ElevenLabs rate-limited the quota check. Try Refresh later.".into()),
+  n if !(200..300).contains(&n)=>return Err("ElevenLabs quota service is unavailable.".into()),_=>{}
+ }
+ serde_json::from_slice(&body(response,256*1024).await?).map_err(|_|"Invalid ElevenLabs quota response.".into())
+}

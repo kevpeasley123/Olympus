@@ -205,3 +205,13 @@ html:has(.olympus-armory) .olympus-wordmark{font-size:30px;letter-spacing:4px}
 .app-shell .console-workspace-title strong{font-size:16px;letter-spacing:1.5px}
 .armory-working-sparks .armory-spark-branch{stroke-dasharray:none;animation-name:armory-branch-flash;stroke-width:.3}
 @keyframes armory-branch-flash{0%,65%{opacity:0}67%{opacity:.5}70%{opacity:.1}73%{opacity:.3}81%,100%{opacity:0}}
+/* Stacked Command stays in document flow; resource telemetry has its own
+   surface and the instrument retains its full first row. */
+@media(max-width:1050px){
+ html:has(.mode-command .olympus-armory), body:has(.mode-command .olympus-armory), #root:has(.mode-command .olympus-armory){height:auto;min-height:100%;overflow:visible}
+ html .app-shell:has(.olympus-armory){height:auto;min-height:100vh;overflow:visible}
+ html .mode-command:has(.olympus-armory) .dashboard-body{overflow:visible;flex:none}
+ html .mode-command:has(.olympus-armory) .main-grid{flex:none;grid-template-rows:minmax(650px,auto) auto}
+ html .mode-command:has(.olympus-armory) :is(.center-stack,.olympus-armory){grid-row:1}
+ html .mode-command:has(.olympus-armory) .right-stack{grid-row:2;height:auto;max-height:none;min-height:0;overflow:visible}
+}

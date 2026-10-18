@@ -14,6 +14,16 @@ export interface EngineStatus {
   executable: string | null;
   version: string | null;
   signIn: EngineSignIn;
+  observedAt: string;
+  selection: string;
+  capabilities: { streaming: boolean | null; structuredOutput: boolean | null; ephemeral: boolean | null; source: string };
+  billing: EngineBilling;
+}
+
+export type EngineBilling = { state: "unknown" | "ineligible"; detail: string };
+
+export function describeBilling(billing: EngineBilling): string {
+  return `Generation blocked. ${billing.detail}`;
 }
 
 export function loadEngineStatus(): Promise<EngineStatus[]> {
@@ -31,7 +41,7 @@ export function describeSignIn(status: EngineStatus): string {
   switch (sign.state) {
     case "subscription":
       if (status.engine === "codex") return "ChatGPT subscription.";
-      return sign.plan ? `Claude ${sign.plan[0].toUpperCase()}${sign.plan.slice(1)} subscription.` : "Claude subscription.";
+      return sign.plan?.trim() ? `Claude ${sign.plan[0].toUpperCase()}${sign.plan.slice(1)} subscription.` : "Claude subscription.";
     case "apiBilled":
       return `Would bill the API: ${sign.detail}. Olympus will not launch it.`;
     case "signedOut":

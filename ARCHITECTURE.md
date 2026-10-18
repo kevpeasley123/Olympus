@@ -69,7 +69,7 @@ Tauri commands exposed by the desktop shell — every entry in the `generate_han
 | Write gate | `resolve_vault_write` |
 | Projects | `scan_tracked_projects`, `fetch_action_queue`, `project_members`, `link_project`, `set_project_visibility`, `save_project_intake`, `pick_project_folder`, `inspect_project`, `confirm_project_brief` |
 | Organizer | `create_organizer_task`, `update_organizer_task`, `list_organizer_tasks`, `fetch_organizer_task`, `set_organizer_intent`, `move_organizer_task`, `prepare_organizer_delegation`, `accept_organizer_result`, `finish_organizer_task`, `acknowledge_organizer_event`, `organizer_overview` |
-| Engines | `engine_status` |
+| Engines | `engine_status`, `account_usage_read` |
 | Delegation | `prepare_delegation_run`, `prepare_delegation_resume`, `cancel_delegation_proposal`, `start_delegation_run`, `resume_delegation_run`, `cancel_delegation_run`, `list_delegation_runs`, `fetch_delegation_diff` |
 | Delegation review | `fetch_delegation_review`, `run_delegation_check`, `delegation_review_fingerprint`, `complete_delegation_review` |
 | Knowledge audit | `start_knowledge_audit`, `list_knowledge_audits`, `inspect_knowledge_audit` (no UI entry point; the view is rendered only by its harness) |
@@ -250,8 +250,13 @@ Processes started here:
 - Sign-in checks, with the same environment and a 20-second limit:
   `claude auth status --json` when a delegation proposal is prepared and before
   each launch, and both it and `codex login status` when Preferences checks the
-  engines (`engine_status`). Codex is resolved from `OLYMPUS_CODEX`, `PATH` or
-  npm's global install; nothing else launches it yet.
+  engines (`engine_status`). Codex also discovers desktop-managed binaries;
+  explicit overrides fail closed and ambiguous desktop installs require selection.
+  Claude status ignores user/project settings like its launch. Subscription sign-in
+  does not prove paid overage is disabled: the generation/delegation gate refuses
+  unknown billing eligibility. An offline-tested Codex conversation transport is gated before launch;
+  explicit session-only selection branches before API enrichment, with no API fallback. Tool/config
+  isolation remains unverified. See `docs/ENGINE-STATUS-USAGE.md` and `docs/SUBSCRIPTION-CONVERSATION.md`.
 - `taskkill /PID <pid> /T /F` on cancellation, only while the process's
   creation time still matches the one recorded with the PID.
 
@@ -481,3 +486,21 @@ The dossier is a UI projection of saved contextual references. Optional document
 ### Indexed curated memory
 
 The development backend maintains a separate, rebuildable SQLite/FTS5 cache in app-local data for eligible vault project/session/decision/research records. A background writer publishes transactional generations; request readers select bounded scope-aware evidence, include explicit correction relationships, and validate selected source revisions. Both assistant provider routes use the same quoted evidence packet. Immutable request receipts live in the operational database and appear in response Details. The index is outside the synced vault, never writes source records, and grants no execution authority. It does not index chats: past-chat recall reads SQLite's `conversation_search` instead (`conversations::recall`), so an unscoped "what did we decide" question is not refused for lacking a project. See [MEMORY-RETRIEVAL.md](docs/MEMORY-RETRIEVAL.md) for limits, recovery, rollback and acceptance gaps.
+
+### Explicit account telemetry
+
+`commands/account_usage.rs` uses the discovered Codex executable, the delegation
+environment allowlist, a neutral temporary directory and hidden console. Bounded
+CLI metadata reads identify and verify disabled MCP integrations and execution
+features before starting a short-lived private-stdio app server. The fixed protocol
+initializes and reads account limits/activity only, then kills and reaps its child.
+It exposes no socket, starts no daemon and changes no Codex configuration. ElevenLabs
+quota uses the existing native credential and redirect-free HTTP client for a
+fixed GET endpoint. Account checks write no SQLite or vault state. See
+`docs/ENGINE-STATUS-USAGE.md` for current integration limits.
+
+Claude quota is a passive local statusline snapshot. The opt-in wrapper preserves
+the existing statusline and allowlists only quota values/reset/observation times;
+`commands/claude_quota.rs` bounds and validates the file read. UI reset timers only
+expire displayed evidence; they do not poll providers. See the same usage document
+for installation, rollback and unknown/stale semantics.

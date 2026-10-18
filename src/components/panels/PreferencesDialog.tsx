@@ -24,6 +24,7 @@ import type { DelegationPhase } from "../../services/delegation";
  */
 
 interface PreferencesDialogProps {
+  target?: "voice" | "gmail" | "models";
   open: boolean;
   onClose: () => void;
   preferences: VoicePreferences;
@@ -33,7 +34,7 @@ interface PreferencesDialogProps {
   chatPending: boolean;
 }
 
-export function PreferencesDialog({ open, onClose, preferences, onPreferences, settingsReady, chatPending }: PreferencesDialogProps) {
+export function PreferencesDialog({ open, onClose, preferences, onPreferences, settingsReady, chatPending, target }: PreferencesDialogProps) {
   return (
     <Modal open={open} onClose={onClose} title="Olympus Preferences" labelledBy="preferences-title" showTitle={false}
       placement="below-header" className="preferences-dialog" initialFocus='.preferences-section [aria-pressed="true"]:not(:disabled)'>
@@ -48,7 +49,8 @@ export function PreferencesDialog({ open, onClose, preferences, onPreferences, s
         </button>
       </div>
 
-      <section className="preferences-section" aria-labelledby="preferences-replies">
+      {target&&<button className="ghost-action" onClick={onClose}>Back to API management</button>}
+      {!target&&<><section className="preferences-section" aria-labelledby="preferences-replies">
         <h3 id="preferences-replies" className="preferences-section__title">Replies &amp; briefing</h3>
         <div className="voice-setting-row">
           <span>Spoken replies</span>
@@ -68,19 +70,20 @@ export function PreferencesDialog({ open, onClose, preferences, onPreferences, s
       <section className="preferences-section" aria-labelledby="preferences-memory">
         <MemorySettings />
       </section>
-      <section className="preferences-section">
+      </>}
+      {(!target||target==="voice")&&<section className="preferences-section">
         <VoiceSettings preferences={preferences} onChange={onPreferences} ready={settingsReady} replyControls={false} />
-      </section>
-      <section className="preferences-section">
+      </section>}
+      {(!target||target==="gmail")&&<section className="preferences-section">
         <GmailSettings />
-      </section>
-      <section className="preferences-section">
+      </section>}
+      {!target&&<section className="preferences-section">
         <EngineSettings />
-      </section>
-      <section className="preferences-section">
+      </section>}
+      {(!target||target==="models")&&<section className="preferences-section">
         <ModelDiagnostics />
-      </section>
-      <RestartSection chatPending={chatPending} />
+      </section>}
+      {!target&&<RestartSection chatPending={chatPending} />}
     </Modal>
   );
 }

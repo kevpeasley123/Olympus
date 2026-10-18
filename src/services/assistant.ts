@@ -4,6 +4,7 @@ import { isTauriRuntime } from "./launcher";
 import { briefingTurnContent, isBriefing, modelHistory } from "./conversationHistory";
 import type { ConversationMessage, OlympusSettings, TrackedProject } from "../types";
 import { turnText } from "./turnAttachment";
+import {requireConversationProvider} from "./conversationProvider";
 
 /**
  * An app-level statement about how the turn ended. Never model prose — it is
@@ -37,6 +38,7 @@ export interface AssistantReply {
  * speaking state from it would collapse the two states into one.
  */
 export type AssistantStreamEvent =
+  | { kind: "ended"; reason: "completed" | "cancelled" | "limit" | "error" }
   | { kind: "progress"; message: string }
   | { kind: "started"; model: string }
   | { kind: "delta"; text: string }
@@ -64,6 +66,8 @@ export async function requestAssistantReply(
     );
   }
 
+  const provider = requireConversationProvider();
+  if (provider === "codex" && options?.voiceDepth) throw Error("Codex subscription conversation currently supports text only.");
   const turns: ChatTurn[] = modelHistory(history).map((message) => ({
     role: message.role,
     content: conversationTurnContent(message)
@@ -78,12 +82,13 @@ export async function requestAssistantReply(
   const assessmentProjectId=history[history.length-1]?.attachment?.projectId;
   const contextProjects=assessmentProjectId?projects.filter(project=>project.id===assessmentProjectId):projects;
   const task=[...turns].reverse().find(t=>t.role==="user")?.content??"";
-  const skillApprovalId=await requestSkillReview(task,options?.capability??"PRIMARY",requestId);
+  const skillApprovalId=provider === "legacy-api" ? await requestSkillReview(task,options?.capability??"PRIMARY",requestId) : undefined;
   return invoke<AssistantReply>("send_assistant_message", {
     history: turns,
     requestId,
     onEvent: channel,
     context: {
+      conversationProvider: provider,
       skillApprovalId,
       // Only this conversation's operator words and explicit project attachment
       // establish recall scope. Source-body text cannot name the active project.

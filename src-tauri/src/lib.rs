@@ -274,6 +274,7 @@ pub fn run() {
             commands::models::save_model_selection,
             commands::models::model_diagnostics,
             commands::engines::engine_status,
+            commands::account_usage::account_usage_read,
             commands::models::voice_usage,
             commands::models::record_voice_request,
             create_voice_session,

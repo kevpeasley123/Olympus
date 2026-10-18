@@ -264,13 +264,9 @@ fn claude_candidates(
 
 pub(crate) fn claude_executable() -> Result<PathBuf, String> {
     let candidates = claude_candidates(|key| std::env::var_os(key));
-    candidates
-        .iter()
-        .find(|candidate| candidate.is_file())
-        .cloned()
-        .ok_or_else(|| {
-            "Claude Code was not found on PATH, in the native installer's location or in the npm global install. Set OLYMPUS_CLAUDE_CODE to its full path.".to_string()
-        })
+    let explicit = std::env::var_os("OLYMPUS_CLAUDE_CODE").filter(|value| !value.is_empty()).map(PathBuf::from);
+    super::engines::select_executable(explicit, candidates)
+        .map_err(|reason| format!("{reason} Set OLYMPUS_CLAUDE_CODE to its full executable path."))
 }
 
 fn claude_version(executable: &Path) -> Result<String, String> {

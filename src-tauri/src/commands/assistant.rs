@@ -44,6 +44,7 @@ pub struct ProjectSummary {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AssistantContext {
+    #[serde(default)] pub conversation_provider: Option<String>,
     #[serde(default)] pub active_project: Option<String>,
     #[serde(default)] pub memory_question: Option<String>,
     #[serde(default)] pub memory_recent_questions: Vec<String>,
@@ -810,6 +811,8 @@ fn notice_for(stop_reason: Option<&str>, text: &str) -> Option<AssistantNotice> 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase", tag = "kind")]
 pub enum AssistantStreamEvent {
+    /// Subscription transport terminal status; never model-generated text.
+    Ended { reason: &'static str },
     Progress { message: String },
     /// The turn opened. `model` is who is actually answering.
     Started { model: String },
@@ -1548,6 +1551,7 @@ mod tests {
 
     fn context_fixture() -> AssistantContext {
         AssistantContext {
+            conversation_provider: Some("legacy-api".into()),
             active_project:None, memory_question:None, memory_recent_questions:Vec::new(),
             skill_approval_id: None, approved_skill_guidance: String::new(),
             gmail_context: String::new(),
@@ -1785,6 +1789,7 @@ pub fn cancel_assistant_message(request_id:String)->Result<bool,String>{
 }
 #[tauri::command]
 pub async fn send_assistant_message(db:tauri::State<'_,super::persistence::Db>,memory_service:tauri::State<'_,super::memory::MemoryService>,approval_state:tauri::State<'_,super::approvals::ApprovalState>,history:Vec<ChatTurn>,mut context:AssistantContext,on_event:tauri::ipc::Channel<AssistantStreamEvent>,request_id:Option<String>)->Result<AssistantReply,String>{
+    let provider=super::subscription::select_provider(context.conversation_provider.as_deref())?;
     let id=request_id.unwrap_or_else(super::delegation::run_id);
     if id.len()>100{return Err("Invalid request identity".into())}
     let (sender,cancel)=tokio::sync::oneshot::channel();
@@ -1792,6 +1797,9 @@ pub async fn send_assistant_message(db:tauri::State<'_,super::persistence::Db>,m
         if active.is_some(){return Err("A console turn is already running.".into())}
         *active=Some((id.clone(),sender));}
     let _guard=TurnGuard;
+    if provider==super::subscription::Provider::Codex {
+        return super::subscription::complete(history,context.voice_depth.is_some(),on_event,cancel).await;
+    }
     if let Some(proposal_id)=context.skill_approval_id.take(){
         let task=history.iter().rev().find(|m|m.role=="user").map(|m|m.content.as_str()).unwrap_or("");
         let mut c=db.0.lock().map_err(|_|"Skill library unavailable")?;

@@ -1,3 +1,4 @@
+import {onManagementHandoff,type ManagementDestination} from "../../services/managementNavigation";
 import { PreferencesDialog } from "./PreferencesDialog";
 import type { VoicePreferences } from "../../services/voicePreferences";
 import { isEditableTarget, isModalOpen, SHORTCUT_LIST, SHORTCUTS, type ShortcutScope } from "../../services/shortcuts";
@@ -22,6 +23,10 @@ interface AmbientDockProps {
 const SCOPE_NOTES: Partial<Record<ShortcutScope, string>> = { research: "Research", console: "Console" };
 
 export function AmbientDock({ onRefresh, mode, onCycleMode, voicePreferences, onVoicePreferences, settingsReady, chatPending = false, preferencesOpen, onPreferencesOpen:setPreferencesOpen }: AmbientDockProps) {
+  const [managementTarget,setManagementTarget]=useState<Exclude<ManagementDestination,"armory">|undefined>();
+  const managementReturn=useRef<(()=>void)|null>(null);
+  useEffect(()=>onManagementHandoff(request=>{if(request.target==="armory")return;managementReturn.current=request.returnToUsage;setManagementTarget(request.target);setPreferencesOpen(true);}),[setPreferencesOpen]);
+  function closePreferences(){setPreferencesOpen(false);setManagementTarget(undefined);const back=managementReturn.current;managementReturn.current=null;if(back)window.setTimeout(back,0);}
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [refreshSpinning, setRefreshSpinning] = useState(false);
   const [now, setNow] = useState(() => new Date());
@@ -168,7 +173,7 @@ export function AmbientDock({ onRefresh, mode, onCycleMode, voicePreferences, on
         </div>}
       </div>
 
-      <PreferencesDialog open={preferencesOpen} onClose={() => setPreferencesOpen(false)}
+      <PreferencesDialog open={preferencesOpen} target={managementTarget} onClose={closePreferences}
         preferences={voicePreferences} onPreferences={onVoicePreferences} settingsReady={settingsReady} chatPending={chatPending} />
     </>
   );
