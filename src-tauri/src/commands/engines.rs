@@ -378,7 +378,7 @@ fn status(engine: Engine) -> EngineStatus {
     let mut billing = billing_state(&sign_in);
     if matches!(sign_in, SignIn::Subscription { .. }) {
         billing.detail = match engine {
-            Engine::Codex => "ChatGPT sign-in confirmed, but no supported included-plan-only control is verified. Purchased credits may be consumed; quota remaining is not spending authorization.",
+            Engine::Codex => "ChatGPT sign-in confirmed. Delegation stays blocked. Text chat checks the account before every turn and runs only with no purchased credits and room left in the included allowance.",
             Engine::ClaudeCode => "Claude subscription sign-in confirmed. Delegation stays blocked. Text chat runs only after you confirm usage credits are off for this account; an estimated CLI budget or zero balance is insufficient.",
         };
     }

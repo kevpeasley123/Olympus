@@ -95,3 +95,29 @@ streamed answer. With Auto Speak on, subscription turns now send text only rathe
 than refusing. Still missing: project, memory and vault context, which only the
 legacy route adds. About ten short test turns used included
 Max allowance on 2026-10-20; none used API billing.
+
+## Codex chat gate (2026-10-20, Kevin asked for Codex chat)
+
+Codex still has no per-request "included allowance only" switch, so the adapter
+uses what the account reports. Each turn first sends `account/rateLimits/read`;
+the thread starts only if every snapshot shows `hasCredits: false`,
+`unlimited: false`, a zero or absent balance, no spend control or limit reached,
+and each window under 90% used. Any `account/rateLimits/updated` during the turn
+showing credits, a limit, or a window at 100% stops it. This bounds, rather than
+provably prevents, extra spend: a purchase or auto top-up made mid-turn could
+still be drawn on before the update arrives. On 2026-10-20 the balance was 0
+(it was 62.67 on 2026-10-17) and stayed 0 after the live turn.
+
+The app server starts in an empty temporary folder with the credential-free
+environment, every MCP server disabled, and these features disabled and verified
+via `features list`: the quota reader's set plus shells, browsers, computer use,
+image generation, view image, multi-agent, fast and ultrafast modes, tool suggest,
+skill search, sleep, goals, local automation, workspace dependencies and
+realtime. `unified_exec` cannot be switched off in codex-cli 0.163; with
+`shell_tool` off it offers no shell. Any non-text item, server request, unknown
+event, non-ChatGPT `account/updated`, or remote control other than `disabled`
+stops the turn. Two warnings are tolerated: an unrecognized key in the user's own
+Codex configuration file (observed: `computer_use.windows.always_allowed_app_ids`) and the
+confirmation that code mode fails closed. One live turn returned `OLYMPUS_OK`
+(`output/codex-live-acceptance-2026-10-20k.txt`). The picker lists Codex · GPT-6.1
+Sol under Subscriptions. Codex delegation stays blocked.

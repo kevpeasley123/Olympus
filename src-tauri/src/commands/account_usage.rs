@@ -114,6 +114,48 @@ fn isolation_args(inventory: &Value) -> Result<Vec<String>, String> {
     args.extend(["-c".into(), "analytics.enabled=false".into()]);
     Ok(args)
 }
+/// Chat also turns off every tool family that could act or spend faster than
+/// standard: shells, browsers, computer use, image generation, sub-agents and
+/// fast modes. The turn guard still stops on any non-text item. `unified_exec`
+/// is absent because 0.163 keeps it on whatever is passed; it is the backend of
+/// the shell tool, which `shell_tool` turns off.
+const CHAT_DISABLED_FEATURES: &[&str] = &[
+    "shell_tool", "browser_use", "browser_use_external", "browser_use_full_cdp_access",
+    "in_app_browser", "computer_use", "image_generation", "view_image", "multi_agent", "fast_mode",
+    "ultrafast_mode", "tool_suggest", "skill_search", "sleep_tool", "goals", "in_app_local_automation",
+    "workspace_dependencies", "realtime_conversation",
+];
+
+/// Verified isolation arguments for a Codex chat process started in `directory`.
+pub(crate) fn codex_chat_isolation(executable: &std::path::Path, directory: &std::path::Path) -> Result<Vec<String>, String> {
+    let command = |arguments: &[&str], isolation: &[String]| {
+        let mut c = Command::new(executable);
+        c.args(arguments).args(isolation).current_dir(directory);
+        super::delegation::allowed_environment(&mut c);
+        super::delegation::hide_console(&mut c);
+        c
+    };
+    let base = isolation_args(&json!([]))?;
+    let inventory: Value = serde_json::from_str(&metadata(command(&["mcp", "list", "--json"], &base))?)
+        .map_err(|_| "Codex integration inventory is invalid.")?;
+    let mut args = isolation_args(&inventory)?;
+    for feature in CHAT_DISABLED_FEATURES {
+        args.extend(["--disable".into(), (*feature).into()]);
+    }
+    let verified: Value = serde_json::from_str(&metadata(command(&["mcp", "list", "--json"], &args))?)
+        .map_err(|_| "Codex isolation inventory is invalid.")?;
+    let features = metadata(command(&["features", "list"], &args))?;
+    if !isolation_verified(&verified, &features) || !features_off(&features, CHAT_DISABLED_FEATURES) {
+        return Err("Codex could not verify that its tools and integrations are off. Nothing was sent.".into());
+    }
+    Ok(args)
+}
+fn features_off(features: &str, names: &[&str]) -> bool {
+    names.iter().all(|name| features.lines().any(|line| {
+        let words: Vec<_> = line.split_whitespace().collect();
+        words.first() == Some(name) && words.last() == Some(&"false")
+    }))
+}
 fn isolation_verified(inventory: &Value, features: &str) -> bool {
     inventory
         .as_array()

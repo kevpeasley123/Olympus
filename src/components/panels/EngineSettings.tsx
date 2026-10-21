@@ -48,7 +48,7 @@ export function EngineSettings({autoInspect=true,inspection}:{autoInspect?:boole
       <summary>Subscription engines</summary>
       <label>Conversation provider <select aria-label="Conversation provider" value={provider ?? ""} onChange={event=>selectConversationProvider(event.target.value)}>
         <option value="" disabled>Choose explicitly</option>
-        <option value="codex">Codex subscription — blocked pending verification</option>
+        <option value="codex">Codex subscription — only with no purchased credits</option>
         <option value="legacy-api">Legacy API — blocked without spending approval</option>
         <option value="claude-code">{claude?.confirmedAt ? "Claude subscription — Max allowance only" : "Claude subscription — needs your confirmation"}</option>
       </select></label>
@@ -92,7 +92,7 @@ export function EngineSettings({autoInspect=true,inspection}:{autoInspect?:boole
       ) : null}
       {error ? <p role="status">{error}</p> : null}
       <p>
-        No-extra-spend policy: API reasoning, speech, background analysis and memory synthesis are blocked without separate spending approval. Your saved settings are preserved. Subscription sign-in is not proof that usage credits are disabled: Claude chat needs your confirmation above, and Codex chat and delegation stay blocked.
+        No-extra-spend policy: API reasoning, speech, background analysis and memory synthesis are blocked without separate spending approval. Your saved settings are preserved. Subscription sign-in is not proof that usage credits are disabled: Claude chat needs your confirmation above, and Codex chat runs only while the account reports no purchased credits. Delegation stays blocked.
       </p>
       <p>To select an exact installation, set OLYMPUS_CODEX or OLYMPUS_CLAUDE_CODE to its full executable path before starting Olympus. An invalid override is refused, without selecting another installation. This check never changes sign-in or billing.</p>
     </details>

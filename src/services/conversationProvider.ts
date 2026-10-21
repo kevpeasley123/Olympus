@@ -21,7 +21,7 @@ const listeners = new Set<() => void>();
 function restore(): ConversationChoice | null {
   try {
     const value = JSON.parse(globalThis.localStorage?.getItem(STORAGE_KEY) ?? "null");
-    return value?.provider === "claude-code" && isClaudeModel(value.claudeModel) ? {provider: "claude-code", claudeModel: value.claudeModel} : null;
+    return (value?.provider === "claude-code" || value?.provider === "codex") && isClaudeModel(value.claudeModel) ? {provider: value.provider, claudeModel: value.claudeModel} : null;
   } catch { return null; }
 }
 export function selectConversationProvider(value: string, claudeModel: string = selected?.claudeModel ?? "claude-sonnet-5-5"): void {
@@ -29,7 +29,7 @@ export function selectConversationProvider(value: string, claudeModel: string = 
   if (!isClaudeModel(claudeModel)) throw Error("Unsupported Claude subscription model.");
   selected = {provider: value, claudeModel};
   try {
-    if (value === "claude-code") globalThis.localStorage?.setItem(STORAGE_KEY, JSON.stringify(selected));
+    if (value !== "legacy-api") globalThis.localStorage?.setItem(STORAGE_KEY, JSON.stringify(selected));
     else globalThis.localStorage?.removeItem(STORAGE_KEY);
   } catch { /* storage is a convenience; the choice still holds for this session */ }
   for (const listener of listeners) listener();
