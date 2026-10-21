@@ -33,3 +33,14 @@ await assert.rejects(()=>route.requestAssistantReply([{id:'synthetic-user',role:
 assert.deepEqual(calls.map(c=>c.command),['send_assistant_message']);
 assert.equal(calls[0].args.context.voiceDepth,undefined);
 console.log('PASS Claude selection, isolated IPC route, and Auto Speak sends text only without fallback');
+
+calls.length=0;
+globalThis.window.__TAURI_INTERNALS__.invoke=async(command,args)=>{calls.push({command,args});return {content:'## Plan\n**Yes.** Use `npm run dev`. '+'More detail follows here. '.repeat(60),model:'claude-sonnet-5-5 - Claude subscription',research:[],mail:[]};};
+const spokenReply=await route.requestAssistantReply([{id:'synthetic-user',role:'user',content:'hello'}],{projectsRootPath:''},[],undefined,{voiceDepth:'SHORT'});
+assert.equal(calls[0].args.context.voiceDepth,undefined);
+assert.ok(spokenReply.voice.spokenResponse.startsWith('Plan Yes. Use npm run dev.'));
+assert.ok(spokenReply.voice.spokenResponse.length<=280&&/[.]$/.test(spokenReply.voice.spokenResponse));
+assert.equal(spokenReply.voice.requiresConfirmation,false);
+const silent=await route.requestAssistantReply([{id:'synthetic-user',role:'user',content:'hello'}],{projectsRootPath:''},[]);
+assert.equal(silent.voice,undefined);
+console.log('PASS Auto Speak speaks a plain, bounded excerpt of a subscription reply; no voice without Auto Speak');

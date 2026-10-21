@@ -85,7 +85,7 @@ export async function requestAssistantReply(
   const contextProjects=assessmentProjectId?projects.filter(project=>project.id===assessmentProjectId):projects;
   const task=[...turns].reverse().find(t=>t.role==="user")?.content??"";
   const skillApprovalId=provider === "legacy-api" ? await requestSkillReview(task,options?.capability??"PRIMARY",requestId) : undefined;
-  return invoke<AssistantReply>("send_assistant_message", {
+  const reply = await invoke<AssistantReply>("send_assistant_message", {
     history: turns,
     requestId,
     onEvent: channel,
@@ -116,6 +116,30 @@ export async function requestAssistantReply(
       }))
     }
   });
+  // Subscription engines return text only; with Auto Speak on, the opening of
+  // that text becomes the spoken reply.
+  if (provider !== "legacy-api" && options?.voiceDepth && !reply.voice && reply.content.trim()) {
+    reply.voice = {spokenResponse: spokenExcerpt(reply.content, options.voiceDepth), visualResponse: reply.content, proposedActions: [], requiresConfirmation: false, conversationState: "answered"};
+  }
+  return reply;
+}
+
+const SPOKEN_LIMIT: Record<import("./voiceContract").VoiceDepth, number> = {SHORT: 280, ANSWER: 700, BRIEF: 900, DEEP_DIVE: 1500};
+/** Plain sentences from the start of a written reply, cut at a sentence end. */
+export function spokenExcerpt(content: string, depth: import("./voiceContract").VoiceDepth): string {
+  const plain = content
+    .replace(/```[\s\S]*?```/g, " ")
+    .replace(/`([^`]*)`/g, "$1")
+    .replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/^\s{0,3}(#{1,6}|[-*+]|\d+[.)])\s+/gm, "")
+    .replace(/[*_~>|]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  const limit = SPOKEN_LIMIT[depth];
+  if (plain.length <= limit) return plain;
+  const cut = plain.slice(0, limit);
+  const end = Math.max(cut.lastIndexOf(". "), cut.lastIndexOf("? "), cut.lastIndexOf("! "));
+  return end > limit / 3 ? cut.slice(0, end + 1) : `${cut.slice(0, cut.lastIndexOf(" "))}…`;
 }
 
 export function createAssistantMessage(

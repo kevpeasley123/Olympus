@@ -530,8 +530,11 @@ mod live_reads {
     #[test]
     #[ignore = "Explicit read-only quota GET; uses existing Windows credential"]
     fn live_elevenlabs_quota() {
-        let result = tauri::async_runtime::block_on(super::super::elevenlabs::subscription_quota())
-            .and_then(|v| super::normalize("ElevenLabs", &v));
+        let raw = tauri::async_runtime::block_on(super::super::elevenlabs::subscription_quota());
+        if let Ok(v) = &raw {
+            println!("ELEVENLABS_OVERAGE can_extend={} allowed_to_extend={} tier={}", v["can_extend_character_limit"], v["allowed_to_extend_character_limit"], v["tier"]);
+        }
+        let result = raw.and_then(|v| super::normalize("ElevenLabs", &v));
         match result {
             Ok(s) => println!("ELEVENLABS_ACCOUNT_READING {}", s),
             Err(e) => println!("ELEVENLABS_ACCOUNT_BLOCKER {}", e),

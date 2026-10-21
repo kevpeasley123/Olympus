@@ -92,7 +92,7 @@ export function EngineSettings({autoInspect=true,inspection}:{autoInspect?:boole
       ) : null}
       {error ? <p role="status">{error}</p> : null}
       <p>
-        No-extra-spend policy: API reasoning, speech, background analysis and memory synthesis are blocked without separate spending approval. Your saved settings are preserved. Subscription sign-in is not proof that usage credits are disabled: Claude chat needs your confirmation above, and Codex chat runs only while the account reports no purchased credits. Delegation stays blocked.
+        No-extra-spend policy: API reasoning, OpenAI voice, background analysis and memory synthesis are blocked without separate spending approval. ElevenLabs speaks only while usage-based billing is off and your plan has characters left for the reply. Your saved settings are preserved. Subscription sign-in is not proof that usage credits are disabled: Claude chat needs your confirmation above, and Codex chat runs only while the account reports no purchased credits. Delegation stays blocked.
       </p>
       <p>To select an exact installation, set OLYMPUS_CODEX or OLYMPUS_CLAUDE_CODE to its full executable path before starting Olympus. An invalid override is refused, without selecting another installation. This check never changes sign-in or billing.</p>
     </details>

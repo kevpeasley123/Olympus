@@ -122,3 +122,17 @@ confirmation that code mode fails closed. One live turn returned `OLYMPUS_OK`
 (`output/codex-live-acceptance-2026-10-20k.txt`). The picker lists Codex · GPT-6.1
 Sol under Subscriptions. Kevin confirmed a native dev-build Codex chat on
 2026-10-20. Codex delegation stays blocked.
+
+## ElevenLabs speech within included characters (2026-10-20)
+
+ElevenLabs synthesis, previews included, no longer uses the blanket spending
+denial. Before every request it reads `GET /v1/user/subscription` and speaks only
+when usage-based billing cannot apply (`can_extend_character_limit` or
+`allowed_to_extend_character_limit` is false) and `character_count` plus this
+text stays within `character_limit`; anything unreadable refuses. On 2026-10-20
+the account was tier `payg`, both flags false, 22,473 characters left.
+Subscription replies carry no structured voice output, so with Auto Speak on the
+frontend speaks a plain excerpt of the written reply (280 to 1,500 characters by
+depth, cut at a sentence end). OpenAI realtime voice and transcription stay
+blocked. Kevin heard a spoken subscription reply in the dev build on 2026-10-20;
+the account went from 22,473 to 22,458 characters, overage still off.

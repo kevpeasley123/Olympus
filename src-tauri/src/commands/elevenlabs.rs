@@ -160,9 +160,10 @@ pub async fn elevenlabs_synthesize(db:tauri::State<'_,Db>,request_id:String,voic
     synthesize(db.inner(),request_id,voice_id,model_id,text,preview,lab).await
 }
 async fn synthesize(db:&Db,request_id:String,voice_id:String,model_id:String,text:String,preview:bool,lab:Option<bool>)->Result<SpeechAudio,String>{
-    super::spending_policy::require_approval(super::spending_policy::PaidOperation::ElevenLabsSpeech)?;
     guard()?;validate(&request_id,&voice_id,&model_id,&text)?;
     if lab.unwrap_or(false){validate_lab(&text)?;}
+    let quota=subscription_quota().await.map_err(|e|format!("ElevenLabs speech is blocked: its included characters could not be checked. {e} Your written answer remains available."))?;
+    included_characters(&quota,text.chars().count())?;
     let cancelled=JOBS.lock().map_err(|_|"Speech is unavailable.".to_string())?.register(&request_id)?;
     let started=Instant::now();
     let mut record=models::RequestRecord::new(&models::resolve(models::Capability::Primary),if preview{"speech_preview"}else{"speech_output"});
@@ -201,16 +202,16 @@ async fn synthesize(db:&Db,request_id:String,voice_id:String,model_id:String,tex
 mod tests {
     use super::*;
     #[test]
-    fn synthesis_and_previews_refuse_before_credentials_or_database_writes() {
-        let db = Db(std::sync::Mutex::new(rusqlite::Connection::open_in_memory().unwrap()));
-        let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
-        runtime.block_on(async {
-            for (preview, lab) in [(false, None), (true, None), (true, Some(true))] {
-                let error = synthesize(&db, "policy-test".into(), "Voice123".into(), "eleven_v4".into(), "Hello".into(), preview, lab).await.err().unwrap();
-                assert!(error.contains("paid_call_approval_required"));
-            }
-        });
-        assert_eq!(db.0.lock().unwrap().query_row("SELECT COUNT(*) FROM sqlite_master", [], |r| r.get::<_, i64>(0)).unwrap(), 0);
+    fn speech_needs_overage_off_and_enough_included_characters() {
+        let quota=|used:u64,can:Value,allowed:Value|json!({"character_count":used,"character_limit":1000,"can_extend_character_limit":can,"allowed_to_extend_character_limit":allowed});
+        assert!(included_characters(&quota(900,json!(false),json!(false)),100).is_ok());
+        assert!(included_characters(&quota(900,json!(true),json!(false)),100).is_ok());
+        assert!(included_characters(&quota(900,json!(false),json!(true)),100).is_ok());
+        assert!(included_characters(&quota(901,json!(false),json!(false)),100).unwrap_err().contains("characters than your plan"));
+        assert!(included_characters(&quota(0,json!(true),json!(true)),1).unwrap_err().contains("usage-based"));
+        assert!(included_characters(&quota(0,Value::Null,json!(true)),1).is_err());
+        assert!(included_characters(&quota(0,json!(true),Value::Null),1).is_err());
+        assert!(included_characters(&json!({"can_extend_character_limit":false}),1).is_err());
     }
     #[test]
     fn validates_text_and_path_segments() {
@@ -291,6 +292,20 @@ mod lab_tests {
 }
 
 /// Read-only quota using the existing backend credential; never returned over IPC.
+/// ElevenLabs bills extra characters only when the plan allows usage-based
+/// overage and the account has it switched on. Speech runs only with overage
+/// off and enough included characters left for this text; the check repeats
+/// before every request, since the allowance changes as it is used.
+fn included_characters(quota:&Value,needed:usize)->Result<(),String>{
+ let used=quota["character_count"].as_u64();let limit=quota["character_limit"].as_u64();
+ let overage=quota["can_extend_character_limit"]!=false&&quota["allowed_to_extend_character_limit"]!=false;
+ match (used,limit) {
+  _ if overage=>Err("ElevenLabs speech is blocked: usage-based billing could charge for extra characters on this account. Turn it off in ElevenLabs to use your included characters only. Your written answer remains available.".into()),
+  (Some(used),Some(limit)) if used.saturating_add(needed as u64)<=limit=>Ok(()),
+  (Some(_),Some(_))=>Err("ElevenLabs speech is blocked: this reply needs more characters than your plan has left this period. Your written answer remains available.".into()),
+  _=>Err("ElevenLabs speech is blocked: its included characters could not be read. Your written answer remains available.".into()),
+ }
+}
 pub(crate) async fn subscription_quota()->Result<Value,String>{
  guard()?;let secret=key()?;let client=client()?;
  let response=request(&client,reqwest::Method::GET,"user/subscription",&secret)?.timeout(Duration::from_secs(20)).send().await.map_err(|_|"ElevenLabs quota connection failed or timed out.".to_string())?;
