@@ -120,4 +120,5 @@ stops the turn. Two warnings are tolerated: an unrecognized key in the user's ow
 Codex configuration file (observed: `computer_use.windows.always_allowed_app_ids`) and the
 confirmation that code mode fails closed. One live turn returned `OLYMPUS_OK`
 (`output/codex-live-acceptance-2026-10-20k.txt`). The picker lists Codex · GPT-6.1
-Sol under Subscriptions. Codex delegation stays blocked.
+Sol under Subscriptions. Kevin confirmed a native dev-build Codex chat on
+2026-10-20. Codex delegation stays blocked.
