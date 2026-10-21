@@ -1,7 +1,7 @@
 //! Email-only inference route. No model downloads, cloud fallback or effect on chat routing.
 use super::*;
 use std::time::Duration;
-use crate::commands::{models,responses};
+use crate::commands::models;
 pub(super) fn route()->Result<(String,String),String>{
  let provider=std::env::var("OLYMPUS_EMAIL_ANALYSIS_PROVIDER").unwrap_or_else(|_|"openai".into());
  match provider.as_str(){
@@ -25,7 +25,7 @@ pub(super) async fn infer(db:&Db,instructions:&str,input:Value,schema:Value,purp
  let (provider,model)=route()?;
  if provider=="openai"{
   let route=models::resolve(models::Capability::Primary);let mut r=models::RequestRecord::new(&route,purpose);models::save(db,&r)?;
-  let answer=responses::structured(&route,instructions,input,schema,&mut r).await;models::save(db,&r)?;return answer.map(|a|(a,json!(r)))
+  let answer=crate::commands::subscription_jobs::run(crate::commands::subscription_jobs::Tier::Quick,instructions,input,schema,&mut r).await;models::save(db,&r)?;return answer.map(|a|(a,json!(r)))
  }
  // Fixed loopback destination; no proxies, redirects, cloud tags, pulls or tools.
  if input.to_string().len()+instructions.len()+schema.to_string().len()>48000{return Err("local_email_context_budget".into())}

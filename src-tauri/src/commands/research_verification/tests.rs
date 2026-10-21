@@ -167,7 +167,7 @@ fn unavailable_start_is_blocked_before_any_run_or_request_is_created() {
         false
     )
     .unwrap_err()
-    .contains("credentials"));
+    .contains("No subscription model is available"));
     assert!(prepare(
         &db,
         &root.join("missing"),

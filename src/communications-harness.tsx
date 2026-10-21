@@ -51,7 +51,7 @@ async function run() { const checks: string[] = []; const check = (v: unknown, s
     check(document.body.textContent?.includes('53'), 'Source volume remains available');
     check(document.querySelector('.comms-analytics')?.contains(document.querySelector('.comms-intelligence-strip')), 'Raw counts live within Analytics');
     check(analysisCount===0,'Opening Communications never triggers a model call');
-    check(document.querySelector('.comms-brief')?.textContent?.includes('OpenAI'),'Model privacy boundary disclosed before analysis');
+    check(document.querySelector('.comms-brief')?.textContent?.includes('Claude subscription'),'Model privacy boundary disclosed before analysis');
     check(document.querySelector('.comms-brief h3')?.textContent==='1 thing needs you','Needs-you count excludes uncertainty and background');
     check(document.querySelector('.comms-background summary')?.textContent?.includes('Background'),'Background interpretation remains available');
     check(document.querySelector('.comms-background')?.textContent?.includes('No reply needed'),'No-action next move is source-specific');

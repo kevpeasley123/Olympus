@@ -19,51 +19,78 @@ pub fn init(app: &tauri::AppHandle) {
     }
 }
 
-/// Memory carries the most weight of any background job, so it gets the most
-/// capable model the plan offers.
-pub const CLAUDE_JOB_MODEL: &str = "claude-opus-5-5";
+/// Whether a job could start: Claude confirmed for this install, or Codex
+/// installed. Each attempt still checks its own gate before sending anything.
+pub fn available() -> bool {
+    APP_DATA.get().is_some_and(|dir| super::claude_subscription::is_confirmed(dir)) || super::engines::codex_executable().is_ok()
+}
+
+/// Which Claude model a job gets: memory and research carry the most weight;
+/// mail triage, drafts and inspection planning favour speed.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum Tier {
+    Deep,
+    Quick,
+}
+impl Tier {
+    fn claude_model(self) -> &'static str {
+        match self {
+            Tier::Deep => "claude-opus-5-5",
+            Tier::Quick => "claude-sonnet-5-5",
+        }
+    }
+}
 const JOB_LIMIT: Duration = Duration::from_secs(300);
 
-/// Runs `instructions` over `input` and returns one JSON object as text, checked
-/// against the schema's required string fields. Every attempt is recorded in
-/// Model diagnostics under `purpose`.
-pub async fn structured(db: &Db, purpose: &str, instructions: &str, input: Value, schema: Value) -> Result<String, String> {
+/// Runs `instructions` over `input` and returns one JSON object as text that
+/// matches the schema's required fields and their basic types. Fills `record`
+/// as the paid route did, for Model diagnostics; the caller saves it.
+pub async fn run(tier: Tier, instructions: &str, input: Value, schema: Value, record: &mut RequestRecord) -> Result<String, String> {
     let prompt = job_prompt(&input, &schema)?;
+    let started = Instant::now();
+    record.reasoning_effort = None;
     let mut errors = Vec::new();
     for engine in [Engine::Claude, Engine::Codex] {
-        let mut record = RequestRecord::new(&models::resolve(models::Capability::Primary), purpose);
         record.provider = engine.provider().into();
-        record.requested_model = engine.model().into();
-        record.reasoning_effort = None;
-        models::save(db, &record)?;
-        let started = Instant::now();
-        let (system, attempt) = (instructions.to_string(), prompt.clone());
-        let outcome = tauri::async_runtime::spawn_blocking(move || engine.run(&system, attempt))
-            .await
-            .map_err(|_| "Subscription job worker failed".to_string())
-            .and_then(|result| result)
-            .and_then(|(text, model)| Ok((extract_object(&text, &schema)?, model)));
-        record.latency_ms = Some(started.elapsed().as_millis() as u64);
+        record.requested_model = engine.model(tier).into();
+        let (system, attempt, checked) = (instructions.to_string(), prompt.clone(), schema.clone());
+        let outcome = tauri::async_runtime::spawn_blocking(move || {
+            let (text, model) = engine.run(tier, &system, attempt)?;
+            Ok::<_, String>((extract_object(&text, &checked)?, model))
+        })
+        .await
+        .map_err(|_| "Subscription job worker failed".to_string())
+        .and_then(|result| result);
         match outcome {
             Ok((json, model)) => {
                 record.status = "completed".into();
                 record.actual_model = Some(model);
+                record.error_code = None;
+                record.latency_ms = Some(started.elapsed().as_millis() as u64);
                 record.usage = Some(serde_json::json!({"billing_status": "included_subscription"}));
                 if !errors.is_empty() {
                     record.fallback_from = Some(Engine::Claude.provider().into());
+                    record.escalation_reason = Some(errors.join(" | ").chars().take(300).collect());
                 }
-                models::save(db, &record)?;
                 return Ok(json);
             }
-            Err(error) => {
-                record.status = "failed".into();
-                record.error_code = Some(error.chars().take(200).collect());
-                models::save(db, &record)?;
-                errors.push(format!("{}: {error}", engine.provider()));
-            }
+            Err(error) => errors.push(format!("{}: {error}", engine.provider())),
         }
     }
-    Err(format!("subscription_job_unavailable: {}", errors.join(" | ")))
+    record.status = "failed".into();
+    record.latency_ms = Some(started.elapsed().as_millis() as u64);
+    let error = format!("subscription_job_unavailable: {}", errors.join(" | "));
+    record.error_code = Some(error.chars().take(200).collect());
+    Err(error)
+}
+
+/// `run` for callers without a record of their own: creates, fills and saves one.
+pub async fn structured(db: &Db, purpose: &str, instructions: &str, input: Value, schema: Value) -> Result<String, String> {
+    let mut record = RequestRecord::new(&models::resolve(models::Capability::Primary), purpose);
+    models::save(db, &record)?;
+    let result = run(Tier::Deep, instructions, input, schema, &mut record).await;
+    models::save(db, &record)?;
+    result
 }
 
 #[derive(Clone, Copy)]
@@ -78,17 +105,17 @@ impl Engine {
             Engine::Codex => "codex-subscription",
         }
     }
-    fn model(self) -> &'static str {
+    fn model(self, tier: Tier) -> &'static str {
         match self {
-            Engine::Claude => CLAUDE_JOB_MODEL,
+            Engine::Claude => tier.claude_model(),
             Engine::Codex => "gpt-6.1-sol",
         }
     }
-    fn run(self, system: &str, prompt: String) -> Result<(String, String), String> {
+    fn run(self, tier: Tier, system: &str, prompt: String) -> Result<(String, String), String> {
         match self {
             Engine::Claude => {
                 let app_data = APP_DATA.get().ok_or("Olympus data folder unavailable")?;
-                super::claude_subscription::run_job(app_data, Some(CLAUDE_JOB_MODEL), system, prompt, JOB_LIMIT)
+                super::claude_subscription::run_job(app_data, Some(tier.claude_model()), system, prompt, JOB_LIMIT)
             }
             Engine::Codex => super::subscription::run_job(system, prompt, JOB_LIMIT),
         }
@@ -117,11 +144,26 @@ fn extract_object(text: &str, schema: &Value) -> Result<String, String> {
     let value: Value = serde_json::from_str(candidate).map_err(|_| "job_invalid_output")?;
     let object = value.as_object().ok_or("job_invalid_output")?;
     for key in schema["required"].as_array().into_iter().flatten().filter_map(Value::as_str) {
-        if !object.get(key).is_some_and(Value::is_string) {
+        let field = object.get(key).ok_or("job_invalid_output")?;
+        if !matches_type(field, &schema["properties"][key]) {
             return Err("job_invalid_output".into());
         }
     }
     serde_json::to_string(&value).map_err(|_| "job_invalid_output".into())
+}
+
+/// Basic JSON Schema typing for one field; each caller still validates its
+/// own content, as it did for the paid route's strict schema.
+fn matches_type(field: &Value, property: &Value) -> bool {
+    match property["type"].as_str() {
+        Some("string") => field.is_string() && property["enum"].as_array().is_none_or(|allowed| allowed.contains(field)),
+        Some("integer") => field.is_i64() || field.is_u64(),
+        Some("number") => field.is_number(),
+        Some("boolean") => field.is_boolean(),
+        Some("array") => field.is_array(),
+        Some("object") => field.is_object(),
+        _ => true,
+    }
 }
 
 #[cfg(test)]
@@ -154,8 +196,19 @@ mod tests {
 
     #[test]
     fn claude_runs_first_and_codex_is_the_backup() {
-        assert_eq!(Engine::Claude.model(), "claude-opus-5-5");
-        assert!(super::super::claude_subscription::CLAUDE_MODELS.iter().any(|(id, _)| *id == CLAUDE_JOB_MODEL));
+        assert_eq!(Engine::Claude.model(Tier::Deep), "claude-opus-5-5");
+        assert_eq!(Engine::Claude.model(Tier::Quick), "claude-sonnet-5-5");
+        for tier in [Tier::Deep, Tier::Quick] {
+            assert!(super::super::claude_subscription::CLAUDE_MODELS.iter().any(|(id, _)| *id == tier.claude_model()));
+        }
         assert_eq!(Engine::Codex.provider(), "codex-subscription");
+    }
+    #[test]
+    fn required_fields_keep_their_declared_types() {
+        let schema = json!({"type":"object","properties":{"action":{"type":"string","enum":["read","finish"]},"file":{"type":"string"},"start_line":{"type":"integer"},"items":{"type":"array"}},"required":["action","file","start_line","items"]});
+        assert!(extract_object(r#"{"action":"read","file":"","start_line":4,"items":[]}"#, &schema).is_ok());
+        for bad in [r#"{"action":"write","file":"","start_line":4,"items":[]}"#, r#"{"action":"read","file":"","start_line":"4","items":[]}"#, r#"{"action":"read","file":"","start_line":4,"items":{}}"#, r#"{"action":"read","file":3,"start_line":4,"items":[]}"#] {
+            assert!(extract_object(bad, &schema).is_err(), "accepted {bad}");
+        }
     }
 }

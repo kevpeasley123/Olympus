@@ -136,3 +136,19 @@ frontend speaks a plain excerpt of the written reply (280 to 1,500 characters by
 depth, cut at a sentence end). OpenAI realtime voice and transcription stay
 blocked. Kevin heard a spoken subscription reply in the dev build on 2026-10-20;
 the account went from 22,473 to 22,458 characters, overage still off.
+
+## Background jobs on subscriptions (2026-10-21)
+
+`commands/subscription_jobs.rs` runs every background model job that used the
+paid OpenAI structured route: the memory pass, email assessment and situation
+analysis, situation reply drafts, `/inspect` file planning, and the research
+and verification agents. Each job tries Claude first (Opus 5.5 for memory and
+research, Sonnet 5.5 for the rest) and Codex second, each through its own
+adapter's gate and isolation, so the fallback never reaches a paid route. The
+prompt carries the job input as labelled JSON data and the schema; the reply
+must be one JSON object whose required fields have their declared types, and
+each caller keeps its own content checks. Research and the agent catalog count
+as available when Claude is confirmed or Codex is installed. Model diagnostics
+record the subscription, model, latency and any fallback. Subscription chat
+also runs `/inspect`. Verified offline and by live memory passes on copied
+data; mail, drafts, inspection and research have not run against real data.

@@ -29,7 +29,7 @@ fn snapshot(
 ) -> Result<Value, String> {
     let ready = key_present && source_present;
     let reason = if !key_present {
-        "OpenAI credentials unavailable"
+        "No subscription model is available: confirm Claude in Preferences > Subscription engines, or install Codex"
     } else if !source_present {
         "Research sources unavailable"
     } else {
@@ -67,7 +67,7 @@ pub(crate) fn snapshot_for_tests(connection: &Connection) -> Value {
 }
 #[tauri::command]
 pub fn command_agent_catalog(db: State<Db>) -> Result<Value, String> {
-    let key = std::env::var("OPENAI_API_KEY").is_ok_and(|s| !s.trim().is_empty());
+    let key = super::subscription_jobs::available();
     let sources = get_vault_path().join("02 - Research").is_dir();
     let connection = db.0.lock().map_err(|e| e.to_string())?;
     snapshot(&connection, key, sources)

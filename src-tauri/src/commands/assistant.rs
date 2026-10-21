@@ -1014,13 +1014,14 @@ async fn send_anthropic_message(
 /// Shared command boundary. Provider selection never changes project authority.
 /// What a subscription turn knows: the same Olympus system prompt, vault
 /// memory, learned memory, earlier-chat recall, mail and project evidence the
-/// API route assembles. Repository inspection is left out: it is itself a paid
-/// planning request.
+/// API route assembles, plus `/inspect` repository evidence, whose file-picking
+/// steps also run on the subscriptions.
 async fn subscription_context(
     db: &super::persistence::Db,
     memory_service: &super::memory::MemoryService,
     history: &[ChatTurn],
     mut context: AssistantContext,
+    on_event: &tauri::ipc::Channel<AssistantStreamEvent>,
 ) -> Result<(String, String, Vec<super::gmail::store::Excerpt>), String> {
     let question=history.iter().rev().find(|m|m.role=="user").map(|m|m.content.as_str()).unwrap_or("");
     let (gmail_context,mail)={let c=db.0.lock().map_err(|_|"Local source cache unavailable")?;super::gmail::context(&c,question)};
@@ -1043,6 +1044,7 @@ async fn subscription_context(
     };
     let reader=memory_service.reader();
     let memory=tauri::async_runtime::spawn_blocking(move||super::memory::load_for_turn(&reader,&query)).await.map_err(|_|"Memory retrieval task failed")?;
+    context.repository_context=super::repository_inspection::inspect(db,&super::models::resolve(context.capability),question,on_event).await?;
     // Subscription replies are text only, so no spoken-response format is asked for.
     context.voice_depth=None;
     let system=format!("{}\n\n{}",build_stable_system(&memory),build_volatile_system(&context));
@@ -1853,7 +1855,7 @@ pub async fn send_assistant_message(app:tauri::AppHandle,db:tauri::State<'_,supe
     if provider!=super::subscription::Provider::LegacyApi {
         let voice=context.voice_depth.is_some();
         let claude_model=context.claude_model.clone();
-        let (system,evidence,mail)=subscription_context(db.inner(),&memory_service,&history,context).await?;
+        let (system,evidence,mail)=subscription_context(db.inner(),&memory_service,&history,context,&on_event).await?;
         let mut reply=if provider==super::subscription::Provider::Codex {
             super::subscription::complete(system,evidence,history,voice,on_event,cancel).await?
         } else {

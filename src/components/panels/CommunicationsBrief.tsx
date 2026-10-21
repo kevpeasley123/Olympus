@@ -30,7 +30,7 @@ export function CommunicationsBrief({days,onOpen,api=intelligenceClient,active=t
    </article>;}
  return <section className="comms-brief" aria-label="Olympus Communications Brief">
   <header><div><small>OLYMPUS COMMUNICATIONS BRIEF</small><h3>{busy?'Reading the signals…':run?.status==='completed'&&!run.stale?run.items.length?`${needs} ${needs===1?'thing needs':'things need'} you`:'No threads in the selected scope':'Bring the important threads into focus'}</h3></div><button className="ghost-action" disabled={busy||run?.status==='running'} onClick={()=>void analyze()}>{busy?'Analyzing…':run?'Run thread triage':'Analyze communications'}</button></header>
-  <p className="comms-scope">Analyze sends selected cached excerpts and matching project metadata to OpenAI · Sol. Up to 6 threads, 4 messages each, 3 context passes. No mail is sent or changed.</p>
+  <p className="comms-scope">Analyze sends selected cached excerpts and matching project metadata to your Claude subscription (Codex as the backup). Up to 6 threads, 4 messages each, 3 context passes. No mail is sent or changed.</p>
   <button className="comms-text-action" onClick={()=>setInspect({})}>About this workflow</button>
   {error&&<p role="alert">{error}</p>}{notice&&<p role="status">{notice}</p>}
   {run?.stale&&<p className="comms-notice">This analysis is out of date. Run thread triage again before relying on it.</p>}

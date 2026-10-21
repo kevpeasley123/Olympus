@@ -232,6 +232,10 @@ struct Authorization {
     account: Account,
 }
 
+pub(crate) fn is_confirmed(app_data: &Path) -> bool {
+    read_authorization(app_data).is_ok()
+}
+
 fn read_authorization(app_data: &Path) -> Result<Account, String> {
     let bytes = std::fs::read(app_data.join(AUTHORIZATION_FILE)).map_err(|_| BLOCKED.to_string())?;
     let record: Authorization = serde_json::from_slice(&bytes).map_err(|_| BLOCKED.to_string())?;
