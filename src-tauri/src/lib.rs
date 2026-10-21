@@ -236,6 +236,7 @@ pub fn run() {
                 commands::gmail::start_cadence(app.handle().clone());
                 commands::gmail::situations::start_cadence(app.handle().clone());
             }
+            commands::subscription_jobs::init(app.handle());
             commands::chat_memory::start(app.handle().clone());
             Ok(())
         })

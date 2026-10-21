@@ -64,7 +64,7 @@ export function MemorySettings() {
         <input type="checkbox" checked={status?.useMemory ?? false} disabled={!status || busy} onChange={event => void change({ useMemory: event.target.checked })} /></label>
       <p className="voice-settings-hint">
         Each chat becomes a note in <code>{status?.chatsFolder ?? "10 - Conversations"}</code>. After a chat has been quiet for ten minutes,
-        Olympus updates <code>{status?.memoryNote ?? "09 - System/Olympus Memory.md"}</code>: one paid OpenAI request per chat. Edit either note
+        Olympus updates <code>{status?.memoryNote ?? "09 - System/Olympus Memory.md"}</code> through your Claude subscription, with Codex as the backup; no paid API is used. Edit either note
         in Obsidian and your version is kept. Temporary chats are never saved or learned from. Turning learning off stops new updates; it does not delete the note.
       </p>
       {status && <p className="voice-settings-hint" role="status">
@@ -81,7 +81,7 @@ export function MemorySettings() {
         <button type="button" className="ghost-action" disabled={busy || !status.learn} title={status.learn ? undefined : "Turn on Learn from chats first"} onClick={() => setConfirming(true)}>Learn from them</button>
       </div>}
       {confirming && <div className="voice-setting-row" role="group" aria-label="Confirm learning from earlier chats">
-        <span>Sends each of the {waiting} chats to OpenAI, oldest first: at least {waiting} paid {waiting === 1 ? "request" : "requests"}, more for long chats.</span>
+        <span>Sends each of the {waiting} chats to your Claude subscription (Codex as the backup), oldest first: at least {waiting} {waiting === 1 ? "request" : "requests"} from your included allowance, more for long chats.</span>
         <span className="memory-confirm-actions"><button type="button" className="ghost-action" disabled={busy} onClick={() => void learnEarlier()}>Learn from {waiting} {waiting === 1 ? "chat" : "chats"}</button>
           <button type="button" className="ghost-action" onClick={() => setConfirming(false)}>Cancel</button></span>
       </div>}

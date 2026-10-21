@@ -1012,6 +1012,42 @@ async fn send_anthropic_message(
 
 
 /// Shared command boundary. Provider selection never changes project authority.
+/// What a subscription turn knows: the same Olympus system prompt, vault
+/// memory, learned memory, earlier-chat recall, mail and project evidence the
+/// API route assembles. Repository inspection is left out: it is itself a paid
+/// planning request.
+async fn subscription_context(
+    db: &super::persistence::Db,
+    memory_service: &super::memory::MemoryService,
+    history: &[ChatTurn],
+    mut context: AssistantContext,
+) -> Result<(String, String, Vec<super::gmail::store::Excerpt>), String> {
+    let question=history.iter().rev().find(|m|m.role=="user").map(|m|m.content.as_str()).unwrap_or("");
+    let (gmail_context,mail)={let c=db.0.lock().map_err(|_|"Local source cache unavailable")?;super::gmail::context(&c,question)};
+    context.gmail_context=gmail_context;
+    if !context.temporary {
+        let recalled={
+            let c=db.0.lock().map_err(|_|"Local chat store unavailable")?;
+            super::chat_memory::settings(&c).use_memory
+                .then(||super::conversations::recall(&c,context.memory_question.as_deref().unwrap_or(question),context.conversation_id.as_deref()))
+                .transpose()?
+        };
+        if let Some(recalled)=recalled {
+            context.learned_memory=tauri::async_runtime::spawn_blocking(super::chat_memory::memory_for_prompt).await.unwrap_or_default();
+            if !recalled.is_empty(){context.past_chats=serde_json::to_string(&recalled).unwrap_or_default();}
+        }
+    }
+    let query=super::memory::Query {
+        question:context.memory_question.clone().unwrap_or_else(||question.to_string()),
+        active_project:context.active_project.clone().or_else(||super::memory::previous_scope(db,context.conversation_id.as_deref().filter(|_|!context.temporary))), recent_questions:context.memory_recent_questions.clone(),
+    };
+    let reader=memory_service.reader();
+    let memory=tauri::async_runtime::spawn_blocking(move||super::memory::load_for_turn(&reader,&query)).await.map_err(|_|"Memory retrieval task failed")?;
+    // Subscription replies are text only, so no spoken-response format is asked for.
+    context.voice_depth=None;
+    let system=format!("{}\n\n{}",build_stable_system(&memory),build_volatile_system(&context));
+    Ok((system,build_turn_evidence(&context,&memory),mail))
+}
 async fn send_assistant_message_inner(
     db: tauri::State<'_, super::persistence::Db>,
     memory_service: tauri::State<'_, super::memory::MemoryService>,
@@ -1814,12 +1850,18 @@ pub async fn send_assistant_message(app:tauri::AppHandle,db:tauri::State<'_,supe
         if active.is_some(){return Err("A console turn is already running.".into())}
         *active=Some((id.clone(),sender));}
     let _guard=TurnGuard;
-    if provider==super::subscription::Provider::Codex {
-        return super::subscription::complete(history,context.voice_depth.is_some(),on_event,cancel).await;
-    }
-    if provider==super::subscription::Provider::ClaudeCode {
-        let app_data=tauri::Manager::path(&app).app_data_dir().map_err(|_|"Olympus data folder unavailable")?;
-        return super::claude_subscription::complete(app_data,context.claude_model.as_deref(),history,context.voice_depth.is_some(),on_event,cancel).await;
+    if provider!=super::subscription::Provider::LegacyApi {
+        let voice=context.voice_depth.is_some();
+        let claude_model=context.claude_model.clone();
+        let (system,evidence,mail)=subscription_context(db.inner(),&memory_service,&history,context).await?;
+        let mut reply=if provider==super::subscription::Provider::Codex {
+            super::subscription::complete(system,evidence,history,voice,on_event,cancel).await?
+        } else {
+            let app_data=tauri::Manager::path(&app).app_data_dir().map_err(|_|"Olympus data folder unavailable")?;
+            super::claude_subscription::complete(app_data,claude_model.as_deref(),system,evidence,history,voice,on_event,cancel).await?
+        };
+        reply.mail=mail;
+        return Ok(reply);
     }
     if let Some(proposal_id)=context.skill_approval_id.take(){
         let task=history.iter().rev().find(|m|m.role=="user").map(|m|m.content.as_str()).unwrap_or("");

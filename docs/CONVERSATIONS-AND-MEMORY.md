@@ -31,9 +31,11 @@ request (see `docs/RELEASES.md`).
   model's, shows inside the note. A rename appears in the note the next time the
   chat is saved.
 - **Automatic memory.** `09 - System/Olympus Memory.md` holds what Olympus has
-  learned, in five sections: About Kevin, Preferences, Projects, In progress,
-  Other. Olympus updates it in the background after a chat goes quiet. Kevin can
-  edit it in Obsidian, and his edits are read back and kept.
+  learned, in eight sections: About Kevin, Preferences, Projects, Decisions,
+  People, In progress, Ideas, Other. Bullets link to existing project and
+  decision notes with `[[...]]`, so the memory joins the vault graph. Olympus
+  updates it in the background after a chat goes quiet. Kevin can edit it in
+  Obsidian, and his edits are read back and kept.
 - **Recall.** Each turn brings back up to three earlier chats that share words
   with the question, with their summaries and the matching lines, labelled as
   recall.
@@ -65,19 +67,24 @@ minute while Olympus is open. For each chat that has an operator message, has
 been quiet for ten minutes, and has messages it has not handled, at most three
 per tick and oldest first:
 
-1. **Learn**, when learning is on. One structured request on the primary route
+1. **Learn**, when learning is on. One request through the operator's
+   subscriptions (`commands/subscription_jobs.rs`): Claude Opus 5.5 first,
+   Codex as the backup, each under its own chat gate, never a paid API. It
    sends:
    - today's date;
    - the current memory note;
+   - the names of notes in `01 - Projects` and `04 - Decisions`, the only
+     targets it may link to;
    - the chat's earlier summary;
    - its unseen messages, oldest first and bounded (4,000 characters a message,
      48,000 a pass; a longer chat continues in later passes, and nothing is
      skipped).
 
    It returns a title (kept if Kevin renamed the chat), a summary of the whole
-   chat, and the complete updated memory sections. The request has 16,000
-   output tokens, double a chat answer's, since it returns the whole note, and
-   is recorded with purpose `memory` in Model diagnostics.
+   chat, and the complete updated memory sections (under 2,000 words), as one
+   JSON object checked for every field. Each attempt is recorded with purpose
+   `memory` in Model diagnostics, a Codex attempt marked as falling back from
+   Claude.
    - If only Olympus spoke since the last pass (a briefing added to a reopened
      chat), the messages are marked seen and no request is made.
    - A failure is recorded on the chat and retried after 30 minutes, then 60,
@@ -86,7 +93,7 @@ per tick and oldest first:
 2. **Save the note**, when saving is on. A note written before the pass is
    saved again after it, so it carries the new title and summary.
 
-If the vault is not reachable, nothing is attempted, so no paid request is spent.
+If the vault is not reachable, nothing is attempted.
 
 **Writing to the vault.** Both notes use the write gate's `MaintainAuthored`
 intent, which never asks:
@@ -108,7 +115,7 @@ Chat notes are left out of the vault graph.
 **Using memory.** Unless the chat is temporary or "Use what Olympus remembers"
 is off, each request's turn evidence carries two labelled sections:
 
-- the memory note (at most 12,000 characters), as **learned memory, lower
+- the memory note (at most 16,000 characters), as **learned memory, lower
   authority**: Kevin's own notes, what he says now and the current project
   vision outrank it;
 - **earlier chats matching this question**: keyword recall from
@@ -137,8 +144,21 @@ rule:
 
 ## Cost
 
-The memory pass is a paid OpenAI request, about one per chat that goes quiet
-with new messages from Kevin; a long chat can take more than one, and a failing
-chat at most four in a row. It uses the same route as
-chat. Turning off "Learn from chats" stops it. Learning from earlier chats is
-one request per chat, started only from Preferences.
+Since 2026-10-20 the memory pass uses included subscription allowance, not a
+paid API: about one request per chat that goes quiet with new messages from
+Kevin; a long chat can take more than one, and a failing chat at most four in
+a row. Claude Opus 5.5 runs it; Codex answers only when Claude cannot.
+Turning off "Learn from chats" stops it. Learning from earlier chats is one
+request per chat, started only from Preferences.
+
+## Subscription chat uses the same memory
+
+Claude and Codex chat turns (`assistant.rs`, `subscription_context`) receive the
+same Olympus system prompt, vault memory, learned memory, earlier-chat recall,
+mail and project evidence as the API route, as labelled `<olympus_evidence>`
+beside the history. Repository inspection is left out, being a paid planning
+request. Temporary chats and "Use what Olympus remembers" behave as before.
+
+A live pass on copies of Kevin's database and project names (2026-10-20,
+`chat_memory::tests::live_memory_pass_on_copies`) produced dated Decisions and
+In progress bullets linked to `[[Project Olympus]]` and `[[Decision Log]]`.

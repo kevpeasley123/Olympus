@@ -13,6 +13,7 @@ pub mod engines;
 pub mod subscription;
 pub mod claude_subscription;
 pub mod spending_policy;
+pub mod subscription_jobs;
 pub mod external_link;
 pub mod research_retrieval;
 pub mod research_agents;
