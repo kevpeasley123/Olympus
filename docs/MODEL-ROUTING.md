@@ -2,6 +2,10 @@
 
 Approved architecture, implemented 2026-09-08. The Olympus identity, project truth, local conversation, curated memory, voice answer contract and execution approval gates remain shared.
 
+## Spending authorization
+
+The current unreleased backend policy rejects paid API reasoning, realtime voice/transcription and ElevenLabs synthesis before credentials or transport. This also covers background callers of Responses. Configured models remain visible but configuration is not spending approval. Read-only quota refresh is unaffected. Subscription text adapters are separate and remain blocked on verified billing/isolation; see `SUBSCRIPTION-CONVERSATION.md`.
+
 ## Routes
 
 `src-tauri/src/commands/models.rs` is the production model-ID catalog for reasoning, realtime speech, transcription and delegation:

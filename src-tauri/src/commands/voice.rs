@@ -311,6 +311,7 @@ fn session_failure(status: u16, body: &Value) -> String {
 #[derive(Serialize)]
 pub struct ClientSecret { value: String, expires_at: u64 }
 async fn create_voice_session_inner(settings:Option<VoiceSettings>, preview:Option<bool>) -> Result<ClientSecret, String> {
+    super::spending_policy::require_approval(super::spending_policy::PaidOperation::OpenAiRealtime)?;
     let settings=settings.unwrap_or_default(); settings.validate()?;
     let key = std::env::var("OPENAI_API_KEY").ok().filter(|v| !v.trim().is_empty())
         .ok_or(if preview.unwrap_or(false){"OpenAI speech needs OPENAI_API_KEY. ElevenLabs speech previews use the separately saved ElevenLabs key."}else{"Microphone transcription needs OPENAI_API_KEY in the Olympus project .env. ElevenLabs speech previews do not need this key. Add an OpenAI key and restart to use the microphone."})?;
@@ -339,6 +340,16 @@ pub async fn create_voice_session(db:tauri::State<'_,super::persistence::Db>,set
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn speech_preview_and_microphone_require_spending_approval() {
+        let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
+        runtime.block_on(async {
+            for preview in [None, Some(false), Some(true)] {
+                let error = create_voice_session_inner(None, preview).await.err().unwrap();
+                assert!(error.contains("paid_call_approval_required"));
+            }
+        });
+    }
     #[test] fn catalog_validates_and_configures_every_voice() {
         for voice in voice_catalog()["voices"].as_array().unwrap() {
             let settings=VoiceSettings {selected_voice:voice.as_str().unwrap().into(),speech_style:"concise".into(),barge_in_enabled:false};

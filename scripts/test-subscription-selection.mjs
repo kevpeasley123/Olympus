@@ -4,8 +4,11 @@ await build({entryPoints:['src/services/conversationProvider.ts'],bundle:true,pl
 const p=await import('../output/tests/conversation-provider.mjs');
 assert.throws(()=>p.requireConversationProvider(),/Choose/);
 p.selectConversationProvider('codex');assert.equal(p.requireConversationProvider(),'codex');
+p.selectConversationProvider('claude-code');assert.equal(p.requireConversationProvider(),'claude-code');
 p.selectConversationProvider('legacy-api');assert.equal(p.requireConversationProvider(),'legacy-api');
 assert.throws(()=>p.selectConversationProvider('unknown'));
+assert.throws(()=>p.selectConversationProvider('claude-code','opus'));
+p.selectConversationProvider('claude-code','claude-opus-5-5');assert.equal(p.selectedClaudeModel(),'claude-opus-5-5');p.selectConversationProvider('legacy-api');
 assert.equal(p.requireConversationProvider(),'legacy-api');
 console.log('PASS explicit conversation selection; no implicit API fallback');
 await build({stdin:{contents:'export {selectConversationProvider} from "./src/services/conversationProvider"; export {requestAssistantReply} from "./src/services/assistant";',resolveDir:process.cwd(),loader:'ts'},bundle:true,platform:'node',format:'esm',outfile:'output/tests/subscription-route.mjs'});
@@ -18,3 +21,15 @@ assert.deepEqual(calls.map(c=>c.command),['send_assistant_message']);
 assert.equal(calls[0].args.context.conversationProvider,'codex');
 assert.equal(calls[0].args.context.skillApprovalId,undefined);
 console.log('PASS Codex IPC route skips API skill review and does not retry on refusal');
+
+calls.length=0;route.selectConversationProvider('claude-code','claude-sonnet-5-5');
+await assert.rejects(()=>route.requestAssistantReply([{id:'synthetic-user',role:'user',content:'hello'}],{projectsRootPath:''},[]),/Synthetic billing refusal/);
+assert.deepEqual(calls.map(c=>c.command),['send_assistant_message']);
+assert.equal(calls[0].args.context.conversationProvider,'claude-code');
+assert.equal(calls[0].args.context.claudeModel,'claude-sonnet-5-5');
+assert.equal(calls[0].args.context.skillApprovalId,undefined);
+calls.length=0;
+await assert.rejects(()=>route.requestAssistantReply([{id:'synthetic-user',role:'user',content:'hello'}],{projectsRootPath:''},[],undefined,{voiceDepth:'ANSWER'}),/Synthetic billing refusal/);
+assert.deepEqual(calls.map(c=>c.command),['send_assistant_message']);
+assert.equal(calls[0].args.context.voiceDepth,undefined);
+console.log('PASS Claude selection, isolated IPC route, and Auto Speak sends text only without fallback');

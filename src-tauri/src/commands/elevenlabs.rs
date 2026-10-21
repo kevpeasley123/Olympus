@@ -157,6 +157,10 @@ pub fn elevenlabs_cancel(request_id:String)->Result<(),String>{
 }
 #[tauri::command]
 pub async fn elevenlabs_synthesize(db:tauri::State<'_,Db>,request_id:String,voice_id:String,model_id:String,text:String,preview:bool,lab:Option<bool>)->Result<SpeechAudio,String>{
+    synthesize(db.inner(),request_id,voice_id,model_id,text,preview,lab).await
+}
+async fn synthesize(db:&Db,request_id:String,voice_id:String,model_id:String,text:String,preview:bool,lab:Option<bool>)->Result<SpeechAudio,String>{
+    super::spending_policy::require_approval(super::spending_policy::PaidOperation::ElevenLabsSpeech)?;
     guard()?;validate(&request_id,&voice_id,&model_id,&text)?;
     if lab.unwrap_or(false){validate_lab(&text)?;}
     let cancelled=JOBS.lock().map_err(|_|"Speech is unavailable.".to_string())?.register(&request_id)?;
@@ -196,6 +200,18 @@ pub async fn elevenlabs_synthesize(db:tauri::State<'_,Db>,request_id:String,voic
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn synthesis_and_previews_refuse_before_credentials_or_database_writes() {
+        let db = Db(std::sync::Mutex::new(rusqlite::Connection::open_in_memory().unwrap()));
+        let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
+        runtime.block_on(async {
+            for (preview, lab) in [(false, None), (true, None), (true, Some(true))] {
+                let error = synthesize(&db, "policy-test".into(), "Voice123".into(), "eleven_v4".into(), "Hello".into(), preview, lab).await.err().unwrap();
+                assert!(error.contains("paid_call_approval_required"));
+            }
+        });
+        assert_eq!(db.0.lock().unwrap().query_row("SELECT COUNT(*) FROM sqlite_master", [], |r| r.get::<_, i64>(0)).unwrap(), 0);
+    }
     #[test]
     fn validates_text_and_path_segments() {
         assert!(validate("request-1", "Voice123", "eleven_v4", "Hello").is_ok());

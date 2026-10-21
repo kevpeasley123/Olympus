@@ -7,6 +7,10 @@ here, the same commit updates it. Current state and next steps live in
 `scripts/test-guidance-docs.mjs` checks the command table below against
 `src-tauri/src/lib.rs`.
 
+## Generation spending boundary
+
+`commands/spending_policy.rs` is the shared backend paid-generation gate for Responses, Anthropic, realtime voice/transcription and ElevenLabs synthesis. There are no active spending grants; saved keys and settings do not authorize transport. Background reasoning shares these guarded entrypoints. Account quota readers remain independent. Codex and Claude subscription adapters reject before launch while included-plan-only billing and execution isolation remain unverified. See `docs/SUBSCRIPTION-CONVERSATION.md` for offline implementation and acceptance limits.
+
 ## Knowledge workflows
 
 The first fixed read-only graph is `knowledge-audit/v1`: parallel research,
@@ -69,7 +73,7 @@ Tauri commands exposed by the desktop shell — every entry in the `generate_han
 | Write gate | `resolve_vault_write` |
 | Projects | `scan_tracked_projects`, `fetch_action_queue`, `project_members`, `link_project`, `set_project_visibility`, `save_project_intake`, `pick_project_folder`, `inspect_project`, `confirm_project_brief` |
 | Organizer | `create_organizer_task`, `update_organizer_task`, `list_organizer_tasks`, `fetch_organizer_task`, `set_organizer_intent`, `move_organizer_task`, `prepare_organizer_delegation`, `accept_organizer_result`, `finish_organizer_task`, `acknowledge_organizer_event`, `organizer_overview` |
-| Engines | `engine_status`, `account_usage_read` |
+| Engines | `engine_status`, `account_usage_read`, `claude_subscription_authorization`, `confirm_claude_subscription`, `revoke_claude_subscription` |
 | Delegation | `prepare_delegation_run`, `prepare_delegation_resume`, `cancel_delegation_proposal`, `start_delegation_run`, `resume_delegation_run`, `cancel_delegation_run`, `list_delegation_runs`, `fetch_delegation_diff` |
 | Delegation review | `fetch_delegation_review`, `run_delegation_check`, `delegation_review_fingerprint`, `complete_delegation_review` |
 | Knowledge audit | `start_knowledge_audit`, `list_knowledge_audits`, `inspect_knowledge_audit` (no UI entry point; the view is rendered only by its harness) |

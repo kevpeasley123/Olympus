@@ -103,7 +103,7 @@ fn billing_state(sign_in: &SignIn) -> BillingState {
 
 /// No supported no-overage proof is wired yet. All subscription generation fails closed.
 pub(crate) fn require_generation_eligibility(sign_in: &SignIn) -> Result<(), String> {
-    Err(format!("{} Nothing was started. Check subscription and paid-overage settings before enabling generation.", billing_state(sign_in).detail))
+    Err(format!("{} Nothing was started. A supported provider-enforced included-plan-only control must be verified before enabling generation. No API fallback or paid-credit approval exists.", billing_state(sign_in).detail))
 }
 
 pub(crate) fn select_executable(explicit: Option<PathBuf>, candidates: Vec<PathBuf>) -> Result<PathBuf, String> {
@@ -113,6 +113,90 @@ pub(crate) fn select_executable(explicit: Option<PathBuf>, candidates: Vec<PathB
     }
     candidates.into_iter().find(|path| path.is_absolute() && path.is_file())
         .ok_or_else(|| "No engine executable was found in the configured locations.".into())
+}
+
+const CLAUDE_REQUIRED_OPTIONS: &[&str] = &["--safe-mode", "--restricted", "--permission-prompts", "--setting-sources", "--tools", "--strict-mcp-config", "--mcp-config", "--disable-slash-commands", "--no-chrome", "--no-session-persistence", "--output-format", "--input-format", "--include-partial-messages"];
+fn claude_launch_contract(version: &str, help: &str) -> Result<(), String> {
+    if version.trim() != "2.1.284 (Claude Code)" {
+        return Err("Claude subscription transport requires the reviewed Claude Code 2.1.284 installation".into());
+    }
+    for option in CLAUDE_REQUIRED_OPTIONS {
+        if !help.split_whitespace().any(|word| word.trim_matches([',', '[', ']']) == *option) {
+            return Err(format!("Claude Code does not advertise required transport option {option}"));
+        }
+    }
+    Ok(())
+}
+fn select_supported_claude(explicit: Option<PathBuf>, candidates: Vec<PathBuf>, mut probe: impl FnMut(&Path) -> Result<(), String>) -> Result<PathBuf, String> {
+    if let Some(path) = explicit {
+        let path = select_executable(Some(path), vec![])?;
+        probe(&path).map_err(|reason| format!("The explicit Claude executable is unsupported: {reason}. No other installation was selected."))?;
+        return Ok(path);
+    }
+    if candidates.len() > 256 { return Err("Too many Claude executable locations; specify OLYMPUS_CLAUDE_CODE".into()); }
+    let mut existing = Vec::new();
+    for path in candidates {
+        if path.is_absolute() && path.is_file() && !existing.contains(&path) { existing.push(path); }
+    }
+    if existing.len() > 8 { return Err("Too many installed Claude executables; specify OLYMPUS_CLAUDE_CODE".into()); }
+    for path in existing {
+        if probe(&path).is_ok() { return Ok(path); }
+    }
+    Err("No supported Claude Code 2.1.284 executable with the required subscription transport options was found. No installation was changed.".into())
+}
+
+/// Read-only discovery probes are bounded, contain no credentials and never use
+/// project configuration. Recheck each discovery rather than caching stale proof.
+pub(crate) fn supported_claude_executable(explicit: Option<PathBuf>, candidates: Vec<PathBuf>) -> Result<PathBuf, String> {
+    let deadline = Instant::now() + STATUS_TIMEOUT;
+    select_supported_claude(explicit, candidates, |path| {
+        let version = claude_metadata(path, "--version", deadline)?;
+        // Do not ask unsupported versions to interpret any transport options.
+        if version.trim() != "2.1.284 (Claude Code)" {
+            return Err("Only reviewed Claude Code 2.1.284 is supported".into());
+        }
+        let help = claude_metadata(path, "--help", deadline)?;
+        claude_launch_contract(&version, &help)
+    })
+}
+
+fn claude_metadata(executable: &Path, argument: &str, deadline: Instant) -> Result<String, String> {
+    use std::io::Read;
+    const MAX_METADATA: u64 = 64 * 1024;
+    let remaining = deadline.saturating_duration_since(Instant::now()).min(Duration::from_secs(3));
+    if remaining.is_zero() { return Err("Claude executable discovery deadline exceeded".into()); }
+    let mut command = Command::new(executable);
+    allowed_environment(&mut command);
+    command.env_remove("CODEX_HOME").env_remove("CLAUDE_CONFIG_DIR")
+        .current_dir(std::env::temp_dir()).arg(argument)
+        .stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::null());
+    let mut process = super::subscription::Process::spawn(&mut command)?;
+    let output = process.child.stdout.take().ok_or("Claude metadata output unavailable")?;
+    let (send, recv) = std::sync::mpsc::channel();
+    let reader = thread::spawn(move || {
+        let mut bytes = Vec::new();
+        let result = output.take(MAX_METADATA + 1).read_to_end(&mut bytes)
+            .map_err(|_| "Claude metadata could not be read".to_string())
+            .and_then(|_| if bytes.len() as u64 > MAX_METADATA { Err("Claude metadata exceeded output limit".into()) }
+                else { String::from_utf8(bytes).map_err(|_| "Claude metadata is not UTF-8".into()) });
+        let _ = send.send(result);
+    });
+    let end = Instant::now() + remaining;
+    let result = (|| {
+        let text = recv.recv_timeout(end.saturating_duration_since(Instant::now()))
+            .map_err(|_| "Claude metadata check timed out")??;
+        loop {
+            match process.child.try_wait().map_err(|_| "Claude metadata process unavailable")? {
+                Some(status) if status.success() => return Ok(text),
+                Some(_) => return Err("Claude metadata command failed".into()),
+                None if Instant::now() >= end => return Err("Claude metadata check timed out".into()),
+                None => thread::sleep(Duration::from_millis(10)),
+            }
+        }
+    })();
+    drop(process); // End all inherited pipe owners before joining the bounded reader.
+    let _ = reader.join();
+    result
 }
 
 /// Desktop app-managed installations are not on PATH. Inspect only this bounded directory.
@@ -291,7 +375,13 @@ fn status(engine: Engine) -> EngineStatus {
         Err(detail) => (None, None, SignIn::NotFound { detail }),
     };
     let capabilities = capabilities(engine, version.as_deref());
-    let billing = billing_state(&sign_in);
+    let mut billing = billing_state(&sign_in);
+    if matches!(sign_in, SignIn::Subscription { .. }) {
+        billing.detail = match engine {
+            Engine::Codex => "ChatGPT sign-in confirmed, but no supported included-plan-only control is verified. Purchased credits may be consumed; quota remaining is not spending authorization.",
+            Engine::ClaudeCode => "Claude subscription sign-in confirmed. Delegation stays blocked. Text chat runs only after you confirm usage credits are off for this account; an estimated CLI budget or zero balance is insufficient.",
+        };
+    }
     let override_name = match engine { Engine::Codex => "OLYMPUS_CODEX", Engine::ClaudeCode => "OLYMPUS_CLAUDE_CODE" };
     let selection = if std::env::var_os(override_name).is_some_and(|value| !value.is_empty()) { "explicit executable override" } else { "automatic discovery" };
     EngineStatus { engine: engine.id(), name: engine.name(), executable, version, sign_in,
@@ -314,6 +404,50 @@ pub async fn engine_status(app: AppHandle) -> Result<Vec<EngineStatus>, String> 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    #[ignore = "Read-only installed Claude --version/--help discovery; no auth or generation"]
+    fn installed_claude_discovery_selects_supported_transport() {
+        let path = super::super::delegation::claude_executable().unwrap();
+        println!("Supported Claude executable: {}", path.display());
+        assert!(path.is_absolute() && path.is_file());
+    }
+
+    #[test]
+    fn claude_discovery_skips_unsupported_install_and_honors_explicit_override() {
+        let root = std::env::temp_dir().join(format!("olympus-claude-discovery-{}", super::super::delegation::run_id()));
+        std::fs::create_dir_all(&root).unwrap();
+        let old = root.join("native.exe");
+        let supported = root.join("npm.exe");
+        std::fs::write(&old, b"fixture").unwrap();
+        std::fs::write(&supported, b"fixture").unwrap();
+        let mut inspected = vec![];
+        let selected = select_supported_claude(None, vec![old.clone(), supported.clone()], |path| {
+            inspected.push(path.to_owned());
+            if path == old { Err("unsupported version".into()) } else { Ok(()) }
+        }).unwrap();
+        assert_eq!(selected, supported);
+        assert_eq!(inspected, vec![old.clone(), supported.clone()]);
+        inspected.clear();
+        let error = select_supported_claude(Some(old.clone()), vec![supported.clone()], |path| {
+            inspected.push(path.to_owned()); Err("unsupported version".into())
+        }).unwrap_err();
+        assert!(error.contains("No other installation"));
+        assert_eq!(inspected, vec![old]);
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn claude_discovery_requires_reviewed_version_and_every_launch_option() {
+        let help = CLAUDE_REQUIRED_OPTIONS.join(" ");
+        assert!(claude_launch_contract("2.1.284 (Claude Code)", &help).is_ok());
+        for version in ["2.1.74 (Claude Code)", "2.1.285 (Claude Code)", "2.1.284-preview (Claude Code)", ""] {
+            assert!(claude_launch_contract(version, &help).is_err());
+        }
+        for flag in CLAUDE_REQUIRED_OPTIONS {
+            assert!(claude_launch_contract("2.1.284 (Claude Code)", &help.replace(flag, "")).is_err(), "missing {flag} accepted");
+        }
+    }
 
     #[test]
     fn subscription_does_not_authorize_unknown_overage() {

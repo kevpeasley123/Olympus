@@ -45,6 +45,7 @@ pub struct ProjectSummary {
 #[serde(rename_all = "camelCase")]
 pub struct AssistantContext {
     #[serde(default)] pub conversation_provider: Option<String>,
+    #[serde(default)] pub claude_model: Option<String>,
     #[serde(default)] pub active_project: Option<String>,
     #[serde(default)] pub memory_question: Option<String>,
     #[serde(default)] pub memory_recent_questions: Vec<String>,
@@ -831,6 +832,7 @@ async fn send_anthropic_message(
     record: &mut super::models::RequestRecord,
     memory: VaultMemory,
 ) -> Result<AssistantReply, String> {
+    super::spending_policy::require_approval(super::spending_policy::PaidOperation::AnthropicMessages)?;
     let key = api_key()?;
     let mut messages = prepare_messages(history);
 
@@ -1077,6 +1079,18 @@ async fn send_assistant_message_inner(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn anthropic_refuses_before_credentials_or_provider_output() {
+        let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
+        runtime.block_on(async {
+            let mut record = super::super::models::RequestRecord::new(&super::super::models::resolve(super::super::models::Capability::ClaudeComparison), "spending_policy_test");
+            let channel = tauri::ipc::Channel::new(|_| panic!("blocked request emitted provider output"));
+            let error = send_anthropic_message(vec![], context_fixture(), channel, &mut record, VaultMemory::default()).await.err().unwrap();
+            assert!(error.contains("paid_call_approval_required"));
+            assert!(record.actual_model.is_none());
+            assert!(record.usage.is_none());
+        });
+    }
 
     fn turn(role: &str, content: &str) -> ChatTurn {
         ChatTurn {
@@ -1551,7 +1565,7 @@ mod tests {
 
     fn context_fixture() -> AssistantContext {
         AssistantContext {
-            conversation_provider: Some("legacy-api".into()),
+            conversation_provider: Some("legacy-api".into()), claude_model: None,
             active_project:None, memory_question:None, memory_recent_questions:Vec::new(),
             skill_approval_id: None, approved_skill_guidance: String::new(),
             gmail_context: String::new(),
@@ -1788,8 +1802,11 @@ pub fn cancel_assistant_message(request_id:String)->Result<bool,String>{
     } else {Ok(false)}
 }
 #[tauri::command]
-pub async fn send_assistant_message(db:tauri::State<'_,super::persistence::Db>,memory_service:tauri::State<'_,super::memory::MemoryService>,approval_state:tauri::State<'_,super::approvals::ApprovalState>,history:Vec<ChatTurn>,mut context:AssistantContext,on_event:tauri::ipc::Channel<AssistantStreamEvent>,request_id:Option<String>)->Result<AssistantReply,String>{
+pub async fn send_assistant_message(app:tauri::AppHandle,db:tauri::State<'_,super::persistence::Db>,memory_service:tauri::State<'_,super::memory::MemoryService>,approval_state:tauri::State<'_,super::approvals::ApprovalState>,history:Vec<ChatTurn>,mut context:AssistantContext,on_event:tauri::ipc::Channel<AssistantStreamEvent>,request_id:Option<String>)->Result<AssistantReply,String>{
     let provider=super::subscription::select_provider(context.conversation_provider.as_deref())?;
+    if provider==super::subscription::Provider::LegacyApi {
+        super::spending_policy::require_approval(if context.capability==super::models::Capability::ClaudeComparison {super::spending_policy::PaidOperation::AnthropicMessages}else{super::spending_policy::PaidOperation::OpenAiResponses})?;
+    }
     let id=request_id.unwrap_or_else(super::delegation::run_id);
     if id.len()>100{return Err("Invalid request identity".into())}
     let (sender,cancel)=tokio::sync::oneshot::channel();
@@ -1799,6 +1816,10 @@ pub async fn send_assistant_message(db:tauri::State<'_,super::persistence::Db>,m
     let _guard=TurnGuard;
     if provider==super::subscription::Provider::Codex {
         return super::subscription::complete(history,context.voice_depth.is_some(),on_event,cancel).await;
+    }
+    if provider==super::subscription::Provider::ClaudeCode {
+        let app_data=tauri::Manager::path(&app).app_data_dir().map_err(|_|"Olympus data folder unavailable")?;
+        return super::claude_subscription::complete(app_data,context.claude_model.as_deref(),history,context.voice_depth.is_some(),on_event,cancel).await;
     }
     if let Some(proposal_id)=context.skill_approval_id.take(){
         let task=history.iter().rev().find(|m|m.role=="user").map(|m|m.content.as_str()).unwrap_or("");

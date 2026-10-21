@@ -19,13 +19,14 @@ const MAX_TEXT: usize = 1_000_000;
 #[derive(Debug, PartialEq)]
 pub enum Provider {
     Codex,
+    ClaudeCode,
     LegacyApi,
 }
 pub fn select_provider(value: Option<&str>) -> Result<Provider, String> {
     match value {
         Some("codex") => Ok(Provider::Codex),
         Some("legacy-api") => Ok(Provider::LegacyApi),
-        Some("claude-code") => Err("Claude subscription conversation is not implemented.".into()),
+        Some("claude-code") => Ok(Provider::ClaudeCode),
         _ => Err("Choose an explicit conversation provider. No API fallback was attempted.".into()),
     }
 }
@@ -60,7 +61,7 @@ impl Protocol {
         }
     }
     fn initialize() -> Value {
-        json!({"id":1,"method":"initialize","params":{"clientInfo":{"name":"olympus","version":"0.36.0"},"capabilities":{"experimentalApi":true}}})
+        json!({"id":1,"method":"initialize","params":{"clientInfo":{"name":"olympus","version":env!("CARGO_PKG_VERSION")},"capabilities":{"experimentalApi":true}}})
     }
     fn interrupt(&self) -> Option<Value> {
         Some(
@@ -205,7 +206,7 @@ fn classify_error(error: &Value) -> End {
         End::Error
     }
 }
-fn history_prompt(history: Vec<ChatTurn>) -> Result<String, String> {
+pub(crate) fn history_prompt(history: Vec<ChatTurn>) -> Result<String, String> {
     if history.is_empty()
         || history.len() > 40
         || history
@@ -233,10 +234,7 @@ fn history_prompt(history: Vec<ChatTurn>) -> Result<String, String> {
 /// Every production entry rejects before executable discovery or process launch.
 /// Billing proof and app-server configuration isolation are not established.
 fn authorize_launch() -> Result<(), String> {
-    super::engines::require_generation_eligibility(&super::engines::SignIn::Unknown {
-        detail: "No supported no-overage proof is available".into(),
-    })?;
-    Err("Codex app-server tool/config isolation is not verified. Nothing was started.".into())
+    Err("subscription_billing_unverified: Codex has no verified included-plan-only billing control for this account. ChatGPT sign-in and remaining quota do not prevent paid-credit consumption. A supported provider-enforced restriction and generation isolation are required before live acceptance. Nothing was started; no API fallback was attempted.".into())
 }
 
 struct CancelOnDrop(Arc<AtomicBool>);
@@ -245,11 +243,83 @@ impl Drop for CancelOnDrop {
         self.0.store(true, Ordering::Release);
     }
 }
-struct Process(Child);
+/// A transport must own its entire process tree before any child code runs.
+/// Currently Windows-only: unsupported containment fails before spawning.
+pub(crate) struct Process {
+    pub(crate) child: Child,
+    job: Option<super::delegation::process_identity::Job>,
+}
+impl Process {
+    #[cfg(windows)]
+    pub(crate) fn spawn(command: &mut Command) -> Result<Self, String> {
+        use std::os::windows::process::CommandExt;
+        // CREATE_SUSPENDED prevents descendants escaping before job assignment.
+        // CREATE_NO_WINDOW preserves the hidden backend transport contract.
+        command.creation_flags(0x0000_0004 | 0x0800_0000);
+        let child = command.spawn().map_err(|_| "Could not start contained subscription process")?;
+        let mut owned = Self { child, job: None };
+        owned.job = Some(super::delegation::process_identity::Job::contain(&owned.child)
+            .ok_or("Subscription process-tree containment unavailable; launch stopped")?);
+        resume_contained_process(owned.child.id())?;
+        Ok(owned)
+    }
+    #[cfg(not(windows))]
+    pub(crate) fn spawn(_command: &mut Command) -> Result<Self, String> {
+        Err("Subscription process-tree containment currently requires Windows; nothing was started".into())
+    }
+}
 impl Drop for Process {
     fn drop(&mut self) {
-        let _ = self.0.kill();
-        let _ = self.0.wait();
+        // Kill every inherited pipe owner before waiting for the pipe workers.
+        // The job also terminates descendants when the direct child exited first.
+        drop(self.job.take());
+        let _ = self.child.kill();
+        let _ = self.child.wait();
+    }
+}
+
+#[cfg(windows)]
+fn resume_contained_process(process_id: u32) -> Result<(), String> {
+    use std::ffi::c_void;
+    type Handle = *mut c_void;
+    #[repr(C)]
+    struct ThreadEntry {
+        size: u32, usage: u32, id: u32, owner: u32,
+        base_priority: i32, delta_priority: i32, flags: u32,
+    }
+    #[link(name = "kernel32")]
+    extern "system" {
+        fn CreateToolhelp32Snapshot(flags: u32, process_id: u32) -> Handle;
+        fn Thread32First(snapshot: Handle, entry: *mut ThreadEntry) -> i32;
+        fn Thread32Next(snapshot: Handle, entry: *mut ThreadEntry) -> i32;
+        fn OpenThread(access: u32, inherit: i32, thread_id: u32) -> Handle;
+        fn ResumeThread(thread: Handle) -> u32;
+        fn CloseHandle(handle: Handle) -> i32;
+    }
+    struct OwnedHandle(Handle);
+    impl Drop for OwnedHandle {
+        fn drop(&mut self) { unsafe { CloseHandle(self.0); } }
+    }
+    unsafe {
+        let raw = CreateToolhelp32Snapshot(0x0000_0004, 0); // TH32CS_SNAPTHREAD
+        if raw == -1isize as Handle {
+            return Err("Could not inspect suspended subscription thread; launch stopped".into());
+        }
+        let snapshot = OwnedHandle(raw);
+        let mut entry = ThreadEntry { size: std::mem::size_of::<ThreadEntry>() as u32,
+            usage: 0, id: 0, owner: 0, base_priority: 0, delta_priority: 0, flags: 0 };
+        let mut found = Thread32First(snapshot.0, &mut entry) != 0;
+        while found {
+            if entry.owner == process_id {
+                let raw = OpenThread(0x0002, 0, entry.id); // THREAD_SUSPEND_RESUME
+                if raw.is_null() { break; }
+                let thread = OwnedHandle(raw);
+                if ResumeThread(thread.0) != u32::MAX { return Ok(()); }
+                break;
+            }
+            found = Thread32Next(snapshot.0, &mut entry) != 0;
+        }
+        Err("Could not resume contained subscription process; launch stopped".into())
     }
 }
 
@@ -295,7 +365,7 @@ pub async fn complete(
 }
 
 /// Hold the existing active-turn guard until the worker has killed/reaped its child.
-async fn await_worker<T>(
+pub(crate) async fn await_worker<T>(
     work: impl std::future::Future<Output = Result<T, String>>,
     cancel: tokio::sync::oneshot::Receiver<()>,
     cancelled: Arc<AtomicBool>,
@@ -321,13 +391,9 @@ fn run_process(
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::null());
-    let mut child = Process(
-        command
-            .spawn()
-            .map_err(|_| "Could not start subscription process")?,
-    );
-    let mut input = child.0.stdin.take().ok_or("Missing process input")?;
-    let output = child.0.stdout.take().ok_or("Missing process output")?;
+    let mut child = Process::spawn(&mut command)?;
+    let mut input = child.child.stdin.take().ok_or("Missing process input")?;
+    let output = child.child.stdout.take().ok_or("Missing process output")?;
     let (send, recv) = mpsc::sync_channel(16);
     // Writes can block if the child stops reading a large history payload.
     // Keep them off the cancellation loop; killing the child closes the pipe.
@@ -396,6 +462,10 @@ fn run_process(
         failure = Some(error);
         protocol.terminal = Some(End::Error);
     }
+    if protocol.terminal == Some(End::Complete) && protocol.text.trim().is_empty() {
+        failure = Some("Subscription returned no answer text. No fallback was attempted.".into());
+        protocol.terminal = Some(End::Error);
+    }
     // Kill and reap even on malformed output, cancelled futures and complete turns.
     drop(writes);
     drop(child);
@@ -418,7 +488,7 @@ fn run_process(
         },
     });
     if let Some(message) = &message {
-        if protocol.text.is_empty() {
+        if protocol.text.trim().is_empty() {
             return Err(message.clone());
         }
     }
@@ -449,6 +519,37 @@ fn queue_frame(sender: &mpsc::SyncSender<Value>, frame: Value) -> Result<(), Str
         .map_err(|_| "Process input queue unavailable".into())
 }
 
+#[cfg(all(test, windows))]
+pub(crate) fn descendant_fixture(output: &str) -> String {
+    use base64::Engine;
+    let script = format!("{output}; Start-Sleep -Seconds 4");
+    let encoded = base64::engine::general_purpose::STANDARD.encode(script.encode_utf16().flat_map(u16::to_le_bytes).collect::<Vec<_>>());
+    r#"
+Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+public static class PipeDescendant {
+ [StructLayout(LayoutKind.Sequential, CharSet=CharSet.Unicode)]
+ public struct Startup { public int cb; public string reserved, desktop, title; public int x,y,xSize,ySize,xChars,yChars,fill,flags; public short show,reservedSize; public IntPtr reservedBytes,input,output,error; }
+ [StructLayout(LayoutKind.Sequential)]
+ public struct Process { public IntPtr handle,thread; public int id,threadId; }
+ [DllImport("kernel32.dll",CharSet=CharSet.Unicode,SetLastError=true)]
+ static extern bool CreateProcess(string app,string command,IntPtr p,IntPtr t,bool inherit,int flags,IntPtr env,string cwd,ref Startup startup,out Process process);
+ [DllImport("kernel32.dll")] static extern IntPtr GetStdHandle(int kind);
+ [DllImport("kernel32.dll")] static extern bool SetHandleInformation(IntPtr h,int mask,int flags);
+ [DllImport("kernel32.dll")] static extern bool CloseHandle(IntPtr h);
+ public static void Start(string app,string args) {
+  var s=new Startup(); s.cb=Marshal.SizeOf(s); s.flags=256;
+  s.input=GetStdHandle(-10); s.output=GetStdHandle(-11); s.error=GetStdHandle(-12);
+  SetHandleInformation(s.input,1,1); SetHandleInformation(s.output,1,1); SetHandleInformation(s.error,1,1);
+  Process p; if(!CreateProcess(app,"\""+app+"\" "+args,IntPtr.Zero,IntPtr.Zero,true,0x08000000,IntPtr.Zero,null,ref s,out p)) throw new Exception("fixture launch failed "+Marshal.GetLastWin32Error());
+  CloseHandle(p.thread); CloseHandle(p.handle);
+ }
+}
+'@
+[PipeDescendant]::Start((Join-Path $env:SystemRoot 'System32/WindowsPowerShell/v1.0/powershell.exe'), '-NoProfile -NonInteractive -EncodedCommand ENCODED'); Start-Sleep -Seconds 4
+"#.replace("ENCODED", &encoded)
+}
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -543,6 +644,35 @@ mod tests {
     }
     #[cfg(windows)]
     #[test]
+    fn completed_without_text_is_an_error_not_a_success_event() {
+        let mut events = vec![];
+        let result = run_process(
+            fixture_command(r#"$null=[Console]::ReadLine(); [Console]::WriteLine('{"id":3,"result":{"turn":{"id":"u"}}}'); [Console]::WriteLine('{"method":"turn/completed","params":{"threadId":"t","turn":{"id":"u","status":"completed"}}}');"#),
+            "hello".into(), Arc::new(AtomicBool::new(false)), |e| events.push(e), Duration::from_secs(5),
+        );
+        assert!(result.is_err());
+        assert!(events.iter().any(|e| matches!(e, AssistantStreamEvent::Ended { reason: "error" })));
+        assert!(!events.iter().any(|e| matches!(e, AssistantStreamEvent::Ended { reason: "completed" })));
+    }
+    #[cfg(windows)]
+    #[test]
+    fn cancellation_closes_descendant_inherited_pipes() {
+        let tail = descendant_fixture(r#"[Console]::WriteLine('{"method":"item/agentMessage/delta","params":{"threadId":"t","turnId":"u","delta":"descendant-ready"}}')"#);
+        let command = fixture_command(&format!(r#"$null=[Console]::ReadLine(); [Console]::WriteLine('{{"id":3,"result":{{"turn":{{"id":"u"}}}}}}'); {tail}"#));
+        let flag = Arc::new(AtomicBool::new(false));
+        let mut cancelled_at = None;
+        let reply = run_process(command, "hello".into(), flag.clone(), |event| {
+            if matches!(event, AssistantStreamEvent::Delta { ref text } if text=="descendant-ready") {
+                cancelled_at = Some(Instant::now());
+                flag.store(true, Ordering::Release);
+            }
+        }, Duration::from_secs(10)).unwrap();
+        assert_eq!(reply.content, "descendant-ready");
+        assert!(flag.load(Ordering::Acquire), "descendant must inherit and write to stdout");
+        assert!(cancelled_at.unwrap().elapsed() < Duration::from_secs(2), "descendant-held pipe delayed cancellation");
+    }
+    #[cfg(windows)]
+    #[test]
     fn stalled_subprocess_input_cannot_defeat_deadline() {
         let start = Instant::now();
         let result = run_process(
@@ -567,7 +697,7 @@ mod tests {
             Provider::LegacyApi
         );
         assert_eq!(select_provider(Some("codex")).unwrap(), Provider::Codex);
-        assert!(select_provider(Some("claude-code")).is_err());
+        assert_eq!(select_provider(Some("claude-code")).unwrap(), Provider::ClaudeCode);
         assert!(authorize_launch().is_err());
     }
     fn ready() -> Protocol {

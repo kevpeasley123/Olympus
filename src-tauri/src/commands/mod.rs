@@ -11,6 +11,8 @@ pub mod attachments;
 pub mod delegation;
 pub mod engines;
 pub mod subscription;
+pub mod claude_subscription;
+pub mod spending_policy;
 pub mod external_link;
 pub mod research_retrieval;
 pub mod research_agents;

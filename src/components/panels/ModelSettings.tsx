@@ -3,6 +3,8 @@ import {createPortal} from "react-dom";
 import {MemoryEvidence} from "./MemoryEvidence";
 import {loadModelCatalog,loadModelDiagnostics,saveModelSelection,useModelSelection,type ModelCatalog,type ModelCapability,type ModelScope,type ModelRequest} from "../../services/modelRouting";
 import {isTauriRuntime} from "../../services/launcher";
+import {CLAUDE_SUBSCRIPTION_MODELS,selectConversationProvider,useConversationChoice} from "../../services/conversationProvider";
+import {confirmClaudeSubscription,loadClaudeAuthorization,type ClaudeSubscriptionAuthorization} from "../../services/engines";
 import {routeLabel} from "../../services/routeLabel";
 import {formatWhen} from "../../services/time";
 import "./command.css";
@@ -15,12 +17,20 @@ export function ModelRouteControl({disabled=false}:{disabled?:boolean}) {
  const returnFocus=useRef(false),scopeFocus=useRef<HTMLButtonElement|null>(null);
  const [position,setPosition]=useState({left:8,top:8,width:320,maxHeight:400});
  const desktop=isTauriRuntime();
- const refresh=()=>loadModelCatalog().then(value=>{setCatalog(value);setError(null);}).catch(()=>setError("Model catalog unavailable. Try again."));
+ const choice=useConversationChoice();
+ const subscription=choice?.provider==="claude-code";
+ const claudeModel=CLAUDE_SUBSCRIPTION_MODELS.find(m=>m.id===choice?.claudeModel)??CLAUDE_SUBSCRIPTION_MODELS[1];
+ const [claude,setClaude]=useState<ClaudeSubscriptionAuthorization|null>(null);
+ const refresh=()=>{
+  if(desktop)loadClaudeAuthorization().then(setClaude,()=>setClaude(null));
+  return loadModelCatalog().then(value=>{setCatalog(value);setError(null);}).catch(()=>setError("Model catalog unavailable. Try again."));
+ };
  useEffect(()=>{void refresh();},[]);
  useEffect(()=>{if(disabled)setOpen(false);},[disabled]);
  const current=catalog?.routes.find(r=>r.capability===selection.capability);
  const defaultName=catalog?.routes.find(r=>r.capability===catalog.defaultCapability)?.label??"the configured default";
- const suffix=!catalog?"Loading":!current?.available?"Unavailable":selection.scope==="chat"?"This chat":selection.capability===catalog.defaultCapability?"Default":"Next answer";
+ const suffix=subscription?"Max subscription":!choice?"Choose":!catalog?"Loading":!current?.available?"Unavailable":selection.scope==="chat"?"This chat":selection.capability===catalog.defaultCapability?"Default":"Next answer";
+ const triggerLabel=subscription?claudeModel.label:!choice?"Model":current?.label??(error?"Models":"Model");
  const close=(focus=false)=>{returnFocus.current=focus;setOpen(false);};
  useLayoutEffect(()=>{if(!saving){if(!open&&returnFocus.current){returnFocus.current=false;trigger.current?.focus();}else if(open&&scopeFocus.current){scopeFocus.current.focus();scopeFocus.current=null;}}},[open,saving]);
  useLayoutEffect(()=>{
@@ -54,14 +64,24 @@ export function ModelRouteControl({disabled=false}:{disabled?:boolean}) {
  async function choose(capability:ModelCapability,scope:ModelScope,finish:boolean){
   if(!finish)scopeFocus.current=document.activeElement as HTMLButtonElement;
   setSaving(true);setError(null);
-  try{await saveModelSelection(capability,scope);if(finish)close(true);}
+  try{await saveModelSelection(capability,scope);selectConversationProvider("legacy-api");if(finish)close(true);}
+  catch(e){setError(e instanceof Error?e.message:String(e));}
+  finally{setSaving(false);}
+ }
+ function chooseClaude(id:string){
+  setError(null);selectConversationProvider("claude-code",id);
+  if(claude?.confirmedAt)close(true);
+ }
+ async function confirmClaude(){
+  if(!claude)return;setSaving(true);setError(null);
+  try{setClaude(await confirmClaudeSubscription(claude.statement));close(true);}
   catch(e){setError(e instanceof Error?e.message:String(e));}
   finally{setSaving(false);}
  }
  return <div className="model-route-control">
-  <button ref={trigger} type="button" className="model-route-trigger" aria-label={`Choose model: ${current?.label??selection.capability} · ${suffix}`} aria-haspopup="dialog" aria-expanded={open} aria-controls={open?id:undefined} disabled={disabled||saving}
+  <button ref={trigger} type="button" className="model-route-trigger" aria-label={`Choose model: ${triggerLabel} · ${suffix}`} aria-haspopup="dialog" aria-expanded={open} aria-controls={open?id:undefined} disabled={disabled||saving}
    onClick={()=>{if(open)close(true);else{setOpen(true);void refresh();}}}>
-   <span>{current?.label??(error?"Models":"Model")}</span><span className="model-choice-scope"> · {suffix}</span><span aria-hidden="true"> ▾</span>
+   <span>{triggerLabel}</span><span className="model-choice-scope"> · {suffix}</span><span aria-hidden="true"> ▾</span>
   </button>
   {open&&createPortal(<div ref={panel} id={id} role="dialog" aria-modal="false" aria-label="Choose a model" className="olympus-model-picker" style={position} onKeyDown={e=>{
    if(e.key==='Escape'){e.preventDefault();e.stopPropagation();close(true);}
@@ -77,16 +97,31 @@ export function ModelRouteControl({disabled=false}:{disabled?:boolean}) {
    }
   }}>
    <header><h3>Choose a model</h3><button type="button" className="model-picker-close" aria-label="Close model picker" onClick={()=>close(true)}>×</button></header>
-   <div role="radiogroup" aria-label="Models" className="model-picker-options">
-    {catalog?.routes.map(route=><button type="button" role="radio" aria-checked={selection.capability===route.capability} disabled={!route.available||saving} key={route.capability} title={route.model} onClick={()=>void choose(route.capability,selection.scope,true)}>
+   <h4 className="model-picker-group">Subscriptions · included in your plans</h4>
+   <div role="radiogroup" aria-label="Subscription models" className="model-picker-options">
+    {CLAUDE_SUBSCRIPTION_MODELS.map(model=><button type="button" role="radio" aria-checked={subscription&&claudeModel.id===model.id} disabled={saving||!desktop} key={model.id} title={model.id} onClick={()=>chooseClaude(model.id)}>
+     <span className="model-picker-copy"><strong>{model.label}</strong><small>{model.description}</small></span>
+     <span className="model-provider">Claude Max</span><span className="model-check" aria-hidden="true">{subscription&&claudeModel.id===model.id?'✓':''}</span>
+    </button>)}
+    <button type="button" role="radio" aria-checked={false} disabled><span className="model-picker-copy"><strong>Codex</strong><small>Unavailable · not yet limited to your included ChatGPT allowance</small></span><span className="model-provider">ChatGPT</span><span className="model-check" aria-hidden="true"></span></button>
+   </div>
+   {subscription&&claude&&!claude.confirmedAt&&<div className="model-picker-confirm" role="group" aria-label="Confirm Claude usage credits are off">
+    <p>Olympus cannot see your Claude billing settings. Confirm only once usage credits are off at claude.ai, Settings &gt; Usage. It records the Max account signed in now and stops if Claude ever reports overage.</p>
+    <p><q>{claude.statement}</q></p>
+    <button type="button" disabled={saving} onClick={()=>void confirmClaude()}>{saving?"Checking sign-in…":"I confirm"}</button>
+   </div>}
+   <h4 className="model-picker-group">APIs · paid per use, need separate approval</h4>
+   <div role="radiogroup" aria-label="API models" className="model-picker-options">
+    {catalog?.routes.map(route=><button type="button" role="radio" aria-checked={!subscription&&!!choice&&selection.capability===route.capability} disabled={!route.available||saving} key={route.capability} title={route.model} onClick={()=>void choose(route.capability,selection.scope,true)}>
      <span className="model-picker-copy"><strong>{route.label}</strong><small>{route.description}</small>{!route.available&&<small className="model-unavailable">Unavailable · {route.unavailableReason}</small>}</span>
-     <span className="model-provider">{route.providerLabel}</span><span className="model-check" aria-hidden="true">{selection.capability===route.capability?'✓':''}</span>
+     <span className="model-provider">{route.providerLabel}</span><span className="model-check" aria-hidden="true">{!subscription&&!!choice&&selection.capability===route.capability?'✓':''}</span>
     </button>)}
    </div>
+   {subscription?<p>Uses your Claude Max allowance and stays selected until you change it. Text only.</p>:<>
    <div className="model-picker-scope" role="radiogroup" aria-label="Applies to"><span>Applies to</span><div>
     {([['next','Next answer'],['chat','This chat']] as const).map(([scope,label])=><button key={scope} type="button" role="radio" aria-checked={selection.scope===scope} disabled={saving||!current?.available} onClick={()=>void choose(selection.capability,scope,false)}>{label}</button>)}
    </div></div>
-   <p>{selection.scope==='next'?`Returns to ${defaultName} after this answer.`:'Stays selected for this conversation until you change it.'}</p>
+   <p>{selection.scope==='next'?`Returns to ${defaultName} after this answer.`:'Stays selected for this conversation until you change it.'}</p></>}
    {!desktop&&<p className="model-preview-note">Browser preview · models run in the desktop app.</p>}
    {error&&<div role="alert" className="model-picker-error">{error}<button type="button" onClick={()=>void refresh()}>Retry</button></div>}
   </div>,document.body)}

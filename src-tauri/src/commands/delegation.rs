@@ -234,6 +234,8 @@ pub(crate) fn run_id() -> String {
 /// `OLYMPUS_CLAUDE_CODE` path, then `claude.exe` on `PATH` (the native
 /// installer), then the native installer's and npm's known locations. Only
 /// real executables qualify; npm's `claude.cmd` shim cannot be spawned directly.
+/// Selection checks the reviewed subscription version and options; an unsupported
+/// automatic candidate is skipped, while an unsupported override fails closed.
 fn claude_candidates(
     var: impl Fn(&str) -> Option<std::ffi::OsString>,
 ) -> Vec<PathBuf> {
@@ -265,7 +267,7 @@ fn claude_candidates(
 pub(crate) fn claude_executable() -> Result<PathBuf, String> {
     let candidates = claude_candidates(|key| std::env::var_os(key));
     let explicit = std::env::var_os("OLYMPUS_CLAUDE_CODE").filter(|value| !value.is_empty()).map(PathBuf::from);
-    super::engines::select_executable(explicit, candidates)
+    super::engines::supported_claude_executable(explicit, candidates)
         .map_err(|reason| format!("{reason} Set OLYMPUS_CLAUDE_CODE to its full executable path."))
 }
 

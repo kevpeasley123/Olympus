@@ -4,7 +4,7 @@ import { isTauriRuntime } from "./launcher";
 import { briefingTurnContent, isBriefing, modelHistory } from "./conversationHistory";
 import type { ConversationMessage, OlympusSettings, TrackedProject } from "../types";
 import { turnText } from "./turnAttachment";
-import {requireConversationProvider} from "./conversationProvider";
+import {requireConversationProvider,selectedClaudeModel} from "./conversationProvider";
 
 /**
  * An app-level statement about how the turn ended. Never model prose — it is
@@ -38,7 +38,7 @@ export interface AssistantReply {
  * speaking state from it would collapse the two states into one.
  */
 export type AssistantStreamEvent =
-  | { kind: "ended"; reason: "completed" | "cancelled" | "limit" | "error" }
+  | { kind: "ended"; reason: "completed" | "cancelled" | "limit" | "refusal" | "error" }
   | { kind: "progress"; message: string }
   | { kind: "started"; model: string }
   | { kind: "delta"; text: string }
@@ -67,7 +67,9 @@ export async function requestAssistantReply(
   }
 
   const provider = requireConversationProvider();
-  if (provider === "codex" && options?.voiceDepth) throw Error("Codex subscription conversation currently supports text only.");
+  // Subscription chat is text only. A typed message sent with Auto Speak on still
+  // gets its written answer; the spoken summary is simply not requested.
+  const voiceDepth = provider === "legacy-api" ? options?.voiceDepth : undefined;
   const turns: ChatTurn[] = modelHistory(history).map((message) => ({
     role: message.role,
     content: conversationTurnContent(message)
@@ -89,6 +91,7 @@ export async function requestAssistantReply(
     onEvent: channel,
     context: {
       conversationProvider: provider,
+      claudeModel: provider === "claude-code" ? selectedClaudeModel() : undefined,
       skillApprovalId,
       // Only this conversation's operator words and explicit project attachment
       // establish recall scope. Source-body text cannot name the active project.
@@ -96,7 +99,7 @@ export async function requestAssistantReply(
       memoryRecentQuestions: history.filter(message => message.role === "user").slice(-5, -1).map(message => `${message.content.slice(0, 2500)}${message.attachment?.kind === "project-snapshot" ? ` Project: ${message.attachment.label}` : ""}`),
       activeProject: history[history.length-1]?.attachment?.kind === "project-snapshot" ? history[history.length-1]?.attachment?.label : undefined,
       capability: options?.capability,
-      voiceDepth: options?.voiceDepth,
+      voiceDepth,
       // A temporary chat neither uses nor feeds what Olympus has learned.
       temporary: options?.temporary ?? false,
       conversationId: options?.conversationId,
