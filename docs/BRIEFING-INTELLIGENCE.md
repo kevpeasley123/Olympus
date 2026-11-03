@@ -9,6 +9,11 @@ subjects and uncommitted work. Email input is existing account-scoped attention
 with a current observation and matching message/thread/fingerprint reference.
 Email recommendations are withheld for stale sync, account mismatch, unavailable
 or paused/failed understanding, blocked analysis and missing source references.
+Current operator corrections are explicitly attributed and replace the generated
+next move even when model understanding is blocked. Fresh sync, account match and
+valid current source references are still required. Learning revisions enter the
+display digest, so editing or undoing feedback invalidates suppression; forgetting
+removes the candidate and invalidates pending preparation. See `EMAIL-ATTENTION.md`.
 Source text remains untrusted; a recommendation is never an operator commitment.
 
 Sync freshness is conservatively bounded to 15 minutes, understanding to 24 hours,
@@ -42,5 +47,5 @@ unverified until separately exercised. No new provider, permission or startup
 behavior is enabled.
 
 Follow-on work from the approved design includes qualified semantic synthesis,
-source-linked learning/correction/forget/undo and optional tray persistence. This
+cross-source workflow learning and optional tray persistence. This
 foundation does not establish live Gmail recovery or native briefing acceptance.

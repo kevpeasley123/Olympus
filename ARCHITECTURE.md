@@ -90,7 +90,7 @@ Tauri commands exposed by the desktop shell — every entry in the `generate_han
 | Gmail | `gmail_status`, `gmail_connect`, `gmail_cancel`, `gmail_disconnect`, `gmail_sync`, `gmail_set_horizon`, `gmail_search`, `gmail_thread`, `gmail_workspace`, `gmail_remove_cache`, `gmail_cache_counts` |
 | Briefing display history | `briefing_receipts`, `briefing_record_delivery` (bounded display-item digests; no model or mailbox operation) |
 | Communication Intelligence | `analyze_communications`, `communication_runs`, `communication_run_events`, `communication_feedback`, `communication_skills`, `communication_workflow`, `inspect_communication_run` |
-| Situations and email attention | `situation_snapshot`, `situation_refresh`, `situation_set_background`, `situation_update`, `situation_edit`, `situation_draft`, `situation_save_draft`, `situation_document_status`, `situation_document_open`, `email_attention_decide` |
+| Situations and email attention | `situation_snapshot`, `situation_refresh`, `situation_set_background`, `situation_update`, `situation_edit`, `situation_draft`, `situation_save_draft`, `situation_document_status`, `situation_document_open`, `email_attention_decide`, `email_learning_change` |
 | Shell / files | `launch_quick_app`, `restart_olympus`, `pick_attachment_file`, `extract_pdf_text`, `open_external_link` |
 | Acceptance | `acceptance_profile` (read-only; `null` unless the debug-only acceptance profile is active) |
 <!-- commands:end -->

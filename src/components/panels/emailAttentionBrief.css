@@ -9,3 +9,12 @@
 .email-attention-actions button:first-child{color:#e7c67e;border-color:#856c41}.email-attention-actions button:disabled{opacity:.5;cursor:wait}
 .email-attention-source{border-top:1px solid #354b58;margin-top:10px;padding-top:10px;font-size:11px;overflow-wrap:anywhere}
 .email-attention-source blockquote{margin:7px 0;padding-left:8px;border-left:2px solid #c6a567;color:#c5d2dc}
+
+.email-correction{margin-top:10px;border-top:1px solid #354b58;padding-top:10px}
+.email-correction label{font:11px/1.5 var(--font-sans);color:#d4dee5}
+.email-correction textarea{box-sizing:border-box;display:block;resize:vertical;width:100%;margin-top:5px;padding:8px;border:1px solid #6c7e88;border-radius:4px;background:#07121a;color:#e1e8ef;font:12px/1.5 var(--font-sans)}
+.email-learning{margin-top:12px;border-top:1px solid #354b58;padding-top:10px;color:#bdcbd3;font:11px/1.6 var(--font-sans);overflow-wrap:anywhere}
+.email-learning summary{cursor:pointer;color:#dfc387}
+.email-learning-record{margin-top:10px;border:1px solid #354b58;border-radius:5px;padding:10px}
+.email-learning-record>strong{color:#e1e8ef;font-weight:500}
+.email-learning-record blockquote{margin:6px 0;padding-left:8px;border-left:2px solid #927c4f;color:#bcccd6}

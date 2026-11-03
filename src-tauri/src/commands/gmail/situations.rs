@@ -3,9 +3,12 @@ pub mod drafts;
 pub mod documents;
 pub mod engine;
 pub mod attention;
+pub mod learning;
 mod analysis_provider;
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod learning_tests;
 use super::{now, store};
 use crate::commands::{persistence::Db, vault_write::content_fingerprint};
 use rusqlite::{params, Connection, OptionalExtension};
@@ -161,8 +164,9 @@ fn snapshot(c: &Connection) -> Result<Value, String> {
         resume_at,
         chrono::Utc::now().timestamp_millis(),
     )?;
+    let learned=learning::snapshot(c,&a.id,&signatures)?;
     Ok(
-        json!({"attention":attention::visible(&sources,chrono::Utc::now().timestamp_millis()),"backgroundError":background_error,"accountId":a.id,"enabled":enabled,"situations":situations,"observations":sources.into_iter().filter(|s|s["relevant"]==true).collect::<Vec<_>>(),"updates":updates(c,&a.id)?,"drafts":drafts,"run":latest,"horizonDays":a.horizon_days,"understanding":understanding}),
+        json!({"learning":learned,"attention":learning::project(&sources,&learned,chrono::Utc::now().timestamp_millis()),"backgroundError":background_error,"accountId":a.id,"enabled":enabled,"situations":situations,"observations":sources.into_iter().filter(|s|s["relevant"]==true||s["attention"].is_object()).collect::<Vec<_>>(),"updates":updates(c,&a.id)?,"drafts":drafts,"run":latest,"horizonDays":a.horizon_days,"understanding":understanding}),
     )
 }
 /// When understanding last published, and whether background attempts are

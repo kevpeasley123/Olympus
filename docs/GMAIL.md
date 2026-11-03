@@ -141,3 +141,8 @@ not evidence that the current production network failure is repaired.
 
 The opening and requested briefing integration is documented in
 `docs/BRIEFING-INTELLIGENCE.md`. Read-only Gmail scope and history limits are unchanged.
+
+Explicit email feedback uses the source-scoped learning store described in
+[EMAIL-ATTENTION.md](EMAIL-ATTENTION.md). Cache-removal preview includes its saved
+records; confirming removal deletes corrections, undo history and suppression
+tombstones along with the account's cached source data.

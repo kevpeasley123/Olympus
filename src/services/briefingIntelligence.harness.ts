@@ -32,5 +32,16 @@ export function run() {
  check(!briefItems({...context,situations:{...snapshot,backgroundError:'blocked'}},now).some(i=>i.id.startsWith('mail:')),'Analysis error withholds current recommendation');
  check(briefItems({...context,projectsError:'scan failed'},now).some(i=>i.id==='coverage:projects'),'Project failure stays visible');
  check(selectBrief([...items,...items.map(i=>({...i,id:i.id+'2'}))],{},'opening',now).length<=3,'At most three highlights');
+ const corrected=structuredClone(snapshot);
+ corrected.attention![0]={...corrected.attention![0],operatorCorrection:'I submitted this; wait for confirmation.',learningRevision:1};
+ const blockedGmail={...gmail,analysis:{state:'blocked' as const,reason:'provider gated'}};
+ const correctionContext={...context,gmail:blockedGmail,situations:corrected};
+ const correction=briefItems(correctionContext,now).find(i=>i.id==='mail:a:thread');
+ check(!!correction&&correction.text.includes('Your correction')&&correction.text.includes('wait for confirmation'),'Explicit source correction works with blocked analyzer and is attributed');
+ check(!correction!.text.includes('Check the time'),'Rejected generated action is not repeated with correction');
+ corrected.attention![0].learningRevision=2;
+ check(briefItems(correctionContext,now).find(i=>i.id==='mail:a:thread')!.revision!==correction!.revision,'Undo/edit revision invalidates display receipt');
+ check(!briefItems({...correctionContext,gmail:{...blockedGmail,account:{...gmail.account!,lastSuccess:null}}},now).some(i=>i.id.startsWith('mail:')),'Corrections do not bypass stale source coverage');
+ check(!briefItems({...correctionContext,situations:{...corrected,accountId:'other'}},now).some(i=>i.id.startsWith('mail:')),'Correction remains account scoped');
  return passed;
 }

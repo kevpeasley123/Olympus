@@ -21,6 +21,7 @@ export interface GmailCacheCounts {
   updates: number;
   drafts: number;
   analysisRuns: number;
+  learningRecords?: number;
   documentContexts: number;
   documentSources: number;
   olderThan: null | { days: number; messages: number };

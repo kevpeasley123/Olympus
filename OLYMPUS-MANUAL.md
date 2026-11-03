@@ -33,7 +33,10 @@ preference is on, the console offers a bounded factual update from project state
 and current source-backed email attention, spoken when spoken replies are on.
 Unchanged displayed items are suppressed between openings; coverage failures are
 identified rather than presented as no news. This factual foundation does not
-claim fresh model analysis. See `docs/BRIEFING-INTELLIGENCE.md`. Project cards,
+claim fresh model analysis. Explicit email corrections are retained as operator
+context and can be reviewed, edited, undone or forgotten. Handled does not mean
+completed, and feedback for one source does not infer a general preference.
+See `docs/BRIEFING-INTELLIGENCE.md` and `docs/EMAIL-ATTENTION.md`. Project cards,
 briefing detail and repository facts belong in Project mode.
 
 Project mode opens a purpose-first portfolio: distinct project cards with a name,

@@ -53,12 +53,15 @@ export function briefItems(input:BriefContext,now=Date.now()):BriefItem[] {
   if(!understood) add('coverage:analysis','limitation',gmail.analysis?.state==='blocked'
    ?'Email analysis is blocked by its provider safeguards. This is a factual update, not a fresh analysis of your correspondence.'
    :'Email understanding is paused, unavailable or not current. No fresh email recommendations are being claimed.',95,[account.id,gmail.analysis?.state,situations?.enabled,situations?.backgroundError]);
-  if(fresh&&understood) for(const candidate of situations.attention??[]) {
+  if(fresh&&matching) for(const candidate of situations.attention??[]) {
+   const correction=candidate.operatorCorrection?.trim();
+   if(!understood&&!correction) continue;
    const observation=situations.observations.find(o=>o.current&&o.threadId===candidate.threadId);
    const ref=observation?.evidenceRefs.find(r=>r.messageId===candidate.suggestion.messageId&&r.threadId===candidate.threadId&&!!r.fingerprint);
    if(!ref||!candidate.signature||!candidate.suggestion.quote?.trim()||!Number.isFinite(ref.timestamp)
     ||ref.timestamp>now+60_000||now-ref.timestamp>account.horizonDays*DAY) continue;
-   add(`mail:${account.id}:${candidate.threadId}`,'recommendation',`Email recommendation: ${candidate.suggestion.title}. ${candidate.suggestion.why} Suggested next move: ${candidate.suggestion.action}`,70,[candidate.signature,ref.fingerprint,candidate.suggestion]);
+   if(correction) add(`mail:${account.id}:${candidate.threadId}`,'attention',`Your correction for ${candidate.subject||'this email'}: ${correction}`,85,[candidate.signature,ref.fingerprint,correction,candidate.learningRevision]);
+   else add(`mail:${account.id}:${candidate.threadId}`,'recommendation',`Email recommendation: ${candidate.suggestion.title}. ${candidate.suggestion.why} Suggested next move: ${candidate.suggestion.action}`,70,[candidate.signature,ref.fingerprint,candidate.suggestion,candidate.learningRevision]);
   }
  }
  return items;

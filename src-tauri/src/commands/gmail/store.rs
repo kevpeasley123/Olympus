@@ -13,6 +13,7 @@ pub fn remove_cache(c: &mut Connection, id: &str) -> Result<(), String> {
         "gmail_candidates",
         "gmail_sync_runs",
         "communication_runs",
+        "email_learning",
         "communication_situation_contexts",
         "communication_situations",
         "communication_situation_sources",
@@ -56,6 +57,7 @@ pub fn cache_counts(
         "situations": count("SELECT count(*) FROM communication_situations WHERE account_id=?1")?,
         "updates": count("SELECT count(*) FROM communication_situation_updates WHERE account_id=?1")?,
         "drafts": count("SELECT count(*) FROM communication_situation_drafts WHERE account_id=?1")?,
+        "learningRecords": count("SELECT count(*) FROM email_learning WHERE account_id=?1")?,
         "analysisRuns": count("SELECT count(*) FROM communication_runs WHERE account_id=?1")?,
         "documentContexts": count("SELECT count(*) FROM communication_situation_contexts WHERE account_id=?1")?,
         // A context without a sources array counts as zero sources, never an error.

@@ -33,3 +33,12 @@ assert.match(partial.text,/could not be checked/);
 const fail=await prepareFactualBrief(input,'requested',Date.now(),{...client,deliver:async()=>{throw Error('save failed')}});
 await assert.rejects(fail.acknowledge(),/save failed/);
 console.log('PASS preparation, read-only collection, account revision guard, partial failure and delivery acknowledgment');
+
+let learningSnapshot={accountId:'a',revision:'before-correction',learning:[]};
+const learningClient={...client,situations:async()=>learningSnapshot};
+const pendingFeedback=await prepareFactualBrief(input,'requested',Date.now(),learningClient);
+learningSnapshot={...learningSnapshot,revision:'after-forget'};
+assert.equal(await pendingFeedback.current(),false,'Forget invalidates prepared briefing before display');
+const pendingUndo=await prepareFactualBrief(input,'requested',Date.now(),learningClient);
+learningSnapshot={...learningSnapshot,revision:'after-undo'};
+assert.equal(await pendingUndo.current(),false,'Undo invalidates prepared briefing before display');

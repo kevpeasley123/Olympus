@@ -21,8 +21,12 @@ export interface Situation {id:string;title:string;state:string;stale:boolean;up
 export interface LocalDraft {id:string;situationId:string;threadId:string;revision:number;to:string[];subject:string;body:string;stale?:boolean}
 /** Understanding freshness from the backend; `nextAttemptAt` is set only while background attempts back off. */
 export interface SituationUnderstanding {lastSuccessAt:string|null;lastAttemptAt:string|null;failures:number;nextAttemptAt:string|null}
-export interface EmailAttention {threadId:string;signature:string;subject:string;timestamp:number;suggestion:{title:string;why:string;action:string;deadline:string;messageId:string;quote:string}}
-export interface SituationSnapshot {attention?:EmailAttention[];accountId:string;backgroundError?:string|null;enabled:boolean;horizonDays:number;situations:Situation[];observations:Observation[];updates:{id:string;situationId:string;text:string;at:string}[];drafts:LocalDraft[];run:null|{status:string;phase:string;error?:string;finishedAt?:string;startedAt?:string};understanding?:SituationUnderstanding;revision?:string}
+export interface EmailAttention {operatorCorrection?:string;learningRevision?:number;threadId:string;signature:string;subject:string;timestamp:number;suggestion:{title:string;why:string;action:string;deadline:string;messageId:string;quote:string}}
+export type EmailLearningAction='corrected'|'handled'|'dismissed'|'snoozed'|'restored'|'forgotten';
+export interface EmailLearning {sourceForgotten?:boolean;threadId:string;signature:string;revision:number;action:EmailLearningAction;correction:string;original:EmailAttention['suggestion']|null;updatedAt:string;until:number|null;current:boolean;canUndo:boolean}
+export interface EmailLearningRequest {accountId:string;threadId:string;signature:string;expectedRevision:number;action:Exclude<EmailLearningAction,'restored'|'forgotten'>|'undo'|'forget';text?:string}
+export const emailLearningChange=(request:EmailLearningRequest)=>invoke<void>('email_learning_change',{request});
+export interface SituationSnapshot {learning?:EmailLearning[];attention?:EmailAttention[];accountId:string;backgroundError?:string|null;enabled:boolean;horizonDays:number;situations:Situation[];observations:Observation[];updates:{id:string;situationId:string;text:string;at:string}[];drafts:LocalDraft[];run:null|{status:string;phase:string;error?:string;finishedAt?:string;startedAt?:string};understanding?:SituationUnderstanding;revision?:string}
 /** A poll that already holds the current revision gets this instead of the whole snapshot. */
 export interface UnchangedSnapshot {unchanged:true;revision:string}
 export const isUnchangedSnapshot=(value:SituationSnapshot|UnchangedSnapshot):value is UnchangedSnapshot=>'unchanged' in value&&value.unchanged===true;

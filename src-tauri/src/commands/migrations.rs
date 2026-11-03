@@ -29,6 +29,7 @@ pub const MIGRATIONS: &[Migration] = &[
         sql: include_str!("../../migrations/0002_conversations.sql"),
         after: Some(super::conversations::backfill),
     },
+    Migration { version: 3, name: "email learning", sql: include_str!("../../migrations/0003_email_learning.sql"), after: None },
 ];
 
 /// Every migration's SQL in order, for test fixtures that build a fresh
@@ -37,7 +38,8 @@ pub const MIGRATIONS: &[Migration] = &[
 pub const TEST_SCHEMA: &str = concat!(
     include_str!("../../schema.sql"),
     include_str!("../../migrations/0002_conversations.sql"),
-    "PRAGMA user_version = 2;"
+    include_str!("../../migrations/0003_email_learning.sql"),
+    "PRAGMA user_version = 3;"
 );
 
 pub fn latest() -> i64 {

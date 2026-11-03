@@ -2,62 +2,63 @@
 
 ## Current state - November 2, 2026, America/Phoenix
 
-Version 0.42.0. Unreleased implementation on `codex/gmail-learning-intelligence`
-in the isolated `2026-11-02/task/olympus-gmail-intelligence` worktree, based on
-`51bc631` (checkpointed subscription safeguards and offline ChatGPT lifecycle).
-Installed Olympus is unchanged. No native launch, OAuth, live model generation,
-production DB migration, push, merge or installation occurred in this work.
+Version 0.42.0. Unreleased work on `codex/gmail-learning-intelligence` in
+`2026-11-02/task/olympus-gmail-intelligence`. Factual foundation is `2e223c9`,
+based on `51bc631`. Explicit email correction learning is the next local milestone.
+Installed Olympus is unchanged. No push, merge, install, native app launch, OAuth,
+credential change, live model request or production DB migration occurred.
 
-## Gmail and briefing foundation
+## Explicit email learning
 
-Kevin approved `superpowers/specs/2026-11-02-gmail-learning-intelligence-design.md`.
-The first subsystem plan is `superpowers/plans/2026-11-02-gmail-briefing-foundation.md`.
+The approved design remains `superpowers/specs/2026-11-02-gmail-learning-intelligence-design.md`.
+Current plan: `superpowers/plans/2026-11-02-email-correction-learning.md`.
 
-- Gmail status distinguishes analysis readiness from synchronization; configured
-  local analysis is unverified, and the default subscription route remains blocked.
-- Token transport reports safe timeout/connection error classes without credentials
-  or request details. Automatic sync honors the persisted retry time.
-- Native opening and requested briefs use the shared factual projection of project
-  state and current source-backed email attention. Partial coverage is explicit.
-- Display receipts are bounded in SQLite settings; repeated unchanged items are
-  suppressed for 24 hours at opening. Requested briefs may repeat current items.
-- No speech-success receipt is inferred. Temporary chats do not persist receipts.
-- No semantic synthesis, new learning controls, tray startup or service is enabled.
+- Corrections, Handled, Dismiss and Snooze are account/thread/source-scoped records.
+  Corrections replace the generated next move with explicit operator attribution.
+- What Olympus learned shows original evidence, correction and source currency;
+  edit/undo use expected revisions. Changed or expired sources invalidate feedback.
+- Forget permanently redacts this feature's feedback/history and retains a source
+  tombstone. It cannot be undone. Original email/chat retention is separate.
+- Feedback atomically advances the situation revision; pending analysis/briefs
+  become obsolete. History and account record counts are bounded.
+- Migration 3 adds email_learning; only isolated fixtures were migrated. Before
+  native rollout, verify a restorable operational DB backup. Older builds reject
+  newer schema versions; do not roll back against the migrated DB without backup.
+- Corrections do not reach model input, imply global preferences, verify facts,
+  complete real-world tasks or learn from temporary chat/inactivity.
 
 ## Verification - November 2, 2026, America/Phoenix
 
-Frontend build passes with the pre-existing large-chunk warning. Full offline
-Rust suite: 636 passed, 24 ignored, zero failures. All 65 repository test scripts pass. Visual regression: 21/21 scenario captures, 14 functional
-checks and 22 Organizer checks passed. Gmail settings and flagship Command captures
-were inspected: readable status, intact panels/composer, no clipping at 1280x800.
-Browser fixtures do not establish native IPC, live Gmail recovery or intelligence.
+Build passes with the pre-existing chunk-size warning. Full offline Rust: 646 passed,
+24 ignored, zero failed. All 66 repository test scripts pass. Standard visual
+regression: 21/21 captures, 14 functional and 22 Organizer checks passed.
+Changed correction card, learning review and narrow view were visually inspected:
+readable attribution, wrapped controls, no horizontal clipping. Browser fixtures
+are synthetic and do not establish native IPC or live usefulness.
 
-The separate flagship-review.mjs stops at its old two-visible-rings assertion.
-Unchanged hybridScene.ts explicitly hides those rings in flagship mode; both test
-and renderer match the baseline. The earlier harness-URL invocation also failed
-navigation; rerunning with the required base URL reached the ring assertion.
-No unrelated assertion was weakened. Do not report all visual scripts green.
+Independent review findings were repaired with RED/GREEN regressions: snooze expiry
+retains correction, legacy actions cannot overwrite newer feedback, forgotten source
+signatures survive later revisions, Undo invalidates restored-item receipts, and
+polling failure retains unsaved text. Review decisions and scope are in
+reviews/2026-11-02-email-learning.md. Evidence is under output/email-learning.
 
-Independent review found receipt privacy/cache-removal, opening retry and stale
-project/checkpoint issues; all were fixed with failing-then-passing regressions.
-Bounded requested-source reads and partial failure coverage were also fixed.
-Deferred minor: a nonblank local model name is shown as unverified even if the
-actual adapter would reject it; the adapter validation and closed gates remain.
-Details and continuation boundaries: reviews/2026-11-02-gmail-foundation.md.
+The separate flagship script retains the baseline two-visible-rings failure;
+unchanged flagship renderer hides those rings. No assertion was weakened.
+Previous factual-foundation verification is preserved in
+archive/NEXT-SESSION-before-2026-11-02-email-learning.md.
 
-## Remaining work and constraints
+## Remaining work and boundaries
 
-Current saved production Gmail error was `gmail_network_unavailable`; its root
-cause and Google consent publishing status are not established by these changes.
-The configured seven-day email horizon is preserved. Diagnostics are not proof
-that production synchronization has recovered.
+Live Gmail recovery and Google consent publishing mode remain unverified. The
+saved gmail_network_unavailable diagnosis and seven-day horizon are unchanged.
+Provider/consent/spending gates stay closed; code changes are not authority to
+exchange/store credentials or run paid/live generation. Prior authorization and
+acceptance blockers remain in
+archive/NEXT-SESSION-before-2026-11-02-gmail-foundation.md.
 
-Both subscription generation gates and production ChatGPT consent remain closed.
-The prior consent review stopped before token exchange; do not reuse callback codes
-or infer credential-persistence authority. All prior acceptance and account-specific
-constraints remain in `archive/NEXT-SESSION-before-2026-11-02-gmail-foundation.md`.
-
-After this foundation, plan the qualified analyzer and source-linked correction /
-forget / undo learning subsystem. Native/live usefulness remains unverified.
-Tray persistence follows core reliability acceptance and remains optional.
-Research ingestion and the original checkout's Zeus height adjustment are separate.
+Next qualify an authorized analyzer and representative real briefs, then extend
+explicit source-scoped feedback into reviewed cross-source workflow understanding.
+Optional tray operation follows core reliability acceptance. The local-provider
+nonblank-name readiness issue remains deferred; actual adapter validation still
+rejects unsupported configuration. Research import and original Zeus edits remain
+separate from this branch.
