@@ -73,3 +73,5 @@ pub mod analysis_readiness;
 pub mod briefing_context;
 
 pub mod structured_output;
+pub mod project_review;
+pub mod local_speech;

@@ -1,3 +1,5 @@
+import { executableSkills } from "../../services/executableSkills";
+import { ProjectChangeReview } from "./ProjectChangeReview";
 import {onManagementHandoff} from "../../services/managementNavigation";
 import {SkillCollection} from "./SkillCollection";
 import {onSuperpowersInspection} from "../../services/skillCollections";
@@ -21,13 +23,14 @@ type Category = "Agents" | "Plugins" | "Skills";
 const categories = ["Agents", "Plugins", "Skills"] as const;
 const symbols = { Agents: CircleDot, Plugins: Plug, Skills: Sparkles };
 interface Props {
+  projectNames?:string[];
   capabilities: CapabilitySnapshot | null; missions: MissionSnapshot | null;
   error?: string | null; missionsError?: string | null; preview: boolean;
   selectedAgent: string; onSelectAgent: (id: string) => void;
   onDestination: (destination: Mission["destination"]) => void;
   onInspectResearch?: (runId?: string) => void;
 }
-export function OlympusArmory({capabilities, missions, error, missionsError, preview, selectedAgent, onSelectAgent, onDestination, onInspectResearch}: Props) {
+export function OlympusArmory({projectNames,capabilities, missions, error, missionsError, preview, selectedAgent, onSelectAgent, onDestination, onInspectResearch}: Props) {
   const highlight=useAgentHighlight();
   const armoryRef=useRef<HTMLElement>(null);
   useEffect(()=>{
@@ -84,7 +87,7 @@ export function OlympusArmory({capabilities, missions, error, missionsError, pre
   const roles = pantheonAgents(catalog);
   const agent = roles.find(a => a.id === agentId);
   const loadout = capabilities?.agents.find(a => a.id === agentId);
-  const numbers = [catalog ? roles.length : undefined, capabilities ? plugins.length : undefined, capabilities?.skills.length];
+  const numbers = [catalog ? roles.length : undefined, capabilities ? plugins.length : undefined, capabilities ? capabilities.skills.length+executableSkills.length : executableSkills.length];
   function show(next: Category) {setCollectionOpen(false);setCategory(next);setAgentId(null);setItem(null);setOpen(true);}
   function inspectAgent(role: CommandRole) {setAgentId(role.id);setItem(null);onSelectAgent(role.id==="dionysus"?"olympus":role.id);}
   function leave(){setOpen(false);onSelectAgent("olympus");}
@@ -129,7 +132,7 @@ export function OlympusArmory({capabilities, missions, error, missionsError, pre
         {agent.history&&<p className="armory-muted">{agent.history.count} recorded {agent.history.unit}. {agent.history.lastAt?`Last observed ${new Date(agent.history.lastAt).toLocaleString()}`:"No execution history yet."}</p>}
       </section> : category==="Agents" ? <div className="armory-agent-list">{roles.map(role=><button className="armory-agent-entry" key={role.id} onClick={()=>inspectAgent(role)}><span className="agent-celestial"><AgentEmblem id={role.id} size={24}/></span><span><strong>{role.name}</strong><span>{role.description}</span></span><small>{status(role)}</small><ChevronRight size={16}/></button>)}{!catalog&&<p>Agent observations unavailable.</p>}<p className="armory-footnote">Zeus is Olympus Core, pinned above the filtered roles. Dionysus is a placeholder. Inspecting a loadout does not start work or grant permission.</p></div>
       : category==="Plugins" ? <><p className="armory-intro">Connections and local adapters. Model routes and delegated executors remain in agent loadouts.</p><div className="armory-plugin-list">{plugins.map(t=><button key={t.id} onClick={()=>setItem(t)}><span className="plugin-port"><Plug size={18}/></span><span><strong>{t.name}</strong><small>{t.toolKind}</small></span><span className="armory-state">{pluginStatus(t)}</span></button>)}</div>{!capabilities&&<p>Capabilities unavailable.</p>}<p className="armory-footnote">Available is configured readiness, not proof of authentication or a successful live call.</p></>
-      : <><button className="collection-launch" onClick={()=>{setCollectionOpen(!collectionOpen);setItem(null);}} aria-expanded={collectionOpen}><span>Superpowers<small>Skill collection · curated reference</small></span><span>{collectionOpen?"Close":"Inspect"}</span></button>{collectionOpen&&<SkillCollection connected={!!capabilities?.skills.some(s=>s.id==="hephaestus-engineering")}/>}<div className="armory-skill-list">{capabilities?.skills.map((s,i)=><button key={s.id} onClick={()=>setItem(s)}><span className="skill-inscription">{String(i+1).padStart(2,"0")}</span><Sparkles size={16}/><span><strong>{s.name}</strong><small>{s.purpose}</small></span><ChevronRight size={16}/></button>)}{!capabilities&&<p>Skills unavailable.</p>}</div></>}
+      : <><ProjectChangeReview projects={projectNames} /><button className="collection-launch" onClick={()=>{setCollectionOpen(!collectionOpen);setItem(null);}} aria-expanded={collectionOpen}><span>Superpowers<small>Skill collection · curated reference</small></span><span>{collectionOpen?"Close":"Inspect"}</span></button>{collectionOpen&&<SkillCollection connected={!!capabilities?.skills.some(s=>s.id==="hephaestus-engineering")}/>}<div className="armory-skill-list">{capabilities?.skills.map((s,i)=><button key={s.id} onClick={()=>setItem(s)}><span className="skill-inscription">{String(i+1).padStart(2,"0")}</span><Sparkles size={16}/><span><strong>{s.name}</strong><small>{s.purpose}</small></span><ChevronRight size={16}/></button>)}{!capabilities&&<p>Skills unavailable.</p>}</div></>}
       {item&&<section ref={detailRef} tabIndex={-1} className="armory-item-detail" aria-label="Capability detail"><button className="armory-close" aria-label="Close capability detail" onClick={()=>setItem(null)}><X size={16}/></button><span className="command-eyebrow">{item.kind==="skill"?"SKILL CONTRACT":"CAPABILITY CONTRACT"}</span><h3>{item.name}</h3>{item.kind==="tool"?<><p>{item.detail}</p><h4>Authority</h4><p>{item.authority}</p><h4>Approval</h4><p>{item.approval==="required"?"Required for every use":item.approval==="writes"?"Required for writes":"No additional approval in this contract"}</p><h4>Supported actions</h4><p>{item.capabilities.join(" / ")}</p></>:<><p>{item.purpose}</p><h4>Input / output</h4><p>{item.inputs}</p><p>{item.output}</p><h4>Effects</h4><p>{item.effects}</p>{item.instructions&&<><h4>Instructions</h4><p className="resource-guidance">{item.instructions}</p></>}</>}</section>}
       </div><footer className="armory-dialog-footer"><span>{preview?"Synthetic preview":"Observed runtime state"}</span></footer>
     </Modal>

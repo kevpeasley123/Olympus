@@ -815,6 +815,7 @@ pub enum AssistantStreamEvent {
     /// Subscription transport terminal status; never model-generated text.
     Ended { reason: &'static str },
     Progress { message: String },
+    SourceAccess { project: String, file: String, success: bool },
     /// The turn opened. `model` is who is actually answering.
     Started { model: String },
     /// Text arrived. **The first of these is the speaking signal** — it is the

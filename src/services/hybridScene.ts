@@ -112,6 +112,7 @@ export function mountHybridScene(host: HTMLDivElement, layout: CommandLayout, cu
   }
   scene.add(new T.HemisphereLight(0xc5e2ff,0x07121f,.65));
   const light = new T.DirectionalLight(0xddefff,2.1); light.position.set(-100,160,230); scene.add(light);
+  const engineTint = new T.Color();
   const warm = new T.PointLight(ORANGE, 160, 380, 1); warm.position.set(20,-20,100); scene.add(warm);
   const structural = new T.MeshStandardMaterial({ color: 0x172e43, metalness: .72, roughness: .5 });
   const glow = new T.MeshStandardMaterial({ color: ORANGE, emissive: ORANGE, emissiveIntensity: .45, metalness: .45, roughness: .28 });
@@ -133,7 +134,18 @@ export function mountHybridScene(host: HTMLDivElement, layout: CommandLayout, cu
   const constellationGroup=new T.Group();
   constellationGroup.name="Real constellation yaw";
   networkScene.add(constellationGroup);
+  const emptyAssets: readonly import("./pantheonGalaxy").GalaxyAsset[]=[];
   const galaxy=layout.orbitalCards?buildPantheonGalaxy(networkScene):undefined;
+  const dial=host.closest(".command-instrument__dial");
+  const selectAsset=(e:Event)=>{
+    if(!galaxy || !(e instanceof MouseEvent) || (e.target instanceof Element && e.target.closest("button,a,input")))return;
+    const box=canvas.getBoundingClientRect();
+    const ray=new T.Raycaster();
+    ray.setFromCamera(new T.Vector2(2*(e.clientX-box.left)/box.width-1,1-2*(e.clientY-box.top)/box.height),camera);
+    const label=galaxy.pick(ray);
+    if(label)window.dispatchEvent(new CustomEvent("olympus:inspect-asset",{detail:label}));
+  };
+  dial?.addEventListener("click",selectAsset);
   constellationGroup.visible=!layout.orbitalCards;
   const constellationMotion=current().constellationMotion??{yaw:0};
   networkScene.add(new T.HemisphereLight(0xc5e2ff,0x07121f,.65),light.clone(),warm.clone());
@@ -319,7 +331,13 @@ export function mountHybridScene(host: HTMLDivElement, layout: CommandLayout, cu
     if(moving)pointer.lerp(pointerTarget,1-Math.exp(-delta*CONSTELLATION_DEPTH.parallaxResponse));
     else {pointer.set(0,0);pointerTarget.set(0,0);}
     time+=delta;previous=now;
-    galaxy?.update(time);
+    galaxy?.update(time,value.assets??emptyAssets,!moving);
+    const accent = value.engine === "codex" ? 0x79baff : ORANGE;
+    warm.color.lerp(engineTint.setHex(accent), .08);
+    glow.emissive.lerp(engineTint, .08);
+    if (value.engine === "codex" || value.engine === "claude-code") {
+      ringLightMaterials.forEach(material => material.uniforms.tint.value.lerp(engineTint, .06));
+    }
     if(layout.flagship){camera.position.x=-85+pointer.x*5;camera.position.y=40+pointer.y*4;camera.lookAt(0,layout.flagship ? -24 : 0,0);}
     scene.updateMatrixWorld(true);camera.updateMatrixWorld(true);
     architecture?.update(time);
@@ -327,7 +345,7 @@ export function mountHybridScene(host: HTMLDivElement, layout: CommandLayout, cu
     // Figure states keep wall-clock time so brief transitions end even when motion is reduced.
     const figureStates=figures?.update(value.missions??[],agentConstellationSnapshot(),delta,now/1000,moving)??"";
     if(HARNESS_ATTRIBUTES)canvas.dataset.figureStates=figureStates;
-    if(HARNESS_ATTRIBUTES&&galaxy){canvas.dataset.galaxyTime=String(time);canvas.dataset.galaxyYaw=String(galaxy.group.rotation.y);canvas.dataset.galaxyBodies=String(missionCount);canvas.dataset.missionPlanets=String(missionCount);canvas.dataset.galaxyDust="680";}
+    if(HARNESS_ATTRIBUTES&&galaxy){canvas.dataset.galaxyTime=String(time);canvas.dataset.galaxyYaw=String(galaxy.group.rotation.y);canvas.dataset.galaxyBodies=String(missionCount);canvas.dataset.missionPlanets=String(missionCount);canvas.dataset.galaxyDust="0";canvas.dataset.assetNodes=String(galaxy.count());}
     constellationMotion.yaw=advanceConstellationYaw(constellationMotion.yaw,delta,moving);
     constellationGroup.rotation.y=constellationMotion.yaw;
     orbitalTime+=value.state==="error"?0:delta*(value.state==="thinking"?14:1);
@@ -457,7 +475,7 @@ export function mountHybridScene(host: HTMLDivElement, layout: CommandLayout, cu
     const geometries=new Set<T.BufferGeometry>(),materials=new Set<T.Material>();
     for(const root of [scene,networkScene])root.traverse(o=>{const drawable=o as T.Mesh;if(drawable.geometry)geometries.add(drawable.geometry);if(drawable.material)(Array.isArray(drawable.material)?drawable.material:[drawable.material]).forEach(m=>materials.add(m));});
     canyonBackground?.style.removeProperty('--omega-canyon-light');
-    architecture?.dispose();missionScene?.dispose();figures?.dispose();
+    dial?.removeEventListener("click",selectAsset);architecture?.dispose();missionScene?.dispose();figures?.dispose();
     halos.dispose();backdrop?.dispose();haloTexture.dispose();backdropTexture?.dispose();
     geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose()); structural.dispose();cool.dispose();glow.dispose();study.dispose();bloomPass.dispose();outputPass.dispose();composer.dispose();renderer.dispose();renderer.forceContextLoss();canvas.remove();
   };

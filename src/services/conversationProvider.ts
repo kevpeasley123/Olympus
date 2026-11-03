@@ -38,6 +38,7 @@ export function requireConversationProvider(): ConversationProvider {
   if (!selected) throw Error("Choose a model in the chat's model picker. Paid API calls require separate approval.");
   return selected.provider;
 }
+export function conversationChoiceSnapshot(): ConversationChoice | null { return selected; }
 export function selectedClaudeModel(): ClaudeSubscriptionModel {
   return selected?.claudeModel ?? "claude-sonnet-5-5";
 }

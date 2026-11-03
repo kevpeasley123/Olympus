@@ -12,7 +12,12 @@ try {
  const before=await canvas.getAttribute('data-ring-orientation'); const starYaw=await canvas.getAttribute('data-galaxy-yaw');
  await page.waitForTimeout(1400);
  assert.notEqual(await canvas.getAttribute('data-ring-orientation'),before,'Inner rings must rotate');
- assert.equal(await canvas.getAttribute('data-rings'),'2'); assert.notEqual(await canvas.getAttribute('data-galaxy-yaw'),starYaw,'Small stars rotate in 3D'); assert.equal(await canvas.getAttribute('data-galaxy-dust'),'680');
+ assert.equal(await canvas.getAttribute('data-rings'),'2'); assert.notEqual(await canvas.getAttribute('data-galaxy-yaw'),starYaw,'Small stars rotate in 3D'); assert.equal(await canvas.getAttribute('data-galaxy-dust'),'0');
+ assert(Number(await canvas.getAttribute('data-asset-nodes'))>0,'Flagship renders real assets');
+ const original=await canvas.elementHandle();
+ await page.getByRole('button',{name:'Codex',exact:true}).first().click();
+ assert.equal(await page.getByRole('button',{name:'Codex',exact:true}).first().getAttribute('aria-pressed'),'true');
+ assert(await original.evaluate(el=>el.isConnected),'Engine switch preserves the renderer');
  await page.screenshot({path:'output/mission-review/sanctuary-final.png'});
  await page.goto('http://127.0.0.1:31430/command-agent-harness.html?flagship&scenario=reduced-motion&missions=2');
  await page.waitForSelector('[data-scene-ready="true"]');

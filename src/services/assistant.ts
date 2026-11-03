@@ -41,6 +41,7 @@ export interface AssistantReply {
 export type AssistantStreamEvent =
   | { kind: "ended"; reason: "completed" | "cancelled" | "limit" | "refusal" | "error" }
   | { kind: "progress"; message: string }
+  | { kind: "sourceAccess"; project:string; file:string; success:boolean }
   | { kind: "started"; model: string }
   | { kind: "delta"; text: string }
   | { kind: "fellBack"; from: string; to: string };
@@ -59,7 +60,7 @@ export async function requestAssistantReply(
   settings: OlympusSettings,
   projects: TrackedProject[],
   onEvent?: (event: AssistantStreamEvent) => void,
-  options?: {requestId?: string; capability?: import("./modelRouting").ModelCapability; voiceDepth?: import("./voiceContract").VoiceDepth; commandBoard?: unknown; temporary?: boolean; conversationId?: string}
+  options?: {engineChoice?: import("./conversationProvider").ConversationChoice | null; requestId?: string; capability?: import("./modelRouting").ModelCapability; voiceDepth?: import("./voiceContract").VoiceDepth; commandBoard?: unknown; temporary?: boolean; conversationId?: string}
 ): Promise<AssistantReply> {
   if (!isTauriRuntime()) {
     throw new Error(
@@ -67,7 +68,8 @@ export async function requestAssistantReply(
     );
   }
 
-  const provider = requireConversationProvider();
+  if(options?.engineChoice===null)throw Error("Choose a conversation engine before sending this request.");
+  const provider = options?.engineChoice?.provider ?? requireConversationProvider();
   // Subscription chat is text only. A typed message sent with Auto Speak on still
   // gets its written answer; the spoken summary is simply not requested.
   const voiceDepth = provider === "legacy-api" ? options?.voiceDepth : undefined;
@@ -92,7 +94,7 @@ export async function requestAssistantReply(
     onEvent: channel,
     context: {
       conversationProvider: provider,
-      claudeModel: provider === "claude-code" ? selectedClaudeModel() : undefined,
+      claudeModel: provider === "claude-code" ? options?.engineChoice?.claudeModel ?? selectedClaudeModel() : undefined,
       skillApprovalId,
       // Only this conversation's operator words and explicit project attachment
       // establish recall scope. Source-body text cannot name the active project.

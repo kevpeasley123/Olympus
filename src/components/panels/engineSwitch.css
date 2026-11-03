@@ -1,0 +1,21 @@
+.instrument-engine {position:absolute;top:2%;left:50%;transform:translateX(-50%);z-index:12;display:flex;gap:.25rem;padding:.2rem;border:1px solid #60738870;background:#10141ce8;border-radius:.6rem}
+.instrument-engine button {color:#c6ced8;background:transparent;padding:.35rem .75rem;border:1px solid transparent;border-radius:.4rem}
+.instrument-engine button[aria-pressed=true]{border-color:currentColor}
+.instrument-engine button[data-engine=codex][aria-pressed=true]{color:#93c9ff}
+.instrument-engine button[data-engine=claude-code][aria-pressed=true]{color:#f4ac79}
+.asset-inspection {position:absolute;bottom:5%;left:50%;transform:translateX(-50%);z-index:12;background:#10141cf2;color:#e0e9f3;padding:.5rem 1rem;border-radius:.5rem}
+
+.instrument-activity {position:absolute;right:.4rem;bottom:.75rem;z-index:11;background:#0b111aef;color:#cad4de;border-radius:.4rem;font-size:.76rem;padding:.4rem .55rem;max-width:21rem}
+.instrument-activity summary {cursor:pointer}
+.instrument-activity ol {max-height:12rem;overflow:auto;padding-left:1.2rem}
+.instrument-activity small {display:block;color:#90abc2}
+
+.engine-core-tint {position:absolute;left:40%;top:40%;width:20%;height:20%;pointer-events:none;z-index:3;border-radius:50%;background:radial-gradient(circle,currentColor 0%,transparent 68%);color:transparent;opacity:.27;transition:color .45s}
+[data-engine=codex] .engine-core-tint{color:#85bdff}
+[data-engine=claude-code] .engine-core-tint{color:#ee945e}
+@media(prefers-reduced-motion:reduce){.engine-core-tint{transition:none}}
+
+.local-speech {font-size:.74rem;color:#bfcbd7;padding:.15rem .25rem}
+.local-speech summary {cursor:pointer}
+.local-speech button {margin:.2rem;border:1px solid #5e768a70;border-radius:.3rem;color:inherit;background:#162230;padding:.24rem .45rem}
+.local-speech [role=status]{display:block}
