@@ -2,6 +2,10 @@
 
 Current handoff; prior verification is in `archive/NEXT-SESSION-through-0.40.0.md`.
 
+## Zeus figure review — November 2, 2026
+
+The proposed Zeus station height is 152 scene units, up from 140. Review the Command fixture before committing.
+
 ## State - 2026-10-18 (America/Phoenix)
 
 - **Release 0.42.0**, branch `codex/claude-observed-snapshot`, based on master
