@@ -1,95 +1,63 @@
 # Next session
 
-## Current state — November 2, 2026 (America/Phoenix)
+## Current state - November 2, 2026, America/Phoenix
 
-Source version remains 0.42.0. Development checkout:
-`C:/Users/kevpe/Documents/Codex/2026-10-17/task/olympus-engine-status`, branch
-`codex/subscription-conversation`, reviewed base `316f72b`.
-The reviewed offline safeguards/connection work is a local checkpoint, not a release.
-The pre-reconciliation handoff is preserved in
-`archive/NEXT-SESSION-before-2026-11-02.md`; earlier dated evidence remains intact.
+Version 0.42.0. Unreleased implementation on `codex/gmail-learning-intelligence`
+in the isolated `2026-11-02/task/olympus-gmail-intelligence` worktree, based on
+`51bc631` (checkpointed subscription safeguards and offline ChatGPT lifecycle).
+Installed Olympus is unchanged. No native launch, OAuth, live model generation,
+production DB migration, push, merge or installation occurred in this work.
 
-The installed executable reports 0.42.0 at
-`C:/Program Files/Project Olympus/project-olympus.exe`; no Olympus process was
-running during inventory. It was not launched, installed, replaced or accepted here.
-Do not infer that the installed binary includes these source changes.
+## Gmail and briefing foundation
 
-## Git and preservation
+Kevin approved `superpowers/specs/2026-11-02-gmail-learning-intelligence-design.md`.
+The first subsystem plan is `superpowers/plans/2026-11-02-gmail-briefing-foundation.md`.
 
-Development `origin` points to the original local Olympus repository, not GitHub.
-Read-only GitHub inspection found subscription tip `02db976` and master `5d4c75d`.
-The existing development commits `5fa4341` and `316f72b` are not on that remote
-subscription branch. No push, merge, remote change or release was performed.
+- Gmail status distinguishes analysis readiness from synchronization; configured
+  local analysis is unverified, and the default subscription route remains blocked.
+- Token transport reports safe timeout/connection error classes without credentials
+  or request details. Automatic sync honors the persisted retry time.
+- Native opening and requested briefs use the shared factual projection of project
+  state and current source-backed email attention. Partial coverage is explicit.
+- Display receipts are bounded in SQLite settings; repeated unchanged items are
+  suppressed for 24 hours at opening. Requested briefs may repeat current items.
+- No speech-success receipt is inferred. Temporary chats do not persist receipts.
+- No semantic synthesis, new learning controls, tray startup or service is enabled.
 
-Original checkout remains on master `218e6e0`, 14 commits behind the verified
-GitHub master tip. Its three uncommitted Zeus-height/documentation changes remain
-intact. Zeus's proposed height is 152 versus 140 in current development source.
-The original-checkout figure fixture passed; visual acceptance/integration is pending.
-Older acceptance/install worktrees contain missing files or modifications; preserve
-them. Do not reset, clean, prune, delete, or adopt their changes implicitly.
+## Verification - November 2, 2026, America/Phoenix
 
-## Implemented offline; gates remain closed
+Frontend build passes with the pre-existing large-chunk warning. Full offline
+Rust suite: 636 passed, 24 ignored, zero failures. All 65 repository test scripts pass. Visual regression: 21/21 scenario captures, 14 functional
+checks and 22 Organizer checks passed. Gmail settings and flagship Command captures
+were inspected: readable status, intact panels/composer, no clipping at 1280x800.
+Browser fixtures do not establish native IPC, live Gmail recovery or intelligence.
 
-- Claude/Codex chat and background generation refuse before provider transport.
-  Paid API fallback stays denied; ElevenLabs retains its separate included-use gate.
-- Claude launch/auth inspection suppress automatic CLI updates. Managed-policy
-  uncertainty fails closed; retrospective overage telemetry is not pre-launch proof.
-- Olympus-owned ChatGPT callback, token validation, renewal/revocation, secure-store
-  adapter and native dispatcher exist behind unconditional production-consent denial.
-- Synthetic connection UI/IPC is isolated; real credentials were not read, exchanged
-  or stored. The test signing key is synthetic test-only material.
+The separate flagship-review.mjs stops at its old two-visible-rings assertion.
+Unchanged hybridScene.ts explicitly hides those rings in flagship mode; both test
+and renderer match the baseline. The earlier harness-URL invocation also failed
+navigation; rerunning with the required base URL reached the ring assertion.
+No unrelated assertion was weakened. Do not report all visual scripts green.
 
-## Incomplete and blocked before live activation
+Independent review found receipt privacy/cache-removal, opening retry and stale
+project/checkpoint issues; all were fixed with failing-then-passing regressions.
+Bounded requested-source reads and partial failure coverage were also fixed.
+Deferred minor: a nonblank local model name is shown as unverified even if the
+actual adapter would reject it; the adapter validation and closed gates remain.
+Details and continuation boundaries: reviews/2026-11-02-gmail-foundation.md.
 
-1. ChatGPT token validator must reject a present mismatched `azp` for every audience
-   representation, not only multiple-audience arrays.
-2. Cancellation and credential persistence need a coordinated commit boundary;
-   cancellation during metadata save can currently be followed by persistence.
-3. The planned Olympus-token/custom-provider app-server handoff is not implemented.
-   The existing adapter still uses its old CLI authentication path behind denial.
-4. Real grant/account scope and provider-enforced credit protection are unverified.
-   Prior browser consent review stopped before exchange; it is not a usable session.
-5. Claude sign-in/version/isolation and supported pre-prompt spending proof remain
-   unresolved. Do not widen the plugin allowlist or use a prompt as a diagnostic.
+## Remaining work and constraints
 
-These findings are in `reviews/2026-11-02-current-state-review.md`. They do not
-justify enabling consent/generation. Live agent activity/recruitment remains queued,
-not implemented by this reconciliation.
+Current saved production Gmail error was `gmail_network_unavailable`; its root
+cause and Google consent publishing status are not established by these changes.
+The configured seven-day email horizon is preserved. Diagnostics are not proof
+that production synchronization has recovered.
 
-## Fresh verification
+Both subscription generation gates and production ChatGPT consent remain closed.
+The prior consent review stopped before token exchange; do not reuse callback codes
+or infer credential-persistence authority. All prior acceptance and account-specific
+constraints remain in `archive/NEXT-SESSION-before-2026-11-02-gmail-foundation.md`.
 
-- Rust offline locked library suite: 625 passed, 0 failed, 24 ignored.
-- Frontend build passed; existing large-bundle warning remains.
-- Synthetic ChatGPT connection browser checks passed at 1280/420 widths, including
-  cancellation, expiry, mismatch, renewal/failure and disconnect/failure.
-- Subscription-selection and guidance checks passed.
-- Full visual regression: 21 captures, 14 functional and 22 Organizer checks passed.
-  Narrow connection and Command screenshots were visually inspected.
-- All 14 source hashes in the prior synthetic-native acceptance receipt match.
-  That is historical native evidence, not a new native test or live-account result.
-
-## Research and memory
-
-The seven residency groups contain 14 linked works. Fresh public-source capture
-created 14 research notes in the existing vault, with nine full PDFs (403 pages),
-five full source articles, 108 original images and 218 rendered figure/table-context
-pages. Notes include extracted text, captions, source URLs, provenance and hashes.
-The abandoned ZIP was not used; no importer from it was executed.
-
-Source archive is not endorsement, executable instruction, or fabricated synthesis.
-No numeric plot digitization/OCR is claimed. PDF equations/reading order may degrade;
-interactive applications/videos were not executed. Original bytes remain available.
-
-The actual Olympus Research parser recognized all 14 new entries (25 library entries
-total). Read-only temporary memory indexing/recall passed: 94 documents, 1,739 chunks;
-four unrelated pre-existing metadata issues were reported. No installed-app or
-model-mediated retrieval acceptance was performed. Local import receipts are under
-the current workspace `output/olympus-current/`; private vault history is not staged
-with application source and must not be pushed to the application repository.
-
-## Authority for the next step
-
-Kevin requested preservation, review, offline verification and the research import.
-His current instruction overrides older standing release automation: confirm the
-exact target and authorization before push, merge, install or deploy. No credential
-exchange/storage, account changes or paid model/API calls are authorized here.
+After this foundation, plan the qualified analyzer and source-linked correction /
+forget / undo learning subsystem. Native/live usefulness remains unverified.
+Tray persistence follows core reliability acceptance and remains optional.
+Research ingestion and the original checkout's Zeus height adjustment are separate.

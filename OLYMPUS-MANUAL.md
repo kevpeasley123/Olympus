@@ -29,8 +29,11 @@ it, but it is not a sandbox, so safety comes first.
 Olympus reopens in the mode it was left in; Command is the default. Command is
 the ambient and glanceable state of the system, readable from across the room: the Armory at left, the Pantheon instrument at
 the centre, and the companion console at right. When the Opening Briefing
-preference is on, the console opens with a short briefing built only from
-provable project state, spoken when spoken replies are on. Project cards,
+preference is on, the console offers a bounded factual update from project state
+and current source-backed email attention, spoken when spoken replies are on.
+Unchanged displayed items are suppressed between openings; coverage failures are
+identified rather than presented as no news. This factual foundation does not
+claim fresh model analysis. See `docs/BRIEFING-INTELLIGENCE.md`. Project cards,
 briefing detail and repository facts belong in Project mode.
 
 Project mode opens a purpose-first portfolio: distinct project cards with a name,

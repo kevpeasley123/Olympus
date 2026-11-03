@@ -68,3 +68,4 @@ pub mod project_intake;
 pub mod account_usage;
 pub mod claude_quota;
 pub mod chatgpt_plan;
+pub mod briefing;

@@ -1,5 +1,6 @@
 //! Native read-only external communication source. No mailbox mutation routes.
 mod auth;
+mod health;
 pub mod communications;
 mod mime;
 pub mod store;
@@ -132,6 +133,7 @@ pub fn recover(c: &Connection) -> Result<(), String> {
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Status {
+    analysis: health::AnalysisReadiness,
     account: Option<store::Account>,
     busy: bool,
     configured: bool,
@@ -165,6 +167,10 @@ fn status(app: &tauri::AppHandle) -> Result<Status, String> {
     };
     let path = config_path(app)?;
     Ok(Status {
+        analysis: health::analysis_readiness(
+            &std::env::var("OLYMPUS_EMAIL_ANALYSIS_PROVIDER").unwrap_or_else(|_| "openai".into()),
+            std::env::var("OLYMPUS_EMAIL_MODEL").ok().as_deref(),
+        ),
         account,
         busy: runtime.busy.load(Ordering::SeqCst),
         configured: auth::config(&path).is_ok(),
@@ -380,7 +386,7 @@ pub fn start_cadence(app: tauri::AppHandle) {
                     db.0.lock()
                         .ok()
                         .and_then(|c| store::account(&c).ok().flatten())
-                        .is_some_and(|a| a.enabled && a.status != "authentication_required");
+                        .is_some_and(|a| health::sync_due(a.enabled, &a.status, a.next_sync.as_deref(), chrono::Utc::now()));
                 value
             };
             if enabled {

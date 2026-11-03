@@ -1,4 +1,4 @@
-import { generateSituationBriefing } from "../services/situationBriefing";
+import { prepareSituationBriefing } from "../services/situationBriefing";
 import {consumeNextModel,endChatModelScope} from "../services/modelRouting";
 import {requireConversationProvider} from "../services/conversationProvider";
 import { normalizeVoicePreferences, type VoicePreferences } from "../services/voicePreferences";
@@ -10,6 +10,7 @@ import { refreshVaultWrites } from "./useVaultWrites";
 import { emitRefreshRequested } from "../services/navigation";
 import { buildProjectCommandBoard } from "../services/projectCommandBoard";
 import { composeOpeningBriefing } from "../services/openingBriefing";
+import { prepareFactualBrief, prepareStableBrief } from "../services/briefingDelivery";
 import { BRIEFING_ID_PREFIX } from "../services/conversationHistory";
 import type { ModelCapability } from "../services/modelRouting";
 import type { VoiceDepth, VoiceAnswer, VoiceMessageMetadata } from "../services/voiceContract";
@@ -274,53 +275,76 @@ export function useDashboardData() {
     };
   }, [refreshProjects, sessionReady]);
 
-  // Once per launch, after hydration and the first real scan, so the briefing
-  // describes stored state rather than seed data. Composed without a model; the
-  // caller decides whether to speak it.
-  const projectsScanned = projectScan.status !== "loading";
-  useEffect(() => {
-    if (openingBriefed.current || !hydrated || !projectsScanned) return;
-    if (taskStore.loading || runStore.loading) return;
-    openingBriefed.current = true;
-    if (!dashboardRef.current.settings.briefOnOpen) return;
-    const text = composeOpeningBriefing({
-      projects: dashboardRef.current.projects,
-      board: boardRef.current,
-      sessionBoundary,
-      projectsError
-    });
-    const message = createAssistantMessage(text);
-    message.id = `${BRIEFING_ID_PREFIX}${Date.now()}`;
-    message.kind = "briefing";
-    // `skipped` records that nothing was attempted, so the receipt can say so
-    // rather than "unconfirmed". Voice mode leaves it to the playback path.
-    message.voice = { kind: "output", spokenResponse: text, ...(dashboardRef.current.settings.autoSpeak ? {} : { playback: "skipped" as const }) };
-    dashboardRef.current = { ...dashboardRef.current, conversation: [...dashboardRef.current.conversation, message] };
-    setDashboardState(dashboardRef.current);
-    void remember([message]);
-    setOpeningBriefing({ id: message.id, text });
-  }, [hydrated, projectsScanned, taskStore.loading, runStore.loading, sessionBoundary, projectsError]);
-
+  // Displayed-item receipts are separate from launch and speech state.
   const briefingLock = useRef(false);
   const [briefingPending, setBriefingPending] = useState(false);
+  const briefingMounted = useRef(true);
+  useEffect(() => { briefingMounted.current = true; return () => { briefingMounted.current = false; }; }, []);
+  const projectsScanned = projectScan.status !== "loading";
+  useEffect(() => {
+    if (openingBriefed.current || !hydrated || !projectsScanned || taskStore.loading || runStore.loading) return;
+    if (!dashboardRef.current.settings.briefOnOpen) { openingBriefed.current = true; return; }
+    if (briefingLock.current) return;
+    const session = sessionRef.current;
+    briefingLock.current = true;
+    setBriefingPending(true);
+    void (async () => {
+      try {
+        const active = () => briefingMounted.current && sessionRef.current.id === session.id;
+        const prepared = isTauriRuntime() ? await prepareStableBrief(() => {
+          const projects = dashboardRef.current.projects, board = boardRef.current;
+          const root = dashboardRef.current.settings.projectsRootPath;
+          return prepareFactualBrief({projects,board,projectsError}, 'opening', Date.now(), undefined,
+            () => dashboardRef.current.projects === projects && boardRef.current === board && dashboardRef.current.settings.projectsRootPath === root);
+        }, active) : null;
+        if (!active()) return;
+        const text = prepared ? prepared.text : composeOpeningBriefing({projects:dashboardRef.current.projects,board:boardRef.current,sessionBoundary,projectsError});
+        // A deliberate no-items result consumes the opening; invalidated attempts do not.
+        openingBriefed.current = true;
+        if (!text) return;
+        const message = createAssistantMessage(text);
+        message.id = `${BRIEFING_ID_PREFIX}${Date.now()}`;
+        message.kind = "briefing";
+        message.voice = { kind: "output", spokenResponse: text, ...(dashboardRef.current.settings.autoSpeak ? {} : { playback: "skipped" as const }) };
+        dashboardRef.current = { ...dashboardRef.current, conversation: [...dashboardRef.current.conversation, message] };
+        setDashboardState(dashboardRef.current);
+        setOpeningBriefing({ id: message.id, text });
+        const saved = await remember([message], session);
+        if (prepared && saved && !session.temporary) await prepared.acknowledge();
+      } catch {
+        if (briefingMounted.current && sessionRef.current.id === session.id) setChatError("The briefing could not finish or its delivery record could not be saved. Request a fresh update; unrecorded items remain eligible.");
+      } finally {
+        briefingLock.current = false;
+        if (briefingMounted.current) setBriefingPending(false);
+      }
+    })();
+  }, [hydrated, projectsScanned, taskStore.loading, runStore.loading, sessionBoundary, projectsError, projectScan.lastSuccessAt, remember]);
+
   const requestBriefing = useCallback(async () => {
     if (briefingLock.current || !hydratedRef.current || !isTauriRuntime()) return;
+    const session = sessionRef.current;
     briefingLock.current = true;
     setBriefingPending(true);
     setChatError(null);
     try {
-      const text = await generateSituationBriefing(dashboardRef.current.settings.projectsRootPath, sessionBoundary);
+      const root = dashboardRef.current.settings.projectsRootPath;
+      const active = () => briefingMounted.current && sessionRef.current.id === session.id && dashboardRef.current.settings.projectsRootPath === root;
+      const prepared = await prepareStableBrief(() => prepareSituationBriefing(root, sessionBoundary), active);
+      if (!active()) return;
+      const text = prepared.text;
+      if (!text) return;
       const message = createAssistantMessage(text);
       message.id = `${BRIEFING_ID_PREFIX}sitrep-${crypto.randomUUID()}`;
       message.kind = "briefing";
       message.voice = { kind: "output", spokenResponse: text, ...(dashboardRef.current.settings.autoSpeak ? {} : { playback: "skipped" as const }) };
       dashboardRef.current = { ...dashboardRef.current, conversation: [...dashboardRef.current.conversation, message] };
       setDashboardState(dashboardRef.current);
-      await remember([message]);
       setOpeningBriefing({ id: message.id, text });
-    } catch (error) { setChatError(errorMessage(error)); }
-    finally { briefingLock.current = false; setBriefingPending(false); }
-  }, [sessionBoundary]);
+      const saved = await remember([message], session);
+      if (saved && !session.temporary) await prepared.acknowledge();
+    } catch (error) { if(briefingMounted.current) setChatError(errorMessage(error)); }
+    finally { briefingLock.current = false; if(briefingMounted.current) setBriefingPending(false); }
+  }, [sessionBoundary, remember]);
 
   const sendChatMessage = useCallback(
     async (text: string, voiceDepth?: VoiceDepth, voiceMessageId?: string, turn?: TurnContext): Promise<VoiceAnswer | undefined> => {

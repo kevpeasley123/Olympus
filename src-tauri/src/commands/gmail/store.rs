@@ -1,6 +1,7 @@
 use super::{mime::Mail, now, SCOPE};
 pub fn remove_cache(c: &mut Connection, id: &str) -> Result<(), String> {
     let tx = c.transaction().map_err(|_| "gmail_database_write_failed")?;
+    crate::commands::briefing::forget_account(&tx, id)?;
     // Situations, drafts, briefings and run history quote or derive from mail.
     for table in ["communication_events", "communication_evaluations"] {
         tx.execute(&format!("DELETE FROM {table} WHERE run_id IN (SELECT id FROM communication_runs WHERE account_id=?1)"), [id])

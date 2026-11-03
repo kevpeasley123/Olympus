@@ -1,0 +1,36 @@
+import { briefItems, selectBrief } from './briefingIntelligence';
+import type { GmailStatus } from './gmail';
+import type { SituationSnapshot } from './situations';
+import type { TrackedProject } from '../types';
+
+export function run() {
+ let passed=0;
+ const check=(ok:boolean,label:string)=>{if(!ok)throw Error(label);passed++;};
+ const now=Date.parse('2026-11-03T04:00:00Z');
+ const project={id:'p',name:'Olympus',status:'active',repoState:'git-pending',lastCommit:'abc',linkedWorktrees:[],sinceSessionCommits:[],nextStep:''} as unknown as TrackedProject;
+ const gmail:GmailStatus={configured:true,configPath:'',busy:false,cachedMessages:2,account:{id:'a',email:'fixture@example.invalid',enabled:true,status:'connected',horizonDays:7,lastSuccess:new Date(now).toISOString(),lastAttempt:null,lastError:null,nextSync:null},lastRun:null,candidates:[]};
+ const snapshot:SituationSnapshot={accountId:'a',enabled:true,horizonDays:7,situations:[],updates:[],drafts:[],run:null,understanding:{lastSuccessAt:new Date(now).toISOString(),lastAttemptAt:null,failures:0,nextAttemptAt:null},attention:[{threadId:'thread',signature:'sig',subject:'Fixture',timestamp:now-1000,suggestion:{title:'Review the appointment',why:'A confirmation is requested.',action:'Check the time',deadline:'',messageId:'msg',quote:'Please confirm the time'}}],observations:[{threadId:'thread',situationId:'s',summary:'',subject:'Fixture',timestamp:now-1000,current:true,people:[],relationships:[],details:[],evidenceRefs:[{messageId:'msg',threadId:'thread',fingerprint:'hash',timestamp:now-1000}]}]};
+ const context={projects:[project],board:[],projectsError:null,gmail,situations:snapshot};
+ const items=briefItems(context,now);
+ const dirty=items.find(i=>i.id==='project:p:working');
+ check(!!dirty,'Uncommitted work remains a bounded fact');
+ check(items.some(i=>i.id==='mail:a:thread'),'Current source-backed email attention is included');
+ check(selectBrief(items,{},'opening',now)[0].id==='mail:a:thread','Relevant mail outranks repository hygiene');
+ const receipts=Object.fromEntries(items.map(i=>[i.id,{revision:i.revision,deliveredAt:now}]));
+ check(selectBrief(items,receipts,'opening',now+1000).length===0,'Repeated launch does not repeat unchanged advice');
+ check(selectBrief(items,receipts,'requested',now+1000).length>0,'Explicit request can repeat current items');
+ check(selectBrief(items,receipts,'opening',now+86400000).length>0,'24-hour reminder eligibility');
+ check(selectBrief(items,{[dirty!.id]:{revision:dirty!.revision,deliveredAt:NaN}},'opening',now).some(i=>i.id===dirty!.id),'Invalid receipt cannot suppress');
+ check(selectBrief(items,{[dirty!.id]:{revision:dirty!.revision,deliveredAt:now+1000}},'opening',now).some(i=>i.id===dirty!.id),'Future receipt cannot suppress');
+ check(selectBrief([{...dirty!,revision:'new'}],receipts,'opening',now).length===1,'Changed evidence returns immediately');
+ const stale=briefItems({...context,gmail:{...gmail,account:{...gmail.account!,lastSuccess:new Date(now-3600000).toISOString()}}},now);
+ check(!stale.some(i=>i.id.startsWith('mail:')),'Stale cache cannot supply current suggestions');
+ check(stale.some(i=>i.kind==='limitation'),'Staleness is a coverage limitation');
+ check(!briefItems({...context,situations:{...snapshot,accountId:'other'}},now).some(i=>i.id.startsWith('mail:')),'Account mismatch cannot leak recommendations');
+ check(!briefItems({...context,situations:{...snapshot,enabled:false}},now).some(i=>i.id.startsWith('mail:')),'Paused analysis does not appear current');
+ check(!briefItems({...context,situations:{...snapshot,observations:[]}},now).some(i=>i.id.startsWith('mail:')),'Missing source reference withholds recommendation');
+ check(!briefItems({...context,situations:{...snapshot,backgroundError:'blocked'}},now).some(i=>i.id.startsWith('mail:')),'Analysis error withholds current recommendation');
+ check(briefItems({...context,projectsError:'scan failed'},now).some(i=>i.id==='coverage:projects'),'Project failure stays visible');
+ check(selectBrief([...items,...items.map(i=>({...i,id:i.id+'2'}))],{},'opening',now).length<=3,'At most three highlights');
+ return passed;
+}
