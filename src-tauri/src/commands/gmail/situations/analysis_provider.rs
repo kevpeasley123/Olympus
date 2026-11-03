@@ -20,10 +20,10 @@ async fn bounded_json(mut response:reqwest::Response)->Result<Value,String>{
  let mut bytes=Vec::new();while let Some(chunk)=response.chunk().await.map_err(|_|"local_email_response_failed")?{if bytes.len()+chunk.len()>262144{return Err("local_email_response_too_large".into())}bytes.extend_from_slice(&chunk)}
  serde_json::from_slice(&bytes).map_err(|_|"local_email_invalid_json".into())
 }
-fn local_output(value:&Value,model:&str)->Result<String,String>{
+fn local_output(value:&Value,model:&str,schema:&Value)->Result<String,String>{
  if value["done"]!=true||value["done_reason"]!="stop"||value["model"]!=model{return Err("local_email_incomplete_or_wrong_model".into())}
  let content=value["message"]["content"].as_str().filter(|s|!s.trim().is_empty()).ok_or("local_email_empty_output")?;
- serde_json::from_str::<Value>(content).map_err(|_|"local_email_invalid_output")?;Ok(content.into())
+ let output:Value=serde_json::from_str(content).map_err(|_|"local_email_invalid_output")?;crate::commands::structured_output::validate(&output,schema)?;Ok(content.into())
 }
 pub(super) async fn infer(db:&Db,instructions:&str,input:Value,schema:Value,purpose:&str)->Result<(String,Value),String>{
  readiness().require()?;
@@ -40,14 +40,19 @@ pub(super) async fn infer(db:&Db,instructions:&str,input:Value,schema:Value,purp
  if !tags["models"].as_array().is_some_and(|ms|ms.iter().any(|m|m["name"]==model&&m["size"].as_u64().unwrap_or(0)>0)){return Err("local_email_model_not_installed".into())}
  let info=bounded_json(client.post("http://127.0.0.1:11434/api/show").json(&json!({"model":model})).send().await.map_err(|_|"local_email_service_unavailable")?).await?;
  if !info["remote_host"].is_null()||!info["remote_model"].is_null(){return Err("local_email_cloud_model_denied".into())}
- let body=json!({"model":model,"stream":false,"think":false,"format":schema,"keep_alive":"1m","options":{"num_ctx":16384,"num_predict":4096,"temperature":0},"messages":[{"role":"system","content":instructions},{"role":"user","content":input.to_string()}]});
+ let body=json!({"model":model,"stream":false,"think":false,"format":&schema,"keep_alive":"1m","options":{"num_ctx":16384,"num_predict":4096,"temperature":0},"messages":[{"role":"system","content":instructions},{"role":"user","content":input.to_string()}]});
  let value=bounded_json(client.post("http://127.0.0.1:11434/api/chat").json(&body).send().await.map_err(|_|"local_email_request_failed")?).await?;
- let answer=local_output(&value,&model)?;
+ let answer=local_output(&value,&model,&schema)?;
  Ok((answer,json!({"provider":"ollama","requestedModel":model,"actualModel":value["model"],"purpose":purpose,"status":"completed","at":now(),"inputTokens":value["prompt_eval_count"],"outputTokens":value["eval_count"]})))
 }
 #[cfg(test)]
 mod tests{use super::*;
+ #[test]fn local_analyzer_respects_nested_contract(){
+  let schema=json!({"type":"object","properties":{"items":{"type":"array","items":{"type":"string"}}},"required":["items"],"additionalProperties":false});
+  let v=json!({"done":true,"done_reason":"stop","model":"fixture:8b","message":{"content":"{\"items\":[3]}"}});
+  assert!(local_output(&v,"fixture:8b",&schema).is_err());
+ }
  #[test]fn incomplete_wrong_model_and_malformed_outputs_are_rejected(){
-  let mut v=json!({"done":true,"done_reason":"stop","model":"fixture:8b","message":{"content":"{}"}});assert!(local_output(&v,"fixture:8b").is_ok());assert!(local_output(&v,"other").is_err());v["done_reason"]=json!("length");assert!(local_output(&v,"fixture:8b").is_err());v["done_reason"]=json!("stop");v["message"]["content"]=json!("not JSON");assert!(local_output(&v,"fixture:8b").is_err());
+  let mut v=json!({"done":true,"done_reason":"stop","model":"fixture:8b","message":{"content":"{}"}});assert!(local_output(&v,"fixture:8b",&json!({"type":"object"})).is_ok());assert!(local_output(&v,"other",&json!({"type":"object"})).is_err());v["done_reason"]=json!("length");assert!(local_output(&v,"fixture:8b",&json!({"type":"object"})).is_err());v["done_reason"]=json!("stop");v["message"]["content"]=json!("not JSON");assert!(local_output(&v,"fixture:8b",&json!({"type":"object"})).is_err());
  }
 }

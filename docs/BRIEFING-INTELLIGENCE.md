@@ -62,6 +62,13 @@ watermark advance does not make old context new. Complete bounded summaries are
 preserved, including final corrections or qualifications; they are not clipped
 to the shorter factual-item preview length.
 
+Saved email briefs also carry bounded account/thread/source/revision references in
+`conversation_turn_context`, beside the assistant message. They are immutable on
+append replay and distinct from display receipts. A subsequent explicit correction
+can resolve that source without inferring a project association; a mixed brief
+requires conversational clarification. See `EMAIL-ATTENTION.md`. Temporary briefs
+carry no persisted correction references.
+
 The caller records delivery only after exposing and saving the message; failures
 leave items eligible for retry. These are display receipts, not proof of speech
 playback or user agreement. Temporary chats do not save delivery receipts. Existing

@@ -1,3 +1,4 @@
+import {feedbackForBrief,resolveConversationTurn} from "../services/conversationFeedback";
 import { prepareSituationBriefing } from "../services/situationBriefing";
 import {consumeNextModel,endChatModelScope} from "../services/modelRouting";
 import {requireConversationProvider} from "../services/conversationProvider";
@@ -111,8 +112,10 @@ export function useDashboardData() {
   const [chatPending, setChatPending] = useState(false);
   const [chatProgress, setChatProgress] = useState<string | null>(null);
   const activeRequest = useRef<string | null>(null);
+  const turnCancelled = useRef(false);
   const cancelChat = useCallback(async () => {
     const id = activeRequest.current; if (!id) return;
+    turnCancelled.current = true;
     try {
       const stopped = await cancelAssistantReply(id);
       if (activeRequest.current === id) setChatProgress(stopped ? "Stopping…" : "Turn is finishing; waiting for its result…");
@@ -305,6 +308,7 @@ export function useDashboardData() {
         const message = createAssistantMessage(text);
         message.id = `${BRIEFING_ID_PREFIX}${Date.now()}`;
         message.kind = "briefing";
+      message.feedback = prepared && !session.temporary ? feedbackForBrief(prepared.items) : undefined;
         message.voice = { kind: "output", spokenResponse: text, ...(dashboardRef.current.settings.autoSpeak ? {} : { playback: "skipped" as const }) };
         dashboardRef.current = { ...dashboardRef.current, conversation: [...dashboardRef.current.conversation, message] };
         setDashboardState(dashboardRef.current);
@@ -336,6 +340,7 @@ export function useDashboardData() {
       const message = createAssistantMessage(text);
       message.id = `${BRIEFING_ID_PREFIX}sitrep-${crypto.randomUUID()}`;
       message.kind = "briefing";
+      message.feedback = prepared && !session.temporary ? feedbackForBrief(prepared.items) : undefined;
       message.voice = { kind: "output", spokenResponse: text, ...(dashboardRef.current.settings.autoSpeak ? {} : { playback: "skipped" as const }) };
       dashboardRef.current = { ...dashboardRef.current, conversation: [...dashboardRef.current.conversation, message] };
       setDashboardState(dashboardRef.current);
@@ -357,10 +362,6 @@ export function useDashboardData() {
       emitInstrumentEvent("command-received");
 
       let capability: import("../services/modelRouting").ModelCapability = "PRIMARY";
-      if (isTauriRuntime()) {
-        try { if (requireConversationProvider() === "legacy-api") capability=consumeNextModel(); }
-        catch(error) { setChatError(errorMessage(error)); return; }
-      }
       const user = createUserMessage(trimmed);
       // Output modality is independent of input modality: a typed request may
       // ask for a spoken answer, but only a transcription has a voice input ID.
@@ -376,7 +377,7 @@ export function useDashboardData() {
       const history = [...dashboardRef.current.conversation, user];
       dashboardRef.current = {...dashboardRef.current, conversation:history};
       setDashboardState(dashboardRef.current);
-      void remember([user], session);
+      const userSaved = remember([user], session);
 
       if (!isTauriRuntime()) {
         // Browser dev server: no API key available, so fall back to the local
@@ -394,6 +395,7 @@ export function useDashboardData() {
       setChatModel(null);
       setChatPending(true);
       activeRequest.current = crypto.randomUUID();
+      turnCancelled.current = false;
       setChatProgress(null);
       setChatError(null);
       setChatProducing(false);
@@ -403,7 +405,10 @@ export function useDashboardData() {
       speakingStartedAt.current = null;
 
       try {
-        const reply = await requestAssistantReply(
+        const reply = await resolveConversationTurn(userSaved,{...session,voiceDepth,active:()=>!turnCancelled.current&&sessionRef.current.id===session.id},user.id,async()=>{
+          if (requireConversationProvider() === "legacy-api") capability=consumeNextModel();
+          setChatCapability(capability);
+          return requestAssistantReply(
           history,
           dashboardRef.current.settings,
           dashboardRef.current.projects,
@@ -437,7 +442,9 @@ export function useDashboardData() {
           },
           {requestId: activeRequest.current ?? undefined, capability, voiceDepth, commandBoard: boardRef.current, temporary: session.temporary, conversationId: session.id}
         );
+        });
         const assistant = createAssistantMessage(reply.content, reply.notice, reply.research);
+        assistant.feedback = reply.feedback;
         assistant.mail = reply.mail;
         assistant.request=reply.request;
         if (reply.voice) assistant.voice = {kind:"output",spokenResponse:reply.voice.spokenResponse,playback:"pending",requiresConfirmation:reply.voice.requiresConfirmation};

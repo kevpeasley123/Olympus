@@ -15,6 +15,8 @@ pub struct LearningRequest {
 }
 #[derive(Clone, Serialize, Deserialize)]
 struct Feedback {
+    #[serde(default)]
+    origin: Option<Value>,
     signature: String,
     action: String,
     correction: String,
@@ -38,12 +40,18 @@ pub(super) fn stored_revision(c:&Connection, account_id:&str, thread_id:&str)->R
 }
 
 pub(super) fn change(c: &mut Connection, request: LearningRequest) -> Result<(), String> {
+    let tx=c.transaction().map_err(err)?;
+    apply(&tx,request,None)?;
+    tx.commit().map_err(err)
+}
+
+pub(super) fn apply(c: &Connection, request: LearningRequest, origin:Option<Value>) -> Result<(), String> {
     if request.thread_id.is_empty() || request.thread_id.len()>256 || request.signature.len()>256 || request.expected_revision<0 {
         return Err("learning_invalid_request".into());
     }
     let a=account(c)?;
     if a.id!=request.account_id { return Err("learning_account_changed".into()); }
-    let tx=c.transaction().map_err(err)?;
+    let tx=c;
     let old=load(&tx,&a.id,&request.thread_id)?;
     let revision=old.as_ref().map_or(0,|r|r.0);
     if revision!=request.expected_revision { return Err("learning_revision_changed".into()); }
@@ -60,7 +68,7 @@ pub(super) fn change(c: &mut Connection, request: LearningRequest) -> Result<(),
                 if record.forgotten_signatures.len()>=128 {return Err("learning_forget_limit".into());}
                 record.forgotten_signatures.push(record.state.signature.clone());
             }
-            record.state.action="forgotten".into();record.state.correction.clear();record.state.original=Value::Null;
+            record.state.action="forgotten".into();record.state.origin=None;record.state.correction.clear();record.state.original=Value::Null;
             record.state.until=None;record.state.at=time.clone();record.history.clear();
         } else {
             if record.state.action=="forgotten" { return Err("learning_nothing_to_undo".into()); }
@@ -79,7 +87,7 @@ pub(super) fn change(c: &mut Connection, request: LearningRequest) -> Result<(),
         let source:Value=serde_json::from_str(&source.ok_or("learning_source_changed")?).map_err(|_|"learning_source_changed")?;
         let original=source["attention"].clone();
         if !original.is_object() || original.to_string().len()>12000 { return Err("learning_source_changed".into()); }
-        let baseline=Feedback { signature:request.signature.clone(),action:"restored".into(),correction:String::new(),original:original.clone(),at:time.clone(),until:None };
+        let baseline=Feedback { origin:None, signature:request.signature.clone(),action:"restored".into(),correction:String::new(),original:original.clone(),at:time.clone(),until:None };
         let mut history=match old {
             Some((_,mut record))=>{if record.state.action=="forgotten" {vec![]} else {record.history.push(record.state);record.history}},
             None=>vec![baseline],
@@ -91,7 +99,7 @@ pub(super) fn change(c: &mut Connection, request: LearningRequest) -> Result<(),
         }
         // Only a new explicit instruction for the same source may replace its tombstone.
         let forgotten_signatures=forgotten_signatures.into_iter().filter(|sig|sig!=&request.signature).collect();
-        Record {state:Feedback {signature:request.signature.clone(),action:request.action.clone(),correction:if request.action=="corrected" {correction.into()} else {prior_correction},original,at:time.clone(),until:if request.action=="snoozed" {Some(chrono::Utc::now().timestamp_millis()+86_400_000)} else {None}},history,forgotten_signatures}
+        Record {state:Feedback {origin,signature:request.signature.clone(),action:request.action.clone(),correction:if request.action=="corrected" {correction.into()} else {prior_correction},original,at:time.clone(),until:if request.action=="snoozed" {Some(chrono::Utc::now().timestamp_millis()+86_400_000)} else {None}},history,forgotten_signatures}
     };
     let decision=if matches!(record.state.action.as_str(),"handled"|"dismissed"|"snoozed"|"forgotten") {
         json!({"state":if record.state.action=="forgotten" {"dismissed"} else {&record.state.action},"at":record.state.at,"until":record.state.until})
@@ -99,7 +107,7 @@ pub(super) fn change(c: &mut Connection, request: LearningRequest) -> Result<(),
     tx.execute("INSERT INTO email_learning(account_id,thread_id,revision,payload_json,updated_at) VALUES(?1,?2,?3,?4,?5) ON CONFLICT(account_id,thread_id) DO UPDATE SET revision=excluded.revision,payload_json=excluded.payload_json,updated_at=excluded.updated_at",params![a.id,request.thread_id,next_revision,serde_json::to_string(&record).map_err(err)?,time]).map_err(err)?;
     // Compatibility for existing source readers; changed-source decisions are never carried over.
     tx.execute("UPDATE communication_situation_sources SET payload_json=json_set(payload_json,'$.attentionDecision',CASE WHEN signature=?3 THEN json(?4) ELSE NULL END) WHERE account_id=?1 AND thread_id=?2",params![a.id,request.thread_id,record.state.signature,decision.to_string()]).map_err(err)?;
-    ensure(&tx,&a.id)?;bump(&tx,&a.id)?;tx.commit().map_err(err)
+    ensure(&tx,&a.id)?;bump(&tx,&a.id)?;Ok(())
 }
 
 pub(super) fn snapshot(c:&Connection, account_id:&str, signatures:&BTreeMap<String,(String,i64)>) -> Result<Vec<Value>,String> {

@@ -141,6 +141,15 @@ on later openings. Temporary briefs do not read this projection or save delivery
 receipts. This is separate from the memory note/index path used by assistant turns;
 see `BRIEFING-INTELLIGENCE.md` for eligibility and verification boundaries.
 
+Ordinary source-bound corrections can update email understanding before model
+selection. The user turn must persist first; a local acknowledgment is then saved
+as an ordinary assistant reply. The original words and message IDs remain attached
+to the learning record. A stop before interpretation or provider dispatch prevents
+the next stage; an already committed correction still receives its acknowledgment.
+This is a bounded explicit-language path, not a general semantic learner. Mixed
+briefs ask a brief conversational clarification. See `EMAIL-ATTENTION.md` for
+supported context and privacy boundaries. No categorization or memory form is used.
+
 ## Safety rule change
 
 Until 2026-10-13, Olympus kept every model inference out of the assistant's

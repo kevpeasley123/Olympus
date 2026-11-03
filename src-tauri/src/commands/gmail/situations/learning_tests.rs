@@ -1,7 +1,7 @@
 use super::*;
 use super::learning::{change, snapshot as learned, project, LearningRequest};
 
-fn fixture() -> (Db, String) {
+pub(super) fn fixture() -> (Db, String) {
     let db = tests::database(); tests::mail(&db, "thread", "Please review enrollment.");
     let signature = {
         let c=db.0.lock().unwrap(); let a=account(&c).unwrap();

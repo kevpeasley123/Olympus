@@ -151,43 +151,22 @@ fn job_prompt(input: &Value, schema: &Value) -> Result<String, String> {
     ))
 }
 
-/// The one JSON object in a reply, tolerating a code fence or stray prose
-/// around it, with every required field present as a string.
-fn extract_object(text: &str, schema: &Value) -> Result<String, String> {
-    let (start, end) = (text.find('{'), text.rfind('}'));
-    let candidate = match (start, end) {
-        (Some(start), Some(end)) if start < end => &text[start..=end],
-        _ => return Err("job_invalid_output".into()),
-    };
-    let value: Value = serde_json::from_str(candidate).map_err(|_| "job_invalid_output")?;
-    let object = value.as_object().ok_or("job_invalid_output")?;
-    for key in schema["required"].as_array().into_iter().flatten().filter_map(Value::as_str) {
-        let field = object.get(key).ok_or("job_invalid_output")?;
-        if !matches_type(field, &schema["properties"][key]) {
-            return Err("job_invalid_output".into());
-        }
-    }
-    serde_json::to_string(&value).map_err(|_| "job_invalid_output".into())
-}
-
-/// Basic JSON Schema typing for one field; each caller still validates its
-/// own content, as it did for the paid route's strict schema.
-fn matches_type(field: &Value, property: &Value) -> bool {
-    match property["type"].as_str() {
-        Some("string") => field.is_string() && property["enum"].as_array().is_none_or(|allowed| allowed.contains(field)),
-        Some("integer") => field.is_i64() || field.is_u64(),
-        Some("number") => field.is_number(),
-        Some("boolean") => field.is_boolean(),
-        Some("array") => field.is_array(),
-        Some("object") => field.is_object(),
-        _ => true,
-    }
-}
+use super::structured_output::extract_object;
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn nested_analyzer_contract_rejects_invented_fields_and_wrong_values() {
+        let schema=json!({"type":"object","additionalProperties":false,"properties":{"items":{"type":"array","maxItems":2,"items":{"type":"object","additionalProperties":false,"properties":{"kind":{"type":"string","enum":["fact","uncertain"]},"quote":{"type":"string","minLength":1,"maxLength":20}},"required":["kind","quote"]}}},"required":["items"]});
+        assert!(extract_object(r#"{"items":[{"kind":"fact","quote":"source"}]}"#,&schema).is_ok());
+        for raw in [r#"{"items":[{"kind":"execute","quote":"source"}]}"#,r#"{"items":[{"kind":"fact"}]}"#,r#"{"items":[{"kind":"fact","quote":3}]}"#,r#"{"items":[{"kind":"fact","quote":"source","approved":true}]}"#,r#"{"items":[],"execute":true}"#,r#"{"items":[{"kind":"fact","quote":""}]}"#,r#"{"items":[{}, {}, {}]}"#] {
+            assert!(extract_object(raw,&schema).is_err(),"accepted {raw}");
+        }
+        assert!(extract_object(r#"{"items":[]}"#,&json!({"type":"object","customValidation":true})).is_err(),"Unsupported contracts must fail closed");
+    }
 
     #[test]
     fn blocked_analysis_creates_no_inference_request() {

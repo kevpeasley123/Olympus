@@ -15,11 +15,28 @@ not a verified fact or a global preference. Changed/expired source evidence stop
 older context from applying. Attention decisions preserve compatible corrections
 through snooze expiry; Handled does not establish real-world completion.
 
-Internal correction/undo/forget operations retain their safeguards but are not
-wired to a conversational correction path yet. Do not describe them as automatic
-understanding. The next implementation must improve the existing automatic chat
-memory and email situation analysis, and interpret ordinary conversational
-corrections without requiring manual filing or maintenance.
+Normal chat now accepts bounded, explicit corrections following a saved email brief
+or local acknowledgment. Statements such as "I already handled that" clear the
+referenced recommendation; "Actually, the deadline is Friday, not Thursday" stores
+the exact operator correction. Correction markers must introduce a bounded assertion about the deadline, due date,
+meeting, appointment, amount, sender, recipient, request or status ("the ... is/was ...").
+A discourse prefix alone, a request, question or conditional does not apply. This is
+a conservative local recognizer, not qualified general semantic interpretation.
+Other phrasing follows normal assistant routing.
+No model is called for a recognized correction, and no extra controls appear.
+
+A mixed or multiple-item brief asks a conversational clarification first. Duplicate
+subjects cannot select an arbitrary email. References carry the connected account,
+thread, source signature and learning revision; changed evidence requires a fresh
+update. Only the latest saved, recent, non-imported user turn and immediately
+preceding app context can apply. Attached-source turns, temporary chats and disabled
+Learn/Use memory do not apply this path. Saved words, message IDs, feedback and an
+idempotent turn receipt are retained atomically. A failed save cannot claim success.
+Handled is an operator report about an email, not project-task completion.
+
+Internal undo/forget operations remain available to existing callers with their
+safeguards, without a console management workflow. The broader automatic memory
+and semantic analysis systems remain separate.
 
 Migration 3 adds the feedback store. Feedback/context revisions update atomically,
 invalidating pending analyzer publication and prepared briefs. Thread mutation
@@ -40,7 +57,13 @@ OLYMPUS_EMAIL_ANALYSIS_PROVIDER=ollama
 
 Missing local model configuration fails visibly without cloud fallback. The legacy provider name `openai` selects the subscription-job route in development; its generation gates remain closed. No paid fallback is enabled. Chat/voice routes remain independent. Later, install Ollama and download/import a model, enter its exact installed tag, restart Olympus, and perform synthetic acceptance before live analysis. Olympus does not pull models.
 
-Transport is fixed to http://127.0.0.1:11434 with proxies and redirects disabled. Local installed-model and remote-host metadata checks precede sending content. No cloud model tags, tools or fallback. Requests use JSON schema, 16K context, 4096 output tokens, 120-second timeout and 48KB serialized context ceiling. Oversized, malformed and incomplete results fail rather than publishing partial findings. Actual local output quality and throughput remain unverified until a model is installed.
+Transport is fixed to http://127.0.0.1:11434 with proxies and redirects disabled. Local installed-model and remote-host metadata checks precede sending content. No cloud model tags, tools or fallback. Requests use JSON schema, 16K context, 4096 output tokens, 120-second timeout and 48KB serialized context ceiling. Oversized, malformed and incomplete results fail rather than publishing partial findings. Both local and subscription results pass the same bounded recursive contract
+validator before completion. It supports the current type/object/array, required,
+additional-properties, enum, anyOf and size/numeric-bound rules; unsupported schema
+keywords fail explicitly. This is a deliberate JSON Schema subset, not a complete
+implementation. Offline fixtures qualify envelope and structural validity, not
+semantic accuracy. Actual local output quality and throughput remain unverified
+until a model is installed.
 
 This computer (2026-10-11): approximately 32 GB RAM, RTX 4070 SUPER with 12 GB VRAM, approximately 1.1 TB free disk. Example Qwen3 downloads: 8B 5.2 GB, 14B 9.3 GB. Initial planning allowance: 10–15 GB disk for an 8B setup; runtime memory exceeds weight size. These are estimates, not benchmarks. https://registry.ollama.com/library/qwen3/tags
 

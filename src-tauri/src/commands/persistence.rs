@@ -18,6 +18,8 @@ pub struct ToolState {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ConversationMessage {
+    #[serde(default,skip_serializing_if="Option::is_none")]
+    pub feedback: Option<serde_json::Value>,
     #[serde(default)] pub mail: Vec<super::gmail::store::Excerpt>,
     #[serde(default)] pub request: Option<super::models::RequestRecord>,
     #[serde(default)] pub voice: Option<serde_json::Value>,
@@ -49,6 +51,8 @@ pub struct TurnAttachment {
 
 #[derive(Debug, Default, Serialize, Deserialize)]
 struct TurnContext {
+    #[serde(default,skip_serializing_if="Option::is_none")]
+    feedback: Option<serde_json::Value>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     attachment: Option<TurnAttachment>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -334,6 +338,7 @@ pub fn load_messages(connection: &Connection, conversation_id: Option<&str>) -> 
             };
             let turn: TurnContext = side_row(row.get(9)?, "conversation_turn_context", &id).unwrap_or_default();
             Ok(LoadedMessage { at, imported_at, message: ConversationMessage {
+                feedback: turn.feedback,
                 attachment: turn.attachment,
                 scope: turn.scope,
                 mail: side_row(row.get(7)?, "conversation_mail", &id).unwrap_or_default(),
@@ -430,8 +435,10 @@ fn store_messages_as(connection: &mut Connection, conversation_id: &str, message
             transaction.execute("INSERT INTO conversation_model(message_id,request_id) SELECT ?1,?2 WHERE EXISTS(SELECT 1 FROM model_requests WHERE id=?2) ON CONFLICT(message_id) DO NOTHING",params![message.id,request.id]).map_err(|e|e.to_string())?;
         }
         // Fixed at first store, like the other provenance.
-        if message.attachment.is_some() || message.scope.is_some() {
-            let turn = TurnContext { attachment: message.attachment.clone(), scope: message.scope.clone() };
+        if message.feedback.as_ref().is_some_and(|f|message.role!="assistant"||!f.is_object()||f.to_string().len()>16000){return Err("Invalid app feedback context".into())}
+        let existing:bool=transaction.query_row("SELECT EXISTS(SELECT 1 FROM conversation_messages WHERE id=?1)",[&message.id],|r|r.get(0)).map_err(|e|e.to_string())?;
+        if !existing && (message.attachment.is_some() || message.scope.is_some() || message.feedback.is_some()) {
+            let turn = TurnContext { feedback:message.feedback.clone(), attachment: message.attachment.clone(), scope: message.scope.clone() };
             transaction.execute("INSERT INTO conversation_turn_context (message_id, context_json) VALUES (?1, ?2) ON CONFLICT(message_id) DO NOTHING", params![message.id, serde_json::to_string(&turn).map_err(|e| e.to_string())?]).map_err(|e| e.to_string())?;
         }
         if let Some(voice) = &message.voice {
@@ -470,6 +477,20 @@ fn store_messages_as(connection: &mut Connection, conversation_id: &str, message
 mod tests {
     use super::*;
 
+    #[test]
+    fn briefing_feedback_context_roundtrips_and_cannot_be_added_by_replay() {
+        let mut c=Connection::open_in_memory().unwrap();crate::commands::migrations::apply(&c).unwrap();
+        let value=serde_json::json!({"id":"brief","role":"assistant","content":"Email recommendation","timestamp":"12:00","feedback":{"kind":"brief","itemCount":1,"sources":[{"accountId":"a","threadId":"t","signature":"s","revision":0,"subject":"Subject"}]}});
+        store_messages(&mut c,"chat",vec![serde_json::from_value(value.clone()).unwrap()]).unwrap();
+        let loaded=serde_json::to_value(load_messages(&c,Some("chat")).unwrap()).unwrap();
+        assert_eq!(loaded[0]["feedback"],value["feedback"]);
+        let mut plain=value.clone();plain["id"]=serde_json::json!("plain");plain.as_object_mut().unwrap().remove("feedback");
+        store_messages(&mut c,"chat",vec![serde_json::from_value(plain.clone()).unwrap()]).unwrap();
+        plain["feedback"]=value["feedback"].clone();
+        store_messages(&mut c,"chat",vec![serde_json::from_value(plain).unwrap()]).unwrap();
+        assert!(serde_json::to_value(load_messages(&c,Some("chat")).unwrap()).unwrap()[1]["feedback"].is_null());
+    }
+
     /// Every stored message, as `load_persisted_state` shaped it before chats
     /// were separate: these tests are about what a loaded message carries.
     fn all(db: &Connection) -> PersistedState {
@@ -484,7 +505,7 @@ mod tests {
       let mut c=Connection::open_in_memory().unwrap();c.execute_batch(crate::commands::migrations::TEST_SCHEMA).unwrap();
       let r=super::super::models::RequestRecord::new(&super::super::models::resolve(super::super::models::Capability::DeepReasoning),"command");
       c.execute("INSERT INTO model_requests(id,record_json) VALUES (?1,?2)",params![r.id,serde_json::to_string(&r).unwrap()]).unwrap();
-      let message=|request|ConversationMessage{mail:vec![],request,id:"answer".into(),role:"assistant".into(),content:"Same answer".into(),timestamp:"12:00".into(),research:vec![],voice:None,attachment:None,scope:None};
+      let message=|request|ConversationMessage{feedback:None,mail:vec![],request,id:"answer".into(),role:"assistant".into(),content:"Same answer".into(),timestamp:"12:00".into(),research:vec![],voice:None,attachment:None,scope:None};
       store_messages(&mut c, "chat", vec![message(Some(r.clone()))]).unwrap();store_messages(&mut c, "chat", vec![message(None)]).unwrap();
       assert_eq!(c.query_row("SELECT request_id FROM conversation_model WHERE message_id='answer'",[],|r|r.get::<_,String>(0)).unwrap(),r.id);
       assert_eq!(c.query_row("SELECT count(*) FROM conversation_messages",[],|r|r.get::<_,i64>(0)).unwrap(),1);
@@ -495,7 +516,7 @@ mod tests {
     fn spoken_and_typed_messages_share_history_and_voice_metadata_survives_updates() {
         let mut db = Connection::open_in_memory().unwrap();
         db.execute_batch(crate::commands::migrations::TEST_SCHEMA).unwrap();
-        let message = |id: &str, voice: Option<serde_json::Value>| ConversationMessage {
+        let message = |id: &str, voice: Option<serde_json::Value>| ConversationMessage { feedback:None,
             mail:vec![], request: None, id: id.into(), role: "assistant".into(), content: "Full visual detail".into(), timestamp: "12:00".into(), research: vec![], voice, attachment: None, scope: None,
         };
         store_messages(&mut db, "chat", vec![message("typed", None), message("spoken", Some(serde_json::json!({"kind":"output","spokenResponse":"Short answer","playback":"pending"}))), message("typed-after",None)]).unwrap();
@@ -516,7 +537,7 @@ mod tests {
             title: title.into(), source_file: "02 - Research/a.md".into(), source_date: None,
             stance: "unevaluated".into(), origin: None, excerpt: "quoted".into(), truncated: false, fingerprint: "f".into(),
         };
-        let message = |content: &str, title: &str, playback: &str| ConversationMessage {
+        let message = |content: &str, title: &str, playback: &str| ConversationMessage { feedback:None,
             mail: vec![], request: None, id: "answer".into(), role: "assistant".into(), content: content.into(),
             timestamp: "12:00".into(), research: vec![excerpt(title)],
             voice: Some(serde_json::json!({"kind":"output","playback":playback})), attachment: None, scope: None,
@@ -537,7 +558,7 @@ mod tests {
         let mut db = Connection::open_in_memory().unwrap();
         db.execute_batch(crate::commands::migrations::TEST_SCHEMA).unwrap();
         db.execute("INSERT INTO conversation_messages (id, role, content, timestamp, created_at) VALUES ('old', 'user', 'hi', '09:15', '2026-09-25 09:15:02')", []).unwrap();
-        store_messages(&mut db, "chat", vec![ConversationMessage { mail: vec![], request: None, id: "new".into(), role: "assistant".into(), content: "Now".into(), timestamp: "10:00".into(), research: vec![], voice: None, attachment: None, scope: None }]).unwrap();
+        store_messages(&mut db, "chat", vec![ConversationMessage { feedback:None, mail: vec![], request: None, id: "new".into(), role: "assistant".into(), content: "Now".into(), timestamp: "10:00".into(), research: vec![], voice: None, attachment: None, scope: None }]).unwrap();
         let state = all(&db);
         assert_eq!(state.conversation[0].at.as_deref(), Some("2026-09-25T09:15:02Z"));
         assert_eq!(state.conversation[0].timestamp, "09:15", "the stored clock time is untouched");
@@ -552,7 +573,7 @@ mod tests {
     fn imported_rows_carry_their_import_time_instead_of_a_message_date() {
         let mut db = Connection::open_in_memory().unwrap();
         db.execute_batch(crate::commands::migrations::TEST_SCHEMA).unwrap();
-        let message = |id: &str, content: &str| ConversationMessage { mail: vec![], request: None, id: id.into(), role: "user".into(), content: content.into(), timestamp: "14:10".into(), research: vec![], voice: None, attachment: None, scope: None };
+        let message = |id: &str, content: &str| ConversationMessage { feedback:None, mail: vec![], request: None, id: id.into(), role: "user".into(), content: content.into(), timestamp: "14:10".into(), research: vec![], voice: None, attachment: None, scope: None };
         store_messages(&mut db, "chat", vec![message("native", "Typed on desktop")]).unwrap();
         store_messages_as(&mut db, "chat", vec![message("browser", "From localStorage"), message("native", "Forged import")], true).unwrap();
         db.execute("UPDATE conversation_imports SET imported_at='2026-09-29T08:00:00Z' WHERE message_id='browser'", []).unwrap();
@@ -632,7 +653,7 @@ mod tests {
         assert_eq!(ipc.attachment.as_ref(), Some(&attachment));
         store_messages(&mut db, "chat", vec![ipc]).unwrap();
         // A repeated append cannot swap the attached source.
-        store_messages(&mut db, "chat", vec![ConversationMessage {
+        store_messages(&mut db, "chat", vec![ConversationMessage { feedback:None,
             mail: vec![], request: None, id: "asked".into(), role: "user".into(), content: "Forged".into(), timestamp: "10:00".into(), research: vec![], voice: None,
             attachment: Some(TurnAttachment { context: "[Gmail thread: zz]".into(), ..attachment.clone() }), scope: None,
         }]).unwrap();

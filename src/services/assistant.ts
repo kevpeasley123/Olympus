@@ -17,6 +17,7 @@ export interface AssistantNotice {
 }
 
 export interface AssistantReply {
+  feedback?: import("./conversationFeedback").FeedbackContext | null;
   mail?: import("./gmail").MailExcerpt[];
   request?: import("./modelRouting").ModelRequest;
   voice?: import("./voiceContract").VoiceAnswer;

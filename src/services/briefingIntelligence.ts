@@ -3,8 +3,9 @@ import type { ProjectCommandState } from './projectCommandBoard';
 import type { GmailStatus } from './gmail';
 import type { SituationSnapshot } from './situations';
 import type { BriefMemory } from './briefingMemory';
+import type {EmailFeedbackSource} from './conversationFeedback';
 
-export interface BriefItem { id:string; revision:string; text:string; priority:number; kind:'limitation'|'attention'|'progress'|'recommendation'|'context'; source?:{conversationId:string;messageIds:string[]} }
+export interface BriefItem { id:string; revision:string; text:string; priority:number; kind:'limitation'|'attention'|'progress'|'recommendation'|'context'; source?:{conversationId:string;messageIds:string[]}; emailSource?:EmailFeedbackSource }
 export interface Receipt { revision:string; deliveredAt:number }
 export type BriefReceipts=Record<string,Receipt>;
 export type BriefMode='opening'|'requested';
@@ -64,6 +65,7 @@ export function briefItems(input:BriefContext,now=Date.now()):BriefItem[] {
     ||ref.timestamp>now+60_000||now-ref.timestamp>account.horizonDays*DAY) continue;
    if(correction) add(`mail:${account.id}:${candidate.threadId}`,'attention',`Your correction for ${candidate.subject||'this email'}: ${correction}`,85,[candidate.signature,ref.fingerprint,correction,candidate.learningRevision]);
    else add(`mail:${account.id}:${candidate.threadId}`,'recommendation',`Email recommendation: ${candidate.suggestion.title}. ${candidate.suggestion.why} Suggested next move: ${candidate.suggestion.action}`,70,[candidate.signature,ref.fingerprint,candidate.suggestion,candidate.learningRevision]);
+   items[items.length-1].emailSource={accountId:account.id,threadId:candidate.threadId,signature:candidate.signature,revision:candidate.learningRevision??0,subject:(candidate.subject||'this email').slice(0,200)};
   }
  }
  if(input.memory===null) add('coverage:memory','limitation','Remembered conversation context could not be checked. It is outside this update’s coverage.',90);

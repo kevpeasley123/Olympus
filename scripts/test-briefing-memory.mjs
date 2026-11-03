@@ -22,6 +22,7 @@ const prepare=(mode='opening',at=now,custom=client,selected=scope)=>prepareFactu
 const first=await prepare();
 assert.match(first.text,/Review launch accessibility before adding features/);
 assert.deepEqual(first.items.map(i=>i.id),['mail:a:thread','memory:chat:chat-a','project:helios:progress']);
+assert.deepEqual(first.items[0].emailSource,{accountId:'a',threadId:'thread',signature:'sig',revision:0,subject:'Appointment'},'Brief email evidence retains its correction binding');
 assert.deepEqual(first.items[1].source,{conversationId:'chat-a',messageIds:['u1']});
 assert.equal(deliveries,0,'Preparation alone never suppresses delivery');
 assert.equal(await first.current(),true);
