@@ -11,6 +11,13 @@ No installation, native launch, credentials, live model calls or production
 operational database changes are part of this integration. Installed Olympus is
 unchanged. Local vault records/research are maintained separately from source Git.
 
+## Publication blocker
+
+The verified release branch is pushed, but GitHub's integration rejected PR creation
+with HTTP 403, "Resource not accessible by integration". No PR was created and
+master remains 5d4c75d. Pull-request write access must be resolved before merging;
+no denied action was retried or bypassed. All release checks below have passed.
+
 ## Zeus height integration
 
 The pending `codex/zeus-height` change raises Zeus from 140 to 152 scene units.
