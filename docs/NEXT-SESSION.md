@@ -11,6 +11,11 @@ offline and connects explicit conversational corrections to email understanding.
 No push, merge, install, native launch, credentials or live model calls. No
 production operational DB changes. Installed Olympus is unchanged.
 
+## Zeus height integration
+
+The pending `codex/zeus-height` change raises Zeus from 140 to 152 scene units.
+The release validation will inspect the shipped Command fixture before publication.
+
 ## Direction and implemented behavior
 
 Kevin wants automatic understanding through normal conversations and connected
@@ -75,5 +80,5 @@ the seven-day horizon and all provider/consent/spending gates. Native rollout st
 requires a restorable operational DB backup; migration 3 is additive and uninstalled,
 and older binaries reject the newer schema. Historical auth/acceptance blockers:
 archive/NEXT-SESSION-before-2026-11-02-gmail-foundation.md. Research import and
-original Zeus edits remain separate. Saving this milestone does not complete the
+the original checkout remain separate; the committed Zeus-height branch is included. Saving this milestone does not complete the
 requested Obsidian audit.

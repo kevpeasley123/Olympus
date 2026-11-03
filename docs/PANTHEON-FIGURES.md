@@ -17,6 +17,8 @@ The figures are the scene's only representation of the agents. The Agents
 constellation that sat beside Plugins, Skills and Obsidian Memory was removed
 once all five stood; the Armory keeps the agent count and roster.
 
+Zeus stands 12 scene units higher, increasing clearance above his name plate.
+
 ## Architecture
 
 | Part | File | Role |
