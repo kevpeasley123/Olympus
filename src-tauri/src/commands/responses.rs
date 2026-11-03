@@ -194,6 +194,16 @@ impl Output {
         Ok(self)
     }
 }
+/// Callers persist this receipt even when authorization prevents transport.
+fn require_spending_approval(record: &mut RequestRecord) -> Result<(), String> {
+    super::spending_policy::require_approval(super::spending_policy::PaidOperation::OpenAiResponses)
+        .map_err(|error| {
+            record.status = "failed".into();
+            record.error_code = Some("paid_call_approval_required".into());
+            record.usage = Some(json!({"billing_status":"not_submitted"}));
+            error
+        })
+}
 pub async fn complete(
     route: &Route,
     instructions: &str,
@@ -202,6 +212,7 @@ pub async fn complete(
     channel: &tauri::ipc::Channel<AssistantStreamEvent>,
     record: &mut RequestRecord,
 ) -> Result<Output, String> {
+    require_spending_approval(record)?;
     complete_at(
         route,
         instructions,
@@ -243,6 +254,7 @@ pub async fn structured(
     schema: Value,
     record: &mut RequestRecord,
 ) -> Result<String, String> {
+    require_spending_approval(record)?;
     let mut body = payload(
         route,
         instructions,
@@ -328,6 +340,39 @@ fn send_visible(
 mod tests {
     use super::super::models::{resolve, Capability};
     use super::*;
+    #[test]
+    fn blocked_background_request_finishes_its_record_without_submission() {
+        let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
+        runtime.block_on(async {
+            let route = resolve(Capability::Primary);
+            let mut record = RequestRecord::new(&route, "background_analysis");
+            let error = structured(&route, "", Value::Null, Value::Null, &mut record).await.unwrap_err();
+            assert!(error.contains("paid_call_approval_required"));
+            assert_eq!(record.status, "failed");
+            assert_eq!(record.error_code.as_deref(), Some("paid_call_approval_required"));
+            assert_eq!(record.usage, Some(json!({"billing_status":"not_submitted"})));
+            assert!(record.actual_model.is_none());
+            assert!(record.first_token_ms.is_none());
+        });
+    }
+    #[test]
+    fn public_paid_entrypoints_refuse_before_credentials_or_network() {
+        let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
+        runtime.block_on(async {
+            let route = resolve(Capability::Primary);
+            let mut record = RequestRecord::new(&route, "spending_policy_test");
+            let channel = tauri::ipc::Channel::new(|_| panic!("blocked request emitted provider output"));
+            let error = complete(&route, "", vec![], false, &channel, &mut record).await.err().unwrap();
+            assert!(error.contains("paid_call_approval_required"));
+            assert_eq!(record.status, "failed");
+            assert_eq!(record.error_code.as_deref(), Some("paid_call_approval_required"));
+            assert_eq!(record.usage, Some(json!({"billing_status":"not_submitted"})));
+            let error = structured(&route, "", Value::Null, Value::Null, &mut record).await.unwrap_err();
+            assert!(error.contains("paid_call_approval_required"));
+            assert!(record.actual_model.is_none());
+            assert_eq!(record.usage, Some(json!({"billing_status":"not_submitted"})));
+        });
+    }
     #[test]
     fn structured_assessment_rejects_partial_refused_and_nonterminal_text() {
         let mut r=RequestRecord::new(&resolve(Capability::Primary),"fixture");r.status="completed".into();

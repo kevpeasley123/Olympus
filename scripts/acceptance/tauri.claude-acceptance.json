@@ -1,0 +1,16 @@
+{
+  "identifier": "com.projectolympus.claudeacceptance",
+  "productName": "Olympus Claude Acceptance",
+  "app": {
+    "windows": [{
+      "title": "Olympus Claude Acceptance — isolated test",
+      "width": 1440,
+      "height": 960,
+      "minWidth": 1280,
+      "minHeight": 800,
+      "resizable": true,
+      "fullscreen": false,
+      "additionalBrowserArgs": "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --autoplay-policy=no-user-gesture-required"
+    }]
+  }
+}

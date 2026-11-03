@@ -3332,7 +3332,7 @@ dependencies = [
 
 [[package]]
 name = "project-olympus"
-version = "0.42.0"
+version = "0.43.0"
 dependencies = [
  "base64 0.22.1",
  "chrono",
@@ -3347,6 +3347,7 @@ dependencies = [
  "pdf-extract",
  "reqwest 0.12.28",
  "rfd",
+ "ring",
  "rusqlite",
  "serde",
  "serde_json",

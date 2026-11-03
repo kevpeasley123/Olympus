@@ -236,10 +236,15 @@ pub fn run() {
                 commands::gmail::start_cadence(app.handle().clone());
                 commands::gmail::situations::start_cadence(app.handle().clone());
             }
-            commands::chat_memory::start(app.handle().clone());
+            commands::subscription_jobs::init(app.handle());
+            if !commands::acceptance::active() {
+                commands::chat_memory::start(app.handle().clone());
+            }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            commands::briefing::briefing_receipts, commands::briefing::briefing_record_delivery,
+            commands::briefing_context::briefing_conversation_context,
             commands::organizer::create_organizer_task, commands::organizer::update_organizer_task,
             commands::organizer::list_organizer_tasks, commands::organizer::set_organizer_intent,
             commands::organizer::move_organizer_task,
@@ -250,7 +255,8 @@ pub fn run() {
             commands::skill_guidance::recommend_resource_skills,
             commands::resource_intake::resource_skills, commands::resource_intake::add_resource_skill, commands::attachments::extract_resource_text,
             commands::gmail::situations::documents::situation_document_status, commands::gmail::situations::documents::situation_document_open,
-            commands::gmail::situations::attention::email_attention_decide, commands::gmail::situations::situation_snapshot, commands::gmail::situations::engine::situation_refresh, commands::gmail::situations::situation_set_background, commands::gmail::situations::situation_update, commands::gmail::situations::situation_edit, commands::gmail::situations::drafts::situation_draft, commands::gmail::situations::drafts::situation_save_draft,
+            commands::gmail::situations::learning::email_learning_change,
+            commands::gmail::situations::conversation_feedback::conversation_feedback, commands::gmail::situations::attention::email_attention_decide, commands::gmail::situations::situation_snapshot, commands::gmail::situations::engine::situation_refresh, commands::gmail::situations::situation_set_background, commands::gmail::situations::situation_update, commands::gmail::situations::situation_edit, commands::gmail::situations::drafts::situation_draft, commands::gmail::situations::drafts::situation_save_draft,
             commands::gmail::intelligence::analyze_communications, commands::gmail::intelligence::communication_runs, commands::gmail::intelligence::communication_run_events, commands::gmail::intelligence::communication_feedback, commands::gmail::intelligence::communication_skills,
             commands::gmail::intelligence::inspection::communication_workflow, commands::gmail::intelligence::inspection::inspect_communication_run,
             commands::gmail::gmail_workspace, commands::gmail::gmail_remove_cache, commands::gmail::gmail_cache_counts, commands::gmail::gmail_status, commands::gmail::gmail_connect, commands::gmail::gmail_cancel, commands::gmail::gmail_disconnect, commands::gmail::gmail_sync, commands::gmail::gmail_set_horizon, commands::gmail::gmail_search, commands::gmail::gmail_thread,
@@ -274,7 +280,12 @@ pub fn run() {
             commands::models::save_model_selection,
             commands::models::model_diagnostics,
             commands::engines::engine_status,
+            commands::claude_subscription::claude_subscription_authorization,
+            commands::claude_subscription::confirm_claude_subscription,
+            commands::claude_subscription::revoke_claude_subscription,
             commands::account_usage::account_usage_read,
+            commands::chatgpt_plan::controller::chatgpt_plan_test_action,
+            commands::chatgpt_plan::connection::chatgpt_plan_action,
             commands::models::voice_usage,
             commands::models::record_voice_request,
             create_voice_session,

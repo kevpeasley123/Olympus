@@ -128,6 +128,24 @@ pub const PRODUCTION_IDENTIFIER: &str = "com.projectolympus.commandstation";
 /// including an enabled Gmail account, that only this profile's refusals keep
 /// away from `.env`, the real vault and the background workers.
 pub const ACCEPTANCE_IDENTIFIER: &str = "com.projectolympus.acceptance";
+pub const CLAUDE_ACCEPTANCE_IDENTIFIER: &str = "com.projectolympus.claudeacceptance";
+
+fn authorization_source(profile: bool, opt_in: bool, app_data: &Path, roaming: Option<&Path>) -> Result<PathBuf, String> {
+    if !profile { return Ok(app_data.to_path_buf()); }
+    if !opt_in { return Err("Live Claude is disabled in this acceptance profile.".into()); }
+    Ok(roaming.ok_or("Existing Olympus authorization location unavailable")?.join(PRODUCTION_IDENTIFIER))
+}
+
+/// Debug-only opt-in reuses an existing account confirmation read-only. It
+/// cannot create or copy authority, and ordinary/release launches ignore it.
+pub(crate) fn claude_authorization_directory(app_data: &Path) -> Result<PathBuf, String> {
+    #[cfg(debug_assertions)]
+    let opt_in=std::env::var("OLYMPUS_ACCEPTANCE_CLAUDE").as_deref()==Ok("existing-confirmation-read-only");
+    #[cfg(not(debug_assertions))]
+    let opt_in=false;
+    let roaming=std::env::var_os("APPDATA").map(PathBuf::from);
+    authorization_source(active(),opt_in,app_data,roaming.as_deref())
+}
 
 /// Written to `processing_logs` at each acceptance launch. `seed-db.mjs` seeds
 /// only a database carrying one for its own fixture directory, so the database
@@ -151,7 +169,7 @@ pub fn check_startup(
 ) -> Result<(), String> {
     match profile {
         Some(dir) => {
-            if identifier != ACCEPTANCE_IDENTIFIER {
+            if identifier != ACCEPTANCE_IDENTIFIER && !(debug_build && identifier == CLAUDE_ACCEPTANCE_IDENTIFIER) {
                 return Err(format!(
                     "{ENV_VAR} is set, but this build's identifier is {identifier}, not \
                      {ACCEPTANCE_IDENTIFIER}. Launch with --config \
@@ -168,7 +186,7 @@ pub fn check_startup(
             }
             Ok(())
         }
-        None if identifier.eq_ignore_ascii_case(ACCEPTANCE_IDENTIFIER) => Err(if debug_build {
+        None if identifier.eq_ignore_ascii_case(ACCEPTANCE_IDENTIFIER) || identifier.eq_ignore_ascii_case(CLAUDE_ACCEPTANCE_IDENTIFIER) => Err(if debug_build {
             format!(
                 "This build uses the acceptance identifier ({identifier}) but {ENV_VAR} is not \
                  set in this shell. Set it to the fixture directory, or launch without the \
@@ -248,6 +266,23 @@ pub fn acceptance_profile() -> Option<AcceptanceProfile> {
 mod tests {
     use super::*;
     use std::fs;
+    #[test]
+    fn live_claude_profile_only_reads_existing_authority_after_explicit_opt_in() {
+        let isolated=Path::new("C:/fixture/app");
+        let roaming=Path::new("C:/fixture/roaming");
+        assert_eq!(authorization_source(false,true,isolated,Some(roaming)).unwrap(),isolated);
+        assert!(authorization_source(true,false,isolated,Some(roaming)).is_err());
+        assert!(authorization_source(true,true,isolated,None).is_err());
+        assert_eq!(authorization_source(true,true,isolated,Some(roaming)).unwrap(),roaming.join(PRODUCTION_IDENTIFIER));
+    }
+    #[test]
+    fn live_claude_identifier_still_requires_an_isolated_debug_profile() {
+        let fixture=std::env::temp_dir();
+        assert!(check_startup(true,Some(&fixture),CLAUDE_ACCEPTANCE_IDENTIFIER).is_ok());
+        assert!(check_startup(true,None,CLAUDE_ACCEPTANCE_IDENTIFIER).is_err());
+        assert!(check_startup(false,None,CLAUDE_ACCEPTANCE_IDENTIFIER).is_err());
+        assert!(check_startup(true,Some(&fixture),PRODUCTION_IDENTIFIER).is_err());
+    }
 
     /// Every pairing of build, variable and identifier. This exercises the
     /// decision only; that `run()` makes it first is pinned separately below

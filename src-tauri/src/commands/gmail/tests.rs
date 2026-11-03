@@ -535,7 +535,7 @@ fn conversation_roundtrip_keeps_mail_provenance() {
     let a = store::account(&c).unwrap().unwrap();
     store::commit(&mut c, &a, &[mail("ab")], &[], "100", true, &[]).unwrap();
     let sources = store::search(&c, "closing", true).unwrap();
-    let item = super::super::persistence::ConversationMessage {
+    let item = super::super::persistence::ConversationMessage { feedback:None,
         mail: sources,
         request: None,
         voice: None,

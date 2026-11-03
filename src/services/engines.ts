@@ -52,3 +52,17 @@ export function describeSignIn(status: EngineStatus): string {
       return `Not confirmed: ${sign.detail}. Olympus treats it as not a subscription.`;
   }
 }
+
+/** The operator's confirmation that Claude usage credits are off (`claude_subscription.rs`). */
+export interface ClaudeSubscriptionAuthorization { statement: string; confirmedAt: string | null; email: string | null }
+
+export function loadClaudeAuthorization(): Promise<ClaudeSubscriptionAuthorization> {
+  return invoke<ClaudeSubscriptionAuthorization>("claude_subscription_authorization");
+}
+/** Checks the live sign-in first; records nothing unless it is a claude.ai Max account. */
+export function confirmClaudeSubscription(statement: string): Promise<ClaudeSubscriptionAuthorization> {
+  return invoke<ClaudeSubscriptionAuthorization>("confirm_claude_subscription", { statement });
+}
+export function revokeClaudeSubscription(): Promise<ClaudeSubscriptionAuthorization> {
+  return invoke<ClaudeSubscriptionAuthorization>("revoke_claude_subscription");
+}

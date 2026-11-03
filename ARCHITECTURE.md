@@ -7,6 +7,17 @@ here, the same commit updates it. Current state and next steps live in
 `scripts/test-guidance-docs.mjs` checks the command table below against
 `src-tauri/src/lib.rs`.
 
+## Generation spending boundary
+
+The ChatGPT-plan synthetic connection controller is available through
+`chatgpt_plan_test_action` only in the isolated debug acceptance profile. Production
+status is disabled and mutations are refused. It never calls the OAuth transport
+or Windows credential store; synthetic persistence stays in the acceptance folder. The native `chatgpt_plan_action` dispatcher routes acceptance profiles to that controller. Its production lifecycle uses a bound loopback listener, background consent state, account-bound secure storage and renewal/revocation; a closed consent gate precedes all production effects. Generation has a separate closed gate.
+Its UI distinguishes fixture consent from real provider consent. Real connection
+activation and generation remain separate unaccepted boundaries.
+
+`commands/spending_policy.rs` denies paid Responses, Anthropic and realtime voice/transcription before credential access or transport. ElevenLabs uses its separate pre-request no-overage and included-character gate. Account quota readers remain independent. Codex and Claude subscription chat/job entry points reject before transport while pre-launch spending protection remains unestablished; background availability respects the Claude gate and has no Codex fallback. Saved confirmation and post-submission overage telemetry are not fresh pre-launch billing proof. See `docs/SUBSCRIPTION-CONVERSATION.md` for isolation and acceptance limits.
+
 ## Knowledge workflows
 
 The first fixed read-only graph is `knowledge-audit/v1`: parallel research,
@@ -69,7 +80,7 @@ Tauri commands exposed by the desktop shell — every entry in the `generate_han
 | Write gate | `resolve_vault_write` |
 | Projects | `scan_tracked_projects`, `fetch_action_queue`, `project_members`, `link_project`, `set_project_visibility`, `save_project_intake`, `pick_project_folder`, `inspect_project`, `confirm_project_brief` |
 | Organizer | `create_organizer_task`, `update_organizer_task`, `list_organizer_tasks`, `fetch_organizer_task`, `set_organizer_intent`, `move_organizer_task`, `prepare_organizer_delegation`, `accept_organizer_result`, `finish_organizer_task`, `acknowledge_organizer_event`, `organizer_overview` |
-| Engines | `engine_status`, `account_usage_read` |
+| Engines | `engine_status`, `account_usage_read`, `claude_subscription_authorization`, `confirm_claude_subscription`, `revoke_claude_subscription`, `chatgpt_plan_test_action`, `chatgpt_plan_action` |
 | Delegation | `prepare_delegation_run`, `prepare_delegation_resume`, `cancel_delegation_proposal`, `start_delegation_run`, `resume_delegation_run`, `cancel_delegation_run`, `list_delegation_runs`, `fetch_delegation_diff` |
 | Delegation review | `fetch_delegation_review`, `run_delegation_check`, `delegation_review_fingerprint`, `complete_delegation_review` |
 | Knowledge audit | `start_knowledge_audit`, `list_knowledge_audits`, `inspect_knowledge_audit` (no UI entry point; the view is rendered only by its harness) |
@@ -77,8 +88,9 @@ Tauri commands exposed by the desktop shell — every entry in the `generate_han
 | Command Armory | `command_agent_catalog`, `command_capabilities`, `command_missions` (read-only projections; see `docs/COMMAND-FLAGSHIP.md`) |
 | Resources and skills | `resource_skills`, `add_resource_skill`, `extract_resource_text`, `recommend_resource_skills` |
 | Gmail | `gmail_status`, `gmail_connect`, `gmail_cancel`, `gmail_disconnect`, `gmail_sync`, `gmail_set_horizon`, `gmail_search`, `gmail_thread`, `gmail_workspace`, `gmail_remove_cache`, `gmail_cache_counts` |
+| Briefing evidence and display history | `briefing_conversation_context`, `briefing_receipts`, `briefing_record_delivery` (bounded learned-chat projection and display-item digests; no model or mailbox operation) |
 | Communication Intelligence | `analyze_communications`, `communication_runs`, `communication_run_events`, `communication_feedback`, `communication_skills`, `communication_workflow`, `inspect_communication_run` |
-| Situations and email attention | `situation_snapshot`, `situation_refresh`, `situation_set_background`, `situation_update`, `situation_edit`, `situation_draft`, `situation_save_draft`, `situation_document_status`, `situation_document_open`, `email_attention_decide` |
+| Situations and email attention | `situation_snapshot`, `situation_refresh`, `situation_set_background`, `situation_update`, `situation_edit`, `situation_draft`, `situation_save_draft`, `situation_document_status`, `situation_document_open`, `email_attention_decide`, `email_learning_change`, `conversation_feedback` |
 | Shell / files | `launch_quick_app`, `restart_olympus`, `pick_attachment_file`, `extract_pdf_text`, `open_external_link` |
 | Acceptance | `acceptance_profile` (read-only; `null` unless the debug-only acceptance profile is active) |
 <!-- commands:end -->
@@ -482,6 +494,12 @@ not force a recommendation. See docs/EXECUTIVE-PRIORITIZATION.md.
 ### Operational dossier file boundary
 
 The dossier is a UI projection of saved contextual references. Optional document origin/date and source-linked milestones do not add model input or extraction workflows. Native `situation_document_status` and `situation_document_open` resolve source IDs only from the current enabled account's saved situation context. Frontend paths are not accepted; remote/relative paths and executable/active-web extensions cannot be opened. Missing files have no Open action. Timeline states are retained, never inferred from source file dates. Browser fixture file clients have no native side effects.
+
+Shared read-only analyzer preflight (`commands/analysis_readiness.rs`) supplies
+state, stable code, reason and attempt eligibility to subscription jobs, Gmail
+health and automatic memory. Execution retains runtime gates. Waiting does not
+consume inference retries or publish success. Chat archiving remains independent
+of blocked learning; genuine failures keep existing bounded retry policies.
 
 ### Indexed curated memory
 

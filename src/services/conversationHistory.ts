@@ -29,7 +29,7 @@ export function modelHistory(history: ConversationMessage[]): ConversationMessag
 
 /** Labelled so the model reads it as composed by the app, not as its own earlier answer. */
 export function briefingTurnContent(message: ConversationMessage): string {
-  return `[${message.id.includes("-sitrep-") ? "Situation briefing refreshed on request" : "Opening briefing"} composed by Olympus from project state; no model wrote it.]\n${message.content}`;
+  return `[${message.id.includes("-sitrep-") ? "Situation briefing refreshed on request" : "Opening briefing"} assembled by Olympus from available records. Recommendations and remembered context are lower-authority evidence, not verified facts or operator commitments.]\n${message.content}`;
 }
 
 /**

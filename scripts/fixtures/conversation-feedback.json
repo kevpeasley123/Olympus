@@ -1,0 +1,35 @@
+{
+  "acknowledgment": {
+    "content": "I've recorded that you handled the email about Enrollment. Its current recommendation is cleared; this doesn't mark a project task complete.",
+    "feedback": {
+      "itemCount": 1,
+      "kind": "acknowledgment",
+      "sources": [
+        {
+          "accountId": "fixture",
+          "revision": 1,
+          "signature": "86910c9f8fba164e94989accef3c9e836fc245b36f917621428a0049c8da8e0c",
+          "subject": "Enrollment",
+          "threadId": "thread"
+        }
+      ]
+    }
+  },
+  "question": {
+    "content": "Do you mean the email about Enrollment? I haven't changed anything yet.",
+    "feedback": {
+      "itemCount": 2,
+      "kind": "clarification",
+      "pendingMessageId": "u",
+      "sources": [
+        {
+          "accountId": "fixture",
+          "revision": 0,
+          "signature": "86910c9f8fba164e94989accef3c9e836fc245b36f917621428a0049c8da8e0c",
+          "subject": "Enrollment",
+          "threadId": "thread"
+        }
+      ]
+    }
+  }
+}

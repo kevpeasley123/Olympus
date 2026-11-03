@@ -1,4 +1,5 @@
-import { generateSituationBriefing } from "../services/situationBriefing";
+import {feedbackForBrief,resolveConversationTurn} from "../services/conversationFeedback";
+import { prepareSituationBriefing } from "../services/situationBriefing";
 import {consumeNextModel,endChatModelScope} from "../services/modelRouting";
 import {requireConversationProvider} from "../services/conversationProvider";
 import { normalizeVoicePreferences, type VoicePreferences } from "../services/voicePreferences";
@@ -10,6 +11,7 @@ import { refreshVaultWrites } from "./useVaultWrites";
 import { emitRefreshRequested } from "../services/navigation";
 import { buildProjectCommandBoard } from "../services/projectCommandBoard";
 import { composeOpeningBriefing } from "../services/openingBriefing";
+import { prepareFactualBrief, prepareStableBrief } from "../services/briefingDelivery";
 import { BRIEFING_ID_PREFIX } from "../services/conversationHistory";
 import type { ModelCapability } from "../services/modelRouting";
 import type { VoiceDepth, VoiceAnswer, VoiceMessageMetadata } from "../services/voiceContract";
@@ -110,8 +112,10 @@ export function useDashboardData() {
   const [chatPending, setChatPending] = useState(false);
   const [chatProgress, setChatProgress] = useState<string | null>(null);
   const activeRequest = useRef<string | null>(null);
+  const turnCancelled = useRef(false);
   const cancelChat = useCallback(async () => {
     const id = activeRequest.current; if (!id) return;
+    turnCancelled.current = true;
     try {
       const stopped = await cancelAssistantReply(id);
       if (activeRequest.current === id) setChatProgress(stopped ? "Stopping…" : "Turn is finishing; waiting for its result…");
@@ -274,53 +278,78 @@ export function useDashboardData() {
     };
   }, [refreshProjects, sessionReady]);
 
-  // Once per launch, after hydration and the first real scan, so the briefing
-  // describes stored state rather than seed data. Composed without a model; the
-  // caller decides whether to speak it.
-  const projectsScanned = projectScan.status !== "loading";
-  useEffect(() => {
-    if (openingBriefed.current || !hydrated || !projectsScanned) return;
-    if (taskStore.loading || runStore.loading) return;
-    openingBriefed.current = true;
-    if (!dashboardRef.current.settings.briefOnOpen) return;
-    const text = composeOpeningBriefing({
-      projects: dashboardRef.current.projects,
-      board: boardRef.current,
-      sessionBoundary,
-      projectsError
-    });
-    const message = createAssistantMessage(text);
-    message.id = `${BRIEFING_ID_PREFIX}${Date.now()}`;
-    message.kind = "briefing";
-    // `skipped` records that nothing was attempted, so the receipt can say so
-    // rather than "unconfirmed". Voice mode leaves it to the playback path.
-    message.voice = { kind: "output", spokenResponse: text, ...(dashboardRef.current.settings.autoSpeak ? {} : { playback: "skipped" as const }) };
-    dashboardRef.current = { ...dashboardRef.current, conversation: [...dashboardRef.current.conversation, message] };
-    setDashboardState(dashboardRef.current);
-    void remember([message]);
-    setOpeningBriefing({ id: message.id, text });
-  }, [hydrated, projectsScanned, taskStore.loading, runStore.loading, sessionBoundary, projectsError]);
-
+  // Displayed-item receipts are separate from launch and speech state.
   const briefingLock = useRef(false);
   const [briefingPending, setBriefingPending] = useState(false);
+  const briefingMounted = useRef(true);
+  useEffect(() => { briefingMounted.current = true; return () => { briefingMounted.current = false; }; }, []);
+  const projectsScanned = projectScan.status !== "loading";
+  useEffect(() => {
+    if (openingBriefed.current || !hydrated || !projectsScanned || taskStore.loading || runStore.loading) return;
+    if (!dashboardRef.current.settings.briefOnOpen) { openingBriefed.current = true; return; }
+    if (briefingLock.current) return;
+    const session = sessionRef.current;
+    briefingLock.current = true;
+    setBriefingPending(true);
+    void (async () => {
+      try {
+        const active = () => briefingMounted.current && sessionRef.current.id === session.id;
+        const prepared = isTauriRuntime() ? await prepareStableBrief(() => {
+          const projects = dashboardRef.current.projects, board = boardRef.current;
+          const root = dashboardRef.current.settings.projectsRootPath;
+          return prepareFactualBrief({projects,board,projectsError}, 'opening', Date.now(), undefined,
+            () => dashboardRef.current.projects === projects && boardRef.current === board && dashboardRef.current.settings.projectsRootPath === root, {temporary:session.temporary,conversationId:session.id});
+        }, active) : null;
+        if (!active()) return;
+        const text = prepared ? prepared.text : composeOpeningBriefing({projects:dashboardRef.current.projects,board:boardRef.current,sessionBoundary,projectsError});
+        // A deliberate no-items result consumes the opening; invalidated attempts do not.
+        openingBriefed.current = true;
+        if (!text) return;
+        const message = createAssistantMessage(text);
+        message.id = `${BRIEFING_ID_PREFIX}${Date.now()}`;
+        message.kind = "briefing";
+      message.feedback = prepared && !session.temporary ? feedbackForBrief(prepared.items) : undefined;
+        message.voice = { kind: "output", spokenResponse: text, ...(dashboardRef.current.settings.autoSpeak ? {} : { playback: "skipped" as const }) };
+        dashboardRef.current = { ...dashboardRef.current, conversation: [...dashboardRef.current.conversation, message] };
+        setDashboardState(dashboardRef.current);
+        setOpeningBriefing({ id: message.id, text });
+        const saved = await remember([message], session);
+        if (prepared && saved && !session.temporary) await prepared.acknowledge();
+      } catch {
+        if (briefingMounted.current && sessionRef.current.id === session.id) setChatError("The briefing could not finish or its delivery record could not be saved. Request a fresh update; unrecorded items remain eligible.");
+      } finally {
+        briefingLock.current = false;
+        if (briefingMounted.current) setBriefingPending(false);
+      }
+    })();
+  }, [hydrated, projectsScanned, taskStore.loading, runStore.loading, sessionBoundary, projectsError, projectScan.lastSuccessAt, remember]);
+
   const requestBriefing = useCallback(async () => {
     if (briefingLock.current || !hydratedRef.current || !isTauriRuntime()) return;
+    const session = sessionRef.current;
     briefingLock.current = true;
     setBriefingPending(true);
     setChatError(null);
     try {
-      const text = await generateSituationBriefing(dashboardRef.current.settings.projectsRootPath, sessionBoundary);
+      const root = dashboardRef.current.settings.projectsRootPath;
+      const active = () => briefingMounted.current && sessionRef.current.id === session.id && dashboardRef.current.settings.projectsRootPath === root;
+      const prepared = await prepareStableBrief(() => prepareSituationBriefing(root, sessionBoundary, {temporary:session.temporary,conversationId:session.id}), active);
+      if (!active()) return;
+      const text = prepared.text;
+      if (!text) return;
       const message = createAssistantMessage(text);
       message.id = `${BRIEFING_ID_PREFIX}sitrep-${crypto.randomUUID()}`;
       message.kind = "briefing";
+      message.feedback = prepared && !session.temporary ? feedbackForBrief(prepared.items) : undefined;
       message.voice = { kind: "output", spokenResponse: text, ...(dashboardRef.current.settings.autoSpeak ? {} : { playback: "skipped" as const }) };
       dashboardRef.current = { ...dashboardRef.current, conversation: [...dashboardRef.current.conversation, message] };
       setDashboardState(dashboardRef.current);
-      await remember([message]);
       setOpeningBriefing({ id: message.id, text });
-    } catch (error) { setChatError(errorMessage(error)); }
-    finally { briefingLock.current = false; setBriefingPending(false); }
-  }, [sessionBoundary]);
+      const saved = await remember([message], session);
+      if (saved && !session.temporary) await prepared.acknowledge();
+    } catch (error) { if(briefingMounted.current) setChatError(errorMessage(error)); }
+    finally { briefingLock.current = false; if(briefingMounted.current) setBriefingPending(false); }
+  }, [sessionBoundary, remember]);
 
   const sendChatMessage = useCallback(
     async (text: string, voiceDepth?: VoiceDepth, voiceMessageId?: string, turn?: TurnContext): Promise<VoiceAnswer | undefined> => {
@@ -333,10 +362,6 @@ export function useDashboardData() {
       emitInstrumentEvent("command-received");
 
       let capability: import("../services/modelRouting").ModelCapability = "PRIMARY";
-      if (isTauriRuntime()) {
-        try { if (requireConversationProvider() === "legacy-api") capability=consumeNextModel(); }
-        catch(error) { setChatError(errorMessage(error)); return; }
-      }
       const user = createUserMessage(trimmed);
       // Output modality is independent of input modality: a typed request may
       // ask for a spoken answer, but only a transcription has a voice input ID.
@@ -352,7 +377,7 @@ export function useDashboardData() {
       const history = [...dashboardRef.current.conversation, user];
       dashboardRef.current = {...dashboardRef.current, conversation:history};
       setDashboardState(dashboardRef.current);
-      void remember([user], session);
+      const userSaved = remember([user], session);
 
       if (!isTauriRuntime()) {
         // Browser dev server: no API key available, so fall back to the local
@@ -370,6 +395,7 @@ export function useDashboardData() {
       setChatModel(null);
       setChatPending(true);
       activeRequest.current = crypto.randomUUID();
+      turnCancelled.current = false;
       setChatProgress(null);
       setChatError(null);
       setChatProducing(false);
@@ -379,7 +405,10 @@ export function useDashboardData() {
       speakingStartedAt.current = null;
 
       try {
-        const reply = await requestAssistantReply(
+        const reply = await resolveConversationTurn(userSaved,{...session,voiceDepth,active:()=>!turnCancelled.current&&sessionRef.current.id===session.id},user.id,async()=>{
+          if (requireConversationProvider() === "legacy-api") capability=consumeNextModel();
+          setChatCapability(capability);
+          return requestAssistantReply(
           history,
           dashboardRef.current.settings,
           dashboardRef.current.projects,
@@ -413,7 +442,9 @@ export function useDashboardData() {
           },
           {requestId: activeRequest.current ?? undefined, capability, voiceDepth, commandBoard: boardRef.current, temporary: session.temporary, conversationId: session.id}
         );
+        });
         const assistant = createAssistantMessage(reply.content, reply.notice, reply.research);
+        assistant.feedback = reply.feedback;
         assistant.mail = reply.mail;
         assistant.request=reply.request;
         if (reply.voice) assistant.voice = {kind:"output",spokenResponse:reply.voice.spokenResponse,playback:"pending",requiresConfirmation:reply.voice.requiresConfirmation};

@@ -1,6 +1,6 @@
 use super::super::assessment_v3 as assessment;
 use super::*;
-use crate::commands::{models, responses};
+use crate::commands::models;
 // The implementation retains its v3 assessment policy; v4 corrects trace boundaries.
 pub const GRAPH: &str = "communication-intelligence/v4";
 pub(super) fn graph() -> Vec<GraphNode> {
@@ -33,9 +33,8 @@ fn trace(c: &Connection, id: &str, started: &std::time::Instant, node: &str, sta
 }
 pub async fn run(db: &Db, root: &Path, request: Request) -> Result<Value, String> {
     run_with(db, root, request, |input, mut record| async move {
-        let route = models::resolve(models::Capability::Primary);
-        let output = responses::structured(
-            &route,
+        let output = crate::commands::subscription_jobs::run(
+            crate::commands::subscription_jobs::Tier::Quick,
             assessment::INSTRUCTIONS,
             input,
             assessment::schema(),

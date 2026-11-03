@@ -125,3 +125,27 @@ Sending, Gmail drafts (reply drafts stay local), label/read/archive/delete actio
 ## Communications mode
 
 See [COMMUNICATIONS.md](COMMUNICATIONS.md) for the fourth dashboard mode: Situation maps, Browse email (groups, search, thread inspector, analytics) and scoped console questions. View range does not change sync history; candidate interpretations remain distinct from source counts and operator commitments.
+
+## Unreleased reliability foundation
+
+Native status now reports analysis readiness separately from Gmail synchronization.
+The default subscription analysis route remains blocked by its existing safeguards;
+a valid configured local model is explicitly unverified by this status read. Status
+and execution share local-model validation and return a stable readiness code and
+`canAttempt` separately from demonstrated success. Invalid or cloud model names
+are unconfigured. Acceptance isolation blocks both routes. Sync success
+does not establish that email understanding is current. No model is invoked by status.
+
+Token-request transport distinguishes timeout and connection failure from revoked
+or expired authorization. Network errors preserve the credential, cache and cursor;
+they do not call for repeated consent. Automatic cadence honors persisted next-sync
+eligibility; manual Sync now remains explicit. This is diagnostic/retry behavior,
+not evidence that the current production network failure is repaired.
+
+The opening and requested briefing integration is documented in
+`docs/BRIEFING-INTELLIGENCE.md`. Read-only Gmail scope and history limits are unchanged.
+
+Explicit email feedback uses the source-scoped learning store described in
+[EMAIL-ATTENTION.md](EMAIL-ATTENTION.md). Cache-removal preview includes its saved
+records; confirming removal deletes corrections, undo history and suppression
+tombstones along with the account's cached source data.

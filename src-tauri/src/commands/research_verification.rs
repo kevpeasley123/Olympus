@@ -3,7 +3,7 @@ use super::{
     models::{self, RequestRecord},
     persistence::Db,
     research_agents::*,
-    research_retrieval, responses, vault_write,
+    research_retrieval, vault_write,
 };
 use chrono::Utc;
 use rusqlite::{params, OptionalExtension};
@@ -270,7 +270,7 @@ fn guard(db: &Db, run: &Run) -> Result<(), String> {
 }
 fn available(key: bool, source: bool) -> Result<(), String> {
     if !key {
-        Err("OpenAI credentials unavailable".into())
+        Err("No subscription model is available: confirm Claude in Preferences > Subscription engines, or install Codex".into())
     } else if !source {
         Err("Research source directory unavailable".into())
     } else {
@@ -278,7 +278,7 @@ fn available(key: bool, source: bool) -> Result<(), String> {
     }
 }
 fn has_key() -> bool {
-    std::env::var("OPENAI_API_KEY").is_ok_and(|v| !v.trim().is_empty())
+    super::subscription_jobs::available()
 }
 fn read_source(root: &Path, relative: &str) -> Result<String, String> {
     if !relative.starts_with("02 - Research/") || !relative.ends_with(".md") {
@@ -836,8 +836,8 @@ async fn research(
     if agent.id != RESEARCH {
         return Err("wrong_research_role".into());
     }
-    responses::structured(
-        &models::resolve(models::Capability::Primary),
+    crate::commands::subscription_jobs::run(
+        crate::commands::subscription_jobs::Tier::Deep,
         &agent.instructions,
         input,
         agent.output_schema.clone(),
@@ -853,8 +853,8 @@ async fn verification(
     if agent.id != VERIFY {
         return Err("wrong_verification_role".into());
     }
-    responses::structured(
-        &models::resolve(models::Capability::Primary),
+    crate::commands::subscription_jobs::run(
+        crate::commands::subscription_jobs::Tier::Deep,
         &agent.instructions,
         input,
         agent.output_schema.clone(),

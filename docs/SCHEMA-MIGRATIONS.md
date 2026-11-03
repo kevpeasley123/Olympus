@@ -9,6 +9,10 @@ so.
 
 ## Build notes
 
+- Migration 3 (`src-tauri/migrations/0003_email_learning.sql`) adds the account/thread
+  feedback store without rewriting existing data. Native rollout must verify a
+  restorable operational database backup before applying it.
+
 - Migration 2 (`migrations/0002_conversations.sql` plus
   `conversations::backfill`) is the first real migration, not the table drops
   queued below.

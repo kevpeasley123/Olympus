@@ -16,7 +16,7 @@ function runFor(id:string):ResearchRun {
 }
 const ids=["completed","insufficient","failed","interrupted","delayed"];
 const client:ResearchClient={
-  catalog:async()=>{const c=structuredClone(saved.catalog);c.executable.forEach(a=>{a.version=2});c.availability.readyToAttempt=!unavailable;c.availability.reason=unavailable?"OpenAI credentials unavailable":null;return c},
+  catalog:async()=>{const c=structuredClone(saved.catalog);c.executable.forEach(a=>{a.version=2});c.availability.readyToAttempt=!unavailable;c.availability.reason=unavailable?"No subscription model is available: confirm Claude in Preferences > Subscription engines, or install Codex":null;return c},
   list:async()=>ids.map(id=>({id,question:`Synthetic ${id}`,status:runFor(id).status,startedAt:saved.run.startedAt,agentIds:["research","verification"]} as RunSummary)),
   inspect:async id=>{if(id==="delayed")await new Promise(r=>setTimeout(r,600));return runFor(id)},
   start:async(id,question)=>{starts++;cancelled=false;ids.push(`new-${id}`);const run=runFor(`new-${id}`);run.question=question;return run},
@@ -63,7 +63,7 @@ async function checks(){const results:string[]=[];const check=(condition:unknown
   check(text().includes("No brief generated"),"Agent failure never displays a successful brief");
   await select("insufficient");check(document.querySelector('[aria-label="supported claims"]')?.textContent?.includes("Supported · 0"),"Unsupported claims excluded from supported answer");
   await select("interrupted");check(text().includes("No execution end time recorded"),"Interruption preserves unknown end time");
-  click("Toggle unavailable");await wait();check(text().includes("OpenAI credentials unavailable"),"Missing dependency blocks starting");
+  click("Toggle unavailable");await wait();check(text().includes("No subscription model is available"),"Missing dependency blocks starting");
   await select("completed");check(text().includes("Agent executions · 4"),"Saved history remains readable when agents unavailable");
   click("Toggle browser-only");await wait();check(text().includes("no vault or run database connection"),"Browser-only preview reports unavailable runtime");
   click("Toggle browser-only");click("Toggle unavailable");await wait();

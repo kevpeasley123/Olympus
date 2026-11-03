@@ -48,7 +48,7 @@ try{
   check(await p.getByRole('dialog',{name:'Choose a model'}).count()===0,'Command closed by default '+width);
   const before=await p.locator('.console-command-bar').boundingBox();
   await t.click();const d=p.getByRole('dialog',{name:'Choose a model'});await d.waitFor();await p.waitForTimeout(150);
-  check(await d.getByRole('radiogroup',{name:'Models',exact:true}).getByRole('radio').count()===3,'Complete preview catalog '+width);check(await d.getByRole('radio',{name:/Sol/}).isEnabled(),'Available preview model '+width);const r=await d.boundingBox();check(r.x>=0&&r.y>=0&&r.x+r.width<=width+1&&r.y+r.height<=height+1,'Picker fits viewport '+width);
+  check(await d.getByRole('radiogroup',{name:'API models',exact:true}).getByRole('radio').count()===3,'Complete preview catalog '+width);check(await d.getByRole('radio',{name:/Sol/}).isEnabled(),'Available preview model '+width);const r=await d.boundingBox();check(r.x>=0&&r.y>=0&&r.x+r.width<=width+1&&r.y+r.height<=height+1,'Picker fits viewport '+width);
   check(await d.evaluate(e=>e.parentElement===document.body),'Overlay escapes panel clipping '+width);
   const after=await p.locator('.console-command-bar').boundingBox();check(Math.abs(before.y-after.y)<1&&Math.abs(before.height-after.height)<1,'No composer layout shift '+width);
   const ink=await d.getByRole('radio',{name:/Sol/}).evaluate(e=>{const r=e.getBoundingClientRect();return document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)?.closest('[role="radio"]')===e;});check(ink,'Options unobscured '+width);

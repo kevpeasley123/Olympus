@@ -117,7 +117,7 @@ fn token(form: &[(&str, &str)]) -> Result<Value, String> {
         .post("https://oauth2.googleapis.com/token")
         .form(form)
         .send()
-        .map_err(|_| "gmail_network_unavailable")?;
+        .map_err(|error| super::health::transport_error(&error))?;
     let status = response.status();
     let mut bytes = Vec::new();
     response

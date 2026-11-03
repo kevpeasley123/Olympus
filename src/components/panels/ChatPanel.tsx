@@ -256,7 +256,7 @@ export function ChatPanel({ companion = false, onVoiceConversationToggle, messag
 
 
 
-  const inspectionControl = inspectionProjects.length > 0 && <details className="console-inspect-project"><summary>Inspect a project (read-only)</summary><label>Project <select aria-label="Inspect a project read-only" defaultValue="" onChange={event => { const name=event.target.value; if(name) { setDraft(`/inspect ${name}: Find one small issue and explain the smallest fix with file evidence.`); setConversationOpened(true); setMode("engaged"); requestAnimationFrame(() => inputRef.current?.focus()); } event.target.value=""; }}><option value="">Choose project…</option>{inspectionProjects.map(name=><option key={name} value={name}>{name}</option>)}</select></label><small>Read-only source review. Uses the selected paid OpenAI API route; at most three file reads plus an answer, within four minutes. Review the request, then Send.</small></details>;
+  const inspectionControl = inspectionProjects.length > 0 && <details className="console-inspect-project"><summary>Inspect a project (read-only)</summary><label>Project <select aria-label="Inspect a project read-only" defaultValue="" onChange={event => { const name=event.target.value; if(name) { setDraft(`/inspect ${name}: Find one small issue and explain the smallest fix with file evidence.`); setConversationOpened(true); setMode("engaged"); requestAnimationFrame(() => inputRef.current?.focus()); } event.target.value=""; }}><option value="">Choose project…</option>{inspectionProjects.map(name=><option key={name} value={name}>{name}</option>)}</select></label><small>Read-only source review. Picks files through your Claude subscription (Codex as the backup); at most three file reads plus an answer, within four minutes. Review the request, then Send.</small></details>;
 
   return (
     <section ref={panelRef} tabIndex={-1} className="command-console" data-mode={mode} data-layout={layout} data-conversation-panel={conversationPanel || undefined} data-panel-view={conversationPanel ? (conversationOpened?"conversation":"overview") : undefined} data-idle={idle || undefined} data-signal={signal ?? undefined}
@@ -420,7 +420,7 @@ const ConversationBubble = memo(function ConversationBubble({
       <p className="console-message-label">
         {message.role === "assistant" && <span className="console-omega" aria-hidden="true">Ω</span>}
         {message.role === "user" ? "YOU" : message.role === "assistant" ? "OLYMPUS" : "SYSTEM"}
-        {briefing ? <span className="console-briefing-label">{message.id.includes("-sitrep-") ? "Situation briefing" : "Opening briefing"} · from project state, no model</span>
+        {briefing ? <span className="console-briefing-label">{message.id.includes("-sitrep-") ? "Situation briefing" : "Opening briefing"} · assembled from available records</span>
           : <span className="console-modality" title={message.voice ? "Voice message" : "Typed message"}>{message.voice ? <Mic size={10} aria-label="Voice"/> : <Keyboard size={10} aria-label="Text"/>}</span>}
         {turn?.scope === "gmail-workspace" && <span className="console-turn-scope" title="Asked from Communications; retrieval was scoped to cached Gmail">Communications</span>}
         {live && <span className="console-turn-state">Listening</span>}

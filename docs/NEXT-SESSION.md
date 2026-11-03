@@ -1,140 +1,99 @@
 # Next session
 
-Current handoff; prior verification is in `archive/NEXT-SESSION-through-0.40.0.md`.
+## Current state - November 3, 2026
 
-## State - 2026-10-18 (America/Phoenix)
+Version 0.43.0. Combined source release on `codex/gmail-learning-intelligence`,
+based on master 5d4c75d. Includes subscription-conversation through 51bc631,
+Gmail/briefing/memory work through f12a1d1 and zeus-height 4560f3e. Kevin explicitly
+requested committing, pushing and merging all completed changes. Publication is
+through a merge-commit PR into master; branches and worktrees are preserved.
+No installation, native launch, credentials, live model calls or production
+operational database changes are part of this integration. Installed Olympus is
+unchanged. Local vault records/research are maintained separately from source Git.
 
-- **Release 0.42.0**, branch `codex/claude-observed-snapshot`, based on master
-  `7fdffcb7f83fe6200bc1dfcd6108d858d57e10ad`: center-column Usage dock restores
-  full-height chat; independent service rails share the expanded dashboard and
-  management actions. Historical Claude fallback is always stale and yields to
-  newer passive samples. ElevenLabs is preserved.
-- Final release checks passed: frontend/MSI builds, 563 Rust tests (20 ignored),
-  all 62 test scripts, 21/21 visual captures, 14 functional and 22 Organizer
-  checks. Independent review found no blockers. Minor follow-up: compact tile
-  tooltips could name the selected quota window; the expanded view already does.
-- Final reference-sized previews are `output/usage-dock/final-collapsed.png`
-  and `output/usage-dock/final-expanded.png`. These are synthetic browser
-  fixtures. Native WebView2/IPC acceptance and first real passive Claude capture
-  remain outstanding. Dock height is about 123 px; chat occupies its full column.
-- Kevin approved commit, push, merge and installation, without production
-  relaunch. Installation follows this release commit; its local receipt is
-  `output/release-0.42-install-evidence.json`, with data comparison in
-  `output/release042-data-verification.json` (created by installation checks).
-  Last verified prior installation: 0.41.0. Olympus was already closed before
-  backup. Rollback files are in `output/rollback-0.41.0-before-0.42.0`;
-  database backup integrity passed, and collector/statusline/snapshot were saved.
-- Claude passive collector remains enabled with original statusline preserved.
-  Normal authorized Claude Code activity supplies a new sample; app Refresh
-  loads it locally. The manually observed fallback stays in local telemetry,
-  outside Git, with unknown reset and absolute token allowance.
-- Codex transport uses a bounded private-stdio account reader; the desktop's
-  expected shared daemon socket is absent. See `ENGINE-STATUS-USAGE.md`.
-  Last real backend read, October 17 21:56:03 Phoenix: 70.0% weekly used,
-  30.0% remaining, 62.6701 credits, reset October 24 17:04:59 Phoenix.
-  Absolute token allowance unknown; this is historical evidence, not a new read.
-- Last verified ElevenLabs quota, October 17 20:36:23 Phoenix: 975 used,
-  22,761 remaining characters; reset November 6 11:09:07 Phoenix.
-- No paid generation, reset, purchase, new credentials, live Gmail action or
-  production launch was used for this release. Existing background settings
-  are unchanged. Subscription generation/delegation still fail closed on
-  billing/tool isolation. Vault memory was not updated in this scoped release.
+## Publication
 
-## In flight
-- **Development branch delivery (October 17, Phoenix):** engine discovery, separate always-visible Command usage panel, subscription/API management reusing Preferences and Armory, and offline-tested Codex conversation adapter; see `ENGINE-STATUS-USAGE.md` and `SUBSCRIPTION-CONVERSATION.md`. Subscription generation remains blocked on billing and tool isolation; Codex telemetry now has a real backend reading. Installed without launch.
-- **Skin choice.** Kevin is comparing the four skins in the installed app.
-- **A live view on Kevin's PC.** Remote Control works on his PC (first used
-  2026-10-14 to install 0.35.0). A session running `npm run tauri dev` from
-  the branch would let him watch visual edits without installing.
+Kevin completed the GitHub connector installation and confirmed access was updated.
+PR #22 now contains the combined release: https://github.com/kevpeasley123/Olympus/pull/22.
+The earlier PR-creation permission blocker is resolved. The PR records the merge
+status and commit identity; all combined release checks below passed. Installation
+and native acceptance remain separate from source publication.
 
-## Next
+## Zeus height integration
 
-1. **Look at the Pantheon on the PC** after Update Olympus. Switch skins from
-   the dot in the scene's bottom-left corner, hover each god and its Armory row, and note how long the statues
-   take to appear in WebView2 and whether a pedestal stays empty (a model that
-   fails to load logs a warning). Start a delegated run to see Hephaestus work.
-2. **Check 0.33.0 on the PC**, if not done.
-   - The first launch migrates the database and writes
-     `olympus.sqlite.pre-v2-from-v1.bak` beside it.
-   - Old history appears in the Chats list. Over the next minutes, chat notes
-     appear in `10 - Conversations/`, each with its own vault commit.
-   - A chat left quiet for ten minutes updates `09 - System/Olympus Memory.md`.
-   - Listen to a spoken reply and use the microphone. The waveform should
-     follow the voice and settle in pauses, and the Omega should brighten
-     slightly. If the bars keep their small ambient rhythm while audio plays,
-     the analysis found no source; note which provider was speaking.
-3. **Armory Phase 0 on the PC.** Open Preferences > Subscription engines. Both
-   engines should be found and show a subscription. If either shows "Not
-   confirmed", record the output of `claude auth status --json` or
-   `codex login status`, so the parser can learn that shape.
-4. **Armory Phase 1, the engine layer**, per `docs/ARMORY-PLAN.md`, after the
-   engine spike runs on the PC. Monid belongs to Phase 3b; the spending policy is
-   in `OLYMPUS-MANUAL.md`, and the earlier step-by-step plan is the first
-   section of `docs/archive/NEXT-SESSION-through-2026-10-11.md`.
-5. **Home semantic navigation.** Approved as an independent slice, not
-   started. The only written design is the Semantic Zoom section and Phase 4 of
-   `docs/archive/SKILLS-GRAPHS-INSPECTION-PLAN.md`.
-6. **One paid Research run from the UI**, once API credit is available.
+The pending `codex/zeus-height` change raises Zeus from 140 to 152 scene units.
+The shipped Command fixture was captured and inspected; the label remains readable.
 
-## Decisions waiting on Kevin
+## Direction and implemented behavior
 
-1. **Knowledge audit.** A fixed read-only check of research and evidence
-   health. Its screen went in 0.30.0, and nothing can start it now. Kevin's
-   view: it probably needs no screen. Retire it (code, three commands, two
-   tables via a migration) or run it on a schedule later.
-2. **Retired Command composition.** The Agent Catalog, the capability ring and
-   the non-flagship paths in `CommandInstrument` are now reachable only from
-   `command-agent-harness.html` without `?flagship`. Proposed: remove them and
-   their CSS with the same before/after style proof used on 2026-10-12.
+Kevin wants automatic understanding through normal conversations and connected
+sources, without categorizing/file-managing conversations or approving memories.
+The manual and superpowers/specs/2026-11-02-automatic-understanding-correction.md
+are authoritative. Source review and existing optional attention actions remain.
 
-## Known issues
+Saved email briefs carry bounded account/thread/source/revision references. A
+recent saved user statement such as "I already handled that" can clear the email
+recommendation; explicit assertions about email details can retain the exact
+correction. A discourse marker alone does not change email state. Mixed briefs ask
+conversational clarification. Changed sources/revisions, private/disabled memory,
+imported/stale turns and attached-source turns cannot silently apply. The original
+statement, message IDs and idempotent receipt are saved with feedback atomically.
+This is a conservative explicit-language recognizer, not qualified general semantic
+interpretation. Unsupported language retains normal assistant routing. No new
+controls, dependencies, schema migration or model calls were added.
 
-- **No reasoning on Kevin's PC.** On 2026-10-14 Sol showed "Unavailable": the
-  desktop `.env` has no `OPENAI_API_KEY`, so typed and spoken replies fail and
-  ElevenLabs reads the error. He is weighing API credits against Armory
-  Phase 1 (subscription engines) and asked to hold Phase 1 for now.
-- **Browser tests assume Kevin's machine.** 16 test scripts hard-code
-  `channel:'msedge'`, and most expect a dev server already running on
-  `127.0.0.1:31420` (one uses `31448`). A cloud session runs them on Chromium
-  only through a preload shim. There is no `npm test` and no CI.
-- **One-off review scripts are stale.** `scripts/*-review.mjs` launch Edge only
-  and nothing runs them; `mission-review.mjs` looks for "Obsidian
-  constellation", now "Obsidian Memory constellation". `npm run visual:review`
-  covers the shipped Command instead.
-- **Stale fixture.** `src/services/capabilitiesFixture.json` predates
-  `hephaestus-engineering` and lists 7 skills, so browser previews show one
-  fewer than the desktop app.
-- **No caller.** `memory_status`, `memory_preview`,
-  `memory_rebuild`, `list_organizer_tasks` and `communication_skills` are
-  registered but nothing in the app calls them.
-- **Project identity is split.** `organizer_tasks.project_id` references the
-  legacy `projects` table, while linked projects live in `project_members`.
-- **Unverified at ≥1500×800.** Situation maps size their inspector from the
-  console column. Since the console became a dock this may collapse; it has not
-  been rendered to check.
-- **Wrong disclosure with the local model.** Situation-map "Understanding
-  settings" says OpenAI analyzes the mail even when
-  `OLYMPUS_EMAIL_ANALYSIS_PROVIDER=ollama` is set.
-- **Monid text without Monid.** `SkillCollection.tsx` copy mentions Monid
-  approvals, but no Monid integration exists.
+Both local and subscription structured outputs now use a bounded recursive validator
+for the current JSON Schema subset. Nested malformed values/unknown fields and
+unsupported keywords fail. The subscription generation/acceptance gates stay closed.
+Structural contract qualification does not establish real analyzer quality.
+See EMAIL-ATTENTION.md, CONVERSATIONS-AND-MEMORY.md and BRIEFING-INTELLIGENCE.md.
 
-## Never exercised against real data
+## Next steps already requested
 
-These are recorded in the release lines and still open. Kevin's daily use
-covers the screens he uses; these paths each need a deliberate trigger.
+1. Kevin explicitly requested the broader Obsidian memory audit after this sequence.
+   Trace capture, saved content, indexing, retrieval, freshness/conflicts/corrections,
+   temporary-chat exclusions, and actual use in briefs and conversations. Briefs
+   consume SQLite learned summaries, not the Obsidian memory note/index. Existing
+   notes or an index alone cannot establish useful integration.
+2. Qualified semantic synthesis/cross-source workflow understanding remain future
+   work. Representative real briefs, Gmail recovery and native acceptance require
+   their separate gates; optional tray persistence follows usefulness/reliability.
 
-- The Living Pantheon and its skins, halo and hover in WebView2, and any god
-  driven by a real mission step.
-- A Coding Delegate (Hephaestus) run that completes under the turn limit, and
-  Organizer acceptance of its real result.
-- The engine sign-in checks against Kevin's real Codex and Claude Code installs.
-- The voice signal against real ElevenLabs replies, realtime voice and the
-  microphone in WebView2. The harness uses synthetic audio only.
-- A paid Research / Verification run from the UI.
-- Live-provider skill guidance.
-- A project brief saved since the 2026-10-12 vault-commit change.
-- Process-crash timing.
-- Migration 2 on Kevin's real database, its backup, and the refusal when an
-  older binary meets the migrated database.
-- A paid memory pass, a chat note and memory note written to the real vault with
-  their commits, and learning from earlier chats.
+Plan: superpowers/plans/2026-11-03-conversational-corrections.md.
+
+## Verification
+
+Combined 0.43.0 tree: build passed; 672 offline Rust tests passed, 24 live/explicit
+checks ignored; all 71 script checks passed; visual regression passed 21 captures,
+14 functional and 22 Organizer checks. The shipped flagship capture was separately
+inspected, including Zeus at 152 scene units. No assertions were weakened.
+See reviews/2026-11-03-release-0.43.0.md and output/release-0.43.
+
+Prior milestone verification: 672 offline Rust tests passed, 24 live/explicit
+tests ignored. Build and all 71
+script checks passed. Standard visual regression: 21 captures, 14 functional and
+22 Organizer checks passed; shipped flagship separately inspected. One independent
+review's Important false-positive finding was fixed with a failing/passing regression.
+Ordinary "Actually, tell me ..." requests no longer change handled email state.
+Deferred Minor: duplicate subjects produce an unusable subject-only clarification;
+no ambiguous source is selected. See reviews/2026-11-03-conversational-corrections.md.
+The real ChatPanel renders ordinary statements, clarification and native synthetic
+acknowledgments at wide/narrow widths, without overflow or management controls.
+Native tests cover source/revision/privacy changes, append replay, duplicate subjects
+and transaction rollback; frontend tests cover save ordering, no provider invocation
+for local replies, and cancellation before later interpretation. Evidence:
+output/conversational-corrections and output/conversation-feedback-browser.
+
+Build retains the existing chunk-size warning. The separate flagship ring-count
+assertion is a known baseline mismatch; no assertion was weakened. Standard visual
+review is separate from native WebView2/Tauri or live-provider acceptance.
+
+## Remaining boundaries
+
+Live Gmail recovery and Google consent publishing mode remain unverified. Preserve
+the seven-day horizon and all provider/consent/spending gates. Native rollout still
+requires a restorable operational DB backup; migration 3 is additive and uninstalled,
+and older binaries reject the newer schema. Historical auth/acceptance blockers:
+archive/NEXT-SESSION-before-2026-11-02-gmail-foundation.md. Research import and
+the original checkout remain separate; the committed Zeus-height branch is included. Saving this milestone does not complete the
+requested Obsidian audit.

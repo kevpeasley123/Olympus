@@ -34,3 +34,9 @@
 .model-attribution dl{display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 10px;padding:9px;background:#0a1722;border:1px solid #3b4a56;border-radius:4px}
 .model-attribution dt{color:#94acbd}.model-attribution dd{margin:0;color:#d0dce4;overflow-wrap:anywhere}
 @media(max-width:400px){.model-route-control .model-route-trigger{font-size:10px;padding:5px 6px}.olympus-model-picker{padding:9px}}
+.olympus-model-picker .model-picker-group{margin:12px 0 6px;font:600 10px var(--font-sans);text-transform:uppercase;letter-spacing:.1em;color:#b3c5d2}
+.olympus-model-picker .model-picker-group:first-of-type{margin-top:0}
+.olympus-model-picker .model-picker-group+.model-picker-options~.model-picker-group{margin-top:16px;padding-top:12px;border-top:1px solid #314350}
+.model-picker-confirm{margin-top:8px;padding:9px 10px;border:1px solid #caa559;border-radius:6px;background:#1d1b14}
+.model-picker-confirm p{margin:0 0 8px}
+.model-picker-confirm button{min-height:32px;padding:0 14px;border:1px solid #caa559;border-radius:4px;background:#2d2717;color:#f1cf8a}

@@ -8,7 +8,7 @@ Preferences > Subscription engines checks the executable, version and CLI sign-i
 
 An explicit override must name an existing absolute file; a bad override never falls back. Overrides are environment configuration, not new persisted credentials or settings. The selected path and version are visible. Capability claims are limited to CLI-help versions inspected in the Windows spike; other versions are labelled unverified. Advertised streaming, schema output and ephemeral sessions do not establish successful live behavior.
 
-Sign-in and billing eligibility are separate. A subscription can allow extra paid usage after its limits. This slice has no supported proof that overage is disabled, so subscription generation remains blocked. The existing Claude delegation gate also refuses launches, including resumes, while eligibility is unknown. Existing explicit API conversation routes are unchanged. No UI checkbox can grant billing eligibility and no automatic fallback, refill or purchase is added.
+Sign-in and billing eligibility are separate. A subscription can allow extra paid usage after its limits. This slice has no supported proof that overage is disabled, so subscription generation remains blocked. The existing Claude delegation gate also refuses launches, including resumes, while eligibility is unknown. The unreleased shared spending policy blocks paid API generation before transport; read-only quota readers remain available. No UI checkbox can grant billing eligibility and no automatic fallback, refill or purchase is added.
 
 ## Usage surface
 

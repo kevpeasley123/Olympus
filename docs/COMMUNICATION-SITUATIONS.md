@@ -46,6 +46,16 @@ The configured email analysis route (the OpenAI primary model by default; an opt
 
 Frontend snapshots poll without initiating model calls: every 3 s while the maps are shown, 15 s otherwise, and not while the window is hidden. The poll passes its revision and an unchanged snapshot is not re-parsed. `situation_snapshot` also reports understanding freshness: last publish, last attempt, consecutive failures and the worker's real resume time during backoff. Existing map node positions, selected situation/person, scroll and editable draft text survive refreshes. New people fade in briefly, with reduced-motion support. Source changes mark findings/drafts stale; old understanding remains visibly available. Preflight and run failures are surfaced instead of silently presenting completion.
 
+Read-only analysis preflight runs before vault discovery or inference. Provider
+blocks and missing/unsupported configuration detected by preflight leave analysis pending without a new
+run or completion timestamp, and without increasing or clearing genuine failure
+backoff. Existing retry delays still apply. Eligibility is checked again at the
+inference boundary; status is not proof that runtime analysis will succeed.
+Paused, cooldown, syncing, authentication waits and unchanged snapshots are
+skipped outcomes, not successes that erase real failure history. Refresh outcomes
+retain the starting account identity; an old account's completion cannot overwrite
+the current account's error or backoff. Cadence consults the active account's delay.
+
 ## Bounds
 
 - Existing Gmail history range and 2,000-message cache bound apply. This cannot reconstruct pre-cache correspondence.

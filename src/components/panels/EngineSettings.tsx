@@ -1,7 +1,8 @@
-import { Fragment, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { isTauriRuntime } from "../../services/launcher";
-import { describeBilling, describeSignIn, loadEngineStatus, type EngineStatus } from "../../services/engines";
+import { confirmClaudeSubscription, describeBilling, describeSignIn, loadClaudeAuthorization, loadEngineStatus, revokeClaudeSubscription, type ClaudeSubscriptionAuthorization, type EngineStatus } from "../../services/engines";
 import "./command.css";
+import { ChatGPTPlanConnection } from "./ChatGPTPlanConnection";
 import {useConversationProvider,selectConversationProvider} from "../../services/conversationProvider";
 
 /**
@@ -16,6 +17,16 @@ export function EngineSettings({autoInspect=true,inspection}:{autoInspect?:boole
   const [error, setError] = useState<string | null>(null);
   const desktop = inspection?.available ?? isTauriRuntime();
   const inFlight = useRef(false);
+  const [claude, setClaude] = useState<ClaudeSubscriptionAuthorization | null>(null);
+  const [claudeBusy, setClaudeBusy] = useState(false);
+  useEffect(() => { if (desktop && !inspection) loadClaudeAuthorization().then(setClaude, () => setClaude(null)); }, [desktop, inspection]);
+
+  async function changeClaude(action: () => Promise<ClaudeSubscriptionAuthorization>) {
+    setClaudeBusy(true);
+    try { setClaude(await action()); setError(null); }
+    catch (reason) { setError(String(reason)); }
+    finally { setClaudeBusy(false); }
+  }
 
   async function check() {
     if (!desktop || inFlight.current) return;
@@ -38,11 +49,26 @@ export function EngineSettings({autoInspect=true,inspection}:{autoInspect?:boole
       <summary>Subscription engines</summary>
       <label>Conversation provider <select aria-label="Conversation provider" value={provider ?? ""} onChange={event=>selectConversationProvider(event.target.value)}>
         <option value="" disabled>Choose explicitly</option>
-        <option value="codex">Codex subscription — blocked pending verification</option>
-        <option value="legacy-api">Legacy API — API charges may apply</option>
-        <option disabled>Claude subscription — not implemented</option>
+        <option value="codex">Codex subscription — only with no purchased credits</option>
+        <option value="legacy-api">Legacy API — blocked without spending approval</option>
+        <option value="claude-code">{claude?.confirmedAt ? "Claude subscription — Max allowance only" : "Claude subscription — needs your confirmation"}</option>
       </select></label>
-      <p>Selection lasts for this app session. No automatic fallback. Subscription chat is text-only; billing and tool isolation remain unverified.</p>
+      <p>Selection lasts for this app session. No automatic fallback. Subscription chat is text-only. Included-plan billing must be verified before generation; quota readings do not grant permission to spend.</p>
+      {desktop && claude ? (
+        <fieldset className="claude-subscription-confirmation">
+          <legend>Claude subscription chat</legend>
+          {claude.confirmedAt ? (
+            <p role="status">Confirmed for {claude.email} on {new Date(claude.confirmedAt).toLocaleString()}. Each message first checks that this Max account is still the one signed in, and stops otherwise.</p>
+          ) : (
+            <p>Olympus cannot see your Claude billing settings. Confirm only after turning off usage credits at claude.ai, Settings &gt; Usage. Olympus records the Max account signed in now and refuses to chat under any other.</p>
+          )}
+          <p><q>{claude.statement}</q></p>
+          {claude.confirmedAt
+            ? <button type="button" className="ghost-action" disabled={claudeBusy} onClick={() => void changeClaude(revokeClaudeSubscription)}>Withdraw confirmation</button>
+            : <button type="button" className="ghost-action" disabled={claudeBusy} onClick={() => void changeClaude(() => confirmClaudeSubscription(claude.statement))}>{claudeBusy ? "Checking sign-in…" : "I confirm"}</button>}
+        </fieldset>
+      ) : null}
+      <ChatGPTPlanConnection />
       {!desktop ? <p role="status">Engine checks run in the desktop app.</p> : null}
       {engines ? (
         <dl className="model-diagnostics-routes">
@@ -68,7 +94,7 @@ export function EngineSettings({autoInspect=true,inspection}:{autoInspect?:boole
       ) : null}
       {error ? <p role="status">{error}</p> : null}
       <p>
-        Sign-in is not proof that paid overage is disabled. Subscription generation and delegation stay blocked. Legacy API conversation requires an explicit choice.
+        No-extra-spend policy: paid API reasoning and OpenAI voice are blocked. Subscription generation, background analysis and memory synthesis are blocked pending pre-launch spending protection and isolation. There is no Codex or API fallback. ElevenLabs speaks only while usage-based billing is off and your plan has characters left for the reply. Your saved settings are preserved. Subscription sign-in is not proof that usage credits are disabled: the saved Claude confirmation does not open generation, and Codex generation stays blocked until included-allowance-only protection is established. Delegation stays blocked.
       </p>
       <p>To select an exact installation, set OLYMPUS_CODEX or OLYMPUS_CLAUDE_CODE to its full executable path before starting Olympus. An invalid override is refused, without selecting another installation. This check never changes sign-in or billing.</p>
     </details>

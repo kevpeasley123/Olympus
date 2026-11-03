@@ -29,8 +29,16 @@ it, but it is not a sandbox, so safety comes first.
 Olympus reopens in the mode it was left in; Command is the default. Command is
 the ambient and glanceable state of the system, readable from across the room: the Armory at left, the Pantheon instrument at
 the centre, and the companion console at right. When the Opening Briefing
-preference is on, the console opens with a short briefing built only from
-provable project state, spoken when spoken replies are on. Project cards,
+preference is on, the console offers a bounded factual update from project state
+and current source-backed email attention, with recent learned conversation context
+when memory is enabled, spoken when spoken replies are on. Remembered summaries
+are labelled separately from verified source facts.
+Unchanged displayed items are suppressed between openings; coverage failures are
+identified rather than presented as no news. This factual foundation does not
+claim fresh model analysis. Handled does not mean completed, and feedback for
+one source does not infer a general preference. Understanding must not depend on
+Kevin using a correction form or managing a learning panel.
+See `docs/BRIEFING-INTELLIGENCE.md` and `docs/EMAIL-ATTENTION.md`. Project cards,
 briefing detail and repository facts belong in Project mode.
 
 Project mode opens a purpose-first portfolio: distinct project cards with a name,
@@ -40,6 +48,29 @@ with repository facts and vault navigation in background details. Unknown state
 stays explicit; recorded intent does not imply readiness, approval or
 execution. Review with Olympus supplies context to the console and waits for
 the operator to send. See `PROJECT-COMMAND-BOARD.md`.
+
+## Understanding without extra organizing work
+
+Olympus should build project and workflow understanding automatically from eligible
+conversations and connected sources. Kevin does not have to categorize, label,
+route or file conversations, approve each memory, or maintain learning records.
+Project associations and provisional patterns are Olympus's responsibility.
+The Obsidian memory system should accumulate source-grounded understanding over
+time and inform briefs and conversations. Saving notes alone is insufficient;
+relevant, current memory must be retrieved and used, with its provenance intact.
+Normal conversation is the default way to correct it: a direct correction such
+as "I already handled that" should update relevant understanding in context.
+
+Keep facts, operator statements and provisional inferences distinct internally;
+maintain provenance and recoverability without turning them into daily user work.
+Ask a short clarification only when ambiguity matters to a consequential action.
+Do not treat silence as consent or infer completion from a dismissed suggestion.
+Temporary chats remain excluded. Permission, cost and action-approval boundaries
+still apply; automatic understanding does not grant new execution authority.
+
+This is the product direction. Current implementation and remaining provider or
+runtime gaps are documented in `docs/NEXT-SESSION.md`; do not claim automatic
+understanding is working merely because storage or a worker exists.
 
 ## Project truth
 

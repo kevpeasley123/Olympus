@@ -1,6 +1,6 @@
 [package]
 name = "project-olympus"
-version = "0.42.0"
+version = "0.43.0"
 description = "Local-first AI command station for projects, research, workflows, and Obsidian-backed memory."
 authors = ["Project Olympus"]
 edition = "2021"
@@ -23,6 +23,7 @@ reqwest = { version = "0.12", features = ["blocking", "json", "rustls-tls", "str
 futures-util = { version = "0.3", default-features = false, features = ["std"] }
 once_cell = "1"
 sha2 = "0.10"
+ring = "0.17.14"
 tokio = { version = "1", features = ["sync", "time"] }
 chrono = { version = "0.4", default-features = true, features = ["clock"] }
 dotenvy = "0.15"

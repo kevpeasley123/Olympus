@@ -1,25 +1,81 @@
 # Subscription text conversation
 
-Unreleased offline implementation on `codex/engine-status-usage`. Live subscription generation remains disabled. No successful real-provider turn is claimed.
+## Current generation boundary
 
-## Routing and history
+Claude and Codex generation entry points fail closed before authorization lookup,
+executable discovery or transport while pre-launch spending protection remains
+unestablished. Account/usage inspection remains separate and available. Saved keys,
+subscription sign-in, quota snapshots and historical confirmations do not open this
+gate. There is no subscription-to-API fallback. Current dated evidence and remaining
+acceptance steps are in `NEXT-SESSION.md`.
 
-Preferences > Subscription engines offers an explicit session-only conversation provider choice. No choice means no request. Codex subscription branches at the existing assistant command before skill review, repository enrichment, memory retrieval or paid API routing. Legacy API remains available only after an explicit choice; its existing model picker and provider behavior are unchanged. There is no subscription-to-API fallback. Claude subscription conversation is not implemented; Claude delegation remains blocked.
+The UI retains explicit provider/model selection and shows blocked generation.
+Olympus owns bounded history, memory and vault context. The existing Claude model
+choices and adapters are retained for later verified reopening, not proof of current
+native acceptance. The older Codex no-credit-snapshot eligibility implementation
+cannot bypass the outer generation refusal.
 
-Olympus still stores and supplies the conversation. Each Codex turn starts a fresh ephemeral app-server thread, with the Olympus user/assistant history encoded as JSON in a text input. The current bound is 40 messages and 120,000 characters; oversized or invalid histories are refused rather than silently truncated. This slice uses conversation history and explicit attached text, not the legacy route's additional memory/source enrichment. Voice is refused on the subscription route.
+## Claude isolation and account confirmation
 
-## Protocol and process ownership
+The adapter selects the reviewed Claude executable version, uses a neutral temporary
+working directory, a restricted environment with automatic CLI updates disabled,
+safe/restricted CLI flags, empty tools
+and MCP, and validates initialization metadata. Existing or unreadable managed file
+and registry policy refuses launch. The account-bound operator confirmation lives in
+backend-owned app data; signed-in claude.ai / firstParty / Max must match it. That
+record is a user assertion, not a live provider observation of billing settings.
+The separate subscription sign-in inspection also disables automatic CLI updates
+in its child environment; inspection does not reopen the generation gate.
 
-The wire fields were checked against schemas generated locally by installed `codex-cli 0.163.0-alpha.10.2`, without starting an inference session. The adapter uses initialize, thread/start, turn/start and best-effort turn/interrupt; requests `gpt-6.1-sol`, ephemeral history, read-only sandbox, no approvals, empty environments/dynamic tools/capability roots, and no provider model fallback. These settings are not proof that inherited tools or plugins are disabled.
+Only the previously approved `agents-md` and `telemetry` built-ins are accepted.
+Any additional plugin, tool, MCP server, model mismatch or API-key source is refused.
+The system/init inventory can arrive after prompt submission; rejecting it cannot
+prove no provider work occurred. Official documentation says built-ins are omitted
+from `plugin list`, so that read-only list is not sufficient preflight proof.
 
-Text deltas use the existing assistant channel. Completion, cancellation, limit and error have explicit terminal events. Unexpected server requests, non-text items, rerouting, malformed/oversized frames, missing terminal output and unknown events stop the turn without retry. Partial text is preserved with an app-level notice. Process stdin/stdout have separate bounded workers so a stalled child cannot hold the cancellation loop. Every result kills and reaps the child; cooperative cancellation waits for cleanup before releasing the existing active-turn slot. Cancellation cannot promise reversal of provider work already accepted.
+Successful result acceptance additionally requires rate-limit telemetry explicitly
+showing no overage in use, overage rejected and organization-level disabled state.
+Missing or ambiguous telemetry is not success. This check is retrospective; it does
+not replace the pre-launch gate. Overage revokes the normal saved confirmation.
 
-## Live blockers
+## Process and protocol ownership
 
-The production launch gate rejects before executable discovery or process creation. No supported no-overage proof is wired. Independently, app-server tool/config isolation is unverified: this installed app-server does not expose exec's `--ignore-user-config` switch, and its schema says disabledPluginIds does not yet filter plugin capabilities. Removing only the billing refusal would still leave the isolation refusal. There is no UI override or test bypass at the IPC boundary.
+Both adapters bound history, frames and output; reject unknown/tool/reroute events;
+preserve partial text with explicit failure notices; and provide terminal events.
+Codex item lifecycle events require the active thread and turn before acceptance;
+missing identities cannot be treated as activity belonging to the current reply.
+Windows children start suspended and enter a kill-on-close job before resuming.
+Cancellation closes owned processes and reaps children before releasing the active
+turn. It cannot undo provider work already accepted. Synthetic tests cover success,
+malformed streams, EOF, blocked stdin and cancellation without calling providers.
 
-Before enabling live acceptance, establish supported billing eligibility, configuration/tool isolation and exact executable/protocol version compatibility. Real authentication, stream event ordering, model availability, cancellation, limit events and billing behavior are unverified. Protocol tests use synthetic data, not recordings represented as real observations.
+## Background jobs and voice
 
-## Offline checks
+The structured job runner retains Claude model routing for memory, email analysis,
+reply drafts, inspection and research, but reports unavailable while Claude's outer
+generation gate is closed. Codex fallback is removed. Paid OpenAI/Anthropic reasoning
+and OpenAI realtime voice/transcription remain denied by the shared spending policy.
 
-`node scripts/test-subscription-selection.mjs` covers explicit choice, Codex IPC routing without API skill review, and no retry after refusal. Rust `subscription::tests` covers handshake, bounds, role validation, scoped events, limits, unexpected tools/reroutes, terminal events, cooperative cancellation, and synthetic PowerShell subprocess streams for success, malformed output, EOF and blocked stdin. The synthetic subprocesses do not execute Codex or call providers.
+ElevenLabs retains its separate pre-request subscription check: usage-based billing
+must be disabled and enough included characters must remain. Quota access and this
+working integration are preserved. Opening briefings and speech use the same guarded
+synthesis boundary. This work did not exercise real speech.
+
+## Isolated native acceptance profile
+
+The debug-only `com.projectolympus.claudeacceptance` identifier requires a fixture
+profile. Explicit opt-in can read the existing production account confirmation;
+it cannot copy, create, withdraw or delete that record. Overage revocation is local
+to the acceptance process. Background model work, Gmail and speech are disabled.
+The profile does not bypass either generation gate. The separate Tauri configuration
+is `scripts/acceptance/tauri.claude-acceptance.json`. A prepared profile is not a
+built, launched or accepted native app.
+
+## Supported references
+
+- [Claude plugin CLI](https://code.claude.com/docs/en/plugins/cli-reference)
+- [Built-in plugins](https://code.claude.com/docs/en/plugins/mods/overview)
+- [Claude usage and costs](https://code.claude.com/docs/en/costs)
+
+Historical live successes and subsequent failures are retained in the archived
+handoff. They do not establish present billing protection or native acceptance.
