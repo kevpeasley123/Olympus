@@ -1,5 +1,31 @@
 use super::*;
 #[test]
+fn outcome_from_previous_account_cannot_write_current_account_error() {
+    let db = database();
+    let started_account = account(&db.0.lock().unwrap()).unwrap().id;
+    {
+        let c = db.0.lock().unwrap();
+        store::disconnect(&c, &started_account).unwrap();
+        store::connect(&c, "other-review-account", "other@example.invalid", 30).unwrap();
+        ensure(&c, "other-review-account").unwrap();
+    }
+    record_outcome(&db, &started_account, &Err("situation_context_changed_retry".into()));
+    let c = db.0.lock().unwrap();
+    let error: Option<String> = c.query_row("SELECT last_error FROM communication_situation_state WHERE account_id='other-review-account'", [], |r| r.get(0)).unwrap();
+    assert!(error.is_none(), "an outcome from {started_account} must not contaminate the new account");
+}
+#[test]
+fn waiting_for_analysis_preserves_real_failure_backoff() {
+    let mut state = Backoff::default();
+    state.record(Some("fixture"), &Err("model_failed".into()), 100);
+    let before = state.for_account("fixture");
+    state.record(Some("fixture"), &Err("analysis_waiting:generation_protection".into()), 200);
+    assert_eq!(state.for_account("fixture"), before);
+    let mut empty = Backoff::default();
+    empty.record(Some("fixture"), &Err("analysis_waiting:generation_protection".into()), 200);
+    assert_eq!(empty.for_account("fixture"), (0, 0));
+}
+#[test]
 fn private_context_is_ui_only_and_account_scoped() {
     let db=database();let mut c=db.0.lock().unwrap();
     c.execute("INSERT INTO communication_situations(account_id,id,title,updated_at) VALUES('fixture','house','Home','now')",[]).unwrap();
@@ -82,7 +108,7 @@ fn background_failures_back_off_to_a_bounded_ceiling() {
 #[test]
 fn backoff_is_reported_only_for_the_account_that_failed() {
     let mut state = Backoff::default();
-    let failed: Result<(), String> = Err("situation_model_failed".into());
+    let failed: Result<RefreshOutcome, String> = Err("situation_model_failed".into());
     state.record(Some("fixture"), &failed, 1_000);
     state.record(Some("fixture"), &failed, 2_000);
     assert_eq!(state.for_account("fixture"), (2, 2_000 + backoff_ms(2)));
@@ -100,7 +126,7 @@ fn backoff_is_reported_only_for_the_account_that_failed() {
     // Not connected or a busy database is not a failed attempt.
     state.record(None, &Err("gmail_not_connected".into()), 4_000);
     assert_eq!(state.for_account("other"), (1, 3_000 + backoff_ms(1)));
-    state.record(Some("other"), &Ok(()), 5_000);
+    state.record(Some("other"), &Ok(RefreshOutcome::Completed), 5_000);
     assert_eq!(state.for_account("other"), (0, 0));
 }
 #[test]

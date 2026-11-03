@@ -130,7 +130,10 @@ See [COMMUNICATIONS.md](COMMUNICATIONS.md) for the fourth dashboard mode: Situat
 
 Native status now reports analysis readiness separately from Gmail synchronization.
 The default subscription analysis route remains blocked by its existing safeguards;
-a configured local model is explicitly unverified by this status read. Sync success
+a valid configured local model is explicitly unverified by this status read. Status
+and execution share local-model validation and return a stable readiness code and
+`canAttempt` separately from demonstrated success. Invalid or cloud model names
+are unconfigured. Acceptance isolation blocks both routes. Sync success
 does not establish that email understanding is current. No model is invoked by status.
 
 Token-request transport distinguishes timeout and connection failure from revoked

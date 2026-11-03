@@ -5,9 +5,8 @@ automatically, the way ChatGPT and Claude do. You never approve a memory; you
 can read and edit everything Olympus remembers, in Obsidian, at any time. This
 replaced the earlier "not every exchange earns a vault note" decision.
 
-Released in 0.33.0 (2026-10-13). Verified in a Linux container only: not yet
-run in the desktop app, against Kevin's database, or with a real paid memory
-request (see `docs/RELEASES.md`).
+For dated verification and remaining native acceptance work, see
+`docs/NEXT-SESSION.md`. The worker's presence does not prove live learning succeeds.
 
 ## What Kevin sees
 
@@ -44,9 +43,10 @@ request (see `docs/RELEASES.md`).
     remembers**, all on by default.
   - Turning learning off stops new updates; it does not delete the note.
   - The panel shows how many chats are saved, when Olympus last learned from a
-    chat, and any chats it stopped retrying.
+    chat, pending chats, analysis eligibility, and any chats it stopped retrying.
+    Pending or blocked work is not described as learned.
   - It offers to learn from the chats kept before this change, after saying how
-    many paid requests that is.
+    many subscription requests that may use when analysis is available.
 
 ## How it works
 
@@ -68,9 +68,10 @@ been quiet for ten minutes, and has messages it has not handled, at most three
 per tick and oldest first:
 
 1. **Learn**, when learning is on. One request through the operator's
-   subscriptions (`commands/subscription_jobs.rs`): Claude Opus 5.5 first,
-   Codex as the backup, each under its own chat gate, never a paid API. It
-   sends:
+   subscription route (`commands/subscription_jobs.rs`). Its read-only preflight
+   checks generation protection, acceptance isolation and account confirmation.
+   The Claude generation gate remains closed; no Codex or paid API fallback runs.
+   Eligible execution must still pass the runtime gate. The request sends:
    - today's date;
    - the current memory note;
    - the names of notes in `01 - Projects` and `04 - Decisions`, the only
@@ -83,15 +84,23 @@ per tick and oldest first:
    It returns a title (kept if Kevin renamed the chat), a summary of the whole
    chat, and the complete updated memory sections (under 2,000 words), as one
    JSON object checked for every field. Each attempt is recorded with purpose
-   `memory` in Model diagnostics, a Codex attempt marked as falling back from
-   Claude.
+   `memory` in Model diagnostics. An initial preflight block creates no inference
+   request. If a caller already saved a request before a subsequent preflight
+   refusal, diagnostics finalizes that record as blocked, not still started.
    - If only Olympus spoke since the last pass (a briefing added to a reopened
      chat), the messages are marked seen and no request is made.
-   - A failure is recorded on the chat and retried after 30 minutes, then 60,
+   - A blocked preflight leaves work pending without advancing the learning
+     watermark, recording success, or consuming a failure. It is checked again
+     automatically. A block between selection and execution also preserves retries.
+   - A genuine failure is recorded on the chat and retried after 30 minutes, then 60,
      then 120. After four failures in a row the chat stops retrying until Kevin
      turns learning off and on.
 2. **Save the note**, when saving is on. A note written before the pass is
    saved again after it, so it carries the new title and summary.
+
+Blocked learning does not occupy the archive batch: newer chat notes still save.
+Existing exhausted rows are not reset automatically because the last error alone
+cannot establish whether earlier failures were genuine.
 
 If the vault is not reachable, nothing is attempted.
 

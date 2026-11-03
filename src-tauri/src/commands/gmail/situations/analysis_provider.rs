@@ -6,9 +6,14 @@ pub(super) fn route()->Result<(String,String),String>{
  let provider=std::env::var("OLYMPUS_EMAIL_ANALYSIS_PROVIDER").unwrap_or_else(|_|"openai".into());
  match provider.as_str(){
   "openai"=>Ok((provider,models::PRIMARY_MODEL.into())),
-  "ollama"=>{let model=std::env::var("OLYMPUS_EMAIL_MODEL").unwrap_or_default();if model.trim().is_empty()||model.len()>128||model.contains("cloud")||!model.bytes().all(|b|b.is_ascii_alphanumeric()||b"-_.:/".contains(&b)){return Err("local_email_model_not_configured".into())}Ok((provider,model))},
+  "ollama"=>{let model=std::env::var("OLYMPUS_EMAIL_MODEL").unwrap_or_default();if !crate::commands::analysis_readiness::valid_local_model(&model){return Err("local_email_model_not_configured".into())}Ok((provider,model))},
   _=>Err("email_analysis_provider_unknown".into())
  }
+}
+pub(super) fn readiness() -> crate::commands::analysis_readiness::AnalysisReadiness {
+ let provider = std::env::var("OLYMPUS_EMAIL_ANALYSIS_PROVIDER").unwrap_or_else(|_| "openai".into());
+ let model = std::env::var("OLYMPUS_EMAIL_MODEL").ok();
+ crate::commands::gmail::health::analysis_readiness(&provider, model.as_deref())
 }
 async fn bounded_json(mut response:reqwest::Response)->Result<Value,String>{
  if !response.status().is_success(){return Err("local_email_request_failed".into())}
@@ -21,6 +26,7 @@ fn local_output(value:&Value,model:&str)->Result<String,String>{
  serde_json::from_str::<Value>(content).map_err(|_|"local_email_invalid_output")?;Ok(content.into())
 }
 pub(super) async fn infer(db:&Db,instructions:&str,input:Value,schema:Value,purpose:&str)->Result<(String,Value),String>{
+ readiness().require()?;
  if input.to_string().len()>220000{return Err("situation_model_input_budget".into())}
  let (provider,model)=route()?;
  if provider=="openai"{

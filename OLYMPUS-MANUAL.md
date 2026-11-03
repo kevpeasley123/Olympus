@@ -53,6 +53,9 @@ Olympus should build project and workflow understanding automatically from eligi
 conversations and connected sources. Kevin does not have to categorize, label,
 route or file conversations, approve each memory, or maintain learning records.
 Project associations and provisional patterns are Olympus's responsibility.
+The Obsidian memory system should accumulate source-grounded understanding over
+time and inform briefs and conversations. Saving notes alone is insufficient;
+relevant, current memory must be retrieved and used, with its provenance intact.
 Normal conversation is the default way to correct it: a direct correction such
 as "I already handled that" should update relevant understanding in context.
 

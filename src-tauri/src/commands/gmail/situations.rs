@@ -339,6 +339,9 @@ fn edit(c: &mut Connection, id: &str, action: Edit, value: &str) -> Result<(), S
     bump(&tx, &a.id)?;
     tx.commit().map_err(err)
 }
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum RefreshOutcome { Skipped, Completed }
+
 // Repeating failures would repeat paid calls. Consecutive failures back off
 // from five minutes to four hours; any success, manual or background, resets.
 // Held in memory only, so a restart retries once. The account the failures
@@ -358,9 +361,11 @@ impl Backoff {
             (0, 0)
         }
     }
-    fn record(&mut self, account: Option<&str>, result: &Result<(), String>, now_ms: i64) {
+    fn record(&mut self, account: Option<&str>, result: &Result<RefreshOutcome, String>, now_ms: i64) {
         match result {
-            Ok(()) => *self = Backoff { account: account.map(str::to_string), ..Backoff::default() },
+            Ok(RefreshOutcome::Skipped) => {}
+            Err(e) if crate::commands::analysis_readiness::is_waiting(e) => {}
+            Ok(RefreshOutcome::Completed) => *self = Backoff { account: account.map(str::to_string), ..Backoff::default() },
             Err(e) if e != "gmail_not_connected" && e != "database_busy" => {
                 // A different account starts its own count.
                 let prior = if self.account.as_deref() == account { self.failures } else { 0 };
@@ -383,22 +388,20 @@ static BACKOFF: Mutex<Backoff> = Mutex::new(Backoff {
 fn backoff_ms(failures: u32) -> i64 {
     (300_000i64 << failures.saturating_sub(1).min(6)).min(14_400_000)
 }
-fn record_outcome(db: &Db, result: &Result<(), String>) {
-    let mut processed = None;
+fn record_outcome(db: &Db, started_account: &str, result: &Result<RefreshOutcome, String>) {
+    if matches!(result, Ok(RefreshOutcome::Skipped)) { return; }
     if let Ok(c) = db.0.lock() {
-        if let Ok(a) = account(&c) {
-            if ensure(&c, &a.id).is_ok() {
-                let _ = c.execute(
-                    "UPDATE communication_situation_state SET last_error=?2 WHERE account_id=?1",
-                    params![a.id, result.as_ref().err()],
-                );
-            }
-            processed = Some(a.id);
-        }
-    }
+        let Ok(a) = account(&c) else { return; };
+        if a.id != started_account { return; }
+        if ensure(&c, started_account).is_err() { return; }
+        let _ = c.execute(
+            "UPDATE communication_situation_state SET last_error=?2 WHERE account_id=?1",
+            params![started_account, result.as_ref().err()],
+        );
+    } else { return; }
     if let Ok(mut state) = BACKOFF.lock() {
         state.record(
-            processed.as_deref(),
+            Some(started_account),
             result,
             chrono::Utc::now().timestamp_millis(),
         );
@@ -410,12 +413,11 @@ pub fn start_cadence(app: tauri::AppHandle) {
         loop {
             // Unlike the display, this worker remains active when Communications is not selected.
             let db = app.state::<Db>();
-            // Gated on the last failure whichever account it was: a wait that is
-            // too long costs a delay, one too short repeats paid calls.
-            let resume_at = BACKOFF.lock().map(|state| state.resume_at).unwrap_or(0);
+            let active = db.0.lock().ok().and_then(|c| account(&c).ok()).map(|a| a.id);
+            let resume_at = BACKOFF.lock().map(|state|
+                active.as_deref().map(|id| state.for_account(id).1).unwrap_or(0)).unwrap_or(0);
             if chrono::Utc::now().timestamp_millis() >= resume_at {
-                let result = engine::refresh(&db, false).await;
-                record_outcome(&db, &result);
+                let _ = engine::refresh(&db, false).await;
             }
             tokio::time::sleep(std::time::Duration::from_secs(30)).await;
         }

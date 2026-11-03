@@ -508,7 +508,14 @@ fn checked(answer: Answer) -> Result<Answer, String> {
     Ok(Answer { title, memory, ..answer })
 }
 
+#[cfg(test)]
 async fn learn(db: &Db, chat: &Chat, root: &Path) -> Result<(), String> {
+    learn_with(db, chat, root, &|input| super::subscription_jobs::structured(db, "memory", INSTRUCTIONS, input, schema())).await
+}
+
+async fn learn_with<F, Fut>(db: &Db, chat: &Chat, root: &Path, model: &F) -> Result<(), String>
+where F: Fn(Value) -> Fut, Fut: std::future::Future<Output = Result<String, String>> {
+
     let target = vw::resolve_within(root, Path::new(MEMORY_NOTE)).map_err(|e| e.to_string())?;
     let before = vw::read_existing(&target)?;
     let current = before.as_deref().map(memory_text).unwrap_or_default();
@@ -525,9 +532,9 @@ async fn learn(db: &Db, chat: &Chat, root: &Path) -> Result<(), String> {
         return Ok(());
     }
 
-    // Subscriptions, not the paid API: Claude first, Codex as the backup.
+    // Production supplies the gated subscription analyzer; tests supply synthetic output.
     let notes = linkable_notes(root);
-    let result = super::subscription_jobs::structured(db, "memory", INSTRUCTIONS, pass_input(chat, &current, &lines, more, &notes), schema()).await;
+    let result = model(pass_input(chat, &current, &lines, more, &notes)).await;
     let answer = checked(serde_json::from_str::<Answer>(&result?).map_err(|_| "memory_pass_invalid_output")?)?;
     store_answer(db, chat, root, &target, before.as_deref(), &answer, seen)
 }
@@ -557,6 +564,7 @@ fn store_answer(db: &Db, chat: &Chat, root: &Path, target: &Path, before: Option
 }
 
 fn record_failure(db: &Db, id: &str, error: &str) {
+    if super::analysis_readiness::is_waiting(error) { return; }
     if let Ok(c) = db.0.lock() {
         let _ = c.execute(
             "UPDATE conversations SET memory_attempted_at = ?2, memory_error = ?3, memory_failures = memory_failures + 1 WHERE id = ?1",
@@ -568,13 +576,24 @@ fn record_failure(db: &Db, id: &str, error: &str) {
 /// One pass over quiet chats: learn first, so a new note carries the model's
 /// title and summary, then save the note.
 pub async fn tick(db: &Db) {
+    let root = match vault_root() {
+        Ok(root) => root,
+        Err(error) => { eprintln!("[Olympus::ChatMemory] {error}"); return; }
+    };
+    tick_with(db, &root, super::subscription_jobs::readiness(), |input|
+        super::subscription_jobs::structured(db, "memory", INSTRUCTIONS, input, schema())).await;
+}
+
+async fn tick_with<F, Fut>(db: &Db, root: &Path, readiness: super::analysis_readiness::AnalysisReadiness, model: F)
+where F: Fn(Value) -> Fut, Fut: std::future::Future<Output = Result<String, String>> {
     let (chats, settings) = {
         let Ok(c) = db.0.lock() else { return };
         let settings = settings(&c);
         if !settings.save_chats && !settings.learn {
             return;
         }
-        match due(&c, settings) {
+        // Do not let the oldest blocked learning work occupy the archive batch.
+        match due(&c, Settings { learn: settings.learn && readiness.can_attempt, ..settings }) {
             Ok(chats) => (chats, settings),
             Err(error) => {
                 eprintln!("[Olympus::ChatMemory] could not read chats: {error}");
@@ -582,19 +601,10 @@ pub async fn tick(db: &Db) {
             }
         }
     };
-    let root = match vault_root() {
-        Ok(root) => root,
-        Err(error) => {
-            // Nothing is attempted, so no paid request is spent on a pass whose
-            // result could not be written.
-            eprintln!("[Olympus::ChatMemory] {error}");
-            return;
-        }
-    };
     for chat in chats {
         let mut chat = chat;
         if chat.memory_due {
-            match learn(db, &chat, &root).await {
+            match learn_with(db, &chat, root, &model).await {
                 Ok(()) => {
                     if let Ok(c) = db.0.lock() {
                         if let Ok(summary) = c.query_row("SELECT summary FROM conversations WHERE id = ?1", [&chat.id], |r| r.get(0)) {
@@ -635,6 +645,9 @@ pub struct Status {
     #[serde(flatten)]
     pub settings: Settings,
     pub saved_chats: i64,
+    /// Unseen chats still within the retry budget, including quiet-time waits.
+    pub pending_chats: i64,
+    pub analysis: super::analysis_readiness::AnalysisReadiness,
     /// Chats from before 2026-10-13 that memory has not been asked to learn
     /// from, and those Kevin queued that are still in progress.
     pub earlier_waiting: i64,
@@ -663,6 +676,8 @@ fn status(connection: &Connection) -> Result<Status, String> {
     Ok(Status {
         settings: settings(connection),
         saved_chats: count("SELECT count(*) FROM conversations WHERE vault_path IS NOT NULL")?,
+        pending_chats: count(&format!("SELECT count(*) FROM conversations c WHERE {unseen} AND memory_failures < {MAX_FAILURES} AND {HAS_OPERATOR_TURN}"))?,
+        analysis: super::subscription_jobs::readiness(),
         earlier_waiting: count(&format!("SELECT count(*) FROM conversations c WHERE legacy = 1 AND memory_attempted_at IS NULL AND NOT {unseen} AND {HAS_OPERATOR_TURN}"))?,
         earlier_queued: count(&format!("SELECT count(*) FROM conversations c WHERE legacy = 1 AND {unseen} AND memory_failures < {MAX_FAILURES} AND {HAS_OPERATOR_TURN}"))?,
         stopped_chats: count(&format!("SELECT count(*) FROM conversations c WHERE {unseen} AND memory_failures >= {MAX_FAILURES} AND {HAS_OPERATOR_TURN}"))?,
@@ -720,6 +735,61 @@ pub fn learn_from_earlier_chats(db: State<Db>) -> Result<i64, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn quiet_chats_archive_while_blocked_then_learn_without_operator_management() {
+        let root = vault("automatic-resumption");
+        let mut c = db();
+        for id in ["a", "b", "c", "d"] {
+            store_messages(&mut c, id, vec![message(id, "user", "For Olympus, remember that I prefer automatic context, not categorization.")]).unwrap();
+        }
+        quiet(&c);
+        let db = Db(std::sync::Mutex::new(c));
+        let calls = std::cell::Cell::new(0);
+        let analyze = |input: Value| {
+            calls.set(calls.get() + 1);
+            assert!(input["chat"]["newMessages"][0]["text"].as_str().unwrap().contains("automatic context"));
+            std::future::ready(Ok(json!({"title":"Olympus direction","summary":"Kevin wants automatic context for Olympus.","memory":"## Preferences\n- Kevin prefers automatic context over categorization for Olympus."}).to_string()))
+        };
+        for _ in 0..3 {
+            tauri::async_runtime::block_on(tick_with(&db, &root, super::super::subscription_jobs::readiness(), &analyze));
+        }
+        assert_eq!(calls.get(), 0, "blocked chats must not reach the analyzer");
+        {
+            let c = db.0.lock().unwrap();
+            let archived: i64 = c.query_row("SELECT count(*) FROM conversations WHERE vault_path IS NOT NULL", [], |r| r.get(0)).unwrap();
+            assert_eq!(archived, 4, "blocked learning must not starve later chat archives");
+            let untouched: i64 = c.query_row("SELECT count(*) FROM conversations WHERE memory_watermark=0 AND memory_failures=0 AND memory_attempted_at IS NULL", [], |r| r.get(0)).unwrap();
+            assert_eq!(untouched, 4);
+            assert!(status(&c).unwrap().last_learned_at.is_none());
+        }
+        for _ in 0..3 {
+            tauri::async_runtime::block_on(tick_with(&db, &root, super::super::analysis_readiness::AnalysisReadiness::unverified("synthetic test analyzer"), &analyze));
+        }
+        assert_eq!(calls.get(), 4, "eligible unseen work resumes once, without setting changes");
+        let remembered = memory_text(&std::fs::read_to_string(root.join(MEMORY_NOTE)).unwrap());
+        assert!(remembered.contains("automatic context over categorization"));
+        let c = db.0.lock().unwrap();
+        assert!(due(&c, settings(&c)).unwrap().is_empty());
+        assert!(status(&c).unwrap().last_learned_at.is_some());
+        let summary: String = c.query_row("SELECT summary FROM conversations WHERE id='d'", [], |r| r.get(0)).unwrap();
+        assert_eq!(summary, "Kevin wants automatic context for Olympus.");
+        std::fs::remove_dir_all(&root).ok();
+    }
+
+    #[test]
+    fn readiness_race_does_not_consume_a_memory_retry() {
+        let mut c = db();
+        store_messages(&mut c, "talk", vec![message("u", "user", "Keep Olympus context automatically")]).unwrap();
+        let db = Db(std::sync::Mutex::new(c));
+        record_failure(&db, "talk", "analysis_waiting:generation_protection");
+        let c = db.0.lock().unwrap();
+        let row: (i64, Option<String>, i64) = c.query_row("SELECT memory_failures,memory_attempted_at,memory_watermark FROM conversations", [], |r| Ok((r.get(0)?,r.get(1)?,r.get(2)?))).unwrap();
+        assert_eq!(row, (0, None, 0));
+        let displayed = json!(status(&c).unwrap());
+        assert_eq!(displayed["pendingChats"], 1);
+        assert_eq!(displayed["analysis"]["canAttempt"], false);
+    }
 
     #[test]
     fn the_pass_may_link_only_to_project_and_decision_notes_that_exist() {

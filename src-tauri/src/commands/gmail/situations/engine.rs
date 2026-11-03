@@ -156,23 +156,33 @@ async fn infer(
 #[tauri::command]
 pub async fn situation_refresh(app: tauri::AppHandle) -> Result<(), String> {
     let db = app.state::<Db>();
-    let result = refresh(&db, true).await;
-    record_outcome(&db, &result);
+    refresh(&db, true).await.map(|_| ())
+}
+pub(super) async fn refresh(db: &Db, manual: bool) -> Result<RefreshOutcome, String> {
+    let started_account = {
+        let c = db.0.lock().map_err(|_| "database_busy")?;
+        account(&c)?.id
+    };
+    let result = refresh_account(db, manual, &started_account).await;
+    record_outcome(db, &started_account, &result);
     result
 }
-pub(super) async fn refresh(db: &Db, manual: bool) -> Result<(), String> {
+
+async fn refresh_account(db: &Db, manual: bool, started_account: &str) -> Result<RefreshOutcome, String> {
     {
         let c = db.0.lock().map_err(|_| "database_busy")?;
         let a = account(&c)?;
+        if a.id != started_account { return Err("situation_account_changed_retry".into()); }
         ensure(&c, &a.id)?;
         let (enabled,last):(bool,i64)=c.query_row("SELECT enabled,last_attempt FROM communication_situation_state WHERE account_id=?1",[&a.id],|r|Ok((r.get(0)?,r.get(1)?))).map_err(err)?;
         if !manual && (!enabled || chrono::Utc::now().timestamp_millis() - last < 300_000) {
-            return Ok(());
+            return Ok(RefreshOutcome::Skipped);
         }
         if a.status == "syncing" || a.status == "authentication_required" {
-            return Ok(());
+            return Ok(RefreshOutcome::Skipped);
         }
     }
+    super::analysis_provider::readiness().require()?;
     let entries = tauri::async_runtime::spawn_blocking(pantheon::parse_pantheon_from_vault)
         .await
         .map_err(err)??;
@@ -180,6 +190,7 @@ pub(super) async fn refresh(db: &Db, manual: bool) -> Result<(), String> {
     refresh_checked(
         db,
         manual,
+        started_account,
         entries,
         |instructions, input, schema, purpose| infer(db, instructions, input, schema, purpose),
         move || {
@@ -195,10 +206,11 @@ pub(super) async fn refresh(db: &Db, manual: bool) -> Result<(), String> {
 async fn refresh_checked<F, Fut, V>(
     db: &Db,
     manual: bool,
+    started_account: &str,
     entries: Vec<pantheon::PantheonEntry>,
     mut model: F,
     check_research: V,
-) -> Result<(), String>
+) -> Result<RefreshOutcome, String>
 where
     F: FnMut(&'static str, Value, Value, &'static str) -> Fut,
     Fut: std::future::Future<Output = Result<(String, Value), String>>,
@@ -209,6 +221,7 @@ where
     let (a, rev, signatures, mut known, mut observations, operator_updates, threads, id) = {
         let c = db.0.lock().map_err(|_| "database_busy")?;
         let a = account(&c)?;
+        if a.id != started_account { return Err("situation_account_changed_retry".into()); }
         ensure(&c, &a.id)?;
         let enabled: bool = c
             .query_row(
@@ -218,7 +231,7 @@ where
             )
             .map_err(err)?;
         if !manual && !enabled {
-            return Ok(());
+            return Ok(RefreshOutcome::Skipped);
         }
         let rev = revision(&c, &a.id)?;
         let signatures = thread_signatures(&c, &a)?;
@@ -259,7 +272,7 @@ where
                         != source_signatures(&observations, &s["id"], &signatures)
             });
         if threads.is_empty() && !dirty && !manual {
-            return Ok(());
+            return Ok(RefreshOutcome::Skipped);
         }
         let id = crate::commands::delegation::run_id();
         let run = json!({"id":id,"accountId":a.id,"graph":GRAPH,"status":"running","phase":"Reading changed correspondence","startedAt":now(),"finishedAt":null,"durationMs":null,"days":a.horizon_days,"items":[],"definition":[{"id":"snapshot","effect":"local_read"},{"id":"discover","after":["snapshot"],"contract":"situation-discovery@1","effect":"model_read"},{"id":"brief","after":["discover"],"contract":"situation-briefing@1","effect":"model_read"},{"id":"validate","after":["brief"],"effect":"local_read"},{"id":"publish","after":["validate"],"effect":"generated_local_write"}],"skills":["situation-discovery@1","situation-briefing@1"],"error":null,"stale":false,"model":super::analysis_provider::route().ok().map(|r|r.1),"provider":std::env::var("OLYMPUS_EMAIL_ANALYSIS_PROVIDER").unwrap_or_else(|_|"openai".into())});
@@ -366,7 +379,7 @@ where
     }.await;
     let c = db.0.lock().map_err(|_| "database_busy")?;
     c.execute("UPDATE communication_runs SET status=?2,payload_json=json_set(payload_json,'$.status',?2,'$.error',?3,'$.finishedAt',?4,'$.durationMs',?5) WHERE id=?1",params![id,if result.is_ok(){"completed"}else{"failed"},result.as_ref().err(),now(),chrono::Utc::now().timestamp_millis()-time]).map_err(err)?;
-    result
+    result.map(|_| RefreshOutcome::Completed)
 }
 
 #[cfg(test)]
@@ -380,12 +393,28 @@ where
     F: FnMut(&'static str, Value, Value, &'static str) -> Fut,
     Fut: std::future::Future<Output = Result<(String, Value), String>>,
 {
-    refresh_checked(db, manual, entries, model, || Ok(())).await
+    let started_account = account(&db.0.lock().unwrap())?.id;
+    refresh_checked(db, manual, &started_account, entries, model, || Ok(())).await.map(|_| ())
 }
 #[cfg(test)]
 mod tests {
     use super::super::tests::{database, mail};
     use super::*;
+    #[test]
+    fn sync_and_auth_waits_do_not_reset_real_retry_history() {
+        tauri::async_runtime::block_on(async {
+            let db = database();
+            let mut retry = Backoff::default();
+            retry.record(Some("fixture"), &Err("model_failed".into()), 100);
+            for state in ["syncing", "authentication_required"] {
+                db.0.lock().unwrap().execute("UPDATE gmail_accounts SET status=?1", [state]).unwrap();
+                let result = refresh(&db, false).await;
+                retry.record(Some("fixture"), &result, 200);
+            }
+            retry.record(Some("fixture"), &Err("model_failed_again".into()), 300);
+            assert_eq!(retry.for_account("fixture"), (2, 600300));
+        });
+    }
     fn answer(purpose: &str, input: &Value) -> Value {
         if purpose == "situation_discovery" {
             json!({"observations":input["threads"].as_array().unwrap().iter().map(|t|json!({"threadId":t["threadId"],"relevant":true,"situationId":"new:purchase","title":"Purchase","summary":"A document was requested.","people":[{"email":"lender@example.invalid","name":"Lender","role":"Lending contact"}],"relationships":[],"details":[]})).collect::<Vec<_>>()})
@@ -524,6 +553,7 @@ mod tests {
             let result = refresh_checked(
                 &db,
                 false,
+                "fixture",
                 vec![],
                 |_, input, _, purpose| {
                     std::future::ready(Ok((answer(purpose, &input).to_string(), json!({}))))

@@ -1,25 +1,16 @@
 use chrono::{DateTime, Utc};
-use serde::Serialize;
-
-#[derive(Serialize)]
-pub struct AnalysisReadiness {
-    pub state: &'static str,
-    pub reason: String,
-}
+pub use crate::commands::analysis_readiness::AnalysisReadiness;
 
 /// Configuration is not proof of a live connection or a successful analysis.
 pub fn analysis_readiness(provider: &str, local_model: Option<&str>) -> AnalysisReadiness {
-    let (state, reason) = match provider {
-        "openai" => match crate::commands::claude_subscription::require_generation() {
-            Err(reason) => ("blocked", reason),
-            Ok(()) => ("unverified", "Subscription analysis requires account and runtime verification.".into()),
-        },
-        "ollama" if local_model.is_some_and(|m| !m.trim().is_empty()) =>
-            ("unverified", "A local analysis model is configured; availability and output quality have not been verified by this status check.".into()),
-        "ollama" => ("unconfigured", "No local analysis model is configured.".into()),
-        _ => ("unconfigured", "The email analysis provider configuration is not supported.".into()),
-    };
-    AnalysisReadiness { state, reason }
+    if crate::commands::acceptance::active() { return crate::commands::analysis_readiness::acceptance_wait(); }
+    match provider {
+        "openai" => crate::commands::subscription_jobs::readiness(),
+        "ollama" if local_model.is_some_and(crate::commands::analysis_readiness::valid_local_model) =>
+            AnalysisReadiness::unverified("A local analysis model is configured; availability and output quality have not been verified by this status check."),
+        "ollama" => AnalysisReadiness::waiting("unconfigured", "local_model", "No supported local analysis model is configured."),
+        _ => AnalysisReadiness::waiting("unconfigured", "provider", "The email analysis provider configuration is not supported."),
+    }
 }
 
 pub fn sync_due(enabled: bool, status: &str, next_sync: Option<&str>, now: DateTime<Utc>) -> bool {
@@ -40,6 +31,17 @@ mod tests {
     use super::*;
 
     #[test]
+    fn isolated_acceptance_blocks_even_a_configured_local_analyzer() {
+        crate::commands::acceptance::with_profile(&std::env::temp_dir().join("readiness-profile-fixture"), || {
+            for provider in ["ollama", "openai"] {
+                let readiness = analysis_readiness(provider, Some("fixture:8b"));
+                assert!(!readiness.can_attempt);
+                assert_eq!(readiness.require().unwrap_err(), "analysis_waiting:acceptance");
+            }
+        });
+    }
+
+    #[test]
     fn subscription_readiness_never_claims_a_closed_route_is_ready() {
         let result = analysis_readiness("openai", None);
         assert_eq!(result.state, "blocked");
@@ -51,6 +53,13 @@ mod tests {
         assert_eq!(analysis_readiness("ollama", None).state, "unconfigured");
         assert_eq!(analysis_readiness("ollama", Some("fixture:8b")).state, "unverified");
         assert_eq!(analysis_readiness("unexpected", None).state, "unconfigured");
+    }
+
+    #[test]
+    fn invalid_local_configuration_cannot_wait_for_an_attempt() {
+        for model in ["fixture cloud", "fixture:cloud", "bad?name", "  fixture", &"x".repeat(129)] {
+            assert_eq!(analysis_readiness("ollama", Some(model)).state, "unconfigured", "{model}");
+        }
     }
 
     #[test]

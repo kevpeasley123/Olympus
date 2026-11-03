@@ -21,7 +21,22 @@ pub fn init(app: &tauri::AppHandle) {
 /// Whether a job could start: generation protection and account confirmation. Isolated UI
 /// acceptance never starts background generation, regardless of saved settings.
 pub fn available() -> bool {
-    super::claude_subscription::require_generation().is_ok() && !super::acceptance::active() && APP_DATA.get().is_some_and(|dir| super::claude_subscription::is_confirmed(dir))
+    readiness().can_attempt
+}
+
+pub fn readiness() -> super::analysis_readiness::AnalysisReadiness {
+    use super::analysis_readiness::{acceptance_wait, AnalysisReadiness};
+    if super::acceptance::active() { return acceptance_wait(); }
+    if let Err(reason) = super::claude_subscription::require_generation() {
+        return AnalysisReadiness::waiting("blocked", "generation_protection", reason);
+    }
+    let Some(dir) = APP_DATA.get() else {
+        return AnalysisReadiness::waiting("blocked", "app_data", "The application data folder is not initialized.");
+    };
+    if !super::claude_subscription::is_confirmed(dir) {
+        return AnalysisReadiness::waiting("blocked", "account_confirmation", "Subscription analysis is waiting for account confirmation.");
+    }
+    AnalysisReadiness::unverified("Subscription preflight passed; runtime eligibility and output quality remain unverified.")
 }
 
 /// Which Claude model a job gets: memory and research carry the most weight;
@@ -45,8 +60,12 @@ const JOB_LIMIT: Duration = Duration::from_secs(300);
 /// matches the schema's required fields and their basic types. Fills `record`
 /// as the paid route did, for Model diagnostics; the caller saves it.
 pub async fn run(tier: Tier, instructions: &str, input: Value, schema: Value, record: &mut RequestRecord) -> Result<String, String> {
-    if super::acceptance::active() {
-        return Err("Background generation is disabled in the isolated acceptance profile.".into());
+    if let Err(error) = readiness().require() {
+        // Some callers have already persisted this record. A preflight refusal
+        // must not leave diagnostics claiming inference is still running.
+        record.status = "blocked".into();
+        record.error_code = Some(error.clone());
+        return Err(error);
     }
     let prompt = job_prompt(&input, &schema)?;
     let started = Instant::now();
@@ -88,6 +107,7 @@ pub async fn run(tier: Tier, instructions: &str, input: Value, schema: Value, re
 
 /// `run` for callers without a record of their own: creates, fills and saves one.
 pub async fn structured(db: &Db, purpose: &str, instructions: &str, input: Value, schema: Value) -> Result<String, String> {
+    readiness().require()?;
     let mut record = RequestRecord::new(&models::resolve(models::Capability::Primary), purpose);
     models::save(db, &record)?;
     let result = run(Tier::Deep, instructions, input, schema, &mut record).await;
@@ -168,6 +188,33 @@ fn matches_type(field: &Value, property: &Value) -> bool {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn blocked_analysis_creates_no_inference_request() {
+        let c = rusqlite::Connection::open_in_memory().unwrap();
+        crate::commands::migrations::apply(&c).unwrap();
+        let db = Db(std::sync::Mutex::new(c));
+        let result = tauri::async_runtime::block_on(structured(&db, "memory", "fixture", json!({}), schema()));
+        assert!(result.is_err());
+        let count: i64 = db.0.lock().unwrap().query_row("SELECT count(*) FROM model_requests", [], |r| r.get(0)).unwrap();
+        assert_eq!(count, 0, "waiting for eligibility is not an inference attempt");
+    }
+
+    #[test]
+    fn blocked_run_finalizes_an_already_saved_request() {
+        let c = rusqlite::Connection::open_in_memory().unwrap();
+        crate::commands::migrations::apply(&c).unwrap();
+        let db = Db(std::sync::Mutex::new(c));
+        let mut record = RequestRecord::new(&models::resolve(models::Capability::Primary), "situation_draft");
+        models::save(&db, &record).unwrap();
+        let error = tauri::async_runtime::block_on(run(Tier::Quick, "fixture", json!({}), schema(), &mut record)).unwrap_err();
+        models::save(&db, &record).unwrap();
+        let saved: String = db.0.lock().unwrap().query_row("SELECT record_json FROM model_requests", [], |r| r.get(0)).unwrap();
+        let saved: Value = serde_json::from_str(&saved).unwrap();
+        assert_eq!(saved["status"], "blocked");
+        assert_eq!(saved["errorCode"], error);
+        assert!(saved["usage"].is_null() && saved["actualModel"].is_null());
+    }
 
     fn schema() -> Value {
         json!({"type":"object","properties":{"title":{"type":"string"},"memory":{"type":"string"}},"required":["title","memory"]})
