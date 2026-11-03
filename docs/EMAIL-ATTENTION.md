@@ -2,38 +2,31 @@
 
 The Mission brief in the console's idle view shows up to three source-grounded suggestions, separately from mission activity and situation maps, with a count of any further ones. Review reveals the source quote; Snooze 1 day, Handled and Dismiss save account/thread/source-signature-bound local decisions. They never modify Gmail or establish an operator commitment. Changed evidence can resurface; unchanged evidence preserves decisions. Stale sources are withheld. Empty suggestions do not prove all mail has been reviewed. Discovery retains bounded six-thread batches and validates exact source quotations, message identities and literal date text. Interpretation remains generated and needs review.
 
-## Explicit feedback and correction
+## Source-scoped attention state
 
-**Correct suggestion** saves operator context for one account, thread and source
-revision. It replaces the generated next move in attention and factual briefs,
-with explicit attribution. It is not a verified fact or a global preference.
-**Handled** clears attention without asserting real-world completion; **Dismiss**
-and **Snooze** remain source-scoped. Attention decisions preserve an existing
-correction, including when a snooze expires. No preference is inferred from inactivity.
+The interface provides source review and the existing Snooze, Handled and Dismiss
+actions. These actions are optional attention management, not a prerequisite for
+Olympus to learn. There is no correction form, learning-management panel, or
+Edit/Undo/Forget workflow in the console. Conversations require no categorization.
 
-**What Olympus learned** shows the original suggestion and quote, retained feedback,
-source currency and controls. Edit and Undo use expected record revisions; an old
-screen cannot silently overwrite a newer edit. Source changes or expiry make
-feedback inactive. Undo can restore older feedback, which remains inactive if its
-source is no longer current. History is bounded; the UI exposes Undo availability.
+The internal `email_learning` store and revision checks remain for safe source-bound
+state. Existing operator context can still be displayed with attribution; it is
+not a verified fact or a global preference. Changed/expired source evidence stops
+older context from applying. Attention decisions preserve compatible corrections
+through snooze expiry; Handled does not establish real-world completion.
 
-**Forget feedback** requires explicit confirmation. It permanently redacts this
-feature's correction, original-suggestion copy and undo history. A source-scoped
-tombstone keeps that suggestion hidden for the same evidence revision. Forget
-cannot be undone; new evidence can produce a new suggestion. Redacted suppression
-signatures survive intervening feedback for other revisions; if forgotten evidence
-returns, its old suggestion stays hidden. Only a new explicit instruction for that
-same source can replace its suppression. Original mailbox
-records and already saved chat excerpts follow their separate retention policies.
-Removing an account's cache also removes its learning records and tombstones.
+Internal correction/undo/forget operations retain their safeguards but are not
+wired to a conversational correction path yet. Do not describe them as automatic
+understanding. The next implementation must improve the existing automatic chat
+memory and email situation analysis, and interpret ordinary conversational
+corrections without requiring manual filing or maintenance.
 
-Migration 3 adds `email_learning`; existing tables and mail records are unchanged.
-Feedback and the situation context revision change in one transaction, invalidating
-pending analyzer publication and prepared briefs. Thread mutation revisions also
-invalidate delivery suppression when Undo restores a different source revision. Feedback is applied at the
-snapshot boundary; it is not inserted into generated observations or model input.
-Temporary chats do not feed this path; these controls are explicit email feedback
-independent of chat-memory learning. No provider call is needed.
+Migration 3 adds the feedback store. Feedback/context revisions update atomically,
+invalidating pending analyzer publication and prepared briefs. Thread mutation
+revisions invalidate delivery suppression even across source changes. Logical
+forgetting redacts this feature's feedback/history and preserves bounded source
+suppression; existing mailbox/chat/backup retention is separate. Removing an
+account's cache deletes these records. No provider call is made by these controls.
 
 ## Install a local model later
 

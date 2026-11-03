@@ -33,9 +33,9 @@ preference is on, the console offers a bounded factual update from project state
 and current source-backed email attention, spoken when spoken replies are on.
 Unchanged displayed items are suppressed between openings; coverage failures are
 identified rather than presented as no news. This factual foundation does not
-claim fresh model analysis. Explicit email corrections are retained as operator
-context and can be reviewed, edited, undone or forgotten. Handled does not mean
-completed, and feedback for one source does not infer a general preference.
+claim fresh model analysis. Handled does not mean completed, and feedback for
+one source does not infer a general preference. Understanding must not depend on
+Kevin using a correction form or managing a learning panel.
 See `docs/BRIEFING-INTELLIGENCE.md` and `docs/EMAIL-ATTENTION.md`. Project cards,
 briefing detail and repository facts belong in Project mode.
 
@@ -46,6 +46,26 @@ with repository facts and vault navigation in background details. Unknown state
 stays explicit; recorded intent does not imply readiness, approval or
 execution. Review with Olympus supplies context to the console and waits for
 the operator to send. See `PROJECT-COMMAND-BOARD.md`.
+
+## Understanding without extra organizing work
+
+Olympus should build project and workflow understanding automatically from eligible
+conversations and connected sources. Kevin does not have to categorize, label,
+route or file conversations, approve each memory, or maintain learning records.
+Project associations and provisional patterns are Olympus's responsibility.
+Normal conversation is the default way to correct it: a direct correction such
+as "I already handled that" should update relevant understanding in context.
+
+Keep facts, operator statements and provisional inferences distinct internally;
+maintain provenance and recoverability without turning them into daily user work.
+Ask a short clarification only when ambiguity matters to a consequential action.
+Do not treat silence as consent or infer completion from a dismissed suggestion.
+Temporary chats remain excluded. Permission, cost and action-approval boundaries
+still apply; automatic understanding does not grant new execution authority.
+
+This is the product direction. Current implementation and remaining provider or
+runtime gaps are documented in `docs/NEXT-SESSION.md`; do not claim automatic
+understanding is working merely because storage or a worker exists.
 
 ## Project truth
 

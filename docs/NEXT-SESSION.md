@@ -2,63 +2,65 @@
 
 ## Current state - November 2, 2026, America/Phoenix
 
-Version 0.42.0. Unreleased work on `codex/gmail-learning-intelligence` in
-`2026-11-02/task/olympus-gmail-intelligence`. Factual foundation is `2e223c9`,
-based on `51bc631`. Explicit email correction learning is the next local milestone.
-Installed Olympus is unchanged. No push, merge, install, native app launch, OAuth,
-credential change, live model request or production DB migration occurred.
+Version 0.42.0. Unreleased branch `codex/gmail-learning-intelligence` in the
+`2026-11-02/task/olympus-gmail-intelligence` isolated worktree. Foundation commit
+2e223c9 and learning-store commit 93fce5f precede the current interface correction.
+No push, merge, install, native launch, production DB change, credentials or live
+model calls. Installed Olympus is unchanged.
 
-## Explicit email learning
+## Kevin's corrected direction - automatic understanding
 
-The approved design remains `superpowers/specs/2026-11-02-gmail-learning-intelligence-design.md`.
-Current plan: `superpowers/plans/2026-11-02-email-correction-learning.md`.
+Kevin rejected the added manual learning workflow. Olympus must build understanding
+of projects, preferences and workflows through normal conversations and connected
+sources. He should not categorize/file conversations, approve individual memories,
+or maintain learning records. Corrections should work in ordinary conversation.
+The manual is authoritative; read
+superpowers/specs/2026-11-02-automatic-understanding-correction.md before more work.
+It supersedes the manual UI part of the previous Gmail/learning design.
 
-- Corrections, Handled, Dismiss and Snooze are account/thread/source-scoped records.
-  Corrections replace the generated next move with explicit operator attribution.
-- What Olympus learned shows original evidence, correction and source currency;
-  edit/undo use expected revisions. Changed or expired sources invalidate feedback.
-- Forget permanently redacts this feature's feedback/history and retains a source
-  tombstone. It cannot be undone. Original email/chat retention is separate.
-- Feedback atomically advances the situation revision; pending analysis/briefs
-  become obsolete. History and account record counts are bounded.
-- Migration 3 adds email_learning; only isolated fixtures were migrated. Before
-  native rollout, verify a restorable operational DB backup. Older builds reject
-  newer schema versions; do not roll back against the migrated DB without backup.
-- Corrections do not reach model input, imply global preferences, verify facts,
-  complete real-world tasks or learn from temporary chat/inactivity.
+Removed Correct suggestion, its editor, and What Olympus learned with Edit/Undo/
+Forget controls from the console. Existing source review and optional attention
+actions remain; neither should be necessary for automatic learning. Internal
+revision/source/account safeguards and existing data remain recoverable. The
+correction/undo/forget backend is not yet connected to ordinary conversation.
 
-## Verification - November 2, 2026, America/Phoenix
+## Next implementation
 
-Build passes with the pre-existing chunk-size warning. Full offline Rust: 646 passed,
-24 ignored, zero failed. All 66 repository test scripts pass. Standard visual
-regression: 21/21 captures, 14 functional and 22 Organizer checks passed.
-Changed correction card, learning review and narrow view were visually inspected:
-readable attribution, wrapped controls, no horizontal clipping. Browser fixtures
-are synthetic and do not establish native IPC or live usefulness.
+Audit and repair the existing chat_memory.rs and Gmail situation-analysis paths:
+eligibility, watermarks, source coverage, provider readiness, persistence and recall.
+The current chat worker waits for a quiet chat and tracks watermarks; after four
+consecutive failures it stops retrying until learning is toggled. Audit provider-blocked
+versus real inference failures and safe resumption without making Kevin babysit it.
+Do not bypass generation gates or silently reactivate paid retries.
+Use offline end-to-end conversation/project/email fixtures to prove useful context
+and briefs without any categorization or feedback-management steps. Then connect
+natural-language corrections and qualify an authorized analyzer. Do not replace
+the missing intelligence with another management panel.
 
-Independent review findings were repaired with RED/GREEN regressions: snooze expiry
-retains correction, legacy actions cannot overwrite newer feedback, forgotten source
-signatures survive later revisions, Undo invalidates restored-item receipts, and
-polling failure retains unsaved text. Review decisions and scope are in
-reviews/2026-11-02-email-learning.md. Evidence is under output/email-learning.
+## Verification
 
-The separate flagship script retains the baseline two-visible-rings failure;
-unchanged flagship renderer hides those rings. No assertion was weakened.
-Previous factual-foundation verification is preserved in
-archive/NEXT-SESSION-before-2026-11-02-email-learning.md.
+Interface correction build, focused source-review/revisioned-action/account-switch
+browser checks and guidance verification pass. Standard visual regression passed
+21/21 captures, 14 functional checks and 22 Organizer checks. The simplified narrow
+card was inspected; no manual learning panel remains. Build retains the existing
+chunk-size warning. Evidence: output/automatic-understanding.
+Prior full verification is recorded in
+archive/NEXT-SESSION-before-2026-11-02-automatic-direction.md (646 offline Rust,
+24 ignored; 66 scripts and standard visual regression passed before this UI removal).
+No Rust/schema behavior changed in this correction. The known separate flagship
+ring-count assertion mismatch remains documented; no assertion was weakened.
 
-## Remaining work and boundaries
+## Remaining boundaries
 
-Live Gmail recovery and Google consent publishing mode remain unverified. The
-saved gmail_network_unavailable diagnosis and seven-day horizon are unchanged.
-Provider/consent/spending gates stay closed; code changes are not authority to
-exchange/store credentials or run paid/live generation. Prior authorization and
-acceptance blockers remain in
-archive/NEXT-SESSION-before-2026-11-02-gmail-foundation.md.
+Live Gmail recovery and Google consent publishing mode remain unverified. Preserve
+the seven-day horizon and provider/consent/spending gates. The existing learning
+worker's presence is not proof it is running successfully or producing useful
+understanding. Do not claim live intelligence from fixtures.
 
-Next qualify an authorized analyzer and representative real briefs, then extend
-explicit source-scoped feedback into reviewed cross-source workflow understanding.
-Optional tray operation follows core reliability acceptance. The local-provider
-nonblank-name readiness issue remains deferred; actual adapter validation still
-rejects unsupported configuration. Research import and original Zeus edits remain
-separate from this branch.
+Migration 3 remains additive and uninstalled. Verify a restorable operational DB
+backup before native rollout; older binaries reject the newer schema. Prior
+credential/acceptance blockers are preserved in
+archive/NEXT-SESSION-before-2026-11-02-gmail-foundation.md. Optional tray operation
+follows useful reliable intelligence. Research import and original Zeus edits remain
+separate. Local-model readiness still labels unsupported nonblank names unverified;
+the actual adapter validation remains authoritative.
