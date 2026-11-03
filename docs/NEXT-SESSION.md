@@ -2,19 +2,19 @@
 
 ## Current state - November 3, 2026
 
-Version 0.42.0. Unreleased branch `codex/gmail-learning-intelligence`, isolated
-`2026-11-02/task/olympus-gmail-intelligence` worktree. Prior checkpoints: 2e223c9
-factual brief/Gmail health, 93fce5f internal source-scoped learning store, bf3c8b6
-removal of manual learning UI, 9c76ca2 analysis readiness, 87d50e4 conversation
-context in factual briefs. This checkpoint qualifies structured output contracts
-offline and connects explicit conversational corrections to email understanding.
-No push, merge, install, native launch, credentials or live model calls. No
-production operational DB changes. Installed Olympus is unchanged.
+Version 0.43.0. Combined source release on `codex/gmail-learning-intelligence`,
+based on master 5d4c75d. Includes subscription-conversation through 51bc631,
+Gmail/briefing/memory work through f12a1d1 and zeus-height 4560f3e. Kevin explicitly
+requested committing, pushing and merging all completed changes. Publication is
+through a merge-commit PR into master; branches and worktrees are preserved.
+No installation, native launch, credentials, live model calls or production
+operational database changes are part of this integration. Installed Olympus is
+unchanged. Local vault records/research are maintained separately from source Git.
 
 ## Zeus height integration
 
 The pending `codex/zeus-height` change raises Zeus from 140 to 152 scene units.
-The release validation will inspect the shipped Command fixture before publication.
+The shipped Command fixture was captured and inspected; the label remains readable.
 
 ## Direction and implemented behavior
 
@@ -55,7 +55,14 @@ Plan: superpowers/plans/2026-11-03-conversational-corrections.md.
 
 ## Verification
 
-Final offline Rust: 672 passed, 24 live/explicit tests ignored. Build and all 71
+Combined 0.43.0 tree: build passed; 672 offline Rust tests passed, 24 live/explicit
+checks ignored; all 71 script checks passed; visual regression passed 21 captures,
+14 functional and 22 Organizer checks. The shipped flagship capture was separately
+inspected, including Zeus at 152 scene units. No assertions were weakened.
+See reviews/2026-11-03-release-0.43.0.md and output/release-0.43.
+
+Prior milestone verification: 672 offline Rust tests passed, 24 live/explicit
+tests ignored. Build and all 71
 script checks passed. Standard visual regression: 21 captures, 14 functional and
 22 Organizer checks passed; shipped flagship separately inspected. One independent
 review's Important false-positive finding was fixed with a failing/passing regression.
