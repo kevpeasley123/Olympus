@@ -244,6 +244,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             commands::briefing::briefing_receipts, commands::briefing::briefing_record_delivery,
+            commands::briefing_context::briefing_conversation_context,
             commands::organizer::create_organizer_task, commands::organizer::update_organizer_task,
             commands::organizer::list_organizer_tasks, commands::organizer::set_organizer_intent,
             commands::organizer::move_organizer_task,

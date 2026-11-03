@@ -295,7 +295,7 @@ export function useDashboardData() {
           const projects = dashboardRef.current.projects, board = boardRef.current;
           const root = dashboardRef.current.settings.projectsRootPath;
           return prepareFactualBrief({projects,board,projectsError}, 'opening', Date.now(), undefined,
-            () => dashboardRef.current.projects === projects && boardRef.current === board && dashboardRef.current.settings.projectsRootPath === root);
+            () => dashboardRef.current.projects === projects && boardRef.current === board && dashboardRef.current.settings.projectsRootPath === root, {temporary:session.temporary,conversationId:session.id});
         }, active) : null;
         if (!active()) return;
         const text = prepared ? prepared.text : composeOpeningBriefing({projects:dashboardRef.current.projects,board:boardRef.current,sessionBoundary,projectsError});
@@ -329,7 +329,7 @@ export function useDashboardData() {
     try {
       const root = dashboardRef.current.settings.projectsRootPath;
       const active = () => briefingMounted.current && sessionRef.current.id === session.id && dashboardRef.current.settings.projectsRootPath === root;
-      const prepared = await prepareStableBrief(() => prepareSituationBriefing(root, sessionBoundary), active);
+      const prepared = await prepareStableBrief(() => prepareSituationBriefing(root, sessionBoundary, {temporary:session.temporary,conversationId:session.id}), active);
       if (!active()) return;
       const text = prepared.text;
       if (!text) return;

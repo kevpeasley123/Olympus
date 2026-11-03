@@ -737,6 +737,65 @@ mod tests {
     use super::*;
 
     #[test]
+    fn ordinary_conversation_learning_reaches_brief_context() {
+        let root=vault("brief-pipeline");
+        let mut c=db();
+        store_messages(&mut c,"chat-a",vec![message("u1","user","For the Helios launch, review accessibility before adding features.")]).unwrap();
+        quiet(&c);
+        let db=Db(std::sync::Mutex::new(c));
+        let scope=super::super::briefing_context::Scope{temporary:false,conversation_id:Some("another-chat".into())};
+        let now=chrono::Utc::now().timestamp_millis();
+        let unlearned=super::super::briefing_context::snapshot(&db.0.lock().unwrap(),&scope,now).unwrap();
+        assert!(unlearned.items.is_empty());
+        tauri::async_runtime::block_on(tick_with(&db,&root,super::super::analysis_readiness::AnalysisReadiness::unverified("synthetic"),|input| {
+            assert!(input["chat"]["newMessages"][0]["text"].as_str().unwrap().contains("review accessibility"));
+            std::future::ready(Ok(json!({"title":"Helios launch priorities","summary":"Review launch accessibility before adding features.","memory":"## Projects\n- Helios: review launch accessibility before adding features."}).to_string()))
+        }));
+        let learned=super::super::briefing_context::snapshot(&db.0.lock().unwrap(),&scope,now).unwrap();
+        assert_eq!(learned.items.len(),1);
+        assert_eq!(learned.items[0].source_message_ids,vec!["u1"]);
+        let recalled=super::super::conversations::recall(&db.0.lock().unwrap(),"Helios launch accessibility",Some("another-chat")).unwrap();
+        assert_eq!(recalled[0].summary,"Review launch accessibility before adding features.");
+        {
+            let mut c=db.0.lock().unwrap();
+            store_messages(&mut c,"chat-a",vec![message("a1","assistant","Opening briefing: recorded project activity.")]).unwrap();
+            quiet(&c);
+            assert!(super::super::briefing_context::snapshot(&c,&scope,now).unwrap().items.is_empty());
+        }
+        tauri::async_runtime::block_on(tick_with(&db,&root,super::super::analysis_readiness::AnalysisReadiness::unverified("synthetic"),|_| {
+            panic!("Assistant-only bookkeeping must not invoke analysis");
+            #[allow(unreachable_code)] std::future::ready(Err("unexpected".to_string()))
+        }));
+        let assistant_only=super::super::briefing_context::snapshot(&db.0.lock().unwrap(),&scope,now).unwrap();
+        assert_eq!(learned.items[0].revision,assistant_only.items[0].revision,"Bookkeeping must not resurface unchanged context");
+        {
+            let mut c=db.0.lock().unwrap();
+            store_messages(&mut c,"chat-a",vec![message("u2","user","The Helios launch is postponed. Keep accessibility review as the next task.")]).unwrap();
+            quiet(&c);
+            assert!(super::super::briefing_context::snapshot(&c,&scope,now).unwrap().items.is_empty());
+        }
+        tauri::async_runtime::block_on(tick_with(&db,&root,super::super::analysis_readiness::AnalysisReadiness::unverified("synthetic"),|input| {
+            assert!(input["currentMemory"].as_str().unwrap().contains("review launch accessibility"));
+            assert!(input["chat"]["newMessages"][0]["text"].as_str().unwrap().contains("postponed"));
+            std::future::ready(Ok(json!({"title":"Helios launch priorities","summary":"The Helios launch is postponed; accessibility review remains next.","memory":"## Projects\n- Helios: launch postponed; accessibility review remains next."}).to_string()))
+        }));
+        let c=db.0.lock().unwrap();
+        let revised=super::super::briefing_context::snapshot(&c,&scope,now).unwrap();
+        assert_ne!(learned.revision,revised.revision);
+        assert_eq!(revised.items[0].summary,"The Helios launch is postponed; accessibility review remains next.");
+        let private=super::super::briefing_context::snapshot(&c,&super::super::briefing_context::Scope{temporary:true,conversation_id:None},now).unwrap();
+        c.execute("INSERT INTO settings(key,value) VALUES('chatMemory.use','false')",[]).unwrap();
+        let disabled=super::super::briefing_context::snapshot(&c,&scope,now).unwrap();
+        assert!(!disabled.enabled&&disabled.items.is_empty()&&private.items.is_empty());
+        let fixture=json!({"now":now,"unlearned":unlearned,"learned":learned,"assistantOnly":assistant_only,"revised":revised,"recalled":recalled,"private":private,"disabled":disabled});
+        if let Ok(path)=std::env::var("OLYMPUS_BRIEF_FIXTURE_PATH") {
+            std::fs::write(path,serde_json::to_vec_pretty(&fixture).unwrap()).unwrap();
+        }
+        drop(c);
+        std::fs::remove_dir_all(&root).ok();
+    }
+
+    #[test]
     fn quiet_chats_archive_while_blocked_then_learn_without_operator_management() {
         let root = vault("automatic-resumption");
         let mut c = db();

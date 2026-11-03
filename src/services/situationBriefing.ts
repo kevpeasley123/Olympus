@@ -1,3 +1,4 @@
+import type { BriefScope } from './briefingMemory';
 import { invoke } from "@tauri-apps/api/core";
 import type { ActionQueueTask } from "../hooks/useActionQueue";
 import type { SessionBoundary } from "../types";
@@ -7,7 +8,7 @@ import { prepareFactualBrief, boundedBriefRead, type PreparedBrief } from "./bri
 import { buildProjectCommandBoard } from "./projectCommandBoard";
 
 /** Compose from this request's results, never from an earlier React render. */
-export async function prepareSituationBriefing(root: string, boundary: SessionBoundary | null): Promise<PreparedBrief> {
+export async function prepareSituationBriefing(root: string, boundary: SessionBoundary | null, scope:BriefScope={temporary:true,conversationId:null}): Promise<PreparedBrief> {
   const collect=()=>Promise.allSettled([
     boundedBriefRead(fetchProjects(root, boundary?.previousSessionStartedAt ?? null)),
     boundedBriefRead(invoke<ActionQueueTask[]>("fetch_action_queue")),
@@ -23,7 +24,7 @@ export async function prepareSituationBriefing(root: string, boundary: SessionBo
     runs.status === "fulfilled" ? runs.value : [],
     { tasks: tasks.status === "fulfilled", runs: runs.status === "fulfilled" });
   const gaps = [tasks.status === "rejected" ? "task records" : "", runs.status === "rejected" ? "running-work records" : "", projects.status==='fulfilled'&&projects.value.warnings.length ? "some project notes" : ""].filter(Boolean);
-  const briefing = await prepareFactualBrief({projects:projectList,board,projectsError:projects.status==='rejected'?'unavailable':null},'requested',Date.now(),undefined,async()=>sourceRevision(await collect())===expected);
+  const briefing = await prepareFactualBrief({projects:projectList,board,projectsError:projects.status==='rejected'?'unavailable':null},'requested',Date.now(),undefined,async()=>sourceRevision(await collect())===expected,scope);
   if(gaps.length) briefing.text=`${briefing.text} I couldn't refresh ${gaps.join(" and ")}, so this briefing is incomplete.`;
   return briefing;
 }

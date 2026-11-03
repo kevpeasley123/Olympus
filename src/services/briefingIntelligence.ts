@@ -2,14 +2,16 @@ import type { TrackedProject } from '../types';
 import type { ProjectCommandState } from './projectCommandBoard';
 import type { GmailStatus } from './gmail';
 import type { SituationSnapshot } from './situations';
+import type { BriefMemory } from './briefingMemory';
 
-export interface BriefItem { id:string; revision:string; text:string; priority:number; kind:'limitation'|'attention'|'progress'|'recommendation' }
+export interface BriefItem { id:string; revision:string; text:string; priority:number; kind:'limitation'|'attention'|'progress'|'recommendation'|'context'; source?:{conversationId:string;messageIds:string[]} }
 export interface Receipt { revision:string; deliveredAt:number }
 export type BriefReceipts=Record<string,Receipt>;
 export type BriefMode='opening'|'requested';
 export interface BriefContext {
  projects:TrackedProject[]; board:ProjectCommandState[]; projectsError:string|null;
  gmail:GmailStatus|null; situations:SituationSnapshot|null;
+ memory?:BriefMemory|null;
 }
 const DAY=86_400_000;
 const FRESH=15*60_000;
@@ -64,16 +66,33 @@ export function briefItems(input:BriefContext,now=Date.now()):BriefItem[] {
    else add(`mail:${account.id}:${candidate.threadId}`,'recommendation',`Email recommendation: ${candidate.suggestion.title}. ${candidate.suggestion.why} Suggested next move: ${candidate.suggestion.action}`,70,[candidate.signature,ref.fingerprint,candidate.suggestion,candidate.learningRevision]);
   }
  }
+ if(input.memory===null) add('coverage:memory','limitation','Remembered conversation context could not be checked. It is outside this update’s coverage.',90);
+ else if(input.memory?.enabled) {
+  const eligible=input.memory.items.filter(item=>item.id&&item.title.trim()&&item.summary.trim()&&item.sourceMessageIds.length
+   &&/^[a-f0-9]{64}$/.test(item.revision)&&validTime(item.learnedAt,now,7*DAY));
+  for(const recalled of eligible) {
+   // Native summaries are bounded. Preserve all sentences: clipping can hide a correction.
+   items.push({id:`memory:chat:${recalled.id}`,kind:'context',priority:45,revision:JSON.stringify(recalled.revision),
+    text:`Remembered from “${recalled.title}”: ${recalled.summary}`.replace(/\s+/g,' ').trim(),
+    source:{conversationId:recalled.id,messageIds:recalled.sourceMessageIds}});
+  }
+ }
  return items;
 }
 
 /** Receipts refer to displayed items, never app launches or assumed speech success. */
 export function selectBrief(items:BriefItem[],receipts:BriefReceipts,mode:BriefMode,now=Date.now()):BriefItem[] {
  const seen=new Set<string>();
+ let contextSelected=false;
  return items.filter(item=>{
   if(seen.has(item.id))return false;seen.add(item.id);
   const receipt=receipts[item.id];
   return mode==='requested'||!receipt||receipt.revision!==item.revision
-   ||!Number.isFinite(receipt.deliveredAt)||receipt.deliveredAt>now||now-receipt.deliveredAt>=DAY;
- }).sort((a,b)=>b.priority-a.priority||a.id.localeCompare(b.id)).slice(0,3);
+   ||!Number.isFinite(receipt.deliveredAt)||receipt.deliveredAt>now||(item.kind!=='context'&&now-receipt.deliveredAt>=DAY);
+ }).sort((a,b)=>b.priority-a.priority||(a.kind==='context'&&b.kind==='context'?0:a.id.localeCompare(b.id)))
+ .filter(item=>{
+  if(item.kind!=='context')return true;
+  if(contextSelected)return false;
+  contextSelected=true;return true;
+ }).slice(0,3);
 }

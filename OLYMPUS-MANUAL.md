@@ -30,7 +30,9 @@ Olympus reopens in the mode it was left in; Command is the default. Command is
 the ambient and glanceable state of the system, readable from across the room: the Armory at left, the Pantheon instrument at
 the centre, and the companion console at right. When the Opening Briefing
 preference is on, the console offers a bounded factual update from project state
-and current source-backed email attention, spoken when spoken replies are on.
+and current source-backed email attention, with recent learned conversation context
+when memory is enabled, spoken when spoken replies are on. Remembered summaries
+are labelled separately from verified source facts.
 Unchanged displayed items are suppressed between openings; coverage failures are
 identified rather than presented as no news. This factual foundation does not
 claim fresh model analysis. Handled does not mean completed, and feedback for

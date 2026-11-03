@@ -1,3 +1,4 @@
+import type {BriefMemory,BriefScope} from './briefingMemory';
 import {invoke} from '@tauri-apps/api/core';
 import {gmailStatus,type GmailStatus} from './gmail';
 import {situationsClient,isUnchangedSnapshot,type SituationSnapshot} from './situations';
@@ -6,11 +7,13 @@ import {briefItems,selectBrief,type BriefContext,type BriefMode,type BriefReceip
 export interface BriefClient {
  gmail():Promise<GmailStatus>;
  situations():Promise<SituationSnapshot|null>;
+ memory?(scope:BriefScope):Promise<BriefMemory>;
  receipts():Promise<BriefReceipts>;
  deliver(items:{id:string;revision:string}[]):Promise<void>;
 }
 const native:BriefClient={
  gmail:gmailStatus,
+ memory:scope=>invoke('briefing_conversation_context',{scope}),
  situations:async()=>{const value=await situationsClient.snapshot();return isUnchangedSnapshot(value)?null:value;},
  receipts:()=>invoke('briefing_receipts'),
  deliver:items=>invoke('briefing_record_delivery',{items}),
@@ -42,30 +45,35 @@ const signature=(gmail:GmailStatus|null,situations:SituationSnapshot|null)=>JSON
 ]);
 
 export async function prepareFactualBrief(
- input:Omit<BriefContext,'gmail'|'situations'>,mode:BriefMode,now=Date.now(),client:BriefClient=native,
+ input:Omit<BriefContext,'gmail'|'situations'|'memory'>,mode:BriefMode,now=Date.now(),client:BriefClient=native,
  sourcesCurrent:()=>boolean|Promise<boolean>=()=>true,
+ scope:BriefScope={temporary:true,conversationId:null},
 ):Promise<PreparedBrief> {
- const [mailResult,situationResult,receiptResult]=await Promise.allSettled([
-  bounded(client.gmail()),bounded(client.situations()),bounded(client.receipts()),
+ const readMemory=()=>!scope.temporary&&client.memory?bounded(client.memory(scope)):Promise.resolve(undefined);
+ const [mailResult,situationResult,receiptResult,memoryResult]=await Promise.allSettled([
+  bounded(client.gmail()),bounded(client.situations()),bounded(client.receipts()),readMemory(),
  ]);
  const gmail=mailResult.status==='fulfilled'?mailResult.value:null;
  const situations=situationResult.status==='fulfilled'?situationResult.value:null;
+ const memory=memoryResult.status==='fulfilled'?memoryResult.value:null;
  const receipts=receiptResult.status==='fulfilled'?receiptResult.value:{};
- const candidates=await Promise.all(briefItems({...input,gmail,situations},now).map(async item=>{
+ const candidates=await Promise.all(briefItems({...input,gmail,situations,memory},now).map(async item=>{
   const bytes=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(item.revision));
   return {...item,revision:Array.from(new Uint8Array(bytes),byte=>byte.toString(16).padStart(2,'0')).join('')};
  }));
  const items=selectBrief(candidates,receipts,mode,now);
  const expected=signature(gmail,situations);
+ const memoryRevision=(value:BriefMemory|null|undefined)=>value?`${value.enabled}:${value.revision}`:value;
+ const expectedMemory=memoryRevision(memory);
  return {
   items,
   text:items.length?`Hello sir. Factual update. ${items.map(i=>i.text).join(' ')}`
    :mode==='requested'?'Hello sir. No items to highlight in the available project and email records. This factual check does not establish complete coverage.':null,
   current:async()=>{
    if(!(await sourcesCurrent()))return false;
-   const [mail,understanding]=await Promise.allSettled([bounded(client.gmail()),bounded(client.situations())]);
-   return signature(mail.status==='fulfilled'?mail.value:null,understanding.status==='fulfilled'?understanding.value:null)===expected && await sourcesCurrent();
+   const [mail,understanding,remembered]=await Promise.allSettled([bounded(client.gmail()),bounded(client.situations()),readMemory()]);
+   return signature(mail.status==='fulfilled'?mail.value:null,understanding.status==='fulfilled'?understanding.value:null)===expected && memoryRevision(remembered.status==='fulfilled'?remembered.value:null)===expectedMemory && await sourcesCurrent();
   },
-  acknowledge:()=>client.deliver(items.map(({id,revision})=>({id,revision}))),
+  acknowledge:()=>scope.temporary?Promise.resolve():client.deliver(items.map(({id,revision})=>({id,revision}))),
  };
 }

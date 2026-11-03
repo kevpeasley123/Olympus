@@ -420,7 +420,7 @@ const ConversationBubble = memo(function ConversationBubble({
       <p className="console-message-label">
         {message.role === "assistant" && <span className="console-omega" aria-hidden="true">Ω</span>}
         {message.role === "user" ? "YOU" : message.role === "assistant" ? "OLYMPUS" : "SYSTEM"}
-        {briefing ? <span className="console-briefing-label">{message.id.includes("-sitrep-") ? "Situation briefing" : "Opening briefing"} · from project state, no model</span>
+        {briefing ? <span className="console-briefing-label">{message.id.includes("-sitrep-") ? "Situation briefing" : "Opening briefing"} · assembled from available records</span>
           : <span className="console-modality" title={message.voice ? "Voice message" : "Typed message"}>{message.voice ? <Mic size={10} aria-label="Voice"/> : <Keyboard size={10} aria-label="Text"/>}</span>}
         {turn?.scope === "gmail-workspace" && <span className="console-turn-scope" title="Asked from Communications; retrieval was scoped to cached Gmail">Communications</span>}
         {live && <span className="console-turn-state">Listening</span>}

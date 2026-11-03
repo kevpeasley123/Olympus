@@ -16,6 +16,25 @@ display digest, so editing or undoing feedback invalidates suppression; forgetti
 removes the candidate and invalidates pending preparation. See `EMAIL-ATTENTION.md`.
 Source text remains untrusted; a recommendation is never an operator commitment.
 
+Conversation context comes from `briefing_conversation_context`, a read-only
+SQLite projection of automatically learned chat summaries and their source IDs.
+It selects up to three chats with recent user activity and successful learning
+within seven days, excluding the open chat, imported/legacy chats, failed learning
+and summaries whose watermark does not cover all current messages. One summary
+can appear as "Remembered from" context, below concrete decisions and email
+attention but above repository hygiene. It is a remembered summary, not a newly
+verified fact or inferred association between sources. Source IDs stay attached
+to the prepared item; the displayed text names the chat, without new controls.
+
+Temporary scopes return before reading memory; disabled Use memory returns before
+reading chats. An unreadable preference fails closed. Omitted frontend scope is
+private. Failed collection becomes a coverage limitation, while intentional
+exclusion is silent. This path consumes learned summaries from SQLite, not the
+Obsidian memory note or vault index; their broader capture/retrieval/use audit
+remains separate. `scripts/verify-briefing-pipeline.mjs` exercises the real quiet-chat
+worker, persistence, recall and brief preparation using a synthetic analyzer and
+temporary vault, without qualifying live inference.
+
 Sync freshness is conservatively bounded to 15 minutes, understanding to 24 hours,
 and email evidence to the account's configured horizon. These bounds describe
 the selector, not a guarantee that every message was analyzed. Coverage failures
@@ -24,16 +43,24 @@ coverage limitations, pending decisions and email attention above repository hyg
 
 Preparation reads local status, existing situation snapshots and delivery receipts;
 it never requests sync or analysis. Reads time out after three seconds. Mail/account, project/checkpoint
-and situation revisions are checked again before display. Changed sources trigger
+and situation revisions, memory preference and conversation projection digests are
+checked again before display. Changed sources trigger
 up to three fresh preparation attempts; failure does not consume the opening. Native requested briefs
 refresh project/task/run facts; partial task/run failures remain visible.
 
 The native `briefing_receipts` and `briefing_record_delivery` commands store only
 bounded display receipts with SHA-256 revision digests under `briefing.displayed.v1` in the existing settings
-table. An item/revision can reappear after 24 hours, immediately if evidence changes,
+table. A factual item/revision can reappear after 24 hours, immediately if evidence changes,
 or in an explicit requested brief. At most 200 receipts are retained. Source prose is never stored in a receipt. Cache removal also purges the account’s
 mail/coverage receipts, including older raw revisions. Invalid or
 future receipts do not suppress selection. A quiet opening creates no new message.
+Unchanged remembered context does not recur merely because a day elapsed; it
+can return when revised or explicitly requested. Selection applies receipts before
+choosing the most recent eligible context, so a seen chat does not hide unseen
+ones. Display identity tracks title, summary and user evidence; an assistant-only
+watermark advance does not make old context new. Complete bounded summaries are
+preserved, including final corrections or qualifications; they are not clipped
+to the shorter factual-item preview length.
 
 The caller records delivery only after exposing and saving the message; failures
 leave items eligible for retry. These are display receipts, not proof of speech

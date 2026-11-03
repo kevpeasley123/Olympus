@@ -5,11 +5,12 @@
 Version 0.42.0. Unreleased branch `codex/gmail-learning-intelligence`, isolated
 `2026-11-02/task/olympus-gmail-intelligence` worktree. Prior checkpoints: 2e223c9
 factual brief/Gmail health, 93fce5f internal source-scoped learning store, bf3c8b6
-removal of the manual learning UI. This checkpoint repairs automatic readiness.
+removal of manual learning UI, 9c76ca2 automatic analysis readiness.
+This checkpoint connects learned conversation summaries to factual briefs.
 No push, merge, install, native launch, credentials or live model calls. No
 production operational DB changes. Installed Olympus is unchanged.
 
-## Direction and implemented repair
+## Direction and implemented behavior
 
 Kevin wants automatic understanding through normal conversations and connected
 sources, without categorizing/file-managing conversations or approving memories.
@@ -17,53 +18,50 @@ The manual and superpowers/specs/2026-11-02-automatic-understanding-correction.m
 are authoritative. Natural conversational correction is not wired to the internal
 feedback API yet. Source review and existing optional attention actions remain.
 
-Shared analyzer preflight reports state, code, reason and canAttempt. Status does
-not call a model. Subscription generation remains blocked; local-model names use
-the same validator in health and execution. Acceptance blocks either route.
+A read-only SQLite projection supplies bounded recent, completely learned chat
+summaries and source IDs. Opening and requested native briefs can include one
+labelled remembered-context highlight alongside email/project evidence. Current,
+private, imported, stale, failed and unprocessed chats are excluded. Use memory
+is respected; unreadable settings fail closed. Preparation rechecks revisions.
+Unchanged context does not become a daily reminder. No management controls or
+schema migration were added. See BRIEFING-INTELLIGENCE.md.
 
-Blocked chat learning no longer consumes retries or occupies the archive batch.
-Pending chats resume automatically after readiness permits an attempt; actual
-runtime gates are rechecked. Chat saving continues independently. Genuine failures
-retain capped retries. Existing exhausted rows remain untouched: their last error
-cannot prove every past failure was harmless. Email preflight runs before vault
-analysis; waiting does not increase or clear genuine backoff. Existing Memory
-preferences now distinguishes pending/blocked from completed learning, with no
-new controls. Skipped email refreshes retain genuine failure history, and an old
-account's async outcome cannot change the new account's diagnostics/backoff. No
-schema migration was added.
+The synthetic end-to-end fixture uses the real quiet-chat worker, temporary Git
+vault and SQLite persistence, then actual recall and TypeScript brief preparation.
+It proves saved conversation context can change a brief and that a later statement
+invalidates old context. It does not prove semantic quality of a real analyzer or
+cross-source association. Subscription generation gates remain closed.
 
 ## Next steps already requested
 
-1. Extend offline conversation/project/email scenarios through useful recalled
-   context and changed briefs without management actions; the current synthetic
-   worker test proves persistence/resumption, not end-to-end briefing recall.
-2. Connect natural conversational corrections with provenance and explicit
-   statements outranking inference; qualify an authorized analyzer while keeping
-   live/spending gates closed until separately authorized.
-3. Kevin explicitly requested an Obsidian memory audit after that sequence. Trace
+1. Qualify the shared analyzer contract and connect natural conversational
+   corrections with provenance and explicit statements outranking inference.
+   Keep live/spending gates closed until separately authorized.
+2. Kevin explicitly requested an Obsidian memory audit after that sequence. Trace
    capture, saved content, indexing, retrieval, freshness/conflicts/corrections,
    temporary-chat exclusions, and actual use in both briefs and conversations.
-   The current factual briefing selector does not consume the Obsidian memory
-   note. Existing notes or an index alone cannot establish useful integration.
-4. Representative real briefs, Gmail recovery and native acceptance when authorized;
+   Briefs now consume SQLite learned summaries, not the Obsidian memory note/index.
+   Existing notes or an index alone cannot establish useful integration.
+3. Representative real briefs, Gmail recovery and native acceptance when authorized;
    optional tray persistence follows usefulness and reliability.
 
-Plan: superpowers/plans/2026-11-03-automatic-analysis-readiness.md.
+Plan: superpowers/plans/2026-11-03-conversation-brief-context.md.
 
 ## Verification
 
-Full offline Rust passed: 655 tests, 24 live/explicit tests ignored. Build and
-focused memory-status browser checks pass. Archive/resume fixtures used only
-synthetic SQLite and temporary Git vaults, with a synthetic analyzer at the
-inference boundary. Desktop/narrow status screenshots were inspected: no new
-learning controls, no overflow. All 67 test scripts pass. Standard visual regression
-passed 21 captures, 14 functional checks and 22 Organizer checks. The shipped
-flagship composition was separately captured and inspected. Independent review
-found three Important issues; one RED/GREEN fix pass repaired blocked request
-status, skipped-refresh retry resets and async account attribution. Final native
-suite passes after the fixes. No deferred minor findings. See
-reviews/2026-11-03-automatic-analysis-readiness.md.
-Evidence: output/analysis-readiness and output/memory-readiness.
+Offline Rust: 660 passed, 24 live/explicit tests ignored. Build and focused native,
+TypeScript and browser checks pass. The real ChatPanel fixture was inspected at
+wide and narrow widths: remembered context and project evidence remain readable,
+without overflow or new controls. Privacy regressions cover unreadable settings,
+private reads and private delivery receipts. Brief attribution now permits learned
+summaries and explicitly preserves their lower authority in model history.
+One independent review found three Important issues. Failing/passing regressions
+fixed lost final corrections, unseen-context starvation and assistant-only
+bookkeeping repeats. Final Rust, build and all 69 test scripts pass after the fixes. Standard visual
+regression passed 21 captures, 14 functional and 22 Organizer checks. The shipped
+flagship composition was separately captured and inspected. No deferred minor findings. See
+reviews/2026-11-03-conversation-brief-context.md.
+Evidence: output/conversation-brief and output/briefing-memory-browser.
 
 Build retains the existing chunk-size warning. The separate flagship ring-count
 assertion is a known baseline mismatch; no assertion was weakened. Standard

@@ -134,6 +134,13 @@ Recall reads SQLite rather than the vault memory index, because the index
 declines unscoped resumption questions ("what did we decide…") until a project
 is named. The project scope a follow-up inherits comes from the open chat only.
 
+Native briefs also read a bounded projection of recent, completely learned
+conversation summaries from SQLite when Use memory is on. They label the result
+as remembered context, revalidate it before display and suppress unchanged context
+on later openings. Temporary briefs do not read this projection or save delivery
+receipts. This is separate from the memory note/index path used by assistant turns;
+see `BRIEFING-INTELLIGENCE.md` for eligibility and verification boundaries.
+
 ## Safety rule change
 
 Until 2026-10-13, Olympus kept every model inference out of the assistant's
