@@ -237,7 +237,9 @@ pub fn run() {
                 commands::gmail::situations::start_cadence(app.handle().clone());
             }
             commands::subscription_jobs::init(app.handle());
-            commands::chat_memory::start(app.handle().clone());
+            if !commands::acceptance::active() {
+                commands::chat_memory::start(app.handle().clone());
+            }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -279,6 +281,8 @@ pub fn run() {
             commands::claude_subscription::confirm_claude_subscription,
             commands::claude_subscription::revoke_claude_subscription,
             commands::account_usage::account_usage_read,
+            commands::chatgpt_plan::controller::chatgpt_plan_test_action,
+            commands::chatgpt_plan::connection::chatgpt_plan_action,
             commands::models::voice_usage,
             commands::models::record_voice_request,
             create_voice_session,

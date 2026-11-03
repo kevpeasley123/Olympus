@@ -16,6 +16,12 @@ const MODEL: &str = "gpt-6.1-sol";
 const MAX_FRAME: usize = 1_000_000;
 const MAX_TEXT: usize = 1_000_000;
 
+/// A quota snapshot cannot prevent purchases or top-ups being consumed mid-turn.
+/// Keep all Codex generation closed until a provider-enforced control is proven.
+pub(crate) fn require_generation() -> Result<(), String> {
+    Err("Codex generation is blocked: included-allowance-only protection is not established. No provider request or fallback was started.".into())
+}
+
 #[derive(Debug, PartialEq)]
 pub enum Provider {
     Codex,
@@ -175,6 +181,12 @@ impl Protocol {
                     .push(AssistantStreamEvent::Delta { text: text.into() });
             }
             "item/started" | "item/completed" => {
+                if self.phase != 3
+                    || params["threadId"].as_str() != self.thread.as_deref()
+                    || params["turnId"].as_str() != self.turn.as_deref()
+                {
+                    return Err("Unscoped item lifecycle event".into());
+                }
                 if !matches!(
                     params["item"]["type"].as_str(),
                     Some("agentMessage" | "userMessage" | "reasoning")
@@ -294,6 +306,7 @@ impl From<String> for Protocol {
 /// One text-only Codex turn for a background job, under the same isolation and
 /// no-credits gate as chat. Blocking. Fails rather than returning partial text.
 pub(crate) fn run_job(system: &str, prompt: String, limit: Duration) -> Result<(String, String), String> {
+    require_generation()?;
     let executable = super::engines::codex_executable()?;
     let directory = ChatDirectory::create()?;
     let command = chat_command(&executable, &directory.0)?;
@@ -474,6 +487,7 @@ pub async fn complete(
     on_event: tauri::ipc::Channel<AssistantStreamEvent>,
     cancel: tokio::sync::oneshot::Receiver<()>,
 ) -> Result<AssistantReply, String> {
+    require_generation()?;
     if voice {
         return Err("Subscription conversation currently supports text only.".into());
     }
@@ -697,6 +711,20 @@ public static class PipeDescendant {
 mod tests {
     use super::*;
     use serde_json::json;
+    #[test]
+    fn codex_chat_refuses_before_history_or_transport() {
+        tauri::async_runtime::block_on(async {
+            let (_sender,cancel)=tokio::sync::oneshot::channel();
+            let channel=tauri::ipc::Channel::new(|_| panic!("blocked Codex must not emit provider events"));
+            let error=complete(String::new(),String::new(),vec![],false,channel,cancel).await.unwrap_err();
+            assert!(error.contains("included-allowance-only protection"),"{error}");
+        });
+    }
+    #[test]
+    fn codex_background_generation_refuses_before_discovery() {
+        let error=run_job("",String::new(),Duration::ZERO).unwrap_err();
+        assert!(error.contains("included-allowance-only protection"));
+    }
     #[test]
     fn cancellation_waits_for_worker_cleanup() {
         tauri::async_runtime::block_on(async {
@@ -983,6 +1011,23 @@ mod tests {
         assert_eq!(p.terminal, Some(End::Limit));
         assert_eq!(p.text, "partial");
     }
+    #[test]
+    fn item_lifecycle_requires_the_active_thread_and_turn() {
+        for method in ["item/started", "item/completed"] {
+            for params in [
+                json!({"item":{"type":"agentMessage"}}),
+                json!({"threadId":"t","item":{"type":"agentMessage"}}),
+                json!({"turnId":"u","item":{"type":"agentMessage"}}),
+                json!({"threadId":"other","turnId":"u","item":{"type":"agentMessage"}}),
+            ] {
+                assert!(ready().accept(json!({"method":method,"params":params})).is_err(), "{method} must be scoped");
+            }
+            let event = json!({"method":method,"params":{"threadId":"t","turnId":"u","item":{"type":"agentMessage"}}});
+            assert!(Protocol::new("x".into()).accept(event.clone()).is_err());
+            assert!(ready().accept(event).is_ok());
+        }
+    }
+
     #[test]
     fn cancellation_can_interrupt_only_known_turn() {
         assert!(Protocol::new("x".into()).interrupt().is_none());

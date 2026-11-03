@@ -1,66 +1,40 @@
-# Subscription conversation implementation plan
+# Subscription conversation safety plan
 
-## Goal and constraints
+## Goal and authority
 
-Kevin wants Olympus conversation funded only by included Codex/Claude subscription
-allowances. No paid credits, API fallback, account changes, credential extraction,
-or production launch are authorized. Implementation and fixture verification are
-authorized; delivery requires a separate approval. Preserve saved configuration.
+Establish a Claude-subscription conversation in native Olympus using included
+allowance only. Preserve data, credentials, UI identity and ElevenLabs. No API or
+Codex fallback. Read-only account checks and offline fixes are authorized; delivery,
+installation, new permissions and billing changes require separate authorization.
+Current findings and verification live in `NEXT-SESSION.md`.
 
-## Design
+## Required sequence
 
-One backend spending policy guards every paid generation boundary before reading
-credentials or opening transport. It has no frontend boolean or environment bypass.
-Subscription adapters are separate from paid API routes and from quota readers.
-Each adapter owns bounded text history, process cleanup, streaming validation and
-terminal events. Unknown billing eligibility rejects before process creation.
-Read-only quota inspection remains available and cannot authorize generation.
+- [x] Reconcile checkout, newer work, installed app and account identity.
+- [x] Close Codex generation; preserve independent read-only quota inspection.
+- [x] Remove background Codex fallback; preserve paid API and voice denials.
+- [x] Add managed-policy checks and strict retrospective Claude overage validation.
+- [x] Prepare isolated debug acceptance data and read-only confirmation access.
+- [ ] Establish current supported pre-launch subscription-only / overage-off proof.
+- [ ] Establish plugin isolation before submitting another prompt.
+- [ ] Reopen Claude through reviewed pre-launch gates and repeat offline checks.
+- [ ] Minimal live adapter acceptance, then native reply and contextual follow-up.
+- [ ] Native cancellation/recovery; simulated faults where possible.
+- [ ] Record exact accepted revision/build; request delivery approval separately.
 
-The current provider research establishes no Codex per-request included-only
-control. Claude documents disabling account usage credits; that effective account
-control has not been verified. Estimated budgets and subscription auth are not
-substitutes. Account settings are not changed by this work.
+## Fail-closed boundary
 
-## Implementation sequence
+Both Claude and Codex chat/job entry points refuse generation while required
+pre-launch evidence is unavailable. Existing confirmation files, account readers,
+transport implementations and model choices are preserved. No frontend flag or
+environment variable bypasses the generation refusal. Post-submission overage
+telemetry validates results but cannot establish pre-request spending protection.
+The isolated profile suppresses background generation, Gmail and speech; production
+settings are not changed. Preserve the strict built-in plugin allowlist.
 
-- [x] Isolate branch from master 0.42.0 and inspect current CLI documentation.
-- [x] Add spending_policy::require_approval(PaidOperation) and guard Responses,
-  Anthropic messages, realtime credentials and ElevenLabs synthesis; ordinary chat
-  also rejects before skill review. Background callers use guarded boundaries.
-- [x] Add explicit Claude frontend routing alongside Codex; refuse subscription
-  voice and prohibit API retries. Test selection and IPC behavior with fixtures.
-- [x] Implement Claude stream-JSON adapter with strict text-only events, history
-  bounds, cancellation and child cleanup. Reuse existing subscription validators.
-- [x] Update Codex client version and verify protocol/terminal handling with
-  synthetic frames; retain the unresolved billing/configuration-isolation gate.
-- [x] Update readiness and feature documentation with exact remaining blockers.
-- [x] Run affected frontend/browser and Rust tests, review paid-call coverage,
-  and obtain independent review. Live acceptance only after supported hard
-  billing controls and process isolation are established.
+## Verification requirements
 
-- [x] Claude only: replace the unconditional launch refusal with the operator's
-  account-bound confirmation plus a per-turn live Max sign-in check
-  (`SUBSCRIPTION-CONVERSATION.md`, "Claude launch gate"). Codex stays refused.
-- [ ] One live Claude acceptance after `claude auth login`, then a native UI turn.
-
-## Review focus
-
-- Unknown or changed billing state must never become eligible from a quota value.
-- A paid request must stop before credential lookup or transport creation.
-- Unknown/tool/reroute events must terminate without retry or losing partial text.
-- Cancellation must reap the owned child before releasing the active-turn slot.
-- Startup and background settings remain saved but cannot bypass the policy.
-
-## Verification limits
-
-Fixture success is not provider acceptance. No model call or production launch is
-part of the current verified evidence. Native acceptance and delivery remain
-separate steps. Research evidence is retained locally under output/.
-
-Final local verification: 583 Rust tests passed, 20 ignored (no live provider
-tests); frontend build, subscription routing, engine quota fixtures/browser,
-guidance checks and diff checks passed. Independent re-review found no remaining
-actionable defect in spending receipts, stop reasons, empty replies or process
-containment. Logs: `output/subscription-policy-rust-final.txt` and
-`output/subscription-policy-build-final.txt`. Live acceptance remains blocked;
-these are offline results, not evidence of working provider conversation.
+Tests must establish denial before authorization reads, child processes or prompts,
+paid boundary coverage, cancellation cleanup, malformed/unknown event rejection,
+and no fallback. Offline fixtures are not native or provider acceptance. Record
+submitted live attempts and unknown usage honestly, including failed initialization.

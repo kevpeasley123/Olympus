@@ -1842,6 +1842,9 @@ pub fn cancel_assistant_message(request_id:String)->Result<bool,String>{
 #[tauri::command]
 pub async fn send_assistant_message(app:tauri::AppHandle,db:tauri::State<'_,super::persistence::Db>,memory_service:tauri::State<'_,super::memory::MemoryService>,approval_state:tauri::State<'_,super::approvals::ApprovalState>,history:Vec<ChatTurn>,mut context:AssistantContext,on_event:tauri::ipc::Channel<AssistantStreamEvent>,request_id:Option<String>)->Result<AssistantReply,String>{
     let provider=super::subscription::select_provider(context.conversation_provider.as_deref())?;
+    if provider==super::subscription::Provider::Codex {
+        super::subscription::require_generation()?;
+    }
     if provider==super::subscription::Provider::LegacyApi {
         super::spending_policy::require_approval(if context.capability==super::models::Capability::ClaudeComparison {super::spending_policy::PaidOperation::AnthropicMessages}else{super::spending_policy::PaidOperation::OpenAiResponses})?;
     }

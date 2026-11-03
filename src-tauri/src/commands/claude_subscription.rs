@@ -32,6 +32,44 @@ fn claude_model(requested: Option<&str>) -> Result<(&'static str, &'static str),
 const MAX_FRAME: usize = 1_000_000;
 const MAX_TEXT: usize = 1_000_000;
 const MAX_STREAM: usize = 8_000_000;
+static ACCEPTANCE_REVOKED: AtomicBool = AtomicBool::new(false);
+
+fn managed_files_absent(paths: &[PathBuf]) -> Result<(), String> {
+    for path in paths {
+        match path.try_exists() {
+            Ok(false) => {},
+            _ => return Err("Claude managed policy is present or unreadable; isolation cannot be established. Nothing was sent.".into()),
+        }
+    }
+    Ok(())
+}
+fn check_managed_policy() -> Result<(), String> {
+    let config=std::env::var_os("CLAUDE_CONFIG_DIR").map(PathBuf::from)
+        .or_else(|| std::env::var_os("USERPROFILE").map(|p| PathBuf::from(p).join(".claude")))
+        .ok_or("Claude configuration location unavailable; nothing was sent")?;
+    managed_files_absent(&[
+        PathBuf::from("C:/Program Files/ClaudeCode/managed-settings.json"),
+        PathBuf::from("C:/Program Files/ClaudeCode/managed-settings.d"),
+        PathBuf::from("C:/Program Files/ClaudeCode/managed-mcp.json"),
+        config.join("remote-settings.json"),
+    ])?;
+    #[cfg(windows)] {
+        use std::ffi::c_void;
+        #[link(name="advapi32")]
+        extern "system" {
+            fn RegOpenKeyExW(key:*mut c_void,name:*const u16,options:u32,access:u32,result:*mut *mut c_void)->i32;
+            fn RegCloseKey(key:*mut c_void)->i32;
+        }
+        let name:Vec<u16>="SOFTWARE\\Policies\\ClaudeCode\0".encode_utf16().collect();
+        for hive in [0x80000001u32,0x80000002u32] {
+            let mut key=std::ptr::null_mut();
+            let code=unsafe {RegOpenKeyExW(hive as i32 as isize as *mut c_void,name.as_ptr(),0,0x20019,&mut key)};
+            if code==0 { unsafe {RegCloseKey(key)}; }
+            if code!=2 { return Err("Claude managed registry policy is present or unreadable; nothing was sent.".into()); }
+        }
+    }
+    Ok(())
+}
 
 // Claude's SDK control protocol is separate from the later system/init event.
 // Never send a user message until both read-only replies have been validated.
@@ -73,6 +111,12 @@ impl Handshake {
     }
 }
 
+/// Closed until supported evidence establishes billing protection before a prompt.
+/// Saved confirmation and later rate-limit events cannot establish that guarantee.
+pub(crate) fn require_generation() -> Result<(), String> {
+    Err("Claude generation is blocked: pre-launch spending protection and plugin isolation are not established. Nothing was started; no API fallback was attempted.".into())
+}
+
 pub async fn complete(
     app_data: PathBuf,
     requested_model: Option<&str>,
@@ -83,6 +127,7 @@ pub async fn complete(
     on_event: tauri::ipc::Channel<AssistantStreamEvent>,
     cancel: tokio::sync::oneshot::Receiver<()>,
 ) -> Result<AssistantReply, String> {
+    require_generation()?;
     let authorization = read_authorization(&app_data)?;
     let model = claude_model(requested_model)?;
     if voice {
@@ -120,7 +165,7 @@ pub async fn complete(
         Ok(reply) => reply.notice.as_ref().is_some_and(|n| n.message == OVERAGE),
     };
     if overage {
-        let _ = std::fs::remove_file(app_data.join(AUTHORIZATION_FILE));
+        withdraw_after_overage(&app_data);
     }
     result
 }
@@ -129,6 +174,7 @@ pub async fn complete(
 /// login since the operator's confirmation stops it here. Writes the system
 /// prompt into the isolated folder, since Windows caps a command line near 32K.
 fn launch_checked(authorization: &Account, system: &str) -> Result<(PathBuf, WorkingDirectory), String> {
+    check_managed_policy()?;
     let executable = super::delegation::claude_executable()?;
     let cwd = WorkingDirectory::create()?;
     if account(&auth_status(&executable, &cwd.0)?)? != *authorization {
@@ -142,6 +188,7 @@ fn launch_checked(authorization: &Account, system: &str) -> Result<(PathBuf, Wor
 /// One text-only, non-streaming Claude turn for a background job. Blocking.
 /// Fails rather than returning a truncated, refused or overage-flagged answer.
 pub(crate) fn run_job(app_data: &Path, requested_model: Option<&str>, system: &str, prompt: String, limit: Duration) -> Result<(String, String), String> {
+    require_generation()?;
     let authorization = read_authorization(app_data)?;
     let model = claude_model(requested_model)?;
     let (executable, cwd) = launch_checked(&authorization, system)?;
@@ -151,7 +198,7 @@ pub(crate) fn run_job(app_data: &Path, requested_model: Option<&str>, system: &s
         Ok(reply) => reply.notice.as_ref().is_some_and(|n| n.message == OVERAGE),
     };
     if failed_on_overage {
-        let _ = std::fs::remove_file(app_data.join(AUTHORIZATION_FILE));
+        withdraw_after_overage(app_data);
     }
     let reply = result?;
     if let Some(notice) = reply.notice {
@@ -195,12 +242,18 @@ fn account(status: &Value) -> Result<Account, String> {
 }
 
 /// Bounded `auth status --json` under the same isolation as the chat launch.
-fn auth_status(executable: &Path, cwd: &Path) -> Result<Value, String> {
+fn auth_command(executable: &Path, cwd: &Path) -> Command {
     let mut auth = Command::new(executable);
     super::delegation::allowed_environment(&mut auth);
+    auth.env("DISABLE_AUTOUPDATER", "1");
     auth.env_remove("CODEX_HOME").current_dir(cwd).args(["--safe-mode", "--restricted", "--setting-sources", "", "auth", "status", "--json"]);
     super::delegation::hide_console(&mut auth);
     auth.stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::null());
+    auth
+}
+
+fn auth_status(executable: &Path, cwd: &Path) -> Result<Value, String> {
+    let mut auth = auth_command(executable, cwd);
     let mut process = super::subscription::Process::spawn(&mut auth)?;
     let output = process.child.stdout.take().ok_or("Claude sign-in check unavailable")?;
     let (send, recv) = mpsc::channel();
@@ -237,12 +290,23 @@ pub(crate) fn is_confirmed(app_data: &Path) -> bool {
 }
 
 fn read_authorization(app_data: &Path) -> Result<Account, String> {
-    let bytes = std::fs::read(app_data.join(AUTHORIZATION_FILE)).map_err(|_| BLOCKED.to_string())?;
+    if super::acceptance::active() && ACCEPTANCE_REVOKED.load(Ordering::Acquire) { return Err(OVERAGE.into()); }
+    let source=super::acceptance::claude_authorization_directory(app_data)?;
+    let path=source.join(AUTHORIZATION_FILE);
+    if std::fs::metadata(&path).map_err(|_| BLOCKED.to_string())?.len()>16_384 { return Err(BLOCKED.into()); }
+    let bytes = std::fs::read(path).map_err(|_| BLOCKED.to_string())?;
     let record: Authorization = serde_json::from_slice(&bytes).map_err(|_| BLOCKED.to_string())?;
     if record.statement != STATEMENT {
         return Err(BLOCKED.into());
     }
     Ok(record.account)
+}
+
+fn withdraw_after_overage(app_data: &Path) {
+    if super::acceptance::active() {
+        // A test window must never mutate the production authorization record.
+        ACCEPTANCE_REVOKED.store(true,Ordering::Release);
+    } else { let _=std::fs::remove_file(app_data.join(AUTHORIZATION_FILE)); }
 }
 
 #[derive(serde::Serialize)]
@@ -254,7 +318,9 @@ pub struct AuthorizationStatus {
 }
 
 fn authorization_status_at(app_data: &Path) -> AuthorizationStatus {
-    let record = std::fs::read(app_data.join(AUTHORIZATION_FILE)).ok()
+    let record = super::acceptance::claude_authorization_directory(app_data).ok()
+        .filter(|_| !super::acceptance::active() || !ACCEPTANCE_REVOKED.load(Ordering::Acquire))
+        .and_then(|dir| std::fs::read(dir.join(AUTHORIZATION_FILE)).ok())
         .and_then(|bytes| serde_json::from_slice::<Authorization>(&bytes).ok())
         .filter(|record| record.statement == STATEMENT);
     AuthorizationStatus {
@@ -298,6 +364,9 @@ pub async fn confirm_claude_subscription(app: tauri::AppHandle, statement: Strin
 
 #[tauri::command]
 pub fn revoke_claude_subscription(app: tauri::AppHandle) -> Result<AuthorizationStatus, String> {
+    if super::acceptance::active() {
+        return Err("This acceptance window reads the existing confirmation only; change it in the ordinary app.".into());
+    }
     let dir = app_data(&app)?;
     match std::fs::remove_file(dir.join(AUTHORIZATION_FILE)) {
         Ok(()) => {}
@@ -321,6 +390,7 @@ fn command(executable: &Path, cwd: &Path, model: &str) -> Command {
     let mut c = Command::new(executable);
     super::delegation::allowed_environment(&mut c);
     c.env_remove("CODEX_HOME");
+    c.env("DISABLE_AUTOUPDATER", "1");
     c.args(["--input-format", "stream-json"]);
     super::delegation::hide_console(&mut c);
     c.current_dir(cwd).args(["-p", "--safe-mode", "--restricted", "--setting-sources", "", "--tools", "", "--strict-mcp-config", "--mcp-config", r#"{"mcpServers":{}}"#, "--disable-slash-commands", "--no-chrome", "--permission-mode", "dontAsk", "--permission-prompts", "none", "--no-session-persistence", "--output-format", "stream-json", "--verbose", "--include-partial-messages", "--model", model, "--system-prompt-file", SYSTEM_FILE]);
@@ -352,10 +422,11 @@ struct Protocol {
     session: Option<String>,
     failure: Option<String>,
     stop_reason: Option<String>,
+    overage_disabled: bool,
 }
 impl Protocol {
     fn new(model: &'static str) -> Self {
-        Self { model, text: String::new(), terminal: false, session: None, failure: None, stop_reason: None }
+        Self { model, text: String::new(), terminal: false, session: None, failure: None, stop_reason: None, overage_disabled: false }
     }
     fn record_stop(&mut self, value: &Value) -> Result<(), String> {
         if value.is_null() {
@@ -443,6 +514,10 @@ impl Protocol {
                 if info["isUsingOverage"] != false || info["overageStatus"] == "allowed" {
                     return Err(OVERAGE.into());
                 }
+                if info["overageStatus"] != "rejected" || info["overageDisabledReason"] != "org_level_disabled" {
+                    return Err("Claude did not establish that usage credits are disabled; reply not accepted. No fallback was attempted.".into());
+                }
+                self.overage_disabled=true;
             }
             Some("assistant") => {
                 if !same_model(&v["message"]["model"], self.model) {
@@ -459,6 +534,9 @@ impl Protocol {
             Some("result") => {
                 match v["subtype"].as_str() {
                     Some("success") if v["is_error"] == false => {
+                        if !self.overage_disabled {
+                            return Err("Claude returned no explicit overage-disabled evidence; reply not accepted. No fallback was attempted.".into());
+                        }
                         if v["result"].as_str() != Some(self.text.as_str()) {
                             return Err("Claude final text does not match its stream".into());
                         }
@@ -674,7 +752,37 @@ fn run_process(
 mod tests {
     use super::*;
     use serde_json::json;
+    #[test]
+    fn claude_managed_policy_presence_refuses_instead_of_assuming_safe_mode() {
+        let path=std::env::temp_dir().join(format!("olympus-policy-{}",super::super::delegation::run_id()));
+        assert!(managed_files_absent(&[path.clone()]).is_ok());
+        std::fs::write(&path,b"{}").unwrap();
+        let result=managed_files_absent(&[path.clone()]);
+        std::fs::remove_file(path).unwrap();
+        assert!(result.is_err());
+    }
+    #[test]
+    fn claude_success_requires_explicit_disabled_overage_evidence() {
+        let mut p=Protocol::new(MODEL);
+        p.accept(init()).unwrap();
+        p.accept(delta("hello")).unwrap();
+        assert!(p.accept(json!({"type":"result","subtype":"success","session_id":"s","is_error":false,"result":"hello"})).is_err());
+        let mut p=Protocol::new(MODEL);
+        p.accept(init()).unwrap();
+        assert!(p.accept(rate_limit(json!(false),"unknown")).is_err());
+    }
     const MODEL: &str = "claude-sonnet-4-6";
+    #[test]
+    fn generation_gate_precedes_authorization_and_transport() {
+        tauri::async_runtime::block_on(async {
+        let (_tx, cancel) = tokio::sync::oneshot::channel();
+        let error = complete(PathBuf::from("missing-authorization-fixture"), None, String::new(), String::new(), vec![], false, tauri::ipc::Channel::new(|_| Ok(())), cancel).await.unwrap_err();
+        assert!(error.contains("pre-launch spending protection"), "{error}");
+        let error = run_job(Path::new("missing-authorization-fixture"), None, "", String::new(), Duration::from_secs(1)).unwrap_err();
+        assert!(error.contains("pre-launch spending protection"), "{error}");
+        });
+    }
+
     const TEST_MODEL: (&str, &str) = ("claude-sonnet-4-6", "Sonnet 4.6");
     fn initialization_reply() -> Value {
         json!({"type":"control_response","response":{"subtype":"success","request_id":"olympus-initialize","pending_permission_requests":[],"response":{"account":{"apiProvider":"firstParty","subscriptionType":"Claude Max"},"current_permission_mode":"dontAsk","commands":[],"models":[{"value":MODEL}]}}})
@@ -753,25 +861,34 @@ mod tests {
     #[test]
     #[ignore = "Requires explicit included-plan-only live acceptance authorization"]
     fn live_authorized_claude_text_acceptance() {
-        assert_eq!(std::env::var("OLYMPUS_CLAUDE_LIVE_ACCEPTANCE").as_deref(), Ok("2026-10-18-user-confirmed-credits-off"));
-        let executable = super::super::delegation::claude_executable().expect("Supported installed executable required");
-        let cwd = WorkingDirectory::create().unwrap();
-        account(&auth_status(&executable, &cwd.0).expect("Subscription auth preflight failed")).expect("Max sign-in required");
-        std::fs::write(cwd.0.join(SYSTEM_FILE), CHAT_SYSTEM).unwrap();
-        println!("CLAUDE_ACCEPTANCE_AUTH claude.ai firstParty max; usage credits off is user-reported");
-        let prompt = super::super::subscription::history_prompt(vec![ChatTurn { role: "user".into(), content: "Reply with exactly OLYMPUS_OK and nothing else.".into() }], "").unwrap();
-        let mut events = vec![];
-        let model = claude_model(std::env::var("OLYMPUS_CLAUDE_LIVE_MODEL").ok().as_deref()).unwrap();
-        println!("CLAUDE_ACCEPTANCE_MODEL {}", model.0);
-        let result = run_process(model, command(&executable, &cwd.0, model.0), prompt, Arc::new(AtomicBool::new(false)), |event| events.push(event), Duration::from_secs(45));
-        println!("CLAUDE_ACCEPTANCE_EVENTS {}", serde_json::to_string(&events).unwrap());
+        assert_eq!(std::env::var("OLYMPUS_CLAUDE_LIVE_ACCEPTANCE").as_deref(), Ok("2026-10-29-saved-authorization"));
+        assert_eq!(std::env::var("OLYMPUS_ACCEPTANCE_CLAUDE").as_deref(), Ok("existing-confirmation-read-only"));
+        let isolated=WorkingDirectory::create().unwrap();
+        let count=Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let frames=count.clone();
+        let channel=tauri::ipc::Channel::new(move |_| { frames.fetch_add(1,Ordering::Relaxed); Ok(()) });
+        let (cancel_send,cancel)=tokio::sync::oneshot::channel();
+        let (done_send,done)=mpsc::channel();
+        let deadline=std::thread::spawn(move || {
+            if done.recv_timeout(Duration::from_secs(45)).is_err() { let _=cancel_send.send(()); }
+        });
+        let result=super::super::acceptance::with_profile(&isolated.0, || tauri::async_runtime::block_on(complete(
+            isolated.0.clone(),Some(DEFAULT_MODEL),CHAT_SYSTEM.into(),String::new(),
+            vec![ChatTurn { role:"user".into(),content:"Reply with exactly OLYMPUS_OK and nothing else.".into() }],
+            false,channel,cancel,
+        )));
+        let _=done_send.send(());
+        deadline.join().unwrap();
+        println!("CLAUDE_ACCEPTANCE_PRODUCTION_ENTRYPOINT complete; existing authorization read-only; model {DEFAULT_MODEL}");
         match &result {
-            Ok(reply) => println!("CLAUDE_ACCEPTANCE_REPLY {}", serde_json::to_string(reply).unwrap()),
-            Err(error) => println!("CLAUDE_ACCEPTANCE_ERROR {error}"),
+            Ok(reply)=>println!("CLAUDE_ACCEPTANCE_REPLY {}",serde_json::to_string(reply).unwrap()),
+            Err(error)=>println!("CLAUDE_ACCEPTANCE_ERROR {error}"),
         }
-        let reply = result.expect("Live adapter acceptance failed; do not retry automatically");
-        assert_eq!(reply.content.trim(), "OLYMPUS_OK");
+        let reply=result.expect("Live adapter acceptance failed; do not retry automatically");
+        assert_eq!(reply.content.trim(),"OLYMPUS_OK");
         assert!(reply.notice.is_none());
+        assert!(count.load(Ordering::Relaxed)>=3);
+        println!("CLAUDE_ACCEPTANCE_VERIFIED saved-account match, managed-policy absence, stream and explicit overage-disabled evidence");
     }
 
     #[test]
@@ -781,7 +898,7 @@ mod tests {
             let channel =
                 tauri::ipc::Channel::new(|_| panic!("Blocked launch must emit no provider events"));
             let error = complete(std::env::temp_dir().join("olympus-no-authorization"), None, String::new(), String::new(), vec![], false, channel, cancel).await.unwrap_err();
-            assert!(error.contains("usage credits are off"));
+            assert!(error.contains("pre-launch spending protection"));
         });
     }
     #[test]
@@ -872,8 +989,18 @@ mod tests {
         assert!(p.accept(delta("retry")).is_err());
     }
     #[test]
+    fn sign_in_inspection_disables_automatic_updates() {
+        let c = auth_command(Path::new("claude.exe"), Path::new("isolated"));
+        assert!(c.get_envs().any(|(k, v)| k == "DISABLE_AUTOUPDATER" && v == Some(std::ffi::OsStr::new("1"))));
+        let args: Vec<_> = c.get_args().map(|a| a.to_string_lossy().into_owned()).collect();
+        assert_eq!(&args[args.len() - 3..], ["auth", "status", "--json"]);
+        assert!(!args.iter().any(|a| a == "-p" || a == "--print"));
+    }
+
+    #[test]
     fn launch_contract_removes_tools_and_persistence_without_api_credentials() {
         let c = command(Path::new("claude.exe"), Path::new("isolated"), MODEL);
+        assert!(c.get_envs().any(|(k,v)| k == "DISABLE_AUTOUPDATER" && v == Some(std::ffi::OsStr::new("1"))));
         let args: Vec<_> = c
             .get_args()
             .map(|a| a.to_string_lossy().into_owned())
@@ -916,6 +1043,7 @@ mod tests {
         let mut p = Protocol::new(MODEL);
         p.accept(init()).unwrap();
         assert_eq!(p.accept(delta("hello")).unwrap(), Some("hello".into()));
+        p.accept(rate_limit(json!(false), "rejected")).unwrap();
         p.accept(json!({"type":"result","subtype":"success","session_id":"s","is_error":false,"result":"hello"})).unwrap();
         assert_eq!(p.text, "hello");
         assert!(p.terminal);
@@ -953,7 +1081,7 @@ mod tests {
         let start = r#"[Console]::WriteLine('{"type":"system","subtype":"init","session_id":"s","model":"claude-sonnet-4-6","apiKeySource":"none","tools":[],"mcp_servers":[],"plugins":[]}'); [Console]::WriteLine('{"type":"stream_event","session_id":"s","parent_tool_use_id":null,"event":{"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"hello"}}}');"#;
         for (tail, truncated) in [
             (
-                r#"[Console]::WriteLine('{"type":"result","subtype":"success","session_id":"s","is_error":false,"result":"hello"}');"#,
+                r#"[Console]::WriteLine('{"type":"rate_limit_event","session_id":"s","rate_limit_info":{"isUsingOverage":false,"overageStatus":"rejected","overageDisabledReason":"org_level_disabled"}}'); [Console]::WriteLine('{"type":"result","subtype":"success","session_id":"s","is_error":false,"result":"hello"}');"#,
                 false,
             ),
             ("[Console]::WriteLine('not json');", true),
@@ -986,6 +1114,7 @@ mod tests {
         ] {
             let frames = [
                 init(),
+                rate_limit(json!(false), "rejected"),
                 delta(text),
                 json!({"type":"stream_event","session_id":"s","event":{"type":"message_delta","delta":{"stop_reason":stop}}}),
                 json!({"type":"result","subtype":"success","session_id":"s","is_error":false,"result":text}),
@@ -1021,6 +1150,7 @@ mod tests {
         ] {
             let frames = [
                 init(),
+                rate_limit(json!(false), "rejected"),
                 json!({"type":"stream_event","session_id":"s","event":{"type":"message_delta","delta":{"stop_reason":stop}}}),
                 json!({"type":"result","subtype":"success","session_id":"s","is_error":false,"result":""}),
             ];

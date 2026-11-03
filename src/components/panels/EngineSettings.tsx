@@ -2,6 +2,7 @@ import { Fragment, useEffect, useRef, useState } from "react";
 import { isTauriRuntime } from "../../services/launcher";
 import { confirmClaudeSubscription, describeBilling, describeSignIn, loadClaudeAuthorization, loadEngineStatus, revokeClaudeSubscription, type ClaudeSubscriptionAuthorization, type EngineStatus } from "../../services/engines";
 import "./command.css";
+import { ChatGPTPlanConnection } from "./ChatGPTPlanConnection";
 import {useConversationProvider,selectConversationProvider} from "../../services/conversationProvider";
 
 /**
@@ -67,6 +68,7 @@ export function EngineSettings({autoInspect=true,inspection}:{autoInspect?:boole
             : <button type="button" className="ghost-action" disabled={claudeBusy} onClick={() => void changeClaude(() => confirmClaudeSubscription(claude.statement))}>{claudeBusy ? "Checking sign-in…" : "I confirm"}</button>}
         </fieldset>
       ) : null}
+      <ChatGPTPlanConnection />
       {!desktop ? <p role="status">Engine checks run in the desktop app.</p> : null}
       {engines ? (
         <dl className="model-diagnostics-routes">
@@ -92,7 +94,7 @@ export function EngineSettings({autoInspect=true,inspection}:{autoInspect?:boole
       ) : null}
       {error ? <p role="status">{error}</p> : null}
       <p>
-        No-extra-spend policy: API reasoning, OpenAI voice, background analysis and memory synthesis are blocked without separate spending approval. ElevenLabs speaks only while usage-based billing is off and your plan has characters left for the reply. Your saved settings are preserved. Subscription sign-in is not proof that usage credits are disabled: Claude chat needs your confirmation above, and Codex chat runs only while the account reports no purchased credits. Delegation stays blocked.
+        No-extra-spend policy: paid API reasoning and OpenAI voice are blocked. Subscription generation, background analysis and memory synthesis are blocked pending pre-launch spending protection and isolation. There is no Codex or API fallback. ElevenLabs speaks only while usage-based billing is off and your plan has characters left for the reply. Your saved settings are preserved. Subscription sign-in is not proof that usage credits are disabled: the saved Claude confirmation does not open generation, and Codex generation stays blocked until included-allowance-only protection is established. Delegation stays blocked.
       </p>
       <p>To select an exact installation, set OLYMPUS_CODEX or OLYMPUS_CLAUDE_CODE to its full executable path before starting Olympus. An invalid override is refused, without selecting another installation. This check never changes sign-in or billing.</p>
     </details>

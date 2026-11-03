@@ -85,7 +85,7 @@ const freePort = () => new Promise((ok, fail) => { const server = createServer()
 async function waitFor(url, ms = 60_000) {
   const until = Date.now() + ms;
   while (Date.now() < until) {
-    try { const response = await fetch(url); if (response.ok) return; } catch { /* not up yet */ }
+    try { const response = await fetch(url, {signal: AbortSignal.timeout(3000)}); if (response.ok) return; } catch { /* not up yet */ }
     await new Promise(r => setTimeout(r, 250));
   }
   throw Error(`Preview server did not answer at ${url}`);

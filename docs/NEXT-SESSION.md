@@ -1,148 +1,95 @@
 # Next session
 
-Current handoff; prior verification is in `archive/NEXT-SESSION-through-0.40.0.md`.
+## Current state — November 2, 2026 (America/Phoenix)
 
-## Current unreleased work
+Source version remains 0.42.0. Development checkout:
+`C:/Users/kevpe/Documents/Codex/2026-10-17/task/olympus-engine-status`, branch
+`codex/subscription-conversation`, reviewed base `316f72b`.
+The reviewed offline safeguards/connection work is a local checkpoint, not a release.
+The pre-reconciliation handoff is preserved in
+`archive/NEXT-SESSION-before-2026-11-02.md`; earlier dated evidence remains intact.
 
-Branch `codex/subscription-conversation` starts at merged 0.42.0 commit `5d4c75dde61a9af00f8c9e4b64e8f1d3d341d7ef`. Release 0.42.0 was installed successfully without relaunch; see the installation receipt below. New work adds a shared backend paid-generation denial and an offline Claude conversation adapter alongside Codex. No delivery or installation of this branch is authorized yet.
+The installed executable reports 0.42.0 at
+`C:/Program Files/Project Olympus/project-olympus.exe`; no Olympus process was
+running during inventory. It was not launched, installed, replaced or accepted here.
+Do not infer that the installed binary includes these source changes.
 
-Local verification passed: 583 Rust tests, 20 ignored; frontend build, routing, quota/browser fixtures and guidance checks passed. Independent re-review cleared the implemented fixes. No provider generation or installation of this branch occurred.
+## Git and preservation
 
-Claude handoff (2026-10-20): the Claude launch gate now opens only on Kevin's account-bound confirmation in Preferences plus a per-turn live Max sign-in check; Codex stays closed. Rust 589 passed, 22 ignored; frontend build and subscription routing passed. The Claude CLI was found signed out since 2026-10-18 11:36, Kevin signed in again; the adapter then answered live on Opus 5.5, Sonnet 5.5, Fable 5.1 and Haiku 4.5 and Claude reported overage disabled. The chat model picker now offers those models. Native UI chat passed in the dev build on 2026-10-20 (Sonnet 5.5); subscription turns still lack project and memory context. Codex chat now runs too, only while the ChatGPT account reports no purchased credits and room in its allowance; one live turn and a native dev-build chat passed. Delegation stays blocked. ElevenLabs speaks subscription replies within included characters. The memory pass now runs on Claude Opus 5.5 with Codex as backup, writes eight linked sections, and subscription chat receives the same memory and vault evidence (`CONVERSATIONS-AND-MEMORY.md`). Email analysis, reply drafts, `/inspect` file planning and research verification now run on the same subscription job runner (`subscription_jobs.rs`: Claude Opus 5.5 for memory and research, Sonnet 5.5 for the quicker jobs, Codex as backup); none has yet run on real mail or research. Only the explicit API chat route and OpenAI voice remain on paid APIs, both blocked. Nothing committed or installed. Kevin confirmed Claude usage credits are disabled (user-reported, not visually observed). One authorized isolated Rust adapter attempt authenticated as Max/claude.ai/firstParty but failed initialization validation; no answer was accepted, and no retry ran. Native discovery selects 2.1.74, which lacks safe-mode; the test explicitly selected the already-installed npm executable 2.1.284. Codex still has no verified included-plan-only spending control. Real model availability, stream compatibility and native acceptance remain outstanding. See `SUBSCRIPTION-CONVERSATION.md` and `SUBSCRIPTION-SAFETY-PLAN.md`. Do not follow historical launch/delegation suggestions below until these restrictions are resolved. Existing ElevenLabs quota access is preserved; production remains closed.
+Development `origin` points to the original local Olympus repository, not GitHub.
+Read-only GitHub inspection found subscription tip `02db976` and master `5d4c75d`.
+The existing development commits `5fa4341` and `316f72b` are not on that remote
+subscription branch. No push, merge, remote change or release was performed.
 
-## State - 2026-10-18 (America/Phoenix)
+Original checkout remains on master `218e6e0`, 14 commits behind the verified
+GitHub master tip. Its three uncommitted Zeus-height/documentation changes remain
+intact. Zeus's proposed height is 152 versus 140 in current development source.
+The original-checkout figure fixture passed; visual acceptance/integration is pending.
+Older acceptance/install worktrees contain missing files or modifications; preserve
+them. Do not reset, clean, prune, delete, or adopt their changes implicitly.
 
-- **Release 0.42.0**, branch `codex/claude-observed-snapshot`, based on master
-  `7fdffcb7f83fe6200bc1dfcd6108d858d57e10ad`: center-column Usage dock restores
-  full-height chat; independent service rails share the expanded dashboard and
-  management actions. Historical Claude fallback is always stale and yields to
-  newer passive samples. ElevenLabs is preserved.
-- Final release checks passed: frontend/MSI builds, 563 Rust tests (20 ignored),
-  all 62 test scripts, 21/21 visual captures, 14 functional and 22 Organizer
-  checks. Independent review found no blockers. Minor follow-up: compact tile
-  tooltips could name the selected quota window; the expanded view already does.
-- Final reference-sized previews are `output/usage-dock/final-collapsed.png`
-  and `output/usage-dock/final-expanded.png`. These are synthetic browser
-  fixtures. Native WebView2/IPC acceptance and first real passive Claude capture
-  remain outstanding. Dock height is about 123 px; chat occupies its full column.
-- Kevin approved commit, push, merge and installation, without production
-  relaunch. Installation follows this release commit; its local receipt is
-  `output/release-0.42-install-evidence.json`, with data comparison in
-  `output/release042-data-verification.json` (created by installation checks).
-  Last verified prior installation: 0.41.0. Olympus was already closed before
-  backup. Rollback files are in `output/rollback-0.41.0-before-0.42.0`;
-  database backup integrity passed, and collector/statusline/snapshot were saved.
-- Claude passive collector remains enabled with original statusline preserved.
-  Normal authorized Claude Code activity supplies a new sample; app Refresh
-  loads it locally. The manually observed fallback stays in local telemetry,
-  outside Git, with unknown reset and absolute token allowance.
-- Codex transport uses a bounded private-stdio account reader; the desktop's
-  expected shared daemon socket is absent. See `ENGINE-STATUS-USAGE.md`.
-  Last real backend read, October 17 21:56:03 Phoenix: 70.0% weekly used,
-  30.0% remaining, 62.6701 credits, reset October 24 17:04:59 Phoenix.
-  Absolute token allowance unknown; this is historical evidence, not a new read.
-- Last verified ElevenLabs quota, October 17 20:36:23 Phoenix: 975 used,
-  22,761 remaining characters; reset November 6 11:09:07 Phoenix.
-- No paid generation, reset, purchase, new credentials, live Gmail action or
-  production launch was used for this release. Existing background settings
-  are unchanged. Subscription generation/delegation still fail closed on
-  billing/tool isolation. Vault memory was not updated in this scoped release.
+## Implemented offline; gates remain closed
 
-## In flight
-- **Development branch delivery (October 17, Phoenix):** engine discovery, separate always-visible Command usage panel, subscription/API management reusing Preferences and Armory, and offline-tested Codex conversation adapter; see `ENGINE-STATUS-USAGE.md` and `SUBSCRIPTION-CONVERSATION.md`. Subscription generation remains blocked on billing and tool isolation; Codex telemetry now has a real backend reading. Installed without launch.
-- **Skin choice.** Kevin is comparing the four skins in the installed app.
-- **A live view on Kevin's PC.** Remote Control works on his PC (first used
-  2026-10-14 to install 0.35.0). A session running `npm run tauri dev` from
-  the branch would let him watch visual edits without installing.
+- Claude/Codex chat and background generation refuse before provider transport.
+  Paid API fallback stays denied; ElevenLabs retains its separate included-use gate.
+- Claude launch/auth inspection suppress automatic CLI updates. Managed-policy
+  uncertainty fails closed; retrospective overage telemetry is not pre-launch proof.
+- Olympus-owned ChatGPT callback, token validation, renewal/revocation, secure-store
+  adapter and native dispatcher exist behind unconditional production-consent denial.
+- Synthetic connection UI/IPC is isolated; real credentials were not read, exchanged
+  or stored. The test signing key is synthetic test-only material.
 
-## Next
+## Incomplete and blocked before live activation
 
-1. **Look at the Pantheon on the PC** after Update Olympus. Switch skins from
-   the dot in the scene's bottom-left corner, hover each god and its Armory row, and note how long the statues
-   take to appear in WebView2 and whether a pedestal stays empty (a model that
-   fails to load logs a warning). Start a delegated run to see Hephaestus work.
-2. **Check 0.33.0 on the PC**, if not done.
-   - The first launch migrates the database and writes
-     `olympus.sqlite.pre-v2-from-v1.bak` beside it.
-   - Old history appears in the Chats list. Over the next minutes, chat notes
-     appear in `10 - Conversations/`, each with its own vault commit.
-   - A chat left quiet for ten minutes updates `09 - System/Olympus Memory.md`.
-   - Listen to a spoken reply and use the microphone. The waveform should
-     follow the voice and settle in pauses, and the Omega should brighten
-     slightly. If the bars keep their small ambient rhythm while audio plays,
-     the analysis found no source; note which provider was speaking.
-3. **Armory Phase 0 on the PC.** Open Preferences > Subscription engines. Both
-   engines should be found and show a subscription. If either shows "Not
-   confirmed", record the output of `claude auth status --json` or
-   `codex login status`, so the parser can learn that shape.
-4. **Armory Phase 1, the engine layer**, per `docs/ARMORY-PLAN.md`, after the
-   engine spike runs on the PC. Monid belongs to Phase 3b; the spending policy is
-   in `OLYMPUS-MANUAL.md`, and the earlier step-by-step plan is the first
-   section of `docs/archive/NEXT-SESSION-through-2026-10-11.md`.
-5. **Home semantic navigation.** Approved as an independent slice, not
-   started. The only written design is the Semantic Zoom section and Phase 4 of
-   `docs/archive/SKILLS-GRAPHS-INSPECTION-PLAN.md`.
-6. **One paid Research run from the UI**, once API credit is available.
+1. ChatGPT token validator must reject a present mismatched `azp` for every audience
+   representation, not only multiple-audience arrays.
+2. Cancellation and credential persistence need a coordinated commit boundary;
+   cancellation during metadata save can currently be followed by persistence.
+3. The planned Olympus-token/custom-provider app-server handoff is not implemented.
+   The existing adapter still uses its old CLI authentication path behind denial.
+4. Real grant/account scope and provider-enforced credit protection are unverified.
+   Prior browser consent review stopped before exchange; it is not a usable session.
+5. Claude sign-in/version/isolation and supported pre-prompt spending proof remain
+   unresolved. Do not widen the plugin allowlist or use a prompt as a diagnostic.
 
-## Decisions waiting on Kevin
+These findings are in `reviews/2026-11-02-current-state-review.md`. They do not
+justify enabling consent/generation. Live agent activity/recruitment remains queued,
+not implemented by this reconciliation.
 
-1. **Knowledge audit.** A fixed read-only check of research and evidence
-   health. Its screen went in 0.30.0, and nothing can start it now. Kevin's
-   view: it probably needs no screen. Retire it (code, three commands, two
-   tables via a migration) or run it on a schedule later.
-2. **Retired Command composition.** The Agent Catalog, the capability ring and
-   the non-flagship paths in `CommandInstrument` are now reachable only from
-   `command-agent-harness.html` without `?flagship`. Proposed: remove them and
-   their CSS with the same before/after style proof used on 2026-10-12.
+## Fresh verification
 
-## Known issues
+- Rust offline locked library suite: 625 passed, 0 failed, 24 ignored.
+- Frontend build passed; existing large-bundle warning remains.
+- Synthetic ChatGPT connection browser checks passed at 1280/420 widths, including
+  cancellation, expiry, mismatch, renewal/failure and disconnect/failure.
+- Subscription-selection and guidance checks passed.
+- Full visual regression: 21 captures, 14 functional and 22 Organizer checks passed.
+  Narrow connection and Command screenshots were visually inspected.
+- All 14 source hashes in the prior synthetic-native acceptance receipt match.
+  That is historical native evidence, not a new native test or live-account result.
 
-- **No reasoning on Kevin's PC.** On 2026-10-14 Sol showed "Unavailable": the
-  desktop `.env` has no `OPENAI_API_KEY`, so typed and spoken replies fail and
-  ElevenLabs reads the error. He is weighing API credits against Armory
-  Phase 1 (subscription engines) and asked to hold Phase 1 for now.
-- **Browser tests assume Kevin's machine.** 16 test scripts hard-code
-  `channel:'msedge'`, and most expect a dev server already running on
-  `127.0.0.1:31420` (one uses `31448`). A cloud session runs them on Chromium
-  only through a preload shim. There is no `npm test` and no CI.
-- **One-off review scripts are stale.** `scripts/*-review.mjs` launch Edge only
-  and nothing runs them; `mission-review.mjs` looks for "Obsidian
-  constellation", now "Obsidian Memory constellation". `npm run visual:review`
-  covers the shipped Command instead.
-- **Stale fixture.** `src/services/capabilitiesFixture.json` predates
-  `hephaestus-engineering` and lists 7 skills, so browser previews show one
-  fewer than the desktop app.
-- **No caller.** `memory_status`, `memory_preview`,
-  `memory_rebuild`, `list_organizer_tasks` and `communication_skills` are
-  registered but nothing in the app calls them.
-- **Project identity is split.** `organizer_tasks.project_id` references the
-  legacy `projects` table, while linked projects live in `project_members`.
-- **Unverified at ≥1500×800.** Situation maps size their inspector from the
-  console column. Since the console became a dock this may collapse; it has not
-  been rendered to check.
-- **Wrong disclosure with the local model.** Situation-map "Understanding
-  settings" says OpenAI analyzes the mail even when
-  `OLYMPUS_EMAIL_ANALYSIS_PROVIDER=ollama` is set.
-- **Monid text without Monid.** `SkillCollection.tsx` copy mentions Monid
-  approvals, but no Monid integration exists.
+## Research and memory
 
-## Never exercised against real data
+The seven residency groups contain 14 linked works. Fresh public-source capture
+created 14 research notes in the existing vault, with nine full PDFs (403 pages),
+five full source articles, 108 original images and 218 rendered figure/table-context
+pages. Notes include extracted text, captions, source URLs, provenance and hashes.
+The abandoned ZIP was not used; no importer from it was executed.
 
-These are recorded in the release lines and still open. Kevin's daily use
-covers the screens he uses; these paths each need a deliberate trigger.
+Source archive is not endorsement, executable instruction, or fabricated synthesis.
+No numeric plot digitization/OCR is claimed. PDF equations/reading order may degrade;
+interactive applications/videos were not executed. Original bytes remain available.
 
-- The Living Pantheon and its skins, halo and hover in WebView2, and any god
-  driven by a real mission step.
-- A Coding Delegate (Hephaestus) run that completes under the turn limit, and
-  Organizer acceptance of its real result.
-- The engine sign-in checks against Kevin's real Codex and Claude Code installs.
-- The voice signal against real ElevenLabs replies, realtime voice and the
-  microphone in WebView2. The harness uses synthetic audio only.
-- A paid Research / Verification run from the UI.
-- Live-provider skill guidance.
-- A project brief saved since the 2026-10-12 vault-commit change.
-- Process-crash timing.
-- Migration 2 on Kevin's real database, its backup, and the refusal when an
-  older binary meets the migrated database.
-- A paid memory pass, a chat note and memory note written to the real vault with
-  their commits, and learning from earlier chats.
+The actual Olympus Research parser recognized all 14 new entries (25 library entries
+total). Read-only temporary memory indexing/recall passed: 94 documents, 1,739 chunks;
+four unrelated pre-existing metadata issues were reported. No installed-app or
+model-mediated retrieval acceptance was performed. Local import receipts are under
+the current workspace `output/olympus-current/`; private vault history is not staged
+with application source and must not be pushed to the application repository.
+
+## Authority for the next step
+
+Kevin requested preservation, review, offline verification and the research import.
+His current instruction overrides older standing release automation: confirm the
+exact target and authorization before push, merge, install or deploy. No credential
+exchange/storage, account changes or paid model/API calls are authorized here.

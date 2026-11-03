@@ -30,7 +30,7 @@ export function ModelRouteControl({disabled=false}:{disabled?:boolean}) {
  useEffect(()=>{if(disabled)setOpen(false);},[disabled]);
  const current=catalog?.routes.find(r=>r.capability===selection.capability);
  const defaultName=catalog?.routes.find(r=>r.capability===catalog.defaultCapability)?.label??"the configured default";
- const suffix=codex?"ChatGPT subscription":subscription?"Max subscription":!choice?"Choose":!catalog?"Loading":!current?.available?"Unavailable":selection.scope==="chat"?"This chat":selection.capability===catalog.defaultCapability?"Default":"Next answer";
+ const suffix=subscription?"Blocked":!choice?"Choose":!catalog?"Loading":!current?.available?"Unavailable":selection.scope==="chat"?"This chat":selection.capability===catalog.defaultCapability?"Default":"Next answer";
  const triggerLabel=codex?"Codex":subscription?claudeModel.label:!choice?"Model":current?.label??(error?"Models":"Model");
  const close=(focus=false)=>{returnFocus.current=focus;setOpen(false);};
  useLayoutEffect(()=>{if(!saving){if(!open&&returnFocus.current){returnFocus.current=false;trigger.current?.focus();}else if(open&&scopeFocus.current){scopeFocus.current.focus();scopeFocus.current=null;}}},[open,saving]);
@@ -105,7 +105,7 @@ export function ModelRouteControl({disabled=false}:{disabled?:boolean}) {
      <span className="model-picker-copy"><strong>{model.label}</strong><small>{model.description}</small></span>
      <span className="model-provider">Claude Max</span><span className="model-check" aria-hidden="true">{choice?.provider==="claude-code"&&claudeModel.id===model.id?'✓':''}</span>
     </button>)}
-    <button type="button" role="radio" aria-checked={codex} disabled={saving||!desktop} title="gpt-6.1-sol" onClick={()=>chooseCodex()}><span className="model-picker-copy"><strong>Codex · GPT-6.1 Sol</strong><small>Runs only while your ChatGPT account has no purchased credits</small></span><span className="model-provider">ChatGPT</span><span className="model-check" aria-hidden="true">{codex?'✓':''}</span></button>
+    <button type="button" role="radio" aria-checked={codex} disabled title="Included-allowance-only spending protection is not established" onClick={()=>chooseCodex()}><span className="model-picker-copy"><strong>Codex · GPT-6.1 Sol</strong><small>Blocked until included-only spending protection is established</small></span><span className="model-provider">ChatGPT</span><span className="model-check" aria-hidden="true">{codex?'✓':''}</span></button>
    </div>
    {choice?.provider==="claude-code"&&claude&&!claude.confirmedAt&&<div className="model-picker-confirm" role="group" aria-label="Confirm Claude usage credits are off">
     <p>Olympus cannot see your Claude billing settings. Confirm only once usage credits are off at claude.ai, Settings &gt; Usage. It records the Max account signed in now and stops if Claude ever reports overage.</p>
@@ -119,7 +119,7 @@ export function ModelRouteControl({disabled=false}:{disabled?:boolean}) {
      <span className="model-provider">{route.providerLabel}</span><span className="model-check" aria-hidden="true">{!subscription&&!!choice&&selection.capability===route.capability?'✓':''}</span>
     </button>)}
    </div>
-   {subscription?<p>{codex?"Uses your included ChatGPT allowance and stops if purchased credits appear or the allowance is nearly used.":"Uses your Claude Max allowance."} Stays selected until you change it. Text only.</p>:<>
+   {subscription?<p>{codex?"Codex generation is blocked until included-allowance-only protection is established.":"Claude generation is blocked pending pre-launch spending protection and plugin isolation."} Stays selected until you change it. Text only.</p>:<>
    <div className="model-picker-scope" role="radiogroup" aria-label="Applies to"><span>Applies to</span><div>
     {([['next','Next answer'],['chat','This chat']] as const).map(([scope,label])=><button key={scope} type="button" role="radio" aria-checked={selection.scope===scope} disabled={saving||!current?.available} onClick={()=>void choose(selection.capability,scope,false)}>{label}</button>)}
    </div></div>

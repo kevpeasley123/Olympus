@@ -1,7 +1,6 @@
 //! Background model jobs on the operator's subscriptions instead of a paid API.
-//! Claude runs first; Codex is the backup. Each attempt keeps its own adapter's
-//! gate (the Claude confirmation and live Max sign-in, the Codex no-credits read)
-//! and isolation, so falling back never reaches a paid route.
+//! Claude generation remains closed pending pre-launch spending proof. No fallback
+//! is attempted while Codex lacks provider-enforced included-only protection.
 use super::models::{self, RequestRecord};
 use super::persistence::Db;
 use serde_json::Value;
@@ -19,10 +18,10 @@ pub fn init(app: &tauri::AppHandle) {
     }
 }
 
-/// Whether a job could start: Claude confirmed for this install, or Codex
-/// installed. Each attempt still checks its own gate before sending anything.
+/// Whether a job could start: generation protection and account confirmation. Isolated UI
+/// acceptance never starts background generation, regardless of saved settings.
 pub fn available() -> bool {
-    APP_DATA.get().is_some_and(|dir| super::claude_subscription::is_confirmed(dir)) || super::engines::codex_executable().is_ok()
+    super::claude_subscription::require_generation().is_ok() && !super::acceptance::active() && APP_DATA.get().is_some_and(|dir| super::claude_subscription::is_confirmed(dir))
 }
 
 /// Which Claude model a job gets: memory and research carry the most weight;
@@ -46,11 +45,14 @@ const JOB_LIMIT: Duration = Duration::from_secs(300);
 /// matches the schema's required fields and their basic types. Fills `record`
 /// as the paid route did, for Model diagnostics; the caller saves it.
 pub async fn run(tier: Tier, instructions: &str, input: Value, schema: Value, record: &mut RequestRecord) -> Result<String, String> {
+    if super::acceptance::active() {
+        return Err("Background generation is disabled in the isolated acceptance profile.".into());
+    }
     let prompt = job_prompt(&input, &schema)?;
     let started = Instant::now();
     record.reasoning_effort = None;
     let mut errors = Vec::new();
-    for engine in [Engine::Claude, Engine::Codex] {
+    for engine in [Engine::Claude] {
         record.provider = engine.provider().into();
         record.requested_model = engine.model(tier).into();
         let (system, attempt, checked) = (instructions.to_string(), prompt.clone(), schema.clone());
@@ -96,19 +98,16 @@ pub async fn structured(db: &Db, purpose: &str, instructions: &str, input: Value
 #[derive(Clone, Copy)]
 enum Engine {
     Claude,
-    Codex,
 }
 impl Engine {
     fn provider(self) -> &'static str {
         match self {
             Engine::Claude => "claude-subscription",
-            Engine::Codex => "codex-subscription",
         }
     }
     fn model(self, tier: Tier) -> &'static str {
         match self {
             Engine::Claude => tier.claude_model(),
-            Engine::Codex => "gpt-6.1-sol",
         }
     }
     fn run(self, tier: Tier, system: &str, prompt: String) -> Result<(String, String), String> {
@@ -117,7 +116,6 @@ impl Engine {
                 let app_data = APP_DATA.get().ok_or("Olympus data folder unavailable")?;
                 super::claude_subscription::run_job(app_data, Some(tier.claude_model()), system, prompt, JOB_LIMIT)
             }
-            Engine::Codex => super::subscription::run_job(system, prompt, JOB_LIMIT),
         }
     }
 }
@@ -195,13 +193,13 @@ mod tests {
     }
 
     #[test]
-    fn claude_runs_first_and_codex_is_the_backup() {
+    fn background_models_are_claude_only() {
         assert_eq!(Engine::Claude.model(Tier::Deep), "claude-opus-5-5");
         assert_eq!(Engine::Claude.model(Tier::Quick), "claude-sonnet-5-5");
         for tier in [Tier::Deep, Tier::Quick] {
             assert!(super::super::claude_subscription::CLAUDE_MODELS.iter().any(|(id, _)| *id == tier.claude_model()));
         }
-        assert_eq!(Engine::Codex.provider(), "codex-subscription");
+        assert_eq!(Engine::Claude.provider(), "claude-subscription");
     }
     #[test]
     fn required_fields_keep_their_declared_types() {
