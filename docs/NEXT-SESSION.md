@@ -11,12 +11,13 @@ No installation, native launch, credentials, live model calls or production
 operational database changes are part of this integration. Installed Olympus is
 unchanged. Local vault records/research are maintained separately from source Git.
 
-## Publication blocker
+## Publication
 
-The verified release branch is pushed, but GitHub's integration rejected PR creation
-with HTTP 403, "Resource not accessible by integration". No PR was created and
-master remains 5d4c75d. Pull-request write access must be resolved before merging;
-no denied action was retried or bypassed. All release checks below have passed.
+Kevin completed the GitHub connector installation and confirmed access was updated.
+PR #22 now contains the combined release: https://github.com/kevpeasley123/Olympus/pull/22.
+The earlier PR-creation permission blocker is resolved. The PR records the merge
+status and commit identity; all combined release checks below passed. Installation
+and native acceptance remain separate from source publication.
 
 ## Zeus height integration
 
