@@ -96,22 +96,39 @@ mod tests {
     #[ignore = "requires locally provisioned Whisper and Kokoro models"]
     fn offline_worker_round_trip() {
         use base64::{engine::general_purpose::STANDARD, Engine};
-        let rt=tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
         rt.block_on(async {
-            let start=std::time::Instant::now();
-            let result=local_speech("speak".into(),"Olympus project review is ready.".into()).await.unwrap();
-            let wav=STANDARD.decode(result).unwrap();
-            assert_eq!(&wav[..4],b"RIFF");
-            let sample_rate=u32::from_le_bytes(wav[24..28].try_into().unwrap()) as usize;
-            let samples:Vec<_>=wav[44..].chunks_exact(2).map(|b|i16::from_le_bytes([b[0],b[1]])).collect();
-            let mut resampled=Vec::new();
-            for i in 0..samples.len()*16000/sample_rate {
-                resampled.extend_from_slice(&samples[i*sample_rate/16000].to_le_bytes());
+            let start = std::time::Instant::now();
+            let result = local_speech("speak".into(), "Olympus project review is ready.".into())
+                .await
+                .unwrap();
+            let wav = STANDARD.decode(result).unwrap();
+            assert_eq!(&wav[..4], b"RIFF");
+            let sample_rate = u32::from_le_bytes(wav[24..28].try_into().unwrap()) as usize;
+            let samples: Vec<_> = wav[44..]
+                .chunks_exact(2)
+                .map(|b| i16::from_le_bytes([b[0], b[1]]))
+                .collect();
+            let mut resampled = Vec::new();
+            for i in 0..samples.len() * 16000 / sample_rate {
+                resampled.extend_from_slice(&samples[i * sample_rate / 16000].to_le_bytes());
             }
-            let synthesis=start.elapsed();
-            let transcript=local_speech("transcribe".into(),STANDARD.encode(resampled)).await.unwrap();
-            println!("Local synthesis {:?}; whole round trip {:?}; transcript {}",synthesis,start.elapsed(),transcript);
-            assert!(transcript.to_lowercase().contains("project review is ready"));
+            let synthesis = start.elapsed();
+            let transcript = local_speech("transcribe".into(), STANDARD.encode(resampled))
+                .await
+                .unwrap();
+            println!(
+                "Local synthesis {:?}; whole round trip {:?}; transcript {}",
+                synthesis,
+                start.elapsed(),
+                transcript
+            );
+            assert!(transcript
+                .to_lowercase()
+                .contains("project review is ready"));
         });
     }
 }

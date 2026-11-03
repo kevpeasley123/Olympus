@@ -16,7 +16,7 @@ export function ProjectChangeReview({projects=[]}:{projects?:readonly string[]})
     catch (cause) { setError(String(cause)); }
     finally { setRunning(false); }
   }
-  return <details>
+  return <details className="project-change-review">
     <summary>{projectChangeReview.name}</summary>
     <p>{projectChangeReview.purpose}</p><small>{projectChangeReview.authority} · local execution</small>
     <form onSubmit={event => { event.preventDefault(); void review(); }}>

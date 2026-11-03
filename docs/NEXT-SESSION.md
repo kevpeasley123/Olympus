@@ -1,5 +1,11 @@
 # Next session
 
+## Isolated overhaul branch
+
+The `codex/olympus-skill-backbone` branch incorporates the committed 0.43.0 work through a92b966. It adds executable local skills, retained project reviews, the engine toggle, rotating source activity, displayed briefing windows and local Whisper/Kokoro speech. The source release described below is its integration base. This branch is local and uninstalled. Review [Skill backbone](SKILL-BACKBONE.md) before integrating. The following publication details refer to the underlying release.
+
+Development verification used synthetic data. The Rust suite passed 676 tests with 25 explicit tests skipped. The installed-model native round trip was exercised separately, and the browser dictation test used generated audio. Standard browser regression passed 21 scenarios and the flagship review passed 58 checks. No installed desktop build, physical microphone, live Gmail recovery or live generation was exercised. Live provider gates remain closed. Migration 4 is additive and has been exercised against fixtures only.
+
 ## Current state - November 3, 2026
 
 Version 0.43.0. Combined source release on `codex/gmail-learning-intelligence`,

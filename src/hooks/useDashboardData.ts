@@ -1,5 +1,5 @@
 import {feedbackForBrief,resolveConversationTurn} from "../services/conversationFeedback";
-import { recordWhenDisplayed } from "../services/displayedBrief";
+import { briefSaved } from "../services/displayedBrief";
 import { matchSkillRequest } from "../services/executableSkills";
 import { recordSourceAccess } from "../services/sourceActivity";
 import { prepareSituationBriefing } from "../services/situationBriefing";
@@ -300,7 +300,7 @@ export function useDashboardData() {
         const prepared = isTauriRuntime() ? await prepareStableBrief(() => {
           const projects = dashboardRef.current.projects, board = boardRef.current;
           const root = dashboardRef.current.settings.projectsRootPath;
-          return prepareFactualBrief({projects,board,projectsError}, 'opening', Date.now(), undefined,
+          return prepareFactualBrief({rootPath:root,projects,board,projectsError}, 'opening', Date.now(), undefined,
             () => dashboardRef.current.projects === projects && boardRef.current === board && dashboardRef.current.settings.projectsRootPath === root, {temporary:session.temporary,conversationId:session.id});
         }, active) : null;
         if (!active()) return;
@@ -309,15 +309,17 @@ export function useDashboardData() {
         openingBriefed.current = true;
         if (!text) return;
         const message = createAssistantMessage(text);
-        message.id = `${BRIEFING_ID_PREFIX}${Date.now()}`;
+        message.id = `${BRIEFING_ID_PREFIX}${crypto.randomUUID()}`;
         message.kind = "briefing";
-      message.feedback = prepared && !session.temporary ? feedbackForBrief(prepared.items) : undefined;
+        message.delivery = prepared?.delivery;
+        message.feedback = prepared && !session.temporary ? feedbackForBrief(prepared.items) : undefined;
         message.voice = { kind: "output", spokenResponse: text, ...(dashboardRef.current.settings.autoSpeak ? {} : { playback: "skipped" as const }) };
         dashboardRef.current = { ...dashboardRef.current, conversation: [...dashboardRef.current.conversation, message] };
         setDashboardState(dashboardRef.current);
         setOpeningBriefing({ id: message.id, text });
         const saved = await remember([message], session);
-        if (prepared && saved && !session.temporary) recordWhenDisplayed(message.id,prepared.acknowledge);
+        if (prepared && !saved && !session.temporary) throw Error("Briefing could not be saved.");
+        if (prepared && saved && !session.temporary) briefSaved(message.id);
       } catch {
         if (briefingMounted.current && sessionRef.current.id === session.id) setChatError("The briefing could not finish or its delivery record could not be saved. Request a fresh update; unrecorded items remain eligible.");
       } finally {
@@ -343,13 +345,15 @@ export function useDashboardData() {
       const message = createAssistantMessage(text);
       message.id = `${BRIEFING_ID_PREFIX}sitrep-${crypto.randomUUID()}`;
       message.kind = "briefing";
+      message.delivery = prepared?.delivery;
       message.feedback = prepared && !session.temporary ? feedbackForBrief(prepared.items) : undefined;
       message.voice = { kind: "output", spokenResponse: text, ...(dashboardRef.current.settings.autoSpeak ? {} : { playback: "skipped" as const }) };
       dashboardRef.current = { ...dashboardRef.current, conversation: [...dashboardRef.current.conversation, message] };
       setDashboardState(dashboardRef.current);
       setOpeningBriefing({ id: message.id, text });
       const saved = await remember([message], session);
-      if (saved && !session.temporary) recordWhenDisplayed(message.id,prepared.acknowledge);
+      if (!saved && !session.temporary) throw Error("Briefing could not be saved.");
+      if (saved && !session.temporary) briefSaved(message.id);
     } catch (error) { if(briefingMounted.current) setChatError(errorMessage(error)); }
     finally { briefingLock.current = false; if(briefingMounted.current) setBriefingPending(false); }
   }, [sessionBoundary, remember]);

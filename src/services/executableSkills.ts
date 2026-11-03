@@ -12,7 +12,7 @@ export interface LocalSkill<I,O> {
 export const projectChangeReview:LocalSkill<string,Awaited<ReturnType<typeof runReview>>> = {
   id:"project-change-review", name:"Project Change Review",
   purpose:"Find the change in a project's committed revision and retain its source.",
-  input:"Project folder beneath the configured projects root",
+  input:"Visible registered Git project or a folder beneath the configured projects root",
   authority:"Read local Git and save the observation in Olympus",
   command:"/project-review",
   run:(project,trigger)=>runReview(project,trigger==="daily"),

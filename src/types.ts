@@ -62,6 +62,7 @@ export interface ResearchExcerpt {
 }
 
 export interface ConversationMessage {
+  delivery?:import("./services/briefProjectWindow").DisplayPlan;
   feedback?: import("./services/conversationFeedback").FeedbackContext | null;
   mail?: import("./services/gmail").MailExcerpt[];
   request?: import("./services/modelRouting").ModelRequest;
@@ -141,6 +142,7 @@ export type ProjectStatusSource = "declared" | "inferred";
 
 /** One commit inside the day arc's window. */
 export interface RecentCommit {
+  oid?:string;
   /** ISO 8601 committer date. */
   at: string;
   subject: string;

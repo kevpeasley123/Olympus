@@ -375,6 +375,8 @@ fn is_excluded_directory(path: &Path) -> bool {
 /// One commit inside the day arc's window.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RecentCommit {
+    #[serde(default,skip_serializing_if="Option::is_none")]
+    pub oid: Option<String>,
     /// ISO 8601 committer date.
     #[serde(rename = "at")]
     pub at: String,
@@ -391,27 +393,31 @@ fn recent_commits(path: &PathBuf) -> Vec<RecentCommit> {
 }
 
 fn commits_since(path: &PathBuf, since: &str) -> Vec<RecentCommit> {
-    let since_argument = format!("--since={since}");
-    let Ok(raw) = git_command(
-        path,
-        &["log", "--all", &since_argument, "--pretty=format:%cI|%s"],
-    ) else {
-        return Vec::new();
-    };
+    checked_commits_since(path,since).unwrap_or_default()
+}
 
-    raw.lines()
+pub(super) fn checked_commits_since(path:&PathBuf,since:&str)->Result<Vec<RecentCommit>,String> {
+    let since_argument = format!("--since={since}");
+    let raw = git_command(
+        path,
+        &["log", "--all", &since_argument, "--pretty=format:%H|%cI|%s"],
+    )?;
+
+    Ok(raw.lines()
         .filter_map(|line| {
-            let (at, subject) = line.split_once('|')?;
+            let (oid, rest) = line.split_once('|')?;
+            let (at, subject) = rest.split_once('|')?;
             let at = at.trim();
             if at.is_empty() {
                 return None;
             }
             Some(RecentCommit {
+                oid: Some(oid.into()),
                 at: at.to_string(),
                 subject: subject.trim().to_string(),
             })
         })
-        .collect()
+        .collect())
 }
 
 fn linked_worktrees(path: &PathBuf) -> Vec<LinkedWorktree> {

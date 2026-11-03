@@ -34,7 +34,7 @@ export function briefItems(input:BriefContext,now=Date.now()):BriefItem[] {
    add(`project:${project.id}:decision`,'attention',`${project.name} ${row.operationalStatus==='BLOCKED'?'has a recorded blocker':'is awaiting your review'}: ${detail}`,80,[row.operationalStatus,detail]);
   }
   const changes=project.sinceSessionCommits?.filter(c=>!/^Merge\b/.test(c.subject))??[];
-  if(changes.length) add(`project:${project.id}:progress`,'progress',`Recorded change in ${project.name}: ${changes[0].subject}`,40,changes.map(c=>[c.at,c.subject]));
+  if(changes.length) add(`project:${project.id}:progress`,'progress',`${changes.length>1?`${changes.length} recorded changes`:"Recorded change"} in ${project.name}: ${changes[0].subject}`,40,changes.map(c=>[c.at,c.subject]));
   if(project.nextStep?.trim()) add(`project:${project.id}:next`,'attention',`Recorded next step for ${project.name}: ${project.nextStep}`,50,project.nextStep);
   if(project.repoState==='git-pending'||project.linkedWorktrees?.some(w=>w.changedFiles>0))
    add(`project:${project.id}:working`,'attention',`${project.name} has uncommitted work available for review.`,10,[project.repoState,project.lastCommit,project.linkedWorktrees?.map(w=>[w.path,w.head,w.changedFiles])]);
@@ -93,7 +93,7 @@ export function selectBrief(items:BriefItem[],receipts:BriefReceipts,mode:BriefM
    ||!Number.isFinite(receipt.deliveredAt)||receipt.deliveredAt>now||(item.kind!=='context'&&now-receipt.deliveredAt>=DAY);
  }).sort((a,b)=>b.priority-a.priority||(a.kind==='context'&&b.kind==='context'?0:a.id.localeCompare(b.id)))
  .filter(item=>{
-  if(item.kind!=='context')return true;
+  if(item.kind!=='context' && !item.source)return true;
   if(contextSelected)return false;
   contextSelected=true;return true;
  }).slice(0,3);

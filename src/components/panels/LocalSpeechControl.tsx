@@ -17,9 +17,10 @@ async function pcm16(blob: Blob) {
   } finally { await context.close(); }
 }
 
-export function LocalSpeechControl({onText, reply}:{onText:(text:string)=>void;reply:string}) {
+export function LocalSpeechControl({onText,reply,onUseLocal}:{onText:(text:string)=>void;reply:string;onUseLocal?:()=>void}) {
   const [status,setStatus]=useState("Ready");
   const [active,setActive]=useState(false);
+  const processing=useRef(false);
   const generation=useRef(0), player=useRef<HTMLAudioElement|null>(null);
   const clipUrl=useRef<string|null>(null);
   const recorder=useRef<MediaRecorder|null>(null), timeout=useRef<number>();
@@ -31,14 +32,16 @@ export function LocalSpeechControl({onText, reply}:{onText:(text:string)=>void;r
     player.current?.pause(); player.current=null;
     if(clipUrl.current){URL.revokeObjectURL(clipUrl.current);clipUrl.current=null;}
   }
-  useEffect(()=>()=>{generation.current++;release();},[]);
+  useEffect(()=>()=>{generation.current++;release();if(processing.current)void invoke("cancel_local_speech").catch(()=>{});},[]);
   async function start(kind:"transcribe"|"speak") {
+    onUseLocal?.();
     const token=++generation.current; setActive(true);
     const current=()=>token===generation.current;
-    const finish=(message:string)=>{if(current()){release();setStatus(message);setActive(false);}};
+    const finish=(message:string)=>{if(current()){processing.current=false;release();setStatus(message);setActive(false);}};
     try {
       if(kind==="speak") {
         setStatus("Synthesizing locally");
+        processing.current=true;
         const wav=await invoke<string>("local_speech",{kind,value:reply});
         if(!current())return;
         const bytes=Uint8Array.from(atob(wav),char=>char.charCodeAt(0));
@@ -60,6 +63,7 @@ export function LocalSpeechControl({onText, reply}:{onText:(text:string)=>void;r
           try {
             const value=await pcm16(new Blob(chunks,{type:mic.mimeType}));
             if(!current())return;
+            processing.current=true;
             const text=await invoke<string>("local_speech",{kind,value});
             if(current() && text)onText(text);
             finish(text?"Transcript ready to review":"No speech detected");
@@ -85,7 +89,7 @@ export function LocalSpeechControl({onText, reply}:{onText:(text:string)=>void;r
     <button type="button" disabled={active} onClick={()=>void start("transcribe")}>Dictate</button>
     {status==="Listening locally" && <button type="button" onClick={()=>{if(recorder.current?.state==="recording")recorder.current.stop();}}>Finish dictation</button>}
     <button type="button" disabled={active || !reply.trim()} onClick={()=>void start("speak")}>Speak latest reply</button>
-    {active && <button type="button" onClick={()=>{generation.current++;release();void invoke("cancel_local_speech").catch(()=>{});setActive(false);setStatus("Stopped");}}>Stop</button>}
+    {active && <button type="button" onClick={()=>{generation.current++;processing.current=false;release();void invoke("cancel_local_speech").catch(()=>{});setActive(false);setStatus("Stopped");}}>Stop</button>}
     <span role="status">{status}</span>
   </details>;
 }

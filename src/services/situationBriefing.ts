@@ -24,7 +24,7 @@ export async function prepareSituationBriefing(root: string, boundary: SessionBo
     runs.status === "fulfilled" ? runs.value : [],
     { tasks: tasks.status === "fulfilled", runs: runs.status === "fulfilled" });
   const gaps = [tasks.status === "rejected" ? "task records" : "", runs.status === "rejected" ? "running-work records" : "", projects.status==='fulfilled'&&projects.value.warnings.length ? "some project notes" : ""].filter(Boolean);
-  const briefing = await prepareFactualBrief({projects:projectList,board,projectsError:projects.status==='rejected'?'unavailable':null},'requested',Date.now(),undefined,async()=>sourceRevision(await collect())===expected,scope);
+  const briefing = await prepareFactualBrief({rootPath:root,projects:projectList,board,projectsError:projects.status==='rejected'?'unavailable':null},'requested',Date.now(),undefined,async()=>sourceRevision(await collect())===expected,scope);
   if(gaps.length) briefing.text=`${briefing.text} I couldn't refresh ${gaps.join(" and ")}, so this briefing is incomplete.`;
   return briefing;
 }

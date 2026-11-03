@@ -18,6 +18,7 @@ pub struct ToolState {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ConversationMessage {
+    #[serde(default,skip_serializing)] pub delivery: Option<super::briefing::DisplayPlan>,
     #[serde(default,skip_serializing_if="Option::is_none")]
     pub feedback: Option<serde_json::Value>,
     #[serde(default)] pub mail: Vec<super::gmail::store::Excerpt>,
@@ -338,7 +339,7 @@ pub fn load_messages(connection: &Connection, conversation_id: Option<&str>) -> 
             };
             let turn: TurnContext = side_row(row.get(9)?, "conversation_turn_context", &id).unwrap_or_default();
             Ok(LoadedMessage { at, imported_at, message: ConversationMessage {
-                feedback: turn.feedback,
+                delivery:None, feedback: turn.feedback,
                 attachment: turn.attachment,
                 scope: turn.scope,
                 mail: side_row(row.get(7)?, "conversation_mail", &id).unwrap_or_default(),
@@ -457,6 +458,9 @@ fn store_messages_as(connection: &mut Connection, conversation_id: &str, message
             )
             .map_err(|error| error.to_string())?;
         if inserted == 1 {
+            if !imported {
+                if let Some(plan)=&message.delivery {super::briefing::store_display(&transaction,&message.id,&message.role,plan)?;}
+            }
             inserted_any = true;
             super::conversations::index_message(&transaction, conversation_id, &message.id, &message.content).map_err(|e| e.to_string())?;
         }
@@ -505,7 +509,7 @@ mod tests {
       let mut c=Connection::open_in_memory().unwrap();c.execute_batch(crate::commands::migrations::TEST_SCHEMA).unwrap();
       let r=super::super::models::RequestRecord::new(&super::super::models::resolve(super::super::models::Capability::DeepReasoning),"command");
       c.execute("INSERT INTO model_requests(id,record_json) VALUES (?1,?2)",params![r.id,serde_json::to_string(&r).unwrap()]).unwrap();
-      let message=|request|ConversationMessage{feedback:None,mail:vec![],request,id:"answer".into(),role:"assistant".into(),content:"Same answer".into(),timestamp:"12:00".into(),research:vec![],voice:None,attachment:None,scope:None};
+      let message=|request|ConversationMessage{delivery:None,feedback:None,mail:vec![],request,id:"answer".into(),role:"assistant".into(),content:"Same answer".into(),timestamp:"12:00".into(),research:vec![],voice:None,attachment:None,scope:None};
       store_messages(&mut c, "chat", vec![message(Some(r.clone()))]).unwrap();store_messages(&mut c, "chat", vec![message(None)]).unwrap();
       assert_eq!(c.query_row("SELECT request_id FROM conversation_model WHERE message_id='answer'",[],|r|r.get::<_,String>(0)).unwrap(),r.id);
       assert_eq!(c.query_row("SELECT count(*) FROM conversation_messages",[],|r|r.get::<_,i64>(0)).unwrap(),1);
@@ -516,7 +520,7 @@ mod tests {
     fn spoken_and_typed_messages_share_history_and_voice_metadata_survives_updates() {
         let mut db = Connection::open_in_memory().unwrap();
         db.execute_batch(crate::commands::migrations::TEST_SCHEMA).unwrap();
-        let message = |id: &str, voice: Option<serde_json::Value>| ConversationMessage { feedback:None,
+        let message = |id: &str, voice: Option<serde_json::Value>| ConversationMessage { delivery:None, feedback:None,
             mail:vec![], request: None, id: id.into(), role: "assistant".into(), content: "Full visual detail".into(), timestamp: "12:00".into(), research: vec![], voice, attachment: None, scope: None,
         };
         store_messages(&mut db, "chat", vec![message("typed", None), message("spoken", Some(serde_json::json!({"kind":"output","spokenResponse":"Short answer","playback":"pending"}))), message("typed-after",None)]).unwrap();
@@ -537,7 +541,7 @@ mod tests {
             title: title.into(), source_file: "02 - Research/a.md".into(), source_date: None,
             stance: "unevaluated".into(), origin: None, excerpt: "quoted".into(), truncated: false, fingerprint: "f".into(),
         };
-        let message = |content: &str, title: &str, playback: &str| ConversationMessage { feedback:None,
+        let message = |content: &str, title: &str, playback: &str| ConversationMessage { delivery:None, feedback:None,
             mail: vec![], request: None, id: "answer".into(), role: "assistant".into(), content: content.into(),
             timestamp: "12:00".into(), research: vec![excerpt(title)],
             voice: Some(serde_json::json!({"kind":"output","playback":playback})), attachment: None, scope: None,
@@ -558,7 +562,7 @@ mod tests {
         let mut db = Connection::open_in_memory().unwrap();
         db.execute_batch(crate::commands::migrations::TEST_SCHEMA).unwrap();
         db.execute("INSERT INTO conversation_messages (id, role, content, timestamp, created_at) VALUES ('old', 'user', 'hi', '09:15', '2026-09-25 09:15:02')", []).unwrap();
-        store_messages(&mut db, "chat", vec![ConversationMessage { feedback:None, mail: vec![], request: None, id: "new".into(), role: "assistant".into(), content: "Now".into(), timestamp: "10:00".into(), research: vec![], voice: None, attachment: None, scope: None }]).unwrap();
+        store_messages(&mut db, "chat", vec![ConversationMessage { delivery:None, feedback:None, mail: vec![], request: None, id: "new".into(), role: "assistant".into(), content: "Now".into(), timestamp: "10:00".into(), research: vec![], voice: None, attachment: None, scope: None }]).unwrap();
         let state = all(&db);
         assert_eq!(state.conversation[0].at.as_deref(), Some("2026-09-25T09:15:02Z"));
         assert_eq!(state.conversation[0].timestamp, "09:15", "the stored clock time is untouched");
@@ -573,7 +577,7 @@ mod tests {
     fn imported_rows_carry_their_import_time_instead_of_a_message_date() {
         let mut db = Connection::open_in_memory().unwrap();
         db.execute_batch(crate::commands::migrations::TEST_SCHEMA).unwrap();
-        let message = |id: &str, content: &str| ConversationMessage { feedback:None, mail: vec![], request: None, id: id.into(), role: "user".into(), content: content.into(), timestamp: "14:10".into(), research: vec![], voice: None, attachment: None, scope: None };
+        let message = |id: &str, content: &str| ConversationMessage { delivery:None, feedback:None, mail: vec![], request: None, id: id.into(), role: "user".into(), content: content.into(), timestamp: "14:10".into(), research: vec![], voice: None, attachment: None, scope: None };
         store_messages(&mut db, "chat", vec![message("native", "Typed on desktop")]).unwrap();
         store_messages_as(&mut db, "chat", vec![message("browser", "From localStorage"), message("native", "Forged import")], true).unwrap();
         db.execute("UPDATE conversation_imports SET imported_at='2026-09-29T08:00:00Z' WHERE message_id='browser'", []).unwrap();
@@ -653,7 +657,7 @@ mod tests {
         assert_eq!(ipc.attachment.as_ref(), Some(&attachment));
         store_messages(&mut db, "chat", vec![ipc]).unwrap();
         // A repeated append cannot swap the attached source.
-        store_messages(&mut db, "chat", vec![ConversationMessage { feedback:None,
+        store_messages(&mut db, "chat", vec![ConversationMessage { delivery:None, feedback:None,
             mail: vec![], request: None, id: "asked".into(), role: "user".into(), content: "Forged".into(), timestamp: "10:00".into(), research: vec![], voice: None,
             attachment: Some(TurnAttachment { context: "[Gmail thread: zz]".into(), ..attachment.clone() }), scope: None,
         }]).unwrap();

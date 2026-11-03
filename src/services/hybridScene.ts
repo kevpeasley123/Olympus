@@ -345,7 +345,7 @@ export function mountHybridScene(host: HTMLDivElement, layout: CommandLayout, cu
     // Figure states keep wall-clock time so brief transitions end even when motion is reduced.
     const figureStates=figures?.update(value.missions??[],agentConstellationSnapshot(),delta,now/1000,moving)??"";
     if(HARNESS_ATTRIBUTES)canvas.dataset.figureStates=figureStates;
-    if(HARNESS_ATTRIBUTES&&galaxy){canvas.dataset.galaxyTime=String(time);canvas.dataset.galaxyYaw=String(galaxy.group.rotation.y);canvas.dataset.galaxyBodies=String(missionCount);canvas.dataset.missionPlanets=String(missionCount);canvas.dataset.galaxyDust="0";canvas.dataset.assetNodes=String(galaxy.count());}
+    if(HARNESS_ATTRIBUTES&&galaxy){canvas.dataset.galaxyTime=String(time);canvas.dataset.galaxyYaw=String(galaxy.group.rotation.y);canvas.dataset.galaxyBodies=String(missionCount);canvas.dataset.missionPlanets=String(missionCount);canvas.dataset.galaxyDust="0";canvas.dataset.assetNodes=String(galaxy.count());canvas.dataset.sourcePulses=String(galaxy.activePulses());}
     constellationMotion.yaw=advanceConstellationYaw(constellationMotion.yaw,delta,moving);
     constellationGroup.rotation.y=constellationMotion.yaw;
     orbitalTime+=value.state==="error"?0:delta*(value.state==="thinking"?14:1);

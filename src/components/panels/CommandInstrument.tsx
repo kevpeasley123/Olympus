@@ -1,3 +1,7 @@
+import {PANTHEON_FIGURES} from "../../services/pantheonFigureState";
+import { openProject } from "../../services/navigation";
+import { inspectArmoryCapability } from "../../services/armoryNavigation";
+import { inspectConstellationAgent } from "../../services/agentConstellation";
 import { openVaultNote } from "../../services/launcher";
 import type { GalaxyAsset } from "../../services/pantheonGalaxy";
 import { InstrumentActivity } from "./InstrumentActivity";
@@ -277,7 +281,7 @@ export function CommandInstrument({
   const galaxyAssets=useMemo(()=>[
     ...projects.map(p=>({id:"project:"+p.id,label:p.name})),
     ...graph.nodes.slice(0,180).map(n=>({id:"note:"+n.id,label:n.title})),
-    ...(capabilities?.agents??[]).map(a=>({id:"agent:"+a.id,label:a.id})),
+    ...(capabilities?.agents??[]).map(a=>({id:"agent:"+a.id,label:PANTHEON_FIGURES.find(f=>f.agent===a.id)?.name??a.id})),
     ...(capabilities?.skills??[]).map(s=>({id:"skill:"+s.id,label:s.name})),
     {id:"actor:Project Change Review",label:"Project Change Review"},
   ],[projects,graph.nodes,capabilities]);
@@ -302,6 +306,10 @@ export function CommandInstrument({
       {flagship && <InstrumentActivity missions={missions} assets={galaxyAssets} onInspect={setAsset}/>}
       {flagship && asset && <aside className="asset-inspection" aria-live="polite"><strong>{asset.label}</strong><small>{asset.id}</small>
         {asset.id.startsWith("note:") && <button onClick={()=>void openVaultNote(asset.id.slice(5)).catch(()=>setAssetError("Could not open the note."))}>Open note</button>}
+        {asset.id.startsWith("project:") && <button onClick={()=>openProject(asset.id.slice(8))}>Open project</button>}
+        {asset.id.startsWith("agent:") && <button onClick={()=>inspectConstellationAgent(asset.id.slice(6))}>Inspect agent</button>}
+        {asset.id.startsWith("skill:") && <button onClick={()=>{const skill=capabilities?.skills.find(s=>s.id===asset.id.slice(6));if(skill)inspectArmoryCapability(skill);}}>Inspect skill</button>}
+        {(asset.id==="actor:Project Change Review" || (asset.id.startsWith("source:") && asset.label.endsWith(" · Git HEAD"))) && <button onClick={()=>window.dispatchEvent(new Event("olympus:open-review"))}>Open Project Change Review</button>}
         {assetError && <small>{assetError}</small>} <button onClick={()=>setAsset(null)}>Close</button></aside>}
       <motion.div className="command-instrument__dial" ref={dialRef} style={instrumentParallax}>
         <div className="command-orbital-atmosphere" aria-hidden="true"/>

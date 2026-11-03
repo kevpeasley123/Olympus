@@ -79,6 +79,7 @@ export interface Mission {
   id: string;
   kind: "research-verification" | "communication-intelligence" | "communication-situations" | "knowledge-audit" | "coding-delegation";
   workflow: string;
+  citations?:{child:string;actor:string;file:string;fingerprint:string;at:string}[];
   title: string;
   request: string;
   status: MissionStatus;

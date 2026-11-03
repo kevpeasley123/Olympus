@@ -54,6 +54,7 @@ interface ChatPanelProps {
   companion?: boolean;
   onActivate?: () => void;
   collapseLabel?: string;
+  onUseLocalVoice?:()=>void;
   onVoiceConversationToggle?:()=>void;
   onOpenPreferences?:()=>void;
   autoSpeak?:boolean;
@@ -93,7 +94,7 @@ interface ChatPanelProps {
   chats?: ChatControls;
 }
 
-export function ChatPanel({ companion = false, onVoiceConversationToggle, messages, onSendMessage, pending = false, progress = null, onStop, inspectionProjects = [], error = null,onOpenPreferences,autoSpeak=false,onAutoSpeakChange,voiceSettingsReady=true,briefing=null,onNewBriefing,briefingPending=false,
+export function ChatPanel({ companion = false, onUseLocalVoice, onVoiceConversationToggle, messages, onSendMessage, pending = false, progress = null, onStop, inspectionProjects = [], error = null,onOpenPreferences,autoSpeak=false,onAutoSpeakChange,voiceSettingsReady=true,briefing=null,onNewBriefing,briefingPending=false,
   activeMissions = [], selectedMissionId = null, onSelectMission, missionsError = null, missionsLoading = false,
   layout = "compact", onLayoutChange, onActivate, collapseLabel, mission = null, capabilities = null, suggestions = [], onOpenMission, onDismissMission, chats }: ChatPanelProps) {
   const expanded = layout === "expanded";
@@ -374,7 +375,7 @@ export function ChatPanel({ companion = false, onVoiceConversationToggle, messag
         </div>}
 
         {projectContext && <details className="console-project-context"><summary>Attached: {attachmentTitle(projectContext)}</summary><pre>{projectContext.context}</pre><button className="ghost-action" onClick={() => setProjectContext(null)}>Remove context</button></details>}
-        <LocalSpeechControl key={chats?.session.id} onText={text=>setDraft(current=>[current,text].filter(Boolean).join(" "))}
+        <LocalSpeechControl key={chats?.session.id} onUseLocal={()=>{voicePreview.stop();realtimeVoice.stop();onUseLocalVoice?.();}} onText={text=>setDraft(current=>[current,text].filter(Boolean).join(" "))}
             reply={[...messages].reverse().find(m=>m.role==="assistant")?.content ?? ""} />
         <div className="console-input-row">
           <textarea ref={inputRef} id="olympus-console-input" aria-label="Command to Olympus" rows={1} placeholder="Ask Olympus anything…" value={draft}
@@ -416,7 +417,10 @@ const ConversationBubble = memo(function ConversationBubble({
     if(!briefing || !bubble.current)return;
     let intersecting=false;
     const check=()=>{if(intersecting && document.visibilityState==="visible")briefDisplayed(message.id);};
-    const observer=new IntersectionObserver(([entry])=>{intersecting=entry.isIntersecting;check();});
+    const observer=new IntersectionObserver(([entry])=>{
+      intersecting=entry.isIntersecting && entry.intersectionRect.height>=Math.min(48,entry.boundingClientRect.height*.5);
+      check();
+    },{threshold:[0,.05,.15,.3,.5,1]});
     observer.observe(bubble.current);document.addEventListener("visibilitychange",check);
     return ()=>{observer.disconnect();document.removeEventListener("visibilitychange",check);};
   },[briefing,message.id]);

@@ -1,3 +1,4 @@
+import {PANTHEON_FIGURES} from "./pantheonFigureState";
 import * as T from "three";
 import { accessSnapshot, type SourceAccess } from "./sourceActivity";
 
@@ -33,7 +34,8 @@ export function buildPantheonGalaxy(scene:T.Scene) {
     if(lastAssets!==items || lastAccess!==access) {
       const visible=new Map(items.map(item=>[item.id,item.label]));
       for(const event of access) {
-        if(!visible.has("agent:"+event.actor))visible.set("actor:"+event.actor,event.actor);visible.set("source:"+event.source,event.source);
+        if(!visible.has("agent:"+event.actor))visible.set("actor:"+event.actor,event.actor);const destination=event.sourceId??"source:"+event.source;
+        if(!visible.has(destination))visible.set(destination,event.source);
       }
       for(const [id,mesh] of assets) if(!visible.has(id)){group.remove(mesh);assets.delete(id);}
       for(const [id,label] of visible) if(!assets.has(id)){
@@ -43,6 +45,11 @@ export function buildPantheonGalaxy(scene:T.Scene) {
       lastAssets=items;lastAccess=access;
     }
     group.rotation.set(.08,time*Math.PI*2/120,-.12);
+    group.updateWorldMatrix(true,false);
+    for(const figure of PANTHEON_FIGURES){
+      const anchor=assets.get("agent:"+figure.agent)??assets.get("actor:"+figure.agent);
+      if(anchor)group.worldToLocal(anchor.position.set(...figure.station));
+    }
     const now=performance.now();
     pulses.forEach(({line,material,tip},index)=>{
       const event=access[index];
@@ -50,12 +57,13 @@ export function buildPantheonGalaxy(scene:T.Scene) {
       line.visible=age>=0 && age<2.6;
       tip.visible=line.visible && !reduced;
       if(!line.visible)return;
-      const from=(assets.get("agent:"+event.actor)??assets.get("actor:"+event.actor))!.position,to=assets.get("source:"+event.source)!.position;
+      const from=(assets.get("agent:"+event.actor)??assets.get("actor:"+event.actor))!.position,to=assets.get(event.sourceId??"source:"+event.source)!.position;
       const progress=reduced?1:Math.min(1,age/.85);
+      const amplitude=Math.min(6,from.distanceTo(to)*.045);
       const vertices=line.geometry.getAttribute("position") as T.BufferAttribute;
       for(let i=0;i<=segments;i++){
         const t=progress*i/segments;
-        const ripple=reduced?0:Math.sin(Math.PI*i/segments)*Math.sin(i*4.7)*2.2;
+        const ripple=reduced?0:Math.sin(Math.PI*i/segments)*Math.sin(i*4.7)*amplitude;
         vertices.setXYZ(i,from.x+(to.x-from.x)*t,from.y+(to.y-from.y)*t+ripple,from.z+(to.z-from.z)*t);
       }
       tip.position.copy(from).lerp(to,progress);
@@ -70,5 +78,5 @@ export function buildPantheonGalaxy(scene:T.Scene) {
     const object=ray.intersectObjects([...assets.values()],false)[0]?.object;
     return object ? {id:String(object.userData.assetId),label:object.name} : undefined;
   }
-  return {group,update,pick,count:()=>assets.size};
+  return {group,update,pick,count:()=>assets.size,activePulses:()=>pulses.filter(p=>p.line.visible).length};
 }

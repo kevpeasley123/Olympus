@@ -5,3 +5,11 @@ CREATE TABLE project_review_runs (
 );
 CREATE INDEX project_review_source ON project_review_runs(source,id);
 CREATE UNIQUE INDEX scheduled_project_review ON project_review_runs(project,scheduled_day);
+
+CREATE TABLE pending_brief_displays (
+ message_id TEXT PRIMARY KEY REFERENCES conversation_messages(id) ON DELETE CASCADE,
+ payload TEXT NOT NULL
+);
+CREATE TABLE project_brief_cursors (
+ source TEXT PRIMARY KEY, observed_ms INTEGER NOT NULL, oids TEXT NOT NULL
+);

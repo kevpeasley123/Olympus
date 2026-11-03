@@ -336,6 +336,10 @@ function App() {
                 <ChatPanel
                   companion={true}
                   onVoiceConversationToggle={toggleVoiceConversation}
+                  onUseLocalVoice={()=>{if(settingsReady && settings.speechProvider!=="local"){
+                    updateVoicePreferences({speechProvider:"local"});
+                    void realtimeVoice.applyPreferences({...settings,speechProvider:"local"});
+                  }}}
                   onOpenPreferences={()=>setPreferencesOpen(true)}
                   autoSpeak={settings.autoSpeak}
                   onAutoSpeakChange={autoSpeak=>updateVoicePreferences({autoSpeak})}

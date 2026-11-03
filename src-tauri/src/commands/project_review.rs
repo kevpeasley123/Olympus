@@ -44,6 +44,115 @@ pub fn project_review_history(db: tauri::State<'_, Db>) -> Result<Vec<ProjectRev
         .map_err(|e| e.to_string())
 }
 
+/// Keep the last meaningful change eligible across repeated unchanged observations.
+#[tauri::command]
+pub fn project_review_findings(db: tauri::State<'_, Db>) -> Result<Vec<ProjectReview>, String> {
+    let conn = db.0.lock().map_err(|_| "Review history unavailable")?;
+    findings(&conn)
+}
+
+fn findings(conn: &Connection) -> Result<Vec<ProjectReview>, String> {
+    let mut query = conn
+        .prepare(&format!(
+            "SELECT {FIELDS} FROM project_review_runs r
+        WHERE r.outcome='changed' AND NOT EXISTS (
+            SELECT 1 FROM project_review_runs newer WHERE newer.source=r.source AND newer.id>r.id
+            AND newer.outcome='changed')
+        ORDER BY r.id DESC LIMIT 50"
+        ))
+        .map_err(|e| e.to_string())?;
+    let rows = query.query_map([], from_row).map_err(|e| e.to_string())?;
+    rows.collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())
+}
+
+fn require_git_root(path: &std::path::PathBuf) -> Result<(), String> {
+    let selected = path
+        .canonicalize()
+        .map_err(|_| "Registered project folder unavailable")?;
+    let reported = git_command(path, &["rev-parse", "--show-toplevel"])
+        .map_err(|_| "Registered folder is not a Git repository")?;
+    let root = std::path::PathBuf::from(reported)
+        .canonicalize()
+        .map_err(|_| "Git root unavailable")?;
+    if root != selected {
+        return Err("Registered folder no longer identifies its own Git repository".into());
+    }
+    Ok(())
+}
+
+/// Read registered project IDs only. Never refresh or update portfolio membership.
+#[tauri::command]
+pub async fn brief_project_changes(
+    db: tauri::State<'_, Db>,
+    project_id: String,
+    since: String,
+) -> Result<Vec<super::projects::RecentCommit>, String> {
+    let initial =
+        chrono::DateTime::parse_from_rfc3339(&since).map_err(|_| "Invalid observation boundary")?;
+    let (project, cursor) = {
+        let conn = db.0.lock().map_err(|_| "Project registry unavailable")?;
+        let member = super::project_registry::list(&conn)?
+            .into_iter()
+            .find(|m| m.project.id == project_id && m.visibility == "visible")
+            .ok_or("Project membership changed")?;
+        let cursor: Option<(i64, String)> = conn
+            .query_row(
+                "SELECT observed_ms,oids FROM project_brief_cursors WHERE source=?",
+                [&member.project.path],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .optional()
+            .map_err(|e| e.to_string())?;
+        (member.project, cursor)
+    };
+    let acceptance = super::acceptance::projects_root();
+    tauri::async_runtime::spawn_blocking(move || {
+        if project.path.is_empty()
+            || !matches!(project.repo_state.as_str(), "git-active" | "git-pending")
+            || project.last_commit_at.is_none()
+        {
+            return Ok(Vec::new());
+        }
+        let path = std::path::PathBuf::from(project.path);
+        if let Some(root) = acceptance {
+            if !path
+                .canonicalize()
+                .map_err(|_| "Project unavailable")?
+                .starts_with(root.canonicalize().map_err(|_| "Fixture unavailable")?)
+            {
+                return Err("Project outside fixture".into());
+            }
+        }
+        let (at, oids) = match cursor {
+            Some((at, values)) => (
+                at,
+                serde_json::from_str::<Vec<String>>(&values)
+                    .map_err(|_| "Project cursor unreadable")?,
+            ),
+            None => (initial.timestamp_millis(), Vec::new()),
+        };
+        let boundary =
+            chrono::DateTime::<chrono::Utc>::from_timestamp_millis(at.saturating_sub(1000))
+                .ok_or("Invalid stored project cursor")?;
+        let commits = super::projects::checked_commits_since(&path, &boundary.to_rfc3339())
+            .map_err(|_| "Project Git activity unavailable")?;
+        Ok(commits
+            .into_iter()
+            .filter(|commit| {
+                chrono::DateTime::parse_from_rfc3339(&commit.at).is_ok_and(|date| {
+                    let observed = date.timestamp_millis();
+                    observed > at
+                        || (observed == at
+                            && commit.oid.as_ref().is_none_or(|oid| !oids.contains(oid)))
+                })
+            })
+            .collect())
+    })
+    .await
+    .map_err(|_| "Project activity unavailable")?
+}
+
 fn save(
     conn: &mut Connection,
     project: &str,
@@ -77,12 +186,50 @@ fn save(
 }
 
 #[tauri::command]
-pub fn run_project_review(
-    db: tauri::State<'_, Db>,
+pub async fn run_project_review(
+    app: tauri::AppHandle,
     project: String,
     scheduled: Option<bool>,
 ) -> Result<ProjectReview, String> {
-    run(&db, &project, scheduled.unwrap_or(false))
+    use tauri::Manager;
+    tauri::async_runtime::spawn_blocking(move || {
+        run(&app.state::<Db>(), &project, scheduled.unwrap_or(false))
+    })
+    .await
+    .map_err(|_| "Project review worker unavailable")?
+}
+
+fn project_path(db: &Db, name: &str) -> Result<std::path::PathBuf, String> {
+    let members = {
+        let conn = db.0.lock().map_err(|_| "Project registry unavailable")?;
+        super::project_registry::list(&conn)?
+    };
+    let matching: Vec<_> = members.iter().filter(|m| m.project.name == name).collect();
+    if matching.is_empty() {
+        return resolve(db, name);
+    }
+    if matching.len() != 1 || matching[0].visibility != "visible" {
+        return Err("Choose one visible registered project.".into());
+    }
+    let path = std::path::PathBuf::from(&matching[0].project.path);
+    if !path.is_absolute() || super::repository_inspection::linked(&path) {
+        return Err("Registered project folder unavailable.".into());
+    }
+    let canonical = path
+        .canonicalize()
+        .map_err(|_| "Registered project folder unavailable")?;
+    if let Some(root) = super::acceptance::projects_root() {
+        if !canonical.starts_with(
+            root.canonicalize()
+                .map_err(|_| "Fixture root unavailable")?,
+        ) {
+            return Err("Project outside the acceptance fixture.".into());
+        }
+    }
+    if !canonical.join(".git").exists() {
+        return Err("This project has no Git repository.".into());
+    }
+    Ok(canonical)
 }
 
 fn run(db: &Db, project: &str, scheduled: bool) -> Result<ProjectReview, String> {
@@ -103,9 +250,10 @@ fn run(db: &Db, project: &str, scheduled: bool) -> Result<ProjectReview, String>
             return Ok(prior);
         }
     }
-    let (source, read) = match resolve(db, name) {
+    let (source, read) = match project_path(db, name) {
         Ok(path) => {
-            let result = git_command(&path, &["rev-parse", "--verify", "HEAD^{commit}"])
+            let result = require_git_root(&path)
+                .and_then(|_| git_command(&path, &["rev-parse", "--verify", "HEAD^{commit}"]))
                 .ok()
                 .filter(|s| matches!(s.len(), 40 | 64) && s.bytes().all(|b| b.is_ascii_hexdigit()))
                 .ok_or_else(|| "Unable to read a committed revision.".to_string())
@@ -141,6 +289,10 @@ mod tests {
         std::fs::create_dir_all(&repo).unwrap();
         let git = |args: &[&str]| git_command(&repo, args).unwrap();
         git(&["init"]);
+        let nested = repo.join("formerly-a-checkout");
+        std::fs::create_dir(&nested).unwrap();
+        assert!(require_git_root(&nested).is_err());
+
         git(&["config", "user.name", "Fixture"]);
         git(&["config", "user.email", "fixture@example.invalid"]);
         git(&[
@@ -200,5 +352,14 @@ mod tests {
         let changed = review(Ok("b"));
         assert_eq!(changed.previous.as_deref(), Some("a"));
         assert_eq!(changed.outcome, "changed");
+        let id = changed.id;
+        assert_eq!(
+            review(Err("temporarily inaccessible")).outcome,
+            "unavailable"
+        );
+        assert_eq!(review(Ok("b")).outcome, "unchanged");
+        let retained = findings(&conn).unwrap();
+        assert_eq!(retained.len(), 1);
+        assert_eq!(retained[0].id, id);
     }
 }

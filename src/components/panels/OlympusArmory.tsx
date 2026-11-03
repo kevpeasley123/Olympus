@@ -89,6 +89,11 @@ export function OlympusArmory({projectNames,capabilities, missions, error, missi
   const loadout = capabilities?.agents.find(a => a.id === agentId);
   const numbers = [catalog ? roles.length : undefined, capabilities ? plugins.length : undefined, capabilities ? capabilities.skills.length+executableSkills.length : executableSkills.length];
   function show(next: Category) {setCollectionOpen(false);setCategory(next);setAgentId(null);setItem(null);setOpen(true);}
+  useEffect(()=>{
+    const openReview=()=>{show("Skills");requestAnimationFrame(()=>document.querySelector<HTMLDetailsElement>(".project-change-review")?.setAttribute("open",""));};
+    window.addEventListener("olympus:open-review",openReview);
+    return ()=>window.removeEventListener("olympus:open-review",openReview);
+  },[]);
   function inspectAgent(role: CommandRole) {setAgentId(role.id);setItem(null);onSelectAgent(role.id==="dionysus"?"olympus":role.id);}
   function leave(){setOpen(false);onSelectAgent("olympus");}
   const status = (role: CommandRole) => role.kind==="orchestrator" ? "Core" : operations.some(m=>m.status==="waiting" && m.steps.some(s=>s.agent===role.id)) ? "Waiting" : operations.some(m => m.steps.some(s=>s.agent===role.id && s.state==="active")) ? "Working" : role.status === "AVAILABLE" ? "Ready" : role.status.toLowerCase();
