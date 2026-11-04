@@ -4,7 +4,7 @@ export const OLYMPUS_VOICES = config.voices;
 export const CURATED_VOICES = config.curatedVoices;
 export const VOICE_PREVIEW_PHRASE = config.previewPhrase;
 export interface VoicePreferences {
-  speechProvider:"openai"|"elevenlabs";
+  speechProvider:"openai"|"elevenlabs"|"local";
   elevenVoiceId:string;
   elevenModelId:string;
   selectedVoice:string;
@@ -27,7 +27,7 @@ export function normalizeVoicePreferences(value:unknown):VoicePreferences {
     captionsEnabled:typeof raw.captionsEnabled === "boolean" ? raw.captionsEnabled : DEFAULT_VOICE_PREFERENCES.captionsEnabled,
     bargeInEnabled:typeof raw.bargeInEnabled === "boolean" ? raw.bargeInEnabled : DEFAULT_VOICE_PREFERENCES.bargeInEnabled,
     briefOnOpen:typeof raw.briefOnOpen === "boolean" ? raw.briefOnOpen : DEFAULT_VOICE_PREFERENCES.briefOnOpen,
-    speechProvider:raw.speechProvider==="elevenlabs"?"elevenlabs":"openai",
+    speechProvider:raw.speechProvider==="local"?"local":raw.speechProvider==="elevenlabs"?"elevenlabs":"openai",
     elevenVoiceId:typeof raw.elevenVoiceId==="string"&&/^[\w-]{1,128}$/.test(raw.elevenVoiceId)?raw.elevenVoiceId:DEFAULT_VOICE_PREFERENCES.elevenVoiceId,
     elevenModelId:typeof raw.elevenModelId==="string"&&/^[\w-]{1,128}$/.test(raw.elevenModelId)?raw.elevenModelId:DEFAULT_VOICE_PREFERENCES.elevenModelId,
   };

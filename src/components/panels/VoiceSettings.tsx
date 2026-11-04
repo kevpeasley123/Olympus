@@ -24,8 +24,8 @@ export function VoiceSettings({preferences,onChange,ready=true,replyControls=tru
   }
   return <fieldset className="voice-settings" disabled={!ready}>
     <legend>VOICE</legend>
-    <label className="voice-setting-row">Speech provider<select aria-label="Speech provider" value={preferences.speechProvider} onChange={e=>change({speechProvider:e.target.value as VoicePreferences["speechProvider"]})}><option value="openai">OpenAI</option><option value="elevenlabs">ElevenLabs</option></select></label>
-    {preferences.speechProvider==="elevenlabs"?<ElevenVoiceSettings preferences={preferences} onChange={change} busy={busy} onStop={()=>voicePreview.stop()} onPreview={()=>{setPreviewing("ElevenLabs");void voicePreview.startPreview(preferences);}}/>:<>
+    <label className="voice-setting-row">Speech provider<select aria-label="Speech provider" value={preferences.speechProvider} onChange={e=>change({speechProvider:e.target.value as VoicePreferences["speechProvider"]})}><option value="local">Local · Whisper and Kokoro</option><option value="openai">OpenAI</option><option value="elevenlabs">ElevenLabs</option></select></label>
+    {preferences.speechProvider==="local"?<p>Dictation uses local Whisper. Spoken replies use Kokoro. Review your transcript before sending it to the selected engine.</p>:preferences.speechProvider==="elevenlabs"?<ElevenVoiceSettings preferences={preferences} onChange={change} busy={busy} onStop={()=>voicePreview.stop()} onPreview={()=>{setPreviewing("ElevenLabs");void voicePreview.startPreview(preferences);}}/>:<>
     <details className="voice-lab"><summary className="voice-lab-title">Voice lab · preview and choose a voice</summary>
     <div className="voice-catalog">{OLYMPUS_VOICES.map(voice=><div key={voice} data-selected={preferences.selectedVoice===voice}>
       <div className="voice-lab-identity"><strong>{voice.toUpperCase()}</strong>

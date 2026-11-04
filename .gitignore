@@ -25,3 +25,5 @@ src-tauri/gen/schemas/linux-schema.json
 # Generated Python bytecode.
 __pycache__/
 *.py[cod]
+
+.local-voice/

@@ -27,7 +27,7 @@ for(const [width,height] of [[1440,960],[1920,1080],[1280,800],[900,900]]){
  check(await dialog.getByLabel('Capability detail',{exact:true}).isVisible(),'Capability contract opens '+width);
  await page.keyboard.press('Escape');check(await dialog.count()===0,'Escape closes Armory '+width);
  if(width===1440){
-  for(const [name,file] of [['Agents 5','agents'],['Plugins 8','plugins'],['Skills 7','skills']]){
+  for(const [name,file] of [['Agents 5','agents'],['Plugins 8','plugins'],['Skills 8','skills']]){
    await page.getByRole('button',{name,exact:true}).click();await page.waitForTimeout(250);await page.screenshot({path:`${out}/${file}.png`,fullPage:true});
    await page.getByRole('button',{name:'Close Armory',exact:true}).click();
   }
@@ -47,7 +47,7 @@ for(const scenario of ['idle','mission-research','mission-active','reduced-motio
  await page.waitForSelector(`html[data-visual-ready="${scenario}"]`);
  const canvas=page.locator('.hybrid-core canvas');
  check(await canvas.getAttribute('data-projection')==='PerspectiveCamera','Perspective camera '+scenario);
- check(await canvas.getAttribute('data-rings')==='2','Two state-aware inner rings '+scenario);
+ check(await canvas.getAttribute('data-rings')==='0','Flagship hides legacy inner rings '+scenario);
  if(scenario==='idle'){
   const start=+(await canvas.getAttribute('data-galaxy-time'));const frames=+(await canvas.getAttribute('data-frames'));
   await page.waitForTimeout(2500);const end=+(await canvas.getAttribute('data-galaxy-time'));const endFrames=+(await canvas.getAttribute('data-frames'));

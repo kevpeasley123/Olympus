@@ -1,7 +1,10 @@
 import {feedbackForBrief,resolveConversationTurn} from "../services/conversationFeedback";
+import { briefSaved } from "../services/displayedBrief";
+import { matchSkillRequest } from "../services/executableSkills";
+import { recordSourceAccess } from "../services/sourceActivity";
 import { prepareSituationBriefing } from "../services/situationBriefing";
 import {consumeNextModel,endChatModelScope} from "../services/modelRouting";
-import {requireConversationProvider} from "../services/conversationProvider";
+import {conversationChoiceSnapshot} from "../services/conversationProvider";
 import { normalizeVoicePreferences, type VoicePreferences } from "../services/voicePreferences";
 import { refreshActionQueue, useActionQueue } from "./useActionQueue";
 import { refreshDelegationRuns, useDelegationRuns } from "./useDelegationRuns";
@@ -297,7 +300,7 @@ export function useDashboardData() {
         const prepared = isTauriRuntime() ? await prepareStableBrief(() => {
           const projects = dashboardRef.current.projects, board = boardRef.current;
           const root = dashboardRef.current.settings.projectsRootPath;
-          return prepareFactualBrief({projects,board,projectsError}, 'opening', Date.now(), undefined,
+          return prepareFactualBrief({rootPath:root,projects,board,projectsError}, 'opening', Date.now(), undefined,
             () => dashboardRef.current.projects === projects && boardRef.current === board && dashboardRef.current.settings.projectsRootPath === root, {temporary:session.temporary,conversationId:session.id});
         }, active) : null;
         if (!active()) return;
@@ -306,15 +309,17 @@ export function useDashboardData() {
         openingBriefed.current = true;
         if (!text) return;
         const message = createAssistantMessage(text);
-        message.id = `${BRIEFING_ID_PREFIX}${Date.now()}`;
+        message.id = `${BRIEFING_ID_PREFIX}${crypto.randomUUID()}`;
         message.kind = "briefing";
-      message.feedback = prepared && !session.temporary ? feedbackForBrief(prepared.items) : undefined;
+        message.delivery = prepared?.delivery;
+        message.feedback = prepared && !session.temporary ? feedbackForBrief(prepared.items) : undefined;
         message.voice = { kind: "output", spokenResponse: text, ...(dashboardRef.current.settings.autoSpeak ? {} : { playback: "skipped" as const }) };
         dashboardRef.current = { ...dashboardRef.current, conversation: [...dashboardRef.current.conversation, message] };
         setDashboardState(dashboardRef.current);
         setOpeningBriefing({ id: message.id, text });
         const saved = await remember([message], session);
-        if (prepared && saved && !session.temporary) await prepared.acknowledge();
+        if (prepared && !saved && !session.temporary) throw Error("Briefing could not be saved.");
+        if (prepared && saved && !session.temporary) briefSaved(message.id);
       } catch {
         if (briefingMounted.current && sessionRef.current.id === session.id) setChatError("The briefing could not finish or its delivery record could not be saved. Request a fresh update; unrecorded items remain eligible.");
       } finally {
@@ -340,13 +345,15 @@ export function useDashboardData() {
       const message = createAssistantMessage(text);
       message.id = `${BRIEFING_ID_PREFIX}sitrep-${crypto.randomUUID()}`;
       message.kind = "briefing";
+      message.delivery = prepared?.delivery;
       message.feedback = prepared && !session.temporary ? feedbackForBrief(prepared.items) : undefined;
       message.voice = { kind: "output", spokenResponse: text, ...(dashboardRef.current.settings.autoSpeak ? {} : { playback: "skipped" as const }) };
       dashboardRef.current = { ...dashboardRef.current, conversation: [...dashboardRef.current.conversation, message] };
       setDashboardState(dashboardRef.current);
       setOpeningBriefing({ id: message.id, text });
       const saved = await remember([message], session);
-      if (saved && !session.temporary) await prepared.acknowledge();
+      if (!saved && !session.temporary) throw Error("Briefing could not be saved.");
+      if (saved && !session.temporary) briefSaved(message.id);
     } catch (error) { if(briefingMounted.current) setChatError(errorMessage(error)); }
     finally { briefingLock.current = false; if(briefingMounted.current) setBriefingPending(false); }
   }, [sessionBoundary, remember]);
@@ -361,6 +368,8 @@ export function useDashboardData() {
       conversationStream.reset();
       emitInstrumentEvent("command-received");
 
+      const skillRequest = matchSkillRequest(trimmed);
+      const turnEngine = conversationChoiceSnapshot();
       let capability: import("../services/modelRouting").ModelCapability = "PRIMARY";
       const user = createUserMessage(trimmed);
       // Output modality is independent of input modality: a typed request may
@@ -390,6 +399,23 @@ export function useDashboardData() {
         return;
       }
 
+      if (skillRequest) {
+        requestInFlight.current=true; setChatPending(true);
+        try {
+          if(!await userSaved && !session.temporary)throw Error("Your request could not be saved.");
+          const record=session.temporary ? null : await skillRequest.skill.run(skillRequest.input,"manual");
+          const message=createAssistantMessage(record
+            ? "Project Change Review #"+record.id+" · "+record.project+" · "+record.outcome+". "+record.detail+(record.revision?" · Git "+record.revision:"")
+            : "Project reviews keep a durable source record. Run this skill from a saved conversation or the Armory.");
+          if(sessionRef.current.id===session.id){
+            dashboardRef.current={...dashboardRef.current,conversation:[...dashboardRef.current.conversation,message]};
+            setDashboardState(dashboardRef.current); await remember([message],session);
+            if(voiceDepth)return {messageId:message.id,spokenResponse:message.content,visualResponse:message.content,proposedActions:[],requiresConfirmation:false,conversationState:"answered"};
+          }
+        } catch(error){setChatError(errorMessage(error));}
+        finally{requestInFlight.current=false;setChatPending(false);}
+        return;
+      }
       setChatCapability(capability);
       requestInFlight.current = true;
       setChatModel(null);
@@ -406,7 +432,7 @@ export function useDashboardData() {
 
       try {
         const reply = await resolveConversationTurn(userSaved,{...session,voiceDepth,active:()=>!turnCancelled.current&&sessionRef.current.id===session.id},user.id,async()=>{
-          if (requireConversationProvider() === "legacy-api") capability=consumeNextModel();
+          if (turnEngine?.provider === "legacy-api") capability=consumeNextModel();
           setChatCapability(capability);
           return requestAssistantReply(
           history,
@@ -414,6 +440,7 @@ export function useDashboardData() {
           dashboardRef.current.projects,
           (event) => {
             switch (event.kind) {
+              case "sourceAccess": if (!session.temporary) recordSourceAccess("Repository inspection", event.project + "/" + event.file, event.success, activeRequest.current ?? "Repository inspection"); break;
               case "progress": setChatProgress(event.message); break;
               case "started":
                 // Latch the model at first paint. Routing noise must not churn
@@ -440,7 +467,7 @@ export function useDashboardData() {
                 break;
             }
           },
-          {requestId: activeRequest.current ?? undefined, capability, voiceDepth, commandBoard: boardRef.current, temporary: session.temporary, conversationId: session.id}
+          {engineChoice:turnEngine, requestId: activeRequest.current ?? undefined, capability, voiceDepth, commandBoard: boardRef.current, temporary: session.temporary, conversationId: session.id}
         );
         });
         const assistant = createAssistantMessage(reply.content, reply.notice, reply.research);

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {mkdir} from 'node:fs/promises';
-import {createServer} from 'vite';
+import {createFixtureServer as createServer} from './fixture-server.mjs';
 import {chromium} from 'playwright';
 const server=await createServer({cacheDir:'node_modules/.vite-claude-quota-test',server:{host:'127.0.0.1',port:0}});
 let browser;

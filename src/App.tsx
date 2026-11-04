@@ -1,3 +1,4 @@
+import { useProjectReviewScheduler } from "./services/skillSchedule";
 import {UsageSummary} from "./components/panels/UsageSummary";
 import "./components/panels/projectDock.css";
 import { Communications } from "./components/panels/Communications";
@@ -40,6 +41,7 @@ function readChatLayout(): "compact" | "expanded" {
 }
 
 function App() {
+  useProjectReviewScheduler();
   const [preferencesOpen,setPreferencesOpen]=useState(false);
   const [projectChatOpen,setProjectChatOpen]=useState(false);
   const [projectReplyReady,setProjectReplyReady]=useState(false);
@@ -79,6 +81,7 @@ function App() {
   }
   function toggleVoiceConversation(){
     if(!settingsReady)return;
+    if(settings.speechProvider==="local"){realtimeVoice.stop();window.dispatchEvent(new Event("olympus:local-mic"));return;}
     const current=realtimeVoice.getSnapshot();
     if(current.microphoneOn&&(current.active||current.connecting)){realtimeVoice.stop();return;}
     voicePreview.stop();realtimeVoice.stop();
@@ -243,7 +246,7 @@ function App() {
             </ErrorBoundary>
           </aside>
 
-          {command&&<ErrorBoundary label="Armory"><OlympusArmory capabilities={armory.capabilities} missions={armory.missions}
+          {command&&<ErrorBoundary label="Armory"><OlympusArmory projectNames={projects.filter(p=>p.path).map(p=>p.name)} capabilities={armory.capabilities} missions={armory.missions}
             error={armory.capabilitiesError} missionsError={armory.missionsError} preview={armory.preview} selectedAgent={commandView.agent}
             onSelectAgent={commandView.selectAgent} onDestination={destination=>selectMode(destination)}
             onInspectResearch={runId=>{setResearchInspection(previous=>({runId,revision:(previous?.revision??0)+1}));setMode("research");}}/></ErrorBoundary>}
@@ -333,6 +336,10 @@ function App() {
                 <ChatPanel
                   companion={true}
                   onVoiceConversationToggle={toggleVoiceConversation}
+                  onUseLocalVoice={()=>{if(settingsReady && settings.speechProvider!=="local"){
+                    updateVoicePreferences({speechProvider:"local"});
+                    void realtimeVoice.applyPreferences({...settings,speechProvider:"local"});
+                  }}}
                   onOpenPreferences={()=>setPreferencesOpen(true)}
                   autoSpeak={settings.autoSpeak}
                   onAutoSpeakChange={autoSpeak=>updateVoicePreferences({autoSpeak})}

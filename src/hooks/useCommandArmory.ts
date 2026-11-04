@@ -1,3 +1,4 @@
+import { missionCitationObserver } from "../services/sourceActivity";
 import { INTAKE_CHANGED, resourceSkills, skillDescriptor } from "../services/resourceIntake";
 import { useEffect, useState } from "react";
 import { capabilityClient, type CapabilityClient, type CapabilitySnapshot, type MissionSnapshot } from "../services/capabilities";
@@ -47,12 +48,13 @@ export function useCommandArmory(active: boolean, client: CapabilityClient | nul
   useEffect(() => {
     if (!client) return;
     let live = true, timer: number | undefined;
+    const observe=missionCitationObserver();
     const read = async () => {
       let delay: number = ARMORY_POLL.idleMissionMs;
       try {
         const value = await client.missions();
         if (!live) return;
-        setMissions(value); setMissionsError(null);
+        observe(value.missions);setMissions(value); setMissionsError(null);
         if (value.missions.some(mission => mission.status === "running")) delay = ARMORY_POLL.liveMissionMs;
       } catch(error) { if(live)setMissionsError(String(error)); }
       // Hidden Command slows to the idle cadence: nobody is watching the theater.

@@ -1,4 +1,4 @@
-import {createServer} from 'vite';
+import {createFixtureServer as createServer} from './fixture-server.mjs';
 import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
 import {mkdir} from 'node:fs/promises';

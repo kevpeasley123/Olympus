@@ -1,3 +1,4 @@
+import { executableSkills } from "../../services/executableSkills";
 import {inspectSuperpowers} from '../../services/skillCollections';
 import './skillCollection.css';
 import type { CapabilitySnapshot } from '../../services/capabilities';
@@ -5,7 +6,10 @@ import { inspectArmoryCapability } from '../../services/armoryNavigation';
 import { constellationLinks } from '../../services/constellationLinks';
 
 export function SkillsConstellation({capabilities}:{capabilities:CapabilitySnapshot|null}) {
-  const skills=capabilities?.skills??[];
+  const skills=[
+    ...(capabilities?.skills??[]).map(s=>({id:s.id,name:s.name,description:s.purpose,open:()=>inspectArmoryCapability(s)})),
+    ...executableSkills.map(s=>({id:s.id,name:s.name,description:s.purpose,open:()=>window.dispatchEvent(new Event("olympus:open-review"))})),
+  ];
   const shown=skills.slice(0,24);
   const points=shown.map((_,i)=>{const a=i*2.399963,r=20+Math.sqrt(i)*12;return {x:50+Math.cos(a)*r*.65,y:50+Math.sin(a)*r*.65}});
   const edges=constellationLinks([...points,{x:100,y:100}]);
@@ -13,6 +17,6 @@ export function SkillsConstellation({capabilities}:{capabilities:CapabilitySnaps
     <span className="architecture-label">Skills <b>{capabilities?skills.length:'…'}</b><small className="collection-count">+1 collection</small></span>
     <button className="armory-star collection-star" style={{left:"100%",top:"100%"}} aria-label="Inspect collection: Superpowers" onClick={inspectSuperpowers}><span className="armory-star__light"/><span className="armory-star__name">Superpowers<small>Reference collection</small></span></button>
     <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">{edges.map(e=><line key={e.id} x1={e.a.x} y1={e.a.y} x2={e.b.x} y2={e.b.y}/>)}</svg>
-    {skills.slice(0,24).map((skill,i)=>{const a=i*2.399963,r=20+Math.sqrt(i)*12;return <button key={skill.id} className="armory-star" style={{left:`${50+Math.cos(a)*r*.65}%`,top:`${50+Math.sin(a)*r*.65}%`}} aria-label={`Inspect skill: ${skill.name}`} onClick={()=>inspectArmoryCapability(skill)}><span className="armory-star__light"/><span className="armory-star__name">{skill.name}<small>Reusable instructions</small></span></button>})}
+    {skills.slice(0,24).map((skill,i)=>{const a=i*2.399963,r=20+Math.sqrt(i)*12;return <button key={skill.id} className="armory-star" style={{left:`${50+Math.cos(a)*r*.65}%`,top:`${50+Math.sin(a)*r*.65}%`}} aria-label={`Inspect skill: ${skill.name}`} onClick={skill.open}><span className="armory-star__light"/><span className="armory-star__name">{skill.name}<small>{skill.description}</small></span></button>})}
   </div>;
 }

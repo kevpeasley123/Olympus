@@ -18,6 +18,10 @@ activation and generation remain separate unaccepted boundaries.
 
 `commands/spending_policy.rs` denies paid Responses, Anthropic and realtime voice/transcription before credential access or transport. ElevenLabs uses its separate pre-request no-overage and included-character gate. Account quota readers remain independent. Codex and Claude subscription chat/job entry points reject before transport while pre-launch spending protection remains unestablished; background availability respects the Claude gate and has no Codex fallback. Saved confirmation and post-submission overage telemetry are not fresh pre-launch billing proof. See `docs/SUBSCRIPTION-CONVERSATION.md` for isolation and acceptance limits.
 
+## Executable skills and source activity
+
+The executable skill registry supplies the same Project Change Review operation to the Armory, chat and an opt-in daily runner. Native execution resolves a configured project, reads its Git HEAD, and records an attributed observation transactionally in SQLite. Completed observations drive both visible history and transient source pulses. Registered project IDs constrain the read-only Git query used by the brief. The engine switch uses the conversation provider store and captures its selection per turn. Local Whisper and Kokoro workers exchange audio or text over private process pipes with timeout and cancellation. See [Skill backbone](docs/SKILL-BACKBONE.md) for operation and verification.
+
 ## Knowledge workflows
 
 The first fixed read-only graph is `knowledge-audit/v1`: parallel research,
@@ -71,14 +75,14 @@ Tauri commands exposed by the desktop shell — every entry in the `generate_han
 | Area | Commands |
 | --- | --- |
 | Assistant and models | `send_assistant_message`, `cancel_assistant_message`, `model_routes`, `save_model_selection`, `model_diagnostics` |
-| Voice | `create_voice_session`, `record_voice_request`, `voice_usage`, `elevenlabs_status`, `elevenlabs_connect`, `elevenlabs_disconnect`, `elevenlabs_check`, `elevenlabs_synthesize`, `elevenlabs_cancel` |
+| Voice | `local_speech`, `cancel_local_speech`, `create_voice_session`, `record_voice_request`, `voice_usage`, `elevenlabs_status`, `elevenlabs_connect`, `elevenlabs_disconnect`, `elevenlabs_check`, `elevenlabs_synthesize`, `elevenlabs_cancel` |
 | Persistence | `load_persisted_state`, `begin_operator_session`, `save_settings`, `save_tool_states`, `append_conversation_messages` |
 | Conversations | `list_conversations`, `load_conversation`, `search_conversations`, `rename_conversation`, `delete_conversation` (see `docs/CONVERSATIONS-AND-MEMORY.md`) |
 | Chat memory | `chat_memory_status`, `set_chat_memory`, `learn_from_earlier_chats` (Preferences > Memory) |
 | Memory index | `memory_status`, `memory_preview`, `memory_rebuild`, `memory_request_evidence` |
 | Vault | `fetch_pantheon_entries`, `write_pantheon_entry`, `migrate_pantheon_schema`, `save_attachment_to_vault`, `fetch_operator_profile`, `fetch_recent_vault_writes`, `fetch_vault_graph`, `open_vault_note` |
 | Write gate | `resolve_vault_write` |
-| Projects | `scan_tracked_projects`, `fetch_action_queue`, `project_members`, `link_project`, `set_project_visibility`, `save_project_intake`, `pick_project_folder`, `inspect_project`, `confirm_project_brief` |
+| Projects | `brief_project_changes`, `project_review_findings`, `run_project_review`, `project_review_history`, `scan_tracked_projects`, `fetch_action_queue`, `project_members`, `link_project`, `set_project_visibility`, `save_project_intake`, `pick_project_folder`, `inspect_project`, `confirm_project_brief` |
 | Organizer | `create_organizer_task`, `update_organizer_task`, `list_organizer_tasks`, `fetch_organizer_task`, `set_organizer_intent`, `move_organizer_task`, `prepare_organizer_delegation`, `accept_organizer_result`, `finish_organizer_task`, `acknowledge_organizer_event`, `organizer_overview` |
 | Engines | `engine_status`, `account_usage_read`, `claude_subscription_authorization`, `confirm_claude_subscription`, `revoke_claude_subscription`, `chatgpt_plan_test_action`, `chatgpt_plan_action` |
 | Delegation | `prepare_delegation_run`, `prepare_delegation_resume`, `cancel_delegation_proposal`, `start_delegation_run`, `resume_delegation_run`, `cancel_delegation_run`, `list_delegation_runs`, `fetch_delegation_diff` |
@@ -88,7 +92,7 @@ Tauri commands exposed by the desktop shell — every entry in the `generate_han
 | Command Armory | `command_agent_catalog`, `command_capabilities`, `command_missions` (read-only projections; see `docs/COMMAND-FLAGSHIP.md`) |
 | Resources and skills | `resource_skills`, `add_resource_skill`, `extract_resource_text`, `recommend_resource_skills` |
 | Gmail | `gmail_status`, `gmail_connect`, `gmail_cancel`, `gmail_disconnect`, `gmail_sync`, `gmail_set_horizon`, `gmail_search`, `gmail_thread`, `gmail_workspace`, `gmail_remove_cache`, `gmail_cache_counts` |
-| Briefing evidence and display history | `briefing_conversation_context`, `briefing_receipts`, `briefing_record_delivery` (bounded learned-chat projection and display-item digests; no model or mailbox operation) |
+| Briefing evidence and display history | `briefing_conversation_context`, `briefing_receipts`, `briefing_record_delivery`, `briefing_confirm_display` (bounded learned-chat projection and display-item digests; no model or mailbox operation) |
 | Communication Intelligence | `analyze_communications`, `communication_runs`, `communication_run_events`, `communication_feedback`, `communication_skills`, `communication_workflow`, `inspect_communication_run` |
 | Situations and email attention | `situation_snapshot`, `situation_refresh`, `situation_set_background`, `situation_update`, `situation_edit`, `situation_draft`, `situation_save_draft`, `situation_document_status`, `situation_document_open`, `email_attention_decide`, `email_learning_change`, `conversation_feedback` |
 | Shell / files | `launch_quick_app`, `restart_olympus`, `pick_attachment_file`, `extract_pdf_text`, `open_external_link` |

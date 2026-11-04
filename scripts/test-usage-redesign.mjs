@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 
-import {createServer} from 'vite';
+import {createFixtureServer as createServer} from './fixture-server.mjs';
 
 import {chromium} from 'playwright';
 

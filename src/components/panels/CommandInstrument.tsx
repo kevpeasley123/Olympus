@@ -1,3 +1,12 @@
+import {PANTHEON_FIGURES} from "../../services/pantheonFigureState";
+import { openProject } from "../../services/navigation";
+import { inspectArmoryCapability } from "../../services/armoryNavigation";
+import { inspectConstellationAgent } from "../../services/agentConstellation";
+import { openVaultNote } from "../../services/launcher";
+import type { GalaxyAsset } from "../../services/pantheonGalaxy";
+import { InstrumentActivity } from "./InstrumentActivity";
+import { selectConversationProvider, useConversationProvider } from "../../services/conversationProvider";
+import "./engineSwitch.css";
 import { MissionTargets } from "./PantheonMissions";
 import { PantheonFigures } from "./PantheonFigures";
 import { SkillsConstellation } from "./SkillsConstellation";
@@ -268,19 +277,49 @@ export function CommandInstrument({
     return () => { window.clearInterval(clock); document.removeEventListener("visibilitychange", visibilityChanged); };
   }, [active]);
 
+  const engine = useConversationProvider();
+  const galaxyAssets=useMemo(()=>[
+    ...projects.map(p=>({id:"project:"+p.id,label:p.name})),
+    ...graph.nodes.slice(0,180).map(n=>({id:"note:"+n.id,label:n.title})),
+    ...(capabilities?.agents??[]).map(a=>({id:"agent:"+a.id,label:PANTHEON_FIGURES.find(f=>f.agent===a.id)?.name??a.id})),
+    ...(capabilities?.skills??[]).map(s=>({id:"skill:"+s.id,label:s.name})),
+    {id:"actor:Project Change Review",label:"Project Change Review"},
+  ],[projects,graph.nodes,capabilities]);
+  const [asset,setAsset]=useState<GalaxyAsset|null>(null);
+  const [assetError,setAssetError]=useState("");
+  useEffect(()=>{
+    const inspect=(e:Event)=>{setAsset((e as CustomEvent<GalaxyAsset>).detail);setAssetError("");};
+    window.addEventListener("olympus:inspect-asset",inspect);
+    return ()=>window.removeEventListener("olympus:inspect-asset",inspect);
+  },[]);
   return (
-    <div className="command-instrument" data-flagship={flagship || undefined} data-visual-state={ambientState} data-voice-energy={voiceLevel > 0.15 ? "active" : "quiet"}
+    <div className="command-instrument" data-engine={engine??undefined} data-flagship={flagship || undefined} data-visual-state={ambientState} data-voice-energy={voiceLevel > 0.15 ? "active" : "quiet"}
       data-motion={ambient.running ? "running" : "paused"} data-renderer={sceneShown ? "hybrid" : "svg"} data-scene-ready={sceneShown}
       data-armory={capabilities ? "ready" : capabilitiesError ? "unavailable" : "loading"} data-working={working || undefined}
       style={{ ...ambientVariables, "--ambient-drift": `${2 / renderScale}px` } as CSSProperties}>
+      {flagship && <div className="instrument-engine" role="group" aria-label="Conversation engine">
+        {(["claude-code", "codex"] as const).map(id => <button key={id} type="button" data-engine={id}
+          title="Select for the next eligible request. Subscription generation is currently gated." aria-pressed={engine === id} onClick={() => selectConversationProvider(id)}>
+          {id === "codex" ? "Codex" : "Claude Code"}
+        </button>)}
+      </div>}
+      {flagship && <InstrumentActivity missions={missions} assets={galaxyAssets} onInspect={setAsset}/>}
+      {flagship && asset && <aside className="asset-inspection" aria-live="polite"><strong>{asset.label}</strong><small>{asset.id}</small>
+        {asset.id.startsWith("note:") && <button onClick={()=>void openVaultNote(asset.id.slice(5)).catch(()=>setAssetError("Could not open the note."))}>Open note</button>}
+        {asset.id.startsWith("project:") && <button onClick={()=>openProject(asset.id.slice(8))}>Open project</button>}
+        {asset.id.startsWith("agent:") && <button onClick={()=>inspectConstellationAgent(asset.id.slice(6))}>Inspect agent</button>}
+        {asset.id.startsWith("skill:") && <button onClick={()=>{const skill=capabilities?.skills.find(s=>s.id===asset.id.slice(6));if(skill)inspectArmoryCapability(skill);}}>Inspect skill</button>}
+        {(asset.id==="actor:Project Change Review" || (asset.id.startsWith("source:") && asset.label.endsWith(" · Git HEAD"))) && <button onClick={()=>window.dispatchEvent(new Event("olympus:open-review"))}>Open Project Change Review</button>}
+        {assetError && <small>{assetError}</small>} <button onClick={()=>setAsset(null)}>Close</button></aside>}
       <motion.div className="command-instrument__dial" ref={dialRef} style={instrumentParallax}>
         <div className="command-orbital-atmosphere" aria-hidden="true"/>
+        {flagship && <div className="engine-core-tint" aria-hidden="true" />}
         {flagship && <><ArmoryConstellation capabilities={capabilities??null}/><SkillsConstellation capabilities={capabilities}/><VaultConstellation graph={graph} error={vaultGraphError} loading={vaultGraphLoading}/></>}
         {flagship && <MissionTargets missions={missions} selected={selectedMission} onSelect={onSelectMission} fallback={!sceneShown}/>}
         {flagship && <PantheonFigures missions={missions}/>}
         {/* Unmounted on failure so its GPU resources, listeners and timers go
             with it; Retry mounts a fresh one. */}
-        {sceneWanted && !hybridError && <HybridCommandCore key={renderAttempt} layout={{...layout, orbitalCards: true, flagship}} state={ambientState} voiceLevel={voiceLevel} voiceEnergy={voiceSnapshot?.muted ? undefined : omegaVoiceEnergy} execution={execution}
+        {sceneWanted && !hybridError && <HybridCommandCore assets={galaxyAssets} engine={engine} key={renderAttempt} layout={{...layout, orbitalCards: true, flagship}} state={ambientState} voiceLevel={voiceLevel} voiceEnergy={voiceSnapshot?.muted ? undefined : omegaVoiceEnergy} execution={execution}
           missions={missions} selectedMission={selectedMission} running={active && ambient.running} light={light} activeDomains={activeDomains}
           onReady={setHybridReady} onError={setHybridError} />}
         <svg

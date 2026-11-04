@@ -339,3 +339,11 @@ of urgency. Equal priorities remain a tie; no recorded questions is not proof of
 completeness. A recommendation link only navigates. Add an update opens the form
 for context/corrections; saving and subsequent analysis retain their existing
 explicit behavior.
+
+## Command, skills and local speech
+
+The engine control sets the subscription engine for the next eligible request. Claude Code uses an ember accent and Codex uses cool blue. In-flight work keeps its original selection. Switching engines preserves the conversation, camera and rotating field.
+
+An operator can open the Armory's Skills list, run Project Change Review for a local project, or type `/project-review <folder>`. The result identifies the commit actually read, the prior observation and whether the revision changed. Daily execution is opt-in and runs while Olympus is open. Activity pulses represent observed source interactions. Open Agent activity to inspect them after the light fades.
+
+An opening brief draws on eligible project, email and remembered evidence. Only a displayed brief advances its project progress window. Explicitly named projects can connect independently supported findings. Conversational corrections retain their own source and authority. Local voice uses Whisper for dictation and Kokoro for speech. Dictation fills the composer and Send submits it through the selected conversation route.

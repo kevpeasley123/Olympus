@@ -384,6 +384,32 @@ fn node_ids(definition: &Value) -> Vec<String> {
     definition.as_array().map(|nodes| nodes.iter().filter_map(|node| node["id"].as_str().map(str::to_string)).collect()).unwrap_or_default()
 }
 
+/// An agent's completed output is evidence of a citation only when its quote and
+/// fingerprint resolve to the source snapshot actually supplied to that run.
+fn cited_sources(run:&Value)->Vec<Value> {
+    let mut result=Vec::new();
+    let mut seen=std::collections::BTreeSet::new();
+    let Some(sources)=run["sources"].as_array() else {return result};
+    for agent in run["agents"].as_array().into_iter().flatten(){
+        if agent["status"]!="completed"{continue;}
+        let (Some(actor),Some(child),Some(at))=(agent["definition"]["id"].as_str(),agent["id"].as_str(),agent["finishedAt"].as_str()) else {continue;};
+        let key=match actor {"research"=>"claims","verification"=>"findings",_=>continue};
+        for item in agent["output"][key].as_array().into_iter().flatten(){
+            for cite in item["evidence"].as_array().into_iter().flatten(){
+                let (Some(id),Some(fingerprint),Some(quote))=(cite["sourceId"].as_str(),cite["fingerprint"].as_str(),cite["quote"].as_str()) else {continue;};
+                if fingerprint.is_empty() || quote.trim().is_empty(){continue;}
+                let Some(source)=sources.iter().find(|s|s["id"]==id && s["fingerprint"]==fingerprint &&
+                    s["source"]["excerpt"].as_str().is_some_and(|excerpt|excerpt.contains(quote))) else {continue;};
+                let Some(path)=source["source"]["sourceFile"].as_str() else {continue;};
+                if seen.insert((child,id)){
+                    result.push(json!({"child":child,"actor":actor,"file":path,"fingerprint":fingerprint,"at":at}));
+                }
+            }
+        }
+    }
+    result
+}
+
 fn research_missions(connection: &Connection, limit: i64) -> Vec<Value> {
     let Ok(mut query) = connection.prepare("SELECT record_json FROM research_verification_runs ORDER BY rowid DESC LIMIT ?1") else { return vec![] };
     let rows = query.query_map([limit], |row| row.get::<_, String>(0)).map(|rows| rows.filter_map(Result::ok).collect::<Vec<_>>()).unwrap_or_default();
@@ -409,7 +435,7 @@ fn research_missions(connection: &Connection, limit: i64) -> Vec<Value> {
         } else if let Some(error) = run["error"].as_str() { json!({"summary":"Stopped before a brief","detail":error}) } else { Value::Null };
         json!({"id":run["id"],"kind":"research-verification","workflow":"Research Verification v1","title":"Research verification","request":run["question"],
             "status":run_status(run["status"].as_str().unwrap_or("")),"startedAt":run["startedAt"],"finishedAt":run["finishedAt"],
-            "steps":steps,"approval":Value::Null,"result":result,"destination":"research","source":"research_verification_runs"})
+            "steps":steps,"citations":cited_sources(&run),"approval":Value::Null,"result":result,"destination":"research","source":"research_verification_runs"})
     }).collect()
 }
 
@@ -602,6 +628,17 @@ mod tests {
         assert_eq!(skill("research-retrieval")["usage"]["lastAt"], "2026-09-28T10:00:00Z");
     }
 
+    #[test]
+    fn agent_pulses_require_exact_citations_from_completed_children() {
+        let source=json!({"id":"s","fingerprint":"v1","source":{"sourceFile":"02 - Research/F.md","excerpt":"Verified text"}});
+        let mut run=json!({"sources":[source],"agents":[{"id":"child","definition":{"id":"research"},"status":"completed","finishedAt":"now",
+            "output":{"claims":[{"evidence":[{"sourceId":"s","fingerprint":"v1","quote":"Verified text"},{"sourceId":"s","fingerprint":"wrong","quote":"Verified text"}]}]}}]});
+        assert_eq!(cited_sources(&run).len(),1);
+        run["agents"][0]["status"]=json!("failed");
+        assert!(cited_sources(&run).is_empty());
+        run["agents"][0]["status"]=json!("completed");run["sources"][0]["source"]["excerpt"]=json!("Different bytes");
+        assert!(cited_sources(&run).is_empty());
+    }
     #[test]
     fn a_running_research_mission_reports_only_recorded_progress() {
         let c = db();
