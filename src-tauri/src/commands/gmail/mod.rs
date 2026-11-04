@@ -386,7 +386,7 @@ pub fn start_cadence(app: tauri::AppHandle) {
                     db.0.lock()
                         .ok()
                         .and_then(|c| store::account(&c).ok().flatten())
-                        .is_some_and(|a| health::sync_due(a.enabled, &a.status, a.next_sync.as_deref(), chrono::Utc::now()));
+                        .is_some_and(|a| health::sync_due(a.enabled, &a.status, a.last_error.as_deref(), a.next_sync.as_deref(), chrono::Utc::now()));
                 value
             };
             if enabled {

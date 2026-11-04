@@ -1,6 +1,10 @@
 # Next session
 
-## Olympus 0.44.0
+## Olympus 0.45.0
+
+Armory > Plugins now manages Gmail. The prior installed build successfully synced after reconnect. Long-term grant durability and fresh situation analysis remain unverified.
+
+### Previous release
 
 This release integrates the skill backbone with the published 0.43.0 release. See [Skill backbone](SKILL-BACKBONE.md) for operations and fixture verification. Local voice requires a provisioned Python runtime and model folder. Production Gmail recovery, provider generation and physical microphone acceptance remain separate. Migration 4 is additive.
 
