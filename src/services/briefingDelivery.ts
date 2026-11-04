@@ -164,6 +164,11 @@ export async function prepareFactualBrief(
    return !i.id.startsWith("project-review:") || receipts[i.id]?.revision!==i.revision;
  });
  const selected=selectBrief(eligible,receipts,mode,now);
+ const memoryGap=eligible.find(i=>i.id==="coverage:memory");
+ if(mode==="requested" && memoryGap && !selected.includes(memoryGap)){
+   if(selected.length===3)selected.pop();
+   selected.push(memoryGap);
+ }
  const substantive=selected.filter(i=>i.kind!=="limitation");
  const items=selected.filter(i=>i.id!=="coverage:analysis" || (!substantive.length && mode==="requested"));
 
