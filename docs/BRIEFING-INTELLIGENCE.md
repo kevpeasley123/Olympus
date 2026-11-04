@@ -1,8 +1,20 @@
-# Factual briefing foundation
+# Source-grounded briefing
 
 Native opening and on-demand updates share `briefingIntelligence.ts` and
-`briefingDelivery.ts`. This is a deterministic, source-grounded foundation;
-it does not invoke a model or claim fresh semantic analysis.
+`briefingDelivery.ts`. The deterministic fallback does not claim model reasoning.
+Native preparation can request bounded subscription synthesis through the closed
+`briefing_synthesize` gate. A blocked or invalid response retains the fallback;
+no alternate provider is attempted. See `BRIEFING-SYNTHESIS.md` for that contract.
+
+`briefingTransactions.ts` omits routine receipts, invoices and confirmations from
+headlines unless they contain an explicit action/problem signal. Shipment updates
+use concise wording and omit specifications. Reconciliation requires a shared
+thread or explicit order reference from the same sender; a shared merchant alone
+does not establish shared order identity. The native snapshot retains bounded
+recent message history so later receipts do not hide earlier shipment evidence.
+Only explicit current absolute-date estimates become ETAs; elapsed estimates do
+not prove arrival. Distinct recurring-account change notices are attention signals,
+not proof that they concern the same instruction or any particular obligation.
 
 Project input includes recorded blockers/reviews, saved next steps, commit
 subjects and uncommitted work. Email input is existing account-scoped attention
@@ -42,7 +54,16 @@ become explicit limitations. At most three highlights are selected, with materia
 coverage limitations, pending decisions and email attention above repository hygiene.
 
 Preparation reads local status, existing situation snapshots and delivery receipts;
-it never requests sync or analysis. Reads time out after three seconds. Mail/account, project/checkpoint
+it never requests mailbox sync. Source reads time out after three seconds. Optional
+synthesis receives selected evidence plus bounded remembered/operator context,
+with distinct authority and context-only labels. Context alone cannot create a
+new headline. Explicit corrections remain verbatim outside model rewriting.
+The synthesis wait is bounded to 30 seconds; a timeout ignores late output and
+retains the fallback, without claiming provider work was cancelled.
+Model output is accepted only with matching revision/time, known source IDs and
+actual provider/model/request provenance. Nonempty action and uncertainty fields
+are preserved, not silently discarded. Only represented deliverable sources are
+acknowledged; a valid empty synthesis can suppress a resolved concern. Mail/account, project/checkpoint
 and situation revisions, memory preference and conversation projection digests are
 checked again before display. Changed sources trigger
 up to three fresh preparation attempts; failure does not consume the opening. Native requested briefs
@@ -78,7 +99,7 @@ legacy project composer and never reads native state.
 Gmail preferences expose analysis readiness separately from the connection. The
 subscription generation gates remain closed; a configured local provider remains
 unverified until separately exercised. No new provider, permission or startup
-behavior is enabled.
+generation behavior is enabled while its gate remains closed.
 
 Follow-on work from the approved design includes qualified semantic synthesis,
 cross-source workflow learning and optional tray persistence. This

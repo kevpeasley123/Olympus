@@ -135,6 +135,8 @@ export interface CommsAccountViewState {
   overview?: boolean;
   navigatorFilter?: string;
   navigatorQuery?: string;
+  /** Account-scoped, in-memory map navigation; never persisted to disk. */
+  focusedMaps?: Record<string, { focus?: string; selection?: string; page?: number; query?: string; tab?: string }>;
 }
 
 /** A request from another surface, consumed once by the destination panel. */

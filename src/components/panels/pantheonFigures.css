@@ -35,3 +35,20 @@
 .pantheon-skin-picker__list button{padding:4px 10px;border:1px solid transparent;border-radius:4px;background:transparent;color:#cdbfa6;font:500 10px var(--font-body,"Inter",sans-serif);text-align:left;white-space:nowrap;cursor:pointer}
 .pantheon-skin-picker__list button:hover{color:#f3dcaa;border-color:#d7a85a33}
 .pantheon-skin-picker__list button[aria-pressed="true"]{border-color:#e3b56a88;background:#e3b56a1f;color:#ffe7b8}
+
+/* Approved canyon cleanup: retain the open scene and existing controls. */
+.command-instrument[data-flagship] .pantheon-figure__label{top:calc(100% + 10px);width:148px;gap:2px}
+.command-instrument[data-flagship] .pantheon-figure__label strong{font-size:12px;letter-spacing:.14em}
+.command-instrument[data-flagship] .pantheon-figure__label em{font-size:9px;letter-spacing:.11em}
+.command-instrument[data-flagship] .pantheon-figure__session{top:calc(100% + 42px);bottom:auto;min-width:0;width:150px;max-width:150px;padding:4px 6px;background:#081019b8;border-color:#b58e4540;border-left-width:1px;box-shadow:none;animation:none}
+.command-instrument[data-flagship] .pantheon-figure__session b{display:none}
+.command-instrument[data-flagship] .pantheon-figure__session span{font-size:9px}
+.command-instrument[data-flagship] .pantheon-figure__session small{font-size:7px;letter-spacing:0}
+
+/* Short desktop windows retain names and live status; roles remain in the
+   Armory and each figure's accessible name. */
+@media(max-height:800px){
+ .command-instrument[data-flagship] .pantheon-figure__label{top:calc(100% + 4px)}
+ .command-instrument[data-flagship] .pantheon-figure__label em{display:none}
+ .command-instrument[data-flagship] .pantheon-figure__session{top:calc(100% + 25px)}
+}

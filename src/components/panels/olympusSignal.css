@@ -26,3 +26,9 @@
 
 @media(max-height:850px){.olympus-voice-dock{margin-top:-116px}.olympus-signal,.olympus-voice-dock::before{height:140px}.olympus-voice-dock__status{margin-top:-18px}}
 @media(prefers-reduced-motion:reduce){.olympus-voice-dock__status,.olympus-voice-toggle,.olympus-voice-toggle__track,.olympus-voice-toggle__track>span{transition:none}}
+
+/* Approved canyon cleanup: retain the open scene and existing controls. */
+.command-instrument[data-flagship] .olympus-voice-dock{flex:0 0 auto;width:min(360px,64%);margin:0 auto;min-height:83px}
+.command-instrument[data-flagship] .olympus-signal,.command-instrument[data-flagship] .olympus-voice-dock::before{height:64px}
+.command-instrument[data-flagship] .olympus-voice-dock__status{margin-top:-7px;font-size:8px;letter-spacing:.16em}
+.command-instrument[data-flagship] .olympus-voice-controls{margin-top:0;min-height:24px}

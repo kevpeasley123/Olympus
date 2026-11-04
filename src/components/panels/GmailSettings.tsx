@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { gmailRemoveCache, gmailAction, gmailCacheCounts, gmailError, gmailHorizon, gmailNative, gmailSearch, gmailStateLabel, gmailStatus, gmailThread, gmailSettingsRequestPending, clearGmailSettingsRequest, countOf, type GmailCacheCounts, type GmailStatus, type MailExcerpt, type MailMessage } from "../../services/gmail";
+import { gmailRemoveCache, gmailAction, gmailCacheCounts, gmailError, gmailHorizon, gmailNative, gmailSearch, gmailHealth, gmailStateLabel, gmailStatus, gmailThread, gmailSettingsRequestPending, clearGmailSettingsRequest, countOf, type GmailCacheCounts, type GmailStatus, type MailExcerpt, type MailMessage } from "../../services/gmail";
 import { formatWhen } from "../../services/time";
 import { useAcceptanceProfile } from "../../services/acceptanceProfile";
 import { forgetCommsAccount } from "../../state/viewState";
@@ -17,15 +17,15 @@ export function removalSentence(c:GmailCacheCounts):string{
  return `Deletes ${parts.join(", ")} and ${context}.`;
 }
 
-export function GmailSettings({api=client}:{api?:GmailClient}) {
+export function GmailSettings({api=client,pluginRow=false}:{api?:GmailClient;pluginRow?:boolean}) {
  const [state,setState]=useState<GmailStatus|null>(null),[error,setError]=useState(""),[pending,setPending]=useState(false),[query,setQuery]=useState(""),[results,setResults]=useState<MailExcerpt[]>([]),[searched,setSearched]=useState(false),[thread,setThread]=useState<MailMessage[]>([]);
  // Communications' settings link asks for this section already open.
- const [requested]=useState(gmailSettingsRequestPending);
+ const [requested]=useState(()=>!pluginRow && gmailSettingsRequestPending());
  const [expanded,setExpanded]=useState(requested);
  const [removal,setRemoval]=useState<null|{counts:GmailCacheCounts|null;error?:string}>(null);
  const [narrow,setNarrow]=useState<null|{days:number;messages:number|null;error?:string}>(null);
  const root=useRef<HTMLDetailsElement>(null);
- useEffect(()=>{clearGmailSettingsRequest();if(requested){root.current?.scrollIntoView({block:"start"});root.current?.querySelector<HTMLElement>("summary")?.focus()}},[requested]);
+ useEffect(()=>{if(requested)clearGmailSettingsRequest();if(requested){root.current?.scrollIntoView({block:"start"});root.current?.querySelector<HTMLElement>("summary")?.focus()}},[requested]);
  // Read once for the summary line; the 2 s poll runs only while the section is open.
  useEffect(()=>{if(!api.native())return;let active=true;const refresh=()=>api.status().then(s=>{if(active)setState(s)}).catch(e=>{if(active)setError(gmailError(e))});void refresh();const timer=expanded?window.setInterval(refresh,2000):undefined;return()=>{active=false;window.clearInterval(timer)}},[api,expanded]);
  async function run(action:()=>Promise<unknown>){setPending(true);setError("");try{await action();setState(await api.status())}catch(e){setError(gmailError(e))}finally{setPending(false)}}
@@ -46,7 +46,7 @@ export function GmailSettings({api=client}:{api?:GmailClient}) {
   try{const counts=await api.counts(days);setNarrow({days,messages:counts.olderThan?.messages??null})}catch(e){setNarrow({days,messages:null,error:gmailError(e)})}
  }
 
- return <details ref={root} className="gmail-settings" data-testid="gmail-settings" open={expanded} onToggle={event=>setExpanded(event.currentTarget.open)}><summary>Gmail connection</summary>
+ return <details ref={root} className={pluginRow?"gmail-settings gmail-plugin-row":"gmail-settings"} data-testid="gmail-settings" open={expanded} onToggle={event=>setExpanded(event.currentTarget.open)}><summary>{pluginRow?<><strong>Gmail</strong><span>Read Gmail and automatically check for new mail while Olympus is open.</span><small>{api.native()?gmailHealth(state).label:"Desktop connection"}</small></>:"Gmail connection"}</summary>
  {!api.native()?<p>Connect Gmail in the Olympus desktop app. This browser preview cannot access native credentials or your mailbox.</p>:<>
  <div className="gmail-account"><span className="gmail-account__label">EMAIL ACCOUNT</span><strong>{state?.account?.email||"Connect your Gmail account"}</strong><span role="status" className="gmail-account__status">{state?.account?.status==="authentication_required"?"Reconnect required":gmailStateLabel(state)}</span></div>
  {acceptance&&<p className="section-copy"><strong>Disabled in the acceptance profile.</strong> Connect, Sync now and Disconnect are refused and Gmail is never contacted; the account shown is synthetic. Cached rows in the acceptance database stay readable.</p>}
@@ -56,8 +56,8 @@ export function GmailSettings({api=client}:{api?:GmailClient}) {
  <details className="gmail-secondary"><summary>How your email is used</summary><p>Connecting opens Google’s consent screen in your browser to request read-only access to message bodies. Cached excerpts are sent to your reasoning provider when answering communication questions. Background analysis requires an available, permitted subscription route or a separately configured local model. A connected Gmail account does not establish that analysis is working. There is no automatic paid fallback. It reviews changed correspondence, situation updates and matching Research context. Local analysis does not change the provider used for chat answers. You can pause background analysis in Communications.</p></details>
  {state&&!state.configured&&<p>Save a Google <strong>Desktop app</strong> OAuth client JSON as <code className="gmail-config-path">{state.configPath}</code>. Setup: <code>docs/GMAIL.md</code>. Do not paste credentials into chat.</p>}
  <div className="gmail-controls">
- <button type="button" className="ghost-action" disabled={busy||!state?.configured} onClick={()=>void run(()=>api.action("connect"))}>{enabled?"Reconnect Gmail":"Connect Gmail"}</button>
- <button type="button" className="ghost-action" disabled={!enabled||busy||state?.account?.status==="authentication_required"} onClick={()=>void run(()=>api.action("sync"))}>Sync now</button>
+ {(!pluginRow||!enabled||gmailHealth(state).action==="reconnect")&&<button type="button" className="ghost-action" disabled={busy||!state?.configured} onClick={()=>void run(()=>api.action("connect"))}>{enabled?"Reconnect Gmail":"Connect Gmail"}</button>}
+ {!pluginRow&&<button type="button" className="ghost-action" disabled={!enabled||busy||state?.account?.status==="authentication_required"} onClick={()=>void run(()=>api.action("sync"))}>Sync now</button>}
  {busy&&<button type="button" className="ghost-action" onClick={()=>void api.action("cancel").catch(e=>setError(gmailError(e)))}>Cancel operation</button>}
 
  </div>

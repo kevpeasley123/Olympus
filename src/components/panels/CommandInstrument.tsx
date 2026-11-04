@@ -7,12 +7,13 @@ import type { GalaxyAsset } from "../../services/pantheonGalaxy";
 import { InstrumentActivity } from "./InstrumentActivity";
 import { selectConversationProvider, useConversationProvider } from "../../services/conversationProvider";
 import "./engineSwitch.css";
+import { CodeXml } from "lucide-react";
+import { siClaude } from "simple-icons";
 import { MissionTargets } from "./PantheonMissions";
 import { PantheonFigures } from "./PantheonFigures";
 import { SkillsConstellation } from "./SkillsConstellation";
 import type { Mission } from "../../services/capabilities";
 import "./pantheonMissions.css";
-import { VaultConstellation } from "./VaultConstellation";
 import { ArmoryConstellation } from "./ArmoryConstellation";
 import { OlympusVoiceDock } from "./OlympusVoiceDock";
 import { omegaVoiceEnergy } from "../../services/voiceSignal";
@@ -280,7 +281,7 @@ export function CommandInstrument({
   const engine = useConversationProvider();
   const galaxyAssets=useMemo(()=>[
     ...projects.map(p=>({id:"project:"+p.id,label:p.name})),
-    ...graph.nodes.slice(0,180).map(n=>({id:"note:"+n.id,label:n.title})),
+    ...graph.nodes.map(n=>({id:"note:"+n.id,label:n.title})),
     ...(capabilities?.agents??[]).map(a=>({id:"agent:"+a.id,label:PANTHEON_FIGURES.find(f=>f.agent===a.id)?.name??a.id})),
     ...(capabilities?.skills??[]).map(s=>({id:"skill:"+s.id,label:s.name})),
     {id:"actor:Project Change Review",label:"Project Change Review"},
@@ -300,12 +301,13 @@ export function CommandInstrument({
       {flagship && <div className="instrument-engine" role="group" aria-label="Conversation engine">
         {(["claude-code", "codex"] as const).map(id => <button key={id} type="button" data-engine={id}
           title="Select for the next eligible request. Subscription generation is currently gated." aria-pressed={engine === id} onClick={() => selectConversationProvider(id)}>
-          {id === "codex" ? "Codex" : "Claude Code"}
+          {id === "codex" ? <CodeXml aria-hidden="true"/> : <svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d={siClaude.path}/></svg>}
+          <span>{id === "codex" ? "Codex" : "Claude Code"}</span>
         </button>)}
       </div>}
-      {flagship && <InstrumentActivity missions={missions} assets={galaxyAssets} onInspect={setAsset}/>}
+      {flagship && <InstrumentActivity vaultStatus={vaultGraphError ? (graph.nodes.length ? "Showing last vault snapshot" : "Vault unavailable") : vaultGraphLoading ? "Loading vault notes" : graph.nodes.length+" vault notes in the sphere"} missions={missions} assets={galaxyAssets} onInspect={setAsset}/>}
       {flagship && asset && <aside className="asset-inspection" aria-live="polite"><strong>{asset.label}</strong><small>{asset.id}</small>
-        {asset.id.startsWith("note:") && <button onClick={()=>void openVaultNote(asset.id.slice(5)).catch(()=>setAssetError("Could not open the note."))}>Open note</button>}
+        {asset.id.startsWith("note:") && <button onClick={()=>void openVaultNote(asset.id.slice(5)).then(result=>setAssetError(result==="unsupported"?"Open notes from the desktop app.":"")).catch(()=>setAssetError("Could not open the note."))}>Open note</button>}
         {asset.id.startsWith("project:") && <button onClick={()=>openProject(asset.id.slice(8))}>Open project</button>}
         {asset.id.startsWith("agent:") && <button onClick={()=>inspectConstellationAgent(asset.id.slice(6))}>Inspect agent</button>}
         {asset.id.startsWith("skill:") && <button onClick={()=>{const skill=capabilities?.skills.find(s=>s.id===asset.id.slice(6));if(skill)inspectArmoryCapability(skill);}}>Inspect skill</button>}
@@ -314,7 +316,7 @@ export function CommandInstrument({
       <motion.div className="command-instrument__dial" ref={dialRef} style={instrumentParallax}>
         <div className="command-orbital-atmosphere" aria-hidden="true"/>
         {flagship && <div className="engine-core-tint" aria-hidden="true" />}
-        {flagship && <><ArmoryConstellation capabilities={capabilities??null}/><SkillsConstellation capabilities={capabilities}/><VaultConstellation graph={graph} error={vaultGraphError} loading={vaultGraphLoading}/></>}
+        {flagship && <><ArmoryConstellation capabilities={capabilities??null}/><SkillsConstellation capabilities={capabilities}/></>}
         {flagship && <MissionTargets missions={missions} selected={selectedMission} onSelect={onSelectMission} fallback={!sceneShown}/>}
         {flagship && <PantheonFigures missions={missions}/>}
         {/* Unmounted on failure so its GPU resources, listeners and timers go

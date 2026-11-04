@@ -13,7 +13,7 @@ pub struct Receipt { pub revision:String, pub delivered_at:i64, #[serde(default)
 type Receipts=BTreeMap<String,Receipt>;
 fn is_digest(value:&str)->bool { value.len()==64 && value.bytes().all(|c| c.is_ascii_hexdigit()) }
 
-fn read(c:&Connection)->Result<Receipts,String> {
+pub(crate) fn read(c:&Connection)->Result<Receipts,String> {
     let raw:Option<String>=c.query_row("SELECT value FROM settings WHERE key=?1",[KEY],|r|r.get(0))
         .optional().map_err(|_|"briefing_receipts_unavailable")?;
     let mut result:Receipts=raw.filter(|s|s.len()<=1_000_000)
@@ -67,6 +67,14 @@ pub fn store_display(c:&Connection,id:&str,role:&str,plan:&DisplayPlan)->Result<
        plan.cursors.iter().any(|cursor|cursor.at<0 || cursor.at>plan.prepared_at || cursor.source.len()>8192 || cursor.oids.iter().any(|oid| !matches!(oid.len(),40|64) || !oid.bytes().all(|b|b.is_ascii_hexdigit()))) {
         return Err("Invalid briefing delivery metadata".into());
     }
+    if plan.cursors.iter().any(|cursor|cursor.source.starts_with("project-oid-v1:")){
+        if plan.cursors.iter().filter(|cursor|cursor.source.starts_with("project-oid-v1:")).any(|cursor|cursor.at!=0||cursor.source.strip_prefix("project-oid-v1:").is_none_or(|value|!is_digest(value))){return Err("Invalid native project ledger".into());}
+        let raw:Option<(String,String)>=c.query_row("SELECT t.context_json,r.record_json FROM conversation_turn_context t JOIN model_requests r ON r.id=json_extract(t.context_json,'$.briefing.requestId') WHERE t.message_id=?1 AND json_extract(t.context_json,'$.briefing.kind')='model_synthesis'",[id],|r|Ok((r.get(0)?,r.get(1)?))).optional().map_err(|_|"Native project binding unavailable")?;
+        let (context,record)=raw.ok_or("Native project binding required")?;
+        let context:serde_json::Value=serde_json::from_str(&context).map_err(|_|"Native project binding invalid")?;
+        let record:serde_json::Value=serde_json::from_str(&record).map_err(|_|"Native project binding invalid")?;
+        if record["usage"]["briefing_consumed"]["messageId"]!=id||record["usage"]["briefing_binding"]["origin"]!=context["briefing"]||record["usage"]["briefing_binding"]["delivery"]!=serde_json::to_value(plan).map_err(|_|"Native project binding invalid")?{return Err("Native project binding mismatch".into());}
+    }
     let payload=serde_json::to_string(plan).map_err(|e|e.to_string())?;
     if payload.len()>131072 {return Err("Briefing delivery metadata too large".into());}
     c.execute("INSERT INTO pending_brief_displays(message_id,payload) VALUES(?,?)",params![id,payload]).map_err(|e|e.to_string())?;
@@ -83,9 +91,11 @@ fn display(c:&mut Connection,id:&str)->Result<bool,String>{
         let prior:Option<(i64,String)>=tx.query_row("SELECT observed_ms,oids FROM project_brief_cursors WHERE source=?",[&cursor.source],|r|Ok((r.get(0)?,r.get(1)?))).optional().map_err(|e|e.to_string())?;
         let mut oids:std::collections::BTreeSet<String>=cursor.oids.into_iter().collect();
         if let Some((at,old))=prior {
+            if cursor.source.starts_with("project-oid-v1:")&&at!=0{return Err("Native project ledger invalid".into());}
             if at>cursor.at {continue;}
             if at==cursor.at {oids.extend(serde_json::from_str::<Vec<String>>(&old).map_err(|e|e.to_string())?);}
         }
+        if cursor.source.starts_with("project-oid-v1:")&&(cursor.at!=0||oids.len()>4096){return Err("Native project ledger capacity exceeded".into());}
         tx.execute("INSERT INTO project_brief_cursors(source,observed_ms,oids) VALUES(?,?,?) ON CONFLICT(source) DO UPDATE SET observed_ms=excluded.observed_ms,oids=excluded.oids",
             params![cursor.source,cursor.at,serde_json::to_string(&oids).map_err(|e|e.to_string())?]).map_err(|e|e.to_string())?;
     }
@@ -173,4 +183,17 @@ mod tests {
         let saved=read(&c).unwrap();
         assert!(!saved.contains_key("mail:a:thread"));assert!(!saved.contains_key("coverage:gmail"));assert!(saved.contains_key("mail:b:thread"));
     }
+}
+
+#[cfg(test)]
+pub(crate) fn acknowledge_fixture(c:&mut Connection,id:&str)->Result<bool,String>{display(c,id)}
+
+#[cfg(test)]mod protected_ledger_tests{
+ use super::*;
+ #[test]fn ordinary_delivery_cannot_forge_native_project_oid_acknowledgment(){
+  let c=Connection::open_in_memory().unwrap();crate::commands::migrations::apply(&c).unwrap();
+  let plan=DisplayPlan{prepared_at:1000,items:vec![],cursors:vec![DisplayCursor{source:format!("project-oid-v1:{}","a".repeat(64)),at:0,oids:vec!["b".repeat(40)]}]};
+  assert!(store_display(&c,"conversation-briefing-forged","assistant",&plan).is_err());
+  assert_eq!(c.query_row("SELECT count(*) FROM pending_brief_displays",[],|r|r.get::<_,i64>(0)).unwrap(),0);
+ }
 }

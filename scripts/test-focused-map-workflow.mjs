@@ -1,0 +1,35 @@
+const integrationBase=process.argv[2]??'http://127.0.0.1:31430';
+import {chromium} from 'playwright';
+import assert from 'node:assert/strict';
+const browser=await chromium.launch({channel:'msedge',headless:true});
+try {
+ const page=await browser.newPage({viewport:{width:1440,height:960}}),errors=[];
+ page.on('pageerror',e=>errors.push(e.message));
+ await page.goto(integrationBase+'/communications-harness.html?navigator&fit&observatory');
+ await page.locator('.focused-toolbar').getByRole('button',{name:'More',exact:true}).click();
+ await page.getByRole('button',{name:'Draft reply',exact:true}).first().click();
+ await page.getByRole('textbox',{name:'Draft message',exact:true}).fill('Synthetic unsaved reply for the acceptance test.');
+ await page.getByRole('button',{name:'Project',exact:true}).click();
+ await page.getByRole('button',{name:'Communications',exact:true}).click();
+ await page.getByRole('textbox',{name:'Draft message',exact:true}).waitFor();
+ assert.equal(await page.getByRole('textbox',{name:'Draft message',exact:true}).inputValue(),'Synthetic unsaved reply for the acceptance test.','draft survives mode remount');
+ await page.getByRole('button',{name:'Close draft',exact:true}).click();
+ await page.getByRole('button',{name:'Keep editing',exact:true}).click();
+ assert.ok(await page.getByRole('textbox',{name:'Draft message',exact:true}).isVisible());
+ await page.getByRole('button',{name:'Close draft',exact:true}).click();
+ await page.getByRole('button',{name:'Save and close',exact:true}).click();
+ await page.locator('.focused-toolbar').getByRole('button',{name:'More',exact:true}).click();
+ await page.getByRole('textbox',{name:'Situation update',exact:true}).fill('Synthetic operator clarification.');
+ await page.getByRole('button',{name:'Save update',exact:true}).click();
+ await page.getByText('Update saved. The next refresh will incorporate your context.',{exact:true}).waitFor();
+ await page.getByRole('button',{name:'Back to selected relationship',exact:true}).click();
+ await page.getByRole('button',{name:'Browse email',exact:true}).click();
+ assert.ok(await page.locator('.comms-list').isVisible());
+ await page.getByRole('button',{name:'Relationships',exact:true}).click();
+ assert.ok(await page.locator('.focused-map').isVisible());
+ await page.locator('.comms-connection-tools > summary').click();
+ assert.ok(await page.getByRole('button',{name:'Sync mail',exact:true}).isVisible());
+ assert.ok(await page.getByRole('button',{name:'Refresh situations',exact:true}).isVisible());
+ assert.deepEqual(errors,[]);
+ console.log('PASS retained draft edits across modes, explicit close/save, operator updates, email browsing and secondary connection controls');
+} finally {await browser.close()}

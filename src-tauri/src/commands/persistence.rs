@@ -18,6 +18,7 @@ pub struct ToolState {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ConversationMessage {
+    #[serde(default,skip_serializing_if="Option::is_none")] pub briefing: Option<BriefingOrigin>,
     #[serde(default,skip_serializing)] pub delivery: Option<super::briefing::DisplayPlan>,
     #[serde(default,skip_serializing_if="Option::is_none")]
     pub feedback: Option<serde_json::Value>,
@@ -39,6 +40,68 @@ pub struct ConversationMessage {
     pub scope: Option<String>,
 }
 
+/// Origin is immutable diagnostic attribution. Source references are not semantic proof.
+#[derive(Debug,Clone,Serialize,Deserialize)]
+#[serde(rename_all="camelCase",deny_unknown_fields)]
+pub struct BriefingSource {pub id:String,pub revision:String}
+#[derive(Debug,Clone,Serialize,Deserialize)]
+#[serde(tag="kind",rename_all="snake_case",rename_all_fields="camelCase",deny_unknown_fields)]
+pub enum BriefingOrigin {
+    DeterministicFallback {prepared_at:i64,sources:Vec<BriefingSource>},
+    ModelSynthesis {prepared_at:i64,sources:Vec<BriefingSource>,packet_revision:String,provider:String,model:String,request_id:String},
+}
+fn validate_and_consume_briefing_origin(c:&Connection,conversation_id:&str,message:&ConversationMessage,origin:&BriefingOrigin)->Result<(),String>{
+    let invalid=||"Invalid briefing origin".to_string();
+    if message.role!="assistant"||!message.id.starts_with("conversation-briefing-"){return Err(invalid());}
+    let (at,sources)=match origin {BriefingOrigin::DeterministicFallback{prepared_at,sources}=> (*prepared_at,sources),BriefingOrigin::ModelSynthesis{prepared_at,sources,..}=>(*prepared_at,sources)};
+    let digest=|v:&str|v.len()==64&&v.bytes().all(|b|b.is_ascii_hexdigit());
+    let mut ids=std::collections::HashSet::new();
+    if at<0||at>chrono::Utc::now().timestamp_millis().saturating_add(60_000)||sources.len()>24||sources.iter().any(|s|s.id.is_empty()||s.id.len()>256||s.id.chars().any(char::is_control)||!digest(&s.revision)||!ids.insert(&s.id)){return Err(invalid());}
+    if let BriefingOrigin::ModelSynthesis{packet_revision,provider,model,request_id,..}=origin {
+        if message.request.as_ref().is_some_and(|r|r.id!=*request_id){return Err(invalid());}
+        if !digest(packet_revision)||request_id.is_empty()||request_id.len()>256||provider.len()>128||model.len()>128{return Err(invalid());}
+        let raw:Option<String>=c.query_row("SELECT record_json FROM model_requests WHERE id=?1",[request_id],|r|r.get(0)).optional().map_err(|_|invalid())?;
+        let raw=raw.ok_or_else(invalid)?;
+        let record:super::models::RequestRecord=serde_json::from_str(&raw).map_err(|_|invalid())?;
+        if record.purpose!="briefing_synthesis"||record.status!="completed"||record.provider!=*provider||record.actual_model.as_deref()!=Some(model.as_str()){return Err(invalid());}
+        // A request's existence is not permission to attribute arbitrary text to it.
+        // Only a future qualified native compositor may issue this binding. Until
+        // then production model-origin saves fail closed; tests issue fixtures.
+        use sha2::{Digest,Sha256};
+        let expected=serde_json::json!({"conversationId":conversation_id,"contentDigest":format!("{:x}",Sha256::digest(message.content.as_bytes())),"origin":origin,"delivery":serde_json::to_value(&message.delivery).map_err(|_|invalid())?});
+        if record.usage.as_ref().and_then(|u|u.get("briefing_binding"))!=Some(&expected){return Err(invalid());}
+        let used:bool=c.query_row("SELECT EXISTS(SELECT 1 FROM conversation_turn_context WHERE json_extract(context_json,'$.briefing.requestId')=?1)",[request_id],|r|r.get(0)).map_err(|_|invalid())?;
+        if used||record.usage.as_ref().and_then(|u|u.get("briefing_consumed")).is_some(){return Err(invalid());}
+        // Durable consumption lives independently of deletable conversation rows.
+        // CAS and all message/provenance/delivery writes share the caller transaction.
+        let consumed=serde_json::json!({"messageId":message.id,"conversationId":conversation_id});
+        let changed=c.execute("UPDATE model_requests SET record_json=json_set(record_json,'$.usage.briefing_consumed',json(?1)) WHERE id=?2 AND record_json=?3",params![consumed.to_string(),request_id,raw]).map_err(|_|invalid())?;
+        if changed!=1{return Err(invalid());}
+    }
+    Ok(())
+}
+
+// An exact repeat may update voice playback but cannot alter attribution or
+// acknowledge delivery again. Missing delivery is normal on history reload.
+fn existing_model_briefing(c:&Connection,chat:&str,message:&ConversationMessage)->Result<bool,String>{
+    let invalid=||"Invalid briefing replay".to_string();
+    let row:Option<(String,String,String,Option<String>)>=c.query_row("SELECT conversation_id,role,content,(SELECT context_json FROM conversation_turn_context WHERE message_id=conversation_messages.id) FROM conversation_messages WHERE id=?1",[&message.id],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?,r.get(3)?))).optional().map_err(|_|invalid())?;
+    let Some((stored_chat,role,content,context))=row else{return Ok(false)};
+    let context:TurnContext=context.map(|s|serde_json::from_str(&s)).transpose().map_err(|_|invalid())?.unwrap_or_default();
+    let Some(origin @ BriefingOrigin::ModelSynthesis{request_id,..})=context.briefing.as_ref() else{
+        if matches!(message.briefing,Some(BriefingOrigin::ModelSynthesis{..})){return Err(invalid());}
+        return Ok(false)
+    };
+    if stored_chat!=chat||role!=message.role||content!=message.content{return Err(invalid());}
+    if let Some(incoming)=&message.briefing{if serde_json::to_value(incoming).map_err(|_|invalid())?!=serde_json::to_value(&origin).map_err(|_|invalid())?{return Err(invalid());}}
+    if message.request.as_ref().is_some_and(|r|r.id!=*request_id){return Err(invalid());}
+    let raw:String=c.query_row("SELECT record_json FROM model_requests WHERE id=?1",[request_id],|r|r.get(0)).map_err(|_|invalid())?;
+    let record:serde_json::Value=serde_json::from_str(&raw).map_err(|_|invalid())?;
+    if record["usage"]["briefing_consumed"]!=serde_json::json!({"messageId":message.id,"conversationId":chat}){return Err(invalid());}
+    if let Some(delivery)=&message.delivery{if serde_json::to_value(delivery).map_err(|_|invalid())?!=record["usage"]["briefing_binding"]["delivery"]{return Err(invalid());}}
+    Ok(true)
+}
+
 /// Source data sent with an operator turn, stored beside it rather than in it.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct TurnAttachment {
@@ -52,6 +115,7 @@ pub struct TurnAttachment {
 
 #[derive(Debug, Default, Serialize, Deserialize)]
 struct TurnContext {
+    #[serde(default,skip_serializing_if="Option::is_none")] briefing: Option<BriefingOrigin>,
     #[serde(default,skip_serializing_if="Option::is_none")]
     feedback: Option<serde_json::Value>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -339,7 +403,7 @@ pub fn load_messages(connection: &Connection, conversation_id: Option<&str>) -> 
             };
             let turn: TurnContext = side_row(row.get(9)?, "conversation_turn_context", &id).unwrap_or_default();
             Ok(LoadedMessage { at, imported_at, message: ConversationMessage {
-                delivery:None, feedback: turn.feedback,
+                delivery:None, briefing:turn.briefing, feedback: turn.feedback,
                 attachment: turn.attachment,
                 scope: turn.scope,
                 mail: side_row(row.get(7)?, "conversation_mail", &id).unwrap_or_default(),
@@ -419,16 +483,29 @@ pub(crate) fn store_messages(connection: &mut Connection, conversation_id: &str,
 }
 
 fn store_messages_as(connection: &mut Connection, conversation_id: &str, messages: Vec<ConversationMessage>, imported: bool) -> Result<(), String> {
+    let transaction = connection.transaction().map_err(|e| e.to_string())?;
+    store_messages_in_transaction(&transaction, conversation_id, messages, imported)?;
+    transaction.commit().map_err(|error| error.to_string())
+}
+
+/// Stores messages and consumes result bindings inside the caller's transaction.
+/// The caller must roll back on any error; this helper never commits or creates
+/// its own transaction, so native binding issuance can be part of the same unit.
+pub(super) fn store_messages_in_transaction(transaction: &rusqlite::Transaction<'_>, conversation_id: &str, messages: Vec<ConversationMessage>, imported: bool) -> Result<(), String> {
     let conversation_id = conversation_id.trim();
     if conversation_id.is_empty() || conversation_id.len() > 128 {
         return Err("A message must belong to a conversation.".into());
     }
-    let transaction = connection.transaction().map_err(|e| e.to_string())?;
     let first_user = messages.iter().find(|m| m.role == "user").map(|m| m.content.as_str());
-    super::conversations::ensure(&transaction, conversation_id, first_user).map_err(|e| e.to_string())?;
+    super::conversations::ensure(transaction, conversation_id, first_user).map_err(|e| e.to_string())?;
     let mut inserted_any = false;
 
     for message in messages {
+        if existing_model_briefing(transaction,conversation_id,&message)?{
+            if let Some(voice)=&message.voice{transaction.execute("INSERT INTO conversation_voice(message_id,metadata_json) VALUES(?1,?2) ON CONFLICT(message_id) DO UPDATE SET metadata_json=excluded.metadata_json",params![message.id,serde_json::to_string(voice).map_err(|e|e.to_string())?]).map_err(|e|e.to_string())?;}
+            continue;
+        }
+        if imported&&matches!(message.briefing,Some(BriefingOrigin::ModelSynthesis{..})){return Err("Imported messages cannot consume native briefing results".into());}
         // Provenance is fixed when a message is first stored. A later append of
         // the same ID may only update voice playback metadata.
         transaction.execute("INSERT INTO conversation_mail(message_id,sources_json) VALUES (?1,?2) ON CONFLICT(message_id) DO NOTHING",params![message.id,serde_json::to_string(&message.mail).map_err(|_|"Mail provenance serialization failed")?]).map_err(|_|"Mail provenance persistence failed")?;
@@ -438,8 +515,9 @@ fn store_messages_as(connection: &mut Connection, conversation_id: &str, message
         // Fixed at first store, like the other provenance.
         if message.feedback.as_ref().is_some_and(|f|message.role!="assistant"||!f.is_object()||f.to_string().len()>16000){return Err("Invalid app feedback context".into())}
         let existing:bool=transaction.query_row("SELECT EXISTS(SELECT 1 FROM conversation_messages WHERE id=?1)",[&message.id],|r|r.get(0)).map_err(|e|e.to_string())?;
-        if !existing && (message.attachment.is_some() || message.scope.is_some() || message.feedback.is_some()) {
-            let turn = TurnContext { feedback:message.feedback.clone(), attachment: message.attachment.clone(), scope: message.scope.clone() };
+        if !existing && (message.attachment.is_some() || message.scope.is_some() || message.feedback.is_some() || message.briefing.is_some()) {
+            if let Some(origin)=&message.briefing {validate_and_consume_briefing_origin(transaction,conversation_id,&message,origin)?;}
+            let turn = TurnContext { briefing:message.briefing.clone(), feedback:message.feedback.clone(), attachment: message.attachment.clone(), scope: message.scope.clone() };
             transaction.execute("INSERT INTO conversation_turn_context (message_id, context_json) VALUES (?1, ?2) ON CONFLICT(message_id) DO NOTHING", params![message.id, serde_json::to_string(&turn).map_err(|e| e.to_string())?]).map_err(|e| e.to_string())?;
         }
         if let Some(voice) = &message.voice {
@@ -459,10 +537,10 @@ fn store_messages_as(connection: &mut Connection, conversation_id: &str, message
             .map_err(|error| error.to_string())?;
         if inserted == 1 {
             if !imported {
-                if let Some(plan)=&message.delivery {super::briefing::store_display(&transaction,&message.id,&message.role,plan)?;}
+                if let Some(plan)=&message.delivery {super::briefing::store_display(transaction,&message.id,&message.role,plan)?;}
             }
             inserted_any = true;
-            super::conversations::index_message(&transaction, conversation_id, &message.id, &message.content).map_err(|e| e.to_string())?;
+            super::conversations::index_message(transaction, conversation_id, &message.id, &message.content).map_err(|e| e.to_string())?;
         }
         if imported && inserted == 1 {
             transaction
@@ -471,10 +549,10 @@ fn store_messages_as(connection: &mut Connection, conversation_id: &str, message
         }
     }
     if inserted_any {
-        super::conversations::touch(&transaction, conversation_id).map_err(|e| e.to_string())?;
+        super::conversations::touch(transaction, conversation_id).map_err(|e| e.to_string())?;
     }
 
-    transaction.commit().map_err(|error| error.to_string())
+    Ok(())
 }
 
 #[cfg(test)]
@@ -495,6 +573,156 @@ mod tests {
         assert!(serde_json::to_value(load_messages(&c,Some("chat")).unwrap()).unwrap()[1]["feedback"].is_null());
     }
 
+    #[test]
+    fn briefing_origin_roundtrips_and_replay_cannot_add_it() {
+        let mut c=Connection::open_in_memory().unwrap();crate::commands::migrations::apply(&c).unwrap();
+        let origin=serde_json::json!({"kind":"deterministic_fallback","preparedAt":1000,"sources":[{"id":"fixture-source","revision":"a".repeat(64)}]});
+        let value=serde_json::json!({"id":"conversation-briefing-fixture","role":"assistant","content":"Synthetic brief","timestamp":"12:00","briefing":origin});
+        store_messages(&mut c,"chat",vec![serde_json::from_value(value.clone()).unwrap()]).unwrap();
+        let loaded=serde_json::to_value(load_messages(&c,Some("chat")).unwrap()).unwrap();
+        assert_eq!(loaded[0]["briefing"],origin);
+        let mut plain=value.clone();plain["id"]=serde_json::json!("conversation-briefing-legacy");plain.as_object_mut().unwrap().remove("briefing");
+        store_messages(&mut c,"chat",vec![serde_json::from_value(plain.clone()).unwrap()]).unwrap();
+        plain["briefing"]=origin.clone();store_messages(&mut c,"chat",vec![serde_json::from_value(plain).unwrap()]).unwrap();
+        assert!(serde_json::to_value(load_messages(&c,Some("chat")).unwrap()).unwrap()[1]["briefing"].is_null());
+    }
+
+    #[test]
+    fn briefing_model_origin_requires_completed_native_request_and_is_immutable() {
+        let mut c=Connection::open_in_memory().unwrap();crate::commands::migrations::apply(&c).unwrap();
+        let mut r=super::super::models::RequestRecord::new(&super::super::models::resolve(super::super::models::Capability::Primary),"briefing_synthesis");
+        r.provider="fixture".into();r.actual_model=Some("synthetic".into());r.status="completed".into();
+        let origin=serde_json::json!({"kind":"model_synthesis","preparedAt":1000,"sources":[{"id":"fixture-source","revision":"a".repeat(64)}],"packetRevision":"b".repeat(64),"provider":"fixture","model":"synthetic","requestId":r.id});
+        let value=serde_json::json!({"id":"conversation-briefing-model","role":"assistant","content":"Synthetic brief","timestamp":"12:00","briefing":origin});
+        assert!(store_messages(&mut c,"chat",vec![serde_json::from_value(value.clone()).unwrap()]).is_err());
+        assert_eq!(c.query_row("SELECT count(*) FROM conversation_messages",[],|r|r.get::<_,i64>(0)).unwrap(),0);
+        c.execute("INSERT INTO model_requests(id,record_json) VALUES (?1,?2)",params![r.id,serde_json::to_string(&r).unwrap()]).unwrap();
+        for field in ["provider","model","requestId"] {
+            let mut forged=value.clone();forged["briefing"][field]=serde_json::json!("forged");
+            assert!(store_messages(&mut c,"chat",vec![serde_json::from_value(forged).unwrap()]).is_err());
+        }
+        let mut user=value.clone();user["role"]=serde_json::json!("user");
+        assert!(store_messages(&mut c,"chat",vec![serde_json::from_value(user).unwrap()]).is_err());
+        for (status,purpose) in [("started","briefing_synthesis"),("completed","chat")] {
+            let mut bad=r.clone();bad.status=status.into();bad.purpose=purpose.into();
+            c.execute("UPDATE model_requests SET record_json=?1",[serde_json::to_string(&bad).unwrap()]).unwrap();
+            assert!(store_messages(&mut c,"chat",vec![serde_json::from_value(value.clone()).unwrap()]).is_err());
+        }
+        use sha2::{Digest,Sha256};
+        r.usage=Some(serde_json::json!({"briefing_binding":{"conversationId":"chat","contentDigest":format!("{:x}",Sha256::digest(b"Synthetic brief")),"origin":origin,"delivery":null}}));
+        c.execute("UPDATE model_requests SET record_json=?1",[serde_json::to_string(&r).unwrap()]).unwrap();
+        assert!(store_messages(&mut c,"other-chat",vec![serde_json::from_value(value.clone()).unwrap()]).is_err());
+        for field in ["content","preparedAt","packetRevision","sources"] {
+            let mut tampered=value.clone();
+            match field {"content"=>tampered["content"]=serde_json::json!("Invented claim"),"preparedAt"=>tampered["briefing"][field]=serde_json::json!(1001),"sources"=>tampered["briefing"][field]=serde_json::json!([]),_=>tampered["briefing"][field]=serde_json::json!("c".repeat(64))};
+            assert!(store_messages(&mut c,"chat",vec![serde_json::from_value(tampered).unwrap()]).is_err());
+        }
+        store_messages(&mut c,"chat",vec![serde_json::from_value(value.clone()).unwrap()]).unwrap();
+        let mut duplicate=value.clone();duplicate["id"]=serde_json::json!("conversation-briefing-replay");
+        assert!(store_messages(&mut c,"chat",vec![serde_json::from_value(duplicate).unwrap()]).is_err());
+        let mut replay=value.clone();replay["briefing"]=serde_json::json!({"kind":"deterministic_fallback","preparedAt":1000,"sources":[]});
+        assert!(store_messages(&mut c,"chat",vec![serde_json::from_value(replay).unwrap()]).is_err());
+        assert_eq!(serde_json::to_value(load_messages(&c,Some("chat")).unwrap()).unwrap()[0]["briefing"],origin);
+    }
+
+    fn bound_fixture()->(Connection,serde_json::Value,String){
+        let c=Connection::open_in_memory().unwrap();crate::commands::migrations::apply(&c).unwrap();
+        let mut record=super::super::models::RequestRecord::new(&super::super::models::resolve(super::super::models::Capability::Primary),"briefing_synthesis");
+        record.provider="fixture".into();record.actual_model=Some("synthetic".into());record.status="completed".into();
+        let origin=serde_json::json!({"kind":"model_synthesis","preparedAt":1000,"sources":[{"id":"fictional-studio","revision":"a".repeat(64)}],"packetRevision":"b".repeat(64),"provider":"fixture","model":"synthetic","requestId":record.id});
+        let delivery=serde_json::json!({"preparedAt":1000,"items":[{"id":"fictional-studio","revision":"a".repeat(64)}],"cursors":[]});
+        let value=serde_json::json!({"id":"conversation-briefing-bound","role":"assistant","content":"Synthetic studio update.","timestamp":"12:00","briefing":origin,"delivery":delivery});
+        use sha2::{Digest,Sha256};
+        record.usage=Some(serde_json::json!({"briefing_binding":{"conversationId":"chat","contentDigest":format!("{:x}",Sha256::digest(b"Synthetic studio update.")),"origin":origin,"delivery":delivery}}));
+        c.execute("INSERT INTO model_requests(id,record_json) VALUES(?1,?2)",params![record.id,serde_json::to_string(&record).unwrap()]).unwrap();
+        (c,value,record.id)
+    }
+    #[test]fn briefing_consumption_survives_conversation_deletion_and_rejects_replay(){
+        let (mut c,value,id)=bound_fixture();
+        store_messages(&mut c,"chat",vec![serde_json::from_value(value.clone()).unwrap()]).unwrap();
+        store_messages(&mut c,"chat",vec![serde_json::from_value(value.clone()).unwrap()]).unwrap();
+        super::super::conversations::delete(&mut c,"chat").unwrap();
+        for chat in ["chat","other"]{for new_id in ["conversation-briefing-bound","conversation-briefing-new"]{
+            let mut replay=value.clone();replay["id"]=serde_json::json!(new_id);
+            assert!(store_messages(&mut c,chat,vec![serde_json::from_value(replay).unwrap()]).is_err());
+        }}
+        let consumed:Option<String>=c.query_row("SELECT json_extract(record_json,'$.usage.briefing_consumed.messageId') FROM model_requests WHERE id=?1",[id],|r|r.get(0)).unwrap();
+        assert_eq!(consumed.as_deref(),Some("conversation-briefing-bound"));
+        assert_eq!(c.query_row("SELECT count(*) FROM conversation_messages",[],|r|r.get::<_,i64>(0)).unwrap(),0);
+    }
+    #[test]fn briefing_consumption_and_all_message_delivery_rows_rollback_together(){
+        for table in ["conversation_turn_context","conversation_messages","pending_brief_displays","conversations"]{
+            let (mut c,value,id)=bound_fixture();
+            let before:String=c.query_row("SELECT record_json FROM model_requests WHERE id=?1",[&id],|r|r.get(0)).unwrap();
+            let event=if table=="conversations"{"UPDATE"}else{"INSERT"};
+            c.execute_batch(&format!("CREATE TRIGGER injected BEFORE {event} ON {table} BEGIN SELECT RAISE(ABORT,'synthetic failure'); END;")).unwrap();
+            assert!(store_messages(&mut c,"chat",vec![serde_json::from_value(value.clone()).unwrap()]).is_err());
+            assert_eq!(c.query_row("SELECT record_json FROM model_requests WHERE id=?1",[&id],|r|r.get::<_,String>(0)).unwrap(),before);
+            for stored in ["conversations","conversation_messages","conversation_turn_context","pending_brief_displays","conversation_mail","conversation_research"]{assert_eq!(c.query_row(&format!("SELECT count(*) FROM {stored}"),[],|r|r.get::<_,i64>(0)).unwrap(),0);}
+            c.execute_batch("DROP TRIGGER injected").unwrap();
+            store_messages(&mut c,"chat",vec![serde_json::from_value(value).unwrap()]).unwrap();
+        }
+    }
+    #[test]fn briefing_binding_authenticates_delivery_plan_and_saved_record_is_immutable(){
+        let (mut c,value,id)=bound_fixture();
+        let mut forged=value.clone();forged["delivery"]["items"][0]["id"]=serde_json::json!("unseen-source");
+        assert!(store_messages(&mut c,"chat",vec![serde_json::from_value(forged).unwrap()]).is_err());
+        store_messages(&mut c,"chat",vec![serde_json::from_value(value).unwrap()]).unwrap();
+        let raw:String=c.query_row("SELECT record_json FROM model_requests WHERE id=?1",[&id],|r|r.get(0)).unwrap();
+        let mut record:super::super::models::RequestRecord=serde_json::from_str(&raw).unwrap();record.usage=None;record.provider="forged".into();
+        let db=Db(Mutex::new(c));assert!(super::super::models::save(&db,&record).is_err());
+        assert_eq!(db.0.lock().unwrap().query_row("SELECT record_json FROM model_requests WHERE id=?1",[id],|r|r.get::<_,String>(0)).unwrap(),raw);
+    }
+
+    #[test]fn briefing_exact_reload_and_voice_update_preserve_binding_and_do_not_redeliver(){
+        let (mut c,value,id)=bound_fixture();
+        store_messages(&mut c,"chat",vec![serde_json::from_value(value.clone()).unwrap()]).unwrap();
+        c.execute("DELETE FROM pending_brief_displays",[]).unwrap();
+        let raw:String=c.query_row("SELECT record_json FROM model_requests WHERE id=?1",[&id],|r|r.get(0)).unwrap();
+        let mut replay=value.clone();replay.as_object_mut().unwrap().remove("delivery");replay["voice"]=serde_json::json!({"playback":"complete"});
+        store_messages(&mut c,"chat",vec![serde_json::from_value(replay).unwrap()]).unwrap();
+        assert_eq!(c.query_row("SELECT count(*) FROM pending_brief_displays",[],|r|r.get::<_,i64>(0)).unwrap(),0);
+        assert_eq!(c.query_row("SELECT record_json FROM model_requests WHERE id=?1",[&id],|r|r.get::<_,String>(0)).unwrap(),raw);
+        for field in ["content","delivery","briefing"]{
+            let mut changed=value.clone();match field{"content"=>changed["content"]=serde_json::json!("Changed"),"delivery"=>changed["delivery"]["items"]=serde_json::json!([]),_=>changed["briefing"]["packetRevision"]=serde_json::json!("c".repeat(64))};
+            assert!(store_messages(&mut c,"chat",vec![serde_json::from_value(changed).unwrap()]).is_err());
+        }
+        assert!(store_messages(&mut c,"other-chat",vec![serde_json::from_value(value).unwrap()]).is_err());
+    }
+    #[test]fn briefing_bound_request_cannot_be_rewritten_before_consumption(){
+        let (c,_,id)=bound_fixture();
+        let raw:String=c.query_row("SELECT record_json FROM model_requests WHERE id=?1",[&id],|r|r.get(0)).unwrap();
+        let mut record:super::super::models::RequestRecord=serde_json::from_str(&raw).unwrap();let db=Db(Mutex::new(c));
+        super::super::models::save(&db,&record).unwrap();
+        record.usage=None;assert!(super::super::models::save(&db,&record).is_err());
+        assert_eq!(db.0.lock().unwrap().query_row("SELECT record_json FROM model_requests WHERE id=?1",[id],|r|r.get::<_,String>(0)).unwrap(),raw);
+    }
+
+    #[test]fn briefing_outer_transaction_rolls_back_binding_and_message_together(){
+        for fail_message in [false,true]{
+            let (mut c,value,id)=bound_fixture();
+            let bound:String=c.query_row("SELECT record_json FROM model_requests WHERE id=?1",[&id],|r|r.get(0)).unwrap();
+            c.execute("UPDATE model_requests SET record_json=json_remove(record_json,'$.usage.briefing_binding') WHERE id=?1",[&id]).unwrap();
+            let before:String=c.query_row("SELECT record_json FROM model_requests WHERE id=?1",[&id],|r|r.get(0)).unwrap();
+            if fail_message{c.execute_batch("CREATE TRIGGER synthetic_failure BEFORE INSERT ON pending_brief_displays BEGIN SELECT RAISE(ABORT,'synthetic failure'); END;").unwrap();}
+            {
+                let transaction=c.transaction().unwrap();
+                transaction.execute("UPDATE model_requests SET record_json=?1 WHERE id=?2",params![bound,id]).unwrap();
+                let result=store_messages_in_transaction(&transaction,"chat",vec![serde_json::from_value(value).unwrap()],false);
+                assert_eq!(result.is_err(),fail_message);
+                if !fail_message{
+                    assert_eq!(transaction.query_row("SELECT count(*) FROM conversation_messages",[],|r|r.get::<_,i64>(0)).unwrap(),1);
+                    assert_eq!(transaction.query_row("SELECT count(*) FROM pending_brief_displays",[],|r|r.get::<_,i64>(0)).unwrap(),1);
+                }
+                transaction.rollback().unwrap();
+            }
+            assert_eq!(c.query_row("SELECT record_json FROM model_requests WHERE id=?1",[&id],|r|r.get::<_,String>(0)).unwrap(),before);
+            for table in ["conversations","conversation_messages","conversation_turn_context","pending_brief_displays","conversation_mail","conversation_research"]{
+                assert_eq!(c.query_row(&format!("SELECT count(*) FROM {table}"),[],|r|r.get::<_,i64>(0)).unwrap(),0);
+            }
+        }
+    }
+
     /// Every stored message, as `load_persisted_state` shaped it before chats
     /// were separate: these tests are about what a loaded message carries.
     fn all(db: &Connection) -> PersistedState {
@@ -509,7 +737,7 @@ mod tests {
       let mut c=Connection::open_in_memory().unwrap();c.execute_batch(crate::commands::migrations::TEST_SCHEMA).unwrap();
       let r=super::super::models::RequestRecord::new(&super::super::models::resolve(super::super::models::Capability::DeepReasoning),"command");
       c.execute("INSERT INTO model_requests(id,record_json) VALUES (?1,?2)",params![r.id,serde_json::to_string(&r).unwrap()]).unwrap();
-      let message=|request|ConversationMessage{delivery:None,feedback:None,mail:vec![],request,id:"answer".into(),role:"assistant".into(),content:"Same answer".into(),timestamp:"12:00".into(),research:vec![],voice:None,attachment:None,scope:None};
+      let message=|request|ConversationMessage{briefing:None,delivery:None,feedback:None,mail:vec![],request,id:"answer".into(),role:"assistant".into(),content:"Same answer".into(),timestamp:"12:00".into(),research:vec![],voice:None,attachment:None,scope:None};
       store_messages(&mut c, "chat", vec![message(Some(r.clone()))]).unwrap();store_messages(&mut c, "chat", vec![message(None)]).unwrap();
       assert_eq!(c.query_row("SELECT request_id FROM conversation_model WHERE message_id='answer'",[],|r|r.get::<_,String>(0)).unwrap(),r.id);
       assert_eq!(c.query_row("SELECT count(*) FROM conversation_messages",[],|r|r.get::<_,i64>(0)).unwrap(),1);
@@ -520,7 +748,7 @@ mod tests {
     fn spoken_and_typed_messages_share_history_and_voice_metadata_survives_updates() {
         let mut db = Connection::open_in_memory().unwrap();
         db.execute_batch(crate::commands::migrations::TEST_SCHEMA).unwrap();
-        let message = |id: &str, voice: Option<serde_json::Value>| ConversationMessage { delivery:None, feedback:None,
+        let message = |id: &str, voice: Option<serde_json::Value>| ConversationMessage { briefing:None, delivery:None, feedback:None,
             mail:vec![], request: None, id: id.into(), role: "assistant".into(), content: "Full visual detail".into(), timestamp: "12:00".into(), research: vec![], voice, attachment: None, scope: None,
         };
         store_messages(&mut db, "chat", vec![message("typed", None), message("spoken", Some(serde_json::json!({"kind":"output","spokenResponse":"Short answer","playback":"pending"}))), message("typed-after",None)]).unwrap();
@@ -541,7 +769,7 @@ mod tests {
             title: title.into(), source_file: "02 - Research/a.md".into(), source_date: None,
             stance: "unevaluated".into(), origin: None, excerpt: "quoted".into(), truncated: false, fingerprint: "f".into(),
         };
-        let message = |content: &str, title: &str, playback: &str| ConversationMessage { delivery:None, feedback:None,
+        let message = |content: &str, title: &str, playback: &str| ConversationMessage { briefing:None, delivery:None, feedback:None,
             mail: vec![], request: None, id: "answer".into(), role: "assistant".into(), content: content.into(),
             timestamp: "12:00".into(), research: vec![excerpt(title)],
             voice: Some(serde_json::json!({"kind":"output","playback":playback})), attachment: None, scope: None,
@@ -562,7 +790,7 @@ mod tests {
         let mut db = Connection::open_in_memory().unwrap();
         db.execute_batch(crate::commands::migrations::TEST_SCHEMA).unwrap();
         db.execute("INSERT INTO conversation_messages (id, role, content, timestamp, created_at) VALUES ('old', 'user', 'hi', '09:15', '2026-09-25 09:15:02')", []).unwrap();
-        store_messages(&mut db, "chat", vec![ConversationMessage { delivery:None, feedback:None, mail: vec![], request: None, id: "new".into(), role: "assistant".into(), content: "Now".into(), timestamp: "10:00".into(), research: vec![], voice: None, attachment: None, scope: None }]).unwrap();
+        store_messages(&mut db, "chat", vec![ConversationMessage { briefing:None, delivery:None, feedback:None, mail: vec![], request: None, id: "new".into(), role: "assistant".into(), content: "Now".into(), timestamp: "10:00".into(), research: vec![], voice: None, attachment: None, scope: None }]).unwrap();
         let state = all(&db);
         assert_eq!(state.conversation[0].at.as_deref(), Some("2026-09-25T09:15:02Z"));
         assert_eq!(state.conversation[0].timestamp, "09:15", "the stored clock time is untouched");
@@ -577,7 +805,7 @@ mod tests {
     fn imported_rows_carry_their_import_time_instead_of_a_message_date() {
         let mut db = Connection::open_in_memory().unwrap();
         db.execute_batch(crate::commands::migrations::TEST_SCHEMA).unwrap();
-        let message = |id: &str, content: &str| ConversationMessage { delivery:None, feedback:None, mail: vec![], request: None, id: id.into(), role: "user".into(), content: content.into(), timestamp: "14:10".into(), research: vec![], voice: None, attachment: None, scope: None };
+        let message = |id: &str, content: &str| ConversationMessage { briefing:None, delivery:None, feedback:None, mail: vec![], request: None, id: id.into(), role: "user".into(), content: content.into(), timestamp: "14:10".into(), research: vec![], voice: None, attachment: None, scope: None };
         store_messages(&mut db, "chat", vec![message("native", "Typed on desktop")]).unwrap();
         store_messages_as(&mut db, "chat", vec![message("browser", "From localStorage"), message("native", "Forged import")], true).unwrap();
         db.execute("UPDATE conversation_imports SET imported_at='2026-09-29T08:00:00Z' WHERE message_id='browser'", []).unwrap();
@@ -657,7 +885,7 @@ mod tests {
         assert_eq!(ipc.attachment.as_ref(), Some(&attachment));
         store_messages(&mut db, "chat", vec![ipc]).unwrap();
         // A repeated append cannot swap the attached source.
-        store_messages(&mut db, "chat", vec![ConversationMessage { delivery:None, feedback:None,
+        store_messages(&mut db, "chat", vec![ConversationMessage { briefing:None, delivery:None, feedback:None,
             mail: vec![], request: None, id: "asked".into(), role: "user".into(), content: "Forged".into(), timestamp: "10:00".into(), research: vec![], voice: None,
             attachment: Some(TurnAttachment { context: "[Gmail thread: zz]".into(), ..attachment.clone() }), scope: None,
         }]).unwrap();

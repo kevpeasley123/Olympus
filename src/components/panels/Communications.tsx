@@ -101,12 +101,12 @@ export function Communications({api=communicationsClient,onSettings,intelligence
  // Wide layouts span the chat row, so the measured height there is always the full column.
  return <section ref={surface} data-view={view} data-short-height={(availableHeight<600&&!(window.innerWidth>=1500&&window.innerHeight>=800))||undefined} style={{'--communications-height':`${availableHeight}px`,'--situation-chat-height':`${chatSize.height+20}px`,'--situation-chat-width':`${chatSize.width}px`} as CSSProperties} className="communications" aria-label="Communications workspace">
   <header className="comms-header">
-   <div className="comms-title"><Mail size={25}/><div><h2>COMMUNICATIONS</h2><p>Signals into context</p></div></div>
-   {connected&&<nav className="comms-primary-tabs" aria-label="Communications view"><button aria-pressed={view==='situations'} onClick={()=>setView('situations')}>Situation maps</button><button aria-pressed={view==='mail'} onClick={()=>setView('mail')}>Browse email</button></nav>}
-   <div className="comms-health" role="status"><strong data-state={health.state}>Gmail · {api.native()?health.label:'Desktop connection required'}</strong>{connected&&<FreshnessLine status={status} feed={feed}/>}</div>
-   {connected&&<button className="ghost-action comms-labelled-action" title={health.state==='auth'?'Reconnect Gmail first':'Fetch new mail from Gmail now'} disabled={busy||health.state==='auth'} onClick={sync}><RefreshCw size={14} aria-hidden="true"/> Sync mail</button>}
+   <div className="comms-title"><Mail size={25}/><div><h2>Communications</h2></div></div>
+   {connected&&<nav className="comms-primary-tabs" aria-label="Communications view"><button aria-pressed={view==='situations'} onClick={()=>setView('situations')}>Relationships</button><button aria-pressed={view==='mail'} onClick={()=>setView('mail')}>Browse email</button></nav>}
+   <details className="comms-connection-tools"><summary><span className="comms-connection-dot" data-state={health.state}/>{api.native()?'Gmail · '+health.label:'Desktop connection required'}</summary><div className="comms-connection-popover">{connected&&<FreshnessLine status={status} feed={feed}/>}   {connected&&<button className="ghost-action comms-labelled-action" title={health.state==='auth'?'Reconnect Gmail first':'Fetch new mail from Gmail now'} disabled={busy||health.state==='auth'} onClick={sync}><RefreshCw size={14} aria-hidden="true"/> Sync mail</button>}
    {connected&&<SituationControls feed={feed} api={situations}/>}
    <button className="ghost-icon-action" aria-label="Gmail connection settings" title="Gmail connection settings" onClick={settings}><Settings2 size={16}/></button>
+</div></details>
   </header>
   <CommsIssues health={health} error={error} feed={feed} busy={busy} connected={connected} onReconnect={reconnect} onSync={sync} onSettings={settings} onRetryRead={()=>{setError('');void readStatus().then(s=>{if(s?.account?.enabled&&view==='mail')void readWorkspace()})}} situations={situations}/>
 

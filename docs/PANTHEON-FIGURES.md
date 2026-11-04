@@ -17,7 +17,7 @@ The figures are the scene's only representation of the agents. The Agents
 constellation that sat beside Plugins, Skills and Obsidian Memory was removed
 once all five stood; the Armory keeps the agent count and roster.
 
-Zeus stands 12 scene units higher, increasing clearance above his name plate.
+Zeus has a reserved station above the particle field. Side figures occupy outer screen lanes so their name plates remain clear as the stage becomes shorter. The perspective camera fits both width and height; the canyon remains exposed. At short desktop heights, role subtitles move out of the scene while remaining in the Armory and each figure's accessible name. Live step indicators sit below their figure's name plate.
 
 ## Architecture
 

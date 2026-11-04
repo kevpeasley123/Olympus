@@ -15,6 +15,7 @@ export function run() {
  const dirty=items.find(i=>i.id==='project:p:working');
  check(!!dirty,'Uncommitted work remains a bounded fact');
  check(items.some(i=>i.id==='mail:a:thread'),'Current source-backed email attention is included');
+ check(items.find(i=>i.id==='mail:a:thread')?.authority==='hypothesis','Generated recommendations are not promoted to source facts');
  check(selectBrief(items,{},'opening',now)[0].id==='mail:a:thread','Relevant mail outranks repository hygiene');
  const receipts=Object.fromEntries(items.map(i=>[i.id,{revision:i.revision,deliveredAt:now}]));
  check(selectBrief(items,receipts,'opening',now+1000).length===0,'Repeated launch does not repeat unchanged advice');
@@ -43,5 +44,11 @@ export function run() {
  check(briefItems(correctionContext,now).find(i=>i.id==='mail:a:thread')!.revision!==correction!.revision,'Undo/edit revision invalidates display receipt');
  check(!briefItems({...correctionContext,gmail:{...blockedGmail,account:{...gmail.account!,lastSuccess:null}}},now).some(i=>i.id.startsWith('mail:')),'Corrections do not bypass stale source coverage');
  check(!briefItems({...correctionContext,situations:{...corrected,accountId:'other'}},now).some(i=>i.id.startsWith('mail:')),'Correction remains account scoped');
+ const notice={messageId:'m2',threadId:'ship',subject:'Your order has shipped!',fingerprint:'f1',timestamp:now-1000,sender:'Example Store <orders@example.invalid>',item:'Starter kit'};
+ const source={...context,gmail:{...blockedGmail,briefMail:[notice]},situations:null};
+ const shipped=briefItems(source,now).find(i=>i.id==='mail:a:notice:ship');
+ check(!!shipped && shipped.text.includes('Example Store') && shipped.text.toLowerCase().includes('starter kit'),'Shipping evidence survives unavailable analysis');
+ check(!briefItems({...source,gmail:{...source.gmail,account:{...gmail.account!,lastSuccess:null}}},now).some(i=>i.id.includes(':notice:')),'Stale mail cannot publish current shipping news');
+ check(!selectBrief([shipped!],{[shipped!.id]:{revision:shipped!.revision,deliveredAt:now-2*86400000}},'opening',now).length,'Unchanged transaction notices stay acknowledged');
  return passed;
 }

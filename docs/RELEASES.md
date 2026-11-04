@@ -27,3 +27,13 @@ One line per release. Newest first. Since 2026-10-12 each line says what the rel
 - **0.22.0** (2026-10-07): flagship Armory and angled Omega, inner state rings, voice meter, brighter background, whole-card navigation, local resource capture and reusable review skills, and inspectable plugin stars. Native layout and plugin navigation inspected. Not accepted in the desktop app: resource saving and PDF import against the live vault; these have not been exercised on user data. Semantic AI digestion remains disabled pending explicit authorization.
 - **0.21.0** (2026-09-30): Command's ring becomes a capability armory (eight domains from 14 real Tools and 7 compiled Skills, with an agent lens and a capability inspector); the chat fills the right column with a Mission View driven by recorded runs; `npm run visual:review`; delegated Claude Code no longer receives `ANTHROPIC_API_KEY`; "Bring everything current" and `npm run update`. Not accepted in the desktop app: all of it. First run of `npm run update` on Windows not yet observed.
 - **0.20.0** (`c432f48`, 2026-09-29): the acceptance profile and its first verified Windows pass, plus the design, usability and functional review fixes. Installed.
+
+- **0.45.0** (2026-11-03): adds Gmail management to Armory Plugins and retries temporary sync errors. Mail sync verified on the prior build. Long-term renewal and fresh analysis remain unverified.
+
+- **0.45.1** (2026-11-03): Opening briefs prioritize changes and read recent transactional mail from the local cache. No paid generation exercised.
+
+- **0.45.2** (2026-11-03): Distinguish elapsed delivery estimates, preserve room for other topics, and include labeled deadlines. The preceding desktop build produced real source-backed shipment and order highlights.
+
+- **0.45.3** (2026-11-03): Wait briefly for due Gmail sync at startup. Skip transient mailbox-only warnings when opening.
+
+- **0.46.0** (2026-11-04): Communications Celestial Observatory with focused relationship maps and source-bound conversations/documents; canyon spacing, engine selector and telemetry cleanup; Gmail recovery/startup sync and concise source-backed factual briefs; gated native synthesis, provenance and receipt handling. Live subscription synthesis, paid provider calls, delegated execution, restart/network/seven-day Gmail durability, and real-data Communications/brief acceptance remain unverified. OAuth transaction prototype remains separate; consent, generation and spending gates stay closed.

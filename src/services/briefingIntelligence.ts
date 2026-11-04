@@ -1,3 +1,4 @@
+import {transactionFindings} from './briefingTransactions';
 import type { TrackedProject } from '../types';
 import type { ProjectCommandState } from './projectCommandBoard';
 import type { GmailStatus } from './gmail';
@@ -5,7 +6,7 @@ import type { SituationSnapshot } from './situations';
 import type { BriefMemory } from './briefingMemory';
 import type {EmailFeedbackSource} from './conversationFeedback';
 
-export interface BriefItem { id:string; revision:string; text:string; priority:number; kind:'limitation'|'attention'|'progress'|'recommendation'|'context'; source?:{conversationId:string;messageIds:string[]}; emailSource?:EmailFeedbackSource }
+export interface BriefItem { id:string; revision:string; text:string; priority:number; kind:'limitation'|'attention'|'progress'|'recommendation'|'context'; authority?:'source_fact'|'operator_statement'|'remembered_context'|'hypothesis'|'unspecified'; source?:{conversationId:string;messageIds:string[]}; emailSource?:EmailFeedbackSource }
 export interface Receipt { revision:string; deliveredAt:number }
 export type BriefReceipts=Record<string,Receipt>;
 export type BriefMode='opening'|'requested';
@@ -46,16 +47,17 @@ export function briefItems(input:BriefContext,now=Date.now()):BriefItem[] {
  else {
   const fresh=account.status==='connected'&&!gmail.busy&&!account.lastError&&validTime(account.lastSuccess,now);
   if(!fresh) add('coverage:gmail','limitation',account.status==='authentication_required'
-   ?'Gmail needs reconnection. Cached email does not establish what is happening now.'
+   ?'Reconnect Gmail in Communications to include new email in your next brief.'
    :'Gmail is not current. New correspondence may be missing from this update.',100,[account.id,account.status,account.lastError]);
   const matching=situations?.accountId===account.id;
   const understood=matching&&situations.enabled&&!situations.backgroundError
    &&gmail.analysis?.state!=='blocked'&&gmail.analysis?.state!=='unconfigured'
    &&validTime(situations.understanding?.lastSuccessAt,now,DAY)
    &&!['failed','running'].includes(situations.run?.status??'');
-  if(!understood) add('coverage:analysis','limitation',gmail.analysis?.state==='blocked'
-   ?'Email analysis is blocked by its provider safeguards. This is a factual update, not a fresh analysis of your correspondence.'
-   :'Email understanding is paused, unavailable or not current. No fresh email recommendations are being claimed.',95,[account.id,gmail.analysis?.state,situations?.enabled,situations?.backgroundError]);
+  if(fresh && !understood && !gmail.briefMail?.length) add('coverage:analysis','limitation',gmail.analysis?.state==='blocked'
+   ?'I could not review recent mail for this briefing.'
+   :'I have no current email assessment to include.',0,[account.id,gmail.analysis?.state,situations?.enabled,situations?.backgroundError]);
+  if(fresh) items.push(...transactionFindings(gmail, matching ? situations : null, now));
   if(fresh&&matching) for(const candidate of situations.attention??[]) {
    const correction=candidate.operatorCorrection?.trim();
    if(!understood&&!correction) continue;
@@ -63,9 +65,14 @@ export function briefItems(input:BriefContext,now=Date.now()):BriefItem[] {
    const ref=observation?.evidenceRefs.find(r=>r.messageId===candidate.suggestion.messageId&&r.threadId===candidate.threadId&&!!r.fingerprint);
    if(!ref||!candidate.signature||!candidate.suggestion.quote?.trim()||!Number.isFinite(ref.timestamp)
     ||ref.timestamp>now+60_000||now-ref.timestamp>account.horizonDays*DAY) continue;
-   if(correction) add(`mail:${account.id}:${candidate.threadId}`,'attention',`Your correction for ${candidate.subject||'this email'}: ${correction}`,85,[candidate.signature,ref.fingerprint,correction,candidate.learningRevision]);
+   if(correction) {
+     add(`mail:${account.id}:${candidate.threadId}`,'attention','',85,[candidate.signature,ref.fingerprint,correction,candidate.learningRevision]);
+     // Never cut off the operator's negation or resolution to fit a headline.
+     items[items.length-1].text=`Your correction for ${text(candidate.subject||'this email',80)}: ${correction}`;
+    }
    else add(`mail:${account.id}:${candidate.threadId}`,'recommendation',`Email recommendation: ${candidate.suggestion.title}. ${candidate.suggestion.why} Suggested next move: ${candidate.suggestion.action}`,70,[candidate.signature,ref.fingerprint,candidate.suggestion,candidate.learningRevision]);
    items[items.length-1].emailSource={accountId:account.id,threadId:candidate.threadId,signature:candidate.signature,revision:candidate.learningRevision??0,subject:(candidate.subject||'this email').slice(0,200)};
+   items[items.length-1].authority=correction?'operator_statement':'hypothesis';
   }
  }
  if(input.memory===null) add('coverage:memory','limitation','Remembered conversation context could not be checked. It is outside this update’s coverage.',90);
@@ -90,8 +97,8 @@ export function selectBrief(items:BriefItem[],receipts:BriefReceipts,mode:BriefM
   if(seen.has(item.id))return false;seen.add(item.id);
   const receipt=receipts[item.id];
   return mode==='requested'||!receipt||receipt.revision!==item.revision
-   ||!Number.isFinite(receipt.deliveredAt)||receipt.deliveredAt>now||(item.kind!=='context'&&now-receipt.deliveredAt>=DAY);
- }).sort((a,b)=>b.priority-a.priority||(a.kind==='context'&&b.kind==='context'?0:a.id.localeCompare(b.id)))
+   ||!Number.isFinite(receipt.deliveredAt)||receipt.deliveredAt>now||(item.kind!=='context'&&!item.id.includes(':notice:')&&now-receipt.deliveredAt>=DAY);
+ }).sort((a,b)=>Number(a.kind==='limitation')-Number(b.kind==='limitation')||b.priority-a.priority)
  .filter(item=>{
   if(item.kind!=='context' && !item.source)return true;
   if(contextSelected)return false;

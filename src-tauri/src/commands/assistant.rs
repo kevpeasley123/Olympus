@@ -815,6 +815,7 @@ pub enum AssistantStreamEvent {
     /// Subscription transport terminal status; never model-generated text.
     Ended { reason: &'static str },
     Progress { message: String },
+    VaultRecall { file: String },
     SourceAccess { project: String, file: String, success: bool },
     /// The turn opened. `model` is who is actually answering.
     Started { model: String },
@@ -1012,6 +1013,19 @@ async fn send_anthropic_message(
 }
 
 
+fn report_vault_recall(memory:&VaultMemory, temporary:bool, channel:&tauri::ipc::Channel<AssistantStreamEvent>) {
+    if temporary {return;}
+    let mut paths=std::collections::BTreeSet::new();
+    if let Some(packet)=&memory.recall {
+        for source in &packet.sources { paths.insert(source.record.path.as_str()); }
+    }
+    for source in &memory.research {paths.insert(source.source_file.as_str());}
+    for path in paths {
+        let _=channel.send(AssistantStreamEvent::VaultRecall {file:path.replace('\\',"/")});
+    }
+}
+
+
 /// Shared command boundary. Provider selection never changes project authority.
 /// What a subscription turn knows: the same Olympus system prompt, vault
 /// memory, learned memory, earlier-chat recall, mail and project evidence the
@@ -1045,6 +1059,7 @@ async fn subscription_context(
     };
     let reader=memory_service.reader();
     let memory=tauri::async_runtime::spawn_blocking(move||super::memory::load_for_turn(&reader,&query)).await.map_err(|_|"Memory retrieval task failed")?;
+    report_vault_recall(&memory,context.temporary,on_event);
     context.repository_context=super::repository_inspection::inspect(db,&super::models::resolve(context.capability),question,on_event).await?;
     // Subscription replies are text only, so no spoken-response format is asked for.
     context.voice_depth=None;
@@ -1086,6 +1101,7 @@ async fn send_assistant_message_inner(
     };
     let reader=memory_service.reader();
     let memory=tauri::async_runtime::spawn_blocking(move||super::memory::load_for_turn(&reader,&query)).await.map_err(|_|"Memory retrieval task failed")?;
+    report_vault_recall(&memory,context.temporary,&on_event);
     if let Some(packet)=&memory.recall{super::memory::save_packet(db.inner(),&record.id,packet)?;}
     let start=std::time::Instant::now();
     let result=if route.provider=="anthropic" {

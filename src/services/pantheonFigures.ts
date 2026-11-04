@@ -31,7 +31,7 @@ async function figureModels(): Promise<Partial<Record<FigureId, string>>> {
   } catch { return {}; }
 }
 /** Scene units per figure: about the figurine scale of the reference render. */
-export const FIGURE_HEIGHT = 84;
+export const FIGURE_HEIGHT = 50.4;
 const UNIT = FIGURE_HEIGHT / RIG_HEIGHT;
 
 const BASE: Record<FigureState, ClipName> = { dormant: 'idle', unavailable: 'idle', idle: 'idle', assigned: 'work', working: 'work', reviewing: 'work', waiting: 'wait', completed: 'idle', blocked: 'blocked' };
@@ -96,12 +96,23 @@ export function buildPantheonFigures(scene: T.Scene, host: HTMLElement, camera: 
     let signature = '';
     let working = 0;
     for (const f of figures) {
+      // Name plates have a fixed readable width. Keep the side figures in
+      // outer screen lanes as the stage gets shorter, instead of crowding
+      // their labels into the particle sphere with a fixed world-space X.
+      if (f.spec.station[0] !== 0) {
+        projected.set(0, f.spec.station[1], 0).project(camera);
+        projected.x = Math.sign(f.spec.station[0]) * .72;
+        projected.unproject(camera).sub(camera.position);
+        const distance = -camera.position.z / projected.z;
+        f.group.position.copy(camera.position).addScaledVector(projected, distance);
+      }
       const before = f.memory?.state;
       f.memory = nextFigureState(f.spec, missions, catalog, f.memory, clock);
       const state = f.memory.state;
       if (state !== before) enter(f, state, before ?? null, clock);
       if (f.spec.id !== 'zeus' && (state === 'working' || state === 'reviewing')) working++;
-      signature += `${f.spec.id}:${state};`;
+      // Async models must invalidate the still frame when reduced motion is on.
+      signature += `${f.spec.id}:${state}/${f.source};`;
     }
     for (const f of figures) {
       const state = f.memory!.state;

@@ -424,3 +424,11 @@ pub fn start_cadence(app: tauri::AppHandle) {
         }
     });
 }
+
+#[cfg(test)]
+pub(crate) fn resolve_briefing_fixture(c:&mut Connection,thread:&str,correction:&str)->Result<(),String>{
+    let a=account(c)?;let signature=thread_signatures(c,&a)?.get(thread).ok_or("fixture_thread_missing")?.0.clone();
+    c.execute("INSERT INTO communication_situation_sources VALUES(?1,?2,?3,NULL,?4,'synthetic')",params![a.id,thread,signature,json!({"threadId":thread,"attention":{"title":"Synthetic bank notice","why":"Fixture review requested","action":"Review","messageId":"m","quote":"Fixture"}}).to_string()]).map_err(err)?;
+    learning::change(c,learning::LearningRequest{account_id:a.id.clone(),thread_id:thread.into(),signature:signature.clone(),expected_revision:0,action:"corrected".into(),text:correction.into()})?;
+    learning::change(c,learning::LearningRequest{account_id:a.id,thread_id:thread.into(),signature,expected_revision:1,action:"handled".into(),text:String::new()})
+}

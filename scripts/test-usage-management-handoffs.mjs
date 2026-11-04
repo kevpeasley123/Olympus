@@ -1,7 +1,7 @@
 import {chromium} from 'playwright';import assert from 'node:assert/strict';
 const b=await chromium.launch({channel:'msedge',headless:true});
 try{const p=await b.newPage({viewport:{width:1440,height:960}});await p.route('**/*',r=>new URL(r.request().url()).hostname==='127.0.0.1'?r.continue():r.abort());
-await p.goto('http://127.0.0.1:31426/command-agent-harness.html?flagship&usage-fixture=fresh&management-harness');await p.waitForSelector('html[data-visual-ready="idle"]');
+await p.goto((process.argv[2]??'http://127.0.0.1:31426')+'/command-agent-harness.html?flagship&usage-fixture=fresh&management-harness');await p.waitForSelector('html[data-visual-ready="idle"]');
 await p.getByRole('button',{name:'Expand usage'}).click();await p.screenshot({path:'output/usage-redesign/managed-usage-expanded.png'});
 await p.evaluate(()=>{window.dispatchEvent(new KeyboardEvent('keydown',{key:'r',ctrlKey:true}));window.dispatchEvent(new KeyboardEvent('keydown',{key:'\\',ctrlKey:true}));});assert.equal(await p.evaluate(()=>document.documentElement.dataset.fixtureRefresh),undefined);assert.equal(await p.evaluate(()=>document.documentElement.dataset.fixtureCycle),undefined);
 await p.getByRole('button',{name:'Manage subscriptions',exact:true}).click();await p.screenshot({path:'output/usage-redesign/command-management-subscriptions.png'});await p.getByRole('button',{name:'Back to usage'}).click();

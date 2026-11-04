@@ -43,3 +43,10 @@ assert.equal(await pendingFeedback.current(),false,'Forget invalidates prepared 
 const pendingUndo=await prepareFactualBrief(input,'requested',Date.now(),learningClient);
 learningSnapshot={...learningSnapshot,revision:'after-undo'};
 assert.equal(await pendingUndo.current(),false,'Undo invalidates prepared briefing before display');
+
+const syncing={...gmail,busy:true,account:{id:"a",enabled:true,status:"syncing",lastError:null}};
+const startup=await prepare(input,"opening",Date.now(),{...client,gmail:async()=>syncing});
+assert.equal(startup.text,null,"An in-progress mailbox sync alone must not become a spoken opening brief");
+const needsConsent=await prepare(input,"opening",Date.now(),{...client,gmail:async()=>({...syncing,busy:false,account:{...syncing.account,status:"authentication_required",lastError:"gmail_refresh_grant_rejected"}})});
+assert.match(needsConsent.text,/Gmail needs reconnection|Reconnect Gmail/);
+console.log("PASS omit a transient startup status and retain actionable reconnect instructions");

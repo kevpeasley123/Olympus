@@ -137,3 +137,37 @@ fn learning_forgotten_source_stays_suppressed_after_newer_evidence_disappears() 
     assert!(project(&sources,&list(&c),0).is_empty(),"Returning forgotten source must not resurrect advice");
     let raw:String=c.query_row("SELECT payload_json FROM email_learning",[],|r|r.get(0)).unwrap();assert!(!raw.contains("PRIVATE_CORRECTION_A"));
 }
+
+#[test]
+fn briefing_resolution_is_exact_current_selected_and_read_only(){
+    let (db,sig)=fixture();let mut c=db.0.lock().unwrap();
+    let correction="I made this change intentionally. It is unrelated to the studio dues.";
+    change(&mut c,request(&sig,0,"corrected",correction)).unwrap();
+    let read=|c:&Connection|learning::briefing_resolutions(c,"fixture",&["thread".into()]);
+    let first=read(&c).unwrap();assert_eq!(first.len(),1);assert_eq!(first[0]["correction"],correction);
+    let changes=c.total_changes();assert_eq!(read(&c).unwrap(),first);assert_eq!(c.total_changes(),changes);
+    assert!(learning::briefing_resolutions(&c,"fixture",&["unrelated".into()]).unwrap().is_empty());
+    assert!(learning::briefing_resolutions(&c,"other",&["thread".into()]).is_err());
+    change(&mut c,request(&sig,1,"handled","")).unwrap();assert_eq!(read(&c).unwrap()[0]["action"],"handled");
+    c.execute("INSERT INTO settings(key,value) VALUES('chatMemory.use','false')",[]).unwrap();assert!(read(&c).unwrap().is_empty());
+    c.execute("DELETE FROM settings WHERE key='chatMemory.use'",[]).unwrap();
+    change(&mut c,request(&sig,2,"forget","")).unwrap();assert!(read(&c).unwrap().is_empty());
+}
+#[test]
+fn briefing_resolution_does_not_follow_changed_source(){
+    let (db,sig)=fixture();let mut c=db.0.lock().unwrap();
+    change(&mut c,request(&sig,0,"corrected","The amount is a fixture value.")).unwrap();
+    c.execute("UPDATE gmail_messages SET fingerprint='changed'",[]).unwrap();
+    assert!(learning::briefing_resolutions(&c,"fixture",&["thread".into()]).unwrap().is_empty());
+}
+
+#[test]
+fn briefing_resolution_expired_snooze_preserves_correction_without_suppression(){
+    let (db,sig)=fixture();let mut c=db.0.lock().unwrap();
+    change(&mut c,request(&sig,0,"corrected","The meeting is optional.")).unwrap();
+    change(&mut c,request(&sig,1,"snoozed","")).unwrap();
+    let read=|c:&Connection|learning::briefing_resolutions(c,"fixture",&["thread".into()]).unwrap();
+    assert_eq!(read(&c)[0]["active"],true);
+    c.execute("UPDATE email_learning SET payload_json=json_set(payload_json,'$.state.until',0)",[]).unwrap();
+    let expired=read(&c);assert_eq!(expired[0]["active"],false);assert_eq!(expired[0]["correction"],"The meeting is optional.");
+}

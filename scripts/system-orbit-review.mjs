@@ -5,10 +5,10 @@ try{
  const page=await browser.newPage({viewport:{width:1672,height:941}});
  await page.goto('http://127.0.0.1:31430/command-agent-harness.html?flagship&scenario=idle');
  await page.waitForSelector('[data-scene-ready="true"]');
- const groups=page.locator('.armory-constellation,.skills-constellation,.vault-constellation,.agents-constellation');
+ const groups=page.locator('.armory-constellation,.skills-constellation,.agents-constellation');
  const read=()=>groups.evaluateAll(els=>els.map(el=>({nest:el.classList.contains('agents-constellation'),visible:getComputedStyle(el).visibility,phase:el.dataset.orbitPhase,transform:el.style.transform,width:el.offsetWidth,height:el.offsetHeight,color:getComputedStyle(el).color})));
- const a=await read();await page.waitForTimeout(1400);const b=await read();assert.equal(b.length,4);
- for(let i=0;i<4;i++){assert.equal(b[i].visible,'visible');if(b[i].nest){assert.equal(b[i].transform,'none');assert.equal(b[i].phase,'0');}else{assert.notEqual(a[i].transform,b[i].transform);assert.equal(b[i].phase,b[0].phase);}assert.deepEqual([a[i].width,a[i].height,a[i].color],[b[i].width,b[i].height,b[i].color]);}
+ const a=await read();await page.waitForTimeout(1400);const b=await read();assert.equal(b.length,3);
+ for(let i=0;i<3;i++){assert.equal(b[i].visible,'visible');if(b[i].nest){assert.equal(b[i].transform,'none');assert.equal(b[i].phase,'0');}else{assert.notEqual(a[i].transform,b[i].transform);assert.equal(b[i].phase,b[0].phase);}assert.deepEqual([a[i].width,a[i].height,a[i].color],[b[i].width,b[i].height,b[i].color]);}
  await page.screenshot({path:'output/mission-review/rotating-systems.png'});
  // Exercise a full cycle without waiting two minutes or speeding up the live scene.
  const cycle=await page.evaluate(async()=>{
@@ -23,5 +23,5 @@ try{
  assert.notEqual(cycle.start,cycle.quarter);assert.equal(cycle.start.replaceAll('-0.00','0.00'),cycle.end.replaceAll('-0.00','0.00'));
  await page.goto('http://127.0.0.1:31430/command-agent-harness.html?flagship&scenario=reduced-motion');await page.waitForSelector('[data-scene-ready="true"]');
  const frozen=await read();await page.waitForTimeout(800);assert.deepEqual(await read(),frozen);
- console.log('PASS: three systems rotate together with a stationary agent nest, preserve size/color, complete 360 degrees and honor reduced motion');
+ console.log('PASS: two systems rotate together with a stationary agent nest, preserve size/color, complete 360 degrees and honor reduced motion');
 }finally{await browser.close()}

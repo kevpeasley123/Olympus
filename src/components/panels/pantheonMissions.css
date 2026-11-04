@@ -103,3 +103,8 @@ html .mode-command .command-instrument[data-flagship] .command-instrument__dial{
 .command-instrument :is(.armory-constellation,.skills-constellation):has(.armory-star:hover,.armory-star:focus-visible) svg{opacity:.5}
 .command-instrument :is(.armory-constellation,.skills-constellation):has(.armory-star:hover,.armory-star:focus-visible) .armory-star__light{filter:brightness(1.2);box-shadow:0 0 10px 2px color-mix(in srgb,var(--cluster-glow) 65%,transparent)}
 .command-instrument :is(.armory-constellation,.skills-constellation) .armory-star:is(:hover,:focus-visible){outline-color:var(--cluster-color)}
+
+/* Approved canyon cleanup: retain the open scene and existing controls. */
+/* Tracking details remain in the console; the orbit keeps its small hit target. */
+.command-instrument[data-flagship] .mission-planet-label{opacity:0;pointer-events:none}
+.command-instrument[data-flagship] .mission-planet-label{visibility:hidden}

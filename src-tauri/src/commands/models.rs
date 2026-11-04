@@ -1,6 +1,6 @@
 //! Backend-owned capability routing and prompt-free request diagnostics.
 use super::persistence::Db;
-use rusqlite::params;
+use rusqlite::{params,OptionalExtension};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use tauri::State;
@@ -190,6 +190,16 @@ impl RequestRecord {
 }
 pub fn save(db: &Db, record: &RequestRecord) -> Result<(), String> {
     let connection = db.0.lock().map_err(|e| e.to_string())?;
+    // Once a qualified native result is bound, generic diagnostics updates must
+    // never replace its binding or consumption tombstone (including stale saves).
+    let existing:Option<String>=connection.query_row("SELECT record_json FROM model_requests WHERE id=?1",[&record.id],|r|r.get(0)).optional().map_err(|e|e.to_string())?;
+    if let Some(raw)=existing{
+        let old:Value=serde_json::from_str(&raw).map_err(|_|"Invalid stored model request")?;
+        if old.get("usage").is_some_and(|u|u.get("briefing_result").is_some()||u.get("briefing_binding").is_some()||u.get("briefing_consumed").is_some()){
+            if old!=serde_json::to_value(record).map_err(|e|e.to_string())?{return Err("Bound briefing request is immutable".into());}
+            return Ok(());
+        }
+    }
     connection.execute("INSERT INTO model_requests(id,record_json) VALUES (?1,?2) ON CONFLICT(id) DO UPDATE SET record_json=excluded.record_json WHERE json_extract(model_requests.record_json,'$.status')='started' OR json_extract(excluded.record_json,'$.status')!='started'",params![record.id,serde_json::to_string(record).map_err(|e|e.to_string())?]).map_err(|e|e.to_string())?;
     Ok(())
 }
@@ -369,4 +379,14 @@ mod voice_usage_tests {
         let mut paid=RequestRecord::new(&resolve(Capability::Primary),"speech_output");paid.provider="elevenlabs".into();paid.capability="TTS".into();paid.usage=Some(json!({"credits":2}));
         let value=summarize_voice_usage(std::iter::repeat_n(paid,150));assert_eq!(value["credits"],300.0);assert_eq!(value["confirmed"],150);
     }
+}
+
+#[cfg(test)]mod briefing_result_tests{
+ use super::*;
+ #[test]fn issued_result_envelope_rejects_stale_and_changed_diagnostic_saves(){
+  let c=rusqlite::Connection::open_in_memory().unwrap();crate::commands::migrations::apply(&c).unwrap();let db=Db(std::sync::Mutex::new(c));
+  let mut record=RequestRecord::new(&resolve(Capability::Primary),"briefing_synthesis");record.status="completed".into();
+  let stale=record.clone();record.usage=Some(json!({"briefing_result":{"packetRevision":"synthetic","outputDigest":"synthetic"}}));save(&db,&record).unwrap();save(&db,&record).unwrap();
+  assert!(save(&db,&stale).is_err());record.usage=Some(json!({"briefing_result":{"outputDigest":"changed"}}));assert!(save(&db,&record).is_err());
+ }
 }

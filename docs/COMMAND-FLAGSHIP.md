@@ -109,3 +109,9 @@ Human visual iterations corrected short-window composer clipping, left-rail
 contrast/overflow, focus after opening a loadout, scrollbar treatment and quieted
 assistant copy. Browser timing is machine-specific, not a universal FPS promise.
 Native deployment/acceptance is recorded separately in the session report.
+
+## Canyon spacing and controls
+
+The central scene remains open over the canyon and platform. The engine selector has its own upper lane, Skills and Plugins stay in their upper corners, and the voice signal is a short unboxed line beneath the figures. The usage dock uses translucent provider cards with neutral empty tracks for unavailable telemetry; readings, refresh, expansion and overflow paging retain their original behavior.
+
+Orbiting mission targets retain their accessible names, keyboard selection and linked console highlighting. Their text is kept in the console's mission list instead of floating over the Omega or avatar labels. The particle field continues rotating independently of the stationary capability labels.

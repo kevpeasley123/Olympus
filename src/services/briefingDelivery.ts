@@ -2,11 +2,13 @@ import {readProjectWindow,displayedCursors,type DisplayPlan,type ProjectWindow} 
 import type { ProjectReview } from "./projectReviews";
 import type {BriefMemory,BriefScope} from './briefingMemory';
 import {invoke} from '@tauri-apps/api/core';
-import {gmailStatus,type GmailStatus} from './gmail';
+import {type GmailStatus} from './gmail';
 import {situationsClient,isUnchangedSnapshot,type SituationSnapshot} from './situations';
 import {briefItems,selectBrief,type BriefContext,type BriefMode,type BriefReceipts,type BriefItem} from './briefingIntelligence';
+import {acceptSynthesis,synthesisEligible,boundedSynthesis,type SynthesisInput,type SynthesisResult,type BriefingOrigin} from './briefingSynthesis';
 
 export interface BriefClient {
+ synthesize?(input:SynthesisInput):Promise<SynthesisResult>;
  reviews?():Promise<ProjectReview[]>;
  gmail():Promise<GmailStatus>;
  situations():Promise<SituationSnapshot|null>;
@@ -15,7 +17,9 @@ export interface BriefClient {
  deliver(items:{id:string;revision:string}[]):Promise<void>;
 }
 const native:BriefClient={
- gmail:gmailStatus,
+ // Backend refuses before credentials/process/model work while generation is gated.
+ synthesize:input=>invoke<SynthesisResult>('briefing_synthesize',{input}),
+ gmail:()=>invoke<GmailStatus>("gmail_status",{includeBrief:true}),
  reviews:()=>invoke("project_review_findings"),
  memory:scope=>invoke('briefing_conversation_context',{scope}),
  situations:async()=>{const value=await situationsClient.snapshot();return isUnchangedSnapshot(value)?null:value;},
@@ -23,6 +27,8 @@ const native:BriefClient={
  deliver:items=>invoke('briefing_record_delivery',{items}),
 };
 export interface PreparedBrief {
+ provenance?:SynthesisResult['provenance'];
+ briefing?:BriefingOrigin;
  text:string|null; items:BriefItem[]; delivery?:DisplayPlan;
  current():Promise<boolean>;
  acknowledge():Promise<void>;
@@ -44,7 +50,7 @@ export async function prepareStableBrief(prepare:()=>Promise<PreparedBrief>,acti
  throw Error('Sources changed while preparing the briefing. Request it again for current evidence.');
 }
 const signature=(gmail:GmailStatus|null,situations:SituationSnapshot|null)=>JSON.stringify([
- gmail?.account?.id,gmail?.account?.enabled,gmail?.account?.status,gmail?.account?.lastSuccess,gmail?.account?.lastError,gmail?.busy,gmail?.analysis,
+ gmail?.account?.id,gmail?.account?.enabled,gmail?.account?.status,gmail?.account?.lastSuccess,gmail?.account?.lastError,gmail?.busy,gmail?.analysis,gmail?.briefMail?.map(m=>[m.messageId,m.fingerprint]),
  situations?.accountId,situations?.revision??situations,
 ]);
 
@@ -57,8 +63,23 @@ export async function prepareFactualBrief(
  const readReviews=()=>!scope.temporary&&client.reviews?bounded(client.reviews()):Promise.resolve([] as ProjectReview[]);
  const windowRoot=client===native && !scope.temporary && !input.projectsError ? input.rootPath : undefined;
  const readProjects=():Promise<ProjectWindow>=>windowRoot?readProjectWindow(windowRoot,input.projects,now):Promise.resolve({projects:input.projects,gaps:[]});
+ const readMail=async()=>{
+   let mail=await bounded(client.gmail());
+   if(client!==native || mode!=="opening")return mail;
+   // On launch the native cadence starts after five seconds. Give a due sync time
+   // to commit its cursor before choosing the opening headlines.
+   const deadline=Date.now()+12_000;
+   while(mail.account?.enabled && !mail.account.lastError &&
+     (mail.account.status==="syncing" || (mail.account.status==="connected" &&
+       !mail.busy && (!mail.account.nextSync || Date.parse(mail.account.nextSync)<=Date.now()))) &&
+     Date.now()<deadline){
+     await new Promise(resolve=>setTimeout(resolve,600));
+     mail=await bounded(client.gmail());
+   }
+   return mail;
+ };
  const [mailResult,situationResult,receiptResult,memoryResult,reviewResult,projectResult]=await Promise.allSettled([
-  bounded(client.gmail()),bounded(client.situations()),bounded(client.receipts()),readMemory(),readReviews(),readProjects(),
+  readMail(),bounded(client.situations()),bounded(client.receipts()),readMemory(),readReviews(),readProjects(),
  ]);
  const gmail=mailResult.status==='fulfilled'?mailResult.value:null;
  const situations=situationResult.status==='fulfilled'?situationResult.value:null;
@@ -99,6 +120,7 @@ export async function prepareFactualBrief(
  const words=(s:string)=>s.toLowerCase().match(/[\p{L}\p{N}]+/gu)?.join(" ")??"";
  const namedProjects=(text:string)=>input.projects.filter(p=>words(p.name).length>=4 && (" "+words(text)+" ").includes(" "+words(p.name)+" "));
  for(const item of findings.filter(f=>f.id.startsWith("mail:"))){
+   if(item.authority==='operator_statement')continue;
    const attention=situations?.attention?.find(a=>item.id==="mail:"+situations.accountId+":"+a.threadId);
    if(!attention)continue;
    const matches=namedProjects(attention.subject);
@@ -114,6 +136,7 @@ export async function prepareFactualBrief(
    const bytes=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(value));
    return Array.from(new Uint8Array(bytes),byte=>byte.toString(16).padStart(2,'0')).join('');
  };
+ // Shipment reconciliation is evidence-bound in briefingTransactions.
  for(const memoryItem of findings.filter(f=>f.kind==="context" && f.source)){
    if(mode==="opening" && receipts[memoryItem.id]?.revision===await digest(memoryItem.revision))continue;
    const matches=namedProjects(memoryItem.text);
@@ -123,6 +146,7 @@ export async function prepareFactualBrief(
    parts.set(related,[...(parts.get(related)??[{...related}]),memoryItem]);
    related.text+=" "+memoryItem.text;
    related.source=memoryItem.source;
+   related.authority='unspecified'; // Mixed project facts and remembered interpretation.
    related.priority=Math.max(related.priority,memoryItem.priority);
    findings.splice(findings.indexOf(memoryItem),1);
    break;
@@ -142,7 +166,58 @@ export async function prepareFactualBrief(
    if(group && group.every(p=>receipts[p.id]?.revision===p.revision))return false;
    return !i.id.startsWith("project-review:") || receipts[i.id]?.revision!==i.revision;
  });
- const items=selectBrief(eligible,receipts,mode,now);
+ // Keep the highest-ranked current notice per merchant in the opening headlines.
+ // Separate notifications from one sender need not refer to the same order.
+ const merchants=new Map((gmail?.briefMail??[]).map(m=>["mail:"+gmail?.account?.id+":notice:"+m.threadId,m.sender.toLowerCase()]));
+ const highlighted=new Set<string>();
+ const ranked=eligible.filter(f=>selectBrief([f],receipts,mode,now).length>0).sort((a,b)=>b.priority-a.priority);
+ const distinct=ranked.filter(f=>{
+   const merchant=merchants.get(f.id.replace(/:combined$/,""));
+   if(!merchant || f.priority>=77)return true;
+   if(highlighted.has(merchant))return false;
+   highlighted.add(merchant);return true;
+ });
+ const selected=selectBrief(distinct,receipts,mode,now);
+ const memoryGap=eligible.find(i=>i.id==="coverage:memory");
+ if(mode==="requested" && memoryGap && !selected.includes(memoryGap)){
+   if(selected.length===3)selected.pop();
+   selected.push(memoryGap);
+ }
+ const substantive=selected.filter(i=>i.kind!=="limitation");
+ let items=selected.filter(i=>{
+   if(i.id==="coverage:analysis")return !substantive.length && mode==="requested";
+   if(mode==="opening" && i.id==="coverage:gmail" && gmail?.account?.enabled && !gmail.account.lastError)return false;
+   return true;
+ });
+
+ let synthesizedText:string|undefined,provenance:SynthesisResult['provenance']|undefined;
+ let modelBinding:{packetRevision:string;sources:{id:string;revision:string}[]}|undefined;
+ // Until constituent-level citations exist, retain a combined item in full.
+ const rewriteable=(i:BriefItem)=>synthesisEligible(i)&&!constituents.has(i.id);
+ const selectedIds=new Set(items.map(i=>i.id));
+ const contextual=candidates.filter(i=>!selectedIds.has(i.id)&&(i.kind==='context'||i.authority==='operator_statement')).slice(0,6);
+ const evidence:SynthesisInput['evidence']=[...items.filter(i=>i.kind!=='limitation'),...contextual].map(i=>({id:i.id,revision:i.revision,
+  kind:i.id.startsWith('mail:')?'mail':i.kind==='context'?'memory':'project',text:i.text,observedAt:now,
+  authority:i.authority??(i.kind==='context'?'remembered_context':i.kind==='recommendation'?'hypothesis':'source_fact'),
+  contextOnly:!selectedIds.has(i.id)||!rewriteable(i)}));
+ if(client.synthesize&&evidence.some(e=>!e.contextOnly)){
+  const packet:SynthesisInput={revision:await digest(JSON.stringify(evidence)),preparedAt:now,evidence};
+  try{
+   const accepted=acceptSynthesis(packet,await boundedSynthesis(client.synthesize(packet)));
+   if(accepted){
+    const protectedItems=items.filter(i=>!rewriteable(i));
+    items=items.filter(i=>!rewriteable(i)||accepted.ids.has(i.id));
+    synthesizedText=[...protectedItems.map(i=>i.text),accepted.text].filter(Boolean).join(' ');
+    if(!synthesizedText&&mode==='requested')synthesizedText='I have no additional update to highlight from the evidence reviewed.';
+    provenance=accepted.provenance;
+    modelBinding={packetRevision:packet.revision,sources:evidence.filter(e=>accepted.ids.has(e.id)||protectedItems.some(i=>i.id===e.id)).map(e=>({id:e.id,revision:e.revision}))};
+   }
+  }catch{
+   // A closed gate or failed synthesis preserves the source-grounded fallback.
+   // No API/provider retry is attempted and no model provenance is claimed.
+  }
+ }
+
  const receiptItems=[...new Map(items.flatMap(i=>[{id:i.id,revision:i.revision},...(constituents.get(i.id)??[])]).map(r=>[r.id,r])).values()];
  const delivery:DisplayPlan={preparedAt:now,items:receiptItems,cursors:windowRoot && !projectsError?displayedCursors(checkedProjects,new Set(receiptItems.map(i=>i.id))):[]};
  const expected=signature(gmail,situations);
@@ -152,9 +227,10 @@ export async function prepareFactualBrief(
  const memoryRevision=(value:BriefMemory|null|undefined)=>value?`${value.enabled}:${value.revision}`:value;
  const expectedMemory=memoryRevision(memory);
  return {
-  items, delivery:scope.temporary?undefined:delivery,
-  text:items.length?`Hello sir. Factual update. ${items.map(i=>i.text).join(' ')}`
-   :mode==='requested'?'Hello sir. No items to highlight in the available project and email records. This factual check does not establish complete coverage.':null,
+  items, delivery:scope.temporary?undefined:delivery,provenance,
+  briefing:provenance&&modelBinding?{...provenance,...modelBinding,preparedAt:now}:{kind:'deterministic_fallback',preparedAt:now,sources:items.map(i=>({id:i.id,revision:i.revision}))},
+  text:synthesizedText??(items.length?items.map(i=>i.text).join(' ')
+   :mode==='requested'?'I found no new project or email highlights in the records I checked.':null),
   current:async()=>{
    if(!(await sourcesCurrent()))return false;
    const [mail,understanding,remembered,rechecked,projectCheck]=await Promise.allSettled([bounded(client.gmail()),bounded(client.situations()),readMemory(),readReviews(),readProjects()]);

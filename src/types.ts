@@ -62,6 +62,7 @@ export interface ResearchExcerpt {
 }
 
 export interface ConversationMessage {
+  briefing?:import("./services/briefingSynthesis").BriefingOrigin;
   delivery?:import("./services/briefProjectWindow").DisplayPlan;
   feedback?: import("./services/conversationFeedback").FeedbackContext | null;
   mail?: import("./services/gmail").MailExcerpt[];
