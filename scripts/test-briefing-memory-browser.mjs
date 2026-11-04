@@ -15,8 +15,8 @@ import {prepareFactualBrief} from './src/services/briefingDelivery';
 import './src/styles.css';import '@fontsource/inter/400.css';import '@fontsource/inter/500.css';import '@fontsource/cinzel/400.css';
 const now=Date.now(),temporary=new URLSearchParams(location.search).has('temporary');
 const memory={enabled:true,revision:'snapshot',items:[{id:'chat-a',title:'Helios launch priorities',summary:'Kevin reviewed the Helios accessibility plan, including keyboard navigation, visible focus, screen reader labels, contrast checks, and mobile reading before expanding the release scope. The original plan was to ship on Friday. After checking the remaining work, he corrected that plan: the launch is postponed and no release date is committed.',learnedAt:new Date(now).toISOString(),sourceMessageIds:['u2'],revision:'a'.repeat(64)}]};
-window.memoryReads=0;window.deliveries=0;
-const client={gmail:async()=>({configured:true,busy:false,cachedMessages:0,account:null,candidates:[],lastRun:null}),situations:async()=>null,receipts:async()=>({}),memory:async()=>{window.memoryReads++;return memory},deliver:async()=>{window.deliveries++}};
+window.memoryReads=0;window.deliveries=[];
+const client={gmail:async()=>({configured:true,busy:false,cachedMessages:0,account:null,candidates:[],lastRun:null}),situations:async()=>null,receipts:async()=>({}),memory:async()=>{window.memoryReads++;return memory},deliver:async items=>{window.deliveries.push(...items.map(item=>item.id))}};
 const project={id:'helios',name:'Helios',status:'active',repoState:'git-pending',lastCommit:'abc',linkedWorktrees:[],sinceSessionCommits:[{at:new Date(now).toISOString(),subject:'Add release checks'}],nextStep:''};
 const brief=await prepareFactualBrief({projects:[project],board:[],projectsError:null},'requested',now,client,()=>true,{temporary,conversationId:'current'});
 if(!await brief.current())throw Error('Fixture changed');
@@ -43,7 +43,7 @@ try {
   assert.match(await page.locator('main').innerText(),/no release date is committed/);
   assert.match(await page.locator('main').innerText(),/Add release checks/);
   assert.doesNotMatch(await page.locator('.console-briefing-label').innerText(),/from project state|no model/,'Attribution must allow remembered summaries and email evidence');
-  assert.equal(await page.evaluate(()=>window.deliveries),1);
+  const delivered=await page.evaluate(()=>window.deliveries); assert.ok(delivered.includes('memory:chat:chat-a') && delivered.includes('project:helios:progress')); assert.equal(delivered.length,new Set(delivered).size);
   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
   await page.evaluate(()=>document.fonts.ready);
   await page.screenshot({path:resolve(root,'brief-'+width+'.png'),fullPage:true});
@@ -53,7 +53,7 @@ try {
  await page.getByRole('button',{name:'Conversation',exact:true}).click();
  assert.doesNotMatch(await page.locator('main').innerText(),/Remembered from|launch is postponed/);
  assert.equal(await page.evaluate(()=>window.memoryReads),0);
- assert.equal(await page.evaluate(()=>window.deliveries),0);
+ assert.deepEqual(await page.evaluate(()=>window.deliveries),[]);
  assert.deepEqual(errors,[]);
  console.log('PASS real ChatPanel: remembered brief and project evidence, wide/narrow layout, private exclusion and no private receipts');
 } finally {await browser.close();await new Promise(r=>server.close(r));}
