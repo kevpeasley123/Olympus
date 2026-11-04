@@ -163,7 +163,18 @@ export async function prepareFactualBrief(
    if(group && group.every(p=>receipts[p.id]?.revision===p.revision))return false;
    return !i.id.startsWith("project-review:") || receipts[i.id]?.revision!==i.revision;
  });
- const selected=selectBrief(eligible,receipts,mode,now);
+ // Keep the highest-ranked current notice per merchant in the opening headlines.
+ // Separate notifications from one sender need not refer to the same order.
+ const merchants=new Map((gmail?.briefMail??[]).map(m=>["mail:"+gmail?.account?.id+":notice:"+m.threadId,m.sender.toLowerCase()]));
+ const highlighted=new Set<string>();
+ const ranked=eligible.filter(f=>selectBrief([f],receipts,mode,now).length>0).sort((a,b)=>b.priority-a.priority);
+ const distinct=ranked.filter(f=>{
+   const merchant=merchants.get(f.id.replace(/:combined$/,""));
+   if(!merchant || f.priority>=77)return true;
+   if(highlighted.has(merchant))return false;
+   highlighted.add(merchant);return true;
+ });
+ const selected=selectBrief(distinct,receipts,mode,now);
  const memoryGap=eligible.find(i=>i.id==="coverage:memory");
  if(mode==="requested" && memoryGap && !selected.includes(memoryGap)){
    if(selected.length===3)selected.pop();

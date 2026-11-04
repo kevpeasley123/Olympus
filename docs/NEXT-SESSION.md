@@ -1,6 +1,6 @@
 # Next session
 
-## Olympus 0.45.1
+## Olympus 0.45.2
 
 Opening briefs can report recent source-backed shipment, purchase and deadline notices while provider generation is blocked. A synced mailbox and a generated situation assessment have separate readiness.
 

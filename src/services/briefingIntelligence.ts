@@ -34,7 +34,7 @@ function transactionFindings(gmail:GmailStatus,situations:SituationSnapshot|null
   let report:string,priority:number;
   if(/\b(delivery (?:failed|exception|delayed)|could not deliver|shipment delayed)\b/i.test(subject)){
    report=`${sender} reported a delivery problem on ${date}: “${subject}”. Check the carrier notice for the next step.`;priority=79;
-  } else if(/\b(action required|payment due|response due|deadline)\b/i.test(subject)){
+  } else if(/\b(action required|payment due|response due|deadline)\b/i.test(subject) || /^(payment due|deadline):\s*\S/i.test(mail.detail??'')){
    report=`${sender} flagged “${subject}” on ${date}. Check the original request and whether you have already handled it.`;priority=77;
   } else if(/\b(has shipped|order shipped|out for delivery|was delivered|has been delivered)\b/i.test(subject)){
    report=`${sender} sent a shipping update on ${date}: “${subject}”.`;priority=56;
@@ -42,8 +42,14 @@ function transactionFindings(gmail:GmailStatus,situations:SituationSnapshot|null
    report=`${sender} sent “${subject}” on ${date}.`;priority=47;
   } else continue;
   if(mail.item) report+=` The notice lists ${text(mail.item,140)}.`;
-  if(mail.detail) report+=` The message says “${text(mail.detail,180)}”.`;
-  if(priority===56 && /has shipped|order shipped/i.test(subject) && !mail.detail) report+=" The carrier has yet to confirm arrival in this notice.";
+  if(mail.detail) {
+   const window=mail.detail.match(/estimated delivery time.*?([0-9]{1,2}:[0-9]{2} [AP]M)\s*[-–]\s*([0-9]{1,2}:[0-9]{2} [AP]M)\s+on\s+([A-Za-z]+ \d{1,2}, \d{4})/i);
+   if(window){
+    report+=` The delivery estimate was ${window[1]}–${window[2]} on ${window[3]}.`;
+    if(Date.parse(window[3]+" "+window[2])<now){report+=" That window has passed. This message does not confirm arrival.";priority=32;}
+   } else report+=` The message says “${text(mail.detail,180)}”.`;
+  }
+  if(priority===56 && /has shipped|order shipped/i.test(subject) && !mail.detail) report+=" This confirms dispatch. There is no delivery confirmation in this notice.";
   findings.push({id:`mail:${account.id}:notice:${mail.threadId}`,kind:'progress',priority,text:report,revision:JSON.stringify([mail.messageId,mail.fingerprint])});
  }
  return findings.sort((a,b)=>b.priority-a.priority); // Native records arrive newest first.

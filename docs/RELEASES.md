@@ -31,3 +31,5 @@ One line per release. Newest first. Since 2026-10-12 each line says what the rel
 - **0.45.0** (2026-11-03): adds Gmail management to Armory Plugins and retries temporary sync errors. Mail sync verified on the prior build. Long-term renewal and fresh analysis remain unverified.
 
 - **0.45.1** (2026-11-03): Opening briefs prioritize changes and read recent transactional mail from the local cache. No paid generation exercised.
+
+- **0.45.2** (2026-11-03): Distinguish elapsed delivery estimates, preserve room for other topics, and include labeled deadlines. The preceding desktop build produced real source-backed shipment and order highlights.
