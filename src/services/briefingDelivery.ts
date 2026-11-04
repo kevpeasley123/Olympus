@@ -57,8 +57,23 @@ export async function prepareFactualBrief(
  const readReviews=()=>!scope.temporary&&client.reviews?bounded(client.reviews()):Promise.resolve([] as ProjectReview[]);
  const windowRoot=client===native && !scope.temporary && !input.projectsError ? input.rootPath : undefined;
  const readProjects=():Promise<ProjectWindow>=>windowRoot?readProjectWindow(windowRoot,input.projects,now):Promise.resolve({projects:input.projects,gaps:[]});
+ const readMail=async()=>{
+   let mail=await bounded(client.gmail());
+   if(client!==native || mode!=="opening")return mail;
+   // On launch the native cadence starts after five seconds. Give a due sync time
+   // to commit its cursor before choosing the opening headlines.
+   const deadline=Date.now()+12_000;
+   while(mail.account?.enabled && !mail.account.lastError &&
+     (mail.account.status==="syncing" || (mail.account.status==="connected" &&
+       !mail.busy && (!mail.account.nextSync || Date.parse(mail.account.nextSync)<=Date.now()))) &&
+     Date.now()<deadline){
+     await new Promise(resolve=>setTimeout(resolve,600));
+     mail=await bounded(client.gmail());
+   }
+   return mail;
+ };
  const [mailResult,situationResult,receiptResult,memoryResult,reviewResult,projectResult]=await Promise.allSettled([
-  bounded(client.gmail()),bounded(client.situations()),bounded(client.receipts()),readMemory(),readReviews(),readProjects(),
+  readMail(),bounded(client.situations()),bounded(client.receipts()),readMemory(),readReviews(),readProjects(),
  ]);
  const gmail=mailResult.status==='fulfilled'?mailResult.value:null;
  const situations=situationResult.status==='fulfilled'?situationResult.value:null;
@@ -181,7 +196,11 @@ export async function prepareFactualBrief(
    selected.push(memoryGap);
  }
  const substantive=selected.filter(i=>i.kind!=="limitation");
- const items=selected.filter(i=>i.id!=="coverage:analysis" || (!substantive.length && mode==="requested"));
+ const items=selected.filter(i=>{
+   if(i.id==="coverage:analysis")return !substantive.length && mode==="requested";
+   if(mode==="opening" && i.id==="coverage:gmail" && gmail?.account?.enabled && !gmail.account.lastError)return false;
+   return true;
+ });
 
  const receiptItems=[...new Map(items.flatMap(i=>[{id:i.id,revision:i.revision},...(constituents.get(i.id)??[])]).map(r=>[r.id,r])).values()];
  const delivery:DisplayPlan={preparedAt:now,items:receiptItems,cursors:windowRoot && !projectsError?displayedCursors(checkedProjects,new Set(receiptItems.map(i=>i.id))):[]};
