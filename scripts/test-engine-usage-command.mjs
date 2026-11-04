@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {createServer} from 'vite';
+import {createFixtureServer as createServer} from './fixture-server.mjs';
 import {chromium} from 'playwright';
 import {mkdir} from 'node:fs/promises';
 await mkdir('output/engine-usage',{recursive:true});await mkdir('output/usage-dock',{recursive:true});

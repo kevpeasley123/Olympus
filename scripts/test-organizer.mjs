@@ -5,7 +5,7 @@ await build({entryPoints:['src/services/organizer.harness.ts'],bundle:true,forma
 const {runOrganizerHarness}=await import('../output/tests/organizer.harness.js');
 console.log(`PASS ${runOrganizerHarness().passed} Organizer contract checks`);
 if(!process.argv.includes('--unit')){
- const {createServer}=await import('vite');
+ const {createFixtureServer:createServer}=await import('./fixture-server.mjs');
  const {chromium}=await import('playwright');
  const {checkOrganizer}=await import('./organizer-browser.mjs');
  const server=await createServer({server:{host:'127.0.0.1',port:0,strictPort:false}});
