@@ -13,8 +13,11 @@ pub fn analysis_readiness(provider: &str, local_model: Option<&str>) -> Analysis
     }
 }
 
-pub fn sync_due(enabled: bool, status: &str, next_sync: Option<&str>, now: DateTime<Utc>) -> bool {
-    enabled && status != "authentication_required" && next_sync
+pub fn sync_due(enabled: bool, status: &str, last_error: Option<&str>, next_sync: Option<&str>, now: DateTime<Utc>) -> bool {
+    // Older builds used the same terminal status for grant rejection, API 401s
+    // and temporary credential-store failures. Reclassify on the next actual attempt.
+    let legacy = matches!(last_error, Some("gmail_authentication_required" | "gmail_secure_store_unavailable" | "oauth_token_missing"));
+    enabled && (status != "authentication_required" || legacy) && next_sync
         .and_then(|value| DateTime::parse_from_rfc3339(value).ok())
         .is_none_or(|deadline| deadline <= now)
 }
@@ -65,12 +68,14 @@ mod tests {
     #[test]
     fn automatic_sync_respects_persisted_retry_and_authorization() {
         let now = chrono::DateTime::parse_from_rfc3339("2026-11-03T04:00:00Z").unwrap().with_timezone(&chrono::Utc);
-        assert!(!sync_due(true, "sync_error", Some("2026-11-03T04:01:00Z"), now));
-        assert!(sync_due(true, "sync_error", Some("2026-11-03T03:59:00Z"), now));
-        assert!(!sync_due(false, "connected", None, now));
-        assert!(!sync_due(true, "authentication_required", None, now));
-        assert!(sync_due(true, "connected", None, now));
-        assert!(sync_due(true, "sync_error", Some("invalid"), now));
+        assert!(!sync_due(true, "sync_error", None, Some("2026-11-03T04:01:00Z"), now));
+        assert!(sync_due(true, "sync_error", None, Some("2026-11-03T03:59:00Z"), now));
+        assert!(!sync_due(false, "connected", None, None, now));
+        assert!(!sync_due(true, "authentication_required", None, None, now));
+        assert!(sync_due(true, "authentication_required", Some("gmail_authentication_required"), None, now));
+        assert!(!sync_due(true, "authentication_required", Some("gmail_refresh_grant_rejected"), None, now));
+        assert!(sync_due(true, "connected", None, None, now));
+        assert!(sync_due(true, "sync_error", None, Some("invalid"), now));
     }
 
     #[test]

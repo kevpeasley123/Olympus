@@ -1,14 +1,14 @@
 # Operational workstream and actor dossiers
 
-Status, 2026-10-12: describes the workstream and actor dossiers of document-backed Situation maps, released in 0.18.0 and part of the installed 0.30.0. Implemented September 13, 2026, from an operator-provided Renovation render. Situation maps as a whole are in [COMMUNICATION-SITUATIONS.md](COMMUNICATION-SITUATIONS.md).
+The selected record appears beside the focused relationship map. See [COMMUNICATIONS.md](COMMUNICATIONS.md) for primary navigation and [NEXT-SESSION.md](NEXT-SESSION.md) for verification state.
 
 ## Layout
 
-The center stays a relationship map. A single Overview / Documents / Related / Timeline tab system controls the dossier in the inspector; Timeline appears only when the scope has dated milestones. The open tab is kept in session view state.
+The primary detail tabs are Summary / Conversations / Documents. Summary includes the saved profile/status or workstream summary, relationship links and document previews. **Full relationship record** and **Full workstream record** retain detailed evidence behind disclosures. Their existing Overview / Documents / Related / Timeline controls are secondary; Timeline appears only for valid source-linked dated milestones. Opening a full record is lazy and never initiates analysis.
 
 ## Overview
 
-Focused workstreams have a named dossier: current state, up to three clickable contextual actors, up to three open questions (Needs confirmation) and the source-linked useful next step from the review policy ([EXECUTIVE-PRIORITIZATION.md](EXECUTIVE-PRIORITIZATION.md)). The actor dossier has a parent back control, identity, contacts above the tabs, then Profile, how the relationship began, the business relationship, current status and a useful next step labelled as guidance, not a commitment. Two supporting documents and two relationship previews lead to the deeper tabs. The previews preserve uncertainty. Source details remain collapsed.
+The primary view is concise. Full records retain qualified source context, engagement details, contacts and guidance. Saved recommendations remain advice, not commitments. The workstream record also retains saved facts and their source locators; actor-specific attribution remains conservative.
 
 Actor dossier headings follow the recorded role: contractor, inspector, lender, insurer, utility, HOA or a generic fallback. Origin is shown only from saved notes or attributed facts that say how the relationship began; otherwise it reads as not recorded. A fact enters the actor's primary dossier only when it names a canonical member; facts that merely share a source stay in Documents as supporting workstream records. `relationshipDossier.ts` is a presentation projection with no model calls or canonical mutations.
 
@@ -16,7 +16,7 @@ There is no inferred Active badge: saved relationship status and current progres
 
 ## Documents
 
-Documents is a first-class detail view. It contains the sources referenced by the selected contextual actor or workstream, deduplicated by source ID. File title, extension, explicit document date (or Date not recorded), origin and optional description are visible. Contracts, drafts, quotes, invoices and design archives coexist in a simple list; small groups are not manufactured.
+Documents is a first-class detail view. It contains the sources referenced by the selected contextual actor or workstream, deduplicated by source ID. File title, recorded document date and origin are visible. Source details retain category, path, source ID and optional description. Contracts, drafts, quotes, invoices and design archives coexist in a simple list; small groups are not manufactured.
 
 The native `situation_document_status` and `situation_document_open` commands resolve situation ID + source ID against the current connected account's saved document registry. They do not accept paths from the frontend. Existence is checked; opening rechecks existence and permits a bounded set of document/image/archive extensions. Relative paths, URLs, network paths, executables, shortcuts and active HTML/SVG are not opened. This is local file access, not editing, uploading, or an external integration.
 
@@ -24,7 +24,7 @@ Availability is an existence check at the time of reading, not content verificat
 
 ## Related
 
-The Related tab resolves canonical endpoint IDs into names and roles, then shows the saved relationship description. Documented / Reported / Unconfirmed labels preserve the evidence distinction. Overview previews show counterpart names and certainty. Contextual actors remain combined on the map; canonical members remain available in the relationship detail.
+The full record's Related tab resolves canonical endpoint IDs into names and roles, then shows the saved relationship description. Documented / Reported / Unconfirmed labels preserve the evidence distinction. Primary Summary disclosures show counterpart names and certainty, including inferred correspondence associations. Contextual actors remain combined on the map; canonical members remain available in the relationship detail.
 
 ## Timeline
 
@@ -34,7 +34,7 @@ A pack without structured milestones has no Timeline rather than one guessed fro
 
 ## Map
 
-The contextual actor/role web stays central, with parent navigation and camera controls. Clusters come only from recorded workstreams and roles; file titles are not converted into categories or claims about current work.
+The focused map uses saved workstreams and actor identities. Selection changes detail; branch navigation, breadcrumbs, bounded pages and search handle expansion. File titles never become claims about current work.
 
 ## Source ownership
 

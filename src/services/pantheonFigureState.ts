@@ -26,11 +26,11 @@ export interface FigureSpec {
 // Positions follow the operator's reference render: Zeus above the Omega,
 // Athena and Hephaestus upper left and right, Dionysus and Themis lower.
 export const PANTHEON_FIGURES: readonly FigureSpec[] = [
-  { id: 'zeus', agent: 'olympus', name: 'Zeus', role: 'Orchestrator', station: [0, 152, 0], accent: 0xf2c46b, temperament: { tempo: .8, gesture: [9, 16], gaze: [5, 9] } },
-  { id: 'athena', agent: 'research', name: 'Athena', role: 'Research analyst', station: [-212, 56, 0], accent: 0x7fd3e6, temperament: { tempo: 1, gesture: [7, 12], gaze: [2.5, 5] } },
-  { id: 'hephaestus', agent: 'coding-delegate', name: 'Hephaestus', role: 'Systems engineer', station: [212, 56, 0], accent: 0xff9a4a, temperament: { tempo: 1, gesture: [6, 11], gaze: [4, 8] } },
-  { id: 'dionysus', agent: 'dionysus', name: 'Dionysus', role: 'Creative strategist', station: [-208, -136, 0], accent: 0xb98ae8, temperament: { tempo: 1.15, gesture: [4.5, 9], gaze: [3, 6] } },
-  { id: 'themis', agent: 'verification', name: 'Themis', role: 'Verification analyst', station: [208, -136, 0], accent: 0xf3ead2, temperament: { tempo: .9, gesture: [8, 14], gaze: [4.5, 8] } },
+  { id: 'zeus', agent: 'olympus', name: 'Zeus', role: 'Orchestrator', station: [0, 256, 0], accent: 0xf2c46b, temperament: { tempo: .8, gesture: [9, 16], gaze: [5, 9] } },
+  { id: 'athena', agent: 'research', name: 'Athena', role: 'Research analyst', station: [-275, 65, 0], accent: 0x7fd3e6, temperament: { tempo: 1, gesture: [7, 12], gaze: [2.5, 5] } },
+  { id: 'hephaestus', agent: 'coding-delegate', name: 'Hephaestus', role: 'Systems engineer', station: [275, 65, 0], accent: 0xff9a4a, temperament: { tempo: 1, gesture: [6, 11], gaze: [4, 8] } },
+  { id: 'dionysus', agent: 'dionysus', name: 'Dionysus', role: 'Creative strategist', station: [-260, -150, 0], accent: 0xb98ae8, temperament: { tempo: 1.15, gesture: [4.5, 9], gaze: [3, 6] } },
+  { id: 'themis', agent: 'verification', name: 'Themis', role: 'Verification analyst', station: [260, -150, 0], accent: 0xf3ead2, temperament: { tempo: .9, gesture: [8, 14], gaze: [4.5, 8] } },
 ];
 
 /** Figures standing in the scene; a figure listed here gives up its constellation emblem. */

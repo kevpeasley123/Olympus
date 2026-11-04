@@ -19,3 +19,7 @@
 .gmail-settings [role=alert]{border-left:2px solid #c9a567;padding:8px 12px;background:#252219;color:#e2c48e;border-radius:3px}
 .gmail-settings .gmail-confirm{padding:12px;border:1px solid #937348;border-radius:6px;margin:12px 0}
 @media(max-width:420px){.gmail-settings .gmail-horizon,.gmail-settings .gmail-facts>div{grid-template-columns:minmax(0,1fr);gap:4px}}
+
+.gmail-plugin-row > summary { display: grid; grid-template-columns: 1fr auto; gap: .25rem 1rem; cursor: pointer; padding: .85rem 1rem; }
+.gmail-plugin-row > summary span { grid-column: 1; font-size: .8rem; opacity: .8; }
+.gmail-plugin-row > summary small { grid-column: 2; grid-row: 1 / 3; align-self: center; }

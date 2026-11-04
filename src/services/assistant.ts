@@ -41,6 +41,7 @@ export interface AssistantReply {
 export type AssistantStreamEvent =
   | { kind: "ended"; reason: "completed" | "cancelled" | "limit" | "refusal" | "error" }
   | { kind: "progress"; message: string }
+  | { kind: "vaultRecall"; file:string }
   | { kind: "sourceAccess"; project:string; file:string; success:boolean }
   | { kind: "started"; model: string }
   | { kind: "delta"; text: string }

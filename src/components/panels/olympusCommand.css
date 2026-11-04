@@ -55,7 +55,7 @@ html .app-shell .console-command-bar{border-color:#7896ac33;background:#061019c9
 @media(min-width:1700px){html .mode-command:has(.olympus-armory) .main-grid{grid-template-columns:192px minmax(0,1fr) 410px;gap:30px}.olympus-armory{padding-top:54px}.armory-heading h2{font-size:32px}.pantheon-caption h2{font-size:36px}}
 @media(max-width:1350px){html .mode-command:has(.olympus-armory) .main-grid{grid-template-columns:146px minmax(0,1fr) 320px;gap:14px}.olympus-armory{padding-top:24px}.armory-presence{margin-top:26px}.pantheon-caption h2{font-size:27px}html .app-shell .console-idle{padding:20px;gap:16px}html .app-shell .console-idle__title{font-size:23px}}
 @media(max-height:850px){.armory-presence{margin-top:24px}.pantheon-caption{margin-top:-22px}}
-@media(max-width:1050px){html .mode-command:has(.olympus-armory) .main-grid{grid-template-columns:130px minmax(0,1fr);gap:18px}html .mode-command:has(.olympus-armory) .tools-rail{display:none}html .mode-command:has(.olympus-armory) .right-stack{grid-column:1/-1;min-height:420px}.olympus-armory{grid-column:1}.armory-presence{display:none}html .mode-command:has(.olympus-armory) .center-stack{grid-column:2}html .mode-command:has(.olympus-armory) .main-grid{height:auto;overflow:visible}html:has(.olympus-armory),html:has(.olympus-armory) body{overflow:auto}.armory-tabs{gap:0;padding:0 12px}.armory-tabs button{font-size:11px;padding:14px 8px;gap:6px}.armory-plugin-list,.loadout-grid{grid-template-columns:1fr}.armory-dialog-header,.armory-dialog-body{padding:22px}.armory-dialog-footer{padding:14px 22px}.armory-agent-entry{gap:12px}.armory-agent-entry strong{font-size:15px}}
+@media(max-width:1200px){html .mode-command:has(.olympus-armory) .main-grid{grid-template-columns:130px minmax(0,1fr);gap:18px}html .mode-command:has(.olympus-armory) .tools-rail{display:none}html .mode-command:has(.olympus-armory) .right-stack{grid-column:1/-1;min-height:420px}.olympus-armory{grid-column:1}.armory-presence{display:none}html .mode-command:has(.olympus-armory) .center-stack{grid-column:2}html .mode-command:has(.olympus-armory) .main-grid{height:auto;overflow:visible}html:has(.olympus-armory),html:has(.olympus-armory) body{overflow:auto}.armory-tabs{gap:0;padding:0 12px}.armory-tabs button{font-size:11px;padding:14px 8px;gap:6px}.armory-plugin-list,.loadout-grid{grid-template-columns:1fr}.armory-dialog-header,.armory-dialog-body{padding:22px}.armory-dialog-footer{padding:14px 22px}.armory-agent-entry{gap:12px}.armory-agent-entry strong{font-size:15px}}
 @media(prefers-reduced-motion:reduce){.olympus-armory *,
 .armory-dialog *{transition:none!important;animation:none!important}}
 
@@ -73,7 +73,7 @@ html .mode-command:has(.olympus-armory) .main-grid{grid-template-rows:minmax(0,1
 .olympus-armory{min-height:0;overflow:auto;scrollbar-width:thin;scrollbar-color:#425665 transparent}
 html .mode-command .command-instrument[data-flagship] .command-instrument__dial{width:min(100cqw,calc(100vh - 360px),780px);height:min(100cqw,calc(100vh - 360px),780px)}
 @media(max-height:850px){.olympus-armory{padding-top:20px;padding-bottom:8px}.armory-heading p{margin-bottom:18px}.armory-index button{min-height:42px}.armory-presence button{padding:9px 0}.olympus-armory>footer{margin-top:16px}}
-@media(max-width:1050px){html .mode-command:has(.olympus-armory) .main-grid{grid-template-rows:auto auto}.olympus-armory{overflow:visible}html .mode-command:has(.olympus-armory) .right-stack{height:500px}}
+@media(max-width:1200px){html .mode-command:has(.olympus-armory) .main-grid{grid-template-rows:auto auto}.olympus-armory{overflow:visible}html .mode-command:has(.olympus-armory) .right-stack{height:500px}}
 
 .olympus-armory{background:linear-gradient(90deg,#040b1370,transparent);overflow-x:hidden}
 .olympus-armory::before{display:none}
@@ -143,7 +143,7 @@ html .mode-command:has(.olympus-armory) .main-grid{grid-template-columns:286px m
 @media(min-width:1700px){html .mode-command:has(.olympus-armory) .main-grid{grid-template-columns:306px minmax(0,1fr) 410px;gap:22px}.olympus-armory{padding:30px 18px 16px}.olympus-armory .armory-roster-row{grid-template-columns:42px minmax(0,1fr);padding:17px 0}.armory-roster-copy strong{font-size:13px}}
 @media(max-width:1350px){html .mode-command:has(.olympus-armory) .main-grid{grid-template-columns:248px minmax(0,1fr) 320px;gap:12px}.olympus-armory{padding:18px 12px 12px}.olympus-armory .armory-heading h2{font-size:26px}.olympus-armory .armory-heading p{font-size:8px}.olympus-armory .armory-roster-row{padding:10px 0}.armory-roster-copy>span{font-size:9px}}
 @media(max-height:850px){.olympus-armory .armory-presence{margin-top:16px}.olympus-armory .armory-index button{min-height:34px;padding:6px 1px}.olympus-armory .armory-roster-row{padding:10px 0}.olympus-armory .armory-panel-actions{padding-top:12px}}
-@media(max-width:1050px){html .mode-command:has(.olympus-armory) .main-grid{grid-template-columns:240px minmax(0,1fr);gap:16px}.olympus-armory .armory-presence{display:block}}
+@media(max-width:1200px){html .mode-command:has(.olympus-armory) .main-grid{grid-template-columns:240px minmax(0,1fr);gap:16px}.olympus-armory .armory-presence{display:block}}
 .olympus-armory .armory-roster-status{position:absolute;top:14px;right:0;margin:0;font-size:7px;padding:3px 6px}
 .olympus-armory .armory-roster-copy strong{padding-right:57px;min-height:17px}
 .olympus-armory .armory-roster-row{min-height:87px;align-content:center}
@@ -172,7 +172,7 @@ html .mode-command:has(.olympus-armory) .main-grid{grid-template-columns:286px m
 /* Command starts at the Armory; the unused tool rail has no layout slot. */
 html .mode-command:has(.olympus-armory) .tools-rail{display:none}
 
-@media(min-width:1051px){html .mode-command:has(.olympus-armory) .center-stack{grid-column:2}html .mode-command:has(.olympus-armory) .right-stack{grid-column:3}}
+@media(min-width:1201px){html .mode-command:has(.olympus-armory) .center-stack{grid-column:2}html .mode-command:has(.olympus-armory) .right-stack{grid-column:3}}
 
 /* A brief metallic reflection, with a long quiet interval and staggered phases. */
 .armory-roster-emblem{position:relative;overflow:hidden;isolation:isolate}
@@ -207,7 +207,7 @@ html:has(.olympus-armory) .olympus-wordmark{font-size:30px;letter-spacing:4px}
 @keyframes armory-branch-flash{0%,65%{opacity:0}67%{opacity:.5}70%{opacity:.1}73%{opacity:.3}81%,100%{opacity:0}}
 /* Stacked Command stays in document flow; resource telemetry has its own
    surface and the instrument retains its full first row. */
-@media(max-width:1050px){
+@media(max-width:1200px){
  html:has(.mode-command .olympus-armory), body:has(.mode-command .olympus-armory), #root:has(.mode-command .olympus-armory){height:auto;min-height:100%;overflow:visible}
  html .app-shell:has(.olympus-armory){height:auto;min-height:100vh;overflow:visible}
  html .mode-command:has(.olympus-armory) .dashboard-body{overflow:visible;flex:none}
@@ -220,8 +220,18 @@ html:has(.olympus-armory) .olympus-wordmark{font-size:30px;letter-spacing:4px}
 html .mode-command:has(.olympus-armory) .center-stack:has(>.usage-summary--dock){overflow:visible;gap:10px}
 html .mode-command:has(.olympus-armory) .center-stack:has(>.usage-summary--dock)>.panel-slot-instrument{height:0;flex:1 1 0;min-height:0}
 html .mode-command:has(.olympus-armory) .center-stack:has(>.usage-summary--dock) .command-instrument__dial{width:min(100cqw,calc(100dvh - 410px),740px);height:min(100cqw,calc(100dvh - 410px),740px);margin-top:0}
-@media(max-width:1050px){
+@media(max-width:1200px){
  html .mode-command:has(.olympus-armory) .center-stack:has(>.usage-summary--dock)>.panel-slot-instrument{min-height:520px}
  html .mode-command:has(.olympus-armory) .right-stack>.panel-slot-chat{height:600px;flex:none}
  html .mode-command:has(.olympus-armory) .right-stack>.panel-slot-chat>.command-console{height:100%;max-height:100%;overflow:hidden}
 }
+
+/* Approved canyon cleanup: retain the open scene and existing controls. */
+html .mode-command:has(.olympus-armory) .center-stack:has(>.usage-summary--dock) .command-instrument[data-flagship]{padding:46px 0 8px;justify-content:flex-start}
+html .mode-command:has(.olympus-armory) .center-stack:has(>.usage-summary--dock) .command-instrument__dial{width:100%;height:auto;flex:1 1 0;min-height:0;max-height:660px;margin:0;aspect-ratio:auto}
+.command-instrument[data-flagship] .command-instrument__dial .armory-constellation{left:auto;right:7%;top:4%;width:82px;height:62px}
+.command-instrument[data-flagship] .command-instrument__dial .skills-constellation{left:7%;right:auto;top:4%;width:82px;height:62px}
+@media(max-width:1200px){html .mode-command:has(.olympus-armory) .center-stack:has(>.usage-summary--dock)>.panel-slot-instrument{min-height:600px}}
+
+/* The legacy dashboard's 1280px body floor must not widen the canyon layout. */
+body:has(.mode-command .olympus-armory){min-width:0;overflow-x:clip}

@@ -141,14 +141,34 @@ pub struct Status {
     cached_messages: u64,
     last_run: Option<Value>,
     candidates: Vec<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    brief_mail: Option<Vec<Value>>,
+}
+// Some HTML receipts render a product-name cell and SKU immediately before Quantity.
+fn receipt_item(body: &str) -> Option<&str> {
+    let mut cells = Vec::new();
+    for line in body.lines().map(str::trim) {
+        if line.eq_ignore_ascii_case("quantity") {
+            return cells.iter().rev().find_map(|&cell: &&str| {
+                let name = cell.strip_prefix('│')?.trim_matches(|c: char| c == '│' || c.is_whitespace());
+                (name.len() >= 5 && name.chars().count() <= 140 && name.contains(' ')
+                    && name.chars().any(char::is_alphabetic) && !name.contains('@') && !name.contains("http")).then_some(name)
+            });
+        }
+        if !line.is_empty() {
+            if cells.len() == 4 { cells.remove(0); }
+            cells.push(line);
+        }
+    }
+    None
 }
 #[tauri::command]
-pub async fn gmail_status(app: tauri::AppHandle) -> Result<Status, String> {
-    tauri::async_runtime::spawn_blocking(move || status(&app))
+pub async fn gmail_status(app: tauri::AppHandle, include_brief: Option<bool>) -> Result<Status, String> {
+    tauri::async_runtime::spawn_blocking(move || status(&app, include_brief.unwrap_or(false)))
         .await
         .map_err(|_| "gmail_worker_failed")?
 }
-fn status(app: &tauri::AppHandle) -> Result<Status, String> {
+fn status(app: &tauri::AppHandle, include_brief: bool) -> Result<Status, String> {
     let db = app.state::<Db>();
     let runtime = app.state::<Runtime>();
     let c = db.0.lock().map_err(|_| "gmail_database_unavailable")?;
@@ -165,6 +185,23 @@ fn status(app: &tauri::AppHandle) -> Result<Status, String> {
     } else {
         Vec::new()
     };
+    let brief_mail = if include_brief && account.as_ref().is_some_and(|a| a.enabled) {
+        let recent = cutoff.max(chrono::Utc::now().timestamp_millis() - 7 * 86_400_000);
+        let mut query = c.prepare("SELECT snapshot_json FROM gmail_messages WHERE account_id=?1 AND available=1 AND in_scope=1 AND internal_date>=?2 ORDER BY internal_date DESC,id LIMIT 500").map_err(|_| "gmail_database_read_failed")?;
+        let mut seen = std::collections::HashSet::new();
+        let mut rows = Vec::new();
+        for row in query.query_map(params![id,recent], |r| r.get::<_,String>(0)).map_err(|_| "gmail_database_read_failed")? {
+            let mail: mime::Mail = serde_json::from_str(&row.map_err(|_| "gmail_database_read_failed")?).map_err(|_| "gmail_database_read_failed")?;
+            if !seen.insert(mail.thread_id.clone()) || mail.labels.iter().any(|l| matches!(l.as_str(),"SENT"|"DRAFT"|"CATEGORY_PROMOTIONS"|"SPAM"|"TRASH")) { continue; }
+            let detail = mail.clean_text.lines().map(str::trim).find(|line| {
+                let lower = line.to_ascii_lowercase();
+                ["estimated delivery", "expected delivery", "estimated arrival", "the estimated delivery", "item:", "payment due:", "deadline:"].iter().any(|prefix| lower.starts_with(prefix))
+                    && line.chars().count() <= 180 && !lower.contains("http") && !line.contains('@')
+            });
+            rows.push(json!({"messageId":mail.id,"threadId":mail.thread_id,"fingerprint":mail.fingerprint,"subject":mail.subject,"sender":mail.sender,"timestamp":mail.internal_date,"detail":detail,"item":receipt_item(&mail.clean_text)}));
+        }
+        Some(rows)
+    } else { None };
     let path = config_path(app)?;
     Ok(Status {
         analysis: health::analysis_readiness(
@@ -178,6 +215,7 @@ fn status(app: &tauri::AppHandle) -> Result<Status, String> {
         cached_messages: count,
         last_run,
         candidates,
+        brief_mail,
     })
 }
 fn sync_inner(app: &tauri::AppHandle, runtime: &Runtime) -> Result<(), String> {
@@ -386,7 +424,7 @@ pub fn start_cadence(app: tauri::AppHandle) {
                     db.0.lock()
                         .ok()
                         .and_then(|c| store::account(&c).ok().flatten())
-                        .is_some_and(|a| health::sync_due(a.enabled, &a.status, a.next_sync.as_deref(), chrono::Utc::now()));
+                        .is_some_and(|a| health::sync_due(a.enabled, &a.status, a.last_error.as_deref(), a.next_sync.as_deref(), chrono::Utc::now()));
                 value
             };
             if enabled {

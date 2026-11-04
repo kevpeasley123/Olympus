@@ -1,0 +1,52 @@
+import {chromium} from 'playwright';
+import assert from 'node:assert/strict';
+import {mkdir,writeFile} from 'node:fs/promises';
+const base=process.argv[2]??'http://127.0.0.1:31430';
+await mkdir('output/observatory',{recursive:true});
+const browser=await chromium.launch({channel:'msedge',headless:true});
+try{
+ const page=await browser.newPage({viewport:{width:1440,height:960}});const errors=[];
+ page.on('pageerror',e=>errors.push(e.message));
+ await page.goto(base+'/communications-harness.html?navigator&fit&observatory');
+ await page.locator('.focused-workspace').waitFor();
+ assert.equal(await page.locator('.focused-workspace').count(),1,'Communications uses the focused map');
+ await page.locator('.focused-node-select').first().waitFor();
+ const focus=await page.locator('.focused-map').getAttribute('data-focus');
+ await page.locator('.focused-branch .focused-node-select').first().click();
+ assert.equal(await page.locator('.focused-map').getAttribute('data-focus'),focus,'selection does not move map');
+ await page.locator('.focused-branch .focused-node-expand').first().click();
+ assert.notEqual(await page.locator('.focused-map').getAttribute('data-focus'),focus,'branch action focuses map');
+ await page.getByRole('tab',{name:'Documents',exact:true}).click();
+ assert.equal(await page.getByRole('tab',{name:'Documents',exact:true}).getAttribute('aria-selected'),'true');
+ await page.getByRole('tab',{name:'Documents',exact:true}).press('Home');
+ assert.equal(await page.getByRole('tab',{name:'Summary',exact:true}).getAttribute('aria-selected'),'true','keyboard tab navigation');
+ await page.getByRole('searchbox',{name:'Search relationships, conversations and documents'}).fill('unlikelymissingrecord');
+ assert.ok(await page.getByText('No matching relationships or sources.').isVisible());
+ await page.getByRole('searchbox',{name:'Search relationships, conversations and documents'}).fill('');
+ await page.evaluate(()=>document.fonts.ready);
+ await page.getByRole('searchbox').blur();await page.mouse.move(0,0);
+ await page.screenshot({path:'output/observatory/1440x960.png',fullPage:true});
+ const faults=[];
+ for(const [w,h] of [[1920,1080],[1280,800],[1000,900],[760,900]]){
+  await page.setViewportSize({width:w,height:h});
+  await page.screenshot({path:`output/observatory/${w}x${h}.png`,fullPage:true});
+  const size=await page.evaluate(()=>({width:innerWidth,scroll:document.documentElement.scrollWidth}));
+  if(size.scroll>size.width+1)faults.push(`${w}: horizontal page overflow ${size.scroll}`);
+  const panes=await page.evaluate(()=>{const rect=s=>document.querySelector(s).getBoundingClientRect().toJSON();return {split:rect('.focused-split'),map:rect('.focused-map'),detail:rect('.focused-detail')}});
+  if(panes.detail.right>panes.split.right+1||panes.map.right>panes.split.right+1)faults.push(`${w}: pane clipped within workspace`);
+  if(w<=900&&panes.detail.top<panes.map.bottom-1)faults.push(`${w}: compact panes must stack`);
+ }
+ await page.setViewportSize({width:1440,height:960});
+ await page.getByRole('button',{name:'Back to parent branch',exact:true}).click();
+ await page.screenshot({path:'output/observatory/home.png',fullPage:true});
+ await page.getByRole('button',{name:'Focus branch: Inspections & repairs',exact:true}).click();
+ await page.screenshot({path:'output/observatory/inspections.png',fullPage:true});
+ await page.locator('.focused-pagination').getByRole('button',{name:'More',exact:true}).click();
+ await page.screenshot({path:'output/observatory/large-branch.png',fullPage:true});
+ await page.locator('.focused-branch .focused-node-select').first().click();
+ await page.getByRole('tab',{name:'Documents',exact:true}).click();
+ await page.screenshot({path:'output/observatory/documents.png',fullPage:true});
+ assert.deepEqual(errors,[]);assert.deepEqual(faults,[]);
+ await writeFile('output/observatory/browser-report.json',JSON.stringify({errors,faults},null,2));
+ console.log('PASS focused map selection, branch navigation, tabs, search, viewport overflow and page errors');
+}finally{await browser.close()}

@@ -94,8 +94,7 @@ try{
  const dock=await page.locator('.olympus-signal').boundingBox();
  check(dock&&dial&&Math.abs(dock.x+dock.width/2-(dial.x+dial.width/2))<2,'The signal is centred beneath the Omega');
  check(dock.y+dock.height/2>dial.y+dial.height*0.85,'The signal line sits below the Omega and its constellations');
- const vault=await page.locator('.vault-constellation__label').boundingBox();
- check(!vault||dock.y+dock.height/2-46>vault.y+vault.height,'The waveform halo clears the memory label');
+ check(await page.locator('.vault-constellation').count()===0,'Vault notes live in the central field');
  await page.screenshot({path:'output/voice-signal-review/command.png'});
  check(errors.length===0,`No page errors: ${errors.join('; ')}`);
 }finally{await browser.close();}

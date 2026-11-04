@@ -286,6 +286,41 @@ pub fn authorize(
 // https://developers.google.com/workspace/gmail/api/reference/quota
 const FETCH_WORKERS: usize = 4;
 const REQUEST_SPACING: Duration = Duration::from_millis(250);
+fn refresh_failure(code: String) -> ApiError {
+    match code.as_str() {
+        "gmail_authentication_required" => ApiError::Auth("gmail_refresh_grant_rejected".into()),
+        "gmail_credential_missing" => ApiError::Auth(code),
+        _ => ApiError::Other(code),
+    }
+}
+
+#[cfg(test)]
+mod refresh_failure_tests {
+    use super::*;
+    // Opt-in diagnostic: refresh through the normal adapter, without mailbox access
+    // or persisted token/account changes. Never include identifiers in output.
+    #[test]
+    #[ignore = "contacts Google with the installed Olympus grant"]
+    fn live_installed_grant_refresh_only() {
+        let root=std::path::PathBuf::from(std::env::var_os("APPDATA").expect("Windows profile unavailable")).join("com.projectolympus.commandstation");
+        let db=rusqlite::Connection::open_with_flags(root.join("olympus.sqlite"),rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY).expect("installed DB unavailable");
+        let account:String=db.query_row("SELECT id FROM gmail_accounts WHERE enabled=1 ORDER BY connected_at DESC LIMIT 1",[],|r|r.get(0)).expect("no enabled Gmail account");
+        let runtime=Runtime::default();
+        let api=GmailHttp::new(account,config(&root.join("gmail-oauth-client.json")).expect("desktop OAuth config unavailable"),&runtime).expect("HTTP adapter unavailable");
+        let mut session=api.session().expect("session unavailable");
+        if let Err(error)=api.refresh(&mut session) { panic!("installed refresh result: {}",error.code()); }
+        assert!(!session.token.is_empty());
+    }
+    #[test]
+    fn transient_failures_do_not_disable_automatic_sync() {
+        for code in ["gmail_secure_store_unavailable","gmail_network_unavailable","oauth_exchange_failed"] {
+            assert!(matches!(refresh_failure(code.into()), ApiError::Other(_)));
+        }
+        assert!(matches!(refresh_failure("gmail_authentication_required".into()), ApiError::Auth(code) if code=="gmail_refresh_grant_rejected"));
+        assert!(matches!(refresh_failure("gmail_credential_missing".into()), ApiError::Auth(_)));
+    }
+}
+
 struct Session {
     token: String,
     expires: Instant,
@@ -333,23 +368,17 @@ impl<'a> GmailHttp<'a> {
         Ok(())
     }
     fn refresh(&self, session: &mut Session) -> Result<(), ApiError> {
-        let refresh = WindowsSecrets.get(&self.account).map_err(ApiError::Auth)?;
+        let refresh = WindowsSecrets.get(&self.account).map_err(refresh_failure)?;
         let value = token(&[
             ("client_id", &self.cfg.client_id),
             ("client_secret", &self.cfg.client_secret),
             ("refresh_token", &refresh),
             ("grant_type", "refresh_token"),
         ])
-        .map_err(|e| {
-            if e == "gmail_authentication_required" {
-                ApiError::Auth(e)
-            } else {
-                ApiError::Other(e)
-            }
-        })?;
+        .map_err(refresh_failure)?;
         session.token = value["access_token"]
             .as_str()
-            .ok_or_else(|| ApiError::Auth("oauth_token_missing".into()))?
+            .ok_or_else(|| ApiError::Other("oauth_token_missing".into()))?
             .into();
         session.expires = Instant::now()
             + Duration::from_secs(
@@ -449,7 +478,7 @@ impl GmailHttp<'_> {
                 if attempt < 2 {
                     continue;
                 }
-                return Err(ApiError::Auth("gmail_authentication_required".into()));
+                return Err(ApiError::Other("gmail_access_token_rejected".into()));
             }
             if status == 404 {
                 return Err(ApiError::NotFound);

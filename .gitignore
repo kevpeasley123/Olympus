@@ -27,3 +27,6 @@ __pycache__/
 *.py[cod]
 
 .local-voice/
+
+# Private local agent session ledgers.
+/.superpowers/

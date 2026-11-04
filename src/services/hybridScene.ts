@@ -12,7 +12,7 @@ import { buildCommandMaterialStudy } from "./commandMaterialStudy";
 import { buildMissionScene } from "./pantheonMissionScene";
 import { buildPantheonFigures } from "./pantheonFigures";
 import { agentConstellationSnapshot } from "./agentConstellation";
-import { buildPantheonGalaxy } from "./pantheonGalaxy";
+import { buildPantheonGalaxy, GALAXY_RADIUS } from "./pantheonGalaxy";
 import { buildConstellationField } from "./constellationField";
 import { layoutBackdropStars } from "./constellationBackdrop";
 import { advanceConstellationYaw, CONSTELLATION_ROTATION, nodeCategory, NODE_PALETTE, projectConstellationPoint } from "./constellationPresentation";
@@ -57,10 +57,10 @@ export function mountHybridScene(host: HTMLDivElement, layout: CommandLayout, cu
   host.appendChild(canvas);
   const scene = new T.Scene(); // Transparent scene: the live page supplies the environment background.
   if(layout.flagship)scene.fog=new T.FogExp2(0x172632,.00048);
-  const camera = layout.flagship ? new T.PerspectiveCamera(43, 1, 1, 1200) : new T.OrthographicCamera(-220,220,220,-220,1,1000);
+  const camera = layout.flagship ? new T.PerspectiveCamera(49, 1, 1, 1200) : new T.OrthographicCamera(-220,220,220,-220,1,1000);
   if (layout.flagship) camera.position.set(-85, 40, 700);
   else camera.position.set(HYBRID_CAMERA.x,HYBRID_CAMERA.y,HYBRID_CAMERA.z);
-  camera.lookAt(0,layout.flagship ? -24 : 0,0);
+  camera.lookAt(0,layout.flagship ? 30 : 0,0);
   const pointerTarget=new T.Vector2(),pointer=new T.Vector2();
   const interaction=host.closest('.command-instrument__dial') ?? host.parentElement!;
   const movePointer=(event:Event)=>{
@@ -315,7 +315,14 @@ export function mountHybridScene(host: HTMLDivElement, layout: CommandLayout, cu
   let stopped=false, time=0, previous=0;
   const lost=(event:Event)=>{event.preventDefault();fail("Graphics context lost.");};canvas.addEventListener("webglcontextlost",lost);
   let renderWidth=0,renderHeight=0;
-  const resize=()=>{const {width,height}=host.getBoundingClientRect();if(width<=0||height<=0||(width===renderWidth&&height===renderHeight))return;renderWidth=width;renderHeight=height;renderer.setSize(width,height,false);composer.setSize(width,height);};
+  const resize=()=>{const {width,height}=host.getBoundingClientRect();if(width<=0||height<=0||(width===renderWidth&&height===renderHeight))return;renderWidth=width;renderHeight=height;
+    if(camera instanceof T.PerspectiveCamera){
+      camera.aspect=width/height;
+      // Fit the complete Pantheon, including name plates, on narrow stages.
+      camera.zoom=Math.min(1,camera.aspect*646/900);
+      camera.updateProjectionMatrix();
+    }
+    renderer.setSize(width,height,false);composer.setSize(width,height);};
   // A hidden view (background tab, or another mode's display:none) sleeps with
   // no timer at all; becoming visible or regaining a size wakes it.
   const hidden=()=>document.visibilityState!=="visible"||host.getBoundingClientRect().width<=0;
@@ -338,14 +345,14 @@ export function mountHybridScene(host: HTMLDivElement, layout: CommandLayout, cu
     if (value.engine === "codex" || value.engine === "claude-code") {
       ringLightMaterials.forEach(material => material.uniforms.tint.value.lerp(engineTint, .06));
     }
-    if(layout.flagship){camera.position.x=-85+pointer.x*5;camera.position.y=40+pointer.y*4;camera.lookAt(0,layout.flagship ? -24 : 0,0);}
+    if(layout.flagship){camera.position.x=-85+pointer.x*5;camera.position.y=40+pointer.y*4;camera.lookAt(0,layout.flagship ? 30 : 0,0);}
     scene.updateMatrixWorld(true);camera.updateMatrixWorld(true);
     architecture?.update(time);
     const missionCount=missionScene?.update(value.missions??[],value.selectedMission??null,delta)??0;
     // Figure states keep wall-clock time so brief transitions end even when motion is reduced.
     const figureStates=figures?.update(value.missions??[],agentConstellationSnapshot(),delta,now/1000,moving)??"";
     if(HARNESS_ATTRIBUTES)canvas.dataset.figureStates=figureStates;
-    if(HARNESS_ATTRIBUTES&&galaxy){canvas.dataset.galaxyTime=String(time);canvas.dataset.galaxyYaw=String(galaxy.group.rotation.y);canvas.dataset.galaxyBodies=String(missionCount);canvas.dataset.missionPlanets=String(missionCount);canvas.dataset.galaxyDust="0";canvas.dataset.assetNodes=String(galaxy.count());canvas.dataset.sourcePulses=String(galaxy.activePulses());}
+    if(HARNESS_ATTRIBUTES&&galaxy){canvas.dataset.galaxyTime=String(time);canvas.dataset.galaxyYaw=String(galaxy.group.rotation.y);canvas.dataset.galaxyBodies=String(missionCount);canvas.dataset.missionPlanets=String(missionCount);canvas.dataset.galaxyDust=String(galaxy.particleCount);canvas.dataset.assetNodes=String(galaxy.count());canvas.dataset.sourcePulses=String(galaxy.activePulses());}
     constellationMotion.yaw=advanceConstellationYaw(constellationMotion.yaw,delta,moving);
     constellationGroup.rotation.y=constellationMotion.yaw;
     orbitalTime+=value.state==="error"?0:delta*(value.state==="thinking"?14:1);
@@ -405,7 +412,7 @@ export function mountHybridScene(host: HTMLDivElement, layout: CommandLayout, cu
     canvas.dataset.voiceSignatureEnergy=String(voiceUniforms.energy.value);}
     glow.emissiveIntensity=.23+(moving?Math.sin(time*.8)*.06:0)+energy*.55;
     const light=value.light??{};
-    const illumination=study.update(time, energy, moving, light, value.state==="idle", value.state==="speaking", executing, operationPulse, value.state==="complete", errorState?errorAge:-1);
+    const illumination=study.update(time, energy, moving, light, value.state==="idle", value.state==="speaking", executing, operationPulse, value.state==="complete", errorState?errorAge:-1, value.engine==="codex");
     glow.color.set(value.state==="error"?0xe57854:ORANGE);
     // Linear response: no clipping, easing or separate clock to flatten/delay a pulse.
     const canyonLight=.08+(illumination-.82)*.62;
@@ -462,6 +469,24 @@ export function mountHybridScene(host: HTMLDivElement, layout: CommandLayout, cu
     if(!announced && renderCount){announced=true;ready();}
     if(HARNESS_ATTRIBUTES&&(lastStats===0||now-lastStats>500)){lastStats=now;canvas.dataset.constellationYaw=String(constellationMotion.yaw);canvas.dataset.rings=String(orbital.filter(r=>r.visible).length);canvas.dataset.ringOrientation=orbital[0].quaternion.toArray().join(",");canvas.dataset.frames=String(renderCount);canvas.dataset.drawCalls=String(renderer.info.render.calls);canvas.dataset.nodes=String(nodes.length);canvas.dataset.parallax=JSON.stringify([pointer.x,pointer.y]);
       canvas.dataset.projection=camera.type;
+      if(layout.flagship){
+        // Dev-only silhouette of the rotating particle sphere, including its
+        // frontmost dots. Geometry checks use the actual camera after resize
+        // and pointer parallax, rather than assuming a square canvas.
+        const normal=camera.position.clone().normalize();
+        const u=new T.Vector3(0,1,0).cross(normal).normalize(),v=normal.clone().cross(u);
+        const distance=camera.position.length(),ratio=GALAXY_RADIUS/distance;
+        const centre=normal.clone().multiplyScalar(GALAXY_RADIUS*ratio);
+        const radius=GALAXY_RADIUS*Math.sqrt(1-ratio*ratio);
+        let left=Infinity,right=-Infinity,top=Infinity,bottom=-Infinity;
+        for(let i=0;i<64;i++){
+          const angle=i/64*Math.PI*2;
+          const p=centre.clone().addScaledVector(u,Math.cos(angle)*radius).addScaledVector(v,Math.sin(angle)*radius).project(camera);
+          const x=(p.x*.5+.5)*renderWidth,y=(.5-p.y*.5)*renderHeight;
+          left=Math.min(left,x);right=Math.max(right,x);top=Math.min(top,y);bottom=Math.max(bottom,y);
+        }
+        canvas.dataset.galaxyEnvelope=JSON.stringify({x:(left+right)/2,y:(top+bottom)/2,r:Math.max(right-left,bottom-top)/2+4});
+      }
       }
     // One loop; no React updates per frame. Hidden and reduced-motion views render only on changes.
     if(moving)frame=requestAnimationFrame(render);

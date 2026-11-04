@@ -440,6 +440,7 @@ export function useDashboardData() {
           dashboardRef.current.projects,
           (event) => {
             switch (event.kind) {
+              case "vaultRecall": if(!session.temporary)recordSourceAccess("olympus",event.file,true,activeRequest.current??"Vault recall","read","note:"+event.file); break;
               case "sourceAccess": if (!session.temporary) recordSourceAccess("Repository inspection", event.project + "/" + event.file, event.success, activeRequest.current ?? "Repository inspection"); break;
               case "progress": setChatProgress(event.message); break;
               case "started":
