@@ -126,13 +126,14 @@ export async function prepareFactualBrief(
  for(const [merchant,group] of merchantUpdates){
    if(group.length<2)continue;
    const first=group[0];
-   parts.set(first,group.map(f=>({...f})));
-   const reports=group.slice(0,2).map(f=>f.text.slice(f.text.indexOf(" sent a shipping update on ")+1));
+   const displayed=group.slice(0,2);
+   parts.set(first,displayed.map(f=>({...f})));
+   const sources=displayed.map(f=>gmail!.briefMail!.find(m=>f.id==="mail:"+gmail!.account!.id+":notice:"+m.threadId)!);
    const name=merchant.split("<")[0].replace(/^"|"$/g,"").trim() || "The sender";
-   first.text=name+" sent "+group.length+" shipping notices this week. "+reports.map(r=>r.replace(/^sent a shipping update on /,"")).join(" ");
-   for(const other of group.slice(1,2))findings.splice(findings.indexOf(other),1);
-   // Only acknowledge the notices actually described.
-   parts.set(first,parts.get(first)!.slice(0,2));
+   const descriptions=sources.map(m=>new Date(m.timestamp).toLocaleDateString(undefined,{month:"short",day:"numeric"})+" — "+(m.item || m.subject)+(m.detail?" ("+m.detail+")":""));
+   first.text=name+" sent two shipping updates. "+descriptions.join(". ")+".";
+   if(sources.every(m=>/has shipped|order shipped/i.test(m.subject)))first.text+=" Both notices confirm dispatch. Arrival is still unconfirmed in these messages.";
+   for(const other of displayed.slice(1))findings.splice(findings.indexOf(other),1);
  }
  for(const memoryItem of findings.filter(f=>f.kind==="context" && f.source)){
    if(mode==="opening" && receipts[memoryItem.id]?.revision===await digest(memoryItem.revision))continue;
@@ -164,7 +165,7 @@ export async function prepareFactualBrief(
  });
  const selected=selectBrief(eligible,receipts,mode,now);
  const substantive=selected.filter(i=>i.kind!=="limitation");
- const items=substantive.length?substantive:mode==="opening"?selected.filter(i=>i.id!=="coverage:analysis"):selected;
+ const items=selected.filter(i=>i.id!=="coverage:analysis" || (!substantive.length && mode==="requested"));
 
  const receiptItems=[...new Map(items.flatMap(i=>[{id:i.id,revision:i.revision},...(constituents.get(i.id)??[])]).map(r=>[r.id,r])).values()];
  const delivery:DisplayPlan={preparedAt:now,items:receiptItems,cursors:windowRoot && !projectsError?displayedCursors(checkedProjects,new Set(receiptItems.map(i=>i.id))):[]};
