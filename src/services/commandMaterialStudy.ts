@@ -107,12 +107,12 @@ function engravedTexture(fractured = false) {
   texture.repeat.set(1/128,1/128);texture.offset.set(.5,.5);texture.colorSpace=T.SRGBColorSpace;
   return texture;
 }
-function contourTexture() {
+function contourTexture(blue=false) {
   const canvas=document.createElement("canvas");canvas.width=canvas.height=1024;const c=canvas.getContext("2d")!;
   c.scale(1024/160,1024/160);c.translate(80,80);
   const path=new Path2D(OMEGA);
-  c.strokeStyle="#ff7a12";c.shadowColor="#ff7a12";c.shadowBlur=35;c.lineWidth=1.05;c.stroke(path);
-  c.shadowBlur=12;c.lineWidth=.55;c.strokeStyle="#ffb854";c.stroke(path);
+  c.strokeStyle=blue?"#429eff":"#ff7a12";c.shadowColor=c.strokeStyle;c.shadowBlur=35;c.lineWidth=1.05;c.stroke(path);
+  c.shadowBlur=12;c.lineWidth=.55;c.strokeStyle=blue?"#a4dbff":"#ffb854";c.stroke(path);
   const texture=new T.CanvasTexture(canvas);texture.colorSpace=T.SRGBColorSpace;return texture;
 }
 
@@ -121,7 +121,7 @@ export function buildCommandMaterialStudy(scene:T.Scene,renderer:T.WebGLRenderer
   const environment=new RoomEnvironment(), pmrem=new T.PMREMGenerator(renderer);
   const environmentTarget=pmrem.fromScene(environment,.04);scene.environment=environmentTarget.texture;scene.environmentIntensity=.48;
   environment.dispose();pmrem.dispose();
-  const engraving=engravedTexture(Boolean(layout.flagship)), contour=contourTexture();
+  const engraving=engravedTexture(Boolean(layout.flagship)), contour=contourTexture(), blueContour=contourTexture(true);
   const frameMetal=new T.MeshPhysicalMaterial({color:0x1c303f,metalness:.85,roughness:.25,envMapIntensity:.55,clearcoat:.4});
   const lines=new T.LineBasicMaterial({color:0x547891,transparent:true,opacity:MATERIAL_TUNING.structureSecondary});
   const warmLines=new T.LineBasicMaterial({color:layout.orbitalCards?0xffd19a:0xffa13d,transparent:true,opacity:.8,toneMapped:false});
@@ -135,8 +135,8 @@ export function buildCommandMaterialStudy(scene:T.Scene,renderer:T.WebGLRenderer
     : extrude(shapes,7,.65);body.scale(1,-1,1);body.setIndex(Array.from({length:body.getAttribute('position').count},(_,i)=>i%3===1?i+1:i%3===2?i-1:i));
   const face=new T.MeshPhysicalMaterial({color:0x6c3611,metalness:.25,roughness:.36,envMapIntensity:.3,clearcoat:.5,clearcoatRoughness:.14,transmission:0,thickness:2.5,ior:1.48,emissive:0xd87520,emissiveMap:engraving,emissiveIntensity:1.8});
   const side=new T.MeshPhysicalMaterial({color:layout.flagship?0xb8792a:0x38261b,metalness:.88,roughness:.2,envMapIntensity:1.1,clearcoat:.65});
-  const electricity={clock:{value:0},power:{value:1}};
-  const lightningShader=`varying vec2 omegaSurface;uniform float omegaClock,omegaPower;
+  const electricity={clock:{value:0},power:{value:1},tint:{value:new T.Vector3(1,.27,.035)}};
+  const lightningShader=`varying vec2 omegaSurface;uniform float omegaClock,omegaPower;uniform vec3 omegaTint;
 float omegaNoise(float p){float i=floor(p);return mix(fract(sin(i*127.1)*43758.5453),fract(sin((i+1.)*127.1)*43758.5453),fract(p))-.5;}
 float omegaStroke(vec2 p,float seed,float reach){
 float jag=omegaNoise(p.x*.65+seed)*1.6+omegaNoise(p.x*1.9+seed)*.5;
@@ -188,14 +188,14 @@ return omegaStroke(q,event*17.+91.,reach)*envelope;
   if(layout.flagship){
     face.metalness=.52;face.roughness=.26;face.envMapIntensity=.7;
     face.onBeforeCompile=shader=>{
-      shader.uniforms.omegaClock=electricity.clock;shader.uniforms.omegaPower=electricity.power;
+      shader.uniforms.omegaClock=electricity.clock;shader.uniforms.omegaPower=electricity.power;shader.uniforms.omegaTint=electricity.tint;
       shader.vertexShader='varying vec2 omegaSurface;\n'+shader.vertexShader;
       shader.vertexShader=shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nomegaSurface=position.xy;');
       shader.fragmentShader=lightningShader+shader.fragmentShader;
       shader.fragmentShader=shader.fragmentShader.replace('#include <emissivemap_fragment>',`#include <emissivemap_fragment>
 float current=omegaBurst(omegaSurface);
 float fracture=omegaFracture(omegaSurface*.12);
-totalEmissiveRadiance+=vec3(1.,.27,.035)*(current*2.1+fracture*.055)*omegaPower;
+totalEmissiveRadiance+=omegaTint*(current*2.1+fracture*.055)*omegaPower;
 `);
     };
   }
@@ -203,10 +203,10 @@ totalEmissiveRadiance+=vec3(1.,.27,.035)*(current*2.1+fracture*.055)*omegaPower;
   if(layout.flagship){
     // A shared-clock discharge plane lets every fourth burst cross the glyph edge.
     const escaping=new T.ShaderMaterial({
-      uniforms:{omegaClock:electricity.clock,omegaPower:electricity.power},
+      uniforms:{omegaClock:electricity.clock,omegaPower:electricity.power,omegaTint:electricity.tint},
       transparent:true,depthWrite:false,depthTest:true,blending:T.AdditiveBlending,toneMapped:false,
       vertexShader:`varying vec2 omegaSurface;void main(){omegaSurface=position.xy;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
-      fragmentShader:lightningShader+`void main(){float bolt=omegaEscape(omegaSurface);gl_FragColor=vec4(vec3(1.,.38,.07)*omegaPower,clamp(bolt*.85,0.,1.));}`,
+      fragmentShader:lightningShader+`void main(){float bolt=omegaEscape(omegaSurface);gl_FragColor=vec4(omegaTint*omegaPower,clamp(bolt*.85,0.,1.));}`,
     });
     mesh(new T.PlaneGeometry(180,180),escaping,11.05).name='Omega escaping lightning';
   }
@@ -477,7 +477,7 @@ totalEmissiveRadiance+=vec3(1.,.27,.035)*(current*2.1+fracture*.055)*omegaPower;
   let previousTime=0,wasIdle=false,speechAmount=0;
   return {
     studyIds,
-    update(time:number,energy:number,moving:boolean,light:Readonly<Record<string,number>>,idle=false,speaking=false,executing=false,operationPulse=0,completing=false,errorAge=-1){
+    update(time:number,energy:number,moving:boolean,light:Readonly<Record<string,number>>,idle=false,speaking=false,executing=false,operationPulse=0,completing=false,errorAge=-1,codex=false){
       const frameDelta=Math.min(.05,Math.max(0,time-previousTime));
       const target=speaking&&moving?Math.max(0,Math.min(1,energy)):0;
       const response=target>speechAmount?OMEGA_SPEECH.attackSeconds:OMEGA_SPEECH.releaseSeconds;
@@ -488,14 +488,19 @@ totalEmissiveRadiance+=vec3(1.,.27,.035)*(current*2.1+fracture*.055)*omegaPower;
       const idleSample=idle?idleCycle(delta,moving):null;
       const error=errorAge>=0;
       const dip=error&&moving&&errorAge<1.4?.20*Math.sin(Math.PI*errorAge/1.4)**2:0;
-      face.color.set(error?0x480609:0x6c3611);
-      face.emissive.set(error?0xa30813:0xd87520);
-      radialMaterial.uniforms.tint.value.set(1,error?.008:.25,error?.018:.035);
-      warmLines.color.set(error?0xc91422:0xffa13d);
+      const blue=codex&&!error;
+      haloMaterial.map=blue?blueContour:contour;
+      side.color.set(layout.flagship?(blue?0x365e91:0xb8792a):0x38261b);
+      coreLight.color.set(error?0xff2020:blue?0x619fff:0xff8c36);
+      face.color.set(error?0x480609:blue?0x173965:0x6c3611);
+      face.emissive.set(error?0xa30813:blue?0x408cff:0xd87520);
+      radialMaterial.uniforms.tint.value.set(blue?.055:1,error?.008:blue?.34:.25,error?.018:blue?1:.035);
+      electricity.tint.value.copy(radialMaterial.uniforms.tint.value);
+      warmLines.color.set(error?0xc91422:blue?0x9ed3ff:0xffa13d);
       haloMaterial.color.set(error?0xd51022:0xffffff);
       const legacyEnvelope=error?.95-dip:executing?1.06+(moving?(.5-.5*Math.cos(time*Math.PI*2/5.3))*.10:.05)+operationPulse*.10:idleSample?.envelope??coreGlowEnvelope(time,moving),t=MATERIAL_TUNING;
       // A visible, slow breath survives tone mapping in the distant flagship view.
-      const flagshipBreath=.5-.5*Math.cos(time*Math.PI*2/5.6);
+      const flagshipBreath=1.4*(.5-.5*Math.cos(time*Math.PI*2/5.6));
       const envelope=layout.flagship&&!error
         ? (moving?.82+.95*flagshipBreath+(idleSample?.pulse??0)+operationPulse*.10:1)
         : legacyEnvelope;
@@ -530,6 +535,6 @@ totalEmissiveRadiance+=vec3(1.,.27,.035)*(current*2.1+fracture*.055)*omegaPower;
       });
       return radiance;
     },
-    dispose(){labelTexture.dispose();diffusionTexture.dispose();engraving.dispose();contour.dispose();environmentTarget.dispose();scene.environment=null;}
+    dispose(){labelTexture.dispose();diffusionTexture.dispose();engraving.dispose();contour.dispose();blueContour.dispose();environmentTarget.dispose();scene.environment=null;}
   };
 }

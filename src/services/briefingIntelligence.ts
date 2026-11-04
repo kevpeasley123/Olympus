@@ -1,3 +1,4 @@
+import {transactionFindings} from './briefingTransactions';
 import type { TrackedProject } from '../types';
 import type { ProjectCommandState } from './projectCommandBoard';
 import type { GmailStatus } from './gmail';
@@ -5,7 +6,7 @@ import type { SituationSnapshot } from './situations';
 import type { BriefMemory } from './briefingMemory';
 import type {EmailFeedbackSource} from './conversationFeedback';
 
-export interface BriefItem { id:string; revision:string; text:string; priority:number; kind:'limitation'|'attention'|'progress'|'recommendation'|'context'; source?:{conversationId:string;messageIds:string[]}; emailSource?:EmailFeedbackSource }
+export interface BriefItem { id:string; revision:string; text:string; priority:number; kind:'limitation'|'attention'|'progress'|'recommendation'|'context'; authority?:'source_fact'|'operator_statement'|'remembered_context'|'hypothesis'|'unspecified'; source?:{conversationId:string;messageIds:string[]}; emailSource?:EmailFeedbackSource }
 export interface Receipt { revision:string; deliveredAt:number }
 export type BriefReceipts=Record<string,Receipt>;
 export type BriefMode='opening'|'requested';
@@ -20,40 +21,6 @@ const text=(value:string,limit=260)=>value.replace(/\s+/g,' ').trim().slice(0,li
 const validTime=(value:string|null|undefined,now:number,maxAge=FRESH)=>{
  const at=Date.parse(value??''); return Number.isFinite(at)&&at<=now+60_000&&now-at<=maxAge;
 };
-
-function transactionFindings(gmail:GmailStatus,situations:SituationSnapshot|null,now:number):BriefItem[] {
- const account=gmail.account;
- if(!account)return [];
- const findings:BriefItem[]=[];
- for(const mail of gmail.briefMail??[]) {
-  if(!mail.fingerprint||!mail.threadId||!mail.messageId||!Number.isFinite(mail.timestamp)||mail.timestamp>now||now-mail.timestamp>7*DAY)continue;
-  if(situations?.attention?.some(a=>a.threadId===mail.threadId && a.operatorCorrection))continue;
-  const subject=text(mail.subject,160);
-  const sender=text(mail.sender.split('<')[0].replace(/^"|"$/g,''),60)||'The sender';
-  const date=new Date(mail.timestamp).toLocaleDateString(undefined,{month:'short',day:'numeric'});
-  let report:string,priority:number;
-  if(/\b(delivery (?:failed|exception|delayed)|could not deliver|shipment delayed)\b/i.test(subject)){
-   report=`${sender} reported a delivery problem on ${date}: “${subject}”. Check the carrier notice for the next step.`;priority=79;
-  } else if(/\b(action required|payment due|response due|deadline)\b/i.test(subject) || /^(payment due|deadline):\s*\S/i.test(mail.detail??'')){
-   report=`${sender} flagged “${subject}” on ${date}. Check the original request and whether you have already handled it.`;priority=77;
-  } else if(/\b(has shipped|order shipped|out for delivery|was delivered|has been delivered)\b/i.test(subject)){
-   report=`${sender} sent a shipping update on ${date}: “${subject}”.`;priority=56;
-  } else if(/\b(your receipt|order confirmation|order has been confirmed|got your order|your order invoice)\b/i.test(subject)){
-   report=`${sender} sent “${subject}” on ${date}.`;priority=47;
-  } else continue;
-  if(mail.item) report+=` The notice lists ${text(mail.item,140)}.`;
-  if(mail.detail) {
-   const window=mail.detail.match(/estimated delivery time.*?([0-9]{1,2}:[0-9]{2} [AP]M)\s*[-–]\s*([0-9]{1,2}:[0-9]{2} [AP]M)\s+on\s+([A-Za-z]+ \d{1,2}, \d{4})/i);
-   if(window){
-    report+=` The delivery estimate was ${window[1]}–${window[2]} on ${window[3]}.`;
-    if(Date.parse(window[3]+" "+window[2])<now){report+=" That window has passed. This message does not confirm arrival.";priority=32;}
-   } else report+=` The message says “${text(mail.detail,180)}”.`;
-  }
-  if(priority===56 && /has shipped|order shipped/i.test(subject) && !mail.detail) report+=" This confirms dispatch. There is no delivery confirmation in this notice.";
-  findings.push({id:`mail:${account.id}:notice:${mail.threadId}`,kind:'progress',priority,text:report,revision:JSON.stringify([mail.messageId,mail.fingerprint])});
- }
- return findings.sort((a,b)=>b.priority-a.priority); // Native records arrive newest first.
-}
 
 /** Factual projection only. No provider calls, inferred deadlines or hidden source reads. */
 export function briefItems(input:BriefContext,now=Date.now()):BriefItem[] {
@@ -80,7 +47,7 @@ export function briefItems(input:BriefContext,now=Date.now()):BriefItem[] {
  else {
   const fresh=account.status==='connected'&&!gmail.busy&&!account.lastError&&validTime(account.lastSuccess,now);
   if(!fresh) add('coverage:gmail','limitation',account.status==='authentication_required'
-   ?'Gmail needs reconnection. Cached email does not establish what is happening now.'
+   ?'Reconnect Gmail in Communications to include new email in your next brief.'
    :'Gmail is not current. New correspondence may be missing from this update.',100,[account.id,account.status,account.lastError]);
   const matching=situations?.accountId===account.id;
   const understood=matching&&situations.enabled&&!situations.backgroundError
@@ -98,9 +65,14 @@ export function briefItems(input:BriefContext,now=Date.now()):BriefItem[] {
    const ref=observation?.evidenceRefs.find(r=>r.messageId===candidate.suggestion.messageId&&r.threadId===candidate.threadId&&!!r.fingerprint);
    if(!ref||!candidate.signature||!candidate.suggestion.quote?.trim()||!Number.isFinite(ref.timestamp)
     ||ref.timestamp>now+60_000||now-ref.timestamp>account.horizonDays*DAY) continue;
-   if(correction) add(`mail:${account.id}:${candidate.threadId}`,'attention',`Your correction for ${candidate.subject||'this email'}: ${correction}`,85,[candidate.signature,ref.fingerprint,correction,candidate.learningRevision]);
+   if(correction) {
+     add(`mail:${account.id}:${candidate.threadId}`,'attention','',85,[candidate.signature,ref.fingerprint,correction,candidate.learningRevision]);
+     // Never cut off the operator's negation or resolution to fit a headline.
+     items[items.length-1].text=`Your correction for ${text(candidate.subject||'this email',80)}: ${correction}`;
+    }
    else add(`mail:${account.id}:${candidate.threadId}`,'recommendation',`Email recommendation: ${candidate.suggestion.title}. ${candidate.suggestion.why} Suggested next move: ${candidate.suggestion.action}`,70,[candidate.signature,ref.fingerprint,candidate.suggestion,candidate.learningRevision]);
    items[items.length-1].emailSource={accountId:account.id,threadId:candidate.threadId,signature:candidate.signature,revision:candidate.learningRevision??0,subject:(candidate.subject||'this email').slice(0,200)};
+   items[items.length-1].authority=correction?'operator_statement':'hypothesis';
   }
  }
  if(input.memory===null) add('coverage:memory','limitation','Remembered conversation context could not be checked. It is outside this update’s coverage.',90);

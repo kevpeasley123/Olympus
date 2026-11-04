@@ -9,7 +9,7 @@ await build({entryPoints:['src/services/situationBriefing.ts'],bundle:true,platf
 const {generateSituationBriefing,prepareSituationBriefing}=await import('../output/tests/situation-briefing.mjs');
 let scans=0;
 globalThis.fixture={projects:async(root,since)=>{scans++;assert.equal(root,'test-root');assert.equal(since,null);return {projects:[],warnings:[]}},tasks:async()=>[],runs:async()=>[]};
-assert.match(await generateSituationBriefing('test-root',null),/^Hello sir\. Factual update\./);
+assert.doesNotMatch(await generateSituationBriefing('test-root',null),/^Hello sir\. Factual update\./,'Requested briefs avoid canned subject-list preambles');
 assert.match(await generateSituationBriefing('test-root',null),/Gmail status could not be checked/);
 await generateSituationBriefing('test-root',null);assert.equal(scans,3,'Every request must scan again');
 fixture.tasks=async()=>{throw Error('offline')};

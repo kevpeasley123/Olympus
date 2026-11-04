@@ -188,11 +188,11 @@ fn status(app: &tauri::AppHandle, include_brief: bool) -> Result<Status, String>
     let brief_mail = if include_brief && account.as_ref().is_some_and(|a| a.enabled) {
         let recent = cutoff.max(chrono::Utc::now().timestamp_millis() - 7 * 86_400_000);
         let mut query = c.prepare("SELECT snapshot_json FROM gmail_messages WHERE account_id=?1 AND available=1 AND in_scope=1 AND internal_date>=?2 ORDER BY internal_date DESC,id LIMIT 500").map_err(|_| "gmail_database_read_failed")?;
-        let mut seen = std::collections::HashSet::new();
+        // Keep bounded message history so a newer receipt cannot hide shipping evidence.
         let mut rows = Vec::new();
         for row in query.query_map(params![id,recent], |r| r.get::<_,String>(0)).map_err(|_| "gmail_database_read_failed")? {
             let mail: mime::Mail = serde_json::from_str(&row.map_err(|_| "gmail_database_read_failed")?).map_err(|_| "gmail_database_read_failed")?;
-            if !seen.insert(mail.thread_id.clone()) || mail.labels.iter().any(|l| matches!(l.as_str(),"SENT"|"DRAFT"|"CATEGORY_PROMOTIONS"|"SPAM"|"TRASH")) { continue; }
+            if mail.labels.iter().any(|l| matches!(l.as_str(),"SENT"|"DRAFT"|"CATEGORY_PROMOTIONS"|"SPAM"|"TRASH")) { continue; }
             let detail = mail.clean_text.lines().map(str::trim).find(|line| {
                 let lower = line.to_ascii_lowercase();
                 ["estimated delivery", "expected delivery", "estimated arrival", "the estimated delivery", "item:", "payment due:", "deadline:"].iter().any(|prefix| lower.starts_with(prefix))

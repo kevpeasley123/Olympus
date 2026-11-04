@@ -9,31 +9,18 @@ try {
  for(const dense of [false,true]){
   await page.goto(base+(dense?'&dense-vault':''));
   await page.waitForSelector('html[data-visual-ready="idle"]');
-  assert(/^Obsidian Memory/i.test(await page.locator('.vault-constellation__label').textContent()));
-  const stars=page.locator('.vault-star'), count=await stars.count();
-  assert.equal(count,dense?120:40);
-  const peer=stars.nth(1).locator('.vault-star__light');
-  const before=await peer.evaluate(e=>getComputedStyle(e).opacity);
-  // Orbit transforms remain live; move the real pointer without waiting for a
-  // moving target to become stationary. Assertions still verify the hover effect.
-  await stars.first().hover({force:true}); await page.waitForTimeout(220);
-  assert(+await peer.evaluate(e=>getComputedStyle(e).opacity)>+before);
-  assert.equal(await peer.evaluate(e=>getComputedStyle(e).width),'2px');
-  await page.screenshot({path:`output/vault-constellation/${dense?'dense':'normal'}-hover.png`});
-  await page.mouse.move(0,0);await stars.first().focus();await page.waitForTimeout(220);
-  assert.equal(await peer.evaluate(e=>getComputedStyle(e).opacity),'1');
-  await stars.first().blur();
-  const plugins=page.locator('.armory-star'),light=plugins.nth(1).locator('.armory-star__light');
-  const original=await light.evaluate(e=>getComputedStyle(e).filter);
-  await page.locator('.armory-constellation').hover({force:true});await plugins.first().hover({force:true});await page.waitForTimeout(220);
-  assert.notEqual(await light.evaluate(e=>getComputedStyle(e).filter),original);
-  assert.equal(await light.evaluate(e=>getComputedStyle(e).width),'3px');
-  await page.mouse.move(0,0);
+  assert.equal(await page.locator('.vault-constellation').count(),0);
+  await page.locator('.instrument-activity summary').click();
+  const picker=page.getByLabel('Inspect asset');
+  assert.equal(await picker.locator('option[value^="note:"]').count(),dense?120:40);
+  await picker.selectOption('note:note-3.md');
+  await page.getByRole('button',{name:'Open note',exact:true}).waitFor();
+  assert.match(await page.locator('.asset-inspection').innerText(),/note:note-3.md/);
   for(const width of [1280,1920]){
    await page.setViewportSize({width,height:900});
    assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
    await page.screenshot({path:`output/vault-constellation/${dense?'dense':'normal'}-${width}.png`});
   }
  }
- console.log('PASS real graph counts, peer hover/focus highlight, unchanged star sizes and viewport bounds');
+ console.log('PASS real graph counts, central note inspection, no floating cluster and viewport bounds');
 }finally{await browser.close()}

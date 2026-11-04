@@ -16,7 +16,7 @@ try {
  const before=await canvas.getAttribute('data-ring-orientation'); const starYaw=await canvas.getAttribute('data-galaxy-yaw');
  await page.waitForTimeout(1400);
  assert.notEqual(await canvas.getAttribute('data-ring-orientation'),before,'Inner rings must rotate');
- assert.equal(await canvas.getAttribute('data-rings'),'0','The flagship hides the legacy orbital rings'); assert.notEqual(await canvas.getAttribute('data-galaxy-yaw'),starYaw,'Small stars rotate in 3D'); assert.equal(await canvas.getAttribute('data-galaxy-dust'),'0');
+ assert.equal(await canvas.getAttribute('data-rings'),'0','The flagship hides the legacy orbital rings'); assert.notEqual(await canvas.getAttribute('data-galaxy-yaw'),starYaw,'Small stars rotate in 3D'); assert(Number(await canvas.getAttribute('data-galaxy-dust'))>=680,'Particle sphere retains the original star-field density');
  assert(Number(await canvas.getAttribute('data-asset-nodes'))>0,'Flagship renders real assets');
  const original=await canvas.elementHandle();
  await page.getByRole('button',{name:'Codex',exact:true}).first().click();

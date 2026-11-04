@@ -5,8 +5,10 @@ import {invoke} from '@tauri-apps/api/core';
 import {type GmailStatus} from './gmail';
 import {situationsClient,isUnchangedSnapshot,type SituationSnapshot} from './situations';
 import {briefItems,selectBrief,type BriefContext,type BriefMode,type BriefReceipts,type BriefItem} from './briefingIntelligence';
+import {acceptSynthesis,synthesisEligible,boundedSynthesis,type SynthesisInput,type SynthesisResult,type BriefingOrigin} from './briefingSynthesis';
 
 export interface BriefClient {
+ synthesize?(input:SynthesisInput):Promise<SynthesisResult>;
  reviews?():Promise<ProjectReview[]>;
  gmail():Promise<GmailStatus>;
  situations():Promise<SituationSnapshot|null>;
@@ -15,6 +17,8 @@ export interface BriefClient {
  deliver(items:{id:string;revision:string}[]):Promise<void>;
 }
 const native:BriefClient={
+ // Backend refuses before credentials/process/model work while generation is gated.
+ synthesize:input=>invoke<SynthesisResult>('briefing_synthesize',{input}),
  gmail:()=>invoke<GmailStatus>("gmail_status",{includeBrief:true}),
  reviews:()=>invoke("project_review_findings"),
  memory:scope=>invoke('briefing_conversation_context',{scope}),
@@ -23,6 +27,8 @@ const native:BriefClient={
  deliver:items=>invoke('briefing_record_delivery',{items}),
 };
 export interface PreparedBrief {
+ provenance?:SynthesisResult['provenance'];
+ briefing?:BriefingOrigin;
  text:string|null; items:BriefItem[]; delivery?:DisplayPlan;
  current():Promise<boolean>;
  acknowledge():Promise<void>;
@@ -114,6 +120,7 @@ export async function prepareFactualBrief(
  const words=(s:string)=>s.toLowerCase().match(/[\p{L}\p{N}]+/gu)?.join(" ")??"";
  const namedProjects=(text:string)=>input.projects.filter(p=>words(p.name).length>=4 && (" "+words(text)+" ").includes(" "+words(p.name)+" "));
  for(const item of findings.filter(f=>f.id.startsWith("mail:"))){
+   if(item.authority==='operator_statement')continue;
    const attention=situations?.attention?.find(a=>item.id==="mail:"+situations.accountId+":"+a.threadId);
    if(!attention)continue;
    const matches=namedProjects(attention.subject);
@@ -129,27 +136,7 @@ export async function prepareFactualBrief(
    const bytes=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(value));
    return Array.from(new Uint8Array(bytes),byte=>byte.toString(16).padStart(2,'0')).join('');
  };
- // Keep related notices together without equating two notifications with two orders.
- const merchantUpdates=new Map<string,BriefItem[]>();
- for(const mail of gmail?.briefMail??[]){
-   const id="mail:"+gmail?.account?.id+":notice:"+mail.threadId;
-   const finding=findings.find(f=>f.id===id && f.priority===56);
-   if(!finding || (mode==="opening" && receipts[id]?.revision===await digest(finding.revision)))continue;
-   const group=merchantUpdates.get(mail.sender)??[];
-   group.push(finding);merchantUpdates.set(mail.sender,group);
- }
- for(const [merchant,group] of merchantUpdates){
-   if(group.length<2)continue;
-   const first=group[0];
-   const displayed=group.slice(0,2);
-   parts.set(first,displayed.map(f=>({...f})));
-   const sources=displayed.map(f=>gmail!.briefMail!.find(m=>f.id==="mail:"+gmail!.account!.id+":notice:"+m.threadId)!);
-   const name=merchant.split("<")[0].replace(/^"|"$/g,"").trim() || "The sender";
-   const descriptions=sources.map(m=>new Date(m.timestamp).toLocaleDateString(undefined,{month:"short",day:"numeric"})+" — "+(m.item || m.subject)+(m.detail?" ("+m.detail+")":""));
-   first.text=name+" sent two shipping updates. "+descriptions.join(". ")+".";
-   if(sources.every(m=>/has shipped|order shipped/i.test(m.subject)))first.text+=" Both notices confirm dispatch. Arrival is still unconfirmed in these messages.";
-   for(const other of displayed.slice(1))findings.splice(findings.indexOf(other),1);
- }
+ // Shipment reconciliation is evidence-bound in briefingTransactions.
  for(const memoryItem of findings.filter(f=>f.kind==="context" && f.source)){
    if(mode==="opening" && receipts[memoryItem.id]?.revision===await digest(memoryItem.revision))continue;
    const matches=namedProjects(memoryItem.text);
@@ -159,6 +146,7 @@ export async function prepareFactualBrief(
    parts.set(related,[...(parts.get(related)??[{...related}]),memoryItem]);
    related.text+=" "+memoryItem.text;
    related.source=memoryItem.source;
+   related.authority='unspecified'; // Mixed project facts and remembered interpretation.
    related.priority=Math.max(related.priority,memoryItem.priority);
    findings.splice(findings.indexOf(memoryItem),1);
    break;
@@ -196,11 +184,39 @@ export async function prepareFactualBrief(
    selected.push(memoryGap);
  }
  const substantive=selected.filter(i=>i.kind!=="limitation");
- const items=selected.filter(i=>{
+ let items=selected.filter(i=>{
    if(i.id==="coverage:analysis")return !substantive.length && mode==="requested";
    if(mode==="opening" && i.id==="coverage:gmail" && gmail?.account?.enabled && !gmail.account.lastError)return false;
    return true;
  });
+
+ let synthesizedText:string|undefined,provenance:SynthesisResult['provenance']|undefined;
+ let modelBinding:{packetRevision:string;sources:{id:string;revision:string}[]}|undefined;
+ // Until constituent-level citations exist, retain a combined item in full.
+ const rewriteable=(i:BriefItem)=>synthesisEligible(i)&&!constituents.has(i.id);
+ const selectedIds=new Set(items.map(i=>i.id));
+ const contextual=candidates.filter(i=>!selectedIds.has(i.id)&&(i.kind==='context'||i.authority==='operator_statement')).slice(0,6);
+ const evidence:SynthesisInput['evidence']=[...items.filter(i=>i.kind!=='limitation'),...contextual].map(i=>({id:i.id,revision:i.revision,
+  kind:i.id.startsWith('mail:')?'mail':i.kind==='context'?'memory':'project',text:i.text,observedAt:now,
+  authority:i.authority??(i.kind==='context'?'remembered_context':i.kind==='recommendation'?'hypothesis':'source_fact'),
+  contextOnly:!selectedIds.has(i.id)||!rewriteable(i)}));
+ if(client.synthesize&&evidence.some(e=>!e.contextOnly)){
+  const packet:SynthesisInput={revision:await digest(JSON.stringify(evidence)),preparedAt:now,evidence};
+  try{
+   const accepted=acceptSynthesis(packet,await boundedSynthesis(client.synthesize(packet)));
+   if(accepted){
+    const protectedItems=items.filter(i=>!rewriteable(i));
+    items=items.filter(i=>!rewriteable(i)||accepted.ids.has(i.id));
+    synthesizedText=[...protectedItems.map(i=>i.text),accepted.text].filter(Boolean).join(' ');
+    if(!synthesizedText&&mode==='requested')synthesizedText='I have no additional update to highlight from the evidence reviewed.';
+    provenance=accepted.provenance;
+    modelBinding={packetRevision:packet.revision,sources:evidence.filter(e=>accepted.ids.has(e.id)||protectedItems.some(i=>i.id===e.id)).map(e=>({id:e.id,revision:e.revision}))};
+   }
+  }catch{
+   // A closed gate or failed synthesis preserves the source-grounded fallback.
+   // No API/provider retry is attempted and no model provenance is claimed.
+  }
+ }
 
  const receiptItems=[...new Map(items.flatMap(i=>[{id:i.id,revision:i.revision},...(constituents.get(i.id)??[])]).map(r=>[r.id,r])).values()];
  const delivery:DisplayPlan={preparedAt:now,items:receiptItems,cursors:windowRoot && !projectsError?displayedCursors(checkedProjects,new Set(receiptItems.map(i=>i.id))):[]};
@@ -211,9 +227,10 @@ export async function prepareFactualBrief(
  const memoryRevision=(value:BriefMemory|null|undefined)=>value?`${value.enabled}:${value.revision}`:value;
  const expectedMemory=memoryRevision(memory);
  return {
-  items, delivery:scope.temporary?undefined:delivery,
-  text:items.length?items.map(i=>i.text).join(' ')
-   :mode==='requested'?'I found no new project or email highlights in the records I checked.':null,
+  items, delivery:scope.temporary?undefined:delivery,provenance,
+  briefing:provenance&&modelBinding?{...provenance,...modelBinding,preparedAt:now}:{kind:'deterministic_fallback',preparedAt:now,sources:items.map(i=>({id:i.id,revision:i.revision}))},
+  text:synthesizedText??(items.length?items.map(i=>i.text).join(' ')
+   :mode==='requested'?'I found no new project or email highlights in the records I checked.':null),
   current:async()=>{
    if(!(await sourcesCurrent()))return false;
    const [mail,understanding,remembered,rechecked,projectCheck]=await Promise.allSettled([bounded(client.gmail()),bounded(client.situations()),readMemory(),readReviews(),readProjects()]);

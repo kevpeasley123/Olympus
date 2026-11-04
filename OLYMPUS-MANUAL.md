@@ -34,8 +34,12 @@ and current source-backed email attention, with recent learned conversation cont
 when memory is enabled, spoken when spoken replies are on. Remembered summaries
 are labelled separately from verified source facts.
 Unchanged displayed items are suppressed between openings; coverage failures are
-identified rather than presented as no news. This factual foundation does not
-claim fresh model analysis. Handled does not mean completed, and feedback for
+identified rather than presented as no news. Briefs should explain meaningful
+changes, their relevance and whether Kevin needs to act, without reading subject
+lists or routine receipts aloud. The factual fallback does not claim model
+analysis; contextual synthesis must retain evidence, uncertainty and operator
+authority, and remains subject to the provider and spending gates.
+Handled does not mean completed, and feedback for
 one source does not infer a general preference. Understanding must not depend on
 Kevin using a correction form or managing a learning panel.
 See `docs/BRIEFING-INTELLIGENCE.md` and `docs/EMAIL-ATTENTION.md`. Project cards,

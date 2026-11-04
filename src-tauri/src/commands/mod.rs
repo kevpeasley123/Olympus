@@ -71,6 +71,7 @@ pub mod chatgpt_plan;
 pub mod briefing;
 pub mod analysis_readiness;
 pub mod briefing_context;
+pub mod briefing_synthesis;
 
 pub mod structured_output;
 pub mod project_review;

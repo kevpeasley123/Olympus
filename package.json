@@ -1,6 +1,6 @@
 {
   "name": "project-olympus",
-  "version": "0.45.3",
+  "version": "0.46.0",
   "private": true,
   "description": "Local-first AI command station for projects, research, workflows, and Obsidian-backed memory.",
   "type": "module",

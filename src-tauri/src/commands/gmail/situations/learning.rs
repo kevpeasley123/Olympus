@@ -143,3 +143,24 @@ pub(super) fn project(sources:&[Value], learning:&[Value], now_ms:i64) -> Vec<Va
 pub fn email_learning_change(db:State<'_,Db>,request:LearningRequest)->Result<(),String> {
     let mut c=db.0.lock().map_err(|_|"database_busy")?;change(&mut c,request)
 }
+
+/// Read-only, source-bound operator feedback for already-selected mail threads.
+/// This does not classify new conversation text or infer completion from handling.
+pub(crate) fn briefing_resolutions(c:&Connection,account_id:&str,threads:&[String])->Result<Vec<Value>,String>{
+    if threads.len()>12||threads.iter().any(|t|t.is_empty()||t.len()>256){return Err("briefing_resolution_scope_invalid".into());}
+    let preference:Option<String>=c.query_row("SELECT value FROM settings WHERE key='chatMemory.use'",[],|r|r.get(0)).optional().map_err(err)?;
+    if preference.as_deref()==Some("false"){return Ok(vec![]);}
+    let a=account(c)?;if a.id!=account_id{return Err("briefing_resolution_account_changed".into());}
+    let signatures=thread_signatures(c,&a)?;
+    let mut seen=std::collections::HashSet::new();let mut result=Vec::new();
+    for thread in threads{
+        if !seen.insert(thread){continue;}
+        let Some((revision,record))=load(c,account_id,thread)? else{continue;};
+        let state=record.state;
+        if !signatures.get(thread).is_some_and(|s|s.0==state.signature)||record.forgotten_signatures.contains(&state.signature)||!matches!(state.action.as_str(),"corrected"|"handled"|"dismissed"|"snoozed"){continue;}
+        if state.correction.chars().count()>1000{return Err("briefing_resolution_invalid".into());}
+        let active=state.action!="snoozed"||state.until.is_some_and(|until|until>chrono::Utc::now().timestamp_millis());
+        result.push(json!({"threadId":thread,"signature":state.signature,"revision":revision,"action":state.action,"active":active,"correction":state.correction,"at":state.at,"until":state.until}));
+    }
+    Ok(result)
+}

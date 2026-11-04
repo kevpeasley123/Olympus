@@ -222,7 +222,10 @@ pub fn run() {
             commands::gmail::intelligence::recover(&connection)?;
             let session_id = commands::delegation::run_id();
             connection.execute("INSERT INTO operator_sessions(id) VALUES (?1)", [&session_id])?;
-            app.manage(commands::approvals::ApprovalState::new(session_id));
+            let operator_authority=commands::approvals::ApprovalState::new(session_id);
+            // Starts revoked; no UI packet or resumed-chat guess grants briefing scope.
+            app.manage(commands::briefing_synthesis::lifecycle::NativeSession::new(&operator_authority));
+            app.manage(operator_authority);
             connection.execute("UPDATE model_requests SET record_json=json_set(record_json,'$.status','interrupted','$.errorCode','application_restarted') WHERE json_extract(record_json,'$.status')='started'", [])?;
             app.manage(Db(Mutex::new(connection)));
             app.manage(commands::memory::MemoryService::start(
@@ -245,6 +248,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::briefing::briefing_receipts, commands::briefing::briefing_record_delivery,
             commands::briefing_context::briefing_conversation_context,
+            commands::briefing_synthesis::briefing_synthesize,
+            commands::briefing_synthesis::lifecycle::briefing_revoke_scope,
             commands::organizer::create_organizer_task, commands::organizer::update_organizer_task,
             commands::organizer::list_organizer_tasks, commands::organizer::set_organizer_intent,
             commands::organizer::move_organizer_task,

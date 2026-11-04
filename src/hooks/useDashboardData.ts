@@ -1,3 +1,4 @@
+import {nativeBriefingScopeBarrier} from "../services/briefingScope";
 import {feedbackForBrief,resolveConversationTurn} from "../services/conversationFeedback";
 import { briefSaved } from "../services/displayedBrief";
 import { matchSkillRequest } from "../services/executableSkills";
@@ -172,7 +173,12 @@ export function useDashboardData() {
    */
   const [chatSession, setChatSessionState] = useState<ChatSession>(newChatSession);
   const sessionRef = useRef(chatSession);
-  const setChatSession = useCallback((session: ChatSession) => { sessionRef.current = session; setChatSessionState(session); }, []);
+  const briefingScope = useRef(nativeBriefingScopeBarrier());
+  const setChatSession = useCallback((session: ChatSession) => {
+    if(session.id!==sessionRef.current.id || session.temporary!==sessionRef.current.temporary) void briefingScope.current.invalidate();
+    sessionRef.current = session; setChatSessionState(session);
+  }, []);
+  useEffect(()=>{void briefingScope.current.invalidate();return()=>{void briefingScope.current.invalidate();};},[]);
   /** A temporary chat is never stored, so it never reaches the vault or memory. */
   const remember = useCallback((messages: Parameters<typeof appendConversationMessages>[1], session: ChatSession = sessionRef.current) =>
     session.temporary ? Promise.resolve(false) : appendConversationMessages(session.id, messages), []);
@@ -296,7 +302,9 @@ export function useDashboardData() {
     setBriefingPending(true);
     void (async () => {
       try {
-        const active = () => briefingMounted.current && sessionRef.current.id === session.id;
+        const scopeCurrent = briefingScope.current.capture();
+        const active = () => scopeCurrent() && briefingMounted.current && sessionRef.current.id === session.id;
+        if(!await briefingScope.current.settled() || !active()) throw Error("Briefing scope revocation was not acknowledged.");
         const prepared = isTauriRuntime() ? await prepareStableBrief(() => {
           const projects = dashboardRef.current.projects, board = boardRef.current;
           const root = dashboardRef.current.settings.projectsRootPath;
@@ -312,6 +320,7 @@ export function useDashboardData() {
         message.id = `${BRIEFING_ID_PREFIX}${crypto.randomUUID()}`;
         message.kind = "briefing";
         message.delivery = prepared?.delivery;
+        message.briefing = prepared?.briefing;
         message.feedback = prepared && !session.temporary ? feedbackForBrief(prepared.items) : undefined;
         message.voice = { kind: "output", spokenResponse: text, ...(dashboardRef.current.settings.autoSpeak ? {} : { playback: "skipped" as const }) };
         dashboardRef.current = { ...dashboardRef.current, conversation: [...dashboardRef.current.conversation, message] };
@@ -337,7 +346,9 @@ export function useDashboardData() {
     setChatError(null);
     try {
       const root = dashboardRef.current.settings.projectsRootPath;
-      const active = () => briefingMounted.current && sessionRef.current.id === session.id && dashboardRef.current.settings.projectsRootPath === root;
+      const scopeCurrent = briefingScope.current.capture();
+      const active = () => scopeCurrent() && briefingMounted.current && sessionRef.current.id === session.id && dashboardRef.current.settings.projectsRootPath === root;
+      if(!await briefingScope.current.settled() || !active()) throw Error("Briefing scope revocation was not acknowledged.");
       const prepared = await prepareStableBrief(() => prepareSituationBriefing(root, sessionBoundary, {temporary:session.temporary,conversationId:session.id}), active);
       if (!active()) return;
       const text = prepared.text;
@@ -346,6 +357,7 @@ export function useDashboardData() {
       message.id = `${BRIEFING_ID_PREFIX}sitrep-${crypto.randomUUID()}`;
       message.kind = "briefing";
       message.delivery = prepared?.delivery;
+        message.briefing = prepared?.briefing;
       message.feedback = prepared && !session.temporary ? feedbackForBrief(prepared.items) : undefined;
       message.voice = { kind: "output", spokenResponse: text, ...(dashboardRef.current.settings.autoSpeak ? {} : { playback: "skipped" as const }) };
       dashboardRef.current = { ...dashboardRef.current, conversation: [...dashboardRef.current.conversation, message] };
@@ -440,6 +452,7 @@ export function useDashboardData() {
           dashboardRef.current.projects,
           (event) => {
             switch (event.kind) {
+              case "vaultRecall": if(!session.temporary)recordSourceAccess("olympus",event.file,true,activeRequest.current??"Vault recall","read","note:"+event.file); break;
               case "sourceAccess": if (!session.temporary) recordSourceAccess("Repository inspection", event.project + "/" + event.file, event.success, activeRequest.current ?? "Repository inspection"); break;
               case "progress": setChatProgress(event.message); break;
               case "started":

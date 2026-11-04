@@ -35,3 +35,5 @@ One line per release. Newest first. Since 2026-10-12 each line says what the rel
 - **0.45.2** (2026-11-03): Distinguish elapsed delivery estimates, preserve room for other topics, and include labeled deadlines. The preceding desktop build produced real source-backed shipment and order highlights.
 
 - **0.45.3** (2026-11-03): Wait briefly for due Gmail sync at startup. Skip transient mailbox-only warnings when opening.
+
+- **0.46.0** (2026-11-04): Communications Celestial Observatory with focused relationship maps and source-bound conversations/documents; canyon spacing, engine selector and telemetry cleanup; Gmail recovery/startup sync and concise source-backed factual briefs; gated native synthesis, provenance and receipt handling. Live subscription synthesis, paid provider calls, delegated execution, restart/network/seven-day Gmail durability, and real-data Communications/brief acceptance remain unverified. OAuth transaction prototype remains separate; consent, generation and spending gates stay closed.

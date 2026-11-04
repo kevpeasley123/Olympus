@@ -403,7 +403,22 @@ pub(super) fn checked_commits_since(path:&PathBuf,since:&str)->Result<Vec<Recent
         &["log", "--all", &since_argument, "--pretty=format:%H|%cI|%s"],
     )?;
 
-    Ok(raw.lines()
+    Ok(parse_commit_log(&raw))
+}
+
+/// Enumerates the complete locally reachable history within an explicit bound.
+/// A sentinel extra commit detects overflow; never returns a truncated history.
+pub(super) fn checked_reachable_commits(path:&PathBuf,limit:usize)->Result<Vec<RecentCommit>,String>{
+    if !(1..=4096).contains(&limit){return Err("Invalid reachable history bound".into());}
+    let max_count=format!("--max-count={}",limit+1);
+    let raw=git_command(path,&["log","--all",&max_count,"--pretty=format:%H|%cI|%s"])?;
+    let commits=parse_commit_log(&raw);
+    if commits.len()!=raw.lines().count(){return Err("Reachable history unreadable".into());}
+    if commits.len()>limit{return Err("Reachable history exceeds snapshot capacity".into());}
+    Ok(commits)
+}
+fn parse_commit_log(raw:&str)->Vec<RecentCommit>{
+    raw.lines()
         .filter_map(|line| {
             let (oid, rest) = line.split_once('|')?;
             let (at, subject) = rest.split_once('|')?;
@@ -417,7 +432,7 @@ pub(super) fn checked_commits_since(path:&PathBuf,since:&str)->Result<Vec<Recent
                 subject: subject.trim().to_string(),
             })
         })
-        .collect())
+        .collect()
 }
 
 fn linked_worktrees(path: &PathBuf) -> Vec<LinkedWorktree> {

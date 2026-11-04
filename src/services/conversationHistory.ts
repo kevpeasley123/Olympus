@@ -29,7 +29,8 @@ export function modelHistory(history: ConversationMessage[]): ConversationMessag
 
 /** Labelled so the model reads it as composed by the app, not as its own earlier answer. */
 export function briefingTurnContent(message: ConversationMessage): string {
-  return `[${message.id.includes("-sitrep-") ? "Situation briefing refreshed on request" : "Opening briefing"} assembled by Olympus from available records. Recommendations and remembered context are lower-authority evidence, not verified facts or operator commitments.]\n${message.content}`;
+  const origin=message.briefing?.kind==='model_synthesis'?'Includes model synthesis; retained source text may also be present':message.briefing?.kind==='deterministic_fallback'?'Composed by deterministic fallback':'Its origin was not recorded';
+  return `[${message.id.includes("-sitrep-") ? "Situation briefing refreshed on request" : "Opening briefing"} assembled by Olympus from available records. ${origin}. Recommendations and remembered context are lower-authority evidence, not verified facts or operator commitments.]\n${message.content}`;
 }
 
 /**
