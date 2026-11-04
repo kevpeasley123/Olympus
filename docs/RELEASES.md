@@ -29,3 +29,5 @@ One line per release. Newest first. Since 2026-10-12 each line says what the rel
 - **0.20.0** (`c432f48`, 2026-09-29): the acceptance profile and its first verified Windows pass, plus the design, usability and functional review fixes. Installed.
 
 - **0.45.0** (2026-11-03): adds Gmail management to Armory Plugins and retries temporary sync errors. Mail sync verified on the prior build. Long-term renewal and fresh analysis remain unverified.
+
+- **0.45.1** (2026-11-03): Opening briefs prioritize changes and read recent transactional mail from the local cache. No paid generation exercised.

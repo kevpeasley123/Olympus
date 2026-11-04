@@ -2,7 +2,7 @@ import {readProjectWindow,displayedCursors,type DisplayPlan,type ProjectWindow} 
 import type { ProjectReview } from "./projectReviews";
 import type {BriefMemory,BriefScope} from './briefingMemory';
 import {invoke} from '@tauri-apps/api/core';
-import {gmailStatus,type GmailStatus} from './gmail';
+import {type GmailStatus} from './gmail';
 import {situationsClient,isUnchangedSnapshot,type SituationSnapshot} from './situations';
 import {briefItems,selectBrief,type BriefContext,type BriefMode,type BriefReceipts,type BriefItem} from './briefingIntelligence';
 
@@ -15,7 +15,7 @@ export interface BriefClient {
  deliver(items:{id:string;revision:string}[]):Promise<void>;
 }
 const native:BriefClient={
- gmail:gmailStatus,
+ gmail:()=>invoke<GmailStatus>("gmail_status",{includeBrief:true}),
  reviews:()=>invoke("project_review_findings"),
  memory:scope=>invoke('briefing_conversation_context',{scope}),
  situations:async()=>{const value=await situationsClient.snapshot();return isUnchangedSnapshot(value)?null:value;},
@@ -44,7 +44,7 @@ export async function prepareStableBrief(prepare:()=>Promise<PreparedBrief>,acti
  throw Error('Sources changed while preparing the briefing. Request it again for current evidence.');
 }
 const signature=(gmail:GmailStatus|null,situations:SituationSnapshot|null)=>JSON.stringify([
- gmail?.account?.id,gmail?.account?.enabled,gmail?.account?.status,gmail?.account?.lastSuccess,gmail?.account?.lastError,gmail?.busy,gmail?.analysis,
+ gmail?.account?.id,gmail?.account?.enabled,gmail?.account?.status,gmail?.account?.lastSuccess,gmail?.account?.lastError,gmail?.busy,gmail?.analysis,gmail?.briefMail?.map(m=>[m.messageId,m.fingerprint]),
  situations?.accountId,situations?.revision??situations,
 ]);
 
@@ -114,6 +114,26 @@ export async function prepareFactualBrief(
    const bytes=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(value));
    return Array.from(new Uint8Array(bytes),byte=>byte.toString(16).padStart(2,'0')).join('');
  };
+ // Keep related notices together without equating two notifications with two orders.
+ const merchantUpdates=new Map<string,BriefItem[]>();
+ for(const mail of gmail?.briefMail??[]){
+   const id="mail:"+gmail?.account?.id+":notice:"+mail.threadId;
+   const finding=findings.find(f=>f.id===id && f.priority===56);
+   if(!finding || (mode==="opening" && receipts[id]?.revision===await digest(finding.revision)))continue;
+   const group=merchantUpdates.get(mail.sender)??[];
+   group.push(finding);merchantUpdates.set(mail.sender,group);
+ }
+ for(const [merchant,group] of merchantUpdates){
+   if(group.length<2)continue;
+   const first=group[0];
+   parts.set(first,group.map(f=>({...f})));
+   const reports=group.slice(0,2).map(f=>f.text.slice(f.text.indexOf(" sent a shipping update on ")+1));
+   const name=merchant.split("<")[0].replace(/^"|"$/g,"").trim() || "The sender";
+   first.text=name+" sent "+group.length+" shipping notices this week. "+reports.map(r=>r.replace(/^sent a shipping update on /,"")).join(" ");
+   for(const other of group.slice(1,2))findings.splice(findings.indexOf(other),1);
+   // Only acknowledge the notices actually described.
+   parts.set(first,parts.get(first)!.slice(0,2));
+ }
  for(const memoryItem of findings.filter(f=>f.kind==="context" && f.source)){
    if(mode==="opening" && receipts[memoryItem.id]?.revision===await digest(memoryItem.revision))continue;
    const matches=namedProjects(memoryItem.text);
@@ -142,7 +162,10 @@ export async function prepareFactualBrief(
    if(group && group.every(p=>receipts[p.id]?.revision===p.revision))return false;
    return !i.id.startsWith("project-review:") || receipts[i.id]?.revision!==i.revision;
  });
- const items=selectBrief(eligible,receipts,mode,now);
+ const selected=selectBrief(eligible,receipts,mode,now);
+ const substantive=selected.filter(i=>i.kind!=="limitation");
+ const items=substantive.length?substantive:mode==="opening"?selected.filter(i=>i.id!=="coverage:analysis"):selected;
+
  const receiptItems=[...new Map(items.flatMap(i=>[{id:i.id,revision:i.revision},...(constituents.get(i.id)??[])]).map(r=>[r.id,r])).values()];
  const delivery:DisplayPlan={preparedAt:now,items:receiptItems,cursors:windowRoot && !projectsError?displayedCursors(checkedProjects,new Set(receiptItems.map(i=>i.id))):[]};
  const expected=signature(gmail,situations);
@@ -153,8 +176,8 @@ export async function prepareFactualBrief(
  const expectedMemory=memoryRevision(memory);
  return {
   items, delivery:scope.temporary?undefined:delivery,
-  text:items.length?`Hello sir. Factual update. ${items.map(i=>i.text).join(' ')}`
-   :mode==='requested'?'Hello sir. No items to highlight in the available project and email records. This factual check does not establish complete coverage.':null,
+  text:items.length?items.map(i=>i.text).join(' ')
+   :mode==='requested'?'I found no new project or email highlights in the records I checked.':null,
   current:async()=>{
    if(!(await sourcesCurrent()))return false;
    const [mail,understanding,remembered,rechecked,projectCheck]=await Promise.allSettled([bounded(client.gmail()),bounded(client.situations()),readMemory(),readReviews(),readProjects()]);

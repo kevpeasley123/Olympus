@@ -21,6 +21,34 @@ const validTime=(value:string|null|undefined,now:number,maxAge=FRESH)=>{
  const at=Date.parse(value??''); return Number.isFinite(at)&&at<=now+60_000&&now-at<=maxAge;
 };
 
+function transactionFindings(gmail:GmailStatus,situations:SituationSnapshot|null,now:number):BriefItem[] {
+ const account=gmail.account;
+ if(!account)return [];
+ const findings:BriefItem[]=[];
+ for(const mail of gmail.briefMail??[]) {
+  if(!mail.fingerprint||!mail.threadId||!mail.messageId||!Number.isFinite(mail.timestamp)||mail.timestamp>now||now-mail.timestamp>7*DAY)continue;
+  if(situations?.attention?.some(a=>a.threadId===mail.threadId && a.operatorCorrection))continue;
+  const subject=text(mail.subject,160);
+  const sender=text(mail.sender.split('<')[0].replace(/^"|"$/g,''),60)||'The sender';
+  const date=new Date(mail.timestamp).toLocaleDateString(undefined,{month:'short',day:'numeric'});
+  let report:string,priority:number;
+  if(/\b(delivery (?:failed|exception|delayed)|could not deliver|shipment delayed)\b/i.test(subject)){
+   report=`${sender} reported a delivery problem on ${date}: “${subject}”. Check the carrier notice for the next step.`;priority=79;
+  } else if(/\b(action required|payment due|response due|deadline)\b/i.test(subject)){
+   report=`${sender} flagged “${subject}” on ${date}. Check the original request and whether you have already handled it.`;priority=77;
+  } else if(/\b(has shipped|order shipped|out for delivery|was delivered|has been delivered)\b/i.test(subject)){
+   report=`${sender} sent a shipping update on ${date}: “${subject}”.`;priority=56;
+  } else if(/\b(your receipt|order confirmation|order has been confirmed|got your order|your order invoice)\b/i.test(subject)){
+   report=`${sender} sent “${subject}” on ${date}.`;priority=47;
+  } else continue;
+  if(mail.item) report+=` The notice lists ${text(mail.item,140)}.`;
+  if(mail.detail) report+=` The message says “${text(mail.detail,180)}”.`;
+  if(priority===56 && /has shipped|order shipped/i.test(subject) && !mail.detail) report+=" The carrier has yet to confirm arrival in this notice.";
+  findings.push({id:`mail:${account.id}:notice:${mail.threadId}`,kind:'progress',priority,text:report,revision:JSON.stringify([mail.messageId,mail.fingerprint])});
+ }
+ return findings.sort((a,b)=>b.priority-a.priority); // Native records arrive newest first.
+}
+
 /** Factual projection only. No provider calls, inferred deadlines or hidden source reads. */
 export function briefItems(input:BriefContext,now=Date.now()):BriefItem[] {
  const items:BriefItem[]=[];
@@ -53,9 +81,10 @@ export function briefItems(input:BriefContext,now=Date.now()):BriefItem[] {
    &&gmail.analysis?.state!=='blocked'&&gmail.analysis?.state!=='unconfigured'
    &&validTime(situations.understanding?.lastSuccessAt,now,DAY)
    &&!['failed','running'].includes(situations.run?.status??'');
-  if(!understood) add('coverage:analysis','limitation',gmail.analysis?.state==='blocked'
-   ?'Email analysis is blocked by its provider safeguards. This is a factual update, not a fresh analysis of your correspondence.'
-   :'Email understanding is paused, unavailable or not current. No fresh email recommendations are being claimed.',95,[account.id,gmail.analysis?.state,situations?.enabled,situations?.backgroundError]);
+  if(fresh && !understood && !gmail.briefMail?.length) add('coverage:analysis','limitation',gmail.analysis?.state==='blocked'
+   ?'I could not review recent mail for this briefing.'
+   :'I have no current email assessment to include.',0,[account.id,gmail.analysis?.state,situations?.enabled,situations?.backgroundError]);
+  if(fresh) items.push(...transactionFindings(gmail, matching ? situations : null, now));
   if(fresh&&matching) for(const candidate of situations.attention??[]) {
    const correction=candidate.operatorCorrection?.trim();
    if(!understood&&!correction) continue;
@@ -90,8 +119,8 @@ export function selectBrief(items:BriefItem[],receipts:BriefReceipts,mode:BriefM
   if(seen.has(item.id))return false;seen.add(item.id);
   const receipt=receipts[item.id];
   return mode==='requested'||!receipt||receipt.revision!==item.revision
-   ||!Number.isFinite(receipt.deliveredAt)||receipt.deliveredAt>now||(item.kind!=='context'&&now-receipt.deliveredAt>=DAY);
- }).sort((a,b)=>b.priority-a.priority||(a.kind==='context'&&b.kind==='context'?0:a.id.localeCompare(b.id)))
+   ||!Number.isFinite(receipt.deliveredAt)||receipt.deliveredAt>now||(item.kind!=='context'&&!item.id.includes(':notice:')&&now-receipt.deliveredAt>=DAY);
+ }).sort((a,b)=>Number(a.kind==='limitation')-Number(b.kind==='limitation')||b.priority-a.priority)
  .filter(item=>{
   if(item.kind!=='context' && !item.source)return true;
   if(contextSelected)return false;

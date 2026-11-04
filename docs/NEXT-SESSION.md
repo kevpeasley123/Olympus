@@ -1,6 +1,8 @@
 # Next session
 
-## Olympus 0.45.0
+## Olympus 0.45.1
+
+Opening briefs can report recent source-backed shipment, purchase and deadline notices while provider generation is blocked. A synced mailbox and a generated situation assessment have separate readiness.
 
 Armory > Plugins now manages Gmail. The prior installed build successfully synced after reconnect. Long-term grant durability and fresh situation analysis remain unverified.
 

@@ -43,5 +43,11 @@ export function run() {
  check(briefItems(correctionContext,now).find(i=>i.id==='mail:a:thread')!.revision!==correction!.revision,'Undo/edit revision invalidates display receipt');
  check(!briefItems({...correctionContext,gmail:{...blockedGmail,account:{...gmail.account!,lastSuccess:null}}},now).some(i=>i.id.startsWith('mail:')),'Corrections do not bypass stale source coverage');
  check(!briefItems({...correctionContext,situations:{...corrected,accountId:'other'}},now).some(i=>i.id.startsWith('mail:')),'Correction remains account scoped');
+ const notice={messageId:'m2',threadId:'ship',subject:'Your order has shipped!',fingerprint:'f1',timestamp:now-1000,sender:'Example Store <orders@example.invalid>',item:'Starter kit'};
+ const source={...context,gmail:{...blockedGmail,briefMail:[notice]},situations:null};
+ const shipped=briefItems(source,now).find(i=>i.id==='mail:a:notice:ship');
+ check(!!shipped && shipped.text.includes('Example Store') && shipped.text.includes('Starter kit'),'Shipping evidence survives unavailable analysis');
+ check(!briefItems({...source,gmail:{...source.gmail,account:{...gmail.account!,lastSuccess:null}}},now).some(i=>i.id.includes(':notice:')),'Stale mail cannot publish current shipping news');
+ check(!selectBrief([shipped!],{[shipped!.id]:{revision:shipped!.revision,deliveredAt:now-2*86400000}},'opening',now).length,'Unchanged transaction notices stay acknowledged');
  return passed;
 }
