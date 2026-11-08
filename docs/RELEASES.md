@@ -37,3 +37,5 @@ One line per release. Newest first. Since 2026-10-12 each line says what the rel
 - **0.45.3** (2026-11-03): Wait briefly for due Gmail sync at startup. Skip transient mailbox-only warnings when opening.
 
 - **0.46.0** (2026-11-04): Communications Celestial Observatory with focused relationship maps and source-bound conversations/documents; canyon spacing, engine selector and telemetry cleanup; Gmail recovery/startup sync and concise source-backed factual briefs; gated native synthesis, provenance and receipt handling. Live subscription synthesis, paid provider calls, delegated execution, restart/network/seven-day Gmail durability, and real-data Communications/brief acceptance remain unverified. OAuth transaction prototype remains separate; consent, generation and spending gates stay closed.
+
+- **0.47.0** — Gmail transport retry recovery; offline Qwen email analysis and source-bound local opening briefs, with native correction receipts and clearer coverage. Real Gmail reads, development-app sync, local inference and saved briefs verified; no real Gmail mutation or subscription reasoning invocation tested.

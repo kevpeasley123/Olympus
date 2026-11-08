@@ -207,3 +207,21 @@ mod composition;
 
 #[path="briefing_projects.rs"]
 mod projects;
+
+#[tauri::command]
+pub async fn briefing_local(db:tauri::State<'_,Db>,state:tauri::State<'_,lifecycle::NativeSession>,conversation_id:String,ticket:String,project_ids:Vec<String>)->Result<Option<super::persistence::LoadedMessage>,String>{
+ native_evidence::local_brief(&db,&state,&conversation_id,&ticket,&project_ids).await
+}
+
+fn prepare_local(db:&Db,state:&lifecycle::NativeSession,conversation:&str)->Result<String,String>{
+ super::gmail::situations::analysis_provider::local_model()?;
+ if !bounded(conversation,160){return Err("briefing_native_scope_invalid".into())}
+ let mut c=db.0.lock().map_err(|_|"briefing_database_unavailable")?;
+ let tx=c.transaction().map_err(|_|"briefing_database_unavailable")?;
+ super::conversations::ensure(&tx,conversation,None).map_err(|_|"briefing_database_unavailable")?;
+ tx.commit().map_err(|_|"briefing_database_unavailable")?;
+ let cap=if super::gmail::store::account(&c)?.is_some_and(|a|a.enabled&&a.status=="connected"){state.select_saved(&c,conversation)?}else{state.select_projects_saved(&c,conversation)?};
+ state.owner().ticket(&cap)
+}
+#[tauri::command]
+pub fn briefing_local_prepare(db:tauri::State<'_,Db>,state:tauri::State<'_,lifecycle::NativeSession>,conversation_id:String)->Result<String,String>{prepare_local(&db,&state,&conversation_id)}

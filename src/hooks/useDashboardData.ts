@@ -1,3 +1,4 @@
+import { invoke } from "@tauri-apps/api/core";
 import {nativeBriefingScopeBarrier} from "../services/briefingScope";
 import {feedbackForBrief,resolveConversationTurn} from "../services/conversationFeedback";
 import { briefSaved } from "../services/displayedBrief";
@@ -31,7 +32,7 @@ import { buildPantheonReply, createUserMessage } from "../services/pantheonChat"
 import { appendConversationMessages, initialDashboardState, loadSession, persistPreferences } from "../services/storage";
 import { deleteConversation, loadConversation, newChatSession, renameConversation, type ChatSession } from "../services/conversations";
 import { beginOperatorSession } from "../services/session";
-import type { OlympusState, SessionBoundary, TurnContext } from "../types";
+import type { OlympusState, SessionBoundary, TurnContext, ConversationMessage } from "../types";
 
 function errorMessage(error: unknown): string {
   if (error instanceof Error) {
@@ -292,6 +293,36 @@ export function useDashboardData() {
   const [briefingPending, setBriefingPending] = useState(false);
   const briefingMounted = useRef(true);
   useEffect(() => { briefingMounted.current = true; return () => { briefingMounted.current = false; }; }, []);
+  // Native synthesis saves the exact source-bound text before returning it.
+  // Display it unchanged; acknowledgement happens only through the visible brief.
+  const showLocalBrief = useCallback(async (session: ChatSession, active: () => boolean): Promise<boolean> => {
+    if (session.temporary || !isTauriRuntime() || projectsError || taskStore.error || runStore.error || taskStore.loading || runStore.loading || boardRef.current.some(row => row.operationalStatus === "NEEDS_YOU" || row.operationalStatus === "BLOCKED")) return false;
+    const projectIds = dashboardRef.current.projects
+      .filter(p => p.repoState === "git-active" || p.repoState === "git-pending")
+      .sort((a, b) => (Date.parse(b.lastCommitAt ?? "") || 0) - (Date.parse(a.lastCommitAt ?? "") || 0))
+      .slice(0, 3).map(p => p.id);
+    let message: ConversationMessage | null;
+    try {
+      const ticket = await invoke<string>("briefing_local_prepare", { conversationId: session.id });
+      if (!active()) { await briefingScope.current.invalidate(); return true; }
+      message = await invoke<ConversationMessage | null>("briefing_local", { conversationId: session.id, ticket, projectIds });
+    }
+    catch (error) {
+      if (!active()) return true;
+      const reason = String(error);
+      if (!reason.includes("local_analysis_not_enabled")) setChatError("The local brief could not finish. Available updates are shown below; a fresh synthesis is still needed.");
+      return false;
+    }
+    if (!active()) return true;
+    if (!message) return false;
+    message.kind = "briefing";
+    message.voice = { kind: "output", spokenResponse: message.content, ...(dashboardRef.current.settings.autoSpeak ? {} : { playback: "skipped" as const }) };
+    dashboardRef.current = { ...dashboardRef.current, conversation: [...dashboardRef.current.conversation, message] };
+    setDashboardState(dashboardRef.current);
+    setOpeningBriefing({ id: message.id, text: message.content });
+    briefSaved(message.id);
+    return true;
+  }, [projectsError, taskStore.error, runStore.error, taskStore.loading, runStore.loading]);
   const projectsScanned = projectScan.status !== "loading";
   useEffect(() => {
     if (openingBriefed.current || !hydrated || !projectsScanned || taskStore.loading || runStore.loading) return;
@@ -305,6 +336,7 @@ export function useDashboardData() {
         const scopeCurrent = briefingScope.current.capture();
         const active = () => scopeCurrent() && briefingMounted.current && sessionRef.current.id === session.id;
         if(!await briefingScope.current.settled() || !active()) throw Error("Briefing scope revocation was not acknowledged.");
+        if (await showLocalBrief(session, active)) { if (active()) openingBriefed.current = true; return; }
         const prepared = isTauriRuntime() ? await prepareStableBrief(() => {
           const projects = dashboardRef.current.projects, board = boardRef.current;
           const root = dashboardRef.current.settings.projectsRootPath;
@@ -336,7 +368,7 @@ export function useDashboardData() {
         if (briefingMounted.current) setBriefingPending(false);
       }
     })();
-  }, [hydrated, projectsScanned, taskStore.loading, runStore.loading, sessionBoundary, projectsError, projectScan.lastSuccessAt, remember]);
+  }, [hydrated, projectsScanned, taskStore.loading, runStore.loading, sessionBoundary, projectsError, projectScan.lastSuccessAt, remember, showLocalBrief]);
 
   const requestBriefing = useCallback(async () => {
     if (briefingLock.current || !hydratedRef.current || !isTauriRuntime()) return;
@@ -349,6 +381,7 @@ export function useDashboardData() {
       const scopeCurrent = briefingScope.current.capture();
       const active = () => scopeCurrent() && briefingMounted.current && sessionRef.current.id === session.id && dashboardRef.current.settings.projectsRootPath === root;
       if(!await briefingScope.current.settled() || !active()) throw Error("Briefing scope revocation was not acknowledged.");
+      if (await showLocalBrief(session, active)) return;
       const prepared = await prepareStableBrief(() => prepareSituationBriefing(root, sessionBoundary, {temporary:session.temporary,conversationId:session.id}), active);
       if (!active()) return;
       const text = prepared.text;
@@ -368,7 +401,7 @@ export function useDashboardData() {
       if (saved && !session.temporary) briefSaved(message.id);
     } catch (error) { if(briefingMounted.current) setChatError(errorMessage(error)); }
     finally { briefingLock.current = false; if(briefingMounted.current) setBriefingPending(false); }
-  }, [sessionBoundary, remember]);
+  }, [sessionBoundary, remember, showLocalBrief]);
 
   const sendChatMessage = useCallback(
     async (text: string, voiceDepth?: VoiceDepth, voiceMessageId?: string, turn?: TurnContext): Promise<VoiceAnswer | undefined> => {

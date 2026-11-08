@@ -32,7 +32,10 @@ pub(super) fn compose_with_projects(tx:&Transaction<'_>,chat:&str,packet:&Input,
             cited.insert(id.clone());
         }
         if !deliverable||!super::bounded(&item.text,240){return Err(invalid());}
-        for part in [&item.text,&item.why_it_matters,&item.action,&item.uncertainty]{if !part.trim().is_empty(){text.push(part.clone());}}
+        let parts=[&item.text,&item.why_it_matters,&item.action,&item.uncertainty].into_iter().filter(|p|!p.trim().is_empty()).map(|p|{
+            let p=p.trim(); if p.ends_with(['.','!','?']){p.to_string()}else{format!("{p}.")}
+        }).collect::<Vec<_>>();
+        text.push(parts.join(" "));
     }
     // Empty synthesis is an explicit no-update outcome, never a fallback.
     if output.items.is_empty(){return Ok(None);}
@@ -52,7 +55,15 @@ pub(super) fn compose_with_projects(tx:&Transaction<'_>,chat:&str,packet:&Input,
         let correction=v["resolution"]["correction"].as_str().ok_or_else(invalid)?;
         if !correction.is_empty(){if !super::bounded(correction,1000){return Err(invalid());}text.push(format!("Your clarification about {subject}: {correction}"));cited.insert(e.id.clone());}
     }
-    let content=text.join(" ");if content.len()>16000{return Err(invalid());}
+    // Coverage is native wording, bound to the same exact saved content.
+    let has_mail=packet.evidence.iter().any(|e|e.kind=="mail");
+    let has_projects=packet.evidence.iter().any(|e|e.kind=="project");
+    let coverage=match(has_mail,has_projects){
+      (true,true)=>"Coverage: selected recent inbox messages and Git changes; tasks and runs are not reviewed here.",
+      (true,false)=>"Coverage: selected recent inbox messages; project changes, tasks and runs are not reviewed here.",
+      _=>"Coverage: selected Git changes; email, tasks and runs are outside this update."
+    };
+    let content=format!("{}\n\n{}",text.join("\n\n"),coverage);if content.len()>16000{return Err(invalid());}
     let sources=packet.evidence.iter().filter(|e|cited.contains(&e.id)).map(|e|persistence::BriefingSource{id:e.id.clone(),revision:e.revision.clone()}).collect();
     let mut plan=briefing::DisplayPlan{prepared_at:output.prepared_at,items:packet.evidence.iter().filter(|e|cited.contains(&e.id)&&!e.context_only).map(|e|briefing::DeliveredItem{id:e.id.clone(),revision:e.revision.clone()}).collect(),cursors:vec![]};
     if let Some(mapped)=projects{
@@ -72,7 +83,8 @@ pub(super) fn compose_with_projects(tx:&Transaction<'_>,chat:&str,packet:&Input,
     let encoded=serde_json::to_string(&record).map_err(|_|invalid())?;
     if tx.execute("UPDATE model_requests SET record_json=?1 WHERE id=?2 AND record_json=?3",params![encoded,record.id,raw]).map_err(|_|invalid())?!=1{return Err(invalid());}
     let id=format!("conversation-briefing-{}",format!("{:x}",Sha256::digest(record.id.as_bytes())));
-    let message=serde_json::from_value(json!({"id":id,"role":"assistant","content":content,"timestamp":chrono::Utc::now().to_rfc3339(),"briefing":origin,"delivery":plan})).map_err(|_|invalid())?;
+    let feedback=crate::commands::gmail::situations::learning::briefing_feedback(tx,&selected_threads,output.items.len())?;
+    let message=serde_json::from_value(json!({"id":id,"role":"assistant","content":content,"timestamp":chrono::Utc::now().to_rfc3339(),"briefing":origin,"delivery":plan,"feedback":feedback})).map_err(|_|invalid())?;
     persistence::store_messages_in_transaction(tx,chat,vec![message],false)?;
     Ok(Some(id))
 }
@@ -81,6 +93,7 @@ pub(super) fn compose_with_projects(tx:&Transaction<'_>,chat:&str,packet:&Input,
  use super::*;
  #[test]fn qualifiers_and_thread_specific_corrections_survive_native_composition(){
   let now=chrono::Utc::now().timestamp_millis();let mut c=rusqlite::Connection::open_in_memory().unwrap();crate::commands::migrations::apply(&c).unwrap();
+  c.execute("INSERT INTO gmail_accounts(id,email,enabled,status,scopes,connected_at) VALUES('a','fixture@example.invalid',1,'connected',?1,'2026-11-08T00:00:00Z')",[crate::commands::gmail::SCOPE]).unwrap();
   let mut evidence=vec![super::super::Evidence{id:"mail:a:m".into(),revision:"b".repeat(64),kind:"mail".into(),text:json!({"threadId":"t","subject":"Synthetic shipment"}).to_string(),observed_at:now,authority:Authority::SourceFact,context_only:false}];
   for (thread,correction) in [("t","I arranged this; it is unrelated to studio dues."),("other","Unrelated private correction.")]{evidence.push(super::super::Evidence{id:format!("resolution:{thread}"),revision:"c".repeat(64),kind:"memory".into(),text:json!({"source":"stored_operator_resolution","resolution":{"threadId":thread,"correction":correction}}).to_string(),observed_at:now,authority:Authority::OperatorStatement,context_only:true});}
   let packet=Input{revision:"a".repeat(64),prepared_at:now,evidence};

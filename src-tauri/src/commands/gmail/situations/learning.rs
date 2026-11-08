@@ -84,8 +84,8 @@ pub(super) fn apply(c: &Connection, request: LearningRequest, origin:Option<Valu
         let signatures=thread_signatures(&tx,&a)?;
         if !signatures.get(&request.thread_id).is_some_and(|s|s.0==request.signature) { return Err("learning_source_changed".into()); }
         let source:Option<String>=tx.query_row("SELECT payload_json FROM communication_situation_sources WHERE account_id=?1 AND thread_id=?2 AND signature=?3",params![a.id,request.thread_id,request.signature],|r|r.get(0)).optional().map_err(err)?;
-        let source:Value=serde_json::from_str(&source.ok_or("learning_source_changed")?).map_err(|_|"learning_source_changed")?;
-        let original=source["attention"].clone();
+        let source:Value=source.map(|s|serde_json::from_str(&s)).transpose().map_err(|_|"learning_source_changed")?.unwrap_or(Value::Null);
+        let original=if source["attention"].is_object(){source["attention"].clone()}else{native_brief_original(tx,origin.as_ref(),&request)?};
         if !original.is_object() || original.to_string().len()>12000 { return Err("learning_source_changed".into()); }
         let baseline=Feedback { origin:None, signature:request.signature.clone(),action:"restored".into(),correction:String::new(),original:original.clone(),at:time.clone(),until:None };
         let mut history=match old {
@@ -163,4 +163,41 @@ pub(crate) fn briefing_resolutions(c:&Connection,account_id:&str,threads:&[Strin
         result.push(json!({"threadId":thread,"signature":state.signature,"revision":revision,"action":state.action,"active":active,"correction":state.correction,"at":state.at,"until":state.until}));
     }
     Ok(result)
+}
+
+/// Native binding for conversational feedback on the exact cited mail threads.
+pub(crate) fn briefing_feedback(c:&Connection,threads:&std::collections::HashMap<String,String>,item_count:usize)->Result<Option<Value>,String>{
+ if threads.is_empty()||threads.len()>3{return Ok(None)}
+ let a=account(c)?;let signatures=thread_signatures(c,&a)?;let mut sources=Vec::new();
+ let mut ordered=threads.iter().collect::<Vec<_>>();ordered.sort_by_key(|(id,_)|*id);
+ for(thread,subject)in ordered{
+  let Some((signature,_))=signatures.get(thread)else{return Ok(None)};
+  sources.push(json!({"accountId":a.id,"threadId":thread,"signature":signature,"revision":stored_revision(c,&a.id,thread)?,"subject":subject.chars().take(200).collect::<String>()}));
+ }
+ Ok(Some(json!({"kind":"brief","itemCount":item_count.max(sources.len()),"sources":sources})))
+}
+
+// Explicit feedback may refer to a natively composed brief before the background
+// classifier has created an attention recommendation. Never manufacture one.
+fn native_brief_original(c:&Connection,origin:Option<&Value>,request:&LearningRequest)->Result<Value,String>{
+ use sha2::{Digest,Sha256};
+ let invalid=||"learning_source_changed".to_string();let origin=origin.ok_or_else(invalid)?;
+ let chat=origin["conversationId"].as_str().ok_or_else(invalid)?;
+ let id=origin["briefingMessageId"].as_str().ok_or_else(invalid)?;
+ let row:Option<(String,String)>=c.query_row("SELECT m.content,t.context_json FROM conversation_messages m JOIN conversation_turn_context t ON t.message_id=m.id WHERE m.id=?1 AND m.conversation_id=?2 AND m.role='assistant' AND NOT EXISTS(SELECT 1 FROM conversation_imports WHERE message_id=m.id)",params![id,chat],|r|Ok((r.get(0)?,r.get(1)?))).optional().map_err(err)?;
+ let(content,context)=row.ok_or_else(invalid)?;let context:Value=serde_json::from_str(&context).map_err(|_|invalid())?;
+ let brief=&context["briefing"];if brief["kind"]!="model_synthesis"{return Err(invalid())}
+ let request_id=brief["requestId"].as_str().ok_or_else(invalid)?;
+ let raw:String=c.query_row("SELECT record_json FROM model_requests WHERE id=?1",[request_id],|r|r.get(0)).map_err(|_|invalid())?;
+ let record:Value=serde_json::from_str(&raw).map_err(|_|invalid())?;
+ if record["status"]!="completed"||record["usage"]["briefing_consumed"]!=json!({"messageId":id,"conversationId":chat})||record["usage"]["briefing_binding"]["origin"]!=*brief||record["usage"]["briefing_binding"]["contentDigest"]!=format!("{:x}",Sha256::digest(content.as_bytes())){return Err(invalid())}
+ let mut matches=false;
+ for source in brief["sources"].as_array().ok_or_else(invalid)?{
+  let prefix=format!("mail:{}:",request.account_id);
+  if let Some(message)=source["id"].as_str().and_then(|s|s.strip_prefix(&prefix)){
+   matches|=c.query_row("SELECT EXISTS(SELECT 1 FROM gmail_messages WHERE account_id=?1 AND id=?2 AND thread_id=?3 AND available=1 AND in_scope=1)",params![request.account_id,message,request.thread_id],|r|r.get::<_,bool>(0)).map_err(err)?;
+  }
+ }
+ if !matches{return Err(invalid())}
+ Ok(json!({"kind":"native_brief","messageId":id,"content":content}))
 }

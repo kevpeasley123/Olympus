@@ -5,7 +5,7 @@ pub mod engine;
 pub mod attention;
 pub mod learning;
 pub mod conversation_feedback;
-mod analysis_provider;
+pub(crate) mod analysis_provider;
 #[cfg(test)]
 mod tests;
 #[cfg(test)]

@@ -312,6 +312,31 @@ mod refresh_failure_tests {
         assert!(!session.token.is_empty());
     }
     #[test]
+    #[ignore = "reads one Gmail message through the installed Olympus adapter"]
+    fn live_installed_message_read() {
+        let root=std::path::PathBuf::from(std::env::var_os("APPDATA").unwrap()).join("com.projectolympus.commandstation");
+        let db=rusqlite::Connection::open_with_flags(root.join("olympus.sqlite"),rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY).unwrap();
+        let account:String=db.query_row("SELECT id FROM gmail_accounts WHERE enabled=1 ORDER BY connected_at DESC LIMIT 1",[],|r|r.get(0)).unwrap();
+        let runtime=Runtime::default();
+        let mut api=GmailHttp::new(account,config(&root.join("gmail-oauth-client.json")).unwrap(),&runtime).unwrap();
+        let listed=api.get("messages",&[("maxResults","1".into())]).unwrap_or_else(|e|panic!("message list failed: {}",e.code()));
+        let id=listed["messages"][0]["id"].as_str().expect("no message returned");
+        let message=api.get(&format!("messages/{id}"),&[("format","full".into())]).unwrap_or_else(|e|panic!("message read failed: {}",e.code()));
+        assert_eq!(message["id"],id);eprintln!("Gmail list and full message retrieval succeeded; no mailbox mutations.");
+    }
+    #[test]
+    #[ignore = "reads the pending Gmail batch without committing local or remote changes"]
+    fn live_installed_catchup_read_only() {
+        let root=std::path::PathBuf::from(std::env::var_os("APPDATA").unwrap()).join("com.projectolympus.commandstation");
+        let db=rusqlite::Connection::open_with_flags(root.join("olympus.sqlite"),rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY).unwrap();
+        let account=super::super::store::account(&db).unwrap().unwrap();
+        let cached=super::super::store::cached_ids(&db,&account.id,account.horizon_days).unwrap();
+        let runtime=Runtime::default();
+        let mut api=GmailHttp::new(account.id.clone(),config(&root.join("gmail-oauth-client.json")).unwrap(),&runtime).unwrap();
+        let batch=super::super::sync::collect(&mut api,&account,&cached).unwrap_or_else(|e|panic!("catchup failed: {}",e.code()));
+        eprintln!("Read-only catchup succeeded: messages={} deleted={} full={}",batch.messages.len(),batch.deleted.len(),batch.full);
+    }
+    #[test]
     fn transient_failures_do_not_disable_automatic_sync() {
         for code in ["gmail_secure_store_unavailable","gmail_network_unavailable","oauth_exchange_failed"] {
             assert!(matches!(refresh_failure(code.into()), ApiError::Other(_)));
@@ -428,6 +453,29 @@ impl Api for GmailHttp<'_> {
     }
 }
 impl GmailHttp<'_> {
+    // GET is idempotent. Retry transient transport failures before abandoning an
+    // otherwise valid batch; diagnostics must never contain URLs or tokens.
+    fn retry_read<T>(&self, mut read:impl FnMut()->Result<T,reqwest::Error>)->Result<T,ApiError> {
+        for attempt in 0..3 {
+            if self.runtime.cancel.load(Ordering::SeqCst) {return Err(ApiError::Other("gmail_cancelled".into()));}
+            match read() {
+                Ok(value)=>return Ok(value),
+                Err(error)=>{
+                    let code=super::health::transport_error(&error);
+                    eprintln!("[Olympus::Gmail] read transport code={code} attempt={}",attempt+1);
+                    if attempt==2 || error.is_builder() || error.is_redirect() {return Err(ApiError::Other(code.into()));}
+                    self.hold(retry_delay(attempt,None)?)?;
+                    loop {
+                        let wait={let mut session=self.session()?;let now=Instant::now();
+                            if now>=session.next_request {session.next_request=now+session.spacing;break;}
+                            session.next_request-now};
+                        pause(self.runtime,wait)?;
+                    }
+                }
+            }
+        }
+        Err(ApiError::Other("gmail_retry_exhausted".into()))
+    }
     fn send(&self, path: &str, query: &[(&str, String)]) -> Result<Value, ApiError> {
         if !["profile", "messages", "history"].contains(&path)
             && !path
@@ -454,15 +502,9 @@ impl GmailHttp<'_> {
                 };
                 pause(self.runtime,wait)?;
             };
-            let response = self
-                .client
-                .get(format!(
-                    "https://gmail.googleapis.com/gmail/v1/users/me/{path}"
-                ))
-                .bearer_auth(&token)
-                .query(query)
-                .send()
-                .map_err(|_| ApiError::Other("gmail_network_unavailable".into()))?;
+            let response = self.retry_read(|| self.client
+                .get(format!("https://gmail.googleapis.com/gmail/v1/users/me/{path}"))
+                .bearer_auth(&token).query(query).send())?;
             let status = response.status().as_u16();
             let retry_after = response
                 .headers()
@@ -665,4 +707,39 @@ mod quota_pacing_tests {
   assert!(per_minute*20<=4800,"Leave at least 20% of the 6000-unit user quota free");
   assert!(REQUEST_SPACING.as_millis()*2000<=540000,"Fit bounded initial import in its ten-minute budget");
  }
+}
+
+#[cfg(test)]
+mod transport_retry_tests {
+    use super::*;
+    fn connection_error() -> reqwest::Error {
+        let listener=TcpListener::bind("127.0.0.1:0").unwrap();
+        let address=listener.local_addr().unwrap(); drop(listener);
+        reqwest::blocking::Client::builder().no_proxy().build().unwrap()
+            .get(format!("http://{address}/?private=never-log")).send().unwrap_err()
+    }
+    #[test]
+    fn transient_read_failure_retries_without_discarding_the_batch() {
+        let runtime=Runtime::default();
+        let api=GmailHttp::new("fixture".into(),ClientConfig{client_id:"fixture".into(),client_secret:String::new()},&runtime).unwrap();
+        let mut calls=0;
+        let result=api.retry_read(||{calls+=1;if calls==1{Err(connection_error())}else{Ok(42)}});
+        assert_eq!(result.unwrap(),42); assert_eq!(calls,2);
+    }
+    #[test]
+    fn persistent_read_failure_is_bounded_and_keeps_safe_diagnostics() {
+        let runtime=Runtime::default();
+        let api=GmailHttp::new("fixture".into(),ClientConfig{client_id:"fixture".into(),client_secret:String::new()},&runtime).unwrap();
+        let mut calls=0;
+        let result:Result<(),ApiError>=api.retry_read(||{calls+=1;Err(connection_error())});
+        assert_eq!(calls,3); assert_eq!(result.unwrap_err().code(),"gmail_connection_failed");
+    }
+    #[test]
+    fn cancellation_during_transport_failure_prevents_another_read() {
+        let runtime=Runtime::default();
+        let api=GmailHttp::new("fixture".into(),ClientConfig{client_id:"fixture".into(),client_secret:String::new()},&runtime).unwrap();
+        let mut calls=0;
+        let result:Result<(),ApiError>=api.retry_read(||{calls+=1;runtime.cancel.store(true,Ordering::SeqCst);Err(connection_error())});
+        assert_eq!(calls,1); assert_eq!(result.unwrap_err().code(),"gmail_cancelled");
+    }
 }
