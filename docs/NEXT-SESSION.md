@@ -5,8 +5,9 @@
 Gmail recovery and offline briefing release from
 `codex/gmail-local-brief-recovery`, based on master `2fdd1b8` (0.46.0).
 Merged through PR #25 at `c30637c`. The MSI was built successfully.
-Installation is currently waiting for Windows administrator approval; the
-registry still reports 0.46.0. The updater remains waiting at the prompt.
+Windows closed the administrator prompt and the updater reported user
+cancellation. Installation did not complete; registry remains 0.46.0.
+The owner was asked for go-ahead before retrying the canceled prompt.
 
 ## Included
 
@@ -37,8 +38,9 @@ registry still reports 0.46.0. The updater remains waiting at the prompt.
   evidence and limits: `docs/reviews/2026-11-08-gmail-local-brief.md`.
 - Visual regression passed: 21 captures, 14 functional checks and 22 Organizer
   checks. Command idle/conversation and real Communications screens inspected.
-- Installation reached Windows administrator approval. Kevin was asked to
-  approve the prompt; it has not been bypassed or treated as complete.
+- Installation reached Windows administrator approval, then exited with
+  Windows reporting cancellation. The prompt is no longer pending. Do not
+  retry it until Kevin gives the requested go-ahead.
 - After approval: verify installed version 0.47.0, fresh scheduled Gmail sync,
   local Communications analysis, local voice and a useful saved opening brief.
 - Operational backup before install: `olympus-before-047-20261108-120359.sqlite`

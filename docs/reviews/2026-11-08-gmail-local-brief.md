@@ -74,3 +74,7 @@ verification before installation. The owner was asked to approve Windows' prompt
 
 After approval, verify the installed executable and perform the real restart/sync,
 local analysis and brief checks. The tested development app was closed cleanly.
+
+Subsequent installer result: Windows closed the consent request and reported user
+cancellation. Registry remained 0.46.0. The earlier pending state above is
+superseded; the owner was asked for go-ahead before retrying.
