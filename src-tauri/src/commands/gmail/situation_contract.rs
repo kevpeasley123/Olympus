@@ -1,7 +1,7 @@
 //! Supplied evidence -> proposed situation observations. No retrieval or execution authority.
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 pub fn object(properties: Value) -> Value {
     let keys = properties
         .as_object()
@@ -82,10 +82,22 @@ pub fn parse_observations(
     struct Batch {
         observations: Vec<Observation>,
     }
-    let b: Batch = serde_json::from_str(raw).map_err(|_| "situation_invalid_output")?;
+    let mut b: Batch = serde_json::from_str(raw).map_err(|_| "situation_invalid_output")?;
     if b.observations.len() != threads.len() || threads.len() > 6 {
         return Err("situation_source_cardinality".into());
     }
+    // Structured generation can permute the batch. Bind by identity before
+    // checking evidence, then restore source order for the persistence caller.
+    let mut by_id = BTreeMap::new();
+    for observation in b.observations {
+        if by_id.insert(observation.thread_id.clone(), observation).is_some() {
+            return Err("situation_output_bounds".into());
+        }
+    }
+    b.observations = threads.iter().map(|thread| {
+        thread["threadId"].as_str().and_then(|id| by_id.remove(id))
+            .ok_or_else(|| "situation_output_bounds".to_string())
+    }).collect::<Result<Vec<_>, _>>()?;
     for (o, t) in b.observations.iter().zip(threads) {
         if t["threadId"] != o.thread_id
             || o.summary.chars().count()>700 || (o.relevant && o.summary.trim().is_empty())
@@ -189,7 +201,7 @@ pub fn briefing_schema() -> Value {
     )
 }
 /// Constrain generation to this batch, not the global catalog capacity.
-/// Parsing still checks order, unique identity and evidence semantics afterwards.
+/// Parsing restores source order and checks unique identity and evidence semantics.
 pub fn grounded_briefing_schema(contexts:&[Value])->Value {
  let base=briefing_schema();
  let variants=contexts.iter().map(|context|{
@@ -234,10 +246,20 @@ pub fn parse_briefings(raw: &str, contexts: &[Value]) -> Result<Vec<Briefing>, S
     struct Batch {
         briefings: Vec<Briefing>,
     }
-    let b: Batch = serde_json::from_str(raw).map_err(|_| "briefing_invalid_output")?;
+    let mut b: Batch = serde_json::from_str(raw).map_err(|_| "briefing_invalid_output")?;
     if b.briefings.len() != contexts.len() {
         return Err("briefing_cardinality".into());
     }
+    let mut by_id = BTreeMap::new();
+    for briefing in b.briefings {
+        if by_id.insert(briefing.situation_id.clone(), briefing).is_some() {
+            return Err("briefing_bounds".into());
+        }
+    }
+    b.briefings = contexts.iter().map(|context| {
+        context["id"].as_str().and_then(|id| by_id.remove(id))
+            .ok_or_else(|| "briefing_bounds".to_string())
+    }).collect::<Result<Vec<_>, _>>()?;
     for (b, c) in b.briefings.iter().zip(contexts) {
         if b.situation_id != c["id"]
             || !bounded(&b.where_things_stand, 1100)
@@ -274,6 +296,34 @@ mod tests {
         )
     }
     #[test]
+    fn observations_follow_source_identity_not_model_order() {
+        let (mut v, mut threads) = fixture();
+        let mut second = v["observations"][0].clone();
+        second["threadId"] = json!("bb");
+        second["details"][0]["messageId"] = json!("b1");
+        second["details"][0]["value"] = json!("$30");
+        second["details"][0]["quote"] = json!("The fee is $30.");
+        threads.push(json!({"threadId":"bb","participants":["lender@example.invalid"],"messages":[{"id":"b1","text":"The fee is $30."}]}));
+        v["observations"] = json!([second, v["observations"][0]]);
+        let parsed = parse_observations(&v.to_string(), &threads, &BTreeSet::new()).unwrap();
+        assert_eq!(parsed[0].thread_id, "aa");
+        assert_eq!(parsed[0].details[0].value, "$20");
+        assert_eq!(parsed[1].thread_id, "bb");
+        assert_eq!(parsed[1].details[0].value, "$30");
+        // Reordering must never make another thread's quote eligible.
+        v["observations"][0]["details"][0]["messageId"] = json!("a1");
+        assert!(parse_observations(&v.to_string(), &threads, &BTreeSet::new()).is_err());
+    }
+    #[test]
+    fn duplicate_and_unknown_observation_sources_are_rejected() {
+        let (mut v, mut threads) = fixture();
+        threads.push(json!({"threadId":"bb","participants":[],"messages":[]}));
+        v["observations"] = json!([v["observations"][0], v["observations"][0]]);
+        assert!(parse_observations(&v.to_string(), &threads, &BTreeSet::new()).is_err());
+        v["observations"][1]["threadId"] = json!("unknown");
+        assert!(parse_observations(&v.to_string(), &threads, &BTreeSet::new()).is_err());
+    }
+    #[test]
     fn only_literal_payment_details_are_accepted() {
         let (mut v, t) = fixture();
         assert!(parse_observations(&v.to_string(), &t, &BTreeSet::new()).is_ok());
@@ -298,6 +348,25 @@ mod tests {
         assert!(!safe_portal("https://user:password@example.invalid"));
         v["observations"][0]["details"][0]["value"] = json!("https://other.invalid/manage");
         assert!(parse_observations(&v.to_string(), &t, &BTreeSet::new()).is_err());
+    }
+    #[test]
+    fn situation_briefings_bind_next_moves_to_identity_not_position() {
+        let contexts = vec![json!({"id":"home","observations":[{"threadId":"aa"}]}),json!({"id":"work","observations":[{"threadId":"bb"}]})];
+        let mut value = json!({"briefings":[
+            {"situationId":"work","whereThingsStand":"Work review pending.","whatChanged":"Review requested.","nextMoves":[{"threadId":"bb","explanation":"Work review requested.","suggestedAction":"Review the draft."}]},
+            {"situationId":"home","whereThingsStand":"Home review pending.","whatChanged":"Statement requested.","nextMoves":[{"threadId":"aa","explanation":"Home statement requested.","suggestedAction":"Review the statement."}]}
+        ]});
+        let parsed = parse_briefings(&value.to_string(), &contexts).unwrap();
+        assert_eq!(parsed[0].situation_id, "home");
+        assert_eq!(parsed[0].next_moves[0].thread_id, "aa");
+        assert_eq!(parsed[1].situation_id, "work");
+        for wrong in ["home", "unknown"] {
+            let mut invalid = value.clone();
+            invalid["briefings"][0]["situationId"] = json!(wrong);
+            assert!(parse_briefings(&invalid.to_string(), &contexts).is_err());
+        }
+        value["briefings"][0]["nextMoves"][0]["threadId"] = json!("aa");
+        assert!(parse_briefings(&value.to_string(), &contexts).is_err());
     }
     #[test]
     fn unrelated_recommendations_are_rejected() {

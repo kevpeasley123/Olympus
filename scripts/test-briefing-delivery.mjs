@@ -3,7 +3,7 @@ import {mkdir} from 'node:fs/promises';
 import assert from 'node:assert/strict';
 await mkdir('output/tests',{recursive:true});
 await build({entryPoints:['src/services/briefingDelivery.ts'],bundle:true,platform:'node',format:'esm',outfile:'output/tests/briefingDelivery.mjs',logLevel:'warning'});
-const {prepareFactualBrief:prepare,prepareStableBrief}=await import('../output/tests/briefingDelivery.mjs');
+const {prepareFactualBrief:prepare,prepareStableBrief,waitForBriefMail}=await import('../output/tests/briefingDelivery.mjs');
 const prepareFactualBrief=(input,mode,now,client,current)=>prepare(input,mode,now,client,current,{temporary:false,conversationId:'fixture'});
 let reads=0, deliveries=0;
 const gmail={configured:true,busy:false,cachedMessages:0,account:null,candidates:[],lastRun:null};
@@ -50,3 +50,31 @@ assert.equal(startup.text,null,"An in-progress mailbox sync alone must not becom
 const needsConsent=await prepare(input,"opening",Date.now(),{...client,gmail:async()=>({...syncing,busy:false,account:{...syncing.account,status:"authentication_required",lastError:"gmail_refresh_grant_rejected"}})});
 assert.match(needsConsent.text,/Gmail needs reconnection|Reconnect Gmail/);
 console.log("PASS omit a transient startup status and retain actionable reconnect instructions");
+
+// Startup used to reserve a native synthesis ticket before the due mail sync.
+assert.equal(typeof waitForBriefMail,'function','Both briefing routes need the same bounded startup barrier');
+let clock=0, statusReads=0;
+const due={...syncing,busy:false,account:{...syncing.account,status:'connected',nextSync:null}};
+const fresh={...due,account:{...due.account,nextSync:new Date(60_000).toISOString()}};
+const states=[due,syncing,fresh];
+const ready=await waitForBriefMail(()=>true,async()=>states[Math.min(statusReads++,2)],{now:()=>clock,sleep:async ms=>{clock+=ms;}});
+assert.equal(ready.account.nextSync,fresh.account.nextSync,'Wait through the due and syncing phases before selecting mail');
+assert.equal(statusReads,3);
+for(const retryState of [
+ {...due,account:{...due.account,status:'sync_error',lastError:'gmail_connection_failed'}},
+ {...syncing,account:{...syncing.account,lastError:'gmail_connection_failed'}},
+ {...due,account:{...due.account,status:'authentication_required',lastError:'gmail_authentication_required'}},
+ {...due,account:{...due.account,nextSync:'invalid'}},
+]){
+ clock=0;let reads=0;
+ const recovered=await waitForBriefMail(()=>true,async()=>reads++===0?retryState:fresh,{now:()=>clock,sleep:async ms=>{clock+=ms;}});
+ assert.equal(recovered,fresh,'A recoverable connection state must get its scheduled retry before synthesis');
+}
+clock=0;
+await waitForBriefMail(()=>true,async()=>syncing,{now:()=>clock,sleep:async ms=>{clock+=ms;}});
+assert.ok(clock>=12_000 && clock<=12_600,'A stalled sync cannot block the opening indefinitely');
+let active=true;
+await assert.rejects(waitForBriefMail(()=>active,async()=>due,{now:()=>0,sleep:async()=>{active=false;}}),/context changed/i);
+const auth={...due,account:{...due.account,status:'authentication_required',lastError:'grant_revoked'}};
+assert.equal(await waitForBriefMail(()=>true,async()=>auth,{now:()=>0,sleep:async()=>{throw Error('must not wait on consent');}}),auth);
+console.log('PASS startup sync barrier, bounded wait, cancellation and revoked consent');
