@@ -62,3 +62,15 @@ The pre-existing ElevenLabs auto-speak setting was discovered during desktop
 acceptance and changed to Local. Local inference tests made no paid model call;
 that earlier speech playback must not be described as wholly offline validation.
 Subscription reasoning gates remain unchanged.
+
+## Integration and installation handoff
+
+PR #25 merged at `c30637c`; version 0.47.0 MSI built. The updater initially hit
+a locked Vite native module; the completed-test fixture server was stopped and
+the normal updater then built successfully. Windows administrator consent is now
+pending. Installed registry version remains 0.46.0 until approval; no installed
+0.47 acceptance claim is made. A fresh operational database backup passed integrity
+verification before installation. The owner was asked to approve Windows' prompt.
+
+After approval, verify the installed executable and perform the real restart/sync,
+local analysis and brief checks. The tested development app was closed cleanly.
