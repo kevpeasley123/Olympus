@@ -9,7 +9,7 @@ use serde_json::json;
 use sha2::{Digest,Sha256};
 use std::{collections::HashSet,path::PathBuf};
 
-pub(super) struct Snapshot{ids:Vec<String>,observed:i64,revision:String,evidence:Vec<Evidence>,mapping:Vec<ProjectMapping>}
+pub(super) struct Snapshot{page_size:usize,ids:Vec<String>,observed:i64,revision:String,evidence:Vec<Evidence>,mapping:Vec<ProjectMapping>}
 struct CommitMapping{id:String,oid:String}
 struct ProjectMapping{source:String,oids:Vec<String>,commits:Vec<CommitMapping>}
 impl Snapshot{
@@ -22,7 +22,10 @@ fn digest(v:&impl serde::Serialize)->String{format!("{:x}",Sha256::digest(serde_
 fn oid(s:&str)->bool{matches!(s.len(),40|64)&&s.bytes().all(|b|b.is_ascii_hexdigit())}
 
 pub(super) fn capture(c:&Connection,ids:&[String],now:i64)->Result<Snapshot,String>{
-    if now<0||ids.len()>3||ids.iter().any(|id|id.is_empty()||id.len()>160||id.chars().any(char::is_control))||ids.iter().collect::<HashSet<_>>().len()!=ids.len(){return Err(invalid());}
+    capture_page(c,ids,now,8)
+}
+pub(super) fn capture_page(c:&Connection,ids:&[String],now:i64,page_size:usize)->Result<Snapshot,String>{
+    if !(1..=8).contains(&page_size)||now<0||ids.len()>3||ids.iter().any(|id|id.is_empty()||id.len()>160||id.chars().any(char::is_control))||ids.iter().collect::<HashSet<_>>().len()!=ids.len(){return Err(invalid());}
     let mut evidence=Vec::new();let mut mapping=Vec::new();let mut bindings=Vec::new();let mut paths=HashSet::new();
     for id in ids{
         let member=project_registry::get(c,id).map_err(|_|invalid())?;
@@ -56,7 +59,8 @@ pub(super) fn capture(c:&Connection,ids:&[String],now:i64)->Result<Snapshot,Stri
             if when>now||commit.oid.as_ref().is_none_or(|s|!oid(s)){return Err(invalid());}
         }
         commits.sort_by(|a,b|chrono::DateTime::parse_from_rfc3339(&a.at).unwrap().timestamp_millis().cmp(&chrono::DateTime::parse_from_rfc3339(&b.at).unwrap().timestamp_millis()).then_with(||a.oid.cmp(&b.oid)));
-        let mut mapped=Vec::new();let mut acknowledgments=Vec::new();let mut page_count=0;
+        let selected:HashSet<_>=commits.iter().rev().filter(|c|!c.subject.starts_with("Merge ")).chain(commits.iter().rev().filter(|c|c.subject.starts_with("Merge "))).filter_map(|commit|commit.oid.as_ref()).filter(|hash|!previous_oids.contains(hash)).take(page_size).cloned().collect();
+        let mut mapped=Vec::new();let mut acknowledgments=Vec::new();
         for commit in &commits{
             let hash=commit.oid.as_ref().ok_or_else(invalid)?;
             let source_id=format!("project:{id}:commit:{hash}");
@@ -66,8 +70,7 @@ pub(super) fn capture(c:&Connection,ids:&[String],now:i64)->Result<Snapshot,Stri
             let acknowledged=previous_oids.contains(hash);
             acknowledgments.push(json!({"id":source_id,"acknowledged":acknowledged}));
             mapped.push(CommitMapping{id:source_id.clone(),oid:hash.clone()});
-            if !acknowledged&&page_count<8{
-                page_count+=1;
+            if selected.contains(hash){
                 let text=json!({"source":"registered_project_git_commit","projectId":id,"name":member.project.name,"commit":commit,"interpretation":"Recorded Git commit; not proof of deployment, completion, or operator commitment."}).to_string();
                 if text.chars().count()>2000{return Err("briefing_project_snapshot_too_large".into());}
                 evidence.push(Evidence{id:source_id,revision,kind:"project".into(),text,observed_at:now,authority:Authority::SourceFact,context_only:false});
@@ -76,7 +79,7 @@ pub(super) fn capture(c:&Connection,ids:&[String],now:i64)->Result<Snapshot,Stri
         bindings.push(json!({"member":member,"cursor":cursor,"ledgerKey":ledger_key,"commits":commits,"acknowledgments":acknowledgments}));
         mapping.push(ProjectMapping{source:ledger_key,oids:previous_oids,commits:mapped});
     }
-    Ok(Snapshot{ids:ids.to_vec(),observed:now,revision:digest(&bindings),evidence,mapping})
+    Ok(Snapshot{page_size,ids:ids.to_vec(),observed:now,revision:digest(&bindings),evidence,mapping})
 }
 
 /// The caller must keep its native session lease and DB transaction through
@@ -85,7 +88,7 @@ pub(super) fn capture(c:&Connection,ids:&[String],now:i64)->Result<Snapshot,Stri
 pub(super) fn with_revalidated<T>(c:&Connection,snapshot:&Snapshot,now:i64,selected:&[String],use_snapshot:impl FnOnce(&[Evidence],&DisplayPlan)->Result<T,String>)->Result<T,String>{
     if now<snapshot.observed||now.saturating_sub(snapshot.observed)>900_000{return Err("briefing_project_snapshot_expired".into());}
     if selected.iter().collect::<HashSet<_>>().len()!=selected.len(){return Err(invalid());}
-    let current=capture(c,&snapshot.ids,now)?;
+    let current=capture_page(c,&snapshot.ids,now,snapshot.page_size)?;
     if current.revision!=snapshot.revision{return Err("briefing_project_snapshot_changed".into());}
     let mut items=Vec::new();let mut cursors=Vec::new();
     for id in selected{
@@ -127,6 +130,13 @@ pub(super) fn with_revalidated<T>(c:&Connection,snapshot:&Snapshot,now:i64,selec
     }
     fn fixture()->(Connection,Repo){
         let c=Connection::open_in_memory().unwrap();crate::commands::migrations::apply(&c).unwrap();let repo=seed_fixture(&c,NOW);(c,repo)
+    }
+    #[test]fn first_page_prioritizes_recent_commits_without_acknowledging_older_gaps(){
+      let(c,repo)=fixture();for i in 0..10{commit(&repo,&format!("Recent {i}"),NOW+i*1000);}
+      let snap=capture(&c,&["fixture".into()],NOW+20000).unwrap();
+      assert_eq!(snap.evidence.len(),8);assert!(snap.evidence.iter().any(|e|e.text.contains("Recent 9")));
+      assert!(!snap.evidence.iter().any(|e|e.text.contains("Synthetic studio inspection")));
+      assert_eq!(c.query_row("SELECT count(*) FROM project_brief_cursors",[],|r|r.get::<_,i64>(0)).unwrap(),0);
     }
     #[test]fn registered_git_snapshot_maps_only_selected_evidence_and_actual_commit_cursor(){
         let (c,_repo)=fixture();let changes=c.total_changes();let snap=capture(&c,&["fixture".into()],NOW).unwrap();

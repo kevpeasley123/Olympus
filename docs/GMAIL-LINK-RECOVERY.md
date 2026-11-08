@@ -1,6 +1,25 @@
 # Olympus Gmail recovery
 
-## Incident and next action
+## Recovery behavior
+
+The native read-only adapter retries transient transport failures with bounded,
+cancellable backoff and the shared request pacing/cooldown. A single interrupted
+message GET no longer discards an otherwise recoverable catch-up. Cursor and cache
+publication still occur only after a successful bounded collection. Authentication
+failures remain distinct from network and quota failures; retries do not invent a
+new consent grant or broaden Gmail scope.
+
+Background sync runs while Olympus is running. Local email understanding can run
+through an explicitly configured installed Ollama model. Its schema binds response
+cardinality and source IDs, and prevents irrelevant observations from carrying
+situation findings. The same native parser and quotation checks still apply. A local
+model result is not assumed correct merely because its JSON validates.
+
+Current installation and live verification belong in `docs/NEXT-SESSION.md` and the
+dated release review. Historical authentication evidence below must not be mistaken
+for the current account state.
+
+## Historical incident and durability checks
 
 On November 3, 2026, the enabled installed account reported authentication required. A separate opt-in refresh through the native Olympus adapter reached Google's token endpoint and received invalid_grant. The probe did not open mail or change account state. This establishes that the current grant cannot refresh. It does not identify why Google invalidated it.
 

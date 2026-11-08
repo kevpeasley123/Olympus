@@ -364,7 +364,7 @@ where
         }).collect::<Vec<_>>();
         let briefings=if contexts.is_empty(){vec![]}else{
             {let c=db.0.lock().map_err(|_|"database_busy")?;guard(&c,&a,rev,&signatures)?;phase(&c,&id,"Updating situation briefings",json!({"situations":contexts.iter().map(|c|&c["id"]).collect::<Vec<_>>()}))?;}
-            let (raw,receipt)=model(contract::BRIEF,json!({"snapshotTime":time,"situations":contexts}),contract::briefing_schema(),"situation_briefing").await?;
+            let (raw,receipt)=model(contract::BRIEF,json!({"snapshotTime":time,"situations":contexts}),contract::grounded_briefing_schema(&contexts),"situation_briefing").await?;
             let parsed=contract::parse_briefings(&raw,&contexts)?;
             let c=db.0.lock().map_err(|_|"database_busy")?;phase(&c,&id,"Checking evidence",json!({"request":receipt}))?;parsed
         };
@@ -639,4 +639,21 @@ mod tests {
         });
     }
 
+}
+
+#[cfg(test)]
+mod local_acceptance {
+    use super::*;
+    #[test]
+    #[ignore = "requires an isolated copy of the installed DB and approved local model"]
+    fn installed_mail_local_analysis_copy() {
+        assert_eq!(std::env::var("OLYMPUS_EMAIL_ANALYSIS_PROVIDER").unwrap(),"ollama");
+        let path=std::path::PathBuf::from(std::env::var_os("OLYMPUS_LOCAL_ANALYSIS_TEST_DB").expect("isolated copy required"));
+        assert_eq!(path.file_name().unwrap(),"olympus-local-analysis-test.sqlite");
+        let c=Connection::open(path).unwrap();let db=Db(std::sync::Mutex::new(c));
+        let result=tauri::async_runtime::block_on(refresh(&db,true));
+        if let Err(error)=result{panic!("local analysis failed: {error}");}
+        let c=db.0.lock().unwrap();let snapshot=super::super::snapshot(&c).unwrap();
+        eprintln!("Local analysis succeeded: attention={} observations={}",snapshot["attention"].as_array().map_or(0,Vec::len),snapshot["observations"].as_array().map_or(0,Vec::len));
+    }
 }

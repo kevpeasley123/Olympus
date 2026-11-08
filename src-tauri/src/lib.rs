@@ -249,6 +249,8 @@ pub fn run() {
             commands::briefing::briefing_receipts, commands::briefing::briefing_record_delivery,
             commands::briefing_context::briefing_conversation_context,
             commands::briefing_synthesis::briefing_synthesize,
+            commands::briefing_synthesis::briefing_local,
+            commands::briefing_synthesis::briefing_local_prepare,
             commands::briefing_synthesis::lifecycle::briefing_revoke_scope,
             commands::organizer::create_organizer_task, commands::organizer::update_organizer_task,
             commands::organizer::list_organizer_tasks, commands::organizer::set_organizer_intent,

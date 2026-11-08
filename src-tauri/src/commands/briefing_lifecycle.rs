@@ -36,7 +36,7 @@ impl NativeSession {
   selected
  }
  pub fn clear(&self)->Result<(),String>{let _transition=self.transition.lock().map_err(|_|"briefing_lifecycle_unavailable")?;self.owner.revoke()}
- #[cfg(test)] fn owner(&self)->&NativeOwner{&self.owner}
+ pub(super) fn owner(&self)->&NativeOwner{&self.owner}
 }
 /// Revocation is the only UI operation: no caller can grant an evidence scope.
 #[tauri::command]

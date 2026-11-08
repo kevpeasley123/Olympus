@@ -8,12 +8,15 @@ export default defineConfig({
   // Linked worktrees may share node_modules but must not invalidate each
   // other's dependency optimizer cache while their preview servers run.
   cacheDir: resolve("node_modules", `.vite-${createHash("sha256").update(resolve(".")).digest("hex").slice(0, 12)}`),
+  // Generated browser-test bundles under output are not application entries.
+  optimizeDeps: { entries: ["*.html"] },
   plugins: [react()],
   clearScreen: false,
   server: {
     // Capture runs do not edit sources. Avoid unrelated HMR socket failures
     // during repeated browser contexts on busy Windows development machines.
     hmr: process.env.OLYMPUS_VISUAL_REVIEW === "1" ? false : undefined,
+    watch: { ignored: ["**/output/**"] },
     port: 31420,
     strictPort: true,
     fs: {

@@ -94,8 +94,8 @@ fn normalized(words: &str) -> String {
 fn result(content: String, feedback: Option<Context>) -> Value {
     json!({"content":content,"feedback":feedback})
 }
-fn remember_result(c: &Connection, message: &str, value: &Value) -> Result<(), String> {
-    c.execute("INSERT INTO conversation_turn_context(message_id,context_json) VALUES(?1,json_object('feedbackResult',json(?2))) ON CONFLICT(message_id) DO UPDATE SET context_json=json_set(context_json,'$.feedbackResult',json(?2))",params![message,value.to_string()]).map_err(err)?;
+fn remember_result(c: &Connection, message: &str, value: &Value, brief: &str) -> Result<(), String> {
+    c.execute("INSERT INTO conversation_turn_context(message_id,context_json) VALUES(?1,json_object('feedbackResult',json(?2),'feedbackBriefingMessageId',?3)) ON CONFLICT(message_id) DO UPDATE SET context_json=json_set(context_json,'$.feedbackResult',json(?2),'$.feedbackBriefingMessageId',?3)",params![message,value.to_string(),brief]).map_err(err)?;
     Ok(())
 }
 
@@ -141,7 +141,7 @@ pub(crate) fn apply(
         return Ok(Some(receipt.clone()));
     }
     let previous:Option<(String,String,Option<String>,bool)>=tx.query_row("SELECT m.id,m.role,t.context_json,EXISTS(SELECT 1 FROM conversation_imports WHERE message_id=m.id) FROM conversation_messages m LEFT JOIN conversation_turn_context t ON t.message_id=m.id WHERE m.conversation_id=?1 AND m.rowid<?2 AND m.created_at>=datetime('now','-1 day') ORDER BY m.rowid DESC LIMIT 1",params![conversation_id,rowid],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?,r.get(3)?))).optional().map_err(err)?;
-    let Some((_, role, Some(raw), imported)) = previous else {
+    let Some((briefing_message_id, role, Some(raw), imported)) = previous else {
         return Ok(None);
     };
     if imported || role != "assistant" || raw.len() > 16000 {
@@ -173,6 +173,20 @@ pub(crate) fn apply(
     {
         return Ok(None);
     }
+    // A follow-up can reuse a native brief only through the exact response
+    // previously issued by this handler. Renderer-supplied IDs are not authority.
+    let briefing_message_id = if context.kind == "brief" {
+        briefing_message_id
+    } else {
+        let receipt: Option<(String,String)> = tx.query_row(
+            "SELECT a.content,t.context_json FROM conversation_messages a JOIN conversation_messages u ON u.rowid=(SELECT max(rowid) FROM conversation_messages WHERE conversation_id=?1 AND rowid<a.rowid) JOIN conversation_turn_context t ON t.message_id=u.id WHERE a.id=?2 AND a.conversation_id=?1 AND u.conversation_id=?1 AND u.role='user' AND NOT EXISTS(SELECT 1 FROM conversation_imports WHERE message_id=u.id)",
+            params![conversation_id,briefing_message_id], |r| Ok((r.get(0)?,r.get(1)?))).optional().map_err(err)?;
+        let Some((content,raw_receipt))=receipt else {return Ok(None)};
+        let receipt:Value=serde_json::from_str(&raw_receipt).map_err(|_| "Conversation context is unreadable.")?;
+        if receipt["feedbackResult"]["content"]!=content || receipt["feedbackResult"]["feedback"]!=*raw {return Ok(None)}
+        let Some(id)=receipt["feedbackBriefingMessageId"].as_str() else {return Ok(None)};
+        id.to_string()
+    };
     let mut statement_id = message_id.to_string();
     let mut statement = words.clone();
     let mut chosen = None;
@@ -238,7 +252,7 @@ pub(crate) fn apply(
             format!("Which email do you mean: {}? Reply with its subject. I haven't changed anything yet.",context.sources.iter().map(|s|s.subject.as_str()).collect::<Vec<_>>().join(" or "))
         };
         let answer = result(question, Some(context));
-        remember_result(&tx, message_id, &answer)?;
+        remember_result(&tx, message_id, &answer, &briefing_message_id)?;
         tx.commit().map_err(err)?;
         return Ok(Some(answer));
     }
@@ -255,7 +269,7 @@ pub(crate) fn apply(
             String::new()
         },
     };
-    let origin = json!({"conversationId":conversation_id,"messageId":message_id,"statementMessageId":statement_id,"statement":statement});
+    let origin = json!({"conversationId":conversation_id,"briefingMessageId":briefing_message_id,"messageId":message_id,"statementMessageId":statement_id,"statement":statement});
     if let Err(error) = learning::apply(&tx, request, Some(origin)) {
         let content=match error.as_str(){"learning_account_changed"|"gmail_not_connected"=>"The connected email account changed. I haven't applied that correction.","learning_revision_changed"|"learning_source_changed"=>"That email or its understanding changed since this brief. I haven't applied the correction; request a fresh update first.",_=>return Err("I couldn't save the correction. No email understanding was changed.".into())};
         return Ok(Some(result(content.into(), None)));
@@ -278,7 +292,7 @@ pub(crate) fn apply(
             pending_message_id: None,
         }),
     );
-    remember_result(&tx, message_id, &answer)?;
+    remember_result(&tx, message_id, &answer, &briefing_message_id)?;
     tx.commit().map_err(err)?;
     Ok(Some(answer))
 }
