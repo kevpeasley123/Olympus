@@ -16,7 +16,7 @@ import { refreshVaultWrites } from "./useVaultWrites";
 import { emitRefreshRequested } from "../services/navigation";
 import { buildProjectCommandBoard } from "../services/projectCommandBoard";
 import { composeOpeningBriefing } from "../services/openingBriefing";
-import { prepareFactualBrief, prepareStableBrief } from "../services/briefingDelivery";
+import { prepareFactualBrief, prepareStableBrief, waitForBriefMail } from "../services/briefingDelivery";
 import { BRIEFING_ID_PREFIX } from "../services/conversationHistory";
 import type { ModelCapability } from "../services/modelRouting";
 import type { VoiceDepth, VoiceAnswer, VoiceMessageMetadata } from "../services/voiceContract";
@@ -303,6 +303,8 @@ export function useDashboardData() {
       .slice(0, 3).map(p => p.id);
     let message: ConversationMessage | null;
     try {
+      await waitForBriefMail(active);
+      if (!active()) return true;
       const ticket = await invoke<string>("briefing_local_prepare", { conversationId: session.id });
       if (!active()) { await briefingScope.current.invalidate(); return true; }
       message = await invoke<ConversationMessage | null>("briefing_local", { conversationId: session.id, ticket, projectIds });

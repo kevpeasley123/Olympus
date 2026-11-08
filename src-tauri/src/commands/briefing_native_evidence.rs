@@ -701,6 +701,28 @@ fn resolve_snapshot(c:&Connection,scope:&Scope,selection:&Selection,now:i64)->Re
 
 #[cfg(test)]mod local_selection_tests{
  use super::*;
+ #[test]fn newer_mail_is_not_displaced_by_an_older_higher_priority_request(){
+  let now=chrono::Utc::now().timestamp_millis();let c=Connection::open_in_memory().unwrap();crate::commands::migrations::apply(&c).unwrap();
+  for (id,thread,age,subject) in [("received","billing",0,"Payment received"),("due","billing",1,"Payment due"),("older-shipment","other-thread",2,"Your shipment is scheduled")]{
+   let at=now-age*1000;
+   let mail=json!({"provider":"gmail","accountId":"account","id":id,"threadId":thread,"sender":"service@example.invalid","subject":subject,"internalDate":at,"canonicalText":"Fixture source","bodyStatus":"text_available","fingerprint":"fixture","labels":["INBOX"]});
+   c.execute("INSERT INTO gmail_messages(account_id,id,thread_id,internal_date,fingerprint,snapshot_json,available,in_scope) VALUES('account',?1,?2,?3,'fixture',?4,1,1)",params![id,thread,at,mail.to_string()]).unwrap();
+  }
+  assert_eq!(select_local_mail(&c,"account",now).unwrap(),vec!["received"]);
+ }
+ #[test]fn useful_mail_is_not_crowded_out_by_newer_routine_updates(){
+  let now=chrono::Utc::now().timestamp_millis();let c=Connection::open_in_memory().unwrap();crate::commands::migrations::apply(&c).unwrap();
+  for (i,(id,subject)) in [("code","Your verification code"),("news-a","Weekly ChartStorm"),("news-b","Daily newsletter"),("news-c","Weekly digest"),("bill","New Bill from Utility"),("shipment","Your shipment is scheduled for delivery")].iter().enumerate(){
+   let at=now-i as i64*1000;
+   let mail=json!({"provider":"gmail","accountId":"account","id":id,"threadId":id,"sender":format!("{id}@example.invalid"),"subject":subject,"internalDate":at,"canonicalText":"Fixture source","bodyStatus":"text_available","fingerprint":"fixture","labels":["INBOX"]});
+   c.execute("INSERT INTO gmail_messages(account_id,id,thread_id,internal_date,fingerprint,snapshot_json,available,in_scope) VALUES('account',?1,?1,?2,'fixture',?3,1,1)",params![id,at,mail.to_string()]).unwrap();
+  }
+  let selected=select_local_mail(&c,"account",now).unwrap();
+  assert_eq!(selected[0],"bill");
+  assert!(selected.contains(&"shipment".to_string()));
+  assert!(!selected.contains(&"code".to_string()));
+  assert!(selected.len()<=4);
+ }
  #[test]fn mail_selection_excludes_promotions_and_stale_or_unavailable_sources(){
   let now=chrono::Utc::now().timestamp_millis();let c=Connection::open_in_memory().unwrap();crate::commands::migrations::apply(&c).unwrap();
   for (id,age,available,labels) in [("a",0,1,vec!["INBOX"]),("b",0,1,vec!["INBOX","CATEGORY_PROMOTIONS"]),("c",8,1,vec!["INBOX"]),("d",0,0,vec!["INBOX"])]{
@@ -712,6 +734,19 @@ fn resolve_snapshot(c:&Connection,scope:&Scope,selection:&Selection,now:i64)->Re
 }
 
 // Native source selection: no renderer-provided message text, account or authority.
+// These are retrieval hints, never claims of urgency or a verified obligation.
+fn brief_mail_priority(mail:&StoredMail)->Option<u8>{
+ let subject=mail.subject.to_lowercase();
+ let has=|terms:&[&str]|terms.iter().any(|term|subject.contains(term));
+ if has(&["verification code","single-use code","one-time code"]) ||
+    (subject.starts_with("use ")&&subject.ends_with(" to sign in")){return None}
+ if has(&["action required","response required","deadline","past due","payment due","new bill"]){return Some(6)}
+ if has(&["shipment","shipping","delivery delayed","refund","issue with your order","statement is available"]){return Some(5)}
+ if has(&["security alert","new sign-in","updated permissions"]){return Some(4)}
+ if has(&["newsletter","digest","chartstorm","weekly","brew","jobs for you","job alerts","no-contact delivery"]){return Some(1)}
+ if has(&["order","purchase","delivery"]){return Some(3)}
+ Some(2)
+}
 fn select_local_mail(c:&Connection,account:&str,now:i64)->Result<Vec<String>,String>{
  let receipts=crate::commands::briefing::read(c)?;
  let mut q=c.prepare("SELECT id,thread_id,internal_date,fingerprint,snapshot_json FROM gmail_messages WHERE account_id=?1 AND available=1 AND in_scope=1 AND internal_date>=?2 AND length(snapshot_json)<=65536 ORDER BY internal_date DESC,id LIMIT 100").map_err(error)?;
@@ -725,17 +760,28 @@ fn select_local_mail(c:&Connection,account:&str,now:i64)->Result<Vec<String>,Str
    if resolution["active"]==true&&matches!(resolution["action"].as_str(),Some("handled"|"dismissed"|"snoozed")){if let Some(t)=resolution["threadId"].as_str(){suppressed.insert(t.to_string());}}
   }
  }}
- let mut selected=Vec::new();let mut senders=HashSet::new();
+ let mut candidates=Vec::new();let mut threads=HashSet::new();let mut senders=HashSet::new();
  for (id,thread,at,fingerprint,raw) in rows{
-  if suppressed.contains(&thread){continue}
+  // Never resurrect an older request after its newer reply or confirmation.
+  if suppressed.contains(&thread)||!threads.insert(thread.clone()){continue}
 
   let Ok(mail)=serde_json::from_str::<StoredMail>(&raw) else{continue};
   if mail.body_status!="text_available"||!mail.labels.iter().any(|l|l=="INBOX")||mail.labels.iter().any(|l|matches!(l.as_str(),"SPAM"|"TRASH"|"SENT"|"DRAFT"|"CATEGORY_PROMOTIONS")){continue}
+  let Some(priority)=brief_mail_priority(&mail) else{continue};
   let rev=revision(&(account,&id,&thread,at,&fingerprint,&raw));
-  if receipts.get(&format!("mail:{account}:{id}")).is_some_and(|r|r.revision==rev){continue}
   let sender=mail.sender.to_lowercase();
   let mailbox=sender.split('<').nth(1).and_then(|s|s.split('>').next()).unwrap_or(&sender);
   if !senders.insert(mailbox.to_string()){continue}
+  if receipts.get(&format!("mail:{account}:{id}")).is_some_and(|r|r.revision==rev){continue}
+  candidates.push((priority,mailbox.to_string(),id));
+ }
+ // Diversify newest sources before ranking: an older high-scoring request must
+ // not displace a newer low-scoring confirmation. Sender identity does not prove
+ // that different threads refer to the same order or that a matter is resolved.
+ candidates.sort_by_key(|candidate|std::cmp::Reverse(candidate.0));
+ let mut selected=Vec::new();
+ for (_,mailbox,id) in candidates{
+  let _=mailbox;
   selected.push(id);if selected.len()==4{break}
  }
  Ok(selected)
@@ -762,7 +808,7 @@ pub(super) async fn local_brief(db:&crate::commands::persistence::Db,session:&su
  };
  let policy=||if local::local_model()?==model{Ok(())}else{Err("local_analysis_configuration_changed".into())};
  let id=run_qualified(&db.0,session.owner(),issued,projects,||chrono::Utc::now().timestamp_millis(),policy,"ollama",&model,|input,schema|async{
-  local::infer_local(&model,&format!("{}\nToday is {} UTC. Select useful changes across the available domains. Prefer one meaningful project progress item when supplied. Name the concrete feature that changed; avoid vague phrases such as ongoing development or potential functionality impacts. A commit confirms recorded code changes, not deployment. At most one item per merchant or topic. Do not spend slots on ordinary food delivery confirmations or expired delivery windows. Do not repeat a confirmation and delivery for the same order. Address Kevin as you, never in third person. Do not invent action for a credit that has already been issued: no action is needed unless the source says otherwise. Write naturally: action is an actual next step or an empty string, never a status label. uncertainty is empty unless there is a material unknown; never write 'No uncertainty'. Keep the entire brief concise, whyItMatters must explain a practical consequence for your workflow rather than rephrase the headline. If no consequence is supported, leave it empty. For each item explicitly state whether the source requires anything from you; when nothing is requested, say so briefly in action. Use complete sentences, not headline fragments. This is a limited evidence selection, not a complete mailbox review.",super::INSTRUCTIONS,chrono::Utc::now().format("%Y-%m-%d %H:%M")),input,schema,"briefing_synthesis").await.map(|(raw,_)|raw)
+  local::infer_local(&model,&format!("{}\nToday is {} UTC. Select useful changes across the available domains. Use at most ONE item per project: synthesize its meaningful changes together rather than listing commits separately. Omit dependency pinning, documentation-only changes and other build housekeeping unless a source states a practical consequence. Prefer meaningful mail developments (deadlines, unresolved requests, non-routine purchases and shipment changes) over additional project detail; omit routine noise and never invent mail news to fill a slot. Name the concrete feature that changed; avoid vague phrases such as ongoing development or potential functionality impacts. A commit confirms recorded code changes, not deployment. At most one item per merchant or topic. Do not spend slots on ordinary food delivery confirmations or expired delivery windows. Do not repeat a confirmation and delivery for the same order. Address Kevin as you, never in third person. Do not invent action for a credit that has already been issued: no action is needed unless the source says otherwise. Write naturally: action is an actual next step or an empty string, never a status label. uncertainty is empty unless there is a material unknown; never write 'No uncertainty'. Keep the entire brief concise, whyItMatters must explain a practical consequence for your workflow rather than rephrase the headline. If no consequence is supported, leave it empty. For each item explicitly state whether the source requests anything from you; when it does not, action must say No action requested. Never imply that the absence of a request proves a project finished or an order safe. Use complete sentences, not headline fragments. This is a limited evidence selection, not a complete mailbox review.",super::INSTRUCTIONS,chrono::Utc::now().format("%Y-%m-%d %H:%M")),input,schema,"briefing_synthesis").await.map(|(raw,_)|raw)
  }).await?;
  let Some(id)=id else{return Ok(None)};
  let c=db.0.lock().map_err(|_|"briefing_database_unavailable")?;

@@ -25,7 +25,11 @@ Mail is loaded from the native cache, never from renderer-provided prose. Accoun
 read-only scope, sync freshness, message identity, fingerprint, inbox eligibility and
 source revisions are checked. Selection excludes promotions and active handled,
 dismissed or snoozed concerns before applying its bound, skips displayed revisions,
-and diversifies senders. Message bodies are explicitly marked bounded excerpts;
+and diversifies senders. Within that bounded set, subject-based retrieval hints
+prefer likely requests, bills, shipment changes and order problems ahead of routine
+newsletters; sign-in codes are excluded. These hints do not establish urgency,
+legitimacy or an obligation. The model must interpret the actual cited message.
+Message bodies are explicitly marked bounded excerpts;
 the source revision still binds the full stored message. Relevant remembered context
 remains lower-authority context and cannot supply a standalone update. Explicit
 operator corrections retain their original meaning.
@@ -41,6 +45,9 @@ Oversized histories and changed sources fail closed.
 The local model receives a bounded packet and structured output contract. It should
 explain what changed, why it matters and whether the operator needs to act, while
 preserving uncertainty and avoiding unsupported shipment joins or expired deadlines.
+Local instructions consolidate each project's changes into at most one item and
+omit build housekeeping unless the source establishes a practical consequence.
+Those are model instructions, not a guarantee of semantic quality.
 The native result validates citations and output shape, rechecks source revisions and
 lifecycle after inference, and atomically persists the exact composed text with its
 request, source provenance and display plan. Native coverage wording identifies the
@@ -56,6 +63,12 @@ from generation and saving, so unshown results do not consume evidence. Source e
 loading and recorded project blockers/review decisions retain the factual path.
 Local generation failure falls back with a visible notice. A successful local brief
 is not presented as a full mailbox, task or run audit.
+
+Before reserving a local generation ticket, the frontend waits up to twelve seconds
+for a due startup sync or in-progress retry. Retryable connection errors retain this
+grace period; revoked consent and future retry deadlines do not delay the brief.
+Changing conversations during the wait cancels preparation. Native freshness and
+source checks still apply after the wait; timeout never makes stale mail eligible.
 
 ## Validation limits
 

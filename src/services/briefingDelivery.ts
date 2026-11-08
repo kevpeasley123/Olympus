@@ -40,6 +40,31 @@ export async function boundedBriefRead<T>(promise:Promise<T>):Promise<T> {
 }
 const bounded=boundedBriefRead;
 
+/** Let the native startup cadence finish before minting a source-bound ticket. */
+export async function waitForBriefMail(
+ active:()=>boolean=()=>true,
+ read:()=>Promise<GmailStatus>=native.gmail,
+ timing={now:()=>Date.now(),sleep:(ms:number)=>new Promise<void>(resolve=>setTimeout(resolve,ms))},
+):Promise<GmailStatus> {
+ const deadline=timing.now()+12_000;
+ let mail:GmailStatus;
+ do {
+  if(!active())throw Error('Briefing context changed.');
+  mail=await bounded(read());
+  if(!active())throw Error('Briefing context changed.');
+  const account=mail.account;
+  const legacyAuth=['gmail_authentication_required','gmail_secure_store_unavailable','oauth_token_missing'].includes(account?.lastError??'');
+  const retryable=account?.status!=='authentication_required'||legacyAuth;
+  const next=Date.parse(account?.nextSync??'');
+  // Match native sync_due, including interrupted/retryable errors. A running
+  // retry retains lastError until it commits, so that error must not skip it.
+  const pending=account?.enabled && (account.status==='syncing' ||
+   (retryable && !mail.busy && (!Number.isFinite(next)||next<=timing.now())));
+  if(!pending || timing.now()>=deadline)return mail;
+  await timing.sleep(600);
+ } while(true);
+}
+
 /** A changing source is a retry, not a successfully consumed opening. */
 export async function prepareStableBrief(prepare:()=>Promise<PreparedBrief>,active:()=>boolean):Promise<PreparedBrief> {
  for(let attempt=0;attempt<3;attempt++) {
@@ -63,21 +88,7 @@ export async function prepareFactualBrief(
  const readReviews=()=>!scope.temporary&&client.reviews?bounded(client.reviews()):Promise.resolve([] as ProjectReview[]);
  const windowRoot=client===native && !scope.temporary && !input.projectsError ? input.rootPath : undefined;
  const readProjects=():Promise<ProjectWindow>=>windowRoot?readProjectWindow(windowRoot,input.projects,now):Promise.resolve({projects:input.projects,gaps:[]});
- const readMail=async()=>{
-   let mail=await bounded(client.gmail());
-   if(client!==native || mode!=="opening")return mail;
-   // On launch the native cadence starts after five seconds. Give a due sync time
-   // to commit its cursor before choosing the opening headlines.
-   const deadline=Date.now()+12_000;
-   while(mail.account?.enabled && !mail.account.lastError &&
-     (mail.account.status==="syncing" || (mail.account.status==="connected" &&
-       !mail.busy && (!mail.account.nextSync || Date.parse(mail.account.nextSync)<=Date.now()))) &&
-     Date.now()<deadline){
-     await new Promise(resolve=>setTimeout(resolve,600));
-     mail=await bounded(client.gmail());
-   }
-   return mail;
- };
+ const readMail=()=>client===native && mode==='opening' ? waitForBriefMail() : bounded(client.gmail());
  const [mailResult,situationResult,receiptResult,memoryResult,reviewResult,projectResult]=await Promise.allSettled([
   readMail(),bounded(client.situations()),bounded(client.receipts()),readMemory(),readReviews(),readProjects(),
  ]);

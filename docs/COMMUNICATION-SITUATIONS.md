@@ -58,6 +58,11 @@ the current account's error or backoff. Cadence consults the active account's de
 
 - Existing Gmail history range and 2,000-message cache bound apply. This cannot reconstruct pre-cache correspondence.
 - Six changed threads per batch, four latest eligible messages per thread, 2,000 body characters each. A thread with more than 24 participants is recorded as skipped rather than analysed. Attachments are not read.
+- Generated observations are matched to supplied thread IDs before quote validation,
+  then restored to source order for persistence. Duplicate, missing and unknown IDs
+  remain invalid; model output order cannot assign findings to a different thread.
+  Situation briefings likewise bind to situation IDs before checking next-move
+  thread references, then return to the context order used for persistence.
 - At most six situation briefings per batch, eight current thread observations each, five practical details per observation in synthesis, three Research excerpts of 2,000 characters each.
 - Up to 24 active situations; a new situation beyond that is kept as a deferred observation. Snapshot/catalog surfaces active situations plus recent archive entries within 96 total. Up to 2,000 recent thread observations, 32 recent operator updates and 100 local drafts are surfaced. Synthesis uses four recent matching updates; discovery uses eight recent updates. Longer context is explicitly bounded.
 - Maps show eight people or contextual actors per page, with Previous/More paging. Overview is a situation-card index; there is no cross-situation shared-person map.
