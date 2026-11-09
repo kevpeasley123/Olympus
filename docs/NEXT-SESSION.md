@@ -1,12 +1,12 @@
 # Next session
 
-## Olympus 0.50.0
+## Olympus 0.51.0
 
-Repair branch `codex/conversational-briefs`, based on master `e2e091c`.
-Olympus 0.49 is installed. Automatic Gmail sync and repeated local analysis completed.
-Kevin rejected its stiff opening brief; factual correctness did not establish quality.
-Version 0.50 passed final native real-mail generation and is ready for installation.
-See the dated quality review below.
+Repair branch `codex/brief-signin-linewrap`, based on master `a4ffc6a`.
+Olympus 0.50 installed and refreshed Gmail, but its actual brief exposed a wrapped
+Google sign-in condition missed by the filter. Version 0.51 normalizes whitespace
+before classification. The sanitized regression reproduced the installed failure.
+Release verification passed; installation and final installed checks follow.
 
 ## Changes
 
@@ -27,12 +27,13 @@ See the dated quality review below.
 ## Verification — November 8
 
 - Full native suite: 780 passed, 31 intentionally ignored. Frontend build passed.
-- All 86 release scripts have passing results. The new disclosure test needed
-  URL normalization and opening the Conversation tab. Two existing browser tests
-  require port 31430 despite the runner URL; after server startup one timed out,
-  then both passed unchanged. Offline speech passed with synthetic microphone input.
-- Full visual gate passed: 21 captures, 14 functional checks, 22 Organizer checks.
-  The changed disclosure was separately inspected collapsed and expanded.
+- All 86 release scripts have passing results. Cold navigation timed out in the
+  disclosure check; it now waits for DOM and explicit scene readiness. An unchanged
+  project-dock test passed on isolated rerun after its broad-run timeout.
+- Visual gate: 20/21 captures passed initially, with one chats readiness timeout
+  recording ERR_NO_BUFFER_SPACE. That scenario passed unchanged in isolation.
+  All 14 functional and 22 Organizer checks passed in the full run. No UI changed
+  in this follow-up; the 0.50 disclosure was inspected collapsed and expanded.
 - Independent read-only code review found no remaining blocking issue.
 - Same private real-mail snapshot: 8B remained stiff; 14B produced a better brief
   in about 183 seconds. Synthetic cases exposed settled-receipt filler and an
@@ -42,7 +43,11 @@ See the dated quality review below.
 - Final native real-mail rerun passed in 198 seconds with source-bound saved prose:
   automatic payment, a new credit and a code-update summary; no routine sign-in
   or spoken coverage disclaimer. Gmail refreshed at 18:16 Phoenix without reconnecting.
-  Installed 0.50 acceptance follows installation.
+  Installed 0.50 used14B and saved a brief, but repeated a wrapped Google notice.
+  Its automatic syncs succeeded at18:24 and18:29; 8B analysis completed at18:31.
+  The 0.51 sanitized regression failed before whitespace normalization and passed
+  after it. Native inspection of a fresh private installed snapshot excluded the
+  actual wrapped notice and retained seven sources. Installed0.51 checks follow.
 - No paid inference, mailbox mutations or live OAuth revoke/re-add were performed.
   Native fixtures exercise disconnect/remove/re-add; they are not live OAuth proof.
 
