@@ -26,6 +26,7 @@ read-only scope, sync freshness, message identity, fingerprint, inbox eligibilit
 source revisions are checked. Selection excludes promotions and active handled,
 dismissed or snoozed concerns before applying its bound, skips displayed revisions,
 and diversifies senders. Clearly conditional routine sign-in notices are omitted from opening and requested local briefs;
+classification normalizes body whitespace so MIME line wrapping cannot split a condition or problem exception.
 explicit blocked or suspicious activity remains eligible. Within that bounded set, subject-based retrieval hints
 prefer likely requests, bills, shipment changes and order problems ahead of routine
 newsletters; sign-in codes are excluded. These hints do not establish urgency,

@@ -783,6 +783,7 @@ fn resolve_snapshot(c:&Connection,scope:&Scope,selection:&Selection,now:i64)->Re
    ("signin-a","New sign-in to Alpha","If this was you, no action is needed."),
    ("signin-b","Security alert","A new sign-in on Windows. If this was you, no action is needed."),
    ("signin-c","New sign-in to Gamma","Not you? Review your activity."),
+   ("signin-wrapped","Security alert","A new sign-in on Windows. If\r\n\r\nthis was you, you don't need to do anything. If not, we'll help secure your account."),
    ("problem","New sign-in to Delta","Suspicious activity was detected; the sign-in was blocked. If this was you, contact support."),
    ("order","Your equipment order is confirmed","Your equipment order is confirmed."),
    ("meeting","Revised appointment time","Your appointment has moved to Friday.")
@@ -849,7 +850,10 @@ fn stale_delivery_forecast(mail:&StoredMail,now:i64)->bool{
  !["delayed","exception","failed","problem","cancel"].iter().any(|term|s.contains(term))
 }
 fn routine_signin(mail:&StoredMail)->bool{
- let subject=mail.subject.to_lowercase();let body=mail.canonical_text.to_lowercase();
+ let subject=mail.subject.to_lowercase();
+ // MIME text can wrap a condition across blank lines; classify its words,
+ // not the sender's line layout. Apply this to the problem exceptions too.
+ let body=mail.canonical_text.split_whitespace().collect::<Vec<_>>().join(" ").to_lowercase();
  (subject.contains("new sign-in")||(subject=="security alert"&&body.contains("new sign-in")))
   && ["if this was you","if you don't recognize","not you?"].iter().any(|term|body.contains(term))
   && !["blocked","suspicious","password","recovery","action required"].iter().any(|term|subject.contains(term))
@@ -930,6 +934,7 @@ pub(super) async fn local_brief(db:&crate::commands::persistence::Db,session:&su
   let path=std::path::Path::new(&path);
   assert_eq!(path.file_name().unwrap(),"olympus-local-analysis-test.sqlite");
   let mut c=Connection::open(path).unwrap();
+  c.execute("INSERT OR IGNORE INTO conversations(id,title,created_at,updated_at) VALUES('local-brief-acceptance','Private acceptance',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)",[]).unwrap();
   let account:String=c.query_row("SELECT id FROM gmail_accounts WHERE enabled=1 ORDER BY connected_at DESC LIMIT 1",[],|r|r.get(0)).unwrap();
   let now=chrono::Utc::now().timestamp_millis();
   let owner=NativeOwner::new();owner.apply_trusted_lifecycle("local-brief-acceptance",&account,"local-brief-acceptance",false).unwrap();

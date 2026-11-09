@@ -35,6 +35,13 @@ must continue to distinguish exact source facts, estimates, and actual actions.
 
 ## Remaining boundaries
 
+Installed 0.50 acceptance found a further selection bug: a routine sign-in notice
+wrapped "If this was you" across blank lines. The exact-match condition failed,
+and the model repeated the notice despite the omission instruction. A sanitized
+regression reproduced this; 0.51 normalizes body whitespace before both routine
+classification and explicit-problem exceptions. This confirms why a private
+snapshot and prompt-only examples cannot substitute for installed acceptance.
+
 Local packets cover selected recent mail and project Git changes. They do not
 establish comprehensive calendar, task, agent-run or cross-chat awareness. The
 CPU route avoids the observed GPU contention but has noticeable latency. Opening

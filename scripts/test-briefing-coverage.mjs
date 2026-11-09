@@ -5,8 +5,8 @@ const base=(process.argv[2]??'http://127.0.0.1:31430').replace(/\/$/,'');
 const browser=await chromium.launch({channel:'msedge'});
 try {
  const page=await browser.newPage({viewport:{width:1440,height:960}});
- await page.goto(`${base}/command-agent-harness.html?flagship&scenario=chats&briefing-coverage`);
- await page.waitForSelector('[data-scene-ready="true"]');
+ await page.goto(`${base}/command-agent-harness.html?flagship&scenario=chats&briefing-coverage`,{waitUntil:'domcontentloaded',timeout:60_000});
+ await page.waitForSelector('[data-scene-ready="true"]',{timeout:60_000});
  await page.getByRole('button',{name:'Conversation',exact:true}).click();
  const brief=page.locator('[data-message-id="conversation-briefing-coverage-fixture"]');
  await brief.waitFor();
