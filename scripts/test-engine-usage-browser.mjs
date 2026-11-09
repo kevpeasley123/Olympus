@@ -17,7 +17,7 @@ try {
     assert.equal(await page.locator('.usage-summary [role=progressbar]').count(),0);
     assert.equal(await page.locator('.usage-summary').getByText('0 credits',{exact:false}).count(),0);
     await page.getByText('Subscription engines',{exact:true}).click();
-    await page.getByText('Generation blocked.',{exact:false}).waitFor();
+    await page.getByText('Paid overage has not been verified.',{exact:false}).first().waitFor();
     await page.getByText('C:/Synthetic/Claude/claude.exe',{exact:true}).waitFor();
     assert(await page.locator('.engine-settings').innerText().then(t=>t.includes('Claude Max subscription.')));
     assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'No horizontal overflow');

@@ -17,6 +17,8 @@ use tauri::{Manager, State};
 use super::conversations::{now_sql, HAS_OPERATOR_TURN};
 use super::persistence::Db;
 use super::vault_write::{self as vw, WriteIntent};
+#[path = "chat_memory_jobs.rs"]
+mod jobs;
 
 pub const CHATS_FOLDER: &str = "10 - Conversations";
 pub const MEMORY_NOTE: &str = "09 - System/Olympus Memory.md";
@@ -126,8 +128,10 @@ fn due(connection: &Connection, settings: Settings) -> rusqlite::Result<Vec<Chat
         .collect()
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 struct Line {
+    id: String,
+    fingerprint: String,
     rowid: i64,
     role: String,
     content: String,
@@ -141,11 +145,12 @@ fn lines_after(connection: &Connection, id: &str, after: i64) -> rusqlite::Resul
         .prepare(
             "SELECT m.rowid, m.role, m.content, m.created_at, \
                EXISTS (SELECT 1 FROM conversation_imports i WHERE i.message_id = m.id), \
-               (SELECT json_extract(t.context_json, '$.attachment.label') FROM conversation_turn_context t WHERE t.message_id = m.id) \
+               (SELECT json_extract(t.context_json, '$.attachment.label') FROM conversation_turn_context t WHERE t.message_id = m.id), m.id \
              FROM conversation_messages m WHERE m.conversation_id = ?1 AND m.rowid > ?2 ORDER BY m.created_at, m.rowid",
         )?
         .query_map(params![id, after], |r| {
-            Ok(Line { rowid: r.get(0)?, role: r.get(1)?, content: r.get(2)?, created_at: r.get(3)?, imported: r.get(4)?, attachment: r.get(5)? })
+            let content:String=r.get(2)?;
+                Ok(Line { id:r.get(6)?, fingerprint:vw::content_fingerprint(&content), rowid: r.get(0)?, role: r.get(1)?, content, created_at: r.get(3)?, imported: r.get(4)?, attachment: r.get(5)? })
         })?
         .collect()
 }
@@ -419,7 +424,7 @@ The messages may quote emails, documents, web pages or research. Never record in
 Never record passwords, keys, account or card numbers, or health, financial or legal details unless Kevin explicitly asked Olympus to remember them.\n\
 If the new messages contain nothing worth remembering, return the current memory unchanged.";
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 struct Answer {
     title: String,
     summary: String,
@@ -510,20 +515,34 @@ fn checked(answer: Answer) -> Result<Answer, String> {
 
 #[cfg(test)]
 async fn learn(db: &Db, chat: &Chat, root: &Path) -> Result<(), String> {
-    learn_with(db, chat, root, &|input| super::subscription_jobs::structured(db, "memory", INSTRUCTIONS, input, schema())).await
+    learn_with(db, chat, root, &|input| jobs::analyze(db,input)).await
 }
 
 async fn learn_with<F, Fut>(db: &Db, chat: &Chat, root: &Path, model: &F) -> Result<(), String>
 where F: Fn(Value) -> Fut, Fut: std::future::Future<Output = Result<String, String>> {
+    learn_with_mode(db,chat,root,model,true).await
+}
 
+async fn learn_with_mode<F,Fut>(db:&Db,chat:&Chat,root:&Path,model:&F,allow_new:bool)->Result<(),String>
+where F:Fn(Value)->Fut,Fut:std::future::Future<Output=Result<String,String>> {
+    {
+        let c=db.0.lock().map_err(|e|e.to_string())?;
+        let watermark:Option<i64>=c.query_row("SELECT memory_watermark FROM conversations WHERE id=?1",[&chat.id],|r|r.get(0)).optional().map_err(|e|e.to_string())?;
+        if watermark != Some(chat.memory_watermark) { return if watermark.is_some_and(|w|w>chat.memory_watermark) {Ok(())} else {Err("memory_source_changed".into())}; }
+        if !settings(&c).learn { return Err("analysis_waiting:memory_disabled".into()); }
+    }
     let target = vw::resolve_within(root, Path::new(MEMORY_NOTE)).map_err(|e| e.to_string())?;
     let before = vw::read_existing(&target)?;
     let current = before.as_deref().map(memory_text).unwrap_or_default();
-    let (lines, more) = {
+    let (source_revision, lines, more) = {
         let c = db.0.lock().map_err(|e| e.to_string())?;
-        batch(lines_after(&c, &chat.id, chat.memory_watermark).map_err(|e| e.to_string())?)
+        let pending=lines_after(&c, &chat.id, chat.memory_watermark).map_err(|e|e.to_string())?;
+        let revision=vw::content_fingerprint(&serde_json::to_string(&pending).map_err(|e|e.to_string())?);
+        let (lines,more)=batch(pending); (revision,lines,more)
     };
+    jobs::supersede_sources(db,chat,&source_revision,lines.last().map(|l|l.rowid).unwrap_or(chat.memory_watermark))?;
     let Some(seen) = lines.last().map(|l| l.rowid) else { return Ok(()) };
+    if !allow_new && !lines.iter().any(|l|l.role=="user") {return Ok(());}
     if !lines.iter().any(|l| l.role == "user") {
         // Only Olympus spoke (a briefing added to a reopened chat): nothing of
         // Kevin's to learn, so no paid request.
@@ -532,26 +551,56 @@ where F: Fn(Value) -> Fut, Fut: std::future::Future<Output = Result<String, Stri
         return Ok(());
     }
 
-    // Production supplies the gated subscription analyzer; tests supply synthetic output.
+    if let Some(prepared)=jobs::recover(db,chat,&source_revision,seen,before.as_deref(),!allow_new)? {
+        return store_answer(db,chat,root,&target,prepared.before.as_deref(),&prepared.answer,seen,Some(&source_revision),Some(&prepared));
+    }
+    if !allow_new {return Ok(());}
+    // Production supplies the selected qualified analyzer; tests supply synthetic output.
     let notes = linkable_notes(root);
-    let result = model(pass_input(chat, &current, &lines, more, &notes)).await;
-    let answer = checked(serde_json::from_str::<Answer>(&result?).map_err(|_| "memory_pass_invalid_output")?)?;
-    store_answer(db, chat, root, &target, before.as_deref(), &answer, seen)
+    let claim=jobs::claim(db,chat,&source_revision,&lines,seen,before.as_deref())?;
+    let mut input=pass_input(chat,&current,&lines,more,&notes);
+    input["_memoryContributionId"]=json!(claim.id);
+    input["_memoryAttempt"]=json!(claim.attempt);
+    let answer=match model(input).await.and_then(|raw|serde_json::from_str::<Answer>(&raw).map_err(|_|"memory_pass_invalid_output".into())).and_then(checked) {
+        Ok(answer)=>answer,
+        Err(error)=>{jobs::fail(db,&claim,&error);return Err(error);}
+    };
+    let prepared=jobs::prepare(db,&claim,before.as_deref(),answer)?;
+    store_answer(db,chat,root,&target,before.as_deref(),&prepared.answer,seen,Some(&source_revision),Some(&prepared))
 }
 
-fn store_answer(db: &Db, chat: &Chat, root: &Path, target: &Path, before: Option<&str>, answer: &Answer, seen: i64) -> Result<(), String> {
+fn store_answer(db: &Db, chat: &Chat, root: &Path, target: &Path, before: Option<&str>, answer: &Answer, seen: i64, source_revision: Option<&str>, prepared: Option<&jobs::Prepared>) -> Result<(), String> {
+    let mut c=db.0.lock().map_err(|e|e.to_string())?;
+    let tx=c.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate).map_err(|e|e.to_string())?;
+    if let Some(expected)=source_revision {
+        let current:Option<i64>=tx.query_row("SELECT memory_watermark FROM conversations WHERE id=?1",[&chat.id],|r|r.get(0)).optional().map_err(|e|e.to_string())?;
+        let pending=lines_after(&tx,&chat.id,chat.memory_watermark).map_err(|e|e.to_string())?;
+        let revision=vw::content_fingerprint(&serde_json::to_string(&pending).map_err(|e|e.to_string())?);
+        if current!=Some(chat.memory_watermark) || revision!=expected || !settings(&tx).learn {return Err("memory_source_changed".into());}
+    }
+    if let Some(prepared)=prepared {jobs::require_prepared(&tx,prepared)?;}
     let unchanged = before.map(|note| split_memory(note).sections.to_string()).unwrap_or_default() == answer.memory.trim();
-    if !unchanged {
+    let result_note=prepared.map(|p|p.result.clone()).unwrap_or_else(||render_memory(before,&answer.memory));
+    let on_disk=vw::read_existing(target)?;
+    let recovered_write=prepared.is_some() && before!=Some(result_note.as_str()) && on_disk.as_deref()==Some(result_note.as_str());
+    if !recovered_write {
+        if let Some(prepared)=prepared {
+            if let Err(error)=jobs::require_route(&tx,&prepared.id) {
+                tx.commit().map_err(|e|e.to_string())?;
+                return Err(error);
+            }
+        }
+    }
+    if !recovered_write && on_disk.as_deref()!=before {return Err("memory_note_changed".into());}
+    if !unchanged && !recovered_write {
         // Kevin's edits are folded in by the pass itself, which read them as the
         // current memory. If he edited again while it ran, nothing is replaced
         // and the chat is retried.
         let _intent = WriteIntent::MaintainAuthored;
-        vw::replace_if_unchanged(target, before, &render_memory(before, &answer.memory))?;
-        super::persistence::log_vault_write(db, MEMORY_NOTE, "update_memory");
+        vw::replace_if_unchanged(target, before, &result_note)?;
         commit(root, MEMORY_NOTE, "update memory");
     }
-    let c = db.0.lock().map_err(|e| e.to_string())?;
-    c.execute(
+    tx.execute(
         "UPDATE conversations SET \
            title = CASE WHEN title_source = 'operator' THEN title ELSE ?2 END, \
            title_source = CASE WHEN title_source = 'operator' THEN title_source ELSE 'model' END, \
@@ -560,11 +609,17 @@ fn store_answer(db: &Db, chat: &Chat, root: &Path, target: &Path, before: Option
         params![chat.id, answer.title, answer.summary.trim(), seen, now_sql()],
     )
     .map_err(|e| e.to_string())?;
+    if let Some(prepared)=prepared {
+        let changed=tx.execute("UPDATE memory_contributions SET state='applied',updated_at=CURRENT_TIMESTAMP,error=NULL WHERE id=?1 AND state='prepared' AND attempts=?2",params![prepared.id,prepared.attempt]).map_err(|e|e.to_string())?;
+        if changed!=1 {return Err("memory_contribution_changed".into());}
+    }
+    tx.commit().map_err(|e|e.to_string())?; drop(c);
+    if !unchanged {super::persistence::log_vault_write(db, MEMORY_NOTE, "update_memory");}
     Ok(())
 }
 
 fn record_failure(db: &Db, id: &str, error: &str) {
-    if super::analysis_readiness::is_waiting(error) { return; }
+    if super::analysis_readiness::is_waiting(error) || matches!(error,"analysis_waiting:memory_in_flight"|"analysis_waiting:memory_disabled"|"memory_route_changed") { return; }
     if let Ok(c) = db.0.lock() {
         let _ = c.execute(
             "UPDATE conversations SET memory_attempted_at = ?2, memory_error = ?3, memory_failures = memory_failures + 1 WHERE id = ?1",
@@ -580,12 +635,23 @@ pub async fn tick(db: &Db) {
         Ok(root) => root,
         Err(error) => { eprintln!("[Olympus::ChatMemory] {error}"); return; }
     };
-    tick_with(db, &root, super::subscription_jobs::readiness(), |input|
-        super::subscription_jobs::structured(db, "memory", INSTRUCTIONS, input, schema())).await;
+    let readiness={let Ok(c)=db.0.lock() else{return};jobs::readiness(&c)};
+    tick_with(db, &root, readiness, |input| jobs::analyze(db,input)).await;
 }
 
 async fn tick_with<F, Fut>(db: &Db, root: &Path, readiness: super::analysis_readiness::AnalysisReadiness, model: F)
 where F: Fn(Value) -> Fut, Fut: std::future::Future<Output = Result<String, String>> {
+    // Recover only already-written outputs before gating new inference.
+    let recoverable={
+        let Ok(c)=db.0.lock() else{return};
+        if settings(&c).learn {
+            vw::resolve_within(root,Path::new(MEMORY_NOTE)).ok().and_then(|p|vw::read_existing(&p).ok().flatten())
+                .and_then(|note|jobs::written_chats(&c,&note).ok()).unwrap_or_default()
+        } else {Vec::new()}
+    };
+    for chat in recoverable {
+        if let Err(error)=learn_with_mode(db,&chat,root,&model,false).await {record_failure(db,&chat.id,&error);}
+    }
     let (chats, settings) = {
         let Ok(c) = db.0.lock() else { return };
         let settings = settings(&c);
@@ -648,6 +714,8 @@ pub struct Status {
     /// Unseen chats still within the retry budget, including quiet-time waits.
     pub pending_chats: i64,
     pub analysis: super::analysis_readiness::AnalysisReadiness,
+    pub provider: Option<String>,
+    pub contribution: Option<Value>,
     /// Chats from before 2026-10-13 that memory has not been asked to learn
     /// from, and those Kevin queued that are still in progress.
     pub earlier_waiting: i64,
@@ -677,7 +745,9 @@ fn status(connection: &Connection) -> Result<Status, String> {
         settings: settings(connection),
         saved_chats: count("SELECT count(*) FROM conversations WHERE vault_path IS NOT NULL")?,
         pending_chats: count(&format!("SELECT count(*) FROM conversations c WHERE {unseen} AND memory_failures < {MAX_FAILURES} AND {HAS_OPERATOR_TURN}"))?,
-        analysis: super::subscription_jobs::readiness(),
+        analysis: jobs::readiness(connection),
+        provider: jobs::provider(connection).ok(),
+        contribution: jobs::latest(connection)?,
         earlier_waiting: count(&format!("SELECT count(*) FROM conversations c WHERE legacy = 1 AND memory_attempted_at IS NULL AND NOT {unseen} AND {HAS_OPERATOR_TURN}"))?,
         earlier_queued: count(&format!("SELECT count(*) FROM conversations c WHERE legacy = 1 AND {unseen} AND memory_failures < {MAX_FAILURES} AND {HAS_OPERATOR_TURN}"))?,
         stopped_chats: count(&format!("SELECT count(*) FROM conversations c WHERE {unseen} AND memory_failures >= {MAX_FAILURES} AND {HAS_OPERATOR_TURN}"))?,
@@ -796,6 +866,188 @@ mod tests {
     }
 
     #[test]
+    fn memory_route_change_during_inference_cannot_publish() {
+        let root=vault("route-changed");let mut c=db();
+        store_messages(&mut c,"talk",vec![message("u","user","Remember this")]).unwrap();quiet(&c);
+        let selected=chat(&c,"talk");let db=Db(std::sync::Mutex::new(c));
+        let result=tauri::async_runtime::block_on(learn_with(&db,&selected,&root,&|_| {
+            db.0.lock().unwrap().execute("INSERT INTO settings(key,value) VALUES('chatMemory.provider.v1','codex')",[]).unwrap();
+            std::future::ready(Ok(json!({"title":"Old route","summary":"old","memory":"## Other\n- old route"}).to_string()))
+        }));
+        assert_eq!(result.unwrap_err(),"memory_route_changed");assert!(!root.join(MEMORY_NOTE).exists());
+        assert_eq!(jobs::latest(&db.0.lock().unwrap()).unwrap().unwrap()["state"],"superseded");
+        std::fs::remove_dir_all(root).ok();
+    }
+    #[test]
+    fn uncommitted_prepared_memory_is_recomputed_after_route_change() {
+        let root=vault("prepared-route-change");let mut c=db();
+        store_messages(&mut c,"talk",vec![message("u","user","Remember this")]).unwrap();quiet(&c);
+        let selected=chat(&c,"talk");let lines=lines_after(&c,"talk",0).unwrap();
+        let revision=vw::content_fingerprint(&serde_json::to_string(&lines).unwrap());
+        let db=Db(std::sync::Mutex::new(c));let claim=jobs::claim(&db,&selected,&revision,&lines,lines.last().unwrap().rowid,None).unwrap();
+        jobs::prepare(&db,&claim,None,Answer{title:"Old route".into(),summary:"old".into(),memory:"## Other\n- old route".into()}).unwrap();
+        db.0.lock().unwrap().execute("INSERT INTO settings(key,value) VALUES('chatMemory.provider.v1','codex')",[]).unwrap();
+        let calls=std::cell::Cell::new(0);
+        tauri::async_runtime::block_on(learn_with(&db,&selected,&root,&|_| {
+            calls.set(calls.get()+1);std::future::ready(Ok(json!({"title":"New route","summary":"new","memory":"## Other\n- new route"}).to_string()))
+        })).unwrap();
+        assert_eq!(calls.get(),1);assert!(std::fs::read_to_string(root.join(MEMORY_NOTE)).unwrap().contains("new route"));
+        std::fs::remove_dir_all(root).ok();
+    }
+    #[test]
+    fn unchanged_prepared_note_does_not_prove_publication_under_old_route() {
+        let root=vault("unchanged-prepared-route");let mut c=db();
+        store_messages(&mut c,"talk",vec![message("u","user","Remember this")]).unwrap();quiet(&c);
+        let selected=chat(&c,"talk");let lines=lines_after(&c,"talk",0).unwrap();
+        let revision=vw::content_fingerprint(&serde_json::to_string(&lines).unwrap());
+        let before=render_memory(None,"## Other\n- existing");
+        std::fs::create_dir_all(root.join(MEMORY_NOTE).parent().unwrap()).unwrap();
+        std::fs::write(root.join(MEMORY_NOTE),&before).unwrap();
+        let db=Db(std::sync::Mutex::new(c));let claim=jobs::claim(&db,&selected,&revision,&lines,lines.last().unwrap().rowid,Some(&before)).unwrap();
+        jobs::prepare(&db,&claim,Some(&before),Answer{title:"Old route".into(),summary:"old".into(),memory:"## Other\n- existing".into()}).unwrap();
+        db.0.lock().unwrap().execute("INSERT INTO settings(key,value) VALUES('chatMemory.provider.v1','codex')",[]).unwrap();
+        let calls=std::cell::Cell::new(0);
+        tauri::async_runtime::block_on(learn_with(&db,&selected,&root,&|_| {
+            calls.set(calls.get()+1);std::future::ready(Ok(json!({"title":"New route","summary":"new","memory":"## Other\n- existing"}).to_string()))
+        })).unwrap();
+        assert_eq!(calls.get(),1,"An unchanged note cannot prove the old output was published");
+        assert_eq!(db.0.lock().unwrap().query_row("SELECT summary FROM conversations WHERE id='talk'",[],|r|r.get::<_,String>(0)).unwrap(),"new");
+        std::fs::remove_dir_all(root).ok();
+    }
+    #[test]
+    fn overlapping_workers_do_not_issue_duplicate_memory_inference() {
+        let root=vault("overlap"); let mut c=db();
+        store_messages(&mut c,"talk",vec![message("u","user","Prefer concise replies")]).unwrap();quiet(&c);
+        let selected=chat(&c,"talk"); let db=Db(std::sync::Mutex::new(c));
+        tauri::async_runtime::block_on(learn_with(&db,&selected,&root,&|_| async {
+            let second=learn_with(&db,&selected,&root,&|_| {
+                panic!("An active contribution must exclude duplicate model work");
+                #[allow(unreachable_code)] std::future::ready(Err("duplicate".into()))
+            }).await;
+            assert!(second.unwrap_err().starts_with("analysis_waiting:"));
+            Ok(json!({"title":"Preferences","summary":"Concise replies","memory":"## Preferences\n- Concise replies"}).to_string())
+        })).unwrap();
+        std::fs::remove_dir_all(root).ok();
+    }
+    #[test]
+    fn prepared_contribution_recovers_after_note_write_without_another_model_call() {
+        let root=vault("crash-recovery"); let database=root.join("memory-restart.sqlite");
+        let mut c=Connection::open(&database).unwrap();super::super::migrations::apply(&c).unwrap();
+        store_messages(&mut c,"talk",vec![message("u","user","Prefer concise replies")]).unwrap(); quiet(&c);
+        let selected=chat(&c,"talk");
+        c.execute_batch("CREATE TRIGGER crash_after_note BEFORE UPDATE OF memory_watermark ON conversations BEGIN SELECT RAISE(ABORT,'synthetic interruption after note write'); END;").unwrap();
+        let db=Db(std::sync::Mutex::new(c));
+        let first=tauri::async_runtime::block_on(learn_with(&db,&selected,&root,&|_|std::future::ready(Ok(json!({"title":"Preferences","summary":"Concise replies","memory":"## Preferences\n- Concise replies"}).to_string()))));
+        assert!(first.is_err()); assert!(root.join(MEMORY_NOTE).exists());
+        drop(db);
+        let c=Connection::open(&database).unwrap();
+        c.execute_batch("DROP TRIGGER crash_after_note").unwrap();
+        let db=Db(std::sync::Mutex::new(c));
+        {
+            let c=db.0.lock().unwrap();
+            // Emulate withdrawn/replaced confirmation without touching an account.
+            c.execute("UPDATE memory_contributions SET route_binding_json='{}'",[]).unwrap();
+            c.execute("INSERT INTO settings(key,value) VALUES('chatMemory.learn','false')",[]).unwrap();
+        }
+        tauri::async_runtime::block_on(tick_with(&db,&root,super::super::analysis_readiness::AnalysisReadiness::waiting("blocked","account_confirmation","confirmation removed"),|_| {
+            panic!("Disabled learning cannot invoke a provider");
+            #[allow(unreachable_code)] std::future::ready(Err("unexpected".into()))
+        }));
+        {
+            let c=db.0.lock().unwrap();
+            assert_eq!(jobs::latest(&c).unwrap().unwrap()["state"],"prepared");
+            c.execute("UPDATE settings SET value='true' WHERE key='chatMemory.learn'",[]).unwrap();
+        }
+        let blocked=super::super::analysis_readiness::AnalysisReadiness::waiting("blocked","account_confirmation","confirmation removed");
+        tauri::async_runtime::block_on(tick_with(&db,&root,blocked,|_| {
+            panic!("Recovery must reuse prepared output rather than invoke a provider");
+            #[allow(unreachable_code)] std::future::ready(Err("unexpected".into()))
+        }));
+        let c=db.0.lock().unwrap();
+        let receipt:(String,String,i64)=c.query_row("SELECT state,source_revision,through_watermark FROM memory_contributions",[],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?))).unwrap();
+        assert_eq!(receipt.0,"applied"); assert_eq!(receipt.1.len(),64); assert!(receipt.2>0);
+        let refs:String=c.query_row("SELECT source_refs_json FROM memory_contributions",[],|r|r.get(0)).unwrap();
+        let refs:Value=serde_json::from_str(&refs).unwrap();
+        assert_eq!(refs[0]["messageId"],"u");
+        assert_eq!(refs[0]["fingerprint"],vw::content_fingerprint("Prefer concise replies"));
+        let displayed=jobs::latest(&c).unwrap().unwrap();
+        assert_eq!(displayed["state"],"applied");assert!(displayed["actualModel"].is_null());
+        drop(c);drop(db);
+        std::fs::remove_dir_all(root).ok();
+    }
+    #[test]
+    fn stale_prepared_attempt_cannot_write_or_receipt_a_reclaimed_job() {
+        let root=vault("stale-prepared");let mut c=db();
+        store_messages(&mut c,"talk",vec![message("u","user","Remember this")]).unwrap();quiet(&c);
+        let selected=chat(&c,"talk");let lines=lines_after(&c,"talk",0).unwrap();let seen=lines.last().unwrap().rowid;
+        let revision=vw::content_fingerprint(&serde_json::to_string(&lines).unwrap());let db=Db(std::sync::Mutex::new(c));
+        let first=jobs::claim(&db,&selected,&revision,&lines,seen,None).unwrap();
+        let old=jobs::prepare(&db,&first,None,Answer{title:"old".into(),summary:"old".into(),memory:"## Other\n- old".into()}).unwrap();
+        db.0.lock().unwrap().execute("UPDATE memory_contributions SET state='superseded' WHERE id=?1",[&first.id]).unwrap();
+        let next=jobs::claim(&db,&selected,&revision,&lines,seen,None).unwrap();
+        jobs::prepare(&db,&next,None,Answer{title:"new".into(),summary:"new".into(),memory:"## Other\n- new".into()}).unwrap();
+        let target=root.join(MEMORY_NOTE);
+        let result=store_answer(&db,&selected,&root,&target,None,&old.answer,seen,Some(&revision),Some(&old));
+        assert_eq!(result.unwrap_err(),"memory_contribution_changed");
+        assert!(!target.exists(),"An expired prepared handle cannot write before its attempt is checked");
+        assert_eq!(jobs::latest(&db.0.lock().unwrap()).unwrap().unwrap()["state"],"prepared");
+        std::fs::remove_dir_all(root).ok();
+    }
+    #[test]
+    fn obsolete_written_receipts_do_not_starve_later_crash_recovery() {
+        let root=vault("recovery-fairness");let mut c=db();
+        for i in 0..4 {store_messages(&mut c,&format!("chat{i}"),vec![message(&format!("u{i}"),"user","Remember this")]).unwrap();}
+        quiet(&c);let db=Db(std::sync::Mutex::new(c));let mut written=String::new();
+        for i in 0..4 {
+            let (selected,lines)={let c=db.0.lock().unwrap();let mut selected=chat(&c,"chat0");selected.id=format!("chat{i}");(selected,lines_after(&c,&format!("chat{i}"),0).unwrap())};
+            let revision=vw::content_fingerprint(&serde_json::to_string(&lines).unwrap());
+            let claim=jobs::claim(&db,&selected,&revision,&lines,lines.last().unwrap().rowid,None).unwrap();
+            let prepared=jobs::prepare(&db,&claim,None,Answer{title:"Remembered".into(),summary:"Remembered".into(),memory:"## Other\n- remembered".into()}).unwrap();
+            if i==0 {written=prepared.result.clone();}
+            let c=db.0.lock().unwrap();
+            c.execute("UPDATE memory_contributions SET result_note=?2 WHERE id=?1",params![claim.id,written]).unwrap();
+            if i<3 {c.execute("UPDATE conversation_messages SET content='Changed source' WHERE id=?1",[format!("u{i}")]).unwrap();}
+        }
+        std::fs::create_dir_all(root.join(MEMORY_NOTE).parent().unwrap()).unwrap();std::fs::write(root.join(MEMORY_NOTE),written).unwrap();
+        for _ in 0..2 {
+            tauri::async_runtime::block_on(tick_with(&db,&root,super::super::analysis_readiness::AnalysisReadiness::waiting("blocked","account_confirmation","withdrawn"),|_| {
+                panic!("Receipt recovery must never invoke inference");
+                #[allow(unreachable_code)] std::future::ready(Err("unexpected".into()))
+            }));
+        }
+        let c=db.0.lock().unwrap();
+        assert_eq!(c.query_row("SELECT state FROM memory_contributions WHERE conversation_id='chat3'",[],|r|r.get::<_,String>(0)).unwrap(),"applied");
+        assert_eq!(c.query_row("SELECT count(*) FROM memory_contributions WHERE state='superseded' AND error='memory_source_changed'",[],|r|r.get::<_,i64>(0)).unwrap(),3);
+        drop(c);drop(db);std::fs::remove_dir_all(root).ok();
+    }
+    #[test]
+    fn changed_source_cannot_publish_memory() {
+        let root = vault("changed-source");
+        let mut c = db();
+        store_messages(&mut c,"talk",vec![message("u","user","Original preference")]).unwrap(); quiet(&c);
+        let selected = chat(&c,"talk"); let db=Db(std::sync::Mutex::new(c)); let calls=std::cell::Cell::new(0);
+        let result=tauri::async_runtime::block_on(learn_with(&db,&selected,&root,&|_| {
+            calls.set(calls.get()+1);
+            db.0.lock().unwrap().execute("UPDATE conversation_messages SET content='Corrected preference' WHERE id='u'",[]).unwrap();
+            std::future::ready(Ok(json!({"title":"Preferences","summary":"Original preference","memory":"## Preferences\n- Original preference"}).to_string()))
+        }));
+        assert_eq!(calls.get(),1);
+        assert_eq!(result.unwrap_err(),"memory_source_changed");
+        assert!(!root.join(MEMORY_NOTE).exists());
+        assert_eq!(db.0.lock().unwrap().query_row("SELECT memory_watermark FROM conversations WHERE id='talk'",[],|r|r.get::<_,i64>(0)).unwrap(),0);
+        std::fs::remove_dir_all(root).ok();
+    }
+    #[test]
+    fn a_stale_worker_snapshot_does_not_repeat_a_completed_contribution() {
+        let root=vault("repeated-contribution"); let mut c=db();
+        store_messages(&mut c,"talk",vec![message("u","user","Prefer concise replies")]).unwrap(); quiet(&c);
+        let selected=chat(&c,"talk"); let db=Db(std::sync::Mutex::new(c)); let calls=std::cell::Cell::new(0);
+        let model=|_| {calls.set(calls.get()+1);std::future::ready(Ok(json!({"title":"Preferences","summary":"Concise replies","memory":"## Preferences\n- Concise replies"}).to_string()))};
+        for _ in 0..2 {tauri::async_runtime::block_on(learn_with(&db,&selected,&root,&model)).unwrap();}
+        assert_eq!(calls.get(),1);
+        std::fs::remove_dir_all(root).ok();
+    }
+    #[test]
     fn quiet_chats_archive_while_blocked_then_learn_without_operator_management() {
         let root = vault("automatic-resumption");
         let mut c = db();
@@ -883,7 +1135,7 @@ mod tests {
 
     /// One real memory pass on copies: Kevin's database copied to a temporary
     /// file and a temporary vault holding only his project and decision names.
-    /// Uses his Claude subscription (Codex as backup); writes nothing of his.
+    /// Uses the explicitly selected memory runtime without fallback; writes nothing of his.
     #[test]
     #[ignore = "Live subscription memory pass on copied data"]
     fn live_memory_pass_on_copies() {
@@ -1000,12 +1252,12 @@ MEMORY_NOTE_END");
 
         std::fs::create_dir_all(target.parent().unwrap()).unwrap();
         std::fs::write(&target, "Kevin typed this while the pass ran.\n").unwrap();
-        assert!(store_answer(&db, &chat, &root, &target, None, &answer, 1).is_err(), "a note that appeared mid-pass is not replaced");
+        assert!(store_answer(&db, &chat, &root, &target, None, &answer, 1, None, None).is_err(), "a note that appeared mid-pass is not replaced");
         let untouched: i64 = db.0.lock().unwrap().query_row("SELECT memory_watermark FROM conversations", [], |r| r.get(0)).unwrap();
         assert_eq!(untouched, 0, "nothing is marked learned");
 
         let before = std::fs::read_to_string(&target).unwrap();
-        store_answer(&db, &chat, &root, &target, Some(&before), &answer, 1).unwrap();
+        store_answer(&db, &chat, &root, &target, Some(&before), &answer, 1, None, None).unwrap();
         let note = std::fs::read_to_string(&target).unwrap();
         assert!(note.contains("Lives in Lisbon since September 2026.") && note.contains("type: olympus-memory"));
         assert!(git(&root, &["log", "-1", "--format=%s"]).contains("update memory"));
@@ -1138,11 +1390,11 @@ MEMORY_NOTE_END");
     #[test]
     fn a_long_chat_is_learned_in_order_across_passes() {
         let lines: Vec<Line> = (0..30)
-            .map(|i| Line { rowid: i, role: "user".into(), content: "x".repeat(4_000), created_at: "2026-10-13 09:00:00".into(), imported: false, attachment: None })
+            .map(|i| Line { id:format!("m{i}"),fingerprint:String::new(),rowid: i, role: "user".into(), content: "x".repeat(4_000), created_at: "2026-10-13 09:00:00".into(), imported: false, attachment: None })
             .collect();
         let (first, more) = batch(lines);
         assert!(more && first.len() == PASS_BUDGET_CHARS / 4_000 && first[0].rowid == 0, "oldest first, within budget");
-        let (one, more) = batch(vec![Line { rowid: 1, role: "user".into(), content: "y".repeat(10_000), created_at: String::new(), imported: false, attachment: None }]);
+        let (one, more) = batch(vec![Line { id:"m1".into(),fingerprint:String::new(),rowid: 1, role: "user".into(), content: "y".repeat(10_000), created_at: String::new(), imported: false, attachment: None }]);
         assert!(!more && one[0].content.chars().count() < 10_000, "a long message is shortened, never dropped");
     }
 

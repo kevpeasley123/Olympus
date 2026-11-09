@@ -9,6 +9,10 @@ so.
 
 ## Build notes
 
+- Migration 6 adds memory contribution claims, prepared outputs and applied receipts, keyed to exact conversation source revisions. It supports recovery across a crash between a vault write and database acknowledgment. Conversation deletion cascades to its receipts; no existing data is rewritten.
+
+- Migration 5 adds the immutable situation-change journal with source and feedback references, previous-revision links and retry identity. It does not rewrite existing data or invent past transitions. The existing pre-migration backup gate applies.
+
 - Migration 4 adds the Project Change Review run history, source revision index and unique daily run key, plus pending display receipts and per-source Git cursors. It preserves the earlier migration sequence.
 
 - Migration 3 (`src-tauri/migrations/0003_email_learning.sql`) adds the account/thread

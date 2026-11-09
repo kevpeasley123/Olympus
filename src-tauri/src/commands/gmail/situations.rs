@@ -4,6 +4,7 @@ pub mod documents;
 pub mod engine;
 pub mod attention;
 pub mod learning;
+pub(crate) mod changes;
 pub mod conversation_feedback;
 pub(crate) mod analysis_provider;
 #[cfg(test)]
@@ -59,7 +60,17 @@ fn rows(c: &Connection, sql: &str, id: &str) -> Result<Vec<Value>, String> {
         .collect()
 }
 fn situations(c: &Connection, id: &str) -> Result<Vec<Value>, String> {
-    rows(c,"SELECT json_object('id',id,'title',title,'state',state,'mergedInto',merged_into,'briefing',json(briefing_json),'updatedAt',updated_at) FROM communication_situations WHERE account_id=?1 ORDER BY CASE WHEN state IN ('emerging','active') THEN 0 ELSE 1 END,updated_at DESC,rowid DESC LIMIT 96",id)
+    // Page the local catalog instead of making storage admission depend on a UI cap.
+    let mut result=Vec::new();let mut cursor=String::new();
+    loop {
+        let mut q=c.prepare("SELECT json_object('id',id,'title',title,'state',state,'mergedInto',merged_into,'briefing',json(briefing_json),'updatedAt',updated_at) FROM communication_situations WHERE account_id=?1 AND id>?2 ORDER BY id LIMIT 96").map_err(err)?;
+        let page=q.query_map(params![id,cursor],|r|r.get::<_,String>(0)).map_err(err)?.collect::<Result<Vec<_>,_>>().map_err(err)?;
+        if page.is_empty(){break;}
+        let count=page.len();
+        for raw in page {let value:Value=serde_json::from_str(&raw).map_err(err)?;cursor=value["id"].as_str().ok_or("situation_identity_invalid")?.to_owned();result.push(value);}
+        if count<96{break;}
+    }
+    Ok(result)
 }
 fn updates(c: &Connection, id: &str) -> Result<Vec<Value>, String> {
     rows(c,"SELECT json_object('id',id,'situationId',situation_id,'text',text,'at',at) FROM (SELECT * FROM communication_situation_updates WHERE account_id=?1 ORDER BY rowid DESC LIMIT 32) ORDER BY at",id)
@@ -264,6 +275,7 @@ pub fn situation_update(db: State<'_, Db>, request: UpdateRequest) -> Result<(),
         ],
     )
     .map_err(err)?;
+    changes::record(&tx,&a.id,&request.situation_id,"operator_feedback")?;
     bump(&tx, &a.id)?;
     tx.commit().map_err(err)
 }
@@ -309,6 +321,7 @@ fn edit(c: &mut Connection, id: &str, action: Edit, value: &str) -> Result<(), S
         return Err("situation_already_merged".into());
     }
     let frees_slot = matches!(action, Edit::Dismiss | Edit::Close | Edit::Merge);
+    let merging=matches!(action,Edit::Merge);
     let tx = c.transaction().map_err(err)?;
     match action {
         Edit::Rename => {
@@ -346,6 +359,8 @@ fn edit(c: &mut Connection, id: &str, action: Edit, value: &str) -> Result<(), S
         // Threads deferred at the situation limit are rediscovered once room exists.
         tx.execute("DELETE FROM communication_situation_sources WHERE account_id=?1 AND json_extract(payload_json,'$.deferred') IS NOT NULL",[&a.id]).map_err(err)?;
     }
+    changes::record(&tx,&a.id,id,"operator_feedback")?;
+    if merging{changes::record(&tx,&a.id,value,"operator_feedback")?;}
     bump(&tx, &a.id)?;
     tx.commit().map_err(err)
 }

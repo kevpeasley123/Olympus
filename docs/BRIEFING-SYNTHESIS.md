@@ -1,14 +1,54 @@
 # Source-grounded briefing synthesis
 
-Olympus has two distinct synthesis entry points. The aggregate `briefing_synthesize`
-route accepts renderer-selected evidence and remains closed behind the subscription
-spending and native-source qualification gates. Installing a CLI or signing in does
-not open that route or authorize paid inference.
+The native `briefing_local_prepare` / `briefing_local` entry points retain their
+compatibility names and support the selected investigative subscription or local
+workflow. The legacy `briefing_synthesize` entry point retains bounded evidence and
+native qualification checks. Installing a CLI or signing in alone does not authorize
+generation; see `SUBSCRIPTION-CONVERSATION.md`.
+
+## Investigative workflow
+
+The saved `briefing.workflow.v1` setting selects `investigative`, `legacy` or
+`shadow`; `briefing.provider.v1` explicitly selects Codex, Claude Code or local
+inference. The legacy default makes rollout reversible. Investigation is owned by
+`commands/briefing_investigator.rs`: bounded situation-change pages, eligible related
+threads and long-message sections, query-aware memory and registered project reads.
+The model cannot execute tools directly. Native code validates each requested read,
+enforces twelve calls and a shared two-minute deadline, and binds exact source
+revisions and operator corrections. Composition and a same-engine claim check share
+that deadline. A verifier is another model judgment, not independent factual proof.
+
+Curated vault recall uses the existing indexed memory reader rather than scanning
+arbitrary files. Selected notes retain record IDs, file revisions and excerpt hashes;
+changed, removed or newly corrected evidence must be investigated again. Memory-off
+and temporary scope exclude recall, and remembered context remains lower authority
+than current source evidence and explicit operator corrections.
+
+Mail sections use readable text, including safe MIME conversion for legacy cached
+HTML. Section offsets describe that representation; original raw source revisions
+still bind publication and display receipts. Per-source and total packet bounds
+are enforced while reading, with partial coverage retained in diagnostics.
+
+Quiet purchases remain tracked without automatically becoming attention items.
+Changes have durable revision history; matching relies on source identity and
+transaction references rather than a shared sender alone. Durable operator context
+outranks learned interpretations. Forget, account removal, changed content or scope
+revocation invalidate affected output before publication. Shadow mode records a
+comparison request without writing knowledge or acknowledging display.
+
+A dated last completed eligible brief appears while work runs. It has no speech or
+display receipt. Cancel revokes the native ticket and stops the owned job. Failure
+retains the dated preview with a status; a successful empty result says nothing new
+was found among the checked sources rather than substituting a generic factual
+brief. A newly saved and displayed brief alone can autoplay and acknowledge its
+exact cited revisions.
 
 The local route uses `briefing_local_prepare` followed by `briefing_local`. It is
-available only when the operator has configured `OLYMPUS_EMAIL_ANALYSIS_PROVIDER`
-as `ollama` and an installed local `OLYMPUS_EMAIL_MODEL`. Optional `OLYMPUS_BRIEF_MODEL`
-selects a separate installed local model for the shorter opening-brief packet. It uses the same fixed
+available when the operator has configured an installed `OLYMPUS_BRIEF_MODEL`,
+independently of the email analysis provider. Without that override it inherits
+`OLYMPUS_EMAIL_MODEL` only when `OLYMPUS_EMAIL_ANALYSIS_PROVIDER` is `ollama`.
+Task routing lives in `commands/inference_routes.rs`; shared local transport lives
+in `commands/local_inference.rs`, outside Gmail. It uses the same fixed
 loopback transport as local email understanding, with proxies and redirects disabled,
 cloud-backed model tags rejected, and no model download or paid-provider fallback.
 
@@ -27,6 +67,11 @@ source revisions are checked. Selection excludes promotions and active handled,
 dismissed or snoozed concerns before applying its bound, skips displayed revisions,
 and diversifies senders. Clearly conditional routine sign-in notices are omitted from opening and requested local briefs;
 classification normalizes body whitespace so MIME line wrapping cannot split a condition or problem exception.
+Newsletter and clear multi-article vendor roundups do not fill spare briefing slots,
+even when Gmail labels them Updates. Direct account requests and personal work reports
+remain eligible. These retrieval hints are heuristic; the model must separately
+establish personal relevance and must not turn advertised capabilities into the
+operator's own workflow. Selected project changes are presented newest-first.
 explicit blocked or suspicious activity remains eligible. Within that bounded set, subject-based retrieval hints
 prefer likely requests, bills, shipment changes and order problems ahead of routine
 newsletters; sign-in codes are excluded. These hints do not establish urgency,
@@ -68,10 +113,10 @@ use the existing correction and ambiguity rules. A displayed brief does not itse
 mark mail handled, send anything, or perform proposed actions.
 
 The frontend displays the saved text unchanged. Display acknowledgment is separate
-from generation and saving, so unshown results do not consume evidence. Source errors,
-loading and recorded project blockers/review decisions retain the factual path.
-Local generation failure falls back with a visible notice. A successful local brief
-is not presented as a full mailbox, task or run audit.
+from generation and saving, so unshown results do not consume evidence. Generation
+failure retains the dated previous brief; it does not replace it with a reassuring
+but unanalysed status summary. A successful brief is not presented as a full mailbox,
+task or run audit.
 
 Before reserving a local generation ticket, the frontend waits up to twelve seconds
 for a due startup sync or in-progress retry. Retryable connection errors retain this
@@ -115,4 +160,5 @@ A conservative local publication guard rejects observed instruction-override and
 credential-disclosure patterns in generated prose before persistence. It can also
 reject benign credential warnings, including negations, and rejects the whole
 mixed brief; it is not general prompt-injection detection or semantic proof.
-The ordinary failure path retains available source-based updates.
+An investigative failure retains the dated previous brief and reports the failure;
+it does not publish a replacement operational summary.

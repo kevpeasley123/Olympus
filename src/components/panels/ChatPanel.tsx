@@ -73,6 +73,10 @@ interface ChatPanelProps {
   /** This launch's opening briefing, until the operator has seen it (review U10). */
   onNewBriefing?: () => Promise<void>;
   briefingPending?: boolean;
+  previousBriefing?: ConversationMessage | null;
+  briefingNoUpdate?: boolean;
+  briefingCompared?: boolean;
+  onCancelBriefing?:()=>Promise<void>;
   briefing?: { id: string; text: string } | null;
   /**
    * `expanded` fills Command's right column: header, conversation or idle
@@ -95,7 +99,7 @@ interface ChatPanelProps {
   chats?: ChatControls;
 }
 
-export function ChatPanel({ companion = false, onUseLocalVoice, onVoiceConversationToggle, messages, onSendMessage, pending = false, progress = null, onStop, inspectionProjects = [], error = null,onOpenPreferences,autoSpeak=false,onAutoSpeakChange,voiceSettingsReady=true,briefing=null,onNewBriefing,briefingPending=false,
+export function ChatPanel({ companion = false, onUseLocalVoice, onVoiceConversationToggle, messages, onSendMessage, pending = false, progress = null, onStop, inspectionProjects = [], error = null,onOpenPreferences,autoSpeak=false,onAutoSpeakChange,voiceSettingsReady=true,briefing=null,onNewBriefing,briefingPending=false,previousBriefing=null,briefingNoUpdate=false,briefingCompared=false,onCancelBriefing,
   activeMissions = [], selectedMissionId = null, onSelectMission, missionsError = null, missionsLoading = false,
   layout = "compact", onLayoutChange, onActivate, collapseLabel, mission = null, capabilities = null, suggestions = [], onOpenMission, onDismissMission, chats }: ChatPanelProps) {
   const expanded = layout === "expanded";
@@ -320,6 +324,11 @@ export function ChatPanel({ companion = false, onUseLocalVoice, onVoiceConversat
           {mode === "engaged" ? <button type="button" onClick={showHistory}>↑ Earlier conversation{liveStart > 0 ? ` · ${liveStart} messages` : ""}</button> :
             <button type="button" onClick={() => showLive(true)}>↓ Return to latest</button>}
         </div>
+        {(briefingPending||previousBriefing||briefingNoUpdate||briefingCompared)&&<aside className="console-brief-preview" aria-label="Briefing update">
+          <p role="status">{briefingPending?"Reviewing changes and relevant context…":briefingCompared?"Comparison complete. No new brief was published.":briefingNoUpdate?"Review complete. Nothing new to surface from the sources checked.":"Your previous brief · update unavailable"}</p>
+          {briefingPending&&onCancelBriefing&&<button type="button" className="ghost-action" onClick={()=>void onCancelBriefing()}>Cancel briefing</button>}
+          {previousBriefing&&<details open><summary>Last completed brief{previousBriefing.at?` · ${new Date(previousBriefing.at).toLocaleString()}`:""}</summary><ReactMarkdown remarkPlugins={[remarkGfm]} skipHtml components={consoleMarkdownComponents}>{previousBriefing.content}</ReactMarkdown></details>}
+        </aside>}
         <div ref={scroll.viewportRef} hidden={chatsOpen} className="console-viewport" role="log" aria-label={mode === "transcript" ? "Conversation transcript" : "Recent conversation"}
           aria-live="off" tabIndex={0} onScroll={()=>{if(!conversationPanel||conversationOpened)scroll.onScroll();}}
           onWheel={event => { if (event.deltaY < 0) scroll.interrupt(); }}

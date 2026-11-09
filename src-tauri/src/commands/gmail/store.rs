@@ -15,6 +15,7 @@ pub fn remove_cache(c: &mut Connection, id: &str) -> Result<(), String> {
         "communication_runs",
         "email_learning",
         "communication_situation_contexts",
+        "communication_situation_changes",
         "communication_situations",
         "communication_situation_sources",
         "communication_situation_updates",
@@ -54,6 +55,7 @@ pub fn cache_counts(
     Ok(serde_json::json!({
         "accountId": id,
         "messages": count("SELECT count(*) FROM gmail_messages WHERE account_id=?1")?,
+        "situationChanges": count("SELECT count(*) FROM communication_situation_changes WHERE account_id=?1")?,
         "situations": count("SELECT count(*) FROM communication_situations WHERE account_id=?1")?,
         "updates": count("SELECT count(*) FROM communication_situation_updates WHERE account_id=?1")?,
         "drafts": count("SELECT count(*) FROM communication_situation_drafts WHERE account_id=?1")?,

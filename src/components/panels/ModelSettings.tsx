@@ -5,6 +5,7 @@ import {loadModelCatalog,loadModelDiagnostics,saveModelSelection,useModelSelecti
 import {isTauriRuntime} from "../../services/launcher";
 import {CLAUDE_SUBSCRIPTION_MODELS,selectConversationProvider,useConversationChoice} from "../../services/conversationProvider";
 import {confirmClaudeSubscription,loadClaudeAuthorization,type ClaudeSubscriptionAuthorization} from "../../services/engines";
+import {loadCodexAuthorization,confirmCodexSubscription,type CodexSubscriptionAuthorization} from "../../services/engines";
 import {routeLabel} from "../../services/routeLabel";
 import {formatWhen} from "../../services/time";
 import "./command.css";
@@ -22,15 +23,17 @@ export function ModelRouteControl({disabled=false}:{disabled?:boolean}) {
  const subscription=choice?.provider==="claude-code"||codex;
  const claudeModel=CLAUDE_SUBSCRIPTION_MODELS.find(m=>m.id===choice?.claudeModel)??CLAUDE_SUBSCRIPTION_MODELS[1];
  const [claude,setClaude]=useState<ClaudeSubscriptionAuthorization|null>(null);
+ const [codexAuth,setCodexAuth]=useState<CodexSubscriptionAuthorization|null>(null);
  const refresh=()=>{
   if(desktop)loadClaudeAuthorization().then(setClaude,()=>setClaude(null));
+  if(desktop)loadCodexAuthorization().then(setCodexAuth,()=>setCodexAuth(null));
   return loadModelCatalog().then(value=>{setCatalog(value);setError(null);}).catch(()=>setError("Model catalog unavailable. Try again."));
  };
  useEffect(()=>{void refresh();},[]);
  useEffect(()=>{if(disabled)setOpen(false);},[disabled]);
  const current=catalog?.routes.find(r=>r.capability===selection.capability);
  const defaultName=catalog?.routes.find(r=>r.capability===catalog.defaultCapability)?.label??"the configured default";
- const suffix=subscription?"Blocked":!choice?"Choose":!catalog?"Loading":!current?.available?"Unavailable":selection.scope==="chat"?"This chat":selection.capability===catalog.defaultCapability?"Default":"Next answer";
+ const suffix=subscription?((codex?codexAuth?.confirmed:claude?.confirmedAt)?"Subscription":"Confirm account"):!choice?"Choose":!catalog?"Loading":!current?.available?"Unavailable":selection.scope==="chat"?"This chat":selection.capability===catalog.defaultCapability?"Default":"Next answer";
  const triggerLabel=codex?"Codex":subscription?claudeModel.label:!choice?"Model":current?.label??(error?"Models":"Model");
  const close=(focus=false)=>{returnFocus.current=focus;setOpen(false);};
  useLayoutEffect(()=>{if(!saving){if(!open&&returnFocus.current){returnFocus.current=false;trigger.current?.focus();}else if(open&&scopeFocus.current){scopeFocus.current.focus();scopeFocus.current=null;}}},[open,saving]);
@@ -73,7 +76,7 @@ export function ModelRouteControl({disabled=false}:{disabled?:boolean}) {
   setError(null);selectConversationProvider("claude-code",id);
   if(claude?.confirmedAt)close(true);
  }
- function chooseCodex(){setError(null);selectConversationProvider("codex");close(true);}
+ function chooseCodex(){setError(null);selectConversationProvider("codex");if(codexAuth?.confirmed)close(true);}
  async function confirmClaude(){
   if(!claude)return;setSaving(true);setError(null);
   try{setClaude(await confirmClaudeSubscription(claude.statement));close(true);}
@@ -103,15 +106,16 @@ export function ModelRouteControl({disabled=false}:{disabled?:boolean}) {
    <div role="radiogroup" aria-label="Subscription models" className="model-picker-options">
     {CLAUDE_SUBSCRIPTION_MODELS.map(model=><button type="button" role="radio" aria-checked={choice?.provider==="claude-code"&&claudeModel.id===model.id} disabled={saving||!desktop} key={model.id} title={model.id} onClick={()=>chooseClaude(model.id)}>
      <span className="model-picker-copy"><strong>{model.label}</strong><small>{model.description}</small></span>
-     <span className="model-provider">Claude Max</span><span className="model-check" aria-hidden="true">{choice?.provider==="claude-code"&&claudeModel.id===model.id?'✓':''}</span>
+     <span className="model-provider">Claude</span><span className="model-check" aria-hidden="true">{choice?.provider==="claude-code"&&claudeModel.id===model.id?'✓':''}</span>
     </button>)}
-    <button type="button" role="radio" aria-checked={codex} disabled title="Included-allowance-only spending protection is not established" onClick={()=>chooseCodex()}><span className="model-picker-copy"><strong>Codex · GPT-6.1 Sol</strong><small>Blocked until included-only spending protection is established</small></span><span className="model-provider">ChatGPT</span><span className="model-check" aria-hidden="true">{codex?'✓':''}</span></button>
+    <button type="button" role="radio" aria-checked={codex} disabled={saving||!desktop} onClick={()=>chooseCodex()}><span className="model-picker-copy"><strong>Codex · GPT-6.1 Sol</strong><small>Uses your confirmed ChatGPT subscription account</small></span><span className="model-provider">ChatGPT</span><span className="model-check" aria-hidden="true">{codex?'✓':''}</span></button>
    </div>
    {choice?.provider==="claude-code"&&claude&&!claude.confirmedAt&&<div className="model-picker-confirm" role="group" aria-label="Confirm Claude usage credits are off">
-    <p>Olympus cannot see your Claude billing settings. Confirm only once usage credits are off at claude.ai, Settings &gt; Usage. It records the Max account signed in now and stops if Claude ever reports overage.</p>
+    <p>Confirm once extra usage is off at claude.ai. Olympus binds confirmation to the subscription account signed in now and stops if Claude reports overage.</p>
     <p><q>{claude.statement}</q></p>
     <button type="button" disabled={saving} onClick={()=>void confirmClaude()}>{saving?"Checking sign-in…":"I confirm"}</button>
    </div>}
+   {codex&&codexAuth&&!codexAuth.confirmed&&<div className="model-picker-confirm"><p>{codexAuth.statement}</p><button type="button" disabled={saving} onClick={()=>{setSaving(true);void confirmCodexSubscription(codexAuth.statement).then(value=>{setCodexAuth(value);close(true)},e=>setError(String(e))).finally(()=>setSaving(false))}}>I confirm</button></div>}
    <h4 className="model-picker-group">APIs · paid per use, need separate approval</h4>
    <div role="radiogroup" aria-label="API models" className="model-picker-options">
     {catalog?.routes.map(route=><button type="button" role="radio" aria-checked={!subscription&&!!choice&&selection.capability===route.capability} disabled={!route.available||saving} key={route.capability} title={route.model} onClick={()=>void choose(route.capability,selection.scope,true)}>
@@ -119,7 +123,7 @@ export function ModelRouteControl({disabled=false}:{disabled?:boolean}) {
      <span className="model-provider">{route.providerLabel}</span><span className="model-check" aria-hidden="true">{!subscription&&!!choice&&selection.capability===route.capability?'✓':''}</span>
     </button>)}
    </div>
-   {subscription?<p>{codex?"Codex generation is blocked until included-allowance-only protection is established.":"Claude generation is blocked pending pre-launch spending protection and plugin isolation."} Stays selected until you change it. Text only.</p>:<>
+   {subscription?<p>Uses the selected subscription account after runtime checks. No provider or paid API fallback. Stays selected until you change it. Text only.</p>:<>
    <div className="model-picker-scope" role="radiogroup" aria-label="Applies to"><span>Applies to</span><div>
     {([['next','Next answer'],['chat','This chat']] as const).map(([scope,label])=><button key={scope} type="button" role="radio" aria-checked={selection.scope===scope} disabled={saving||!current?.available} onClick={()=>void choose(selection.capability,scope,false)}>{label}</button>)}
    </div></div>

@@ -80,13 +80,13 @@ pub struct EngineCapabilities {
 fn capabilities(engine: Engine, version: Option<&str>) -> EngineCapabilities {
     // CLI help inspected locally; this does not claim live inference acceptance.
     let inspected = matches!((engine, version),
-        (Engine::ClaudeCode, Some("2.1.74 (Claude Code)" | "2.1.284 (Claude Code)")) |
+        (Engine::ClaudeCode, Some("2.1.74 (Claude Code)" | "2.1.312 (Claude Code)")) |
         (Engine::Codex, Some("codex-cli 0.163.0-alpha.10.2")));
     EngineCapabilities {
         streaming: inspected.then_some(true), structured_output: inspected.then_some(true),
         ephemeral: inspected.then_some(true),
         source: if inspected { "Installed-version CLI help: streaming, structured output and ephemeral sessions advertised; live behavior unverified." }
-            else { "Version capabilities not verified. No generation is enabled." },
+            else { "Version capabilities not verified by this status view. Each transport checks its installed runtime before generation." },
     }
 }
 
@@ -95,15 +95,15 @@ pub struct BillingState { state: &'static str, detail: &'static str }
 
 fn billing_state(sign_in: &SignIn) -> BillingState {
     if matches!(sign_in, SignIn::Subscription { .. }) {
-        BillingState { state: "unknown", detail: "Subscription confirmed; paid-overage eligibility has not been verified." }
+        BillingState { state: "unknown", detail: "Subscription sign-in confirmed. This status check does not verify usage-credit settings; conversation transports require account-bound operator confirmation and recheck runtime eligibility." }
     } else {
         BillingState { state: "ineligible", detail: "A subscription sign-in has not been confirmed." }
     }
 }
 
-/// No supported no-overage proof is wired yet. All subscription generation fails closed.
+/// Coding delegation has separate authority from account-confirmed text transport.
 pub(crate) fn require_generation_eligibility(sign_in: &SignIn) -> Result<(), String> {
-    Err(format!("{} Nothing was started. A supported provider-enforced included-plan-only control must be verified before enabling generation. No API fallback or paid-credit approval exists.", billing_state(sign_in).detail))
+    Err(format!("{} Nothing was started. Coding delegation remains unqualified; text conversation uses its separate account-confirmed transport. No API fallback or paid-credit approval exists.", billing_state(sign_in).detail))
 }
 
 pub(crate) fn select_executable(explicit: Option<PathBuf>, candidates: Vec<PathBuf>) -> Result<PathBuf, String> {
@@ -115,10 +115,10 @@ pub(crate) fn select_executable(explicit: Option<PathBuf>, candidates: Vec<PathB
         .ok_or_else(|| "No engine executable was found in the configured locations.".into())
 }
 
-const CLAUDE_REQUIRED_OPTIONS: &[&str] = &["--safe-mode", "--restricted", "--permission-prompts", "--setting-sources", "--tools", "--strict-mcp-config", "--mcp-config", "--disable-slash-commands", "--no-chrome", "--no-session-persistence", "--output-format", "--input-format", "--include-partial-messages"];
+const CLAUDE_REQUIRED_OPTIONS: &[&str] = &["--settings", "--safe-mode", "--restricted", "--permission-prompts", "--setting-sources", "--tools", "--strict-mcp-config", "--mcp-config", "--disable-slash-commands", "--no-chrome", "--no-session-persistence", "--output-format", "--input-format", "--include-partial-messages"];
 fn claude_launch_contract(version: &str, help: &str) -> Result<(), String> {
-    if version.trim() != "2.1.284 (Claude Code)" {
-        return Err("Claude subscription transport requires the reviewed Claude Code 2.1.284 installation".into());
+    if version.trim() != "2.1.312 (Claude Code)" {
+        return Err("Claude subscription transport requires the reviewed Claude Code 2.1.312 installation".into());
     }
     for option in CLAUDE_REQUIRED_OPTIONS {
         if !help.split_whitespace().any(|word| word.trim_matches([',', '[', ']']) == *option) {
@@ -142,7 +142,7 @@ fn select_supported_claude(explicit: Option<PathBuf>, candidates: Vec<PathBuf>, 
     for path in existing {
         if probe(&path).is_ok() { return Ok(path); }
     }
-    Err("No supported Claude Code 2.1.284 executable with the required subscription transport options was found. No installation was changed.".into())
+    Err("No supported Claude Code 2.1.312 executable with the required subscription transport options was found. No installation was changed.".into())
 }
 
 /// Read-only discovery probes are bounded, contain no credentials and never use
@@ -152,8 +152,8 @@ pub(crate) fn supported_claude_executable(explicit: Option<PathBuf>, candidates:
     select_supported_claude(explicit, candidates, |path| {
         let version = claude_metadata(path, "--version", deadline)?;
         // Do not ask unsupported versions to interpret any transport options.
-        if version.trim() != "2.1.284 (Claude Code)" {
-            return Err("Only reviewed Claude Code 2.1.284 is supported".into());
+        if version.trim() != "2.1.312 (Claude Code)" {
+            return Err("Only reviewed Claude Code 2.1.312 is supported".into());
         }
         let help = claude_metadata(path, "--help", deadline)?;
         claude_launch_contract(&version, &help)
@@ -440,12 +440,12 @@ mod tests {
     #[test]
     fn claude_discovery_requires_reviewed_version_and_every_launch_option() {
         let help = CLAUDE_REQUIRED_OPTIONS.join(" ");
-        assert!(claude_launch_contract("2.1.284 (Claude Code)", &help).is_ok());
-        for version in ["2.1.74 (Claude Code)", "2.1.285 (Claude Code)", "2.1.284-preview (Claude Code)", ""] {
+        assert!(claude_launch_contract("2.1.312 (Claude Code)", &help).is_ok());
+        for version in ["2.1.74 (Claude Code)", "2.1.285 (Claude Code)", "2.1.312-preview (Claude Code)", ""] {
             assert!(claude_launch_contract(version, &help).is_err());
         }
         for flag in CLAUDE_REQUIRED_OPTIONS {
-            assert!(claude_launch_contract("2.1.284 (Claude Code)", &help.replace(flag, "")).is_err(), "missing {flag} accepted");
+            assert!(claude_launch_contract("2.1.312 (Claude Code)", &help.replace(flag, "")).is_err(), "missing {flag} accepted");
         }
     }
 
@@ -487,7 +487,7 @@ mod tests {
     #[test]
     fn capability_claims_require_an_inspected_version() {
         assert_eq!(capabilities(Engine::ClaudeCode, Some("2.1.74 (Claude Code)")).streaming, Some(true));
-        assert_eq!(capabilities(Engine::ClaudeCode, Some("2.1.284 (Claude Code)")).ephemeral, Some(true));
+        assert_eq!(capabilities(Engine::ClaudeCode, Some("2.1.312 (Claude Code)")).ephemeral, Some(true));
         assert_eq!(capabilities(Engine::Codex, Some("codex-cli 0.163.0-alpha.10.2")).structured_output, Some(true));
         assert_eq!(capabilities(Engine::Codex, Some("codex-cli 999.0.0")).streaming, None);
         assert_eq!(capabilities(Engine::ClaudeCode, None).ephemeral, None);

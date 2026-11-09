@@ -4,9 +4,34 @@ Approved architecture, implemented 2026-09-08. The Olympus identity, project tru
 
 ## Spending authorization
 
-The current unreleased backend policy rejects paid API reasoning, realtime voice/transcription and ElevenLabs synthesis before credentials or transport. This also covers background callers of Responses. Configured models remain visible but configuration is not spending approval. Read-only quota refresh is unaffected. Subscription text adapters are separate and remain blocked on verified billing/isolation; see `SUBSCRIPTION-CONVERSATION.md`.
+The backend rejects paid API reasoning and realtime voice/transcription before credentials or transport. Configured API models are not spending approval. ElevenLabs retains its separate included-character/no-overage check. Subscription adapters require account-bound confirmation and runtime isolation checks; see `SUBSCRIPTION-CONVERSATION.md`.
 
-## Routes
+## Explicit task engines
+
+`commands/execution.rs` dispatches structured work to the selected `codex`,
+`claude-code` or `ollama` adapter. It records the actual model and failure without
+switching providers. Subscription conversation selection is explicit and remembered;
+each turn still rechecks eligibility, and paid API selection is never restored.
+Investigative brief settings persist independently: `briefing.provider.v1` chooses
+the engine; `briefing.workflow.v1` selects investigative, legacy or shadow behavior.
+Email extraction uses `OLYMPUS_EMAIL_ANALYSIS_PROVIDER`. Local briefing can use
+`OLYMPUS_BRIEF_MODEL` independently of the email provider; local extraction requires
+an eligible local email configuration. Local models must already be installed and
+must not be cloud-backed tags. The following catalog describes retained model IDs,
+not permission to invoke a paid API.
+
+| Selected task engine | Briefing and memory reasoning | Email extraction |
+|---|---|---|
+| Codex subscription | `gpt-6.1-sol` | Same model when explicitly configured |
+| Claude subscription | `claude-opus-5-5` | `claude-sonnet-5-5` |
+| Local | Installed briefing or memory model override | Installed email model |
+
+Memory uses `chatMemory.provider.v1` and an optional `OLYMPUS_MEMORY_MODEL`
+override. It can inherit the local briefing model. Changing one task's provider
+does not change the others. Model request records are the authority for which
+model actually completed a particular job.
+
+## Retained API catalog
 
 `src-tauri/src/commands/models.rs` is the production model-ID catalog for reasoning, realtime speech, transcription and delegation:
 
@@ -26,6 +51,22 @@ The output budget is per route (`Route::max_output_tokens`) because it caps reas
 The model picker is closed by default and opens only from its composer button. It uses a body-level, viewport-bounded overlay. The backend catalog supplies names, purposes, provider labels, the default capability, and availability (provider configuration, not a live health or credit check). Next answer selects a single request, then resets to the catalog default, including on failure. This chat retains its selected capability in SQLite settings until the chat changes: New chat, Temporary chat or opening another chat returns to the default (since 2026-10-13, when chats became separate). Scope applies to typed and voice reasoning turns, not agent workflows. Unavailable selections block dispatch without substitution. The browser uses a labelled synthetic catalog; its choices are not persisted. Voice turns use the same selector and reasoning path. Completed message disclosures show the actual model identifier from the saved request receipt, or visibly say requested/unconfirmed; current catalog labels never rewrite historical attribution. No automatic cross-provider retry or recursive escalation exists. The existing Anthropic-specific fallback metadata remains scoped to explicit comparison.
 
 The GPT-6 migration changes the shared PRIMARY route from GPT-5.6 Sol to GPT-6 Sol, preserving medium effort. Communication Intelligence v3, situation discovery/briefings and on-demand reply drafts also resolve PRIMARY. Astra remains explicit Deep Analysis at high effort. Speech, transcription and Claude Code use their separate routes. No prompt or execution-authority changes accompany this model update.
+
+## Local task devices
+
+Local extraction, briefing, and memory use `OLYMPUS_EMAIL_DEVICE`,
+`OLYMPUS_BRIEF_DEVICE`, and `OLYMPUS_MEMORY_DEVICE` respectively. An unset
+per-task value falls back to `OLYMPUS_LOCAL_DEVICE`, then `auto`. Only `auto`
+(Ollama scheduling) and `cpu` (zero GPU layers) are accepted. Empty or unknown
+explicit values fail before inference; they do not fall back. Device overrides
+do not carry across tasks, even when tasks share a model.
+
+For example, `OLYMPUS_LOCAL_DEVICE=cpu` with `OLYMPUS_EMAIL_DEVICE=auto` leaves
+briefing and memory on CPU while allowing Ollama to schedule extraction. `auto`
+is a scheduling request, not proof of GPU residency; verify the loaded runner
+when qualifying performance. Olympus does not download models or change this
+configuration automatically. CPU requests retain a 300-second deadline;
+automatic scheduling retains the 120-second deadline.
 
 ## API boundary
 

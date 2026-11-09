@@ -6,6 +6,7 @@ pub fn analysis_readiness(provider: &str, local_model: Option<&str>) -> Analysis
     if crate::commands::acceptance::active() { return crate::commands::analysis_readiness::acceptance_wait(); }
     match provider {
         "openai" => crate::commands::subscription_jobs::readiness(),
+          "codex" | "claude-code" => crate::commands::subscription_jobs::readiness_on(provider),
         "ollama" if local_model.is_some_and(crate::commands::analysis_readiness::valid_local_model) =>
             AnalysisReadiness::unverified("A local analysis model is configured; availability and output quality have not been verified by this status check."),
         "ollama" => AnalysisReadiness::waiting("unconfigured", "local_model", "No supported local analysis model is configured."),
@@ -48,7 +49,8 @@ mod tests {
     fn subscription_readiness_never_claims_a_closed_route_is_ready() {
         let result = analysis_readiness("openai", None);
         assert_eq!(result.state, "blocked");
-        assert!(result.reason.contains("spending"));
+        assert!(!result.can_attempt);
+        assert!(result.reason.contains("data folder"));
     }
 
     #[test]

@@ -1,82 +1,79 @@
 # Next session
 
-## Olympus 0.51.0
+## Olympus 0.52.0 - release acceptance
 
-Repair branch `codex/brief-signin-linewrap`, based on master `a4ffc6a`.
-Olympus 0.50 installed and refreshed Gmail, but its actual brief exposed a wrapped
-Google sign-in condition missed by the filter. Version 0.51 normalizes whitespace
-before classification. The sanitized regression reproduced the installed failure.
-Release verification passed; installation and final installed checks follow.
+Worktree: `olympus-skill-backbone`, branch `codex/personal-brief-relevance`,
+based on `27647ae`. Installed application remains 0.51.0 until the installer
+and native acceptance finish. Kevin approved implementation, merge/push/install
+and selected private Gmail/project/memory evidence through Codex. Private Claude
+acceptance was not authorized. Paid extra usage and automatic purchases are
+disabled by his account-setting confirmation, not a per-request billing guarantee.
 
-## Changes
+## Architecture delivered
 
-- Local briefs omit routine conditional sign-ins while retaining explicit security
-  problems. Latest-source suppression still occurs before filtering.
-- Coverage is native, bound metadata shown under About this brief and retained in
-  chat context. It is no longer read aloud or appended to saved briefing prose.
-  Historical briefs remain unchanged and their provenance stays compatible.
-- Local writing guidance prioritizes practical meaning, natural sentences, source
-  conditions, estimates and actual deadlines. Settled receipts should not fill slots.
-- Private configuration selects local Qwen3 14B for briefs and 8B for background
-  email analysis. Both models were already installed with Kevin's approval.
-- The CPU route introduced in 0.49 retains a finite five-minute inference deadline.
-  It avoids the observed GPU contention; it does not make inference instant.
-- Gmail plugin management, startup sync waiting, stable analysis windows, source
-  revalidation and exact display receipts remain in place from 0.47–0.49.
+- Explicit common execution routes for Codex, Claude subscription and local models;
+  independent extraction, briefing and memory settings. No paid API or silent fallback.
+- Account-bound Codex confirmation and allowance preflight; isolated first-party
+  Claude runtime. Coding delegation retains a separate eligibility boundary.
+- Quiet transactions, exact order identity, revisioned changes and durable operator
+  corrections. Forgotten evidence is withheld from aggregates and retrieval.
+- Bounded investigative briefs retrieve original mail, selected project changes and
+  curated indexed memory, then compose and verify. Source changes and cancellation
+  invalidate results; empty/shadow/completed outcomes remain distinct.
+- Previous briefs are dated previews with no stale autoplay or display acknowledgment.
+  Partial coverage is metadata, not mechanical spoken filler.
+- Durable memory contribution jobs preserve route/model/source identity and prepared
+  results across restart. External inference is not exactly-once across every crash.
+- HTML layout is normalized only in the read view; original mail bytes/hashes remain.
+  Local extraction uses smaller atomic batches; task-specific CPU/auto selection
+  is independent. These mechanics do not establish local semantic quality.
 
-## Verification — November 8
+## Verification - November 8-9, 2026, America/Phoenix
 
-- Full native suite: 780 passed, 31 intentionally ignored. Frontend build passed.
-- All 86 release scripts have passing results. Cold navigation timed out in the
-  disclosure check; it now waits for DOM and explicit scene readiness. An unchanged
-  project-dock test passed on isolated rerun after its broad-run timeout.
-- Visual gate: 20/21 captures passed initially, with one chats readiness timeout
-  recording ERR_NO_BUFFER_SPACE. That scenario passed unchanged in isolation.
-  All 14 functional and 22 Organizer checks passed in the full run. No UI changed
-  in this follow-up; the 0.50 disclosure was inspected collapsed and expanded.
-- Independent read-only code review found no remaining blocking issue.
-- Same private real-mail snapshot: 8B remained stiff; 14B produced a better brief
-  in about 183 seconds. Synthetic cases exposed settled-receipt filler and an
-  estimate promoted to certainty. Final prompt passed both plus appointment,
-  autopay and explicit blocked-sign-in checks. This is bounded quality evidence,
-  not a guarantee of broad reasoning quality.
-- Final native real-mail rerun passed in 198 seconds with source-bound saved prose:
-  automatic payment, a new credit and a code-update summary; no routine sign-in
-  or spoken coverage disclaimer. Gmail refreshed at 18:16 Phoenix without reconnecting.
-  Installed 0.50 used14B and saved a brief, but repeated a wrapped Google notice.
-  Its automatic syncs succeeded at18:24 and18:29; 8B analysis completed at18:31.
-  The 0.51 sanitized regression failed before whitespace normalization and passed
-  after it. Native inspection of a fresh private installed snapshot excluded the
-  actual wrapped notice and retained seven sources. Installed0.51 checks follow.
-- No paid inference, mailbox mutations or live OAuth revoke/re-add were performed.
-  Native fixtures exercise disconnect/remove/re-add; they are not live OAuth proof.
+- Private Codex investigative acceptance passed in 95.1 seconds with 12 native reads,
+  checked original evidence and actual project delivery history. The brief surfaced
+  relevant personal changes without generic news or repeated delivered commits.
+  This qualifies a bounded baseline, not exhaustive inbox coverage or user-rated
+  personalization. Private artifacts remain outside Git in OlympusAcceptance.
+- Synthetic investigative Codex and Claude routes passed. Private Claude was not run.
+- Local qwen3:14b is unqualified for investigation: repeated source reads omitted a
+  material change. Local qwen3:8b is unqualified for extraction: quote failures,
+  output limits and a confirmed token-repetition abort persisted despite smaller
+  batches. Explicit Codex rollout is intended; local options remain available.
+- CPU extraction timed out at 300 seconds. Auto can reuse a previously CPU-loaded
+  Ollama runner; a fresh GPU-loaded run was verified separately. GPU loading alone
+  did not solve model quality. Do not describe the local route as repaired/qualified.
+- Private Codex extraction passed in 29.36 seconds: valid order references and
+  amounts survived two unsupported optional details, with no model retry. Strict
+  structural/attention/source validation and independent review passed.
+- Final native gate: 877 passed, 38 intentionally ignored. All 89 release scripts
+  passed. Independent final review approved the optional-detail retention change.
+- Full visual regression passed 21/21 captures and 22 Organizer checks; frontend
+  build passed. Browser routing/prior-brief/cancellation/shadow tests passed.
+- Installed 0.51 Gmail synchronized automatically without reconnecting, most recently
+  November 8 at 22:11:46 Phoenix. This verifies retrieval, not installed 0.52 reasoning.
+- No mailbox mutation, live OAuth revoke/re-add or paid inference was performed.
+  Google OAuth publishing mode and multi-day grant durability remain unverified.
 
-## Acceptance boundaries and follow-on work
+## Remaining release steps
 
-See `docs/reviews/2026-11-08-conversational-briefs.md` for quality failures and
-reviewed examples. Briefs cover selected recent mail and Git changes; they do not
-establish comprehensive calendar/task/agent-run or cross-chat awareness.
+1. Commit/push/merge the reviewed 0.52 branch and run the installer. Windows
+   administrator approval requires Kevin. Preserve the human-edited desktop checkout.
+2. Explicitly select Codex and investigative briefing for native acceptance; verify
+   fresh Gmail sync, actual useful prose and contribution diagnostics through Tauri.
+   Keep the legacy workflow as a reversible rollout option until native acceptance.
+3. Record actual installation evidence and reconcile the vault from fresh bytes.
 
-Installed 0.49 refreshed its existing Gmail grant and synced repeatedly without
-reconnection. Three automatic local analysis passes completed. Multi-day OAuth
-durability is unverified. Kevin does not know the OAuth app's publishing mode;
-Google's external Testing grants with Gmail scopes can expire after seven days.
-Do not infer or change the Google setting from local connection metadata.
+## Continuing boundaries
 
-Background work requires Olympus open and the PC awake. Opening briefs are once
-per launch; New briefing is on demand. Pause background understanding in
-Communications settings; manage Gmail in Armory > Plugins > Gmail.
+Olympus must be open and the PC awake for background work. Gmail authentication,
+mail freshness and reasoning eligibility are separate. External Google Testing
+applications with Gmail scopes may have seven-day grants; local metadata cannot
+reveal the publishing setting. Do not promise that reconnect is never required.
 
-Explain the GPU timeout to Kevin later, including the observed shared VRAM load,
-CPU fallback latency and the limits of the 8B/14B quality evidence. Do not equate
-successful inference with strong general analysis. The conservative publication
-guard catches observed instruction/secret-request patterns, not every injection.
+Kevin requested ideas from gbrain, not adoption. Retrieval, task model resolution
+and source-of-record ideas informed the approved incremental design; no gbrain
+code was installed. See the dated architecture spec for reviewed references.
 
-Preserve the registered desktop checkout's human edits. Keep private mail,
-credentials and previews outside Git. npm audit reported two high-severity
-build-tool advisories during 0.49 installation; dependency remediation is separate.
-
-After the repair is installed and verified, Kevin requested review of
-https://github.com/garrytan/gbrain for useful memory/agent architecture ideas.
-Only repository metadata, README and MIT license have been read so far. Source
-review and concrete recommendations remain; no code has been copied or installed.
+Do not publish private mail, credentials or acceptance previews. Do not copy test
+display acknowledgments into production. Keep historical records historical.

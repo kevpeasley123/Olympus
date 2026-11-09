@@ -55,7 +55,7 @@ function App() {
     quickApps,
     projects,
     sessionBoundary,
-    openingBriefing, requestBriefing, briefingPending,
+    openingBriefing, requestBriefing, briefingPending, previousBriefing, briefingNoUpdate, briefingCompared, cancelBriefing,
     projectNoteWarnings,
     chat,
     chatSession, newChat, openChat, renameChat, deleteChat, syncChatTitle,
@@ -352,6 +352,10 @@ function App() {
                   briefing={openingBriefing}
                   onNewBriefing={command ? requestBriefing : undefined}
                   briefingPending={briefingPending}
+                  previousBriefing={previousBriefing}
+                  briefingNoUpdate={briefingNoUpdate}
+                  briefingCompared={briefingCompared}
+                  onCancelBriefing={cancelBriefing}
                   layout={command ? chatLayout : projectChatOpen ? "expanded" : "compact"}
                   onActivate={activateProjectChat}
                   collapseLabel={dense ? "Back to projects" : !command ? "Close console" : undefined}

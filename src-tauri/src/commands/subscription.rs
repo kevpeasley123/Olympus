@@ -13,13 +13,14 @@ use std::{
 };
 
 const MODEL: &str = "gpt-6.1-sol";
+pub(crate) fn model_id() -> &'static str { MODEL }
 const MAX_FRAME: usize = 1_000_000;
 const MAX_TEXT: usize = 1_000_000;
 
 /// A quota snapshot cannot prevent purchases or top-ups being consumed mid-turn.
 /// Keep all Codex generation closed until a provider-enforced control is proven.
 pub(crate) fn require_generation() -> Result<(), String> {
-    Err("Codex generation is blocked: included-allowance-only protection is not established. No provider request or fallback was started.".into())
+    super::codex_authorization::confirmed_account().map(|_| ())
 }
 
 #[derive(Debug, PartialEq)]
@@ -46,6 +47,9 @@ enum End {
 }
 
 struct Protocol {
+    expected_account: Option<Value>,
+    account_probe: bool,
+    account_checked: bool,
     instructions: String,
     phase: u8,
     spend_checked: bool,
@@ -62,6 +66,9 @@ impl Protocol {
     }
     fn with_instructions(prompt: String, instructions: String) -> Self {
         Self {
+            expected_account: None,
+            account_probe: false,
+            account_checked: false,
             instructions,
             phase: 0,
             spend_checked: false,
@@ -100,7 +107,24 @@ impl Protocol {
             self.terminal = Some(End::Error);
             return Ok(vec![]);
         }
+        if value["id"].as_u64() == Some(11) {
+            if self.phase != 1 || self.account_checked || (!self.account_probe && self.expected_account.is_none()) {
+                return Err("Unexpected account response".into());
+            }
+            let account = super::codex_authorization::identity(&value["result"]["account"])?;
+            if self.expected_account.as_ref().is_some_and(|expected| expected != &account) {
+                return Err("Codex account changed since confirmation. Confirm the current account in Subscription engines. Nothing was sent.".into());
+            }
+            self.account_checked = true;
+            if self.account_probe {
+                self.text = account.to_string();
+                self.terminal = Some(End::Complete);
+                return Ok(vec![]);
+            }
+            return Ok(vec![json!({"id":RATE_LIMITS_ID,"method":"account/rateLimits/read"})]);
+        }
         if value["id"].as_u64() == Some(RATE_LIMITS_ID) {
+            if self.expected_account.is_some() && !self.account_checked { return Err("Account identity must be checked before allowance".into()); }
             if self.phase != 1 || self.spend_checked {
                 return Err("Out-of-order protocol response".into());
             }
@@ -118,7 +142,9 @@ impl Protocol {
                 // no purchased credits and room left in the included allowance.
                 1 => Ok(vec![
                     json!({"method":"initialized"}),
-                    json!({"id":RATE_LIMITS_ID,"method":"account/rateLimits/read"}),
+                    if self.account_probe || self.expected_account.is_some() {
+                        json!({"id":11,"method":"account/read","params":{"refreshToken":false}})
+                    } else { json!({"id":RATE_LIMITS_ID,"method":"account/rateLimits/read"}) },
                 ]),
                 2 => {
                     let result = &value["result"];
@@ -306,15 +332,32 @@ impl From<String> for Protocol {
 /// One text-only Codex turn for a background job, under the same isolation and
 /// no-credits gate as chat. Blocking. Fails rather than returning partial text.
 pub(crate) fn run_job(system: &str, prompt: String, limit: Duration) -> Result<(String, String), String> {
+    run_job_cancellable(system, prompt, limit, Arc::new(AtomicBool::new(false)))
+}
+pub(crate) fn run_job_cancellable(system: &str, prompt: String, limit: Duration, cancelled: Arc<AtomicBool>) -> Result<(String, String), String> {
     require_generation()?;
     let executable = super::engines::codex_executable()?;
     let directory = ChatDirectory::create()?;
     let command = chat_command(&executable, &directory.0)?;
-    let reply = run_process(command, Protocol::with_instructions(prompt, system.to_string()), Arc::new(AtomicBool::new(false)), |_| {}, limit)?;
+    let mut protocol = Protocol::with_instructions(prompt, system.to_string());
+    protocol.expected_account = Some(super::codex_authorization::confirmed_account()?);
+    let reply = run_process(command, protocol, cancelled, |_| {}, limit)?;
     if let Some(notice) = reply.notice {
         return Err(notice.message);
     }
     Ok((reply.content, MODEL.to_string()))
+}
+
+/// Provider-owned read-only account metadata, never credentials or a model turn.
+pub(crate) fn read_account_identity() -> Result<Value, String> {
+    let executable = super::engines::codex_executable()?;
+    let directory = ChatDirectory::create()?;
+    let command = chat_command(&executable, &directory.0)?;
+    let mut protocol = Protocol::new(String::new());
+    protocol.account_probe = true;
+    let reply = run_process(command, protocol, Arc::new(AtomicBool::new(false)), |_| {}, Duration::from_secs(20))?;
+    if reply.notice.is_some() { return Err("Codex account check did not complete".into()); }
+    serde_json::from_str(&reply.content).map_err(|_| "Codex account identity unavailable".into())
 }
 
 fn required_id(value: &Value) -> Result<String, String> {
@@ -499,9 +542,11 @@ pub async fn complete(
     let worker = tauri::async_runtime::spawn_blocking(move || {
         let directory = ChatDirectory::create()?;
         let command = chat_command(&executable, &directory.0)?;
+        let mut protocol = Protocol::with_instructions(prompt, system);
+        protocol.expected_account = Some(super::codex_authorization::confirmed_account()?);
         run_process(
             command,
-            Protocol::with_instructions(prompt, system),
+            protocol,
             worker_cancel,
             |event| {
                 let _ = on_event.send(event);
@@ -712,18 +757,32 @@ mod tests {
     use super::*;
     use serde_json::json;
     #[test]
+    fn account_bound_turn_checks_identity_before_quota_or_prompt() {
+        let account = json!({"type":"chatgpt","email":"owner@example.com","planType":"pro","workspaceName":null});
+        let mut p = Protocol::with_instructions("private evidence".into(), "".into());
+        p.expected_account = Some(account.clone());
+        let frames = p.accept(json!({"id":1,"result":{}})).unwrap();
+        assert_eq!(frames[1]["method"], "account/read");
+        assert!(p.accept(json!({"id":11,"result":{"account":{"type":"apiKey"}}})).is_err());
+        let mut p = Protocol::with_instructions("private evidence".into(), "".into());
+        p.expected_account = Some(account.clone());
+        p.accept(json!({"id":1,"result":{}})).unwrap();
+        let frames = p.accept(json!({"id":11,"result":{"account":account}})).unwrap();
+        assert_eq!(frames[0]["method"], "account/rateLimits/read");
+    }
+    #[test]
     fn codex_chat_refuses_before_history_or_transport() {
         tauri::async_runtime::block_on(async {
             let (_sender,cancel)=tokio::sync::oneshot::channel();
             let channel=tauri::ipc::Channel::new(|_| panic!("blocked Codex must not emit provider events"));
             let error=complete(String::new(),String::new(),vec![],false,channel,cancel).await.unwrap_err();
-            assert!(error.contains("included-allowance-only protection"),"{error}");
+            assert!(error.contains("Confirm that paid extra usage"),"{error}");
         });
     }
     #[test]
     fn codex_background_generation_refuses_before_discovery() {
         let error=run_job("",String::new(),Duration::ZERO).unwrap_err();
-        assert!(error.contains("included-allowance-only protection"));
+        assert!(error.contains("Confirm that paid extra usage"));
     }
     #[test]
     fn cancellation_waits_for_worker_cleanup() {

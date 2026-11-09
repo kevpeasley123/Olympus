@@ -1,6 +1,6 @@
 # Engine status and usage
 
-This bounded slice inspects installed engines and displays account telemetry availability. Explicit account readers are available; availability differs by provider. A later offline-tested Codex conversation adapter is described in [Subscription conversation](SUBSCRIPTION-CONVERSATION.md); live generation stays blocked.
+Engine Settings inspects installed engines and displays account telemetry availability. Explicit account readers are available; availability differs by provider. Qualified subscription reasoning is described in [Subscription conversation](SUBSCRIPTION-CONVERSATION.md).
 
 ## Discovery and eligibility
 
@@ -8,7 +8,7 @@ Preferences > Subscription engines checks the executable, version and CLI sign-i
 
 An explicit override must name an existing absolute file; a bad override never falls back. Overrides are environment configuration, not new persisted credentials or settings. The selected path and version are visible. Capability claims are limited to CLI-help versions inspected in the Windows spike; other versions are labelled unverified. Advertised streaming, schema output and ephemeral sessions do not establish successful live behavior.
 
-Sign-in and billing eligibility are separate. A subscription can allow extra paid usage after its limits. This slice has no supported proof that overage is disabled, so subscription generation remains blocked. The existing Claude delegation gate also refuses launches, including resumes, while eligibility is unknown. The unreleased shared spending policy blocks paid API generation before transport; read-only quota readers remain available. No UI checkbox can grant billing eligibility and no automatic fallback, refill or purchase is added.
+Sign-in and billing eligibility are separate. A subscription can allow extra paid usage after its limits. Account-bound operator confirmation records that paid extras are disabled; runtime adapters then check identity, allowance where exposed, and isolation before a turn. The status inspection alone cannot declare a turn ready or blocked. Confirmation is not a provider-enforced per-request spending cap. Coding delegation remains separately gated. Paid API reasoning is blocked before transport; quota readers remain available. No automatic fallback, refill or purchase is added.
 
 ## Usage surface
 
@@ -30,7 +30,7 @@ The native readers below use supported account-limit and subscription interfaces
 
 ## Management paths
 
-Expanded Usage provides Manage subscriptions and Manage APIs. Subscription management reuses the existing EngineSettings selector and discovery display, but opening it or its disclosure does not inspect engines. Check again is explicit. Subscription selection is session-only; billing and isolation remain blocked.
+Expanded Usage provides Manage subscriptions and Manage APIs. Subscription management reuses Engine Settings; opening it or its disclosure does not inspect engines. Check again is explicit. Subscription conversation selection is remembered as a convenience, never as execution permission. Briefing workflow and task-engine selections are persisted separately. Account confirmation can be withdrawn; withdrawing it prevents new subscription jobs.
 
 API management explains authentication, costs and verification for ElevenLabs, Gmail and API model routes. Check local configuration reads only the existing local status commands, never a provider health check or account balance. The existing targeted Preferences section handles setup. Back or Escape returns to the selected service and retains inspected evidence. Usage owns global shortcuts while modal and restores keyboard focus on exit.
 

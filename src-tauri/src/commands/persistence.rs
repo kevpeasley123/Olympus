@@ -153,7 +153,7 @@ impl std::ops::Deref for LoadedMessage {
 }
 
 /// SQLite `CURRENT_TIMESTAMP` (`YYYY-MM-DD HH:MM:SS`, UTC) as ISO 8601.
-fn created_at_iso(raw: &str) -> Option<String> {
+pub(crate) fn created_at_iso(raw: &str) -> Option<String> {
     chrono::NaiveDateTime::parse_from_str(raw.trim(), "%Y-%m-%d %H:%M:%S")
         .ok()
         .map(|time| time.and_utc().to_rfc3339_opts(chrono::SecondsFormat::Secs, true))

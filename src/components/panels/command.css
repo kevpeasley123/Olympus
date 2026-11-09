@@ -300,3 +300,10 @@ html .command-console .console-attachment > p { margin: 6px 0 4px; color: var(--
   overflow-wrap: anywhere;
 }
 .console-turn-scope { color: var(--label); font: var(--text-xs) var(--font-mono); letter-spacing: .02em; text-transform: none; }
+
+.console-brief-preview { padding: 10px 14px; border-bottom: 1px solid var(--border-subtle, #33414b); max-height: 240px; overflow: auto; font-size: 12px; line-height: 1.5; }
+.console-brief-preview > p { color: var(--text-muted, #aab9c4); margin: 0 0 8px; }
+.console-brief-preview summary { cursor: pointer; }
+.engine-settings fieldset {margin:12px 0;padding:12px;border:1px solid #8caec03d;border-radius:8px;background:#07121b66;min-width:0}
+.engine-settings fieldset legend {padding:0 5px;color:#d8c69e}
+.engine-settings fieldset label {display:block;margin:8px 0}
