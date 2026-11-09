@@ -407,7 +407,8 @@ fn retrieve_snapshot(c: &Connection, vault: &Path, query: &Query) -> rusqlite::R
             if !candidate.record.publication.as_deref().is_some_and(|r|super::super::learned_records::published(vault,r)){continue;}
             if !historical {
                 if candidate.record.status=="withdrawn" || candidate.record.expires_at.as_ref().is_some_and(|t|chrono::DateTime::parse_from_rfc3339(t).map(|t|t<=chrono::Utc::now()).unwrap_or(true)){continue;}
-                let replaced:bool=c.query_row("SELECT EXISTS(SELECT 1 FROM relations r JOIN documents d ON d.path=r.path WHERE r.target=?1 AND d.kind='learned' AND d.valid=1)",[&candidate.record.id],|r|r.get(0))?;
+                let corrections:Vec<String>=c.prepare("SELECT d.json FROM relations r JOIN documents d ON d.path=r.path WHERE r.target=?1 AND r.kind IN ('corrects','supersedes') AND d.kind='learned' AND d.valid=1")?.query_map([&candidate.record.id],|r|r.get(0))?.collect::<Result<_,_>>()?;
+                let replaced=corrections.iter().filter_map(|raw|serde_json::from_str::<record::Record>(raw).ok()).any(|r|r.publication.as_deref().is_some_and(|p|super::super::learned_records::published(vault,p)));
                 if replaced {continue;}
             }
         }
@@ -467,6 +468,7 @@ fn retrieve_snapshot(c: &Connection, vault: &Path, query: &Query) -> rusqlite::R
                         continue;
                     }
                     let sources = correction_chunks(c, &path)?;
+                    if sources.first().is_some_and(|s|s.record.kind=="learned" && !s.record.publication.as_deref().is_some_and(|p|super::super::learned_records::published(vault,p))){continue;}
                     if let Some(source) = sources.first() {
                         next.push(source.record.id.clone());
                     } else {

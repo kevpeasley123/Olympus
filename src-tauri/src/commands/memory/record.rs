@@ -194,7 +194,7 @@ pub fn parse(path: &str, raw: &[u8]) -> Result<Option<Parsed>, String> {
         .unwrap_or_else(|| "unconfirmed".into());
     let record = Record {
         id: id.clone().unwrap_or_else(|| format!("legacy:{path}")),
-        provisional: id.is_none(),
+        provisional: id.is_none() || string(&yaml, "assertion_kind").as_deref()==Some("provisional_inference"),
         schema_version: version,
         kind: kind.into(),
         title,

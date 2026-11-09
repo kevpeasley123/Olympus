@@ -702,7 +702,7 @@ fn a_follow_up_inherits_scope_from_its_own_chat_only() {
 fn learned_correction_survives_rebuild_and_partial_publication_is_invisible() {
     use crate::commands::learned_records as learned;
     let mut f=Fixture::new(); f.project("atlas","Atlas");
-    let source=learned::Evidence{id:"m1".into(),revision:super::super::vault_write::content_fingerprint("Use Rust"),role:"user".into(),text:"Use Rust".into(),event_at:"2026-11-08T20:00:00Z".into(),conversation:Some("c1".into()),path:None};
+    let source=learned::Evidence{id:"m1".into(),revision:super::super::vault_write::content_fingerprint("Use Rust"),role:"user".into(),text:"Use Rust".into(),event_at:"2026-11-08T20:00:00Z".into(),conversation:Some("c1".into()),path:None,parent_run:None};
     let item=learned::Candidate{kind:"operator_statement".into(),subject:"Atlas".into(),text:"Atlas uses Rust".into(),project_ids:vec!["atlas".into()],source_ids:vec!["m1".into()],corrects:None,status:"active".into(),expires_at:None};
     let first=learned::prepare(&[item.clone()],&[source.clone()],&["atlas".into()],&f.vault).unwrap();
     for (path,raw) in &first.files {f.write(path,raw);}
@@ -713,11 +713,31 @@ fn learned_correction_survives_rebuild_and_partial_publication_is_invisible() {
     let id=first.files.keys().next().unwrap().rsplit('/').next().unwrap().trim_end_matches(".md").to_owned();
     let mut corrected=item;corrected.corrects=Some(id.clone());corrected.text="Atlas uses TypeScript".into();
     let mut source2=source;source2.id="m2".into();source2.text="Use TypeScript instead".into();source2.revision=super::super::vault_write::content_fingerprint(&source2.text);corrected.source_ids=vec!["m2".into()];
-    let next=learned::prepare(&[corrected],&[source2],&["atlas".into()],&f.vault).unwrap();learned::publish(&f.vault,&next).unwrap();
+    let next=learned::prepare(&[corrected],&[source2],&["atlas".into()],&f.vault).unwrap();
+    for (path,raw) in &next.files {f.write(path,raw);}
+    f.sync();
+    assert!(f.query("Atlas Rust",Some("atlas")).sources.iter().any(|s|s.record.id==id),"unpublished correction hid original");
+    learned::publish(&f.vault,&next).unwrap();
     index::reconcile(&mut f.db,&f.vault,true,&HashSet::new(),true).unwrap();
     let packet=f.query("Atlas TypeScript Rust",Some("atlas"));
     assert!(!packet.sources.iter().any(|s|s.record.id==id));
     assert!(packet.sources.iter().any(|s|s.record.kind=="learned" && s.excerpt.contains("TypeScript")),"{:?}",packet);
     learned::publish(&f.vault,&next).unwrap();
     assert_eq!(fs::read_dir(f.vault.join(learned::FOLDER)).unwrap().filter_map(Result::ok).filter(|p|p.path().extension().is_some_and(|e|e=="md")).count(),2);
+}
+
+#[test]
+fn stale_learned_source_does_not_remove_unrelated_current_memory(){
+    use crate::commands::{learned_records as learned,persistence,vault_context};
+    let c=Connection::open_in_memory().unwrap();c.execute_batch(crate::commands::migrations::TEST_SCHEMA).unwrap();
+    let db=persistence::Db(std::sync::Mutex::new(c));
+    let message=serde_json::from_value(serde_json::json!({"id":"good","role":"user","content":"Prefer concise answers","timestamp":"12:00"})).unwrap();
+    persistence::store_messages(&mut db.0.lock().unwrap(),"chat",vec![message]).unwrap();
+    let evidence=learned::Evidence{id:"good".into(),revision:crate::commands::vault_write::content_fingerprint("Prefer concise answers"),role:"user".into(),text:String::new(),event_at:String::new(),conversation:Some("chat".into()),path:None,parent_run:None};
+    let good=retrieve::Source{record:record::Record{id:"good-record".into(),kind:"learned".into(),evidence:vec![evidence.clone()],..Default::default()},heading:String::new(),start:0,end:1,excerpt:"Prefer concise answers".into(),reason:String::new(),truncated:false};
+    let mut bad=good.clone();bad.record.id="stale-record".into();bad.record.evidence[0].id="deleted".into();
+    let mut memory=vault_context::VaultMemory::default();memory.recall=Some(retrieve::Packet{sources:vec![bad,good],..Default::default()});
+    super::validate_learned(&db,&mut memory,false);
+    let sources=&memory.recall.as_ref().unwrap().sources;assert_eq!(sources.len(),1);assert_eq!(sources[0].record.id,"good-record");
+    super::validate_learned(&db,&mut memory,true);assert!(memory.recall.unwrap().sources.is_empty());
 }

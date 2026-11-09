@@ -2,6 +2,16 @@
 
 Implementation receipt · September 23–24, 2026 · released in 0.19.0 ([RELEASE-0.19.0.md](archive/RELEASE-0.19.0.md)). Statements below that it is not installed describe the pre-release stage. 2026-09-28: Research Verification now skips and names unreadable or malformed notes, counts only tagged notes toward its budget, treats a `running` row past its deadline as stale, and its tables moved into `schema.sql`. 2026-10-11 (0.30.0): Research lost its Library | Questions | Audits control; the workflow is now reached only from Command's Armory (see Agent catalog). The scoped live run described under Next agent is still open; see `docs/NEXT-SESSION.md`.
 
+## November 8–9, 2026 development update
+
+On branch feature/source-backed-working-memory, both stages bind the explicitly selected subscription engine, Deep model policy and account confirmation at parent start. Policy changes invalidate resumption; there is no provider fallback. Local research remains unavailable until separately qualified.
+
+An interrupted run can start a new parent that reuses only completed read stages after checking exact inputs, role definitions, sources and route identity. The previous run remains inspectable. Resume is unavailable in read-only inspection. Coding side effects are not replayed.
+
+After the parent completes, supported findings can be published as provisional source-backed learned records, subject to the existing learning setting. Children cannot publish. The prepared manifest and publication acknowledgement live in the existing run record; partial writes recover without new inference. A subsequent matching research question can reuse findings only when the original source revisions still match, and must verify those sources again. Ordinary conversation can retrieve these records through the existing memory index. The historical implementation description below predates these changes.
+
+A native synthetic Codex test completed both stages and publication in 23.65 seconds. The researcher took about 12 seconds and the verifier about 11 seconds. Both distinguished repeated assertions from demonstrated evidence. This fixture proves the execution/publication path; it does not establish that two stages outperform one on broad research quality. No private mail was needed.
+
 ## CURRENT AGENT STATE
 
 Three executable roles now exist in source: Research Agent @1, Verification Agent

@@ -241,7 +241,6 @@ pub fn validate_learned(db:&super::persistence::Db,memory:&mut super::vault_cont
         let root=super::get_vault_path();
         let c=db.0.lock().ok();
         let enabled=c.as_ref().is_some_and(|c|super::chat_memory::settings(c).use_memory);
-        let invalid=temporary || !enabled || packet.sources.iter().any(|s|s.record.kind=="learned" && !c.as_ref().is_some_and(|c|super::learned_records::evidence_current(c,&root,&s.record.evidence)));
-        if invalid {packet.sources.retain(|s|s.record.kind!="learned");}
+        packet.sources.retain(|s|s.record.kind!="learned" || (!temporary && enabled && c.as_ref().is_some_and(|c|super::learned_records::evidence_current(c,&root,&s.record.evidence))));
     }
 }

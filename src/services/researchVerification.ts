@@ -38,9 +38,10 @@ export interface AgentCatalog {
 }
 export interface ResearchClient {
   catalog():Promise<AgentCatalog>;list():Promise<RunSummary[]>;inspect(id:string):Promise<ResearchRun>;
-  start(id:string,question:string):Promise<ResearchRun>;cancel(id:string):Promise<void>;
+  start(id:string,question:string):Promise<ResearchRun>;resume?(id:string,question:string):Promise<ResearchRun>;cancel(id:string):Promise<void>;
 }
 export const researchVerification:ResearchClient={
   catalog:()=>invoke("research_agent_catalog",{provider:conversationChoiceSnapshot()?.provider ?? null}),list:()=>invoke("list_research_verifications"),inspect:id=>invoke("inspect_research_verification",{id}),
+  resume:(id,question)=>invoke("start_research_verification",{request:{id:crypto.randomUUID(),question,provider:requireConversationProvider(),resumeFrom:id}}),
   start:(id,question)=>invoke("start_research_verification",{request:{id,question,provider:requireConversationProvider()}}),cancel:id=>invoke("cancel_research_verification",{id}),
 };

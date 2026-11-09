@@ -574,7 +574,7 @@ where F:Fn(Value)->Fut,Fut:std::future::Future<Output=Result<String,String>> {
         let c=db.0.lock().map_err(|e|e.to_string())?;
         let originals=lines_after(&c,&chat.id,chat.memory_watermark).map_err(|e|e.to_string())?;
         let sources=originals.iter().filter(|l|lines.iter().any(|seen|seen.id==l.id)).map(|l|super::learned_records::Evidence{
-            id:l.id.clone(),revision:l.fingerprint.clone(),role:l.role.clone(),text:l.content.clone(),event_at:l.created_at.clone(),conversation:Some(chat.id.clone()),path:None}).collect::<Vec<_>>();
+            id:l.id.clone(),revision:l.fingerprint.clone(),role:l.role.clone(),text:l.content.clone(),event_at:l.created_at.clone(),conversation:Some(chat.id.clone()),path:None,parent_run:None}).collect::<Vec<_>>();
         answer.manifest=Some(super::learned_records::prepare(items,&sources,&projects,root)?);
     }
     let prepared=jobs::prepare(db,&claim,before.as_deref(),answer)?;
@@ -652,6 +652,7 @@ pub async fn tick(db: &Db) {
         Ok(root) => root,
         Err(error) => { eprintln!("[Olympus::ChatMemory] {error}"); return; }
     };
+    super::research_verification::recover_publications(db,&root);
     let readiness={let Ok(c)=db.0.lock() else{return};jobs::readiness(&c)};
     tick_with(db, &root, readiness, |input| jobs::analyze(db,input)).await;
 }
@@ -1467,4 +1468,19 @@ MEMORY_NOTE_END");
         assert_eq!((s.earlier_waiting, s.earlier_queued), (0, 1));
         assert_eq!(due(&c, Settings { save_chats: false, learn: true, use_memory: true }).unwrap().len(), 1);
     }
+    #[test] #[ignore="Codex subscription with synthetic learning evidence only"]
+    fn native_source_backed_learning_acceptance(){
+        super::super::subscription_jobs::APP_DATA_FOR_TESTS.set(std::path::PathBuf::from(std::env::var("APPDATA").unwrap()).join("com.projectolympus.commandstation")).ok();
+        let messages=json!([{"id":"u1","role":"user","content":"I prefer concise conversational answers. For project Atlas, use Rust."},{"id":"a1","role":"assistant","content":"Perhaps we should deploy Atlas tomorrow."},{"id":"u2","role":"user","content":"I have not approved deployment. The newsletter about a new database product is irrelevant to this work."}]);
+        let mut record=super::super::models::RequestRecord::new(&super::super::models::resolve(super::super::models::Capability::Primary),"memory_acceptance");
+        let output=tauri::async_runtime::block_on(super::super::execution::structured("codex","memory_acceptance",INSTRUCTIONS,json!({"allowedProjects":["atlas"],"existingRecords":[],"messages":messages}),schema(),&mut record)).unwrap();
+        let answer:Answer=serde_json::from_str(&output).unwrap();let items=answer.contributions.unwrap();
+        assert!(items.iter().any(|i|i.source_ids.contains(&"u1".to_owned()) && i.text.to_lowercase().contains("rust")),"decision omitted: {output}");
+        assert!(items.iter().any(|i|i.subject=="Kevin" && i.text.to_lowercase().contains("concise")),"preference omitted: {output}");
+        assert!(!items.iter().any(|i|i.kind=="operator_statement" && i.source_ids.contains(&"a1".to_owned())),"assistant suggestion promoted: {output}");
+        let evidence:Vec<super::super::learned_records::Evidence>=messages.as_array().unwrap().iter().map(|m|{let text=m["content"].as_str().unwrap().to_owned();super::super::learned_records::Evidence{id:m["id"].as_str().unwrap().into(),role:m["role"].as_str().unwrap().into(),revision:crate::commands::vault_write::content_fingerprint(&text),text,event_at:"2026-11-09T00:00:00Z".into(),conversation:Some("synthetic".into()),path:None,parent_run:None}}).collect();
+        let manifest=super::super::learned_records::prepare(&items,&evidence,&["atlas".into()],Path::new("unused-synthetic-vault")).unwrap();
+        assert!(!manifest.files.is_empty());println!("NATIVE_LEARNING_RESULT {output}");
+    }
+
 }
