@@ -697,3 +697,27 @@ fn a_follow_up_inherits_scope_from_its_own_chat_only() {
     assert_eq!(super::previous_scope(&db, Some("b")), None, "a new chat starts unscoped");
     assert_eq!(super::previous_scope(&db, None), None, "a temporary chat starts unscoped");
 }
+
+#[test]
+fn learned_correction_survives_rebuild_and_partial_publication_is_invisible() {
+    use crate::commands::learned_records as learned;
+    let mut f=Fixture::new(); f.project("atlas","Atlas");
+    let source=learned::Evidence{id:"m1".into(),revision:super::super::vault_write::content_fingerprint("Use Rust"),role:"user".into(),text:"Use Rust".into(),event_at:"2026-11-08T20:00:00Z".into(),conversation:Some("c1".into()),path:None};
+    let item=learned::Candidate{kind:"operator_statement".into(),subject:"Atlas".into(),text:"Atlas uses Rust".into(),project_ids:vec!["atlas".into()],source_ids:vec!["m1".into()],corrects:None,status:"active".into(),expires_at:None};
+    let first=learned::prepare(&[item.clone()],&[source.clone()],&["atlas".into()],&f.vault).unwrap();
+    for (path,raw) in &first.files {f.write(path,raw);}
+    f.sync();
+    assert!(!f.query("Atlas Rust",Some("atlas")).sources.iter().any(|s|s.record.kind=="learned"));
+    learned::publish(&f.vault,&first).unwrap();f.sync();
+    assert!(f.query("Atlas Rust",Some("atlas")).sources.iter().any(|s|s.record.kind=="learned"));
+    let id=first.files.keys().next().unwrap().rsplit('/').next().unwrap().trim_end_matches(".md").to_owned();
+    let mut corrected=item;corrected.corrects=Some(id.clone());corrected.text="Atlas uses TypeScript".into();
+    let mut source2=source;source2.id="m2".into();source2.text="Use TypeScript instead".into();source2.revision=super::super::vault_write::content_fingerprint(&source2.text);corrected.source_ids=vec!["m2".into()];
+    let next=learned::prepare(&[corrected],&[source2],&["atlas".into()],&f.vault).unwrap();learned::publish(&f.vault,&next).unwrap();
+    index::reconcile(&mut f.db,&f.vault,true,&HashSet::new(),true).unwrap();
+    let packet=f.query("Atlas TypeScript Rust",Some("atlas"));
+    assert!(!packet.sources.iter().any(|s|s.record.id==id));
+    assert!(packet.sources.iter().any(|s|s.record.kind=="learned" && s.excerpt.contains("TypeScript")),"{:?}",packet);
+    learned::publish(&f.vault,&next).unwrap();
+    assert_eq!(fs::read_dir(f.vault.join(learned::FOLDER)).unwrap().filter_map(Result::ok).filter(|p|p.path().extension().is_some_and(|e|e=="md")).count(),2);
+}

@@ -209,3 +209,11 @@ request. Temporary chats and "Use what Olympus remembers" behave as before.
 A live pass on copies of Kevin's database and project names (2026-10-20,
 `chat_memory::tests::live_memory_pass_on_copies`) produced dated Decisions and
 In progress bullets linked to `[[Project Olympus]]` and `[[Decision Log]]`.
+
+## Source-backed learned records
+
+New chat learning produces bounded candidate assertions rather than replacing the legacy memory note. Each published record lives under `09 - System/Learned` in the vault, identifies its source messages and content revisions, and distinguishes operator statements from provisional inferences. Project assertions require a resolved project identity; ambiguous project statements are skipped. The legacy `Olympus Memory.md` remains readable and is not rewritten by the new candidate path. Old prepared journal entries retain their compatibility completion path.
+
+Publication prepares the record manifest in the existing contribution journal, writes immutable records, then writes a matching receipt. Retrieval excludes incomplete or edited publication batches. Replaying a prepared manifest does not require another model call. Corrections and withdrawals refer to a same-subject, same-project record; current retrieval suppresses the old assertion, while historical retrieval can show the relationship. Expired current assertions are excluded. The index remains derived and rebuildable.
+
+Source identity validation establishes traceability, not semantic truth. Ordinary chat rechecks the source message revisions before using learned records. Temporary chats neither read learned records nor create them. Records do not grant execution permission. Legacy whole-note context remains a compatibility read until the context assembly slice replaces its unconditional inclusion.

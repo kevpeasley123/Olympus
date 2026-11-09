@@ -249,6 +249,7 @@ pub fn reconcile(
             "04 - Decisions",
             "08 - Daily Briefs/Sessions",
             "09 - System/History",
+            "09 - System/Learned",
         ] {
             let prior: u64 = tx.query_row(
                 "SELECT COUNT(*) FROM documents WHERE path LIKE ?1",
@@ -292,7 +293,7 @@ pub fn reconcile(
                     .contains(&relative.as_str());
                 }
                 if relative.starts_with("09 - System/") {
-                    return relative.starts_with("09 - System/History");
+                    return relative.starts_with("09 - System/History") || relative.starts_with("09 - System/Learned");
                 }
                 if relative.starts_with("08 - Daily Briefs/") {
                     return relative.starts_with("08 - Daily Briefs/Sessions");

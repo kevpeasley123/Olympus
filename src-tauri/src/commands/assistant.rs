@@ -1058,7 +1058,8 @@ async fn subscription_context(
         active_project:context.active_project.clone().or_else(||super::memory::previous_scope(db,context.conversation_id.as_deref().filter(|_|!context.temporary))), recent_questions:context.memory_recent_questions.clone(),
     };
     let reader=memory_service.reader();
-    let memory=tauri::async_runtime::spawn_blocking(move||super::memory::load_for_turn(&reader,&query)).await.map_err(|_|"Memory retrieval task failed")?;
+    let mut memory=tauri::async_runtime::spawn_blocking(move||super::memory::load_for_turn(&reader,&query)).await.map_err(|_|"Memory retrieval task failed")?;
+    super::memory::validate_learned(db,&mut memory,context.temporary);
     report_vault_recall(&memory,context.temporary,on_event);
     context.repository_context=super::repository_inspection::inspect(db,&super::models::resolve(context.capability),question,on_event).await?;
     // Subscription replies are text only, so no spoken-response format is asked for.
@@ -1100,7 +1101,8 @@ async fn send_assistant_message_inner(
         active_project:context.active_project.clone().or_else(||super::memory::previous_scope(db.inner(),context.conversation_id.as_deref().filter(|_|!context.temporary))), recent_questions:context.memory_recent_questions.clone(),
     };
     let reader=memory_service.reader();
-    let memory=tauri::async_runtime::spawn_blocking(move||super::memory::load_for_turn(&reader,&query)).await.map_err(|_|"Memory retrieval task failed")?;
+    let mut memory=tauri::async_runtime::spawn_blocking(move||super::memory::load_for_turn(&reader,&query)).await.map_err(|_|"Memory retrieval task failed")?;
+    super::memory::validate_learned(&db,&mut memory,context.temporary);
     report_vault_recall(&memory,context.temporary,&on_event);
     if let Some(packet)=&memory.recall{super::memory::save_packet(db.inner(),&record.id,packet)?;}
     let start=std::time::Instant::now();

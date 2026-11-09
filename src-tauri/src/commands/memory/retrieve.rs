@@ -301,7 +301,7 @@ fn retrieve_snapshot(c: &Connection, vault: &Path, query: &Query) -> rusqlite::R
         return Ok(finish(packet, vec![]));
     }
     let scope_json = serde_json::to_string(&scope).unwrap();
-    let allowed="(d.kind='research' OR (?2=1 AND d.kind='project') OR EXISTS(SELECT 1 FROM bindings b WHERE b.path=d.path AND b.project_id IN (SELECT value FROM json_each(?1))))";
+    let allowed="(d.kind='research' OR (d.kind='learned' AND NOT EXISTS(SELECT 1 FROM refs WHERE path=d.path)) OR (?2=1 AND d.kind='project') OR EXISTS(SELECT 1 FROM bindings b WHERE b.path=d.path AND b.project_id IN (SELECT value FROM json_each(?1))))";
     let mut candidates = Vec::new();
     // Summaries are context, not exclusive truth. Reserve room for unreconciled
     // sessions and decisions, even when a recent summary exists.
@@ -404,6 +404,14 @@ fn retrieve_snapshot(c: &Connection, vault: &Path, query: &Query) -> rusqlite::R
     let mut checked = std::collections::HashMap::new();
     let mut bundle_boundaries = Vec::new();
     for mut candidate in candidates {
+        if candidate.record.kind=="learned" {
+            if !candidate.record.publication.as_deref().is_some_and(|r|super::super::learned_records::published(vault,r)){continue;}
+            if !historical {
+                if candidate.record.status=="withdrawn" || candidate.record.expires_at.as_ref().is_some_and(|t|chrono::DateTime::parse_from_rfc3339(t).map(|t|t<=chrono::Utc::now()).unwrap_or(true)){continue;}
+                let replaced:bool=c.query_row("SELECT EXISTS(SELECT 1 FROM relations r JOIN documents d ON d.path=r.path WHERE r.target=?1 AND d.kind='learned' AND d.valid=1)",[&candidate.record.id],|r|r.get(0))?;
+                if replaced {continue;}
+            }
+        }
         if seen.contains(&candidate.record.path) {
             continue;
         }
@@ -449,7 +457,7 @@ fn retrieve_snapshot(c: &Connection, vault: &Path, query: &Query) -> rusqlite::R
                     if path == candidate.record.path || !related.insert(path.clone()) {
                         continue;
                     }
-                    let in_scope:bool=c.query_row("SELECT EXISTS(SELECT 1 FROM documents d WHERE d.path=?1 AND d.valid=1 AND (EXISTS(SELECT 1 FROM bindings WHERE path=d.path AND project_id IN(SELECT value FROM json_each(?2))) OR kind='research'))",params![path,scope_json],|r|r.get(0))?;
+                    let in_scope:bool=c.query_row("SELECT EXISTS(SELECT 1 FROM documents d WHERE d.path=?1 AND d.valid=1 AND (EXISTS(SELECT 1 FROM bindings WHERE path=d.path AND project_id IN(SELECT value FROM json_each(?2))) OR kind='research' OR (kind='learned' AND NOT EXISTS(SELECT 1 FROM refs WHERE path=d.path))))",params![path,scope_json],|r|r.get(0))?;
                     if !in_scope {
                         resolved = false;
                         continue;
@@ -486,12 +494,16 @@ fn retrieve_snapshot(c: &Connection, vault: &Path, query: &Query) -> rusqlite::R
             continue;
         }
         bundle.retain(|s| !seen.contains(&s.record.path));
+        if !historical && candidate.record.kind=="learned" {
+            bundle.retain(|s|s.record.id==candidate.record.id);
+        }
         if packet.sources.len() + bundle.len() > MAX_PASSAGES {
             packet.truncated = true;
             continue;
         }
         let mut valid = true;
         for s in &bundle {
+            if s.record.kind=="learned" && !s.record.publication.as_deref().is_some_and(|r|super::super::learned_records::published(vault,r)){valid=false;}
             let current = checked.entry(s.record.path.clone()).or_insert_with(|| {
                 index::read_source(vault, &s.record.path).map(|b| record::fingerprint(&b))
             });

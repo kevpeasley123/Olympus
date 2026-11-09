@@ -31,6 +31,9 @@ pub struct Record {
     pub derived_from: Vec<String>,
     #[serde(default)]
     pub source_revisions: std::collections::BTreeMap<String, String>,
+    #[serde(default)] pub publication: Option<String>,
+    #[serde(default)] pub expires_at: Option<String>,
+    #[serde(default)] pub evidence: Vec<super::super::learned_records::Evidence>,
     pub historical: bool,
     pub warnings: Vec<String>,
 }
@@ -89,6 +92,7 @@ pub fn eligible_path(path: &str) -> bool {
             "04 - decisions/",
             "08 - daily briefs/sessions/",
             "09 - system/history/",
+            "09 - system/learned/",
         ]
         .iter()
         .any(|p| lower.starts_with(p))
@@ -131,7 +135,9 @@ pub fn parse(path: &str, raw: &[u8]) -> Result<Option<Parsed>, String> {
     {
         return Ok(None);
     }
-    let kind = if path.starts_with("01 - Projects/") && kind == "project" {
+    let kind = if path.starts_with("09 - System/Learned/") && kind == "learned-record" {
+        "learned"
+    } else if path.starts_with("01 - Projects/") && kind == "project" {
         "project"
     } else if path.starts_with("02 - Research/") && tags.iter().any(|t| t == "olympus/research") {
         "research"
@@ -223,6 +229,9 @@ pub fn parse(path: &str, raw: &[u8]) -> Result<Option<Parsed>, String> {
                     .collect()
             })
             .unwrap_or_default(),
+        publication: string(&yaml,"publication"),
+        expires_at: string(&yaml,"expires_at"),
+        evidence: yaml.get("evidence").cloned().and_then(|v|serde_yaml::from_value(v).ok()).unwrap_or_default(),
         historical: kind == "history",
         warnings,
     };
