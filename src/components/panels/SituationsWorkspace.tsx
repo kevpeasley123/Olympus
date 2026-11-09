@@ -43,7 +43,7 @@ export function SituationControls({feed,api=situationsClient}:{feed:SituationFee
  const data=feed.data;
  return <>
   <button className="ghost-action comms-labelled-action" title="Analyse changed correspondence now (sends cached excerpts to your reasoning provider)" disabled={!data||!!feed.busy||data?.run?.status==='running'} onClick={()=>void feed.act('Refreshing situations',()=>api.refresh())}><RefreshCw size={14} aria-hidden="true"/> Refresh situations</button>
-  <details className="situation-settings"><summary aria-label="Understanding settings" title="Understanding settings"><SlidersHorizontal size={15}/></summary><div className="situation-settings-panel"><label><input type="checkbox" checked={data?.enabled??false} disabled={!data||!!feed.busy} onChange={e=>void feed.act('Updating background preference',()=>api.background(e.target.checked))}/> Background understanding</label><p>Your Claude subscription (Codex as the backup) analyzes relevant cached email, your updates and matching Research context while Olympus is open. Gmail stays read only. Pause background understanding here.</p></div></details>
+  <details className="situation-settings"><summary aria-label="Understanding settings" title="Understanding settings"><SlidersHorizontal size={15}/></summary><div className="situation-settings-panel"><label><input type="checkbox" checked={data?.enabled??false} disabled={!data||!!feed.busy} onChange={e=>void feed.act('Updating background preference',()=>api.background(e.target.checked))}/> Background understanding</label><p>Your configured analysis provider reviews changed email, your updates and matching Research context while Olympus is open. Gmail stays read only. Pause background understanding here.</p></div></details>
  </>;
 }
 

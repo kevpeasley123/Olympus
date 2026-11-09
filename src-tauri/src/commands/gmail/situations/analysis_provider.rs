@@ -43,6 +43,12 @@ pub(crate) fn local_model()->Result<String,String>{
  if !crate::commands::analysis_readiness::valid_local_model(&model){return Err("local_brief_model_not_configured".into())}
  Ok(model)
 }
+fn local_options(brief:bool,packet_bytes:usize,device:Option<&str>)->Result<Value,String>{
+ let context=if brief&&packet_bytes<=18000{8192}else{16384};
+ let mut options=json!({"num_ctx":context,"num_predict":if brief{1536}else{4096},"temperature":0});
+ match device {None|Some("auto")=>{},Some("cpu")=>options["num_gpu"]=json!(0),_=>return Err("local_analysis_device_invalid".into())}
+ Ok(options)
+}
 pub(crate) async fn infer_local(model:&str,instructions:&str,input:Value,schema:Value,purpose:&str)->Result<(String,Value),String>{
  static LOCAL_INFERENCE:tokio::sync::Mutex<()>=tokio::sync::Mutex::const_new(());
  let _permit=LOCAL_INFERENCE.lock().await;
@@ -52,21 +58,28 @@ pub(crate) async fn infer_local(model:&str,instructions:&str,input:Value,schema:
  if expected!=model{return Err("local_analysis_configuration_changed".into())}
  // Fixed loopback destination; no proxies, redirects, cloud tags, pulls or tools.
  if input.to_string().len()+instructions.len()+schema.to_string().len()>48000{return Err("local_email_context_budget".into())}
- let client=reqwest::Client::builder().no_proxy().redirect(reqwest::redirect::Policy::none()).connect_timeout(Duration::from_secs(3)).timeout(Duration::from_secs(120)).build().map_err(|_|"local_email_client_failed")?;
+ let device=std::env::var("OLYMPUS_LOCAL_DEVICE").ok();
+ let options=local_options(purpose=="briefing_synthesis",input.to_string().len()+instructions.len()+schema.to_string().len(),device.as_deref())?;
+ // CPU inference shares the machine with normal work; retain a finite deadline
+ // but allow prompt processing and generation to finish without a GPU dependency.
+ let limit=if device.as_deref()==Some("cpu"){300}else{120};
+ let client=reqwest::Client::builder().no_proxy().redirect(reqwest::redirect::Policy::none()).connect_timeout(Duration::from_secs(3)).timeout(Duration::from_secs(limit)).build().map_err(|_|"local_email_client_failed")?;
  let tags=bounded_json(client.get("http://127.0.0.1:11434/api/tags").send().await.map_err(|_|"local_email_service_unavailable")?).await?;
  if !tags["models"].as_array().is_some_and(|ms|ms.iter().any(|m|m["name"]==model&&m["size"].as_u64().unwrap_or(0)>0)){return Err("local_email_model_not_installed".into())}
  let info=bounded_json(client.post("http://127.0.0.1:11434/api/show").json(&json!({"model":model})).send().await.map_err(|_|"local_email_service_unavailable")?).await?;
  if !info["remote_host"].is_null()||!info["remote_model"].is_null(){return Err("local_email_cloud_model_denied".into())}
- let brief=purpose=="briefing_synthesis";
- // Smaller brief packets leave room for bounded output in a GPU-friendly context.
- let context=if brief&&input.to_string().len()+instructions.len()+schema.to_string().len()<=18000{8192}else{16384};
- let body=json!({"model":model,"stream":false,"think":false,"format":&schema,"keep_alive":"1m","options":{"num_ctx":context,"num_predict":if brief{1536}else{4096},"temperature":0},"messages":[{"role":"system","content":instructions},{"role":"user","content":input.to_string()}]});
- let value=bounded_json(client.post("http://127.0.0.1:11434/api/chat").json(&body).send().await.map_err(|_|"local_email_request_failed")?).await?;
+ let body=json!({"model":model,"stream":false,"think":false,"format":&schema,"keep_alive":"1m","options":options,"messages":[{"role":"system","content":instructions},{"role":"user","content":input.to_string()}]});
+ let value=bounded_json(client.post("http://127.0.0.1:11434/api/chat").json(&body).send().await.map_err(|e|if e.is_timeout(){"local_email_request_timeout"}else{"local_email_request_failed"})?).await?;
  let answer=local_output(&value,&model,&schema)?;
  Ok((answer,json!({"provider":"ollama","requestedModel":model,"actualModel":value["model"],"purpose":purpose,"status":"completed","at":now(),"inputTokens":value["prompt_eval_count"],"outputTokens":value["eval_count"]})))
 }
 #[cfg(test)]
 mod tests{use super::*;
+ #[test]fn cpu_execution_is_explicit_and_invalid_devices_fail_closed(){
+  assert_eq!(local_options(true,1000,Some("cpu")).unwrap()["num_gpu"],0);
+  assert!(local_options(false,20000,None).unwrap()["num_gpu"].is_null());
+  assert!(local_options(false,20000,Some("remote")).is_err());
+ }
  #[test]fn local_analyzer_respects_nested_contract(){
   let schema=json!({"type":"object","properties":{"items":{"type":"array","items":{"type":"string"}}},"required":["items"],"additionalProperties":false});
   let v=json!({"done":true,"done_reason":"stop","model":"fixture:8b","message":{"content":"{\"items\":[3]}"}});

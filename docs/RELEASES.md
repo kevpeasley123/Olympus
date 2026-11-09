@@ -41,3 +41,5 @@ One line per release. Newest first. Since 2026-10-12 each line says what the rel
 - **0.47.0** — Gmail transport retry recovery; offline Qwen email analysis and source-bound local opening briefs, with native correction receipts and clearer coverage. Real Gmail reads, development-app sync, local inference and saved briefs verified; no real Gmail mutation or subscription reasoning invocation tested.
 
 - **0.48.0** (2026-11-08): Bind local Gmail observations and situation briefings by source identity; wait for due/retrying startup sync; prioritize useful recent mail without displacing newer confirmations. Native regressions and real cached-mail local analysis verified; installed acceptance pending. No Gmail mutations or paid inference performed.
+
+- **0.49.0** (2026-11-08): Bounded CPU local analysis, concise cited briefs, useful source excerpts, current delivery dates, thread-change invalidation, routine-notice/project-noise filtering and conservative unsafe-output rejection. Real cached-mail local analysis and synthetic plugin lifecycle exercised; installed acceptance pending. No mailbox mutations, paid inference or fresh live OAuth disconnect/re-add performed.

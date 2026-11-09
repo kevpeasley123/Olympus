@@ -72,11 +72,20 @@ fn thread_signatures(
     c: &Connection,
     a: &store::Account,
 ) -> Result<BTreeMap<String, (String, i64)>, String> {
+    thread_signatures_for_window(c,a,chrono::Utc::now().timestamp_millis())
+}
+fn thread_signatures_for_window(
+    c: &Connection,
+    a: &store::Account,
+    window_at: i64,
+) -> Result<BTreeMap<String, (String, i64)>, String> {
+    // Freeze the lower cutoff for one analysis run. Revalidation still includes
+    // newly arrived mail up to the current time; elapsed time alone is not an edit.
     let mut q=c.prepare("SELECT id,thread_id,fingerprint,internal_date FROM gmail_messages WHERE account_id=?1 AND available=1 AND in_scope=1 AND internal_date BETWEEN ?2 AND ?3 ORDER BY thread_id,internal_date,id LIMIT 2001").map_err(err)?;
     let time = chrono::Utc::now().timestamp_millis();
     let rows = q
         .query_map(
-            params![a.id, time - i64::from(a.horizon_days) * 86_400_000, time],
+            params![a.id, window_at - i64::from(a.horizon_days) * 86_400_000, time],
             |r| {
                 Ok((
                     r.get::<_, String>(0)?,

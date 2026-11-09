@@ -25,7 +25,8 @@ Mail is loaded from the native cache, never from renderer-provided prose. Accoun
 read-only scope, sync freshness, message identity, fingerprint, inbox eligibility and
 source revisions are checked. Selection excludes promotions and active handled,
 dismissed or snoozed concerns before applying its bound, skips displayed revisions,
-and diversifies senders. Within that bounded set, subject-based retrieval hints
+and diversifies senders. Clearly conditional routine sign-in notices share one slot;
+explicit blocked or suspicious activity remains eligible. Within that bounded set, subject-based retrieval hints
 prefer likely requests, bills, shipment changes and order problems ahead of routine
 newsletters; sign-in codes are excluded. These hints do not establish urgency,
 legitimacy or an obligation. The model must interpret the actual cited message.
@@ -42,7 +43,11 @@ Oversized histories and changed sources fail closed.
 
 ## Generation and delivery
 
-The local model receives a bounded packet and structured output contract. It should
+The local model receives a bounded packet and a compact text-and-citations contract.
+Native adaptation fills the canonical explanatory fields with empty strings; it does
+not add prose or weaken source validation. Each short passage must carry its own
+meaning, action condition and material uncertainty. The prompt includes the PC local
+time and offset. It should
 explain what changed, why it matters and whether the operator needs to act, while
 preserving uncertainty and avoiding unsupported shipment joins or expired deadlines.
 Local instructions consolidate each project's changes into at most one item and
@@ -78,3 +83,32 @@ sources. Offline fixtures cover stale/replaced sources, revoked tickets, changed
 policy, exact-content binding, feedback and displayed receipts. Live acceptance uses
 an isolated private database copy before desktop verification; release evidence is
 recorded in the dated review and current handoff.
+
+Mail excerpts remove layout-only lines and collapse whitespace before the text
+budget is applied, preserving source dates that HTML table padding previously hid.
+The packet includes the UTC message date; local instructions prefer explicit
+source dates, preserve uncertainty when a relative date lacks a sender timezone,
+and keep conditional security advice conditional.
+These instructions support quality but do not constitute a semantic guarantee.
+Local transport failures retain allowlisted diagnostic codes instead of being
+misreported as rejected model output. CPU execution is configured as described in
+`EMAIL-ATTENTION.md`; it remains local and has a bounded longer deadline.
+
+A successful sync with unchanged evidence does not invalidate generation. Each
+selected thread also binds its message identities, content fingerprints and
+availability, so a new reply or cancellation invalidates an older in-flight brief.
+Old tomorrow-delivery forecasts (older than two days) are omitted as expired
+forecasts, never interpreted as delivered. Explicit requests and recognized delivery
+problems in the subject or body remain eligible. This bounded phrase filter does
+not establish the actual shipment state.
+
+The bounded project page omits recognized documentation/dependency housekeeping
+subjects so they do not crowd out behavioral changes. Security/vulnerability
+subjects stay eligible. Omitted commits remain in the revision binding and are
+not acknowledged as displayed. Commit subjects alone do not prove installation.
+
+A conservative local publication guard rejects observed instruction-override and
+credential-disclosure patterns in generated prose before persistence. It can also
+reject benign credential warnings, including negations, and rejects the whole
+mixed brief; it is not general prompt-injection detection or semantic proof.
+The ordinary failure path retains available source-based updates.
