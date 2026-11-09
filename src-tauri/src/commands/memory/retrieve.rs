@@ -298,7 +298,6 @@ fn retrieve_snapshot(c: &Connection, vault: &Path, query: &Query) -> rusqlite::R
         packet.warnings.push(
             "No project was established for this resumption question; ask which project".into(),
         );
-        return Ok(finish(packet, vec![]));
     }
     let scope_json = serde_json::to_string(&scope).unwrap();
     let allowed="(d.kind='research' OR (d.kind='learned' AND NOT EXISTS(SELECT 1 FROM refs WHERE path=d.path)) OR (?2=1 AND d.kind='project') OR EXISTS(SELECT 1 FROM bindings b WHERE b.path=d.path AND b.project_id IN (SELECT value FROM json_each(?1))))";

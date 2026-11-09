@@ -32,6 +32,7 @@ pub mod migrations;
 pub mod conversations;
 pub mod chat_memory;
 pub(crate) mod learned_records;
+pub(crate) mod working_context;
 pub mod profile;
 pub mod project_notes;
 pub mod projects;
@@ -83,4 +84,3 @@ pub mod project_review;
 pub mod local_speech;
 
 pub(crate) mod briefing_vault_context;
-

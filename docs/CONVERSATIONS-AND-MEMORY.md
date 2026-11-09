@@ -217,3 +217,11 @@ New chat learning produces bounded candidate assertions rather than replacing th
 Publication prepares the record manifest in the existing contribution journal, writes immutable records, then writes a matching receipt. Retrieval excludes incomplete or edited publication batches. Replaying a prepared manifest does not require another model call. Corrections and withdrawals refer to a same-subject, same-project record; current retrieval suppresses the old assertion, while historical retrieval can show the relationship. Expired current assertions are excluded. The index remains derived and rebuildable.
 
 Source identity validation establishes traceability, not semantic truth. Ordinary chat rechecks the source message revisions before using learned records. Temporary chats neither read learned records nor create them. Records do not grant execution permission. Legacy whole-note context remains a compatibility read until the context assembly slice replaces its unconditional inclusion.
+
+## Working task checkpoints
+
+The operational database now has an additive working-checkpoint table keyed by conversation and resolved project scope. Short source excerpts are retained without inference. When they no longer fit, the selected subscription engine summarizes objectives, constraints, reported accomplishments, open questions, suggestions and explicit commitments. Each item names original message IDs. Existing constraints must remain or have an operator-sourced retirement. Assistant reports are never labeled independently verified accomplishments.
+
+Source revisions are rechecked before checkpoint use and persistence. A project switch starts after that conversation's previous checkpoint boundary; it cannot import a different project's working state. Temporary chats do not read or write these checkpoints. Changed source messages invalidate the checkpoint with an explicit error. Checkpoints are lower-authority evidence, never execution permission.
+
+Conversation evidence is assembled by whole sections with a 64 KB evidence budget. Learned-note compatibility reads now select preferences and topic-matching sections within 4 KB; the explicit legacy rollback setting retains the old reader. Current user messages remain outside this evidence packet and outrank checkpoints. Internal budget omissions are not routine user-facing briefing prose.
