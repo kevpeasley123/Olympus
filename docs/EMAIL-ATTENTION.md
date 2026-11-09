@@ -45,25 +45,26 @@ forgetting redacts this feature's feedback/history and preserves bounded source
 suppression; existing mailbox/chat/backup retention is separate. Removing an
 account's cache deletes these records. No provider call is made by these controls.
 
-## Install a local model later
+## Local analysis
 
-As of 2026-10-11 no local model was downloaded or installed. The email-only Ollama adapter is opt-in through the private project .env:
+The email-only Ollama adapter is opt-in through the private project .env:
 
 ```
 OLYMPUS_EMAIL_ANALYSIS_PROVIDER=ollama
 # Set this only after installing and evaluating the exact model:
 # OLYMPUS_EMAIL_MODEL=qwen3:8b
+# Optional: avoid contention with GPU applications (default: auto)
+# OLYMPUS_LOCAL_DEVICE=cpu
 ```
 
-Missing local model configuration fails visibly without cloud fallback. The legacy provider name `openai` selects the subscription-job route in development; its generation gates remain closed. No paid fallback is enabled. Chat/voice routes remain independent. Later, install Ollama and download/import a model, enter its exact installed tag, restart Olympus, and perform synthetic acceptance before live analysis. Olympus does not pull models.
+Missing local model configuration fails visibly without cloud fallback. The legacy provider name `openai` selects the subscription-job route in development; its generation gates remain closed. No paid fallback is enabled. Chat/voice routes remain independent. Install Ollama and download/import a model, enter its exact installed tag, restart Olympus, and perform synthetic acceptance before live analysis. Olympus does not pull models. `OLYMPUS_LOCAL_DEVICE` accepts only `auto` (Ollama scheduling) or `cpu` (zero GPU layers), and applies to local briefs as well. Unknown values fail before inference. Requests are serialized within one Olympus process; these limits do not reserve machine resources from other applications.
 
-Transport is fixed to http://127.0.0.1:11434 with proxies and redirects disabled. Local installed-model and remote-host metadata checks precede sending content. No cloud model tags, tools or fallback. Requests use JSON schema, 16K context, 4096 output tokens, 120-second timeout and 48KB serialized context ceiling. Oversized, malformed and incomplete results fail rather than publishing partial findings. Both local and subscription results pass the same bounded recursive contract
+Transport is fixed to http://127.0.0.1:11434 with proxies and redirects disabled. Local installed-model and remote-host metadata checks precede sending content. No cloud model tags, tools or fallback. Requests use JSON schema, 16K context, 4096 output tokens, 120-second timeout (300 seconds with explicit CPU execution) and 48KB serialized context ceiling. Oversized, malformed and incomplete results fail rather than publishing partial findings. Both local and subscription results pass the same bounded recursive contract
 validator before completion. It supports the current type/object/array, required,
 additional-properties, enum, anyOf and size/numeric-bound rules; unsupported schema
 keywords fail explicitly. This is a deliberate JSON Schema subset, not a complete
 implementation. Offline fixtures qualify envelope and structural validity, not
-semantic accuracy. Actual local output quality and throughput remain unverified
-until a model is installed.
+semantic accuracy. Machine-specific acceptance and remaining limits are recorded in `NEXT-SESSION.md`. An installed model is not proof of acceptable output quality or throughput.
 
 This computer (2026-10-11): approximately 32 GB RAM, RTX 4070 SUPER with 12 GB VRAM, approximately 1.1 TB free disk. Example Qwen3 downloads: 8B 5.2 GB, 14B 9.3 GB. Initial planning allowance: 10–15 GB disk for an 8B setup; runtime memory exceeds weight size. These are estimates, not benchmarks. https://registry.ollama.com/library/qwen3/tags
 
@@ -72,3 +73,9 @@ This computer (2026-10-11): approximately 32 GB RAM, RTX 4070 SUPER with 12 GB V
 Google's May 2026 quotas charge 20 units per messages.get, with 6,000 units per minute per user per project. Runtime 403 metadata confirmed totalQueryCostPerMinutePerUser=6000. The old 100 ms pacing could use 12,000 units per minute. Shared 250 ms pacing budgets 4,800 units per minute, leaving 20% headroom. 2,000 reads require 500 seconds of base pacing. A rate-limit response imposes a shared 60-second cooldown and doubles spacing up to one second; workers claim slots only at send time. The import ceiling is 30 minutes to allow bounded recovery. Regression checks base quota headroom and pacing. Logging includes only route categories, allowlisted errors and quota metadata, never tokens or message content. https://developers.google.com/workspace/gmail/api/reference/quota
 
 Only one native app should use a given operational database at once. Installed and development apps were both running during diagnosis; installed app was closed. This change does not introduce cross-process locking. Cache commits remain atomic; large imports or other activity may still require retries.
+
+Each analysis run fixes its lower mail-horizon cutoff at snapshot time. Revalidation
+still includes newly arrived messages and checks account, horizon, context revision
+and content fingerprints. An unchanged older message aging past the rolling cutoff
+during local inference does not by itself discard the run. Fresh display eligibility
+continues to use the current horizon.

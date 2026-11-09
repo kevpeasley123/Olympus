@@ -7,6 +7,8 @@ use super::{models, persistence::Db, subscription_jobs};
 pub mod native_evidence;
 #[path="briefing_context_selection.rs"]
 pub mod context_selection;
+#[path="briefing_local_format.rs"]
+mod local_format;
 #[path="briefing_lifecycle.rs"]
 pub mod lifecycle;
 

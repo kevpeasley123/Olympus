@@ -20,6 +20,15 @@ impl Snapshot{
 fn invalid()->String{"briefing_project_snapshot_unavailable".into()}
 fn digest(v:&impl serde::Serialize)->String{format!("{:x}",Sha256::digest(serde_json::to_vec(v).expect("native project serialization")))}
 fn oid(s:&str)->bool{matches!(s.len(),40|64)&&s.bytes().all(|b|b.is_ascii_hexdigit())}
+fn briefing_candidate(subject:&str)->bool{
+    let s=subject.to_lowercase();
+    if ["security","vulnerability","cve-"].iter().any(|term|s.contains(term)){return true;}
+    let dependency_housekeeping=["preserve ","pin ","bump ","update "].iter().any(|prefix|s.starts_with(prefix))
+        && ["dependency version","dependency pin","lockfile"].iter().any(|term|s.contains(term))
+        && !["fix","repair","recover","prevent","resolve","restore"].iter().any(|term|s.contains(term));
+    !["docs:","docs(","chore(deps)","build(deps)"].iter().any(|prefix|s.starts_with(prefix))
+        && !dependency_housekeeping
+}
 
 pub(super) fn capture(c:&Connection,ids:&[String],now:i64)->Result<Snapshot,String>{
     capture_page(c,ids,now,8)
@@ -59,7 +68,9 @@ pub(super) fn capture_page(c:&Connection,ids:&[String],now:i64,page_size:usize)-
             if when>now||commit.oid.as_ref().is_none_or(|s|!oid(s)){return Err(invalid());}
         }
         commits.sort_by(|a,b|chrono::DateTime::parse_from_rfc3339(&a.at).unwrap().timestamp_millis().cmp(&chrono::DateTime::parse_from_rfc3339(&b.at).unwrap().timestamp_millis()).then_with(||a.oid.cmp(&b.oid)));
-        let selected:HashSet<_>=commits.iter().rev().filter(|c|!c.subject.starts_with("Merge ")).chain(commits.iter().rev().filter(|c|c.subject.starts_with("Merge "))).filter_map(|commit|commit.oid.as_ref()).filter(|hash|!previous_oids.contains(hash)).take(page_size).cloned().collect();
+        // Low-value housekeeping remains unacknowledged in history; it does not
+        // consume the small synthesis page ahead of behavior changes.
+        let selected:HashSet<_>=commits.iter().rev().filter(|c|!c.subject.starts_with("Merge ")).chain(commits.iter().rev().filter(|c|c.subject.starts_with("Merge "))).filter(|c|briefing_candidate(&c.subject)).filter_map(|commit|commit.oid.as_ref()).filter(|hash|!previous_oids.contains(hash)).take(page_size).cloned().collect();
         let mut mapped=Vec::new();let mut acknowledgments=Vec::new();
         for commit in &commits{
             let hash=commit.oid.as_ref().ok_or_else(invalid)?;
@@ -130,6 +141,27 @@ pub(super) fn with_revalidated<T>(c:&Connection,snapshot:&Snapshot,now:i64,selec
     }
     fn fixture()->(Connection,Repo){
         let c=Connection::open_in_memory().unwrap();crate::commands::migrations::apply(&c).unwrap();let repo=seed_fixture(&c,NOW);(c,repo)
+    }
+    #[test]fn housekeeping_does_not_crowd_out_behavior_changes_or_acknowledge_history(){
+        let(c,repo)=fixture();
+        commit(&repo,"Wait for fresh mail before publishing the opening brief",NOW);
+        commit(&repo,"Fix security vulnerability in dependency version",NOW+1000);
+        commit(&repo,"Preserve locked Windows dependency version",NOW+2000);
+        commit(&repo,"docs: record release verification",NOW+3000);
+        let snap=capture_page(&c,&["fixture".into()],NOW+4000,2).unwrap();
+        assert_eq!(snap.evidence.len(),2);
+        assert!(snap.evidence.iter().any(|e|e.text.contains("Wait for fresh mail")));
+        assert!(snap.evidence.iter().any(|e|e.text.contains("security vulnerability")));
+        assert!(!snap.evidence.iter().any(|e|e.text.contains("Preserve locked")));
+        assert_eq!(c.query_row("SELECT count(*) FROM project_brief_cursors",[],|r|r.get::<_,i64>(0)).unwrap(),0);
+    }
+    #[test]fn dependency_terms_do_not_hide_actual_behavior_fixes(){
+        let(c,repo)=fixture();
+        commit(&repo,"Fix startup crash caused by dependency version mismatch",NOW);
+        commit(&repo,"Add lockfile conflict recovery",NOW+1000);
+        let snap=capture_page(&c,&["fixture".into()],NOW+2000,2).unwrap();
+        assert!(snap.evidence.iter().any(|e|e.text.contains("Fix startup crash")));
+        assert!(snap.evidence.iter().any(|e|e.text.contains("Add lockfile conflict recovery")));
     }
     #[test]fn first_page_prioritizes_recent_commits_without_acknowledging_older_gaps(){
       let(c,repo)=fixture();for i in 0..10{commit(&repo,&format!("Recent {i}"),NOW+i*1000);}

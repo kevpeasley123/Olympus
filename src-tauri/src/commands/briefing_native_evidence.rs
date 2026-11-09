@@ -201,7 +201,10 @@ async fn run_qualified<F:std::future::Future<Output=Result<String,String>>>(data
     }).await;
     match &result{
         Ok(output)=>{record.status="completed".into();record.actual_model=Some(model.into());record.usage=Some(json!({"briefing_result":{"packetRevision":output.revision,"preparedAt":output.prepared_at,"outputDigest":format!("{:x}",Sha256::digest(serde_json::to_vec(output).map_err(|_|"briefing_output_invalid")?))}}));},
-        Err(_)=>{record.status="failed".into();record.error_code=Some("briefing_output_rejected".into());}
+        Err(error)=>{record.status="failed".into();record.error_code=Some(match error.as_str(){
+          "local_email_request_timeout"|"local_email_service_unavailable"|"local_email_request_failed"|"local_email_model_not_installed"|"local_email_context_budget"|"local_analysis_device_invalid"=>error.clone(),
+          _=>"briefing_output_rejected".into(),
+        });}
     }
     let mut c=database.lock().map_err(|_|"briefing_database_unavailable")?;
     if c.execute("UPDATE model_requests SET record_json=?1 WHERE id=?2 AND record_json=?3",params![serde_json::to_string(&record).map_err(|_|"briefing_record_invalid")?,record.id,started]).map_err(|_|"briefing_record_invalid")?!=1{return Err("briefing_request_changed".into());}
@@ -264,6 +267,14 @@ fn validate_scope(c:&Connection,scope:&Scope,now:i64)->Result<(i64,Option<String
     if status!="connected"||scopes!=crate::commands::gmail::SCOPE||!(1..=365).contains(&horizon)||last_error.is_some()||synced>now.saturating_add(60_000)||now.saturating_sub(synced)>900_000{return Err("briefing_native_account_unavailable".into());}
     Ok((horizon,last_success))
 }
+fn thread_revision(c:&Connection,account:&str,thread:&str)->Result<String,String>{
+    // Bind replies as well as the chosen excerpt. A new SENT message or cancellation
+    // must invalidate an in-flight brief, while a no-change sync must not.
+    let mut q=c.prepare("SELECT id,fingerprint,internal_date,available,in_scope FROM gmail_messages WHERE account_id=?1 AND thread_id=?2 ORDER BY id LIMIT 2001").map_err(error)?;
+    let rows=q.query_map(params![account,thread],|r|Ok((r.get::<_,String>(0)?,r.get::<_,String>(1)?,r.get::<_,i64>(2)?,r.get::<_,bool>(3)?,r.get::<_,bool>(4)?))).map_err(error)?.collect::<Result<Vec<_>,_>>().map_err(error)?;
+    if rows.len()>2000{return Err("briefing_native_thread_too_large".into())}
+    Ok(revision(&rows))
+}
 fn resolve_snapshot(c:&Connection,scope:&Scope,selection:&Selection,now:i64)->Result<Input,String>{
     if scope.projects_only{
         let saved:bool=c.query_row("SELECT EXISTS(SELECT 1 FROM conversations WHERE id=?1 AND legacy=0)",[&scope.conversation_id],|r|r.get(0)).map_err(error)?;
@@ -271,9 +282,10 @@ fn resolve_snapshot(c:&Connection,scope:&Scope,selection:&Selection,now:i64)->Re
         return Ok(Input{revision:revision(&("project-only-v1",scope)),prepared_at:now,evidence:vec![]});
     }
 
-    let (horizon,last_success)=validate_scope(c,scope,now)?;
+    let (horizon,_)=validate_scope(c,scope,now)?;
     let cutoff=now.saturating_sub(horizon.min(7)*86_400_000);
     let mut threads=Vec::new();
+    let mut thread_revisions=Vec::new();
     let mut evidence=Vec::new();
     for r in &selection.mail{
         let stored:Option<(String,i64,String,String)>=c.query_row("SELECT thread_id,internal_date,fingerprint,snapshot_json FROM gmail_messages WHERE account_id=?1 AND id=?2 AND available=1 AND in_scope=1 AND internal_date>=?3 AND length(snapshot_json)<=65536",params![scope.account_id,r.id,cutoff],|row|Ok((row.get(0)?,row.get(1)?,row.get(2)?,row.get(3)?))).optional().map_err(error)?;
@@ -282,8 +294,12 @@ fn resolve_snapshot(c:&Connection,scope:&Scope,selection:&Selection,now:i64)->Re
         if r.revision!=expected{return Err("briefing_native_source_changed".into());}
         let mail:StoredMail=serde_json::from_str(&raw).map_err(|_|"briefing_native_source_invalid")?;
         if mail.provider!="gmail"||mail.account_id!=scope.account_id||mail.id!=r.id||mail.thread_id!=thread||mail.internal_date!=at||mail.fingerprint!=fingerprint||at>now.saturating_add(60_000)||mail.body_status!="text_available"||!mail.labels.iter().any(|l|l=="INBOX")||mail.labels.iter().any(|l|matches!(l.as_str(),"SPAM"|"TRASH"|"SENT"|"DRAFT"|"CATEGORY_PROMOTIONS")){return Err("briefing_native_source_invalid".into());}
-        let text=serde_json::to_string(&json!({"source":"gmail_cached_message","threadId":thread,"sender":mail.sender,"subject":mail.subject,"messageAt":at,"messageDate":chrono::DateTime::from_timestamp_millis(at).map(|d|d.to_rfc3339()),"text":mail.canonical_text.chars().take(1200).collect::<String>(),"truncated":mail.canonical_text.chars().count()>1200})).map_err(|_|"briefing_native_source_invalid")?;
+        // HTML-to-text tables often start with thousands of border/padding characters.
+        // Remove layout-only lines before bounding the excerpt, preserving the words and dates.
+        let compact=mail.canonical_text.lines().filter(|line|line.chars().any(char::is_alphanumeric)).flat_map(str::split_whitespace).collect::<Vec<_>>().join(" ");
+        let text=serde_json::to_string(&json!({"source":"gmail_cached_message","threadId":thread,"sender":mail.sender,"subject":mail.subject,"messageAt":at,"messageDate":chrono::DateTime::from_timestamp_millis(at).map(|d|d.to_rfc3339()),"text":compact.chars().take(1200).collect::<String>(),"truncated":compact.chars().count()>1200})).map_err(|_|"briefing_native_source_invalid")?;
         if !super::bounded(&text,2000){return Err("briefing_native_source_too_large".into());}
+        thread_revisions.push((thread.clone(),thread_revision(c,&scope.account_id,&thread)?));
         threads.push(thread);
         evidence.push(Evidence{id:format!("mail:{}:{}",scope.account_id,r.id),revision:expected,kind:"mail".into(),text,observed_at:now,authority:Authority::SourceFact,context_only:false});
     }
@@ -314,7 +330,7 @@ fn resolve_snapshot(c:&Connection,scope:&Scope,selection:&Selection,now:i64)->Re
         }
     }
     let sources=evidence.iter().map(|e|(&e.id,&e.revision,&e.kind,&e.text,&e.authority,e.context_only)).collect::<Vec<_>>();
-    let packet=Input{revision:revision(&(scope,last_success,memory_revision,sources)),prepared_at:now,evidence};
+    let packet=Input{revision:revision(&(scope,memory_revision,sources,thread_revisions)),prepared_at:now,evidence};
     if packet.evidence.iter().any(|e|!e.context_only){super::validate_input(&packet,now)?;}
     Ok(packet)
 }
@@ -322,6 +338,66 @@ fn resolve_snapshot(c:&Connection,scope:&Scope,selection:&Selection,now:i64)->Re
 #[cfg(test)]mod tests{
     use super::*;
     const NOW:i64=1793793600000;
+    #[test]fn old_forecasts_keep_explicit_requests_and_body_problems(){
+      for (subject,body) in [("Action required: delivery tomorrow","A response is needed."),("Shipment scheduled for delivery tomorrow","We were unable to deliver. Please contact us to arrange delivery.")]{
+       let(c,_,_)=fixture();let at=NOW-3*86400000;
+       c.execute("UPDATE gmail_messages SET internal_date=?1,snapshot_json=json_set(snapshot_json,'$.internalDate',?1,'$.subject',?2,'$.canonicalText',?3)",params![at,subject,body]).unwrap();
+       assert!(!select_local_mail(&c,"a",NOW).unwrap().is_empty());
+      }
+    }
+    #[test]fn old_tomorrow_delivery_forecasts_are_not_fresh_updates(){
+      for (age,subject,selected) in [(3*86400000,"Shipment scheduled for delivery tomorrow",false),(3600000,"Shipment scheduled for delivery tomorrow",true),(3*86400000,"Shipment delayed: delivery problem",true)]{
+       let(c,_,_)=fixture();let at=NOW-age;
+       c.execute("UPDATE gmail_messages SET internal_date=?1,snapshot_json=json_set(snapshot_json,'$.internalDate',?1,'$.subject',?2)",params![at,subject]).unwrap();
+       assert_eq!(!select_local_mail(&c,"a",NOW).unwrap().is_empty(),selected);
+      }
+    }
+    #[test]fn a_new_reply_during_generation_invalidates_the_old_request(){
+      for label in ["SENT","INBOX"]{
+       let(mut c,_,_)=fixture();let owner=owner();let cap=owner.capability().unwrap();let issued=issue(&mut c,&owner,&cap,&["m".into()],&[],NOW).unwrap();
+       let raw:String=c.query_row("SELECT snapshot_json FROM gmail_messages",[],|r|r.get(0)).unwrap();let mut mail:Value=serde_json::from_str(&raw).unwrap();mail["id"]=json!("reply");mail["internalDate"]=json!(NOW+1000);mail["labels"]=json!([label]);mail["canonicalText"]=json!("The appointment is canceled.");
+       c.execute("INSERT INTO gmail_messages(account_id,id,thread_id,internal_date,available,in_scope,fingerprint,snapshot_json) VALUES('a','reply','t',?1,1,1,?2,?3)",params![NOW+1000,"e".repeat(64),mail.to_string()]).unwrap();
+       c.execute("UPDATE gmail_accounts SET last_success=?1",[chrono::DateTime::from_timestamp_millis(NOW+2000).unwrap().to_rfc3339()]).unwrap();
+       assert!(matches!(resolve_issued(&mut c,&owner,&issued,NOW+2000),Err(e) if e=="briefing_native_source_changed"));
+      }
+    }
+    #[test]fn newer_replies_deadlines_and_cancellations_displace_old_requests(){
+      for (label,subject,expected) in [("SENT","Re: Please confirm",vec![]),("INBOX","Deadline changed to Friday",vec!["new".to_string()]),("INBOX","Appointment canceled",vec!["new".to_string()])]{
+       let(c,_,_)=fixture();let raw:String=c.query_row("SELECT snapshot_json FROM gmail_messages",[],|r|r.get(0)).unwrap();
+       let mut latest:Value=serde_json::from_str(&raw).unwrap();latest["id"]=json!("new");latest["internalDate"]=json!(NOW);latest["subject"]=json!(subject);latest["labels"]=json!([label]);
+       c.execute("INSERT INTO gmail_messages(account_id,id,thread_id,internal_date,available,in_scope,fingerprint,snapshot_json) VALUES('a','new','t',?1,1,1,?2,?3)",params![NOW,"f".repeat(64),latest.to_string()]).unwrap();
+       assert_eq!(select_local_mail(&c,"a",NOW).unwrap(),expected);
+      }
+    }
+    #[test]fn unchanged_mail_survives_elapsed_time_and_successful_no_change_sync(){
+      for sync in [false,true]{
+       let(mut c,_,_)=fixture();let at=NOW-3599000;
+       c.execute("UPDATE gmail_messages SET internal_date=?1,snapshot_json=json_set(snapshot_json,'$.internalDate',?1)",[at]).unwrap();
+       let owner=owner();let cap=owner.capability().unwrap();let issued=issue(&mut c,&owner,&cap,&["m".into()],&[],NOW).unwrap();
+       if sync{c.execute("UPDATE gmail_accounts SET last_success=?1",[chrono::DateTime::from_timestamp_millis(NOW+2000).unwrap().to_rfc3339()]).unwrap();}
+       assert!(resolve_issued(&mut c,&owner,&issued,NOW+2000).is_ok(),"unchanged mail invalidated; sync={sync}");
+      }
+    }
+    #[test]fn mail_excerpt_preserves_dates_after_layout_padding(){
+      let(mut c,_,_)=fixture();
+      let body=format!("{}\nShipment is scheduled for November 6.\nDelivery has not been confirmed.","─".repeat(1500));
+      c.execute("UPDATE gmail_messages SET snapshot_json=json_set(snapshot_json,'$.canonicalText',?1)",[body]).unwrap();
+      let owner=owner();let cap=owner.capability().unwrap();let issued=issue(&mut c,&owner,&cap,&["m".into()],&[],NOW).unwrap();
+      let resolved=resolve_issued(&mut c,&owner,&issued,NOW).unwrap();
+      assert!(resolved.packet.evidence[0].text.contains("November 6"));
+      assert!(resolved.packet.evidence[0].text.contains("not been confirmed"));
+    }
+    #[test]fn local_transport_failures_are_not_reported_as_rejected_model_output(){
+      for failure in ["local_email_request_timeout","local_email_service_unavailable","private provider payload"]{
+       let(mut c,_,_)=fixture();let owner=owner();let cap=owner.capability().unwrap();
+       let issued=issue(&mut c,&owner,&cap,&["m".into()],&[],NOW).unwrap();let db=Mutex::new(c);
+       let result=tauri::async_runtime::block_on(run_synthetic_pipeline(&db,&owner,issued,||NOW,||Ok(()),|_|async{Err(failure.into())}));
+       assert!(result.is_err());
+       let c=db.lock().unwrap();let code:String=c.query_row("SELECT json_extract(record_json,'$.errorCode') FROM model_requests",[],|r|r.get(0)).unwrap();
+       assert_eq!(code,if failure.starts_with("local_email_"){failure}else{"briefing_output_rejected"});
+       assert_eq!(c.query_row("SELECT count(*) FROM conversation_messages",[],|r|r.get::<_,i64>(0)).unwrap(),0);
+      }
+    }
     fn fixture()->(Connection,Scope,Selection){
         let c=Connection::open_in_memory().unwrap();crate::commands::migrations::apply(&c).unwrap();
         let stamp=chrono::DateTime::from_timestamp_millis(NOW).unwrap().to_rfc3339();
@@ -701,6 +777,23 @@ fn resolve_snapshot(c:&Connection,scope:&Scope,selection:&Selection,now:i64)->Re
 
 #[cfg(test)]mod local_selection_tests{
  use super::*;
+ #[test]fn routine_signins_share_a_slot_but_explicit_security_problems_remain_eligible(){
+  let now=chrono::Utc::now().timestamp_millis();let c=Connection::open_in_memory().unwrap();crate::commands::migrations::apply(&c).unwrap();
+  for (i,(id,subject,body)) in [
+   ("signin-a","New sign-in to Alpha","If this was you, no action is needed."),
+   ("signin-b","Security alert","A new sign-in on Windows. If this was you, no action is needed."),
+   ("signin-c","New sign-in to Gamma","Not you? Review your activity."),
+   ("problem","New sign-in to Delta","Suspicious activity was detected; the sign-in was blocked. If this was you, contact support."),
+   ("order","Your equipment order is confirmed","Your equipment order is confirmed."),
+   ("meeting","Revised appointment time","Your appointment has moved to Friday.")
+  ].iter().enumerate(){
+   let at=now-i as i64*1000;
+   let mail=json!({"provider":"gmail","accountId":"account","id":id,"threadId":id,"sender":format!("{id}@example.invalid"),"subject":subject,"internalDate":at,"canonicalText":body,"bodyStatus":"text_available","fingerprint":"fixture","labels":["INBOX"]});
+   c.execute("INSERT INTO gmail_messages(account_id,id,thread_id,internal_date,fingerprint,snapshot_json,available,in_scope) VALUES('account',?1,?1,?2,'fixture',?3,1,1)",params![id,at,mail.to_string()]).unwrap();
+  }
+  let selected=select_local_mail(&c,"account",now).unwrap();
+  assert_eq!(selected,vec!["signin-a","problem","order","meeting"]);
+ }
  #[test]fn newer_mail_is_not_displaced_by_an_older_higher_priority_request(){
   let now=chrono::Utc::now().timestamp_millis();let c=Connection::open_in_memory().unwrap();crate::commands::migrations::apply(&c).unwrap();
   for (id,thread,age,subject) in [("received","billing",0,"Payment received"),("due","billing",1,"Payment due"),("older-shipment","other-thread",2,"Your shipment is scheduled")]{
@@ -747,6 +840,21 @@ fn brief_mail_priority(mail:&StoredMail)->Option<u8>{
  if has(&["order","purchase","delivery"]){return Some(3)}
  Some(2)
 }
+fn stale_delivery_forecast(mail:&StoredMail,now:i64)->bool{
+ let s=mail.subject.to_lowercase();
+ let body=mail.canonical_text.split_whitespace().collect::<Vec<_>>().join(" ").to_lowercase();
+ if brief_mail_priority(mail)==Some(6)||["action required","response required","please respond","please confirm","please contact","unable to deliver","delivery exception","delivery failed","delayed","payment required","signature required","signature is required"].iter().any(|term|body.contains(term)){return false}
+ now.saturating_sub(mail.internal_date)>2*86400000 && s.contains("tomorrow") &&
+ (s.contains("delivery")||s.contains("arriv")) &&
+ !["delayed","exception","failed","problem","cancel"].iter().any(|term|s.contains(term))
+}
+fn routine_signin(mail:&StoredMail)->bool{
+ let subject=mail.subject.to_lowercase();let body=mail.canonical_text.to_lowercase();
+ (subject.contains("new sign-in")||(subject=="security alert"&&body.contains("new sign-in")))
+  && ["if this was you","if you don't recognize","not you?"].iter().any(|term|body.contains(term))
+  && !["blocked","suspicious","password","recovery","action required"].iter().any(|term|subject.contains(term))
+  && !["blocked","suspicious","password was changed","account recovery","action required"].iter().any(|term|body.contains(term))
+}
 fn select_local_mail(c:&Connection,account:&str,now:i64)->Result<Vec<String>,String>{
  let receipts=crate::commands::briefing::read(c)?;
  let mut q=c.prepare("SELECT id,thread_id,internal_date,fingerprint,snapshot_json FROM gmail_messages WHERE account_id=?1 AND available=1 AND in_scope=1 AND internal_date>=?2 AND length(snapshot_json)<=65536 ORDER BY internal_date DESC,id LIMIT 100").map_err(error)?;
@@ -772,16 +880,20 @@ fn select_local_mail(c:&Connection,account:&str,now:i64)->Result<Vec<String>,Str
   let sender=mail.sender.to_lowercase();
   let mailbox=sender.split('<').nth(1).and_then(|s|s.split('>').next()).unwrap_or(&sender);
   if !senders.insert(mailbox.to_string()){continue}
+  // An expired forecast is not a fresh update; this never claims delivery occurred.
+  if stale_delivery_forecast(&mail,now){continue}
   if receipts.get(&format!("mail:{account}:{id}")).is_some_and(|r|r.revision==rev){continue}
-  candidates.push((priority,mailbox.to_string(),id));
+  candidates.push((priority,routine_signin(&mail),id));
  }
  // Diversify newest sources before ranking: an older high-scoring request must
  // not displace a newer low-scoring confirmation. Sender identity does not prove
  // that different threads refer to the same order or that a matter is resolved.
  candidates.sort_by_key(|candidate|std::cmp::Reverse(candidate.0));
- let mut selected=Vec::new();
- for (_,mailbox,id) in candidates{
-  let _=mailbox;
+ let mut selected=Vec::new();let mut signin_selected=false;
+ for (_,signin,id) in candidates{
+  // Repeated routine login notices share one slot; this does not dismiss them
+  // or merge separate accounts into one incident. Explicit problems stay eligible.
+  if signin&&signin_selected{continue}signin_selected|=signin;
   selected.push(id);if selected.len()==4{break}
  }
  Ok(selected)
@@ -807,8 +919,9 @@ pub(super) async fn local_brief(db:&crate::commands::persistence::Db,session:&su
   (issued,projects)
  };
  let policy=||if local::local_model()?==model{Ok(())}else{Err("local_analysis_configuration_changed".into())};
- let id=run_qualified(&db.0,session.owner(),issued,projects,||chrono::Utc::now().timestamp_millis(),policy,"ollama",&model,|input,schema|async{
-  local::infer_local(&model,&format!("{}\nToday is {} UTC. Select useful changes across the available domains. Use at most ONE item per project: synthesize its meaningful changes together rather than listing commits separately. Omit dependency pinning, documentation-only changes and other build housekeeping unless a source states a practical consequence. Prefer meaningful mail developments (deadlines, unresolved requests, non-routine purchases and shipment changes) over additional project detail; omit routine noise and never invent mail news to fill a slot. Name the concrete feature that changed; avoid vague phrases such as ongoing development or potential functionality impacts. A commit confirms recorded code changes, not deployment. At most one item per merchant or topic. Do not spend slots on ordinary food delivery confirmations or expired delivery windows. Do not repeat a confirmation and delivery for the same order. Address Kevin as you, never in third person. Do not invent action for a credit that has already been issued: no action is needed unless the source says otherwise. Write naturally: action is an actual next step or an empty string, never a status label. uncertainty is empty unless there is a material unknown; never write 'No uncertainty'. Keep the entire brief concise, whyItMatters must explain a practical consequence for your workflow rather than rephrase the headline. If no consequence is supported, leave it empty. For each item explicitly state whether the source requests anything from you; when it does not, action must say No action requested. Never imply that the absence of a request proves a project finished or an order safe. Use complete sentences, not headline fragments. This is a limited evidence selection, not a complete mailbox review.",super::INSTRUCTIONS,chrono::Utc::now().format("%Y-%m-%d %H:%M")),input,schema,"briefing_synthesis").await.map(|(raw,_)|raw)
+ let id=run_qualified(&db.0,session.owner(),issued,projects,||chrono::Utc::now().timestamp_millis(),policy,"ollama",&model,|input,_schema|async{
+  let(raw,_)=local::infer_local(&model,&super::local_format::instructions(),input,super::local_format::schema(),"briefing_synthesis").await?;
+  super::local_format::canonical(&raw)
  }).await?;
  let Some(id)=id else{return Ok(None)};
  let c=db.0.lock().map_err(|_|"briefing_database_unavailable")?;
@@ -817,6 +930,23 @@ pub(super) async fn local_brief(db:&crate::commands::persistence::Db,session:&su
 
 #[cfg(test)]mod local_live_acceptance{
  use super::*;
+ #[test]#[ignore]
+ fn inspect_installed_brief_evidence_copy(){
+  let path=std::env::var("OLYMPUS_LOCAL_ANALYSIS_TEST_DB").expect("private copy required");
+  let path=std::path::Path::new(&path);
+  assert_eq!(path.file_name().unwrap(),"olympus-local-analysis-test.sqlite");
+  let mut c=Connection::open(path).unwrap();
+  let account:String=c.query_row("SELECT id FROM gmail_accounts WHERE enabled=1 ORDER BY connected_at DESC LIMIT 1",[],|r|r.get(0)).unwrap();
+  let now=chrono::Utc::now().timestamp_millis();
+  let owner=NativeOwner::new();owner.apply_trusted_lifecycle("local-brief-acceptance",&account,"local-brief-acceptance",false).unwrap();
+  let cap=owner.capability().unwrap();let ids=select_local_mail(&c,&account,now).unwrap();
+  let issued=issue(&mut c,&owner,&cap,&ids,&[],now).unwrap();
+  let mut packet=resolve_issued(&mut c,&owner,&issued,now).unwrap().packet;
+  let projects=super::super::projects::capture_page(&c,&["project-olympus".into()],now,3).unwrap();
+  merge_projects(&mut packet,projects.evidence(),projects.revision());
+  std::fs::write(path.with_file_name("olympus-private-brief-evidence.json"),serde_json::to_vec_pretty(&packet).unwrap()).unwrap();
+  println!("Private evidence captured; {} sources",packet.evidence.len());
+ }
  #[test]#[ignore]
  fn installed_sources_local_brief_copy(){
   let path=std::env::var("OLYMPUS_LOCAL_ANALYSIS_TEST_DB").expect("private copy required");

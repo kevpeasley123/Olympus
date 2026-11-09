@@ -1,11 +1,37 @@
 import {chromium} from 'playwright';import assert from 'node:assert/strict';import {mkdir} from 'node:fs/promises';
 await mkdir('output/preferences-review',{recursive:true});const b=await chromium.launch({channel:'msedge'});
-try{const p=await b.newPage({viewport:{width:1280,height:800}});await p.goto(process.argv[2]??'http://127.0.0.1:31420/');
+try{const p=await b.newPage({viewport:{width:1280,height:800}});await p.goto(new URL('/gmail-harness.html',process.argv[2]??'http://127.0.0.1:31420/').href);
 await p.evaluate(async()=>{const {React,createRoot,GmailSettings}=await import('/src/email-review-harness.ts');document.body.innerHTML='<div id="test" style="width:500px;margin:20px"></div>';window.calls=[];const state={analysis:{state:"blocked",reason:"Generation remains blocked pending spending protection."},configured:true,busy:false,cachedMessages:42,account:{id:'test',email:'example@example.com',enabled:true,status:'authentication_required',horizonDays:90,lastSuccess:null,lastError:null},lastRun:null,candidates:[]};createRoot(document.querySelector('#test')).render((React.createElement||React.default.createElement)(GmailSettings,{api:{native:()=>true,status:async()=>state,action:async a=>window.calls.push(a),horizon:async()=>{},counts:async()=>({olderThan:{messages:5}}),search:async()=>[],thread:async()=>[],removeCache:async()=>{}}}));});
 await p.getByText('Gmail connection',{exact:true}).click();await p.getByRole('status',{name:'Email analysis status'}).filter({hasText:'Analysis blocked'}).waitFor();await p.getByText('Reconnect required',{exact:true}).waitFor();assert(await p.getByRole('button',{name:'Sync now',exact:true}).isDisabled());
 for(const title of ['How your email is used','Sync details','Manage connection & saved data','Browse saved email']){assert(await p.getByText(title,{exact:true}).evaluate(el=>!el.parentElement.open));}
 await p.getByLabel('Gmail history range').selectOption('7');await p.getByRole('alertdialog',{name:'Confirm narrower history range'}).waitFor();assert.deepEqual(await p.evaluate(()=>window.calls),[]);await p.getByRole('button',{name:'Keep 90 days'}).click();
 await p.screenshot({path:'output/preferences-review/gmail-browser.png',fullPage:true});console.log('PASS Gmail status, disabled sync, collapsed details, narrowing confirmation and no provider actions');
+// Exercise the same component used in Armory > Plugins without touching a real grant.
+await p.reload();
+await p.evaluate(async()=>{
+ const {React,createRoot,GmailSettings}=await import('/src/email-review-harness.ts');
+ document.body.innerHTML='<div id="test"></div>';window.calls=[];
+ const state={configured:true,busy:false,cachedMessages:0,account:null,lastRun:null,candidates:[]};
+ const action=async a=>{window.calls.push(a);if(a==='connect'){state.account={id:'test',email:'example@example.com',enabled:true,status:'connected',horizonDays:90,lastSuccess:new Date().toISOString(),lastError:null};state.cachedMessages=42;}if(a==='disconnect'){state.account={...state.account,enabled:false,status:'disconnected'};}};
+ createRoot(document.querySelector('#test')).render((React.createElement||React.default.createElement)(GmailSettings,{pluginRow:true,api:{native:()=>true,status:async()=>({...state}),action,horizon:async()=>{},search:async()=>[],thread:async()=>[],counts:async()=>({messages:42,situations:1,updates:0,drafts:0,documentContexts:0,documentSources:0,analysisRuns:1}),removeCache:async()=>{window.calls.push('removeCache');state.account=null;state.cachedMessages=0;}}}));
+});
+await p.getByText('Gmail',{exact:true}).click();
+await p.getByRole('button',{name:'Connect Gmail',exact:true}).click();
+await p.getByText('example@example.com',{exact:true}).waitFor();
+assert.equal(await p.getByRole('button',{name:'Sync now',exact:true}).count(),0);
+await p.getByText('Manage connection & saved data',{exact:true}).click();
+await p.getByRole('button',{name:'Disconnect',exact:true}).click();
+assert.deepEqual(await p.evaluate(()=>window.calls),['connect','disconnect']);
+await p.getByRole('button',{name:'Remove cached mailbox',exact:true}).click();
+await p.getByRole('button',{name:'Keep cache',exact:true}).click();
+assert.deepEqual(await p.evaluate(()=>window.calls),['connect','disconnect']);
+await p.getByRole('button',{name:'Connect Gmail',exact:true}).click();
+await p.getByRole('button',{name:'Disconnect',exact:true}).click();
+await p.getByRole('button',{name:'Remove cached mailbox',exact:true}).click();
+await p.getByRole('button',{name:'Confirm cache removal',exact:true}).click();
+await p.getByRole('button',{name:'Connect Gmail',exact:true}).click();
+assert.deepEqual(await p.evaluate(()=>window.calls),['connect','disconnect','connect','disconnect','removeCache','connect']);
+console.log('PASS Gmail plugin connect, disconnect, retain cache, confirmed removal and re-add; no manual sync required');
 }finally{await b.close()}
 
 

@@ -13,12 +13,13 @@ fn guard(
     a: &store::Account,
     rev: i64,
     signatures: &BTreeMap<String, (String, i64)>,
+    snapshot_at: i64,
 ) -> Result<(), String> {
     let live = account(c)?;
     if live.id != a.id
         || live.horizon_days != a.horizon_days
         || revision(c, &a.id)? != rev
-        || thread_signatures(c, &live)? != *signatures
+        || thread_signatures_for_window(c, &live, snapshot_at)? != *signatures
     {
         return Err("situation_context_changed_retry".into());
     }
@@ -234,7 +235,7 @@ where
             return Ok(RefreshOutcome::Skipped);
         }
         let rev = revision(&c, &a.id)?;
-        let signatures = thread_signatures(&c, &a)?;
+        let signatures = thread_signatures_for_window(&c, &a, time)?;
         let known = situations(&c, &a.id)?;
         let observations = observations(&c, &a.id)?;
         let operator_updates = updates(&c, &a.id)?;
@@ -307,7 +308,7 @@ where
             let parsed=match contract::parse_observations(&raw,&threads,&known_ids) {
                 Ok(parsed)=>parsed,
                 Err(e) if matches!(e.as_str(),"person_not_in_evidence"|"relationship_not_in_evidence"|"situation_output_bounds"|"detail_quote_mismatch"|"detail_source_missing"|"detail_invalid"|"portal_not_in_source"|"detail_value_not_in_quote")=>{
-                    {let c=db.0.lock().map_err(|_|"database_busy")?;guard(&c,&a,rev,&signatures)?;phase(&c,&id,"Rechecking relationships",json!({"reason":e,"request":receipt}))?;}
+                    {let c=db.0.lock().map_err(|_|"database_busy")?;guard(&c,&a,rev,&signatures,time)?;phase(&c,&id,"Rechecking relationships",json!({"reason":e,"request":receipt}))?;}
                     let schema=contract::grounded_schema(&threads,true);
                     let (repair,repair_receipt)=model(contract::MAP_ONLY,json!({"snapshotTime":time,"operatorEmail":a.email,"knownSituations":catalog,"operatorUpdates":update_context,"threads":threads}),schema,"situation_discovery_retry").await?;
                     let parsed=contract::parse_observations(&repair,&threads,&known_ids)?;
@@ -351,7 +352,7 @@ where
                 record["timestamp"]=t["messages"].as_array().unwrap().last().unwrap()["timestamp"].clone();record["updatedAt"]=json!(now());
                 if let Some(old)=observations.iter_mut().find(|s|s["threadId"]==tid){*old=record.clone()}else{observations.push(record.clone())}fresh.push(record);
             }
-            let c=db.0.lock().map_err(|_|"database_busy")?;guard(&c,&a,rev,&signatures)?;phase(&c,&id,"Building relationships",json!({"request":receipt,"observations":fresh}))?;
+            let c=db.0.lock().map_err(|_|"database_busy")?;guard(&c,&a,rev,&signatures,time)?;phase(&c,&id,"Building relationships",json!({"request":receipt,"observations":fresh}))?;
         }
         let mut targets=known.iter().filter(|s|!matches!(s["state"].as_str(),Some("dismissed"|"merged"|"closed"))).filter(|s|manual||changed_ids.contains(s["id"].as_str().unwrap())||s["briefing"]["contextRevision"]!=rev||s["briefing"]["researchSignature"]!=stamp||s["briefing"]["sourceSignatures"]!=source_signatures(&observations,&s["id"],&signatures)).collect::<Vec<_>>();
         targets.sort_by_key(|s|(!changed_ids.contains(s["id"].as_str().unwrap()),s["updatedAt"].as_str().unwrap_or("")));
@@ -363,13 +364,13 @@ where
             json!({"id":s["id"],"title":s["title"],"priorBriefing":s["briefing"]["whereThingsStand"],"observations":obs,"operatorUpdates":updates,"research":research(&entries,&query)})
         }).collect::<Vec<_>>();
         let briefings=if contexts.is_empty(){vec![]}else{
-            {let c=db.0.lock().map_err(|_|"database_busy")?;guard(&c,&a,rev,&signatures)?;phase(&c,&id,"Updating situation briefings",json!({"situations":contexts.iter().map(|c|&c["id"]).collect::<Vec<_>>()}))?;}
+            {let c=db.0.lock().map_err(|_|"database_busy")?;guard(&c,&a,rev,&signatures,time)?;phase(&c,&id,"Updating situation briefings",json!({"situations":contexts.iter().map(|c|&c["id"]).collect::<Vec<_>>()}))?;}
             let (raw,receipt)=model(contract::BRIEF,json!({"snapshotTime":time,"situations":contexts}),contract::grounded_briefing_schema(&contexts),"situation_briefing").await?;
             let parsed=contract::parse_briefings(&raw,&contexts)?;
             let c=db.0.lock().map_err(|_|"database_busy")?;phase(&c,&id,"Checking evidence",json!({"request":receipt}))?;parsed
         };
         check_research()?;
-        let mut c=db.0.lock().map_err(|_|"database_busy")?;guard(&c,&a,rev,&signatures)?;
+        let mut c=db.0.lock().map_err(|_|"database_busy")?;guard(&c,&a,rev,&signatures,time)?;
         let tx=c.transaction().map_err(err)?;
         for s in new_situations{tx.execute("INSERT INTO communication_situations(account_id,id,title,updated_at) VALUES(?1,?2,?3,?4)",params![a.id,s["id"].as_str(),s["title"].as_str(),now()]).map_err(err)?;}
         for o in fresh{tx.execute("INSERT INTO communication_situation_sources VALUES(?1,?2,?3,?4,?5,?6) ON CONFLICT(account_id,thread_id) DO UPDATE SET signature=excluded.signature,situation_id=excluded.situation_id,payload_json=json_set(excluded.payload_json,'$.attentionDecision',CASE WHEN communication_situation_sources.signature=excluded.signature THEN json_extract(communication_situation_sources.payload_json,'$.attentionDecision') ELSE NULL END),updated_at=excluded.updated_at",params![a.id,o["threadId"].as_str(),o["signature"].as_str(),o["situationId"].as_str(),o.to_string(),now()]).map_err(err)?;}
@@ -400,6 +401,25 @@ where
 mod tests {
     use super::super::tests::{database, mail};
     use super::*;
+    #[test]
+    fn elapsed_window_does_not_invalidate_unchanged_analysis_but_new_mail_does() {
+        let db=database();mail(&db,"old","Still stored evidence");
+        let snapshot_at=chrono::Utc::now().timestamp_millis()-60_000;
+        let(a,rev,signatures)={
+            let c=db.0.lock().unwrap();let a=account(&c).unwrap();
+            let at=snapshot_at-i64::from(a.horizon_days)*86_400_000+1000;
+            c.execute("UPDATE gmail_messages SET internal_date=?1 WHERE id='old'",[at]).unwrap();
+            let signatures=thread_signatures_for_window(&c,&a,snapshot_at).unwrap();
+            assert_eq!(signatures.len(),1);
+            assert!(thread_signatures(&c,&a).unwrap().is_empty(),"the message aged out of a newly started window");
+            let rev=revision(&c,&a.id).unwrap();
+            guard(&c,&a,rev,&signatures,snapshot_at).unwrap();
+            (a,rev,signatures)
+        };
+        mail(&db,"new","A newer reply arrived after the snapshot");
+        let c=db.0.lock().unwrap();
+        assert_eq!(guard(&c,&a,rev,&signatures,snapshot_at).unwrap_err(),"situation_context_changed_retry");
+    }
     #[test]
     fn sync_and_auth_waits_do_not_reset_real_retry_history() {
         tauri::async_runtime::block_on(async {
