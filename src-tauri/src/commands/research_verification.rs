@@ -129,6 +129,8 @@ pub struct Run {
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Start {
+    #[serde(default)]
+    pub provider: Option<String>,
     pub id: String,
     pub question: String,
 }
@@ -277,8 +279,13 @@ fn available(key: bool, source: bool) -> Result<(), String> {
         Ok(())
     }
 }
-fn has_key() -> bool {
-    super::subscription_jobs::available()
+fn has_key(provider: Option<&str>) -> bool {
+    provider.map(|p| super::subscription_jobs::readiness_on(p).can_attempt).unwrap_or(false)
+}
+fn route(provider: Option<&str>) -> Result<Value, String> {
+    let provider = provider.ok_or("research_route_required")?;
+    let model = super::subscription_jobs::selected_model(provider, super::subscription_jobs::Tier::Deep)?;
+    Ok(json!({"provider":provider,"model":model}))
 }
 fn read_source(root: &Path, relative: &str) -> Result<String, String> {
     if !relative.starts_with("02 - Research/") || !relative.ends_with(".md") {
@@ -806,6 +813,7 @@ type ModelFuture<'a> =
 trait Model: Sync {
     fn call<'a>(
         &'a self,
+        provider: &'a str,
         agent: &'a AgentDefinition,
         input: Value,
         record: &'a mut RequestRecord,
@@ -815,52 +823,17 @@ struct LiveModel;
 impl Model for LiveModel {
     fn call<'a>(
         &'a self,
+        provider: &'a str,
         agent: &'a AgentDefinition,
         input: Value,
         record: &'a mut RequestRecord,
     ) -> ModelFuture<'a> {
         Box::pin(async move {
-            match agent.id.as_str() {
-                RESEARCH => research(agent, input, record).await,
-                VERIFY => verification(agent, input, record).await,
-                _ => Err("unknown_handler".into()),
-            }
+            if agent.id != RESEARCH && agent.id != VERIFY { return Err("unknown_handler".into()); }
+            super::execution::structured(provider, "research_verification", &agent.instructions,
+                input, agent.output_schema.clone(), record).await
         })
     }
-}
-async fn research(
-    agent: &AgentDefinition,
-    input: Value,
-    record: &mut RequestRecord,
-) -> Result<String, String> {
-    if agent.id != RESEARCH {
-        return Err("wrong_research_role".into());
-    }
-    crate::commands::subscription_jobs::run(
-        crate::commands::subscription_jobs::Tier::Deep,
-        &agent.instructions,
-        input,
-        agent.output_schema.clone(),
-        record,
-    )
-    .await
-}
-async fn verification(
-    agent: &AgentDefinition,
-    input: Value,
-    record: &mut RequestRecord,
-) -> Result<String, String> {
-    if agent.id != VERIFY {
-        return Err("wrong_verification_role".into());
-    }
-    crate::commands::subscription_jobs::run(
-        crate::commands::subscription_jobs::Tier::Deep,
-        &agent.instructions,
-        input,
-        agent.output_schema.clone(),
-        record,
-    )
-    .await
 }
 async fn dispatch(
     db: &Db,
@@ -872,6 +845,9 @@ async fn dispatch(
 ) -> Result<Value, String> {
     guard(db, run)?;
     source_health(root, &run.sources)?;
+    let binding = &run.definition["route"];
+    let provider = binding["provider"].as_str().ok_or("research_route_required")?.to_owned();
+    if route(Some(&provider))? != *binding { return Err("research_route_changed".into()); }
     let definition = run.agents[index].definition.clone();
     // Compiled role authority, never a message/skill-supplied handler or model route.
     if definition.id != RESEARCH && definition.id != VERIFY {
@@ -895,7 +871,7 @@ async fn dispatch(
     checkpoint(db, run)?;
     models::save(db, &record)?;
     let result = {
-        let call = model.call(&definition, input, &mut record);
+        let call = model.call(&provider, &definition, input, &mut record);
         let cancellation = Box::pin(async {
             loop {
                 if let Err(e) = guard(db, run) {
@@ -1176,6 +1152,7 @@ async fn execute(db: &Db, root: &Path, mut run: Run, model: &dyn Model) -> Resul
     Ok(run)
 }
 fn begin(db: &Db, request: Start) -> Result<(Run, bool), String> {
+    let binding = route(request.provider.as_deref())?;
     if request.id.len() < 8
         || request.id.len() > 80
         || !request
@@ -1223,7 +1200,7 @@ fn begin(db: &Db, request: Start) -> Result<(Run, bool), String> {
         started_at: now(),
         finished_at: None,
         deadline: (Utc::now() + chrono::Duration::seconds(DEADLINE_SECONDS)).to_rfc3339(),
-        definition: json!({"graph":graph(),"agents":[definition(RESEARCH)?,definition(VERIFY)?],"skills":skills(),"scope":SOURCE_SCOPE,"maxSources":6,"maxClaims":5,"maxModelRequests":4,"maxClarifications":1,"deadlineSeconds":DEADLINE_SECONDS,"retries":0,"joinRule":"Join after the last dispatched verifier; conditional nodes may be skipped.","build":env!("CARGO_PKG_VERSION")}),
+        definition: json!({"route":binding,"graph":graph(),"agents":[definition(RESEARCH)?,definition(VERIFY)?],"skills":skills(),"scope":SOURCE_SCOPE,"maxSources":6,"maxClaims":5,"maxModelRequests":4,"maxClarifications":1,"deadlineSeconds":DEADLINE_SECONDS,"retries":0,"joinRule":"Join after the last dispatched verifier; conditional nodes may be skipped.","build":env!("CARGO_PKG_VERSION")}),
         sources: vec![],
         agents: vec![],
         messages: vec![],
@@ -1270,7 +1247,8 @@ pub fn start_research_verification(
     request: Start,
 ) -> Result<Run, String> {
     let root = super::get_vault_path();
-    let (run, created) = prepare(&db, &root, request, has_key())?;
+    let ready = has_key(request.provider.as_deref());
+    let (run, created) = prepare(&db, &root, request, ready)?;
     if created {
         let task = run.clone();
         tauri::async_runtime::spawn(async move {
@@ -1306,8 +1284,8 @@ pub fn cancel_research_verification(db: State<Db>, id: String) -> Result<(), Str
     cancel(&db, &id)
 }
 #[tauri::command]
-pub fn research_agent_catalog(db: State<Db>) -> Result<Value, String> {
-    catalog(&db, &super::get_vault_path(), has_key())
+pub fn research_agent_catalog(db: State<Db>, provider: Option<String>) -> Result<Value, String> {
+    catalog(&db, &super::get_vault_path(), has_key(provider.as_deref()))
 }
 fn catalog(db: &Db, root: &Path, credential_present: bool) -> Result<Value, String> {
     let availability = available(credential_present, root.join("02 - Research").is_dir());

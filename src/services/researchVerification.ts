@@ -1,3 +1,4 @@
+import {requireConversationProvider, conversationChoiceSnapshot} from "./conversationProvider";
 import {invoke} from "@tauri-apps/api/core";
 export interface AgentDefinition {
   id:string;version:number;name:string;purpose:string;handler:string;instructions:string;inputSchema:unknown;outputSchema:unknown;
@@ -40,6 +41,6 @@ export interface ResearchClient {
   start(id:string,question:string):Promise<ResearchRun>;cancel(id:string):Promise<void>;
 }
 export const researchVerification:ResearchClient={
-  catalog:()=>invoke("research_agent_catalog"),list:()=>invoke("list_research_verifications"),inspect:id=>invoke("inspect_research_verification",{id}),
-  start:(id,question)=>invoke("start_research_verification",{request:{id,question}}),cancel:id=>invoke("cancel_research_verification",{id}),
+  catalog:()=>invoke("research_agent_catalog",{provider:conversationChoiceSnapshot()?.provider ?? null}),list:()=>invoke("list_research_verifications"),inspect:id=>invoke("inspect_research_verification",{id}),
+  start:(id,question)=>invoke("start_research_verification",{request:{id,question,provider:requireConversationProvider()}}),cancel:id=>invoke("cancel_research_verification",{id}),
 };
