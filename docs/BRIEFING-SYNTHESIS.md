@@ -25,7 +25,7 @@ Mail is loaded from the native cache, never from renderer-provided prose. Accoun
 read-only scope, sync freshness, message identity, fingerprint, inbox eligibility and
 source revisions are checked. Selection excludes promotions and active handled,
 dismissed or snoozed concerns before applying its bound, skips displayed revisions,
-and diversifies senders. Clearly conditional routine sign-in notices share one slot;
+and diversifies senders. Clearly conditional routine sign-in notices are omitted from opening and requested local briefs;
 explicit blocked or suspicious activity remains eligible. Within that bounded set, subject-based retrieval hints
 prefer likely requests, bills, shipment changes and order problems ahead of routine
 newsletters; sign-in codes are excluded. These hints do not establish urgency,
@@ -52,11 +52,14 @@ explain what changed, why it matters and whether the operator needs to act, whil
 preserving uncertainty and avoiding unsupported shipment joins or expired deadlines.
 Local instructions consolidate each project's changes into at most one item and
 omit build housekeeping unless the source establishes a practical consequence.
+The writing should paraphrase notices into natural spoken sentences, preserve payment
+conditions, use readable dates and avoid unnecessary device or location details.
 Those are model instructions, not a guarantee of semantic quality.
 The native result validates citations and output shape, rechecks source revisions and
 lifecycle after inference, and atomically persists the exact composed text with its
-request, source provenance and display plan. Native coverage wording identifies the
-limited review. Model output is not independent verification of source claims.
+request, source provenance and display plan. Native coverage metadata identifies the
+limited review in an expandable About this brief disclosure and subsequent conversation
+context; it is not appended to the spoken prose. Historical messages remain unchanged. Model output is not independent verification of source claims.
 
 Feedback is bound natively to cited mail threads, their current signatures and
 understanding revisions. This lets explicit replies such as “I already handled that”

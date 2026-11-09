@@ -180,6 +180,8 @@ function Harness() {
   const messages = [...(scenario === "chat-expanded" || scenario === "chats" ? [...history, ...thisLaunch] : history),...extraMessages];
   if(params.has("memory-evidence"))messages.push({id:"memory-response",role:"assistant",timestamp:"Now",content:"The conversation layout separates discussion from mission oversight. See response details for the prepared memory evidence.",request:{id:"fixture-memory-request",provider:"fixture",requestedModel:"requested-fixture",actualModel:"actual-fixture",capability:"PRIMARY",purpose:"command",reasoningEffort:"medium",requestedAt:new Date().toISOString(),latencyMs:30,firstTokenMs:10,status:"completed",fallbackFrom:null,escalationReason:null,usage:null,errorCode:null}});
 
+  if(params.has("briefing-coverage"))messages.push({id:"conversation-briefing-coverage-fixture",role:"assistant",timestamp:"Now",content:"Your electric bill is set to autopay on November 24, so you don't need to send a separate payment.",briefing:{kind:"model_synthesis",preparedAt:Date.now(),sources:[{id:"mail:fixture",revision:"a".repeat(64)}],packetRevision:"b".repeat(64),provider:"fixture",model:"fixture",requestId:"fixture-brief",coverage:{mail:true,projects:true}}});
+
   const suggestions = useMemo(() => suggestionsFor(capabilities), []);
   const [chatSession, setChatSession] = useState<ChatSession>({ id: "chat-launch", title: "", temporary: false });
   const chats: ChatControls = {

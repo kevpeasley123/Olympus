@@ -76,3 +76,12 @@ const history={id:'conversation-briefing-fixture',content:'Fixture brief'};
 assert.match(briefingTurnContent({...history,briefing:blocked.briefing}),/deterministic fallback/);
 assert.match(briefingTurnContent({...history,briefing:model.briefing}),/model synthesis/);
 assert.match(briefingTurnContent(history),/origin was not recorded/);
+
+const {briefingCoverage}=await import('../output/tests/briefingSynthesisBounds.mjs');
+assert.equal(briefingCoverage(model.briefing),null,'Historical origins have no invented coverage');
+const withCoverage={...model.briefing,coverage:{mail:true,projects:false}};
+assert.match(briefingCoverage(withCoverage),/selected recent email/);
+assert.match(briefingCoverage(withCoverage),/doesn't cover project code changes, tasks or agent runs/);
+assert.match(briefingTurnContent({...history,briefing:withCoverage}),/selected recent email/,'Later conversation retains the coverage boundary');
+assert.equal(briefingCoverage({...withCoverage,coverage:{mail:'true',projects:false}}),null);
+console.log('PASS native coverage disclosure and historical-origin compatibility');

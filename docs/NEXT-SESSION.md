@@ -1,89 +1,77 @@
 # Next session
 
-## Olympus 0.49.0
+## Olympus 0.50.0
 
-Repair branch `codex/local-analysis-reliability`, based on master `fa6fd6c`.
-Olympus 0.48 is installed. Version 0.49 is in release verification; installation
-and installed local-inference acceptance are still pending.
+Repair branch `codex/conversational-briefs`, based on master `e2e091c`.
+Olympus 0.49 is installed. Automatic Gmail sync and repeated local analysis completed.
+Kevin rejected its stiff opening brief; factual correctness did not establish quality.
+Version 0.50 passed final native real-mail generation and is ready for installation.
+See the dated quality review below.
 
 ## Changes
 
-- Optional `OLYMPUS_LOCAL_DEVICE=cpu` uses zero GPU layers and a bounded five-minute
-  local deadline. Default `auto` keeps the existing two-minute deadline.
-- Local Qwen3 8B is configured privately for email analysis and briefs. GPU inference
-  timed out under shared desktop load; CPU completed. A larger 14B model also
-  failed semantic review; a compact local output format corrected the reviewed case.
-- Excerpts discard layout padding before truncation, preserving useful source dates.
-  Instructions preserve explicit dates, unknown sender timezones, conditional
-  security advice and completion evidence.
-- Brief evidence tolerates no-change sync, but a new reply, cancellation, deletion
-  or source/scope change invalidates in-flight output before publication.
-- Expired tomorrow-delivery forecasts are omitted without claiming delivery.
-  Explicit requests and recognized delivery problems stay eligible.
-- Project selection omits recognized housekeeping without acknowledging it, leaving
-  room for behavior changes. Security and actual dependency-related fixes remain.
-- Local transport failures keep allowlisted diagnostic codes.
-- Analysis fixes its lower horizon cutoff for each run, avoiding time-only source
-  invalidation while still detecting new/changed/deleted mail and context edits.
-- Compact local generation keeps text and citations together instead of eliciting
-  repetitive or speculative explanation fields. Current time uses the PC offset.
-- Conditional routine sign-in notices share one retrieval slot; explicit suspicious
-  or blocked activity remains eligible.
-- Gmail plugin lifecycle is exercised with a synthetic account: connect, disconnect,
-  retained/canceled cache removal, confirmed removal and re-add.
-- Background settings describe the configured provider instead of claiming Claude.
+- Local briefs omit routine conditional sign-ins while retaining explicit security
+  problems. Latest-source suppression still occurs before filtering.
+- Coverage is native, bound metadata shown under About this brief and retained in
+  chat context. It is no longer read aloud or appended to saved briefing prose.
+  Historical briefs remain unchanged and their provenance stays compatible.
+- Local writing guidance prioritizes practical meaning, natural sentences, source
+  conditions, estimates and actual deadlines. Settled receipts should not fill slots.
+- Private configuration selects local Qwen3 14B for briefs and 8B for background
+  email analysis. Both models were already installed with Kevin's approval.
+- The CPU route introduced in 0.49 retains a finite five-minute inference deadline.
+  It avoids the observed GPU contention; it does not make inference instant.
+- Gmail plugin management, startup sync waiting, stable analysis windows, source
+  revalidation and exact display receipts remain in place from 0.47–0.49.
 
-## Verification - November 8
+## Verification — November 8
 
-- Native suite: 780 passed, 31 intentionally ignored. New regressions were
-  reproduced failing before their fixes. Independent code review has no remaining
-  important finding. Subject/phrase selection remains heuristic.
-- Real installed Gmail authorization and automatic sync succeeded repeatedly,
-  including 15:31, 15:36, 15:51, 16:08, 16:28, 16:46 and 17:02 Phoenix, without reconnection.
-- Private real-mail CPU analysis completed in 211 seconds. CPU brief calls completed
-  in 111, 157 and 179 seconds. Semantic review drove the source/selection fixes;
-  the 173-second preview and a 291-second 14B preview failed semantic review.
-  A compact text-and-citations format then produced a native saved brief in 123
-  seconds with correct autopay, conditional sign-in and concrete code-change wording.
-  A synthetic holdout preserved a revised deadline, delivered shipment and answered
-  request, but echoed an embedded override. Native publication now rejects that
-  observed pattern and credential requests, including benign negations. This is
-  conservative rejection, not general injection protection. Final native regressions passed; schema alone is not semantic proof.
-  The final real brief repeated successfully in 126 seconds. Repeated analysis
-  exposed one cached message aging over the seven-day cutoff during 172 seconds
-  of inference; the pinned-window regression now passes. The real-data rerun
-  completed in 211 seconds and saved its observations. The newly processed
-  routine notices and promotions were correctly left without action items.
-  Installed acceptance remains pending.
-- Final frontend build, including the settings copy change, passed.
-- All 85 release scripts have passing results. Project-dock assessment focus failed
-  once in the broad run, then passed unchanged on two isolated reruns. One isolated
-  Vite server had slow dependency startup. Full visual regression passed: 21
-  captures, 14 functional checks and 22 Organizer checks. The changed settings
-  disclosure was separately captured and visually inspected.
-- No paid inference, mailbox mutations or fresh live OAuth revoke/re-add performed.
-  Fixtures are not live integration or semantic-quality proof.
+- Full native suite: 780 passed, 31 intentionally ignored. Frontend build passed.
+- All 86 release scripts have passing results. The new disclosure test needed
+  URL normalization and opening the Conversation tab. Two existing browser tests
+  require port 31430 despite the runner URL; after server startup one timed out,
+  then both passed unchanged. Offline speech passed with synthetic microphone input.
+- Full visual gate passed: 21 captures, 14 functional checks, 22 Organizer checks.
+  The changed disclosure was separately inspected collapsed and expanded.
+- Independent read-only code review found no remaining blocking issue.
+- Same private real-mail snapshot: 8B remained stiff; 14B produced a better brief
+  in about 183 seconds. Synthetic cases exposed settled-receipt filler and an
+  estimate promoted to certainty. Final prompt passed both plus appointment,
+  autopay and explicit blocked-sign-in checks. This is bounded quality evidence,
+  not a guarantee of broad reasoning quality.
+- Final native real-mail rerun passed in 198 seconds with source-bound saved prose:
+  automatic payment, a new credit and a code-update summary; no routine sign-in
+  or spoken coverage disclaimer. Gmail refreshed at 18:16 Phoenix without reconnecting.
+  Installed 0.50 acceptance follows installation.
+- No paid inference, mailbox mutations or live OAuth revoke/re-add were performed.
+  Native fixtures exercise disconnect/remove/re-add; they are not live OAuth proof.
 
 ## Acceptance boundaries and follow-on work
 
-Useful briefs should identify changes, practical consequences and actual requests,
-with source evidence, handled corrections and uncertainty. Reuse existing native
-context/feedback stores. Local selection currently covers bounded mail and Git
-changes, not a complete mailbox/calendar/task audit or all cross-chat memory.
+See `docs/reviews/2026-11-08-conversational-briefs.md` for quality failures and
+reviewed examples. Briefs cover selected recent mail and Git changes; they do not
+establish comprehensive calendar/task/agent-run or cross-chat awareness.
 
-Background work requires Olympus open and the PC awake. Opening briefing is an
-opt-in once-per-launch feature; New briefing is the on-demand path. Calendar,
-offline-PC operation, configurable scheduled briefs and multi-day OAuth durability
-are not established. Kevin does not know whether the Google OAuth app is Testing
-or Production; its publishing status remains unverified. Google documents a
-seven-day refresh-token lifetime for external Testing grants with Gmail scope.
-Do not change account settings or assert durable authorization without checking.
-Pause background understanding in Communications settings;
-manage Gmail connection and retained data through Armory > Plugins > Gmail.
+Installed 0.49 refreshed its existing Gmail grant and synced repeatedly without
+reconnection. Three automatic local analysis passes completed. Multi-day OAuth
+durability is unverified. Kevin does not know the OAuth app's publishing mode;
+Google's external Testing grants with Gmail scopes can expire after seven days.
+Do not infer or change the Google setting from local connection metadata.
 
-Preserve the registered desktop checkout's human edits; implementation uses this
-isolated checkout. Keep credentials, mailbox copies and previews outside Git.
+Background work requires Olympus open and the PC awake. Opening briefs are once
+per launch; New briefing is on demand. Pause background understanding in
+Communications settings; manage Gmail in Armory > Plugins > Gmail.
 
-After this repair is installed and verified, Kevin requested a codebase review of
-https://github.com/garrytan/gbrain for useful Olympus memory/agent architecture
-ideas. Review source and license before proposing code reuse or architectural work.
+Explain the GPU timeout to Kevin later, including the observed shared VRAM load,
+CPU fallback latency and the limits of the 8B/14B quality evidence. Do not equate
+successful inference with strong general analysis. The conservative publication
+guard catches observed instruction/secret-request patterns, not every injection.
+
+Preserve the registered desktop checkout's human edits. Keep private mail,
+credentials and previews outside Git. npm audit reported two high-severity
+build-tool advisories during 0.49 installation; dependency remediation is separate.
+
+After the repair is installed and verified, Kevin requested review of
+https://github.com/garrytan/gbrain for useful memory/agent architecture ideas.
+Only repository metadata, README and MIT license have been read so far. Source
+review and concrete recommendations remain; no code has been copied or installed.

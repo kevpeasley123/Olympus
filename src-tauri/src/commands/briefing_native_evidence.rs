@@ -700,7 +700,7 @@ fn resolve_snapshot(c:&Connection,scope:&Scope,selection:&Selection,now:i64)->Re
             let c=db.lock().unwrap();let messages:i64=c.query_row("SELECT count(*) FROM conversation_messages",[],|r|r.get(0)).unwrap();let receipts:i64=c.query_row("SELECT count(*) FROM pending_brief_displays",[],|r|r.get(0)).unwrap();
             assert_eq!(called.get(),mode!=3);
             if mode==0{assert!(result.unwrap().is_some());assert_eq!((messages,receipts),(1,1));let consumed:i64=c.query_row("SELECT count(*) FROM model_requests WHERE json_type(record_json,'$.usage.briefing_result')='object' AND json_type(record_json,'$.usage.briefing_consumed')='object'",[],|r|r.get(0)).unwrap();assert_eq!(consumed,1);
-                let content:String=c.query_row("SELECT content FROM conversation_messages",[],|r|r.get(0)).unwrap();assert_eq!(content,"Synthetic studio inspection changed. Review the new time. Attendance is unconfirmed.\n\nCoverage: selected recent inbox messages; project changes, tasks and runs are not reviewed here.");
+                let content:String=c.query_row("SELECT content FROM conversation_messages",[],|r|r.get(0)).unwrap();assert_eq!(content,"Synthetic studio inspection changed. Review the new time. Attendance is unconfirmed.");
                 let origin:String=c.query_row("SELECT context_json FROM conversation_turn_context",[],|r|r.get(0)).unwrap();let origin:Value=serde_json::from_str(&origin).unwrap();
                 let raw:String=c.query_row("SELECT record_json FROM model_requests",[],|r|r.get(0)).unwrap();let record:Value=serde_json::from_str(&raw).unwrap();assert_eq!(origin["briefing"]["requestId"],record["id"]);assert_eq!(origin["briefing"]["provider"],"synthetic");assert_eq!(record["usage"]["briefing_result"]["preparedAt"],now);
                 let expected=super::super::Output{revision:record["usage"]["briefing_result"]["packetRevision"].as_str().unwrap().into(),prepared_at:now,items:vec![super::super::Item{text:"Synthetic studio inspection changed.".into(),why_it_matters:"Review the new time.".into(),action:"".into(),uncertainty:"Attendance is unconfirmed.".into(),source_ids:vec!["mail:a:m".into()]}],provenance:super::super::Provenance{kind:"model_synthesis",provider:"synthetic".into(),model:"fixture".into(),request_id:record["id"].as_str().unwrap().into()}};
@@ -777,7 +777,7 @@ fn resolve_snapshot(c:&Connection,scope:&Scope,selection:&Selection,now:i64)->Re
 
 #[cfg(test)]mod local_selection_tests{
  use super::*;
- #[test]fn routine_signins_share_a_slot_but_explicit_security_problems_remain_eligible(){
+ #[test]fn routine_signins_are_omitted_but_explicit_security_problems_remain_eligible(){
   let now=chrono::Utc::now().timestamp_millis();let c=Connection::open_in_memory().unwrap();crate::commands::migrations::apply(&c).unwrap();
   for (i,(id,subject,body)) in [
    ("signin-a","New sign-in to Alpha","If this was you, no action is needed."),
@@ -792,7 +792,7 @@ fn resolve_snapshot(c:&Connection,scope:&Scope,selection:&Selection,now:i64)->Re
    c.execute("INSERT INTO gmail_messages(account_id,id,thread_id,internal_date,fingerprint,snapshot_json,available,in_scope) VALUES('account',?1,?1,?2,'fixture',?3,1,1)",params![id,at,mail.to_string()]).unwrap();
   }
   let selected=select_local_mail(&c,"account",now).unwrap();
-  assert_eq!(selected,vec!["signin-a","problem","order","meeting"]);
+  assert_eq!(selected,vec!["problem","order","meeting"],"Routine sign-ins must not consume opening-brief attention; actual security problems remain");
  }
  #[test]fn newer_mail_is_not_displaced_by_an_older_higher_priority_request(){
   let now=chrono::Utc::now().timestamp_millis();let c=Connection::open_in_memory().unwrap();crate::commands::migrations::apply(&c).unwrap();
@@ -881,21 +881,15 @@ fn select_local_mail(c:&Connection,account:&str,now:i64)->Result<Vec<String>,Str
   let mailbox=sender.split('<').nth(1).and_then(|s|s.split('>').next()).unwrap_or(&sender);
   if !senders.insert(mailbox.to_string()){continue}
   // An expired forecast is not a fresh update; this never claims delivery occurred.
-  if stale_delivery_forecast(&mail,now){continue}
+  if stale_delivery_forecast(&mail,now)||routine_signin(&mail){continue}
   if receipts.get(&format!("mail:{account}:{id}")).is_some_and(|r|r.revision==rev){continue}
-  candidates.push((priority,routine_signin(&mail),id));
+  candidates.push((priority,id));
  }
  // Diversify newest sources before ranking: an older high-scoring request must
  // not displace a newer low-scoring confirmation. Sender identity does not prove
  // that different threads refer to the same order or that a matter is resolved.
  candidates.sort_by_key(|candidate|std::cmp::Reverse(candidate.0));
- let mut selected=Vec::new();let mut signin_selected=false;
- for (_,signin,id) in candidates{
-  // Repeated routine login notices share one slot; this does not dismiss them
-  // or merge separate accounts into one incident. Explicit problems stay eligible.
-  if signin&&signin_selected{continue}signin_selected|=signin;
-  selected.push(id);if selected.len()==4{break}
- }
+ let selected=candidates.into_iter().take(4).map(|(_,id)|id).collect();
  Ok(selected)
 }
 /// Local-only native generation. Configuration is checked again at dispatch and
