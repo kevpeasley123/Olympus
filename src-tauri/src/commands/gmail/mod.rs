@@ -3,6 +3,7 @@ mod auth;
 mod health;
 pub mod communications;
 mod mime;
+pub(crate) use mime::readable_cached_text;
 pub mod store;
 mod sync;
 #[cfg(test)]

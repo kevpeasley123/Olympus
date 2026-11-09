@@ -974,3 +974,20 @@ fn the_acceptance_profile_never_opens_the_credential_store() {
     // Outside the profile is not exercised here: on Windows it would open the
     // operator's real Credential Manager.
 }
+
+#[test]
+fn review_regression_cache_removal_purges_journal_atomically_and_only_for_account() {
+    let mut c=db();
+    c.execute("INSERT INTO communication_runs VALUES('journal-rollback','fixture-account',7,'completed','{}')",[]).unwrap();
+    for account in ["fixture-account","other-account"] {
+        c.execute("INSERT INTO communication_situation_changes(account_id,situation_id,revision,input_digest,kind,observed_at,claim_status,source_refs_json,feedback_refs_json,payload_json) VALUES(?1,'s','r','d','initial','now','interpretation','[]','[]','JOURNAL_PRIVATE_SENTINEL')",[account]).unwrap();
+    }
+    c.execute_batch("CREATE TRIGGER fail_journal_delete BEFORE DELETE ON communication_situation_changes WHEN OLD.account_id='fixture-account' BEGIN SELECT RAISE(ABORT,'fixture'); END;").unwrap();
+    assert!(store::remove_cache(&mut c,"fixture-account").is_err());
+    assert_eq!(c.query_row("SELECT count(*) FROM communication_runs WHERE id='journal-rollback'",[],|r|r.get::<_,i64>(0)).unwrap(),1,"earlier deletes must roll back");
+    assert_eq!(c.query_row("SELECT count(*) FROM communication_situation_changes",[],|r|r.get::<_,i64>(0)).unwrap(),2);
+    c.execute_batch("DROP TRIGGER fail_journal_delete").unwrap();
+    store::remove_cache(&mut c,"fixture-account").unwrap();
+    assert_eq!(c.query_row("SELECT count(*) FROM communication_situation_changes WHERE account_id='fixture-account'",[],|r|r.get::<_,i64>(0)).unwrap(),0);
+    assert_eq!(c.query_row("SELECT payload_json FROM communication_situation_changes WHERE account_id='other-account'",[],|r|r.get::<_,String>(0)).unwrap(),"JOURNAL_PRIVATE_SENTINEL");
+}

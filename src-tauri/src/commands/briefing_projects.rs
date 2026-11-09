@@ -9,13 +9,17 @@ use serde_json::json;
 use sha2::{Digest,Sha256};
 use std::{collections::HashSet,path::PathBuf};
 
+#[derive(Clone)]
 pub(super) struct Snapshot{page_size:usize,ids:Vec<String>,observed:i64,revision:String,evidence:Vec<Evidence>,mapping:Vec<ProjectMapping>}
+#[derive(Clone)]
 struct CommitMapping{id:String,oid:String}
+#[derive(Clone)]
 struct ProjectMapping{source:String,oids:Vec<String>,commits:Vec<CommitMapping>}
 impl Snapshot{
     pub(super) fn revision(&self)->&str{&self.revision}
     pub(super) fn observed_at(&self)->i64{self.observed}
     pub(super) fn evidence(&self)->&[Evidence]{&self.evidence}
+    pub(super) fn checked_inventory_count(&self)->usize{self.ids.len()}
 }
 fn invalid()->String{"briefing_project_snapshot_unavailable".into()}
 fn digest(v:&impl serde::Serialize)->String{format!("{:x}",Sha256::digest(serde_json::to_vec(v).expect("native project serialization")))}
@@ -72,7 +76,7 @@ pub(super) fn capture_page(c:&Connection,ids:&[String],now:i64,page_size:usize)-
         // consume the small synthesis page ahead of behavior changes.
         let selected:HashSet<_>=commits.iter().rev().filter(|c|!c.subject.starts_with("Merge ")).chain(commits.iter().rev().filter(|c|c.subject.starts_with("Merge "))).filter(|c|briefing_candidate(&c.subject)).filter_map(|commit|commit.oid.as_ref()).filter(|hash|!previous_oids.contains(hash)).take(page_size).cloned().collect();
         let mut mapped=Vec::new();let mut acknowledgments=Vec::new();
-        for commit in &commits{
+        for commit in commits.iter().rev(){
             let hash=commit.oid.as_ref().ok_or_else(invalid)?;
             let source_id=format!("project:{id}:commit:{hash}");
             // Receipt identity is independent of the moving cursor or other
@@ -167,6 +171,7 @@ pub(super) fn with_revalidated<T>(c:&Connection,snapshot:&Snapshot,now:i64,selec
       let(c,repo)=fixture();for i in 0..10{commit(&repo,&format!("Recent {i}"),NOW+i*1000);}
       let snap=capture(&c,&["fixture".into()],NOW+20000).unwrap();
       assert_eq!(snap.evidence.len(),8);assert!(snap.evidence.iter().any(|e|e.text.contains("Recent 9")));
+      assert!(snap.evidence[0].text.contains("Recent 9"),"The model must receive the newest selected change first, not the oldest unseen item on the page");
       assert!(!snap.evidence.iter().any(|e|e.text.contains("Synthetic studio inspection")));
       assert_eq!(c.query_row("SELECT count(*) FROM project_brief_cursors",[],|r|r.get::<_,i64>(0)).unwrap(),0);
     }

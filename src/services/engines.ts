@@ -23,7 +23,7 @@ export interface EngineStatus {
 export type EngineBilling = { state: "unknown" | "ineligible"; detail: string };
 
 export function describeBilling(billing: EngineBilling): string {
-  return `Generation blocked. ${billing.detail}`;
+  return `${billing.state === "ineligible" ? "Generation blocked. " : ""}${billing.detail}`;
 }
 
 export function loadEngineStatus(): Promise<EngineStatus[]> {
@@ -59,10 +59,14 @@ export interface ClaudeSubscriptionAuthorization { statement: string; confirmedA
 export function loadClaudeAuthorization(): Promise<ClaudeSubscriptionAuthorization> {
   return invoke<ClaudeSubscriptionAuthorization>("claude_subscription_authorization");
 }
-/** Checks the live sign-in first; records nothing unless it is a claude.ai Max account. */
+/** Checks the live subscription sign-in before binding confirmation. */
 export function confirmClaudeSubscription(statement: string): Promise<ClaudeSubscriptionAuthorization> {
   return invoke<ClaudeSubscriptionAuthorization>("confirm_claude_subscription", { statement });
 }
 export function revokeClaudeSubscription(): Promise<ClaudeSubscriptionAuthorization> {
   return invoke<ClaudeSubscriptionAuthorization>("revoke_claude_subscription");
 }
+export interface CodexSubscriptionAuthorization { statement: string; confirmed: boolean; email: string | null }
+export const loadCodexAuthorization = () => invoke<CodexSubscriptionAuthorization>("codex_subscription_authorization");
+export const confirmCodexSubscription = (statement: string) => invoke<CodexSubscriptionAuthorization>("confirm_codex_subscription", {statement});
+export const revokeCodexSubscription = () => invoke<CodexSubscriptionAuthorization>("revoke_codex_subscription");

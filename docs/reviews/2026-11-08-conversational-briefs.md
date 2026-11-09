@@ -35,6 +35,20 @@ must continue to distinguish exact source facts, estimates, and actual actions.
 
 ## Remaining boundaries
 
+Installed 0.51 excluded the wrapped sign-in, but surfaced a vendor roundup as
+personal workflow and summarized an older selected project fix. Kevin rejected
+that relevance failure. Version 0.52 excludes clear bulk roundups (including
+Gmail Updates), does not fill spare slots with newsletters, and emits selected
+project evidence newest-first. Native tests preserve personal approval requests,
+weekly work updates and project reports with incidental blog links. Review caught
+and corrected an initially overbroad digest exclusion.
+
+With the revised production prompt, local 14B returned no items for a vendor-only
+announcement. Given that announcement plus a workspace suspension deadline, it
+cited only the account request and preserved its action date. The earlier quiet,
+appointment, estimated-delivery, autopay and blocked-sign-in cases also passed
+manual output review. Real installed acceptance of 0.52 follows release.
+
 Installed 0.50 acceptance found a further selection bug: a routine sign-in notice
 wrapped "If this was you" across blank lines. The exact-match condition failed,
 and the model repeated the notice despite the omission instruction. A sanitized

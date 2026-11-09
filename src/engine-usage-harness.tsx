@@ -14,8 +14,19 @@ import "./styles.css";
 
 
 let calls = 0;
+const routingFixture=new URLSearchParams(location.search).has("routing");
+const routeSettings:Record<string,string>={"briefing.provider.v1":"codex","briefing.workflow.v1":"investigative","chatMemory.provider.v1":"claude-code"};
+const routeWrites:unknown[]=[];
+Object.assign(window,{routeSettings,routeWrites});
 
-Object.assign(window, {__TAURI_INTERNALS__: {invoke: async (command: string) => {
+Object.assign(window, {__TAURI_INTERNALS__: {invoke: async (command: string,args?:{settings?:Record<string,string>}) => {
+
+  if(routingFixture){
+    if(command==="load_persisted_state")return {settings:{...routeSettings}};
+    if(command==="save_settings"){routeWrites.push(args?.settings);Object.assign(routeSettings,args?.settings);return;}
+    if(command==="codex_subscription_authorization")return {statement:"Synthetic account confirmation",confirmed:true,email:"fixture@example.invalid"};
+    if(command==="claude_subscription_authorization")return {statement:"Synthetic account confirmation",confirmedAt:"2026-11-08T17:00:00Z",email:"fixture@example.invalid"};
+  }
 
   if(command !== "engine_status") throw new Error(`Unexpected fixture command: ${command}`);
 

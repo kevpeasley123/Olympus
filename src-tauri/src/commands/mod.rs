@@ -14,6 +14,10 @@ pub mod subscription;
 pub mod claude_subscription;
 pub mod spending_policy;
 pub mod subscription_jobs;
+pub mod codex_authorization;
+pub mod execution;
+pub mod inference_routes;
+pub mod local_inference;
 pub mod external_link;
 pub mod research_retrieval;
 pub mod research_agents;
@@ -76,3 +80,5 @@ pub mod briefing_synthesis;
 pub mod structured_output;
 pub mod project_review;
 pub mod local_speech;
+
+pub(crate) mod briefing_vault_context;

@@ -8,6 +8,28 @@ replaced the earlier "not every exchange earns a vault note" decision.
 For dated verification and remaining native acceptance work, see
 `docs/NEXT-SESSION.md`. The worker's presence does not prove live learning succeeds.
 
+## Execution and recovery
+
+Memory updates use the explicitly selected `chatMemory.provider.v1` engine through
+the common execution adapter. Codex, Claude Code and local are supported choices;
+an unavailable choice waits without switching providers. The local memory model
+can be configured independently of email extraction with `OLYMPUS_MEMORY_MODEL`,
+or inherit an eligible local briefing model. Engine Settings controls the choice;
+the Memory panel shows the latest contribution state and actual model when reported.
+
+Each contribution binds exact message identities and hashes, the prior watermark,
+note revision, selected model and saved account confirmation. A changed route
+supersedes unfinished work; returning to a prior route permits a new fenced attempt.
+A durable claim excludes overlapping workers. A prepared
+answer is saved before the vault write and can resume after restart without another
+model call; applying its receipt and watermark is transactional. Operator edits,
+deleted or changed source messages and late expired attempts cannot overwrite the
+current note. If exact prepared output is already on disk, its receipt can be
+finished without provider availability; unchanged output is not proof of a prior
+write. Obsolete source revisions retain their journal but cannot crowd out later
+recovery. A crash before a model answer is durably prepared may require another
+inference after lease expiry; exactly-once external inference is not promised.
+
 ## What Kevin sees
 
 - **Separate chats.** A launch opens a new chat, or reopens the last one if it
@@ -169,10 +191,10 @@ rule:
 
 ## Cost
 
-Since 2026-10-20 the memory pass uses included subscription allowance, not a
-paid API: about one request per chat that goes quiet with new messages from
-Kevin; a long chat can take more than one, and a failing chat at most four in
-a row. Claude Opus 5.5 runs it; Codex answers only when Claude cannot.
+The memory pass uses its explicitly selected subscription or local engine, with
+no automatic provider fallback or paid API. It runs when an eligible chat goes
+quiet with new messages from Kevin; a long chat can require multiple passes.
+Provider and actual model are recorded with the durable contribution receipt.
 Turning off "Learn from chats" stops it. Learning from earlier chats is one
 request per chat, started only from Preferences.
 

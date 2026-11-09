@@ -171,6 +171,8 @@ function Harness() {
   const missionSnapshot = useMemo(() => scenario === "mission-coding" ? { observedAt: new Date().toISOString(), missions: codingPhase ? [codingMission(codingPhase)] : [] } : missions, [codingPhase]);
   const command = useCommandView(capabilities, missionSnapshot, fixtureNow);
   const [extraMessages,setExtraMessages]=useState<ConversationMessage[]>([]);
+  const [briefFixturePending,setBriefFixturePending]=useState(params.get("brief-update")==="pending");
+  const previousBriefFixture:ConversationMessage|null=params.has("brief-update")?{id:"previous-fixture",role:"assistant",timestamp:"Yesterday",at:"2026-11-07T17:00:00Z",content:"Your workshop delivery was due Tuesday. This is the last completed brief, not a new update."}:null;
   useEffect(()=>{
     if(!params.has("conversation-test"))return;
     const receive=()=>setExtraMessages(items=>[...items,{id:`incoming-${items.length}`,role:"assistant",at:new Date().toISOString(),timestamp:"Now",content:"Synthetic new response for scroll verification."}]);
@@ -217,6 +219,7 @@ function Harness() {
       </div>{params.has("usage-fixture")&&<span className="usage-fixture-label">SYNTHETIC USAGE PREVIEW</span>}{flagship && <UsageSummary layout="dock" managementApi={usageManagementFixture} previewLabel={params.has("usage-fixture")?"Synthetic usage fixture / no provider calls":undefined} snapshots={params.has("usage-fixture")?usageFixture(params.get("usage-fixture")==="fresh",params.get("usage-fixture")==="historical"):undefined}/>}</section>
       <section className="right-stack dashboard-column"><div className="panel-slot panel-slot-chat">
         <ChatPanel companion={flagship} inspectionProjects={["fixture-repo"]} messages={messages} autoSpeak={false} onAutoSpeakChange={() => {}} onOpenPreferences={() => {}} onSendMessage={() => { mutations++; }}
+          previousBriefing={previousBriefFixture} briefingPending={briefFixturePending} briefingNoUpdate={params.get("brief-update")==="empty"} briefingCompared={params.get("brief-update")==="shadow"} onCancelBriefing={async()=>{document.documentElement.dataset.briefCancelled="true";setBriefFixturePending(false)}}
           activeMissions={command.liveMissions} selectedMissionId={command.selectedMissionId} onSelectMission={command.selectMission} layout={layout} onLayoutChange={setLayout} mission={command.mission} capabilities={capabilities} suggestions={flagship?suggestions.slice(0,3):suggestions}
           onOpenMission={destination => setDestination(destination === "research" ? {} : { projects: true })} onDismissMission={command.dismissMission} chats={flagship ? chats : undefined} />
       </div></section>

@@ -123,7 +123,7 @@ const CHAT_DISABLED_FEATURES: &[&str] = &[
     "shell_tool", "browser_use", "browser_use_external", "browser_use_full_cdp_access",
     "in_app_browser", "computer_use", "image_generation", "view_image", "multi_agent", "fast_mode",
     "ultrafast_mode", "tool_suggest", "skill_search", "sleep_tool", "goals", "in_app_local_automation",
-    "workspace_dependencies", "realtime_conversation",
+    "workspace_dependencies", "in_app_voice",
 ];
 
 /// Verified isolation arguments for a Codex chat process started in `directory`.
@@ -142,10 +142,11 @@ pub(crate) fn codex_chat_isolation(executable: &std::path::Path, directory: &std
     for feature in CHAT_DISABLED_FEATURES {
         args.extend(["--disable".into(), (*feature).into()]);
     }
+    args.extend(["--disable".into(), "realtime_conversation".into()]);
     let verified: Value = serde_json::from_str(&metadata(command(&["mcp", "list", "--json"], &args))?)
         .map_err(|_| "Codex isolation inventory is invalid.")?;
     let features = metadata(command(&["features", "list"], &args))?;
-    if !isolation_verified(&verified, &features) || !features_off(&features, CHAT_DISABLED_FEATURES) {
+    if !isolation_verified(&verified, &features) || !features_off(&features, CHAT_DISABLED_FEATURES) || !voice_features_off(&features) {
         return Err("Codex could not verify that its tools and integrations are off. Nothing was sent.".into());
     }
     Ok(args)
@@ -155,6 +156,15 @@ fn features_off(features: &str, names: &[&str]) -> bool {
         let words: Vec<_> = line.split_whitespace().collect();
         words.first() == Some(name) && words.last() == Some(&"false")
     }))
+}
+// Installed 0.167 reports the former switch as removed/true. Require the
+// current voice capability off; never treat arbitrary enabled flags as safe.
+fn voice_features_off(features: &str) -> bool {
+    features_off(features, &["in_app_voice"]) && features.lines().any(|line| {
+        let words: Vec<_> = line.split_whitespace().collect();
+        words.first() == Some(&"realtime_conversation") &&
+            (words.last() == Some(&"false") || words.as_slice() == ["realtime_conversation", "removed", "true"])
+    })
 }
 fn isolation_verified(inventory: &Value, features: &str) -> bool {
     inventory
@@ -518,6 +528,14 @@ mod tests {
 
 #[cfg(test)]
 mod live_reads {
+    #[test]
+    fn retired_realtime_flag_requires_replacement_voice_disabled() {
+        assert!(super::voice_features_off("realtime_conversation removed true\nin_app_voice stable false"));
+        assert!(!super::voice_features_off("realtime_conversation removed true\nin_app_voice stable true"));
+        assert!(!super::voice_features_off("realtime_conversation removed true"));
+        assert!(!super::voice_features_off("realtime_conversation stable true\nin_app_voice stable false"));
+        assert!(super::voice_features_off("realtime_conversation stable false\nin_app_voice stable false"));
+    }
     #[test]
     #[ignore = "Explicit read-only account check; uses existing managed authentication"]
     fn live_codex_quota() {

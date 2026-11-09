@@ -80,10 +80,15 @@ fn decode(part: &Value, degraded: &mut bool) -> String {
 // html2text 0.12's from_read panics on deep nesting; use the fallible API and
 // contain any remaining panic so the sync worker always writes its receipt.
 fn html_text(html: &str, degraded: &mut bool) -> String {
+    html_text_view(html, degraded, false)
+}
+fn html_text_view(html: &str, degraded: &mut bool, linear: bool) -> String {
     let converted = std::panic::catch_unwind(|| {
-        html2text::config::plain()
-            .allow_width_overflow()
-            .string_from_read(html.as_bytes(), 100)
+        let config=html2text::config::plain().allow_width_overflow();
+        let config=if linear {config.raw_mode(true)} else {config};
+        config.string_from_read(html.as_bytes(), 100).map(|text| {
+            if linear {text.lines().map(str::trim).filter(|line|!line.is_empty()).collect::<Vec<_>>().join("\n")} else {text}
+        })
     });
     match converted {
         Ok(Ok(text)) => text,
@@ -93,6 +98,28 @@ fn html_text(html: &str, degraded: &mut bool) -> String {
         }
     }
 }
+/// A read-only view for legacy cache rows whose provider plain-text part actually
+/// contains a full HTML document. Identity and cache bytes remain untouched.
+pub(crate) fn readable_cached_text(text:&str)->Result<(String,bool),String>{
+    if text.len()>1_000_000{return Err("gmail_cached_text_too_large".into());}
+    let trim=|c:char|c.is_whitespace()||c=='\u{feff}';
+    let mut view=text.trim_start_matches(trim);
+    // Legacy Outlook fragments may begin with conditional HTML comments. This
+    // only recognizes the representation; the original source remains bound.
+    for _ in 0..64{
+        let Some(comment)=view.strip_prefix("<!--")else{break};
+        let Some(end)=comment.find("-->")else{break};
+        view=comment[end+3..].trim_start_matches(trim);
+    }
+    let prefix=view.chars().take(1024).collect::<String>().to_ascii_lowercase();
+    let tag=|name:&str|prefix.strip_prefix(name).is_some_and(|tail|tail.starts_with('>')||tail.starts_with('/')||tail.chars().next().is_some_and(char::is_whitespace));
+    let html=["<!doctype html","<html","<head","<body","<table","<div"].iter().any(|name|tag(name));
+    if !html{return if text.trim().is_empty(){Err("gmail_cached_text_unavailable".into())}else{Ok((text.to_owned(),false))};}
+    let mut degraded=false;let normalized=html_text_view(text,&mut degraded,true);
+    if degraded||normalized.trim().is_empty(){return Err("gmail_cached_text_unavailable".into());}
+    Ok((normalized,true))
+}
+
 fn body(
     part: &Value,
     depth: usize,
@@ -271,4 +298,25 @@ pub fn normalize(account: &str, value: &Value) -> Result<Mail, String> {
 pub fn in_scope(mail: &Mail, horizon: u32) -> bool {
     mail.internal_date >= chrono::Utc::now().timestamp_millis() - i64::from(horizon) * 86_400_000
         && scope_labels(&mail.labels)
+}
+
+#[cfg(test)]mod cached_read_tests{
+ use super::*;
+ #[test]fn cached_read_linearizes_layout_tables_before_excerpt_limits(){
+  let rows="<tr><td><table><tr><td>&nbsp;</td></tr></table></td></tr>".repeat(30);
+  let html=format!("<html><body><table>{rows}<tr><td>Delivery delayed until Friday.</td><td>Order A-17</td></tr></table></body></html>");
+  let(text,converted)=readable_cached_text(&html).unwrap();assert!(converted);
+  assert!(text.chars().take(500).collect::<String>().contains("Delivery delayed until Friday."));
+  assert!(text.contains("Order A-17"));assert!(!text.contains('─'));
+ }
+ #[test]fn cached_read_preserves_ordinary_text_and_rejects_empty_html(){
+  let plain="Comparison 2 < 3; contact <support@example.invalid>.\nDo not pay manually.";assert_eq!(readable_cached_text(plain).unwrap(),(plain.into(),false));
+  assert!(readable_cached_text("<html><head><style>p {color:red}</style><script>do_not_execute()</script></head><body></body></html>").is_err());
+ }
+ #[test]fn cached_read_recognizes_comment_prefixed_fragments_and_bom(){
+  for prefix in ["<!-- legacy conditional markup -->", " \u{feff}  "]{
+   let html=format!("{prefix}<DIV><p>Delivery delayed; no new date.</p><a href=\"https://example.invalid\">Order details</a></DIV>");
+   let(text,converted)=readable_cached_text(&html).unwrap();assert!(converted);assert!(text.contains("Delivery delayed; no new date."));assert!(text.contains("Order details"));assert!(!text.contains("<DIV>"));
+  }
+ }
 }

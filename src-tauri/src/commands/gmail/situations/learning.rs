@@ -107,6 +107,8 @@ pub(super) fn apply(c: &Connection, request: LearningRequest, origin:Option<Valu
     tx.execute("INSERT INTO email_learning(account_id,thread_id,revision,payload_json,updated_at) VALUES(?1,?2,?3,?4,?5) ON CONFLICT(account_id,thread_id) DO UPDATE SET revision=excluded.revision,payload_json=excluded.payload_json,updated_at=excluded.updated_at",params![a.id,request.thread_id,next_revision,serde_json::to_string(&record).map_err(err)?,time]).map_err(err)?;
     // Compatibility for existing source readers; changed-source decisions are never carried over.
     tx.execute("UPDATE communication_situation_sources SET payload_json=json_set(payload_json,'$.attentionDecision',CASE WHEN signature=?3 THEN json(?4) ELSE NULL END) WHERE account_id=?1 AND thread_id=?2",params![a.id,request.thread_id,record.state.signature,decision.to_string()]).map_err(err)?;
+    let situation:Option<String>=tx.query_row("SELECT situation_id FROM communication_situation_sources WHERE account_id=?1 AND thread_id=?2",params![a.id,request.thread_id],|r|r.get(0)).optional().map_err(err)?.flatten();
+    if let Some(id)=situation {changes::record(tx,&a.id,&id,"operator_feedback")?;}
     ensure(&tx,&a.id)?;bump(&tx,&a.id)?;Ok(())
 }
 
@@ -200,4 +202,44 @@ fn native_brief_original(c:&Connection,origin:Option<&Value>,request:&LearningRe
  }
  if !matches{return Err(invalid())}
  Ok(json!({"kind":"native_brief","messageId":id,"content":content}))
+}
+
+#[cfg(test)]
+mod durable_tests {
+    use super::*;
+    #[test]
+    fn explicit_correction_survives_age_but_withdrawal_removes_it() {
+        let (db,sig)=super::super::learning_tests::fixture();
+        let mut c=db.0.lock().unwrap();
+        let request=|action:&str,revision:i64,text:&str|LearningRequest{account_id:"fixture".into(),thread_id:"thread".into(),signature:sig.clone(),expected_revision:revision,action:action.into(),text:text.into()};
+        change(&mut c,request("corrected",0,"Autopay is enabled; no manual payment.")).unwrap();
+        c.execute("UPDATE email_learning SET updated_at='2020-01-01',payload_json=json_set(payload_json,'$.state.at','2020-01-01')",[]).unwrap();
+        let old=durable_corrections(&c,"fixture",&["thread".into()]).unwrap();
+        assert_eq!(old[0]["correction"],"Autopay is enabled; no manual payment.");
+        assert_eq!(old[0]["claimStatus"],"operator_statement");
+        c.execute("UPDATE gmail_messages SET fingerprint='new'",[]).unwrap();
+        let changed=durable_corrections(&c,"fixture",&["thread".into()]).unwrap();
+        assert_eq!(changed[0]["current"],false);
+        change(&mut c,request("forget",1,"")).unwrap();
+        assert!(durable_corrections(&c,"fixture",&["thread".into()]).unwrap().is_empty());
+    }
+}
+
+/// Explicit operator statements are durable, but their applicability is source-scoped.
+/// A changed/aged-out source is returned as historical context, never a live resolution.
+pub(crate) fn durable_corrections(c:&Connection,account_id:&str,threads:&[String])->Result<Vec<Value>,String>{
+    if threads.len()>48||threads.iter().any(|id|id.is_empty()||id.len()>256){return Err("durable_correction_scope_invalid".into());}
+    let enabled:Option<String>=c.query_row("SELECT value FROM settings WHERE key='chatMemory.use'",[],|r|r.get(0)).optional().map_err(err)?;
+    if enabled.as_deref()==Some("false"){return Ok(vec![]);}
+    let a=account(c)?;if a.id!=account_id{return Err("durable_correction_account_changed".into());}
+    let signatures=thread_signatures(c,&a)?;
+    let mut result=Vec::new();let mut seen=std::collections::BTreeSet::new();
+    for thread in threads {
+        if !seen.insert(thread){continue;}
+        let Some((revision,record))=load(c,account_id,thread)? else{continue};
+        let state=record.state;
+        if state.correction.is_empty()||matches!(state.action.as_str(),"forgotten"|"restored")||record.forgotten_signatures.contains(&state.signature){continue;}
+        result.push(json!({"threadId":thread,"signature":state.signature,"revision":revision,"action":state.action,"correction":state.correction,"at":state.at,"current":signatures.get(thread).is_some_and(|s|s.0==state.signature),"claimStatus":"operator_statement","origin":state.origin}));
+    }
+    Ok(result)
 }

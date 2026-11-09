@@ -49,11 +49,12 @@ pub(super) fn compose_with_projects(tx:&Transaction<'_>,chat:&str,packet:&Input,
     // Keep exact native operator corrections visible, not rewritten by the model.
     for e in packet.evidence.iter().filter(|e|matches!(e.authority,Authority::OperatorStatement)){
         let v:serde_json::Value=serde_json::from_str(&e.text).map_err(|_|invalid())?;
+        if v["source"]=="durable_operator_context"{continue;}
         if v["source"]!="stored_operator_resolution"{return Err(invalid());}
         let thread=v["resolution"]["threadId"].as_str().ok_or_else(invalid)?;
         let Some(subject)=selected_threads.get(thread) else {continue};
         let correction=v["resolution"]["correction"].as_str().ok_or_else(invalid)?;
-        if !correction.is_empty(){if !super::bounded(correction,1000){return Err(invalid());}text.push(format!("Your clarification about {subject}: {correction}"));cited.insert(e.id.clone());}
+        if !correction.is_empty(){if !super::bounded(correction,1000){return Err(invalid());}let label=if v["resolution"]["current"]==false{"Your earlier clarification (the source has since changed)"}else{"Your clarification"};text.push(format!("{label} about {subject}: {correction}"));cited.insert(e.id.clone());}
     }
     // Coverage stays bound to native provenance, outside the spoken prose.
     let coverage=Some(persistence::BriefingCoverage{mail:packet.evidence.iter().any(|e|e.kind=="mail"),projects:packet.evidence.iter().any(|e|e.kind=="project")});

@@ -10,6 +10,8 @@ interface ChatMemorySwitches {
 }
 
 interface ChatMemoryStatus extends ChatMemorySwitches {
+  provider?: string;
+  contribution?: {state:string;provider:string;actualModel?:string|null;requestId?:string|null;sources?:unknown[];attempts:number;updatedAt:string}|null;
   savedChats: number;
   pendingChats: number;
   analysis: { state: "blocked" | "unconfigured" | "unverified"; code: string; reason: string; canAttempt: boolean };
@@ -66,7 +68,7 @@ export function MemorySettings() {
         <input type="checkbox" checked={status?.useMemory ?? false} disabled={!status || busy} onChange={event => void change({ useMemory: event.target.checked })} /></label>
       <p className="voice-settings-hint">
         Each chat becomes a note in <code>{status?.chatsFolder ?? "10 - Conversations"}</code>. After a chat has been quiet for ten minutes,
-        Olympus can update <code>{status?.memoryNote ?? "09 - System/Olympus Memory.md"}</code> when subscription analysis is available. There is no paid API fallback. Edit either note
+        Olympus can update <code>{status?.memoryNote ?? "09 - System/Olympus Memory.md"}</code> using the memory engine selected in Subscription engines. There is no paid API fallback. Edit either note
         in Obsidian and your version is kept. Temporary chats are never saved or learned from. Turning learning off stops new updates; it does not delete the note.
       </p>
       {status && <p className="voice-settings-hint" role="status">
@@ -75,6 +77,10 @@ export function MemorySettings() {
         {status.pendingChats > 0 ? ` ${status.pendingChats} ${status.pendingChats === 1 ? "chat" : "chats"} awaiting learning.` : ""}
         {status.lastError ? ` The last attempt failed (${status.lastError}); it is retried after half an hour, then less often.` : ""}
       </p>}
+      {status?.contribution&&<details className="voice-settings-hint"><summary>Latest memory contribution · {status.contribution.state==="applied"?"saved":status.contribution.state==="prepared"?"ready to save":status.contribution.state==="claimed"?"processing":status.contribution.state}</summary>
+        <p>{status.contribution.actualModel??status.contribution.provider} · {status.contribution.sources?.length??0} source messages · attempt {status.contribution.attempts}. Updated {formatWhen(status.contribution.updatedAt,{withDate:true})}.</p>
+        {status.contribution.requestId&&<p>Request <code>{status.contribution.requestId}</code></p>}
+      </details>}
       {status?.learn && status.analysis && !status.analysis.canAttempt && <p className="voice-settings-hint" role="status">
         {status.analysis.reason} Pending chats stay queued and resume automatically when analysis becomes available.
       </p>}
@@ -88,7 +94,7 @@ export function MemorySettings() {
         <button type="button" className="ghost-action" disabled={busy || !status.learn} title={status.learn ? undefined : "Turn on Learn from chats first"} onClick={() => setConfirming(true)}>Learn from them</button>
       </div>}
       {confirming && <div className="voice-setting-row" role="group" aria-label="Confirm learning from earlier chats">
-        <span>Queues each of the {waiting} chats for subscription analysis when available, oldest first: at least {waiting} {waiting === 1 ? "request" : "requests"}, more for long chats. Existing account and spending checks still apply.</span>
+        <span>Queues each of the {waiting} chats for the selected memory engine when available, oldest first: at least {waiting} {waiting === 1 ? "request" : "requests"}, more for long chats. Existing account and spending checks still apply.</span>
         <span className="memory-confirm-actions"><button type="button" className="ghost-action" disabled={busy} onClick={() => void learnEarlier()}>Learn from {waiting} {waiting === 1 ? "chat" : "chats"}</button>
           <button type="button" className="ghost-action" onClick={() => setConfirming(false)}>Cancel</button></span>
       </div>}

@@ -296,10 +296,13 @@ fn resolve_snapshot(c:&Connection,scope:&Scope,selection:&Selection,now:i64)->Re
         if mail.provider!="gmail"||mail.account_id!=scope.account_id||mail.id!=r.id||mail.thread_id!=thread||mail.internal_date!=at||mail.fingerprint!=fingerprint||at>now.saturating_add(60_000)||mail.body_status!="text_available"||!mail.labels.iter().any(|l|l=="INBOX")||mail.labels.iter().any(|l|matches!(l.as_str(),"SPAM"|"TRASH"|"SENT"|"DRAFT"|"CATEGORY_PROMOTIONS")){return Err("briefing_native_source_invalid".into());}
         // HTML-to-text tables often start with thousands of border/padding characters.
         // Remove layout-only lines before bounding the excerpt, preserving the words and dates.
-        let compact=mail.canonical_text.lines().filter(|line|line.chars().any(char::is_alphanumeric)).flat_map(str::split_whitespace).collect::<Vec<_>>().join(" ");
+        let (readable,_)=crate::commands::gmail::readable_cached_text(&mail.canonical_text).map_err(|_|"briefing_native_source_invalid")?;
+        let compact=readable.lines().filter(|line|line.chars().any(char::is_alphanumeric)).flat_map(str::split_whitespace).collect::<Vec<_>>().join(" ");
         let text=serde_json::to_string(&json!({"source":"gmail_cached_message","threadId":thread,"sender":mail.sender,"subject":mail.subject,"messageAt":at,"messageDate":chrono::DateTime::from_timestamp_millis(at).map(|d|d.to_rfc3339()),"text":compact.chars().take(1200).collect::<String>(),"truncated":compact.chars().count()>1200})).map_err(|_|"briefing_native_source_invalid")?;
         if !super::bounded(&text,2000){return Err("briefing_native_source_too_large".into());}
-        thread_revisions.push((thread.clone(),thread_revision(c,&scope.account_id,&thread)?));
+        let(learning_revision,forgotten)=investigator::learning_guard(c,&scope.account_id,&thread)?;
+        if forgotten{return Err("briefing_source_forgotten".into());}
+        thread_revisions.push((thread.clone(),revision(&(thread_revision(c,&scope.account_id,&thread)?,learning_revision))));
         threads.push(thread);
         evidence.push(Evidence{id:format!("mail:{}:{}",scope.account_id,r.id),revision:expected,kind:"mail".into(),text,observed_at:now,authority:Authority::SourceFact,context_only:false});
     }
@@ -337,7 +340,7 @@ fn resolve_snapshot(c:&Connection,scope:&Scope,selection:&Selection,now:i64)->Re
 
 #[cfg(test)]mod tests{
     use super::*;
-    const NOW:i64=1793793600000;
+    pub(super) const NOW:i64=1793793600000;
     #[test]fn old_forecasts_keep_explicit_requests_and_body_problems(){
       for (subject,body) in [("Action required: delivery tomorrow","A response is needed."),("Shipment scheduled for delivery tomorrow","We were unable to deliver. Please contact us to arrange delivery.")]{
        let(c,_,_)=fixture();let at=NOW-3*86400000;
@@ -398,7 +401,7 @@ fn resolve_snapshot(c:&Connection,scope:&Scope,selection:&Selection,now:i64)->Re
        assert_eq!(c.query_row("SELECT count(*) FROM conversation_messages",[],|r|r.get::<_,i64>(0)).unwrap(),0);
       }
     }
-    fn fixture()->(Connection,Scope,Selection){
+    pub(super) fn fixture()->(Connection,Scope,Selection){
         let c=Connection::open_in_memory().unwrap();crate::commands::migrations::apply(&c).unwrap();
         let stamp=chrono::DateTime::from_timestamp_millis(NOW).unwrap().to_rfc3339();
         c.execute("INSERT INTO gmail_accounts(id,email,enabled,status,scopes,connected_at,horizon_days,last_success) VALUES('a','fixture@example.invalid',1,'connected',?1,?2,7,?2)",params![crate::commands::gmail::SCOPE,stamp]).unwrap();
@@ -808,14 +811,31 @@ fn resolve_snapshot(c:&Connection,scope:&Scope,selection:&Selection,now:i64)->Re
   let now=chrono::Utc::now().timestamp_millis();let c=Connection::open_in_memory().unwrap();crate::commands::migrations::apply(&c).unwrap();
   for (i,(id,subject)) in [("code","Your verification code"),("news-a","Weekly ChartStorm"),("news-b","Daily newsletter"),("news-c","Weekly digest"),("bill","New Bill from Utility"),("shipment","Your shipment is scheduled for delivery")].iter().enumerate(){
    let at=now-i as i64*1000;
-   let mail=json!({"provider":"gmail","accountId":"account","id":id,"threadId":id,"sender":format!("{id}@example.invalid"),"subject":subject,"internalDate":at,"canonicalText":"Fixture source","bodyStatus":"text_available","fingerprint":"fixture","labels":["INBOX"]});
+   let body=if id.starts_with("news-"){"Your weekly newsletter. Unsubscribe or manage preferences."}else{"Fixture source"};
+   let mail=json!({"provider":"gmail","accountId":"account","id":id,"threadId":id,"sender":format!("{id}@example.invalid"),"subject":subject,"internalDate":at,"canonicalText":body,"bodyStatus":"text_available","fingerprint":"fixture","labels":["INBOX"]});
    c.execute("INSERT INTO gmail_messages(account_id,id,thread_id,internal_date,fingerprint,snapshot_json,available,in_scope) VALUES('account',?1,?1,?2,'fixture',?3,1,1)",params![id,at,mail.to_string()]).unwrap();
   }
   let selected=select_local_mail(&c,"account",now).unwrap();
   assert_eq!(selected[0],"bill");
   assert!(selected.contains(&"shipment".to_string()));
   assert!(!selected.contains(&"code".to_string()));
+  assert!(!selected.iter().any(|id|id.starts_with("news-")),"Newsletters must not fill spare briefing slots");
   assert!(selected.len()<=4);
+ }
+ #[test]fn vendor_roundups_are_not_personal_updates_but_account_requests_remain(){
+  for (subject,body,expected) in [
+   ("Vendor Update November 2026","Everything that happened in the last month at Example. Our product now supports a new bot. Read the blog. A new SDK is available. Read the blog.",None),
+   ("Your account needs attention","Your workspace will be suspended. Action required: update your billing details by November 12.",Some(6)),
+   ("November statement is available","Your monthly statement is ready.",Some(5)),
+   ("Weekly project status","The inspection is scheduled for November 12.",Some(2)),
+   ("Inspection meeting digest","Please approve the revised inspection plan by Friday.",Some(6)),
+   ("Project report","The inspection is scheduled this month. For background, read the blog.",Some(2)),
+   ("Product newsletter","No action required. Everything that happened this month. Read the blog. Read the blog.",None),
+   ("Account request","No action required for your last payment. Action required: confirm the new billing details.",Some(6)),
+  ]{
+   let mail:StoredMail=serde_json::from_value(json!({"provider":"gmail","accountId":"account","id":"fixture","threadId":"fixture","sender":"fixture@example.invalid","subject":subject,"internalDate":1,"canonicalText":body,"bodyStatus":"text_available","fingerprint":"fixture","labels":["INBOX","CATEGORY_UPDATES"]})).unwrap();
+   assert_eq!(brief_mail_priority(&mail),expected,"{subject}");
+  }
  }
  #[test]fn mail_selection_excludes_promotions_and_stale_or_unavailable_sources(){
   let now=chrono::Utc::now().timestamp_millis();let c=Connection::open_in_memory().unwrap();crate::commands::migrations::apply(&c).unwrap();
@@ -831,13 +851,22 @@ fn resolve_snapshot(c:&Connection,scope:&Scope,selection:&Selection,now:i64)->Re
 // These are retrieval hints, never claims of urgency or a verified obligation.
 fn brief_mail_priority(mail:&StoredMail)->Option<u8>{
  let subject=mail.subject.to_lowercase();
+ let body=mail.canonical_text.split_whitespace().collect::<Vec<_>>().join(" ").to_lowercase();
  let has=|terms:&[&str]|terms.iter().any(|term|subject.contains(term));
  if has(&["verification code","single-use code","one-time code"]) ||
     (subject.starts_with("use ")&&subject.ends_with(" to sign in")){return None}
- if has(&["action required","response required","deadline","past due","payment due","new bill"]){return Some(6)}
+ if has(&["action required","response required","deadline","past due","payment due","new bill"])
+  || ["action required","response required","please confirm","please approve","please respond","approval required"].iter().any(|term|body.match_indices(term).any(|(at,_)|{
+      let prefix=&body[..at];
+      !["no ","no further ","not ","without "].iter().any(|negation|prefix.ends_with(negation))
+  })){return Some(6)}
  if has(&["shipment","shipping","delivery delayed","refund","issue with your order","statement is available"]){return Some(5)}
  if has(&["security alert","new sign-in","updated permissions"]){return Some(4)}
- if has(&["newsletter","digest","chartstorm","weekly","brew","jobs for you","job alerts","no-contact delivery"]){return Some(1)}
+ if has(&["newsletter","chartstorm","morning brew","jobs for you","job alerts","no-contact delivery"]){return None}
+ if has(&["digest"]) && ["newsletter","unsubscribe","manage preferences"].iter().any(|term|body.contains(term)){return None}
+ // Vendor roundups can be classified as Gmail Updates rather than Promotions.
+ // Do not promote their product capabilities into changes in the operator's work.
+ if body.matches("read the blog").count()>=2 && ["everything that happened","product updates"].iter().any(|term|body.contains(term)){return None}
  if has(&["order","purchase","delivery"]){return Some(3)}
  Some(2)
 }
@@ -876,6 +905,7 @@ fn select_local_mail(c:&Connection,account:&str,now:i64)->Result<Vec<String>,Str
  for (id,thread,at,fingerprint,raw) in rows{
   // Never resurrect an older request after its newer reply or confirmation.
   if suppressed.contains(&thread)||!threads.insert(thread.clone()){continue}
+  if has_learning&&investigator::learning_guard(c,account,&thread)?.1{continue}
 
   let Ok(mail)=serde_json::from_str::<StoredMail>(&raw) else{continue};
   if mail.body_status!="text_available"||!mail.labels.iter().any(|l|l=="INBOX")||mail.labels.iter().any(|l|matches!(l.as_str(),"SPAM"|"TRASH"|"SENT"|"DRAFT"|"CATEGORY_PROMOTIONS")){continue}
@@ -899,7 +929,12 @@ fn select_local_mail(c:&Connection,account:&str,now:i64)->Result<Vec<String>,Str
 /// Local-only native generation. Configuration is checked again at dispatch and
 /// adoption. Lifecycle revocation or changed sources prevents saving the result.
 pub(super) async fn local_brief(db:&crate::commands::persistence::Db,session:&super::lifecycle::NativeSession,conversation:&str,ticket:&str,project_ids:&[String])->Result<Option<crate::commands::persistence::LoadedMessage>,String>{
- use crate::commands::gmail::situations::analysis_provider as local;
+ local_brief_routed(db,session,conversation,ticket,project_ids,None).await.map(|(_,message)|message)
+}
+pub(super) async fn local_brief_routed(db:&crate::commands::persistence::Db,session:&super::lifecycle::NativeSession,conversation:&str,ticket:&str,project_ids:&[String],reader:Option<crate::commands::memory::MemoryReader>)->Result<(String,Option<crate::commands::persistence::LoadedMessage>),String>{
+ let selected={let c=db.0.lock().map_err(|_|"briefing_database_unavailable")?;investigator::config(&c)?};
+ if selected.workflow!="legacy"{let workflow=selected.workflow.clone();let message=investigator::run_with_memory(db,session,conversation,ticket,project_ids,selected,reader).await?;return Ok((workflow,message));}
+ use crate::commands::local_inference as local;
  let model=local::local_model()?;
  if !super::bounded(conversation,160)||project_ids.len()>3{return Err("briefing_native_scope_invalid".into())}
  let now=chrono::Utc::now().timestamp_millis();
@@ -921,9 +956,10 @@ pub(super) async fn local_brief(db:&crate::commands::persistence::Db,session:&su
   let(raw,_)=local::infer_local(&model,&super::local_format::instructions(),input,super::local_format::schema(),"briefing_synthesis").await?;
   super::local_format::canonical(&raw)
  }).await?;
- let Some(id)=id else{return Ok(None)};
+ let Some(id)=id else{return Ok((selected.workflow,None))};
  let c=db.0.lock().map_err(|_|"briefing_database_unavailable")?;
- crate::commands::persistence::load_messages(&c,Some(conversation))?.into_iter().find(|m|m.id==id).map(Some).ok_or_else(||"briefing_saved_message_unavailable".into())
+ let message=crate::commands::persistence::load_messages(&c,Some(conversation))?.into_iter().find(|m|m.id==id).ok_or_else(||"briefing_saved_message_unavailable".to_string())?;
+ Ok((selected.workflow,Some(message)))
 }
 
 #[cfg(test)]mod local_live_acceptance{
@@ -972,3 +1008,6 @@ pub(super) async fn local_brief(db:&crate::commands::persistence::Db,session:&su
   owner.apply_project_lifecycle("native","chat-a").unwrap();assert!(owner.reserved("chat-a",&ticket).is_err());
  }
 }
+
+#[path="briefing_investigator.rs"]
+pub(super) mod investigator;

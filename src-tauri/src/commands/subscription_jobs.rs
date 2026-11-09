@@ -1,12 +1,19 @@
 //! Background model jobs on the operator's subscriptions instead of a paid API.
-//! Claude generation remains closed pending pre-launch spending proof. No fallback
-//! is attempted while Codex lacks provider-enforced included-only protection.
+//! Each job selects one engine. Existing callers retain Claude as their default;
+//! callers migrating to shared routing can explicitly select Codex. Runtime
+//! eligibility remains checked by the selected adapter, with no fallback.
 use super::models::{self, RequestRecord};
 use super::persistence::Db;
 use serde_json::Value;
 use std::{path::PathBuf, sync::OnceLock, time::{Duration, Instant}};
+use std::sync::{Arc, atomic::{AtomicBool, Ordering}};
+struct CancelJob(Arc<AtomicBool>);
+impl Drop for CancelJob { fn drop(&mut self) { self.0.store(true, Ordering::Release); } }
 
 static APP_DATA: OnceLock<PathBuf> = OnceLock::new();
+pub(crate) fn app_data() -> Result<&'static std::path::Path, String> {
+    APP_DATA.get().map(PathBuf::as_path).ok_or_else(|| "Olympus data folder is not initialized".into())
+}
 #[cfg(test)]
 pub static APP_DATA_FOR_TESTS: &OnceLock<PathBuf> = &APP_DATA;
 
@@ -25,16 +32,32 @@ pub fn available() -> bool {
 }
 
 pub fn readiness() -> super::analysis_readiness::AnalysisReadiness {
+    readiness_for(Engine::Claude)
+}
+pub(crate) fn readiness_on(provider: &str) -> super::analysis_readiness::AnalysisReadiness {
+    match Engine::select(provider) {
+        Ok(engine)=>readiness_for(engine),
+        Err(error)=>super::analysis_readiness::AnalysisReadiness::waiting("blocked","runtime",error),
+    }
+}
+
+fn readiness_for(engine: Engine) -> super::analysis_readiness::AnalysisReadiness {
     use super::analysis_readiness::{acceptance_wait, AnalysisReadiness};
     if super::acceptance::active() { return acceptance_wait(); }
-    if let Err(reason) = super::claude_subscription::require_generation() {
+    let eligibility = match engine {
+        Engine::Claude => app_data().and_then(super::claude_subscription::require_generation),
+        Engine::Codex => super::subscription::require_generation(),
+    };
+    if let Err(reason) = eligibility {
         return AnalysisReadiness::waiting("blocked", "generation_protection", reason);
     }
-    let Some(dir) = APP_DATA.get() else {
+    if engine == Engine::Claude {
+      let Some(dir) = APP_DATA.get() else {
         return AnalysisReadiness::waiting("blocked", "app_data", "The application data folder is not initialized.");
     };
     if !super::claude_subscription::is_confirmed(dir) {
         return AnalysisReadiness::waiting("blocked", "account_confirmation", "Subscription analysis is waiting for account confirmation.");
+    }
     }
     AnalysisReadiness::unverified("Subscription preflight passed; runtime eligibility and output quality remain unverified.")
 }
@@ -54,13 +77,31 @@ impl Tier {
         }
     }
 }
+pub(crate) fn selected_model(provider: &str, tier: Tier) -> Result<String,String> {
+    Ok(Engine::select(provider)?.model(tier).to_owned())
+}
 const JOB_LIMIT: Duration = Duration::from_secs(300);
 
 /// Runs `instructions` over `input` and returns one JSON object as text that
 /// matches the schema's required fields and their basic types. Fills `record`
 /// as the paid route did, for Model diagnostics; the caller saves it.
 pub async fn run(tier: Tier, instructions: &str, input: Value, schema: Value, record: &mut RequestRecord) -> Result<String, String> {
-    if let Err(error) = readiness().require() {
+    run_on("claude-code", tier, instructions, input, schema, record).await
+}
+
+/// Explicit engine selection; no automatic provider or paid fallback.
+pub async fn run_on(provider: &str, tier: Tier, instructions: &str, input: Value, schema: Value, record: &mut RequestRecord) -> Result<String, String> {
+    let engine = match Engine::select(provider) {
+        Ok(engine) => engine,
+        Err(error) => {
+            record.status = "blocked".into();
+            record.error_code = Some(error.clone());
+            return Err(error);
+        }
+    };
+    record.provider = engine.provider().into();
+    record.requested_model = engine.model(tier).into();
+    if let Err(error) = readiness_for(engine).require() {
         // Some callers have already persisted this record. A preflight refusal
         // must not leave diagnostics claiming inference is still running.
         record.status = "blocked".into();
@@ -70,39 +111,35 @@ pub async fn run(tier: Tier, instructions: &str, input: Value, schema: Value, re
     let prompt = job_prompt(&input, &schema)?;
     let started = Instant::now();
     record.reasoning_effort = None;
-    let mut errors = Vec::new();
-    for engine in [Engine::Claude] {
-        record.provider = engine.provider().into();
-        record.requested_model = engine.model(tier).into();
-        let (system, attempt, checked) = (instructions.to_string(), prompt.clone(), schema.clone());
-        let outcome = tauri::async_runtime::spawn_blocking(move || {
-            let (text, model) = engine.run(tier, &system, attempt)?;
-            Ok::<_, String>((extract_object(&text, &checked)?, model))
-        })
-        .await
-        .map_err(|_| "Subscription job worker failed".to_string())
-        .and_then(|result| result);
-        match outcome {
-            Ok((json, model)) => {
-                record.status = "completed".into();
-                record.actual_model = Some(model);
-                record.error_code = None;
-                record.latency_ms = Some(started.elapsed().as_millis() as u64);
-                record.usage = Some(serde_json::json!({"billing_status": "included_subscription"}));
-                if !errors.is_empty() {
-                    record.fallback_from = Some(Engine::Claude.provider().into());
-                    record.escalation_reason = Some(errors.join(" | ").chars().take(300).collect());
-                }
-                return Ok(json);
-            }
-            Err(error) => errors.push(format!("{}: {error}", engine.provider())),
+    record.fallback_from = None;
+    record.escalation_reason = None;
+    let (system, attempt, checked) = (instructions.to_string(), prompt, schema);
+    let cancel = Arc::new(AtomicBool::new(false));
+    let _cancel_guard = CancelJob(cancel.clone());
+    let outcome = tauri::async_runtime::spawn_blocking(move || {
+        let (text, model) = engine.run(tier, &system, attempt, cancel)?;
+        Ok::<_, String>((extract_object(&text, &checked)?, model))
+    })
+    .await
+    .map_err(|_| "Subscription job worker failed".to_string())
+    .and_then(|result| result);
+    match outcome {
+        Ok((json, model)) => {
+            record.status = "completed".into();
+            record.actual_model = Some(model);
+            record.error_code = None;
+            record.latency_ms = Some(started.elapsed().as_millis() as u64);
+            record.usage = Some(serde_json::json!({"billing_status": "included_subscription"}));
+            Ok(json)
+        }
+        Err(error) => {
+            record.status = "failed".into();
+            record.latency_ms = Some(started.elapsed().as_millis() as u64);
+            let error = format!("subscription_job_unavailable: {}: {error}", engine.provider());
+            record.error_code = Some(error.chars().take(200).collect());
+            Err(error)
         }
     }
-    record.status = "failed".into();
-    record.latency_ms = Some(started.elapsed().as_millis() as u64);
-    let error = format!("subscription_job_unavailable: {}", errors.join(" | "));
-    record.error_code = Some(error.chars().take(200).collect());
-    Err(error)
 }
 
 /// `run` for callers without a record of their own: creates, fills and saves one.
@@ -115,26 +152,37 @@ pub async fn structured(db: &Db, purpose: &str, instructions: &str, input: Value
     result
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Engine {
     Claude,
+    Codex,
 }
 impl Engine {
+    fn select(provider: &str) -> Result<Self, String> {
+        match provider {
+            "codex" => Ok(Self::Codex),
+            "claude-code" => Ok(Self::Claude),
+            _ => Err("Choose a supported subscription engine explicitly. No fallback was attempted.".into()),
+        }
+    }
     fn provider(self) -> &'static str {
         match self {
             Engine::Claude => "claude-subscription",
+            Engine::Codex => "codex-subscription",
         }
     }
     fn model(self, tier: Tier) -> &'static str {
         match self {
             Engine::Claude => tier.claude_model(),
+            Engine::Codex => super::subscription::model_id(),
         }
     }
-    fn run(self, tier: Tier, system: &str, prompt: String) -> Result<(String, String), String> {
+    fn run(self, tier: Tier, system: &str, prompt: String, cancel: Arc<AtomicBool>) -> Result<(String, String), String> {
         match self {
+            Engine::Codex => super::subscription::run_job_cancellable(system, prompt, JOB_LIMIT, cancel),
             Engine::Claude => {
                 let app_data = APP_DATA.get().ok_or("Olympus data folder unavailable")?;
-                super::claude_subscription::run_job(app_data, Some(tier.claude_model()), system, prompt, JOB_LIMIT)
+                super::claude_subscription::run_job_cancellable(app_data, Some(tier.claude_model()), system, prompt, JOB_LIMIT, cancel)
             }
         }
     }
@@ -219,13 +267,38 @@ mod tests {
     }
 
     #[test]
-    fn background_models_are_claude_only() {
+    fn claude_background_tiers_keep_their_models() {
         assert_eq!(Engine::Claude.model(Tier::Deep), "claude-opus-5-5");
         assert_eq!(Engine::Claude.model(Tier::Quick), "claude-sonnet-5-5");
         for tier in [Tier::Deep, Tier::Quick] {
             assert!(super::super::claude_subscription::CLAUDE_MODELS.iter().any(|(id, _)| *id == tier.claude_model()));
         }
         assert_eq!(Engine::Claude.provider(), "claude-subscription");
+    }
+    #[test]
+    fn background_engine_selection_is_explicit_without_fallback() {
+        assert_eq!(Engine::select("codex").unwrap(), Engine::Codex);
+        assert_eq!(Engine::select("claude-code").unwrap(), Engine::Claude);
+        for invalid in ["", "auto", "openai", "legacy-api", "ollama"] {
+            assert!(Engine::select(invalid).is_err());
+        }
+        for tier in [Tier::Deep, Tier::Quick] {
+            assert_eq!(Engine::Codex.model(tier), super::super::subscription::model_id());
+        }
+        assert_eq!(Engine::Codex.provider(), "codex-subscription");
+    }
+    #[test]
+    fn unavailable_explicit_engine_does_not_attempt_another_provider() {
+        for (provider, recorded) in [("codex", "codex-subscription"), ("claude-code", "claude-subscription")] {
+            let mut record = RequestRecord::new(&models::resolve(models::Capability::Primary), "fixture");
+            let result = tauri::async_runtime::block_on(run_on(provider, Tier::Quick, "fixture", json!({}), schema(), &mut record));
+            assert!(result.is_err());
+            assert_eq!(record.provider, recorded);
+            assert_eq!(record.status, "blocked");
+            assert!(record.actual_model.is_none());
+            assert!(record.fallback_from.is_none());
+            assert!(record.usage.is_none());
+        }
     }
     #[test]
     fn required_fields_keep_their_declared_types() {

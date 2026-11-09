@@ -40,9 +40,9 @@ Break these and something breaks quietly rather than loudly.
 
 ## Primary reasoning
 
-The default route is OpenAI Responses (Sol, medium), with explicit one-request Astra Deep Analysis (high). Read `docs/MODEL-ROUTING.md`. Central IDs live in `commands/models.rs`. Preserve local history, `store: false`, structured voice output, and request provenance. Claude Code delegation remains a separate execution driver.
+Conversation reasoning uses the explicitly selected Codex or Claude Code subscription adapter. Paid Responses and Anthropic API reasoning remain denied by the spending policy. Read `docs/MODEL-ROUTING.md`. Central IDs live in `commands/models.rs`. Preserve local history, structured output, and actual request provenance. Claude Code coding delegation remains a separate execution driver.
 
-Direction, approved and not yet built: primary reasoning moves to a subscription engine, with Codex and Claude Code as equals and neither required (`docs/ARMORY-PLAN.md`). Until its Phase 1 lands, the route above is what runs. Engines never receive an API key, and delegated Claude Code launches only on a subscription sign-in (`commands/engines.rs`).
+Structured background work uses `commands/execution.rs` with an explicit subscription or local engine. Opening briefs have a reversible investigative workflow setting. An unavailable selected engine reports a failure; it does not switch to a paid API. Subscription launches use provider-owned sign-in and account-bound confirmation that paid extras are disabled. This confirmation is not a provider-enforced per-request spending cap.
 
 ## Anthropic API constraints
 
@@ -63,7 +63,7 @@ Settled in conversation with the owner — treat as given unless he revisits the
 
 **Voice: dry and economical.** State what happened, offer the thing that wasn't asked for but is needed, stop. No "Great question", no exclamation marks, no enthusiasm it hasn't earned. This is encoded in the system prompt in `assistant.rs` and applies to the app's own copy too.
 
-**It speaks first once, when it opens.** Decided 2026-09-28, following `OLYMPUS-MANUAL.md` Proactivity stage 1: a short project briefing composed deterministically from provable state (commits since the last launch, recorded checkpoints, the operator's own next step), spoken when Auto Speak is on, and switchable off with the Opening Briefing preference. See `src/services/openingBriefing.ts`. Otherwise it reacts to the operator's initiation. Scheduled rhythms (a morning brief, an end-of-day close-out) are wanted *later* — `08 - Daily Briefs` in the vault is their destination. Not now.
+**It speaks first once, when it opens.** A brief should explain meaningful changes, their implications for Kevin, and whether he needs to act, drawing on eligible email, project and durable context. The investigative workflow uses bounded source reads and validates claims before saving. Only a newly completed brief can autoplay when Auto Speak is on; a dated previous brief remains visible while updating. Opening Briefing can be switched off. See `docs/BRIEFING-SYNTHESIS.md`. Scheduled rhythms remain separate from startup briefing behavior.
 
 Background Communications situation analysis, approved by the operator and recorded in `OLYMPUS-MANUAL.md`, runs while the app is open and only updates the Communications view (it can be paused).
 

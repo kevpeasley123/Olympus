@@ -291,32 +291,54 @@ export function useDashboardData() {
   // Displayed-item receipts are separate from launch and speech state.
   const briefingLock = useRef(false);
   const [briefingPending, setBriefingPending] = useState(false);
+  const [previousBriefing,setPreviousBriefing] = useState<ConversationMessage|null>(null);
+  const [briefingNoUpdate,setBriefingNoUpdate] = useState(false);
+  const [briefingCompared,setBriefingCompared] = useState(false);
+  const cancelBriefing=useCallback(async()=>{
+    if(!briefingLock.current)return;
+    openingBriefed.current = true;
+    const confirmed=await briefingScope.current.invalidate();
+    if(briefingMounted.current){setBriefingNoUpdate(false);setBriefingCompared(false);setChatError(confirmed?"Briefing stop confirmed. A result saved just before cancellation may remain in history.":"Stop requested, but Olympus could not confirm that the worker stopped.");}
+  },[]);
+  useEffect(()=>{setPreviousBriefing(null);setBriefingNoUpdate(false);setBriefingCompared(false)},[chatSession.id]);
   const briefingMounted = useRef(true);
   useEffect(() => { briefingMounted.current = true; return () => { briefingMounted.current = false; }; }, []);
   // Native synthesis saves the exact source-bound text before returning it.
   // Display it unchanged; acknowledgement happens only through the visible brief.
   const showLocalBrief = useCallback(async (session: ChatSession, active: () => boolean): Promise<boolean> => {
-    if (session.temporary || !isTauriRuntime() || projectsError || taskStore.error || runStore.error || taskStore.loading || runStore.loading || boardRef.current.some(row => row.operationalStatus === "NEEDS_YOU" || row.operationalStatus === "BLOCKED")) return false;
+    setBriefingNoUpdate(false);
+    setBriefingCompared(false);
+    if (session.temporary || !isTauriRuntime()) return false;
     const projectIds = dashboardRef.current.projects
       .filter(p => p.repoState === "git-active" || p.repoState === "git-pending")
       .sort((a, b) => (Date.parse(b.lastCommitAt ?? "") || 0) - (Date.parse(a.lastCommitAt ?? "") || 0))
       .slice(0, 3).map(p => p.id);
     let message: ConversationMessage | null;
     try {
+        const previous = await invoke<ConversationMessage|null>("briefing_previous", {conversationId:session.id}).catch(()=>null);
+        if (!active()) return true;
+        setPreviousBriefing(previous);
       await waitForBriefMail(active);
       if (!active()) return true;
       const ticket = await invoke<string>("briefing_local_prepare", { conversationId: session.id });
       if (!active()) { await briefingScope.current.invalidate(); return true; }
-      message = await invoke<ConversationMessage | null>("briefing_local", { conversationId: session.id, ticket, projectIds });
+        const result = briefingOutcome(await invoke("briefing_local", { conversationId: session.id, ticket, projectIds }));
+        if(!active())return true;
+        if(result.outcome==="shadow"){setBriefingCompared(true);return true;}
+        message=result.message;
     }
     catch (error) {
       if (!active()) return true;
       const reason = String(error);
-      if (!reason.includes("local_analysis_not_enabled")) setChatError("The local brief could not finish. Available updates are shown below; a fresh synthesis is still needed.");
+        if (!reason.includes("briefing_legacy_unconfigured")) {
+          setChatError(briefingFailure(error));
+        return true;
+      }
       return false;
     }
     if (!active()) return true;
-    if (!message) return false;
+    if (!message) { setBriefingNoUpdate(true); return true; }
+    setPreviousBriefing(null);
     message.kind = "briefing";
     message.voice = { kind: "output", spokenResponse: message.content, ...(dashboardRef.current.settings.autoSpeak ? {} : { playback: "skipped" as const }) };
     dashboardRef.current = { ...dashboardRef.current, conversation: [...dashboardRef.current.conversation, message] };
@@ -324,7 +346,7 @@ export function useDashboardData() {
     setOpeningBriefing({ id: message.id, text: message.content });
     briefSaved(message.id);
     return true;
-  }, [projectsError, taskStore.error, runStore.error, taskStore.loading, runStore.loading]);
+  }, []);
   const projectsScanned = projectScan.status !== "loading";
   useEffect(() => {
     if (openingBriefed.current || !hydrated || !projectsScanned || taskStore.loading || runStore.loading) return;
@@ -657,7 +679,7 @@ export function useDashboardData() {
       quickApps: dashboardState.quickApps,
       projects: dashboardState.projects,
       sessionBoundary,
-      openingBriefing, requestBriefing, briefingPending,
+      openingBriefing, requestBriefing, briefingPending, previousBriefing, briefingNoUpdate, briefingCompared, cancelBriefing,
       projectScan,
       /** True in the browser preview: projects and conversation are seed fixtures. */
       demoData: DEMO_DATA,
@@ -683,7 +705,7 @@ export function useDashboardData() {
       dashboardState,
       hydrated,
       sessionBoundary,
-      openingBriefing, requestBriefing, briefingPending,
+      openingBriefing, requestBriefing, briefingPending, previousBriefing, briefingNoUpdate, briefingCompared, cancelBriefing,
       projectScan,
       projectsError,
       refreshProjects,
@@ -703,3 +725,4 @@ export function useDashboardData() {
     ]
   );
 }
+import {briefingOutcome, briefingFailure} from '../services/briefingOutcome';
