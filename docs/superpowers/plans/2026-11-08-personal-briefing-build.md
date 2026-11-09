@@ -51,8 +51,8 @@ Files: briefing.rs, briefing_native_evidence.rs, briefing_synthesis.rs, briefing
 
 ## Task 5: Contributions, consolidation and release
 - [x] Route existing background memory/reconciliation through qualified execution; test retry/restart idempotency and contribution receipts.
-- [ ] Migrate callers and delete obsolete snippet/duplicate synthesis paths only after replacement acceptance.
-- [ ] Update manual, architecture, model routing and handoff; run required release gates and installed acceptance.
+- [x] Migrate callers to shared execution; obsolete connection UI removed. Legacy briefing retained deliberately as the explicit rollback option; no automatic fallback.
+- [x] Update manual, architecture, model routing and handoff; run required release gates and installed acceptance.
 - [x] Independent whole-branch review before merge/install; report actual remaining provider limits.
 
 ## Execution ledger
@@ -76,3 +76,5 @@ Files: briefing.rs, briefing_native_evidence.rs, briefing_synthesis.rs, briefing
 - Final Task 4 robustness verification: 132 native briefing tests passed, four intentional live tests ignored; shared cached-body normalization tests passed. HTML-only layout no longer consumes body-read sections, while original source bytes and fingerprints remain unchanged. Whole-read rollback at packet/history limits retains only fully bound prior evidence and records partial coverage, including the final-read/recoverable-error edge. Repository-wide gates and installed acceptance remain owned by the release task.
 
 - Final release gate: 877 native tests passed, 38 intentionally ignored; all 89 release scripts passed. Private Codex extraction passed in 29.36 seconds retaining independently verified details without destructive model retry. Independent final review approved strict optional-detail omission. Local 8B extraction remains unqualified after quote/output/repetition failures; explicit Codex rollout is selected. Legacy workflow remains a deliberate reversible rollout path until installed acceptance, not an automatic fallback. Installation remains pending.
+
+- Installed 0.52 on November 8 at 22:52 Phoenix; executable version verified. Native Gmail sync and Codex extraction completed; saved investigative Codex route survived restart. Actual gpt-6.1-sol investigation/composition/verification produced a source-backed order update, then a second refresh returned checked-empty without duplicate publication. Dated prior preview and blue Codex mode observed. Personal output is a narrow baseline; no live memory contribution was produced, and local model quality remains unqualified.
