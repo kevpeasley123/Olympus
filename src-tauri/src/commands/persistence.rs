@@ -45,10 +45,13 @@ pub struct ConversationMessage {
 #[serde(rename_all="camelCase",deny_unknown_fields)]
 pub struct BriefingSource {pub id:String,pub revision:String}
 #[derive(Debug,Clone,Serialize,Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct BriefingCoverage {pub mail:bool,pub projects:bool}
+#[derive(Debug,Clone,Serialize,Deserialize)]
 #[serde(tag="kind",rename_all="snake_case",rename_all_fields="camelCase",deny_unknown_fields)]
 pub enum BriefingOrigin {
     DeterministicFallback {prepared_at:i64,sources:Vec<BriefingSource>},
-    ModelSynthesis {prepared_at:i64,sources:Vec<BriefingSource>,packet_revision:String,provider:String,model:String,request_id:String},
+    ModelSynthesis {prepared_at:i64,sources:Vec<BriefingSource>,packet_revision:String,provider:String,model:String,request_id:String,#[serde(default,skip_serializing_if="Option::is_none")] coverage:Option<BriefingCoverage>},
 }
 fn validate_and_consume_briefing_origin(c:&Connection,conversation_id:&str,message:&ConversationMessage,origin:&BriefingOrigin)->Result<(),String>{
     let invalid=||"Invalid briefing origin".to_string();
@@ -612,9 +615,9 @@ mod tests {
         r.usage=Some(serde_json::json!({"briefing_binding":{"conversationId":"chat","contentDigest":format!("{:x}",Sha256::digest(b"Synthetic brief")),"origin":origin,"delivery":null}}));
         c.execute("UPDATE model_requests SET record_json=?1",[serde_json::to_string(&r).unwrap()]).unwrap();
         assert!(store_messages(&mut c,"other-chat",vec![serde_json::from_value(value.clone()).unwrap()]).is_err());
-        for field in ["content","preparedAt","packetRevision","sources"] {
+        for field in ["content","preparedAt","packetRevision","sources","coverage"] {
             let mut tampered=value.clone();
-            match field {"content"=>tampered["content"]=serde_json::json!("Invented claim"),"preparedAt"=>tampered["briefing"][field]=serde_json::json!(1001),"sources"=>tampered["briefing"][field]=serde_json::json!([]),_=>tampered["briefing"][field]=serde_json::json!("c".repeat(64))};
+            match field {"coverage"=>tampered["briefing"][field]=serde_json::json!({"mail":true,"projects":false}),"content"=>tampered["content"]=serde_json::json!("Invented claim"),"preparedAt"=>tampered["briefing"][field]=serde_json::json!(1001),"sources"=>tampered["briefing"][field]=serde_json::json!([]),_=>tampered["briefing"][field]=serde_json::json!("c".repeat(64))};
             assert!(store_messages(&mut c,"chat",vec![serde_json::from_value(tampered).unwrap()]).is_err());
         }
         store_messages(&mut c,"chat",vec![serde_json::from_value(value.clone()).unwrap()]).unwrap();

@@ -1,3 +1,4 @@
+import {briefingCoverage} from "../../services/briefingSynthesis";
 import { briefDisplayed } from "../../services/displayedBrief";
 import { LocalSpeechControl } from "./LocalSpeechControl";
 import {CommandBrief} from "./CommandBrief";
@@ -412,6 +413,7 @@ const ConversationBubble = memo(function ConversationBubble({
   const output = message.voice?.kind === "output" ? message.voice : undefined;
   const spoken = output?.spokenResponse;
   const briefing = isBriefing(message);
+  const coverage = briefingCoverage(message.briefing);
   const bubble=useRef<HTMLElement>(null);
   useEffect(()=>{
     if(!briefing || !bubble.current)return;
@@ -437,7 +439,7 @@ const ConversationBubble = memo(function ConversationBubble({
       <p className="console-message-label">
         {message.role === "assistant" && <span className="console-omega" aria-hidden="true">Ω</span>}
         {message.role === "user" ? "YOU" : message.role === "assistant" ? "OLYMPUS" : "SYSTEM"}
-        {briefing ? <span className="console-briefing-label">{message.id.includes("-sitrep-") ? "Situation briefing" : "Opening briefing"} · assembled from available records</span>
+        {briefing ? <span className="console-briefing-label">{message.id.includes("-sitrep-") ? "Situation briefing" : "Opening briefing"}</span>
           : <span className="console-modality" title={message.voice ? "Voice message" : "Typed message"}>{message.voice ? <Mic size={10} aria-label="Voice"/> : <Keyboard size={10} aria-label="Text"/>}</span>}
         {turn?.scope === "gmail-workspace" && <span className="console-turn-scope" title="Asked from Communications; retrieval was scoped to cached Gmail">Communications</span>}
         {live && <span className="console-turn-state">Listening</span>}
@@ -445,6 +447,7 @@ const ConversationBubble = memo(function ConversationBubble({
       </p>
       {turn ? <><p className="console-command-text">{turn.text}</p>{turn.attachment && <AttachedContext attachment={turn.attachment}/>}</>
         : <ResponseText text={message.content} unrestricted={briefing || latest}/>}
+      {coverage && <details className="section-copy console-briefing-coverage"><summary>About this brief</summary><p>{coverage}</p></details>}
       {output && <div className="console-audio-footer">
         {spoken && <ReplayVoice text={spoken} messageId={message.id}/>}
         <small className="console-playback">{playback}</small>

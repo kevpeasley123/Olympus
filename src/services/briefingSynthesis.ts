@@ -31,5 +31,16 @@ export async function boundedSynthesis<T>(work:Promise<T>,limit=30_000):Promise<
 
 /** Persisted attribution, not proof that a cited source entails a generated claim. */
 export type BriefingOrigin={preparedAt:number;sources:{id:string;revision:string}[]} & (
- {kind:'deterministic_fallback'} | (SynthesisResult['provenance'] & {packetRevision:string})
+ {kind:'deterministic_fallback'} | (SynthesisResult['provenance'] & {packetRevision:string;coverage?:{mail:boolean;projects:boolean}})
 );
+
+/** Native coverage describes the selected packet, not a complete account audit. */
+export function briefingCoverage(origin?:BriefingOrigin):string|null {
+ if(origin?.kind!=='model_synthesis'||!origin.coverage)return null;
+ const {mail,projects}=origin.coverage;
+ if(typeof mail!=='boolean'||typeof projects!=='boolean')return null;
+ const included=[mail?'selected recent email':null,projects?'project code changes':null].filter(Boolean).join(' and ');
+ if(!included)return null;
+ const omitted=[!mail?'email':null,!projects?'project code changes':null,'tasks','agent runs'].filter(Boolean);
+ return `Based on ${included}. This brief doesn't cover ${omitted.slice(0,-1).join(', ')} or ${omitted[omitted.length-1]}.`;
+}

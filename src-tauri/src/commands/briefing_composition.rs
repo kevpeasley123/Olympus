@@ -55,15 +55,9 @@ pub(super) fn compose_with_projects(tx:&Transaction<'_>,chat:&str,packet:&Input,
         let correction=v["resolution"]["correction"].as_str().ok_or_else(invalid)?;
         if !correction.is_empty(){if !super::bounded(correction,1000){return Err(invalid());}text.push(format!("Your clarification about {subject}: {correction}"));cited.insert(e.id.clone());}
     }
-    // Coverage is native wording, bound to the same exact saved content.
-    let has_mail=packet.evidence.iter().any(|e|e.kind=="mail");
-    let has_projects=packet.evidence.iter().any(|e|e.kind=="project");
-    let coverage=match(has_mail,has_projects){
-      (true,true)=>"Coverage: selected recent inbox messages and Git changes; tasks and runs are not reviewed here.",
-      (true,false)=>"Coverage: selected recent inbox messages; project changes, tasks and runs are not reviewed here.",
-      _=>"Coverage: selected Git changes; email, tasks and runs are outside this update."
-    };
-    let content=format!("{}\n\n{}",text.join("\n\n"),coverage);if content.len()>16000{return Err(invalid());}
+    // Coverage stays bound to native provenance, outside the spoken prose.
+    let coverage=Some(persistence::BriefingCoverage{mail:packet.evidence.iter().any(|e|e.kind=="mail"),projects:packet.evidence.iter().any(|e|e.kind=="project")});
+    let content=text.join("\n\n");if content.len()>16000{return Err(invalid());}
     let sources=packet.evidence.iter().filter(|e|cited.contains(&e.id)).map(|e|persistence::BriefingSource{id:e.id.clone(),revision:e.revision.clone()}).collect();
     let mut plan=briefing::DisplayPlan{prepared_at:output.prepared_at,items:packet.evidence.iter().filter(|e|cited.contains(&e.id)&&!e.context_only).map(|e|briefing::DeliveredItem{id:e.id.clone(),revision:e.revision.clone()}).collect(),cursors:vec![]};
     if let Some(mapped)=projects{
@@ -76,7 +70,7 @@ pub(super) fn compose_with_projects(tx:&Transaction<'_>,chat:&str,packet:&Input,
     if record.id!=provenance.request_id||record.purpose!="briefing_synthesis"||record.status!="completed"||record.provider!=provenance.provider||record.actual_model.as_ref()!=Some(&provenance.model)||!super::bounded(&provenance.provider,128)||!super::bounded(&provenance.model,128){return Err(invalid());}
     let expected_result=json!({"packetRevision":output.revision,"preparedAt":output.prepared_at,"outputDigest":format!("{:x}",Sha256::digest(serde_json::to_vec(output).map_err(|_|invalid())?))});
     if record.usage.as_ref().and_then(|u|u.get("briefing_result"))!=Some(&expected_result){return Err("briefing_native_dispatch_binding_missing".into());}
-    let origin=persistence::BriefingOrigin::ModelSynthesis{prepared_at:output.prepared_at,sources,packet_revision:packet.revision.clone(),provider:provenance.provider.clone(),model:provenance.model.clone(),request_id:provenance.request_id.clone()};
+    let origin=persistence::BriefingOrigin::ModelSynthesis{prepared_at:output.prepared_at,sources,packet_revision:packet.revision.clone(),provider:provenance.provider.clone(),model:provenance.model.clone(),request_id:provenance.request_id.clone(),coverage};
     let usage=record.usage.get_or_insert_with(||json!({})).as_object_mut().ok_or_else(invalid)?;
     if usage.contains_key("briefing_binding")||usage.contains_key("briefing_consumed"){return Err("briefing_native_result_already_bound".into());}
     usage.insert("briefing_binding".into(),json!({"conversationId":chat,"contentDigest":format!("{:x}",Sha256::digest(content.as_bytes())),"origin":origin,"delivery":plan}));
@@ -103,6 +97,10 @@ pub(super) fn compose_with_projects(tx:&Transaction<'_>,chat:&str,packet:&Input,
   c.execute("INSERT INTO model_requests(id,record_json) VALUES(?1,?2)",params![record.id,serde_json::to_string(&record).unwrap()]).unwrap();
   let tx=c.transaction().unwrap();compose_and_store(&tx,"chat",&packet,&output,now).unwrap();tx.commit().unwrap();
   let content:String=c.query_row("SELECT content FROM conversation_messages",[],|r|r.get(0)).unwrap();
+  assert!(!content.contains("Coverage:"),"Coverage belongs in provenance details, not the spoken briefing");
+  let context:String=c.query_row("SELECT context_json FROM conversation_turn_context",[],|r|r.get(0)).unwrap();
+  let context:serde_json::Value=serde_json::from_str(&context).unwrap();
+  assert_eq!(context["briefing"]["coverage"],json!({"mail":true,"projects":false}));
   assert_eq!(content.matches("Arrival remains unconfirmed.").count(),2);
   assert!(content.contains("Your clarification about Synthetic shipment: I arranged this; it is unrelated to studio dues."));assert!(!content.contains("Unrelated private correction"));
   let payload:String=c.query_row("SELECT payload FROM pending_brief_displays",[],|r|r.get(0)).unwrap();let plan:serde_json::Value=serde_json::from_str(&payload).unwrap();assert_eq!(plan["items"].as_array().unwrap().len(),1);
