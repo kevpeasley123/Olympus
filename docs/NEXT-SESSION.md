@@ -1,10 +1,10 @@
 # Next session
 
-## Olympus 0.52.0 - release acceptance
+## Olympus 0.52.0 - installed November 8, 2026
 
-Worktree: `olympus-skill-backbone`, branch `codex/personal-brief-relevance`,
-based on `27647ae`. Installed application remains 0.51.0 until the installer
-and native acceptance finish. Kevin approved implementation, merge/push/install
+Release PR31 merged at `fc2e2015`; installed executable reports 0.52.0.
+Active worktree: `olympus-skill-backbone`; human-edited registered checkout preserved.
+Kevin approved implementation, merge/push/install
 and selected private Gmail/project/memory evidence through Codex. Private Claude
 acceptance was not authorized. Paid extra usage and automatic purchases are
 disabled by his account-setting confirmation, not a per-request billing guarantee.
@@ -48,6 +48,13 @@ disabled by his account-setting confirmation, not a per-request billing guarante
   structural/attention/source validation and independent review passed.
 - Final native gate: 877 passed, 38 intentionally ignored. All 89 release scripts
   passed. Independent final review approved the optional-detail retention change.
+- Native 0.52 acceptance: Gmail synchronized automatically at 22:52:16 Phoenix;
+  background Codex extraction completed. Investigative Codex settings persisted
+  through restart. Investigation/synthesis/verification used actual gpt-6.1-sol.
+  The first brief surfaced a verified order update; a second returned checked-empty
+  without repeating it. Dated prior preview, cancellation acknowledgment and blue
+  Codex mode were observed in WebView2. Database quick_check passed. This is a
+  narrow personal brief, not evidence of exhaustive or mature personalization.
 - Full visual regression passed 21/21 captures and 22 Organizer checks; frontend
   build passed. Browser routing/prior-brief/cancellation/shadow tests passed.
 - Installed 0.51 Gmail synchronized automatically without reconnecting, most recently
@@ -55,14 +62,18 @@ disabled by his account-setting confirmation, not a per-request billing guarante
 - No mailbox mutation, live OAuth revoke/re-add or paid inference was performed.
   Google OAuth publishing mode and multi-day grant durability remain unverified.
 
-## Remaining release steps
+## Remaining quality boundaries
 
-1. Commit/push/merge the reviewed 0.52 branch and run the installer. Windows
-   administrator approval requires Kevin. Preserve the human-edited desktop checkout.
-2. Explicitly select Codex and investigative briefing for native acceptance; verify
-   fresh Gmail sync, actual useful prose and contribution diagnostics through Tauri.
-   Keep the legacy workflow as a reversible rollout option until native acceptance.
-3. Record actual installation evidence and reconcile the vault from fresh bytes.
+The release is installed. Investigative briefing and email analysis explicitly use
+Codex; normal conversation is selected to Codex. Memory retains its separately
+configured/default Claude route. Durable memory recovery is tested, but no new live
+memory contribution was produced during this acceptance. Do not claim otherwise.
+
+Keep the legacy workflow as a reversible option. Broader personal usefulness needs
+continued evaluation against Kevin's feedback; the observed native brief was accurate
+but narrow. Local model semantic qualification, multi-day OAuth durability, private
+Claude acceptance and delegated execution remain unverified. These are not hidden
+fallback routes. Do not automatically collect other chats or widen mailbox authority.
 
 ## Continuing boundaries
 
