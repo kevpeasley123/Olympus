@@ -122,7 +122,7 @@ Four commands and one background worker write to the vault. All of them resolve 
 | `save_attachment_to_vault` | create | `02 - Research/_attachments/<file>` | `CreateUnique` | No — `copy_to_unique` (`attachments.rs`) claims a free suffixed name with `create_new`; the source is a file the operator picked, named to the webview only by a one-use token |
 | `migrate_pantheon_schema` | **modify** | frontmatter of `02 - Research/*.md` entries | `ModifyAuthored` | **Always**, one confirmation per file with a diff summary |
 | `confirm_project_brief` | **create or modify** | the linked project's note, default `01 - Projects/Linked <id>.md` | `ModifyAuthored` | **Always**, with the diff and the complete purpose and constraints |
-| Chat memory worker (`chat_memory.rs`) | create or modify | `10 - Conversations/<year>/<month>/<date> <title> <tag>.md`, `09 - System/Olympus Memory.md` | `MaintainAuthored` | No — approved by Kevin on 2026-10-13. A chat note is rendered whole only while its bytes match the recorded fingerprint; once Kevin edits it, new messages are only appended, and a note he deleted is not recreated. The memory pass reads his edits as current memory and replaces only the bytes it read |
+| Chat memory worker (`chat_memory.rs`) | create or modify | `10 - Conversations/<year>/<month>/<date> <title> <tag>.md`, `09 - System/Learned/` (legacy prepared jobs may finish `09 - System/Olympus Memory.md`) | `MaintainAuthored` | No — approved by Kevin on 2026-10-13. A chat note is rendered whole only while its bytes match the recorded fingerprint; once Kevin edits it, new messages are only appended, and a note he deleted is not recreated. New learning publishes immutable assertions plus a manifest receipt, preserves authored edits and commits only its exact files; legacy prepared jobs retain compare-before-write completion |
 
 No command deletes or renames a note the operator can see.
 
@@ -527,3 +527,5 @@ the existing statusline and allowlists only quota values/reset/observation times
 `commands/claude_quota.rs` bounds and validates the file read. UI reset timers only
 expire displayed evidence; they do not poll providers. See the same usage document
 for installation, rollback and unknown/stale semantics.
+
+Working task checkpoints use the operational database, scoped by conversation and project identity. Original source revisions, operator constraints, and suggested versus committed actions remain distinct. Research binds its selected subscription route and revalidates completed read stages before reuse. Only a completed parent may publish supported provisional findings through the shared learned-record format. See [CONVERSATIONS-AND-MEMORY.md](docs/CONVERSATIONS-AND-MEMORY.md) and [RESEARCH-VERIFICATION-AGENTS.md](docs/RESEARCH-VERIFICATION-AGENTS.md).

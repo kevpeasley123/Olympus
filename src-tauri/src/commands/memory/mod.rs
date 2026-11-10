@@ -233,3 +233,14 @@ pub fn load_for_turn(service: &MemoryReader, query: &Query) -> super::vault_cont
     memory.recall = Some(service.query(query));
     memory
 }
+
+/// Revalidate learned source messages at the consumer boundary; index snapshots
+/// cannot establish that a conversation still exists or has not been edited.
+pub fn validate_learned(db:&super::persistence::Db,memory:&mut super::vault_context::VaultMemory,temporary:bool){
+    if let Some(packet)=memory.recall.as_mut(){
+        let root=super::get_vault_path();
+        let c=db.0.lock().ok();
+        let enabled=c.as_ref().is_some_and(|c|super::chat_memory::settings(c).use_memory);
+        packet.sources.retain(|s|s.record.kind!="learned" || (!temporary && enabled && c.as_ref().is_some_and(|c|super::learned_records::evidence_current(c,&root,&s.record.evidence))));
+    }
+}

@@ -16,7 +16,7 @@ export default defineConfig({
     // Capture runs do not edit sources. Avoid unrelated HMR socket failures
     // during repeated browser contexts on busy Windows development machines.
     hmr: process.env.OLYMPUS_VISUAL_REVIEW === "1" ? false : undefined,
-    watch: { ignored: ["**/output/**"] },
+    watch: { ignored: ["**/output/**", "**/src-tauri/target/**", "**/.superpowers/**"] },
     port: 31420,
     strictPort: true,
     fs: {

@@ -1,8 +1,10 @@
 # Next session
 
-## Olympus 0.52.0 - installed November 8, 2026
+Development branch feature/source-backed-working-memory implements the approved memory/workflow slices. See [acceptance](reviews/2026-11-09-memory-workflow-acceptance.md). Version 0.53 is prepared for the approved merge, push and installation. Installed acceptance remains pending.
 
-Release PR31 merged at `fc2e2015`; installed executable reports 0.52.0.
+## Olympus 0.53.0 - release prepared November 9, 2026
+
+Prior installed baseline: release PR31 at `fc2e2015`, executable 0.52.0.
 Active worktree: `olympus-skill-backbone`; human-edited registered checkout preserved.
 Kevin approved implementation, merge/push/install
 and selected private Gmail/project/memory evidence through Codex. Private Claude
@@ -85,6 +87,14 @@ reveal the publishing setting. Do not promise that reconnect is never required.
 Kevin requested ideas from gbrain, not adoption. Retrieval, task model resolution
 and source-of-record ideas informed the approved incremental design; no gbrain
 code was installed. See the dated architecture spec for reviewed references.
+
+November 8 follow-up code review: `docs/reviews/2026-11-08-gbrain-memory-orchestration.md`
+compares pinned gbrain source with 0.52. Kevin subsequently approved all four slices;
+the development branch implements source-backed learned records, working checkpoints,
+explicit research routing and one recoverable agent-to-memory pilot. Final checks:
+891 Rust tests passed, three synthetic native Codex checks passed, and frontend build passed.
+Kevin wants conversational, relevant briefs without routine "About this brief"
+copy, covering whichever projects are actually active; that prose change is pending.
 
 Do not publish private mail, credentials or acceptance previews. Do not copy test
 display acknowledgments into production. Keep historical records historical.

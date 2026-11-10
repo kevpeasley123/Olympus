@@ -1,4 +1,4 @@
-//! One fixed communicating pair, not a reusable agent executor. Only operational SQLite writes.
+//! Fixed research pair; only the parent can publish validated provisional memory.
 use super::{
     models::{self, RequestRecord},
     persistence::Db,
@@ -129,6 +129,9 @@ pub struct Run {
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Start {
+    #[serde(default)]
+    pub provider: Option<String>,
+    #[serde(default)] pub resume_from: Option<String>,
     pub id: String,
     pub question: String,
 }
@@ -277,8 +280,18 @@ fn available(key: bool, source: bool) -> Result<(), String> {
         Ok(())
     }
 }
-fn has_key() -> bool {
-    super::subscription_jobs::available()
+fn has_key(provider: Option<&str>) -> bool {
+    provider.map(|p| super::subscription_jobs::readiness_on(p).can_attempt).unwrap_or(false)
+}
+fn route(provider: Option<&str>) -> Result<Value, String> {
+    let provider = provider.ok_or("research_route_required")?;
+    let model = super::subscription_jobs::selected_model(provider, super::subscription_jobs::Tier::Deep)?;
+    let account = match provider {
+        "claude-code" => super::subscription_jobs::app_data().and_then(super::claude_subscription::authorization_binding).ok(),
+        "codex" => super::codex_authorization::confirmed_binding().ok(),
+        _ => None,
+    };
+    Ok(json!({"provider":provider,"model":model,"accountConfirmation":account}))
 }
 fn read_source(root: &Path, relative: &str) -> Result<String, String> {
     if !relative.starts_with("02 - Research/") || !relative.ends_with(".md") {
@@ -783,6 +796,7 @@ fn send(
     Ok(())
 }
 fn child(run: &mut Run, id: &str, round: usize) -> usize {
+    if let Some(index)=run.agents.iter().position(|a|a.definition.id==id && a.round==round){return index;}
     let definition = definition(id).unwrap();
     let index = run.agents.len();
     run.agents.push(AgentRun {
@@ -806,6 +820,7 @@ type ModelFuture<'a> =
 trait Model: Sync {
     fn call<'a>(
         &'a self,
+        provider: &'a str,
         agent: &'a AgentDefinition,
         input: Value,
         record: &'a mut RequestRecord,
@@ -815,52 +830,17 @@ struct LiveModel;
 impl Model for LiveModel {
     fn call<'a>(
         &'a self,
+        provider: &'a str,
         agent: &'a AgentDefinition,
         input: Value,
         record: &'a mut RequestRecord,
     ) -> ModelFuture<'a> {
         Box::pin(async move {
-            match agent.id.as_str() {
-                RESEARCH => research(agent, input, record).await,
-                VERIFY => verification(agent, input, record).await,
-                _ => Err("unknown_handler".into()),
-            }
+            if agent.id != RESEARCH && agent.id != VERIFY { return Err("unknown_handler".into()); }
+            super::execution::structured(provider, "research_verification", &agent.instructions,
+                input, agent.output_schema.clone(), record).await
         })
     }
-}
-async fn research(
-    agent: &AgentDefinition,
-    input: Value,
-    record: &mut RequestRecord,
-) -> Result<String, String> {
-    if agent.id != RESEARCH {
-        return Err("wrong_research_role".into());
-    }
-    crate::commands::subscription_jobs::run(
-        crate::commands::subscription_jobs::Tier::Deep,
-        &agent.instructions,
-        input,
-        agent.output_schema.clone(),
-        record,
-    )
-    .await
-}
-async fn verification(
-    agent: &AgentDefinition,
-    input: Value,
-    record: &mut RequestRecord,
-) -> Result<String, String> {
-    if agent.id != VERIFY {
-        return Err("wrong_verification_role".into());
-    }
-    crate::commands::subscription_jobs::run(
-        crate::commands::subscription_jobs::Tier::Deep,
-        &agent.instructions,
-        input,
-        agent.output_schema.clone(),
-        record,
-    )
-    .await
 }
 async fn dispatch(
     db: &Db,
@@ -872,7 +852,15 @@ async fn dispatch(
 ) -> Result<Value, String> {
     guard(db, run)?;
     source_health(root, &run.sources)?;
+    let binding = &run.definition["route"];
+    let provider = binding["provider"].as_str().ok_or("research_route_required")?.to_owned();
+    if route(Some(&provider))? != *binding { return Err("research_route_changed".into()); }
     let definition = run.agents[index].definition.clone();
+    if run.agents[index].definition_fingerprint!=hash(&super::research_agents::definition(&definition.id)?){return Err("research_definition_changed".into());}
+    if run.agents[index].status=="completed" {
+        if run.agents[index].input.as_ref()!=Some(&input){return Err("completed_stage_input_changed".into());}
+        return run.agents[index].output.clone().ok_or("completed_stage_output_missing".into());
+    }
     // Compiled role authority, never a message/skill-supplied handler or model route.
     if definition.id != RESEARCH && definition.id != VERIFY {
         return Err("unknown_handler".into());
@@ -895,7 +883,7 @@ async fn dispatch(
     checkpoint(db, run)?;
     models::save(db, &record)?;
     let result = {
-        let call = model.call(&definition, input, &mut record);
+        let call = model.call(&provider, &definition, input, &mut record);
         let cancellation = Box::pin(async {
             loop {
                 if let Err(e) = guard(db, run) {
@@ -943,7 +931,7 @@ fn input(
     prior: Option<&ResearchOutput>,
     clarification: Option<&Clarification>,
 ) -> Value {
-    json!({"question":run.question,"round":round,"sources":run.sources.iter().map(|s|json!({"id":s.id,"fingerprint":s.fingerprint,"title":s.source.title,"sourceFile":s.source.source_file,"stance":s.source.stance,"excerpt":s.source.excerpt})).collect::<Vec<_>>(),"priorResearch":prior,"clarification":clarification})
+    json!({"priorFindings":run.definition["priorFindings"],"question":run.question,"round":round,"sources":run.sources.iter().map(|s|json!({"id":s.id,"fingerprint":s.fingerprint,"title":s.source.title,"sourceFile":s.source.source_file,"stance":s.source.stance,"excerpt":s.source.excerpt})).collect::<Vec<_>>(),"priorResearch":prior,"clarification":clarification})
 }
 fn join(
     run: &Run,
@@ -1002,8 +990,12 @@ fn join(
 }
 async fn drive(db: &Db, root: &Path, run: &mut Run, model: &dyn Model) -> Result<(), String> {
     guard(db, run)?;
-    let (sources, warnings) = scan(root, &run.question, &[])?;
+    let (sources, warnings) = if run.sources.is_empty(){scan(root, &run.question, &[])?}else{source_health(root,&run.sources)?;(run.sources.clone(),vec![])};
     run.sources = sources;
+    if run.definition["resumedFrom"].is_null(){
+        let prior=super::learned_records::research_context(root,&run.question,&run.sources.iter().map(|s|(s.source.source_file.clone(),s.fingerprint.clone())).collect());
+        if !prior.is_empty(){run.definition["priorFindings"]=json!(prior);}
+    }
     warn_skipped(run, &warnings);
     event(run,"scope","completed",&format!("{} excerpts selected; at most 3 initially, 6 overall; lexical retrieval is not exhaustive.",run.sources.len()));
     checkpoint(db, run)?;
@@ -1173,9 +1165,13 @@ async fn execute(db: &Db, root: &Path, mut run: Run, model: &dyn Model) -> Resul
         );
         checkpoint(db, &run)?;
     }
+    if run.status=="completed" {
+        if let Err(error)=publish_findings(db,root,&run.id){eprintln!("[research-memory] {error}");}
+    }
     Ok(run)
 }
 fn begin(db: &Db, request: Start) -> Result<(Run, bool), String> {
+    let binding = route(request.provider.as_deref())?;
     if request.id.len() < 8
         || request.id.len() > 80
         || !request
@@ -1223,7 +1219,7 @@ fn begin(db: &Db, request: Start) -> Result<(Run, bool), String> {
         started_at: now(),
         finished_at: None,
         deadline: (Utc::now() + chrono::Duration::seconds(DEADLINE_SECONDS)).to_rfc3339(),
-        definition: json!({"graph":graph(),"agents":[definition(RESEARCH)?,definition(VERIFY)?],"skills":skills(),"scope":SOURCE_SCOPE,"maxSources":6,"maxClaims":5,"maxModelRequests":4,"maxClarifications":1,"deadlineSeconds":DEADLINE_SECONDS,"retries":0,"joinRule":"Join after the last dispatched verifier; conditional nodes may be skipped.","build":env!("CARGO_PKG_VERSION")}),
+        definition: json!({"route":binding,"graph":graph(),"agents":[definition(RESEARCH)?,definition(VERIFY)?],"skills":skills(),"scope":SOURCE_SCOPE,"maxSources":6,"maxClaims":5,"maxModelRequests":4,"maxClarifications":1,"deadlineSeconds":DEADLINE_SECONDS,"retries":0,"joinRule":"Join after the last dispatched verifier; conditional nodes may be skipped.","build":env!("CARGO_PKG_VERSION")}),
         sources: vec![],
         agents: vec![],
         messages: vec![],
@@ -1236,7 +1232,7 @@ fn begin(db: &Db, request: Start) -> Result<(Run, bool), String> {
         &mut run,
         "parent",
         "started",
-        "Explicit operator request; Research sources only; no source, project or memory writes.",
+        "Explicit operator request; Research sources only. Parent may publish source-backed provisional findings; agents cannot write sources or projects.",
     );
     let raw = serde_json::to_string(&run).unwrap();
     tx.execute(
@@ -1261,7 +1257,26 @@ fn prepare(db: &Db, root: &Path, request: Start, key: bool) -> Result<(Run, bool
         return Err("run_id_scope_conflict".into());
     }
     available(key, root.join("02 - Research").is_dir())?;
-    begin(db, request)
+    let prior=request.resume_from.as_ref().map(|id|load(db,id)).transpose()?;
+    if let Some(prior)=&prior {
+        if prior.status!="interrupted" || prior.question!=request.question.trim(){return Err("only_interrupted_same_question_can_resume".into());}
+        if prior.definition["route"]!=route(request.provider.as_deref())?{return Err("research_route_changed".into());}
+        source_health(root,&prior.sources)?;
+        for agent in &prior.agents {if agent.definition_fingerprint!=hash(&definition(&agent.definition.id)?){return Err("research_definition_changed".into());}}
+    }
+    let (mut run,created)=begin(db,request)?;
+    if created {
+        if let Some(prior)=prior {
+            let first_ids:Vec<String>=prior.agents.iter().find(|a|a.definition.id==RESEARCH && a.round==0).and_then(|a|a.input.as_ref()).and_then(|i|i["sources"].as_array()).map(|ss|ss.iter().filter_map(|s|s["id"].as_str().map(str::to_owned)).collect()).unwrap_or_default();
+            run.sources=prior.sources.iter().filter(|s|first_ids.contains(&s.id)).cloned().collect();
+            run.agents=prior.agents.iter().filter(|a|a.status=="completed").cloned().map(|mut a|{a.parent_run=run.id.clone();a.id=format!("{}:{}:{}",run.id,a.definition.id,a.round);a}).collect();
+            run.definition["priorFindings"]=prior.definition["priorFindings"].clone();
+            run.definition["resumedFrom"]=json!({"id":prior.id,"revision":hash(&prior)});
+            event(&mut run,"parent","resumed","New bounded run; validated completed read stages retained. Original interrupted history is unchanged.");
+            checkpoint(db,&run)?;
+        }
+    }
+    Ok((run,created))
 }
 #[tauri::command]
 pub fn start_research_verification(
@@ -1270,7 +1285,8 @@ pub fn start_research_verification(
     request: Start,
 ) -> Result<Run, String> {
     let root = super::get_vault_path();
-    let (run, created) = prepare(&db, &root, request, has_key())?;
+    let ready = has_key(request.provider.as_deref());
+    let (run, created) = prepare(&db, &root, request, ready)?;
     if created {
         let task = run.clone();
         tauri::async_runtime::spawn(async move {
@@ -1306,8 +1322,8 @@ pub fn cancel_research_verification(db: State<Db>, id: String) -> Result<(), Str
     cancel(&db, &id)
 }
 #[tauri::command]
-pub fn research_agent_catalog(db: State<Db>) -> Result<Value, String> {
-    catalog(&db, &super::get_vault_path(), has_key())
+pub fn research_agent_catalog(db: State<Db>, provider: Option<String>) -> Result<Value, String> {
+    catalog(&db, &super::get_vault_path(), has_key(provider.as_deref()))
 }
 fn catalog(db: &Db, root: &Path, credential_present: bool) -> Result<Value, String> {
     let availability = available(credential_present, root.join("02 - Research").is_dir());
@@ -1334,3 +1350,50 @@ fn catalog(db: &Db, root: &Path, credential_present: bool) -> Result<Value, Stri
 
 #[cfg(test)]
 mod tests;
+
+
+/// Only the parent publishes, after its terminal transaction won cancellation.
+/// Prepared manifests live in the existing parent receipt, not a new job store.
+fn publish_findings(db:&Db,root:&Path,id:&str)->Result<(),String>{
+    use super::learned_records as learned;
+    let mut run=load(db,id)?;
+    if run.status!="completed" {return Err("research_result_not_completed".into());}
+    if !super::chat_memory::settings(&*db.0.lock().map_err(|e|e.to_string())?).learn{return Ok(());}
+    source_health(root,&run.sources)?;
+    let manifest=if !run.evaluation["memoryManifest"].is_null(){
+        serde_json::from_value::<learned::Manifest>(run.evaluation["memoryManifest"].clone()).map_err(|_|"research_memory_manifest_invalid")?
+    }else{
+        let Some(brief)=&run.brief else{return Ok(());};
+        let sources=run.sources.iter().map(|s|Ok(learned::Evidence{id:s.id.clone(),revision:s.fingerprint.clone(),role:"research_source".into(),text:read_source(root,&s.source.source_file)?,event_at:s.checked_at.clone(),conversation:None,path:Some(s.source.source_file.clone()),parent_run:Some(run.id.clone())})).collect::<Result<Vec<_>,String>>()?;
+        let items=brief.supported.iter().map(|b|learned::Candidate{kind:"provisional_inference".into(),subject:format!("research:{}",run.question.chars().take(100).collect::<String>()),text:b.claim.text.clone(),project_ids:vec![],source_ids:b.claim.evidence.iter().map(|c|c.source_id.clone()).collect(),corrects:None,status:"active".into(),expires_at:None}).collect::<Vec<_>>();
+        let manifest=learned::prepare(&items,&sources,&[],root)?;
+        run.evaluation["memoryManifest"]=json!(manifest);
+        run.evaluation["memoryPublication"]=json!("prepared");
+        let c=db.0.lock().map_err(|e|e.to_string())?;
+        if c.execute("UPDATE research_verification_runs SET record_json=?2 WHERE id=?1 AND status='completed' AND cancel_requested=0",params![id,json!(run).to_string()]).map_err(|e|e.to_string())?!=1{return Err("research_publication_cancelled".into());}
+        manifest
+    };
+    {
+        let c=db.0.lock().map_err(|e|e.to_string())?;
+        let tx=c.unchecked_transaction().map_err(|e|e.to_string())?;
+        let allowed:bool=tx.query_row("SELECT status='completed' AND cancel_requested=0 FROM research_verification_runs WHERE id=?1",[id],|r|r.get(0)).map_err(|e|e.to_string())?;
+        if !allowed{return Err("research_publication_cancelled".into());}
+        source_health(root,&run.sources)?;
+        learned::publish(root,&manifest)?;
+        run.evaluation["memoryPublication"]=json!("published");
+        tx.execute("UPDATE research_verification_runs SET record_json=?2 WHERE id=?1",params![id,json!(run).to_string()]).map_err(|e|e.to_string())?;
+        tx.commit().map_err(|e|e.to_string())?;
+    }
+    for path in manifest.files.keys(){super::persistence::log_vault_write(db,path,"research_finding");}
+    learned::commit_publication(root,&manifest);
+    Ok(())
+}
+pub(super) fn recover_publications(db:&Db,root:&Path){
+    let ids=(||->Result<Vec<String>,String>{let c=db.0.lock().map_err(|e|e.to_string())?;
+        let mut q=c.prepare("SELECT id FROM research_verification_runs WHERE status='completed' AND COALESCE(json_extract(record_json,'$.evaluation.memoryPublication'),'')!='published' AND json_extract(record_json,'$.definition.route') IS NOT NULL ORDER BY COALESCE(json_extract(record_json,'$.evaluation.memoryAttemptAt'),'') ASC,rowid LIMIT 3").map_err(|e|e.to_string())?;
+        let rows=q.query_map([],|r|r.get(0)).map_err(|e|e.to_string())?.collect::<Result<Vec<_>,_>>().map_err(|e|e.to_string())?;Ok(rows)})();
+    if let Ok(ids)=ids{for id in ids{
+        if let Ok(c)=db.0.lock(){let _=c.execute("UPDATE research_verification_runs SET record_json=json_set(record_json,'$.evaluation.memoryAttemptAt',?2) WHERE id=?1",rusqlite::params![id,chrono::Utc::now().to_rfc3339()]);}
+        if let Err(error)=publish_findings(db,root,&id){eprintln!("[research-memory] {error}");}
+    }}
+}

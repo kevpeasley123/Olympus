@@ -209,3 +209,19 @@ request. Temporary chats and "Use what Olympus remembers" behave as before.
 A live pass on copies of Kevin's database and project names (2026-10-20,
 `chat_memory::tests::live_memory_pass_on_copies`) produced dated Decisions and
 In progress bullets linked to `[[Project Olympus]]` and `[[Decision Log]]`.
+
+## Source-backed learned records
+
+New chat learning produces bounded candidate assertions rather than replacing the legacy memory note. Each published record lives under `09 - System/Learned` in the vault, identifies its source messages and content revisions, and distinguishes operator statements from provisional inferences. Project assertions require a resolved project identity; ambiguous project statements are skipped. The legacy `Olympus Memory.md` remains readable and is not rewritten by the new candidate path. Old prepared journal entries retain their compatibility completion path.
+
+Publication prepares the record manifest in the existing contribution journal, writes immutable records, then writes a matching receipt. Retrieval excludes incomplete or edited publication batches. Replaying a prepared manifest does not require another model call. Corrections and withdrawals refer to a same-subject, same-project record; current retrieval suppresses the old assertion, while historical retrieval can show the relationship. Expired current assertions are excluded. The index remains derived and rebuildable.
+
+Source identity validation establishes traceability, not semantic truth. Ordinary chat rechecks the source message revisions before using learned records. Temporary chats neither read learned records nor create them. Records do not grant execution permission. Legacy context now uses bounded preferences and topic-matching sections; the explicit legacy rollback mode preserves the old reader.
+
+## Working task checkpoints
+
+The operational database now has an additive working-checkpoint table keyed by conversation and resolved project scope. Short source excerpts are retained without inference. When they no longer fit, the selected subscription engine summarizes objectives, constraints, reported accomplishments, open questions, suggestions and explicit commitments. Each item names original message IDs. Existing constraints must remain or have an operator-sourced retirement. Unclassified operator excerpts must retain their source identity when first classified, so first compaction cannot silently discard an early instruction. Assistant reports are never labeled independently verified accomplishments.
+
+Source revisions are rechecked before checkpoint use and persistence. A project switch starts after that conversation's previous checkpoint boundary; it cannot import a different project's working state. Temporary chats do not read or write these checkpoints. Changed source messages invalidate the checkpoint with an explicit error. Checkpoints are lower-authority evidence, never execution permission.
+
+Conversation evidence is assembled by whole sections with a 64 KB evidence budget. Learned-note compatibility reads now select preferences and topic-matching sections within 4 KB; the explicit legacy rollback setting retains the old reader. Current user messages remain outside this evidence packet and outrank checkpoints. Internal budget omissions are not routine user-facing briefing prose.

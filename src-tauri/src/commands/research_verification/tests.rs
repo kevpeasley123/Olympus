@@ -10,6 +10,7 @@ struct Fixture {
 impl Model for Fixture {
     fn call<'a>(
         &'a self,
+        _: &'a str,
         _: &'a AgentDefinition,
         _: Value,
         record: &'a mut RequestRecord,
@@ -52,6 +53,8 @@ fn setup() -> (Db, PathBuf, Run) {
     let (run, _) = begin(
         &db,
         Start {
+            resume_from: None,
+            provider: Some("codex".into()),
             id: "fixture-run".into(),
             question: "agent research".into(),
         },
@@ -149,6 +152,8 @@ fn unavailable_start_is_blocked_before_any_run_or_request_is_created() {
             &db,
             &root,
             Start {
+            resume_from: None,
+            provider: Some("codex".into()),
                 id: run.id,
                 question: run.question
             },
@@ -161,6 +166,8 @@ fn unavailable_start_is_blocked_before_any_run_or_request_is_created() {
         &db,
         &root,
         Start {
+            resume_from: None,
+            provider: Some("codex".into()),
             id: "new-request".into(),
             question: "agent research".into()
         },
@@ -172,6 +179,8 @@ fn unavailable_start_is_blocked_before_any_run_or_request_is_created() {
         &db,
         &root.join("missing"),
         Start {
+            resume_from: None,
+            provider: Some("codex".into()),
             id: "new-request".into(),
             question: "agent research".into()
         },
@@ -314,6 +323,8 @@ fn unreadable_or_malformed_notes_are_skipped_and_only_tagged_notes_count() {
 fn a_running_row_past_its_deadline_is_stale_and_does_not_block_a_new_run() {
     let (db, root, mut run) = setup();
     let other = Start {
+            resume_from: None,
+            provider: Some("codex".into()),
         id: "second-run".into(),
         question: "agent research".into(),
     };
@@ -321,6 +332,8 @@ fn a_running_row_past_its_deadline_is_stale_and_does_not_block_a_new_run() {
         begin(
             &db,
             Start {
+            resume_from: None,
+            provider: Some("codex".into()),
                 id: other.id.clone(),
                 question: other.question.clone()
             }
@@ -562,6 +575,8 @@ fn duplicate_identity_does_not_repeat_a_run_and_terminal_history_is_immutable() 
         !begin(
             &db,
             Start {
+            resume_from: None,
+            provider: Some("codex".into()),
                 id: run.id.clone(),
                 question: run.question.clone()
             }
@@ -572,6 +587,8 @@ fn duplicate_identity_does_not_repeat_a_run_and_terminal_history_is_immutable() 
     assert!(begin(
         &db,
         Start {
+            resume_from: None,
+            provider: Some("codex".into()),
             id: run.id.clone(),
             question: "other".into()
         }
@@ -580,6 +597,8 @@ fn duplicate_identity_does_not_repeat_a_run_and_terminal_history_is_immutable() 
     assert!(begin(
         &db,
         Start {
+            resume_from: None,
+            provider: Some("codex".into()),
             id: "other-run".into(),
             question: run.question.clone()
         }
@@ -649,5 +668,103 @@ fn message_validation_rejects_wrong_identity_edge_schema_correlation_duplicate_l
     run.messages.push(original.clone());
     assert!(validate_message(&run, &original, &sender, &recipient, 0).is_err());
     drop(db);
+    cleanup(root);
+}
+
+#[test]
+fn research_requires_explicit_route_and_binds_it_to_run() {
+    let (db, root, _) = setup();
+    let request = serde_json::from_value::<Start>(json!({"id":"fixture-run","question":"agent research"})).unwrap();
+    assert!(begin(&db, request).is_err(), "missing route must not silently select Claude");
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+
+#[test]
+fn both_stages_receive_the_bound_engine_without_fallback() {
+    struct Routed { expected: String, responses: Fixture }
+    impl Model for Routed {
+        fn call<'a>(&'a self, provider: &'a str, agent: &'a AgentDefinition, input: Value, record: &'a mut RequestRecord) -> ModelFuture<'a> {
+            assert_eq!(provider, self.expected);
+            record.provider = format!("{provider}-fixture");
+            self.responses.call(provider, agent, input, record)
+        }
+    }
+    for provider in ["codex", "claude-code"] {
+        let (db, root, mut run) = setup();
+        run.definition["route"] = route(Some(provider)).unwrap();
+        let r = research(&collect(&root, &run.question, &[]).unwrap());
+        let v = verified(&r, Verdict::Supported, false);
+        let result = finish(&db, &root, run, &Routed {expected:provider.into(), responses:fixture(vec![json!(r),json!(v)])});
+        assert_eq!(result.status, "completed");
+        assert!(result.agents.iter().all(|a| a.request.as_ref().unwrap().provider == format!("{provider}-fixture")));
+        cleanup(root);
+    }
+    assert!(route(Some("legacy-api")).is_err());
+    let (db, root, mut run) = setup();
+    run.definition["route"]["model"] = json!("changed-model");
+    let result = finish(&db, &root, run, &fixture(vec![]));
+    assert_eq!(result.error.as_deref(), Some("research_route_changed"));
+    assert!(result.agents.iter().all(|a| a.request.is_none()));
+    cleanup(root);
+}
+
+#[test]
+fn completed_read_stage_is_reused_without_another_model_request() {
+    let (db,root,mut run)=setup();run.sources=collect(&root,&run.question,&[]).unwrap();
+    let output=research(&run.sources);let index=child(&mut run,RESEARCH,0);
+    let request=input(&run,0,None,None);
+    run.agents[index].input=Some(request.clone());run.agents[index].output=Some(json!(output));run.agents[index].status="completed".into();
+    let value=tauri::async_runtime::block_on(dispatch(&db,&root,&mut run,index,request,&fixture(vec![]))).unwrap();
+    assert_eq!(value,json!(output));cleanup(root);
+}
+
+#[test]
+fn interrupted_research_resumes_in_new_parent_and_only_calls_missing_verifier(){
+    let (db,root,mut old)=setup();old.sources=collect(&root,&old.question,&[]).unwrap();
+    let r=research(&old.sources);let i=child(&mut old,RESEARCH,0);
+    old.agents[i].input=Some(input(&old,0,None,None));old.agents[i].output=Some(json!(r));old.agents[i].status="completed".into();
+    event(&mut old,"research","completed","fixture");checkpoint(&db,&old).unwrap();recover(&db.0.lock().unwrap()).unwrap();
+    let (resumed,created)=prepare(&db,&root,Start{id:"resumed-run".into(),question:old.question.clone(),provider:Some("codex".into()),resume_from:Some(old.id.clone())},true).unwrap();
+    assert!(created);assert_ne!(resumed.id,old.id);
+    let result=finish(&db,&root,resumed,&fixture(vec![json!(verified(&r,Verdict::Supported,false))]));
+    assert_eq!(result.status,"completed","{:?}",result.error);
+    assert_eq!(load(&db,&old.id).unwrap().status,"interrupted");
+    std::fs::write(root.join(&old.sources[0].source.source_file),"changed source").unwrap();
+    assert!(prepare(&db,&root,Start{id:"changed-resume".into(),question:old.question,provider:Some("codex".into()),resume_from:Some(old.id)},true).is_err());cleanup(root);
+}
+
+#[test]
+fn supported_parent_publishes_once_and_next_task_reuses_original_evidence(){
+    let (db,root,run)=setup();let r=research(&collect(&root,&run.question,&[]).unwrap());
+    let result=finish(&db,&root,run,&fixture(vec![json!(r),json!(verified(&r,Verdict::Supported,false))]));
+    assert_eq!(result.status,"completed");
+    let saved=load(&db,&result.id).unwrap();assert_eq!(saved.evaluation["memoryPublication"],"published");
+    let manifest:super::super::learned_records::Manifest=serde_json::from_value(saved.evaluation["memoryManifest"].clone()).unwrap();
+    assert_eq!(manifest.files.len(),1);
+    publish_findings(&db,&root,&saved.id).unwrap();
+    let refs=saved.sources.iter().map(|s|(s.source.source_file.clone(),s.fingerprint.clone())).collect();
+    let prior=super::super::learned_records::research_context(&root,&saved.question,&refs);assert_eq!(prior.len(),1);assert!(!prior[0]["sourceFiles"].as_array().unwrap().is_empty());
+    // Crash after files/receipt before terminal publication acknowledgement.
+    let mut retry=saved.clone();retry.evaluation["memoryPublication"]=json!("prepared");
+    db.0.lock().unwrap().execute("UPDATE research_verification_runs SET record_json=?2 WHERE id=?1",params![retry.id,json!(retry).to_string()]).unwrap();
+    recover_publications(&db,&root);assert_eq!(load(&db,&retry.id).unwrap().evaluation["memoryPublication"],"published");
+    std::fs::write(root.join(&saved.sources[0].source.source_file),"mutated").unwrap();
+    assert!(publish_findings(&db,&root,&saved.id).is_err());cleanup(root);
+}
+
+#[test]
+#[ignore="Native Codex subscription acceptance using synthetic research sources only"]
+fn native_research_memory_acceptance(){
+    let app_data=std::path::PathBuf::from(std::env::var("APPDATA").unwrap()).join("com.projectolympus.commandstation");
+    let _=super::super::subscription_jobs::APP_DATA_FOR_TESTS.set(app_data);
+    let (db,root,mut run)=setup();run.question="What do the research sources establish about independent verification detecting unsupported claims?".into();
+    let started=std::time::Instant::now();
+    let result=finish(&db,&root,run,&LiveModel);
+    println!("NATIVE_RESEARCH_RESULT {}",json!({"status":result.status,"error":result.error,"brief":result.brief,"elapsedSeconds":started.elapsed().as_secs(),"requests":result.agents.iter().map(|a|&a.request).collect::<Vec<_>>()}));
+    assert_eq!(result.status,"completed");
+    let saved=load(&db,&result.id).unwrap();assert_eq!(saved.evaluation["memoryPublication"],"published");
+    let refs=saved.sources.iter().map(|s|(s.source.source_file.clone(),s.fingerprint.clone())).collect();
+    assert!(!super::super::learned_records::research_context(&root,&saved.question,&refs).is_empty());
     cleanup(root);
 }

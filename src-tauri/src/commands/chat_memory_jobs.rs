@@ -37,10 +37,14 @@ pub(super) fn require_route(c:&Connection,id:&str)->Result<(),String>{
 }
 
 // Exact bytes already on disk can be receipted without another provider call.
-pub(super) fn written_chats(c:&Connection,current:&str)->Result<Vec<Chat>,String>{
-    let mut statement=c.prepare("SELECT DISTINCT c.id,c.title,c.title_source,c.summary,c.created_at,c.vault_path,c.vault_watermark,c.memory_watermark,c.legacy FROM conversations c JOIN memory_contributions j ON j.conversation_id=c.id AND j.from_watermark=c.memory_watermark WHERE j.state='prepared' AND j.result_note=?1 AND (j.before_note IS NULL OR j.before_note<>j.result_note) ORDER BY j.rowid LIMIT ?2").map_err(|e|e.to_string())?;
+pub(super) fn written_chats(c:&Connection,current:&str,root:&Path)->Result<Vec<Chat>,String>{
+    let mut statement=c.prepare("SELECT DISTINCT c.id,c.title,c.title_source,c.summary,c.created_at,c.vault_path,c.vault_watermark,c.memory_watermark,c.legacy FROM conversations c JOIN memory_contributions j ON j.conversation_id=c.id AND j.from_watermark=c.memory_watermark WHERE j.state='prepared' AND ((j.result_note=?1 AND (j.before_note IS NULL OR j.before_note<>j.result_note)) OR json_extract(j.answer_json,'$.manifest.receipt') IS NOT NULL) ORDER BY j.rowid LIMIT ?2").map_err(|e|e.to_string())?;
     let rows=statement.query_map(params![current,CHATS_PER_TICK],|r|Ok(Chat{id:r.get(0)?,title:r.get(1)?,title_source:r.get(2)?,summary:r.get(3)?,created_at:r.get(4)?,vault_path:r.get(5)?,vault_watermark:r.get(6)?,memory_watermark:r.get(7)?,legacy:r.get(8)?,vault_due:false,memory_due:true})).map_err(|e|e.to_string())?;
-    rows.collect::<Result<Vec<_>,_>>().map_err(|e|e.to_string())
+    let chats=rows.collect::<Result<Vec<_>,_>>().map_err(|e|e.to_string())?;
+    Ok(chats.into_iter().filter(|chat| {
+        let raw:Option<String>=c.query_row("SELECT answer_json FROM memory_contributions WHERE conversation_id=?1 AND state='prepared' AND from_watermark=?2 ORDER BY rowid DESC LIMIT 1",params![chat.id,chat.memory_watermark],|r|r.get(0)).ok();
+        raw.and_then(|s|serde_json::from_str::<Answer>(&s).ok()).map(|a|a.manifest.map(|m|super::super::learned_records::published(root,&m.receipt)).unwrap_or(true)).unwrap_or(false)
+    }).collect())
 }
 
 pub(super) fn supersede_sources(db:&Db,chat:&Chat,revision:&str,seen:i64)->Result<(),String>{
@@ -54,17 +58,17 @@ pub(super) fn require_prepared(c:&Connection,prepared:&Prepared)->Result<(),Stri
     if matching {Ok(())} else {Err("memory_contribution_changed".into())}
 }
 
-pub(super) fn recover(db:&Db,chat:&Chat,revision:&str,seen:i64,current:Option<&str>,written_only:bool)->Result<Option<Prepared>,String>{
+pub(super) fn recover(db:&Db,chat:&Chat,revision:&str,seen:i64,current:Option<&str>,written_only:bool,root:&Path)->Result<Option<Prepared>,String>{
     let c=db.0.lock().map_err(|e|e.to_string())?;
     let rows=c.prepare("SELECT id,before_note,result_note,answer_json,attempts FROM memory_contributions WHERE conversation_id=?1 AND from_watermark=?2 AND source_revision=?3 AND through_watermark=?4 AND state='prepared' ORDER BY rowid DESC")
         .map_err(|e|e.to_string())?.query_map(params![chat.id,chat.memory_watermark,revision,seen],|r|Ok((r.get::<_,String>(0)?,r.get::<_,Option<String>>(1)?,r.get::<_,String>(2)?,r.get::<_,String>(3)?,r.get::<_,i64>(4)?)))
         .map_err(|e|e.to_string())?.collect::<Result<Vec<_>,_>>().map_err(|e|e.to_string())?;
     for (id,before,result,raw,attempt) in rows {
-        let already_written=before.as_deref()!=Some(result.as_str()) && current==Some(result.as_str());
+        let answer:Answer=checked(serde_json::from_str(&raw).map_err(|_|"memory_contribution_invalid")?)?;
+        let already_written=answer.manifest.as_ref().is_some_and(|m|super::super::learned_records::published(root,&m.receipt)) || before.as_deref()!=Some(result.as_str()) && current==Some(result.as_str());
         if written_only && !already_written {continue;}
         if !already_written && require_route(&c,&id).is_err() {continue;}
         if current==before.as_deref() || already_written {
-            let answer=checked(serde_json::from_str(&raw).map_err(|_|"memory_contribution_invalid")?)?;
             return Ok(Some(Prepared{id,attempt,before,result,answer}));
         }
         c.execute("UPDATE memory_contributions SET state='superseded',error='memory_note_changed',updated_at=CURRENT_TIMESTAMP WHERE id=?1",[id]).map_err(|e|e.to_string())?;
@@ -91,7 +95,7 @@ pub(super) fn fail(db:&Db,claim:&Claim,error:&str){
 }
 
 pub(super) fn prepare(db:&Db,claim:&Claim,before:Option<&str>,answer:Answer)->Result<Prepared,String>{
-    let result=if before.map(|note|split_memory(note).sections.to_string()).unwrap_or_default()==answer.memory.trim() {
+    let result=if answer.contributions.is_some() || before.map(|note|split_memory(note).sections.to_string()).unwrap_or_default()==answer.memory.trim() {
         before.unwrap_or_default().to_string()
     } else {render_memory(before,&answer.memory)};
     let c=db.0.lock().map_err(|e|e.to_string())?;
@@ -125,7 +129,11 @@ pub(super) async fn analyze(db:&Db,mut input:Value)->Result<String,String>{
     if let Some(object)=metadata.as_object_mut(){object.insert("memoryContributionId".into(),json!(id));object.insert("memoryContributionAttempt".into(),json!(attempt));}
     record.usage=Some(metadata);
     super::super::models::save(db,&record)?;
-    result
+    result.and_then(|raw| {
+        let answer:Answer=serde_json::from_str(&raw).map_err(|_|"memory_pass_invalid_output")?;
+        if answer.contributions.is_none(){return Err("memory_candidates_required".into());}
+        Ok(raw)
+    })
 }
 
 pub(super) fn latest(c:&Connection)->Result<Option<Value>,String>{
@@ -200,7 +208,7 @@ mod tests {
          c.execute("DELETE FROM settings WHERE key='chatMemory.provider.v1'",[]).unwrap();}
         let second=claim(&db,&chat,"revision",&lines,1,None).unwrap();
         assert_eq!(second.id,first.id);assert!(second.attempt>first.attempt);
-        let answer=Answer{title:"t".into(),summary:"s".into(),memory:"## Other\n- x".into()};
+        let answer=Answer{contributions:None,manifest:None,title:"t".into(),summary:"s".into(),memory:"## Other\n- x".into()};
         assert!(matches!(prepare(&db,&first,None,answer),Err(e) if e=="memory_contribution_changed"));
     }
     #[test]
@@ -214,7 +222,7 @@ mod tests {
         let first=claim(&db,&chat,"revision",&lines,1,None).unwrap();
         db.0.lock().unwrap().execute("UPDATE memory_contributions SET updated_at=datetime('now','-11 minutes')",[]).unwrap();
         let _second=claim(&db,&chat,"revision",&lines,1,None).unwrap();
-        let answer=Answer{title:"t".into(),summary:"s".into(),memory:"## Other\n- x".into()};
+        let answer=Answer{contributions:None,manifest:None,title:"t".into(),summary:"s".into(),memory:"## Other\n- x".into()};
         assert!(prepare(&db,&first,None,answer).is_err(),"A late result from the old lease must be rejected");
     }
     #[test]
