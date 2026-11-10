@@ -1,100 +1,79 @@
 # Next session
 
-Development branch feature/source-backed-working-memory implements the approved memory/workflow slices. See [acceptance](reviews/2026-11-09-memory-workflow-acceptance.md). Version 0.53 is prepared for the approved merge, push and installation. Installed acceptance remains pending.
+## Olympus 0.53.0 - installed November 9, 2026
 
-## Olympus 0.53.0 - release prepared November 9, 2026
+PR33 merged at `738a9e8901575c69f9fb44b033b2bfcef7a8e831`; `npm run update`
+installed and launched 0.53.0. See
+[installed acceptance](reviews/2026-11-09-installed-memory-workflow-acceptance.md).
+Active checkout: `olympus-skill-backbone`; registered human-edited checkout preserved.
 
-Prior installed baseline: release PR31 at `fc2e2015`, executable 0.52.0.
-Active worktree: `olympus-skill-backbone`; human-edited registered checkout preserved.
-Kevin approved implementation, merge/push/install
-and selected private Gmail/project/memory evidence through Codex. Private Claude
-acceptance was not authorized. Paid extra usage and automatic purchases are
-disabled by his account-setting confirmation, not a per-request billing guarantee.
+## Delivered architecture
 
-## Architecture delivered
+- Explicit subscription/local routes, independent extraction/briefing/memory choices,
+  account-bound preflight, and no paid API or silent provider fallback.
+- Source-backed learned assertions in `09 - System/Learned`, immutable provenance,
+  publication receipts, exact-file vault commits, and rebuildable derived retrieval.
+- Scoped working-context checkpoints before history trimming, preserving operator
+  source identities and separating suggestions from commitments.
+- Researcher/verifier workflow with explicit engine selection, saved evidence,
+  reusable completed stages, and parent-owned provisional memory publication.
+- Existing SQLite/vault stores are reused; no gbrain dependency or service added.
 
-- Explicit common execution routes for Codex, Claude subscription and local models;
-  independent extraction, briefing and memory settings. No paid API or silent fallback.
-- Account-bound Codex confirmation and allowance preflight; isolated first-party
-  Claude runtime. Coding delegation retains a separate eligibility boundary.
-- Quiet transactions, exact order identity, revisioned changes and durable operator
-  corrections. Forgotten evidence is withheld from aggregates and retrieval.
-- Bounded investigative briefs retrieve original mail, selected project changes and
-  curated indexed memory, then compose and verify. Source changes and cancellation
-  invalidate results; empty/shadow/completed outcomes remain distinct.
-- Previous briefs are dated previews with no stale autoplay or display acknowledgment.
-  Partial coverage is metadata, not mechanical spoken filler.
-- Durable memory contribution jobs preserve route/model/source identity and prepared
-  results across restart. External inference is not exactly-once across every crash.
-- HTML layout is normalized only in the read view; original mail bytes/hashes remain.
-  Local extraction uses smaller atomic batches; task-specific CPU/auto selection
-  is independent. These mechanics do not establish local semantic quality.
+## Verification - November 9, 2026, America/Phoenix
 
-## Verification - November 8-9, 2026, America/Phoenix
+- Release gates: 891 Rust tests passed, 41 opt-in tests ignored; additional exact-file
+  Git publication integration passed. All 89 scripts, frontend/MSI builds, 21 visual
+  scenarios and 22 Organizer checks passed. Preview-port/locked-module environment
+  failures were resolved and rerun, not suppressed.
+- Installed executable is 0.53.0; its only difference from the built executable is
+  Tauri's MSI bundle marker. SQLite quick_check passed and migration 7 is present.
+- Installed saved conversation retained Kevin's briefing preference and explicit
+  adoption requirement for decisions. Working checkpoint revision 2 retained sources
+  and contained no invented committed next steps.
+- Two actual installed research runs completed using Codex/gpt-6.1-sol, with two
+  stages each and five supported findings each. First took 61.17 seconds; second
+  72.81 seconds. The second reused five prior findings with original source evidence.
+- Publication receipts, original source fingerprints, manifest contents and exact
+  vault Git tracking passed independent read-only checks. App restart preserved
+  both runs, the conversation, learned files, selected engines and checkpoint.
+- The second run finished before close; interrupted-run/resume and checkpoint
+  compaction have synthetic native coverage, not installed acceptance in this session.
 
-- Private Codex investigative acceptance passed in 95.1 seconds with 12 native reads,
-  checked original evidence and actual project delivery history. The brief surfaced
-  relevant personal changes without generic news or repeated delivered commits.
-  This qualifies a bounded baseline, not exhaustive inbox coverage or user-rated
-  personalization. Private artifacts remain outside Git in OlympusAcceptance.
-- Synthetic investigative Codex and Claude routes passed. Private Claude was not run.
-- Local qwen3:14b is unqualified for investigation: repeated source reads omitted a
-  material change. Local qwen3:8b is unqualified for extraction: quote failures,
-  output limits and a confirmed token-repetition abort persisted despite smaller
-  batches. Explicit Codex rollout is intended; local options remain available.
-- CPU extraction timed out at 300 seconds. Auto can reuse a previously CPU-loaded
-  Ollama runner; a fresh GPU-loaded run was verified separately. GPU loading alone
-  did not solve model quality. Do not describe the local route as repaired/qualified.
-- Private Codex extraction passed in 29.36 seconds: valid order references and
-  amounts survived two unsupported optional details, with no model retry. Strict
-  structural/attention/source validation and independent review passed.
-- Final native gate: 877 passed, 38 intentionally ignored. All 89 release scripts
-  passed. Independent final review approved the optional-detail retention change.
-- Native 0.52 acceptance: Gmail synchronized automatically at 22:52:16 Phoenix;
-  background Codex extraction completed. Investigative Codex settings persisted
-  through restart. Investigation/synthesis/verification used actual gpt-6.1-sol.
-  The first brief surfaced a verified order update; a second returned checked-empty
-  without repeating it. Dated prior preview, cancellation acknowledgment and blue
-  Codex mode were observed in WebView2. Database quick_check passed. This is a
-  narrow personal brief, not evidence of exhaustive or mature personalization.
-- Full visual regression passed 21/21 captures and 22 Organizer checks; frontend
-  build passed. Browser routing/prior-brief/cancellation/shadow tests passed.
-- Installed 0.51 Gmail synchronized automatically without reconnecting, most recently
-  November 8 at 22:11:46 Phoenix. This verifies retrieval, not installed 0.52 reasoning.
-- No mailbox mutation, live OAuth revoke/re-add or paid inference was performed.
-  Google OAuth publishing mode and multi-day grant durability remain unverified.
+## Immediate remaining check
 
-## Remaining quality boundaries
+Codex reached 92% of its included weekly allowance, zero purchased credits;
+Olympus's 90% preflight ceiling blocks new requests. Startup correctly retained
+its dated prior brief rather than claiming a fresh result. This is not Gmail auth.
+Memory is explicitly selected to Codex. At 22:56 the automatic worker archived the
+acceptance conversation after ten quiet minutes, then its learning request hit the
+allowance gate. The failed receipt is retained and memory watermark remains zero;
+live learned-assertion extraction/recall are not yet proven.
+Permission was requested to finish through Claude using this acceptance conversation
+and relevant saved Olympus research/memory context. Do not switch or transmit that
+private context to Claude until answered. Do not bypass the allowance ceiling.
 
-The release is installed. Investigative briefing and email analysis explicitly use
-Codex; normal conversation is selected to Codex. Memory retains its separately
-configured/default Claude route. Durable memory recovery is tested, but no new live
-memory contribution was produced during this acceptance. Do not claim otherwise.
+Acceptance conversation: `023d6d61-ffc9-4023-bb8a-7bdfd946f763`.
+Read-only checker/logs are under ignored
+`.superpowers/sdd/2026-11-08-memory-orchestration-borrowing/`.
+Never backdate production conversation rows to accelerate quiet-time testing.
 
-Keep the legacy workflow as a reversible option. Broader personal usefulness needs
-continued evaluation against Kevin's feedback; the observed native brief was accurate
-but narrow. Local model semantic qualification, multi-day OAuth durability, private
-Claude acceptance and delegated execution remain unverified. These are not hidden
-fallback routes. Do not automatically collect other chats or widen mailbox authority.
+## Continuing quality boundaries
 
-## Continuing boundaries
+Kevin wants concise conversational briefs: relevant changes, implications, whether
+he needs to act, recent actual work and useful suggested next steps. Do not force
+Olympus into every brief or include routine "About this brief" prose. That requested
+copy/composition refinement remains pending; this release focused on memory/workflow.
 
-Olympus must be open and the PC awake for background work. Gmail authentication,
-mail freshness and reasoning eligibility are separate. External Google Testing
-applications with Gmail scopes may have seven-day grants; local metadata cannot
-reveal the publishing setting. Do not promise that reconnect is never required.
+Earlier 0.52 installed checks verified automatic Gmail sync and Codex extraction/
+investigative briefing, but only a narrow personal baseline. Local qwen3:8b extraction
+and qwen3:14b investigation remain unqualified for semantic reliability. CPU extraction
+also timed out. Do not describe local analysis as repaired or silently fall back.
 
-Kevin requested ideas from gbrain, not adoption. Retrieval, task model resolution
-and source-of-record ideas informed the approved incremental design; no gbrain
-code was installed. See the dated architecture spec for reviewed references.
+No mailbox mutation, live OAuth revoke/re-add, paid API or private-vault push occurred.
+Google OAuth publishing mode and multi-day grant durability remain unverified.
+Olympus must be open and the PC awake for background work. Private Claude acceptance
+and coding delegation are separate from the completed research pilot. Sources and
+recommendations never grant authority. Do not collect other chats automatically.
 
-November 8 follow-up code review: `docs/reviews/2026-11-08-gbrain-memory-orchestration.md`
-compares pinned gbrain source with 0.52. Kevin subsequently approved all four slices;
-the development branch implements source-backed learned records, working checkpoints,
-explicit research routing and one recoverable agent-to-memory pilot. Final checks:
-891 Rust tests passed, three synthetic native Codex checks passed, and frontend build passed.
-Kevin wants conversational, relevant briefs without routine "About this brief"
-copy, covering whichever projects are actually active; that prose change is pending.
-
-Do not publish private mail, credentials or acceptance previews. Do not copy test
-display acknowledgments into production. Keep historical records historical.
+Reference review: `docs/reviews/2026-11-08-gbrain-memory-orchestration.md`.
+Kevin approved borrowing ideas incrementally, not adopting gbrain.
