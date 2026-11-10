@@ -504,3 +504,32 @@ pub fn research_context(
     }
     out
 }
+
+/// Snapshot only this publication's exact files; never stage the whole learned folder.
+pub fn commit_publication(root: &Path, manifest: &Manifest) {
+    if manifest.files.is_empty() { return; }
+    let receipt=format!("{FOLDER}/.receipts/{}.json",manifest.receipt);
+    for path in manifest.files.keys().chain(std::iter::once(&receipt)) {
+        if let Err(error)=super::vault_git::commit_vault_file_in(root,path,"record source-backed memory") {
+            eprintln!("[learned-memory] Written file not committed: {path}: {error}");
+        }
+    }
+}
+
+#[cfg(test)]
+mod publication_git_tests {
+    use super::*;
+    #[test]
+    fn publication_commit_snapshots_exact_files_and_preserves_unrelated_edits(){
+        let root=std::env::temp_dir().join(format!("olympus-publication-{}",super::super::delegation::run_id()));
+        std::fs::create_dir_all(&root).unwrap();
+        let git=|args:&[&str]| {let result=std::process::Command::new("git").arg("-C").arg(&root).args(args).output().unwrap();assert!(result.status.success(),"{}",String::from_utf8_lossy(&result.stderr));String::from_utf8(result.stdout).unwrap()};
+        git(&["init","-q"]);git(&["config","user.email","fixture@example.invalid"]);git(&["config","user.name","Fixture"]);git(&["commit","--allow-empty","-qm","seed"]);
+        std::fs::write(root.join("unrelated.md"),"Keep my edit").unwrap();
+        let manifest=Manifest{receipt:"a".repeat(64),files:BTreeMap::from([(format!("{FOLDER}/{}.md","b".repeat(64)),"Fixture record".into())])};
+        publish(&root,&manifest).unwrap();commit_publication(&root,&manifest);
+        let tracked=git(&["ls-tree","-r","--name-only","HEAD"]);assert_eq!(tracked.lines().count(),2);assert!(!tracked.contains("unrelated"));assert!(tracked.contains(".receipts"));
+        assert!(git(&["status","--porcelain"]).contains("?? unrelated.md"));
+        let resolved=root.canonicalize().unwrap();assert!(resolved.starts_with(std::env::temp_dir().canonicalize().unwrap()));std::fs::remove_dir_all(resolved).unwrap();
+    }
+}

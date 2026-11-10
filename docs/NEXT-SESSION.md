@@ -1,10 +1,10 @@
 # Next session
 
-Development branch feature/source-backed-working-memory implements the approved memory/workflow slices. See [acceptance](reviews/2026-11-09-memory-workflow-acceptance.md). These changes are not yet installed; the release baseline below is unchanged.
+Development branch feature/source-backed-working-memory implements the approved memory/workflow slices. See [acceptance](reviews/2026-11-09-memory-workflow-acceptance.md). Version 0.53 is prepared for the approved merge, push and installation. Installed acceptance remains pending.
 
-## Olympus 0.52.0 - installed November 8, 2026
+## Olympus 0.53.0 - release prepared November 9, 2026
 
-Release PR31 merged at `fc2e2015`; installed executable reports 0.52.0.
+Prior installed baseline: release PR31 at `fc2e2015`, executable 0.52.0.
 Active worktree: `olympus-skill-backbone`; human-edited registered checkout preserved.
 Kevin approved implementation, merge/push/install
 and selected private Gmail/project/memory evidence through Codex. Private Claude

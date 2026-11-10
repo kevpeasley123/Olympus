@@ -630,7 +630,7 @@ fn store_answer(db: &Db, chat: &Chat, root: &Path, target: &Path, before: Option
     if !unchanged {super::persistence::log_vault_write(db, MEMORY_NOTE, "update_memory");}
     if let Some(manifest)=&answer.manifest {
         for path in manifest.files.keys(){super::persistence::log_vault_write(db,path,"learned_record");}
-        if !manifest.files.is_empty(){commit(root,super::learned_records::FOLDER,"record source-backed memory");}
+        super::learned_records::commit_publication(root,manifest);
     }
     Ok(())
 }

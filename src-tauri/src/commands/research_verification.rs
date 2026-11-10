@@ -1385,6 +1385,7 @@ fn publish_findings(db:&Db,root:&Path,id:&str)->Result<(),String>{
         tx.commit().map_err(|e|e.to_string())?;
     }
     for path in manifest.files.keys(){super::persistence::log_vault_write(db,path,"research_finding");}
+    learned::commit_publication(root,&manifest);
     Ok(())
 }
 pub(super) fn recover_publications(db:&Db,root:&Path){
