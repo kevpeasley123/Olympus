@@ -14,8 +14,8 @@ behaves.
 
 | Field | Meaning |
 | --- | --- |
-| `runId` | The owning run's id in its own table (a delegation run today) |
-| `engine` | `claude-code` today; `codex` and `ollama` when their adapters report |
+| `runId` | The owning run's id in its own table: a delegation run, a skill run, or a model request |
+| `engine` | `claude-code`, `codex` or `ollama` |
 | `agent` | The Armory role credited, for example `coding-delegate` (Hephaestus) |
 | `kind` | `run_started`, `thinking`, `message`, `file_read`, `file_edit`, `search`, `command`, `subagent_started`, `tool_call`, `tool_failed`, `result`, `error` |
 | `summary` | One short line, at most 160 characters |
@@ -43,9 +43,10 @@ database. Nothing here leaves the machine.
 | Source | State |
 | --- | --- |
 | Claude Code delegation (`delegation.rs`) | Wired: every stream line is normalized by `normalize_claude_line` before the existing phase tracking runs. Phase tracking is unchanged. |
-| Codex | Not wired. How much its stream reveals is untested. |
-| Local models | Not wired. They have no agent loop yet. |
-| Chat, briefs, memory and research jobs | Not wired. They are single text requests with tools off, so they have no steps to report. |
+| Skill runs (`skill_runner.rs`) | Wired: every frame of a tool run, plus a start note and any refusal by Olympus's own checks. See [SKILL-RUNNER.md](SKILL-RUNNER.md). |
+| Background jobs on Codex, Claude Code and local models | Wired at the shared entry points (`subscription_jobs::run_on`, `execution::structured`): a job is one request with no tools, so it reports a start and an outcome (finished, stopped, blocked) with model, duration and reported usage. Briefing, memory, mail analysis and research jobs all pass through here. |
+| Codex's own step stream | Not wired. How much it reveals is untested. |
+| Interactive chat turns | Not wired. |
 
 ## Interface
 

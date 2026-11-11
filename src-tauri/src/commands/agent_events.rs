@@ -110,9 +110,11 @@ fn tool_use(name: &str, input: &Value, subagent: bool) -> Draft {
 /// Reduces one line of Claude Code's `--output-format stream-json` to events.
 /// Lines that are not JSON, or carry nothing worth showing, yield none.
 pub fn normalize_claude_line(line: &str) -> Vec<Draft> {
-    let Ok(value) = serde_json::from_str::<Value>(line) else {
-        return Vec::new();
-    };
+    serde_json::from_str::<Value>(line).map(|value| normalize_claude_value(&value)).unwrap_or_default()
+}
+
+/// The same reduction for a frame that is already parsed.
+pub fn normalize_claude_value(value: &Value) -> Vec<Draft> {
     let subagent = value.get("parent_tool_use_id").is_some_and(|parent| !parent.is_null());
     let blocks = || {
         value.get("message").and_then(|message| message.get("content")).and_then(Value::as_array).cloned().unwrap_or_default()
@@ -120,7 +122,7 @@ pub fn normalize_claude_line(line: &str) -> Vec<Draft> {
 
     match value.get("type").and_then(Value::as_str) {
         Some("system") if value.get("subtype").and_then(Value::as_str) == Some("init") => {
-            let model = text_field(&value, "model").unwrap_or("the selected model");
+            let model = text_field(value, "model").unwrap_or("the selected model");
             vec![draft("run_started", format!("Session started on {model}"), subagent)]
         }
         Some("assistant") => blocks()
@@ -163,7 +165,7 @@ pub fn normalize_claude_line(line: &str) -> Vec<Draft> {
             let mut event = if succeeded {
                 draft("result", turns.map_or("Finished".into(), |n| format!("Finished in {n} turns")), subagent)
             } else {
-                let reason = text_field(&value, "subtype").unwrap_or("error").replace('_', " ");
+                let reason = text_field(value, "subtype").unwrap_or("error").replace('_', " ");
                 draft("error", format!("Stopped: {reason}"), subagent)
             };
             // Measurements only. The result text is the run's deliverable and is kept by its owner.

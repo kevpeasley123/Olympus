@@ -223,6 +223,7 @@ pub fn run() {
             }
             commands::knowledge_audit::recover(&connection)?;
             commands::research_verification::recover(&connection)?;
+            commands::skill_runner::recover(&connection).map_err(|error| error.to_string())?;
             commands::gmail::recover(&connection)?;
             commands::gmail::intelligence::recover(&connection)?;
             let session_id = commands::delegation::run_id();
@@ -281,6 +282,7 @@ pub fn run() {
             commands::knowledge_audit::start_knowledge_audit,
             commands::research_verification::research_agent_catalog,
             commands::agent_events::agent_events,
+            commands::skill_runner::skill_catalog, commands::skill_runner::list_skill_runs, commands::skill_runner::start_skill_run,
             commands::command_agents::command_agent_catalog,
             commands::capabilities::command_capabilities,
             commands::capabilities::command_missions,
