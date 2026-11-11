@@ -8,7 +8,7 @@ import type { OlympusVisualState } from "../../services/ambientMotion";
  * the agent lens and mission state; `activeDomains` are the domains a recorded
  * mission step is using right now. Neither rebuilds the scene.
  */
-export interface HybridFrame { assets?: readonly import("../../services/pantheonGalaxy").GalaxyAsset[]; engine?: import("../../services/conversationProvider").ConversationProvider | null; missions?: readonly Mission[]; selectedMission?: string | null; state: OlympusVisualState; voiceLevel: number;
+export interface HybridFrame { assets?: readonly import("../../services/pantheonGalaxy").GalaxyAsset[]; engine?: import("../../services/conversationProvider").ConversationProvider | null; /** Runs observed on the agent event stream; they move the figures but are not orbiting missions. */ activity?: readonly Mission[]; missions?: readonly Mission[]; selectedMission?: string | null; state: OlympusVisualState; voiceLevel: number;
   /** Live reply energy, read each frame while speaking; null when no reply audio can be analysed. */
   voiceEnergy?: () => number | null; running: boolean; light?: Readonly<Record<string, number>>; activeDomains?: readonly string[]; execution?: { operation: number }; constellationMotion?: {yaw:number} }
 interface Props extends HybridFrame { layout: CommandLayout; onReady: (ready: boolean) => void; onError: (reason: string) => void }

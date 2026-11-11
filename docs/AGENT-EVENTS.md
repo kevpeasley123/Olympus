@@ -56,11 +56,19 @@ until it reports its own `result` or `error`; a helper's result does not end its
 parent. `AgentActivityFeed` renders the feed inside Command's **Agent activity**
 disclosure, above the source access history.
 
-The Pantheon figures do not read this stream yet.
+The Pantheon figures read the same feed. `activityMissions` presents each observed
+run as a single-step mission naming its agent, which the existing figure state
+machine already understands: a figure is assigned when its agent's run appears,
+works while it is in progress, and marks completion when the run reports a result.
+Zeus coordinates while any run is live. Observed runs move the figures only; they
+do not join the orbiting missions.
+
+`SkillTrials`, in the same disclosure, lists the runner's skills with a button to
+run each on a named engine and shows the latest result or the reason it was rejected.
 
 ## Verification
 
 `cargo test --lib agent_events` covers normalization, the two privacy rules
 above, and storage order and paging. `scripts/test-agent-events.mjs` covers
-merging, grouping and the working-agent rule. No delegated run has been
+merging, grouping, the working-agent rule, the figure transitions against the real state machine, and skill run bookkeeping. No delegated run has been
 executed with this in place, so the feed has not been seen with live data.

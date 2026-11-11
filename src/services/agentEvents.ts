@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { isTauriRuntime } from "./launcher";
+import type { Mission } from "./capabilities";
 
 /** One step of real agent work, as normalized by `commands/agent_events.rs`. */
 export type AgentEventKind =
@@ -51,6 +52,27 @@ export function groupAgentRuns(events: readonly AgentEvent[]): AgentRunGroup[] {
 /** The agents with a run in progress, for anything that shows who is working. */
 export function workingAgents(events: readonly AgentEvent[]): string[] {
   return [...new Set(groupAgentRuns(events).filter(group => group.active).map(group => group.agent))];
+}
+
+/**
+ * Observed runs in the shape the Pantheon figures already understand: one
+ * mission per run with a single step naming its agent. A figure works while
+ * its run is in progress and marks completion when the run reports a result.
+ * These never join the orbiting missions; they only move the figures.
+ */
+export function activityMissions(events: readonly AgentEvent[]): Mission[] {
+  return groupAgentRuns(events).map(group => {
+    const first = group.events[0], last = group.events[group.events.length - 1];
+    const ended = [...group.events].reverse().find(event => !event.subagent && (event.kind === "result" || event.kind === "error"));
+    const state = group.active ? "active" : ended?.kind === "result" ? "completed" : "failed";
+    return {
+      id: `activity:${group.runId}`, kind: "agent-run", workflow: "agent-run", title: first.summary, request: first.summary,
+      status: group.active ? "running" : state === "completed" ? "completed" : "failed",
+      startedAt: first.createdAt, finishedAt: group.active ? null : last.createdAt,
+      steps: [{ id: "run", label: last.summary, state, recorded: last.createdAt, agent: group.agent, tools: [], skills: [] }],
+      approval: null, result: null, destination: "project", source: engineLabel(group.engine),
+    };
+  });
 }
 
 export const engineLabel = (engine: string) => engine === "claude-code" ? "Claude Code" : engine === "codex" ? "Codex" : engine === "ollama" ? "Local model" : engine;

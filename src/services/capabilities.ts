@@ -77,7 +77,7 @@ export interface MissionStep {
 export type MissionStatus = "running" | "waiting" | "completed" | "failed" | "cancelled" | "interrupted";
 export interface Mission {
   id: string;
-  kind: "research-verification" | "communication-intelligence" | "communication-situations" | "knowledge-audit" | "coding-delegation";
+  kind: "research-verification" | "communication-intelligence" | "communication-situations" | "knowledge-audit" | "coding-delegation" | "agent-run";
   workflow: string;
   citations?:{child:string;actor:string;file:string;fingerprint:string;at:string}[];
   title: string;

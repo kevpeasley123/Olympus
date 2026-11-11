@@ -13,3 +13,15 @@
 .agent-feed li > span:nth-child(2) {overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .agent-feed time {color:#6f8598;font-size:.7rem;font-variant-numeric:tabular-nums}
 .agent-feed-empty {color:#90abc2;margin:.35rem 0}
+.skill-trials {margin:.5rem 0;border-top:1px solid #2a3a4c;padding-top:.45rem}
+.skill-trials h4 {margin:0;font-size:.78rem;font-weight:600;color:#e6edf5}
+.skill-trials p {margin:.2rem 0}
+.skill-trial-note {color:#90abc2}
+.skill-trial-status[data-status="failed"] {color:#f0a08a}
+.skill-trial-status[data-status="running"] {color:#f2c46b}
+.skill-trial-result {margin-top:.3rem;padding:.4rem .5rem;border:1px solid #2a3a4c;border-radius:.35rem;max-height:14rem;overflow:auto}
+.skill-trial-result ul {list-style:none;margin:.3rem 0;padding:0}
+.skill-trial-result li {margin:.3rem 0}
+.skill-trial-result li span,.skill-trial-result li small {display:block}
+.skill-trial-result li em {color:#f2c46b;font-style:normal}
+.skill-trial-result small {color:#90abc2}

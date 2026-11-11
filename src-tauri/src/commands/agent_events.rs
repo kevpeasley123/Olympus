@@ -75,6 +75,20 @@ fn draft(kind: &'static str, summary: String, subagent: bool) -> Draft {
     Draft { kind, summary: clip(&summary, SUMMARY_LIMIT), detail: None, tool: None, path: None, subagent }
 }
 
+/// Olympus's own tools read as what they did, not as a function name.
+fn olympus_tool(tool: &str, input: &Value) -> String {
+    let about = |verb: &str| text_field(input, "query").map_or(verb.to_string(), |query| format!("{verb} for {query}"));
+    match tool {
+        "search_mail" => about("Searched mail"),
+        "read_mail_thread" => "Read a mail thread".into(),
+        "recall_memory" => about("Recalled memory"),
+        "search_vault" => about("Searched the vault"),
+        "read_vault_note" => format!("Read {}", text_field(input, "path").map(file_name).unwrap_or("a vault note")),
+        "list_projects" => "Checked the project list".into(),
+        other => format!("Used {other}"),
+    }
+}
+
 fn tool_use(name: &str, input: &Value, subagent: bool) -> Draft {
     let path = ["file_path", "notebook_path", "path"].iter().find_map(|key| text_field(input, key));
     let mut event = match name {
@@ -96,6 +110,7 @@ fn tool_use(name: &str, input: &Value, subagent: bool) -> Draft {
             draft("subagent_started", format!("Started a helper: {purpose}"), subagent)
         }
         _ => match name.strip_prefix("mcp__").and_then(|rest| rest.split_once("__")) {
+            Some((server, tool)) if server == super::tool_server::SERVER_NAME => draft("tool_call", olympus_tool(tool, input), subagent),
             Some((server, tool)) => draft("tool_call", format!("Called {tool} on {server}"), subagent),
             None => draft("tool_call", format!("Used {name}"), subagent),
         },
@@ -342,7 +357,10 @@ mod tests {
             {"type": "tool_use", "name": "Grep", "input": {"pattern": "fn main"}},
             {"type": "tool_use", "name": "Bash", "input": {"command": "cargo test --lib\necho done"}},
             {"type": "tool_use", "name": "Task", "input": {"description": "Check the migrations"}},
-            {"type": "tool_use", "name": "mcp__olympus__search_mail", "input": {}},
+            {"type": "tool_use", "name": "mcp__olympus__search_mail", "input": {"query": "keyboard order"}},
+            {"type": "tool_use", "name": "mcp__olympus__read_vault_note", "input": {"path": "01 - Projects/Olympus.md"}},
+            {"type": "tool_use", "name": "mcp__olympus__list_projects", "input": {}},
+            {"type": "tool_use", "name": "mcp__other__lookup", "input": {}},
             {"type": "tool_use", "name": "WebSearch", "input": {}}
         ])));
         let seen: Vec<(&str, &str)> = events.iter().map(|e| (e.kind, e.summary.as_str())).collect();
@@ -352,7 +370,10 @@ mod tests {
             ("search", "Searched for fn main"),
             ("command", "Ran cargo test --lib"),
             ("subagent_started", "Started a helper: Check the migrations"),
-            ("tool_call", "Called search_mail on olympus"),
+            ("tool_call", "Searched mail for keyboard order"),
+            ("tool_call", "Read Olympus.md"),
+            ("tool_call", "Checked the project list"),
+            ("tool_call", "Called lookup on other"),
             ("tool_call", "Used WebSearch"),
         ]);
         assert_eq!(events[0].path.as_deref(), Some("C:\\repo\\src\\main.rs"));

@@ -5,6 +5,7 @@ import { useSyncExternalStore } from "react";
 import { accessSnapshot, subscribeAccess } from "../../services/sourceActivity";
 import type { Mission } from "../../services/capabilities";
 import { AgentActivityFeed } from "./AgentActivityFeed";
+import { SkillTrials } from "./SkillTrials";
 
 export function InstrumentActivity({missions,assets,onInspect,vaultStatus}:{vaultStatus:string;missions:readonly Mission[];assets:readonly GalaxyAsset[];onInspect:(asset:GalaxyAsset)=>void}) {
   const reviews=useReviewHistory();
@@ -13,6 +14,7 @@ export function InstrumentActivity({missions,assets,onInspect,vaultStatus}:{vaul
   return <details className="instrument-activity"><summary>Agent activity{latest && <span className="latest-skill-result">{latest.project} · {latest.outcome}</span>}</summary>
     {latest && <p><button type="button" onClick={()=>window.dispatchEvent(new Event("olympus:open-review"))}>Review #{latest.id} · {latest.detail}</button></p>}
     <AgentActivityFeed />
+    <SkillTrials />
     <small>{vaultStatus}</small>
     <label>Inspect asset <select defaultValue="" onChange={e=>{const item=assets.find(a=>a.id===e.target.value);if(item)onInspect(item);e.target.value="";}}>
       <option value="">Choose an asset</option>{assets.map(a=><option key={a.id} value={a.id}>{a.label}</option>)}

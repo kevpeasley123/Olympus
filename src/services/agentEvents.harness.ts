@@ -1,4 +1,5 @@
-import { groupAgentRuns, mergeAgentEvents, workingAgents, type AgentEvent, type AgentEventKind } from "./agentEvents";
+import { PANTHEON_FIGURES, nextFigureState, type FigureMemory } from "./pantheonFigureState";
+import { activityMissions, groupAgentRuns, mergeAgentEvents, workingAgents, type AgentEvent, type AgentEventKind } from "./agentEvents";
 
 export function runAgentEventsHarness() {
   let passed = 0;
@@ -22,5 +23,21 @@ export function runAgentEventsHarness() {
   check(workingAgents(feed).join() === "coding-delegate", "Only agents with a run in progress are working");
   check(workingAgents([...feed, event(7, "a", "error")]).length === 0, "An error ends the run");
   check(groupAgentRuns([]).length === 0 && workingAgents([]).length === 0, "No events means no runs and no working agents");
+  const missions = activityMissions(feed);
+  const byRun = (id: string) => missions.find(m => m.id === `activity:${id}`)!;
+  check(byRun("a").status === "running" && byRun("a").steps[0].agent === "coding-delegate" && byRun("a").steps[0].state === "active", "A run in progress is a running mission naming its agent");
+  check(byRun("b").status === "completed" && byRun("b").steps[0].state === "completed" && byRun("b").finishedAt !== null, "A finished run is a completed mission");
+  check(activityMissions([...feed, event(7, "a", "error")]).find(m => m.id === "activity:a")!.status === "failed", "A stopped run is a failed mission");
+  const figure = (id: string) => PANTHEON_FIGURES.find(f => f.id === id)!;
+  const step = (id: string, list: typeof missions, previous: FigureMemory | null, now: number) => nextFigureState(figure(id), list, null, previous, now);
+  const assigned = step("hephaestus", missions, null, 0);
+  check(assigned.state === "assigned", "A figure is assigned when its agent's run appears");
+  const working = step("hephaestus", missions, assigned, 5);
+  check(working.state === "working", "The figure then works while the run is in progress");
+  check(step("zeus", missions, step("zeus", missions, null, 0), 5).state === "working", "Zeus coordinates while any run is live");
+  check(step("athena", missions, null, 0).state === "idle", "An agent whose run already finished is idle");
+  const finished = activityMissions([...feed, event(7, "a", "result")]);
+  check(step("hephaestus", finished, working, 6).state === "completed", "The figure marks completion when its run reports a result");
+  check(step("hephaestus", activityMissions([]), working, 6).state === "idle", "A run that disappears returns the figure to idle");
   return { passed };
 }

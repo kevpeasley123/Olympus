@@ -5,6 +5,7 @@ import { inspectConstellationAgent } from "../../services/agentConstellation";
 import { openVaultNote } from "../../services/launcher";
 import type { GalaxyAsset } from "../../services/pantheonGalaxy";
 import { InstrumentActivity } from "./InstrumentActivity";
+import { activityMissions, agentEventsSnapshot, subscribeAgentEvents } from "../../services/agentEvents";
 import { selectConversationProvider, useConversationProvider } from "../../services/conversationProvider";
 import "./engineSwitch.css";
 import { CodeXml } from "lucide-react";
@@ -26,7 +27,7 @@ import { useSceneParallax } from "../../hooks/useSceneParallax";
 import { AMBIENT, ambientVariables } from "../../services/ambientMotion";
 import type { OlympusVisualState } from "../../services/ambientMotion";
 import { motion } from "motion/react";
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { CSSProperties } from "react";
 import { useOperatorProfile } from "../../hooks/useOperatorProfile";
 import { useVaultGraph } from "../../hooks/useVaultGraph";
@@ -167,6 +168,10 @@ export function CommandInstrument({
   const { writes } = useVaultWrites();
   const { graph, error: vaultGraphError, loading: vaultGraphLoading } = useVaultGraph();
   const [renderAttempt, setRenderAttempt] = useState(0);
+  // Runs seen on the agent event stream move the figures without becoming orbiting missions.
+  const agentEvents = useSyncExternalStore(subscribeAgentEvents, agentEventsSnapshot);
+  const observedRuns = useMemo(() => activityMissions(agentEvents), [agentEvents]);
+  const figureMissions = useMemo(() => observedRuns.length ? [...missions, ...observedRuns] : missions, [missions, observedRuns]);
   const [hybridReady, setHybridReady] = useState(false);
   const [hybridError, setHybridError] = useState<string | null>(null);
   // The WebGL scene starts the first time Command is shown, not at launch:
@@ -318,11 +323,11 @@ export function CommandInstrument({
         {flagship && <div className="engine-core-tint" aria-hidden="true" />}
         {flagship && <><ArmoryConstellation capabilities={capabilities??null}/><SkillsConstellation capabilities={capabilities}/></>}
         {flagship && <MissionTargets missions={missions} selected={selectedMission} onSelect={onSelectMission} fallback={!sceneShown}/>}
-        {flagship && <PantheonFigures missions={missions}/>}
+        {flagship && <PantheonFigures missions={figureMissions}/>}
         {/* Unmounted on failure so its GPU resources, listeners and timers go
             with it; Retry mounts a fresh one. */}
         {sceneWanted && !hybridError && <HybridCommandCore assets={galaxyAssets} engine={engine} key={renderAttempt} layout={{...layout, orbitalCards: true, flagship}} state={ambientState} voiceLevel={voiceLevel} voiceEnergy={voiceSnapshot?.muted ? undefined : omegaVoiceEnergy} execution={execution}
-          missions={missions} selectedMission={selectedMission} running={active && ambient.running} light={light} activeDomains={activeDomains}
+          missions={missions} activity={observedRuns} selectedMission={selectedMission} running={active && ambient.running} light={light} activeDomains={activeDomains}
           onReady={setHybridReady} onError={setHybridError} />}
         <svg
           style={{ transformOrigin: "50% 50%" }}
