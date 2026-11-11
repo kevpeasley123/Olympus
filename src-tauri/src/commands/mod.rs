@@ -9,6 +9,7 @@ pub mod approvals;
 pub mod assistant;
 pub mod attachments;
 pub mod agent_events;
+pub mod tool_server;
 pub mod delegation;
 pub mod engines;
 pub mod subscription;

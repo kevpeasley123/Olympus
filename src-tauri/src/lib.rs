@@ -196,6 +196,11 @@ fn prepare_environment() {
 }
 
 pub fn run() {
+    // The tool server is this same executable in a different role: it must
+    // answer an engine over stdio without opening a window or the app's state.
+    if let Some(code) = commands::tool_server::run_if_requested() {
+        std::process::exit(code);
+    }
     // Before anything else: `.env`, the window and its webview profile, the
     // database, the keyring and the workers all follow from this decision.
     let context = tauri::generate_context!();
