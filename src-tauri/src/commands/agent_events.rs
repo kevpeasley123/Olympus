@@ -328,6 +328,55 @@ pub fn record_claude_line(app: &AppHandle, run_id: &str, agent: &str, line: &str
     record(app, run_id, "claude-code", agent, normalize_claude_line(line));
 }
 
+#[derive(Clone, Debug, Default, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct EngineUsage {
+    pub engine: String,
+    pub runs: i64,
+    pub failed: i64,
+    pub seconds: f64,
+    pub input_tokens: i64,
+    pub output_tokens: i64,
+    /// What the engine itself reported a run would cost at API rates. For Claude
+    /// Code this is the closest reading Olympus has of headless credit spent.
+    pub reported_cost_usd: f64,
+}
+
+/// What Olympus observed each engine do over the last `days`, from run outcomes.
+/// It counts only what passed through the event stream, so it is a floor, not
+/// the account's own meter.
+pub fn usage(connection: &Connection, days: i64) -> rusqlite::Result<Vec<EngineUsage>> {
+    let mut statement = connection.prepare(
+        "SELECT engine, kind, detail FROM agent_events WHERE kind IN ('result', 'error') AND subagent = 0 \
+         AND created_at >= strftime('%Y-%m-%dT%H:%M:%fZ', 'now', ?1) ORDER BY engine",
+    )?;
+    let window = format!("-{} days", days.clamp(1, 365));
+    let rows = statement.query_map([window], |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?, row.get::<_, Option<String>>(2)?)))?;
+    let mut totals: Vec<EngineUsage> = Vec::new();
+    for row in rows {
+        let (engine, kind, detail) = row?;
+        if totals.last().map(|total| total.engine.as_str()) != Some(engine.as_str()) {
+            totals.push(EngineUsage { engine, ..Default::default() });
+        }
+        let total = totals.last_mut().expect("just pushed");
+        total.runs += 1;
+        total.failed += (kind == "error") as i64;
+        let measured: Value = detail.as_deref().and_then(|text| serde_json::from_str(text).ok()).unwrap_or(Value::Null);
+        let milliseconds = measured["duration_ms"].as_f64().or_else(|| measured["latency_ms"].as_f64()).unwrap_or(0.0);
+        total.seconds += milliseconds / 1000.0;
+        total.input_tokens += measured["usage"]["input_tokens"].as_i64().unwrap_or(0);
+        total.output_tokens += measured["usage"]["output_tokens"].as_i64().unwrap_or(0);
+        total.reported_cost_usd += measured["total_cost_usd"].as_f64().unwrap_or(0.0);
+    }
+    Ok(totals)
+}
+
+#[tauri::command]
+pub fn agent_usage(db: State<Db>, days: Option<i64>) -> Result<Vec<EngineUsage>, String> {
+    let connection = db.0.lock().map_err(|_| "Database unavailable".to_string())?;
+    usage(&connection, days.unwrap_or(7)).map_err(|error| error.to_string())
+}
+
 #[tauri::command]
 pub fn agent_events(db: State<Db>, run_id: Option<String>, after: Option<i64>, limit: Option<i64>) -> Result<Vec<AgentEvent>, String> {
     let connection = db.0.lock().map_err(|_| "Database unavailable".to_string())?;
@@ -470,6 +519,29 @@ mod tests {
         assert_eq!(job_agent("research_verification"), "research");
         assert_eq!(job_agent("claim_verification"), "verification");
         assert_eq!(job_agent("memory_contribution"), "olympus");
+    }
+
+    #[test]
+    fn usage_totals_come_from_run_outcomes_per_engine() {
+        let connection = db();
+        let outcome = |kind: &'static str, detail: Value| Draft { detail: Some(detail.to_string()), ..draft(kind, "x".into(), false) };
+        insert(&connection, "a", "claude-code", "olympus", &outcome("result", json!({"duration_ms": 61_000, "usage": {"input_tokens": 1200, "output_tokens": 300}, "total_cost_usd": 0.42}))).unwrap();
+        insert(&connection, "b", "claude-code", "olympus", &outcome("error", json!({"duration_ms": 4_000}))).unwrap();
+        insert(&connection, "c", "codex", "research", &outcome("result", json!({"latency_ms": 72_810, "usage": {"billing_status": "included_subscription"}}))).unwrap();
+        insert(&connection, "c", "codex", "research", &draft("message", "not an outcome".into(), false)).unwrap();
+        let mut helper = outcome("result", json!({"duration_ms": 9_000}));
+        helper.subagent = true;
+        insert(&connection, "a", "claude-code", "olympus", &helper).unwrap();
+        connection.execute("INSERT INTO agent_events (run_id, engine, agent, kind, summary, created_at) VALUES ('old', 'codex', 'olympus', 'result', 'x', '2020-01-01T00:00:00.000Z')", []).unwrap();
+
+        let totals = usage(&connection, 7).unwrap();
+        assert_eq!(totals.len(), 2);
+        let claude = &totals[0];
+        assert_eq!((claude.engine.as_str(), claude.runs, claude.failed, claude.input_tokens, claude.output_tokens), ("claude-code", 2, 1, 1200, 300));
+        assert!((claude.seconds - 65.0).abs() < 0.01 && (claude.reported_cost_usd - 0.42).abs() < 1e-9);
+        let codex = &totals[1];
+        assert_eq!((codex.engine.as_str(), codex.runs, codex.failed), ("codex", 1, 0));
+        assert!((codex.seconds - 72.81).abs() < 0.01 && codex.reported_cost_usd == 0.0);
     }
 
     #[test]

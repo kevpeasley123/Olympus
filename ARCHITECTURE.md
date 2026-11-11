@@ -90,7 +90,7 @@ Tauri commands exposed by the desktop shell — every entry in the `generate_han
 | Knowledge audit | `start_knowledge_audit`, `list_knowledge_audits`, `inspect_knowledge_audit` (no UI entry point; the view is rendered only by its harness) |
 | Research / Verification agents | `research_agent_catalog`, `start_research_verification`, `inspect_research_verification`, `list_research_verifications`, `cancel_research_verification` |
 | Command Armory | `command_agent_catalog`, `command_capabilities`, `command_missions` (read-only projections; see `docs/COMMAND-FLAGSHIP.md`) |
-| Agent events | `agent_events` (read-only; the normalized activity stream, see `docs/AGENT-EVENTS.md`) |
+| Agent events | `agent_events`, `agent_usage` (read-only; the normalized activity stream, see `docs/AGENT-EVENTS.md`) |
 | Skill runner | `skill_catalog`, `list_skill_runs`, `start_skill_run` (see `docs/SKILL-RUNNER.md`; tools in `docs/OLYMPUS-TOOLS.md`) |
 | Resources and skills | `resource_skills`, `add_resource_skill`, `extract_resource_text`, `recommend_resource_skills` |
 | Gmail | `gmail_status`, `gmail_connect`, `gmail_cancel`, `gmail_disconnect`, `gmail_sync`, `gmail_set_horizon`, `gmail_search`, `gmail_thread`, `gmail_workspace`, `gmail_remove_cache`, `gmail_cache_counts` |

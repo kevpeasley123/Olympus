@@ -18,10 +18,20 @@ contract grants no execution authority.
 | Skill | Credited to | Tools | Budget | Accepted when |
 | --- | --- | --- | --- | --- |
 | `opening-brief` v1, "Opening brief (trial)" | `olympus` (Zeus) | `search_mail`, `read_mail_thread`, `recall_memory`, `list_projects`, `read_vault_note` | 16 turns, 5 minutes | The answer matches its schema, the brief is at most 140 words, and every item cites a tool this run actually called |
+| `answer-from-sources` v1, "Answer from my sources" | `research` (Athena) | `recall_memory`, `search_vault`, `read_vault_note`, `list_projects`, `search_mail`, `read_mail_thread` | 16 turns, 5 minutes | The answer matches its schema, the run called at least one tool, and it cites only tools it called. Saying the sources do not answer the question is a valid result |
+
+`answer-from-sources` takes a request: Kevin's question, at most 2,000
+characters. It is passed to the model inside `<question>` tags as data, and the
+skill's instructions say it is not an instruction to change anything. A skill
+that takes no request ignores one.
+
+This second skill is also the direct check on learned-memory recall: asked what
+Olympus has learned, it can only answer by calling `recall_memory`, which
+returns each record with its vault file path.
 
 ## A run
 
-1. `start_skill_run(skillId, engine)` records a row in `agent_runs`
+1. `start_skill_run(skillId, engine, request?)` records a row in `agent_runs`
    (migration 9) and returns it. One run per skill at a time. The engine is
    always named by the caller; nothing falls back to another.
 2. A background worker launches the engine. Claude Code is the only engine

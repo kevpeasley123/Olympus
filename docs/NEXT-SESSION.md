@@ -15,25 +15,34 @@ work is paused while the harness is built. The opening brief is the first workfl
 to move onto it. He approved engines using Olympus's own read-only tools and
 retiring the paid API routes and the ChatGPT plan prototype.
 
-Built on `claude/harness-core` (unreleased, not installed, never run in the app):
+Built on `claude/harness-integration`, which also contains pull requests 35 and
+36 (unreleased, not installed, never run in the app):
 
 - One agent event stream, stored and shown in Command's Agent activity
   ([AGENT-EVENTS.md](AGENT-EVENTS.md)). Fed by Claude Code delegation, by every
   background job's start and outcome, and by skill runs. The Pantheon figures
   move on it.
 - A read-only tool server inside the executable ([OLYMPUS-TOOLS.md](OLYMPUS-TOOLS.md)).
-- A skill runner, a tool mode for the Claude subscription transport, and the
-  opening brief as a trial skill ([SKILL-RUNNER.md](SKILL-RUNNER.md)).
+- A skill runner, a tool mode for the Claude subscription transport, and two
+  skills: the opening brief as a trial, and "Answer from my sources"
+  ([SKILL-RUNNER.md](SKILL-RUNNER.md)).
+- Observed usage per engine from run outcomes, shown under the skills.
 
 First things to do on the PC, in order:
 
-1. Run the full release gate on `claude/harness-integration` (everything above
-   plus pull requests 35 and 36, already merged together).
+1. Run the full release gate on `claude/harness-integration`.
 2. In `npm run tauri dev`, open Agent activity and run the opening-brief trial on
    Claude Code. This is the first real tool run. If it stops with an isolation
    message, the cause is most likely that `--safe-mode` or `--restricted` does not
    load the server named by `--mcp-config`; SKILL-RUNNER.md lists what is unproven.
-3. Check what one trial cost against the Claude headless credit.
+3. Ask "Answer from my sources" what briefing style Kevin asked for. A correct
+   answer citing a path under `09 - System/Learned` closes the recall check left
+   open on November 9.
+4. Check what the runs cost against the Claude headless credit; the observed
+   usage line reports what Claude Code said each cost.
+
+Open design question for Kevin: the Agent activity disclosure is a small corner
+panel and now holds the feed, the skills and their results. It needs a proper home.
 
 Not done, deliberately: retiring the paid API routes. They are woven into the main
 chat dispatch in `assistant.rs` (and `voice.rs` separately uses an OpenAI key for

@@ -1,31 +1,51 @@
-import { useSyncExternalStore } from "react";
-import { describeRun, latestRun, skillRunsSnapshot, startSkillRun, subscribeSkillRuns } from "../../services/skillRuns";
+import { useState, useSyncExternalStore } from "react";
+import { describeRun, describeUsage, isBrief, latestRun, skillRunsSnapshot, startSkillRun, subscribeSkillRuns, type SkillEntry, type SkillRun } from "../../services/skillRuns";
 import { engineLabel } from "../../services/agentEvents";
 import "./agentActivityFeed.css";
 
-/** Skills that run on the harness. A trial result is shown for comparison and replaces nothing. */
+const cite = (sources: readonly { tool: string; reference: string }[]) => sources.map(source => `${source.tool}: ${source.reference}`).join(" · ");
+
+function Result({ run }: { run: SkillRun }) {
+  const output = run.output;
+  if (run.status !== "completed" || !output) return null;
+  if (isBrief(output)) return <div className="skill-trial-result">
+    <p>{output.brief}</p>
+    {output.items.length > 0 && <ul>{output.items.map((item, index) => <li key={index}>
+      <strong>{item.headline}</strong>{item.actionNeeded && <em> needs you</em>}
+      <span>{item.why}</span>
+      <small>{cite(item.sources)}</small>
+    </li>)}</ul>}
+    <small>{output.coverage}</small>
+  </div>;
+  return <div className="skill-trial-result">
+    {run.request && <small>{run.request}</small>}
+    <p>{output.answer}</p>
+    {output.unknowns.length > 0 && <ul>{output.unknowns.map((gap, index) => <li key={index}><span>Not found: {gap}</span></li>)}</ul>}
+    {output.sources.length > 0 && <small>{cite(output.sources)}</small>}
+  </div>;
+}
+
+function Skill({ skill, run }: { skill: SkillEntry; run: SkillRun | null }) {
+  const [request, setRequest] = useState("");
+  const engine = skill.engines[0], running = run?.status === "running";
+  const blocked = running || (skill.takesRequest && !request.trim());
+  return <section>
+    <h4>{skill.title}</h4>
+    <p className="skill-trial-note">{skill.takesRequest ? "Answers from your vault, learned memory, projects and mail, and cites where each part came from." : "Runs beside your current brief. It is not spoken or saved as the brief."}</p>
+    {skill.takesRequest && <textarea aria-label={`Question for ${skill.title}`} rows={2} maxLength={2000} value={request} placeholder="Ask a question" onChange={event => setRequest(event.target.value)} />}
+    <button type="button" disabled={blocked} onClick={() => void startSkillRun(skill.id, engine, skill.takesRequest ? request : undefined)}>Run on {engineLabel(engine)}</button>
+    <p className="skill-trial-status" data-status={run?.status ?? "none"}>{describeRun(run)}</p>
+    {run && <Result run={run} />}
+  </section>;
+}
+
+/** Skills that run on the harness. A result is shown here and replaces nothing. */
 export function SkillTrials() {
-  const { skills, runs, error } = useSyncExternalStore(subscribeSkillRuns, skillRunsSnapshot);
+  const { skills, runs, usage, error } = useSyncExternalStore(subscribeSkillRuns, skillRunsSnapshot);
   if (!skills.length) return null;
   return <div className="skill-trials" aria-label="Harness skills">
-    {skills.map(skill => {
-      const run = latestRun(runs, skill.id), engine = skill.engines[0];
-      return <section key={skill.id}>
-        <h4>{skill.title}</h4>
-        <p className="skill-trial-note">Runs beside your current brief. It is not spoken or saved as the brief.</p>
-        <button type="button" disabled={run?.status === "running"} onClick={() => void startSkillRun(skill.id, engine)}>Run on {engineLabel(engine)}</button>
-        <p className="skill-trial-status" data-status={run?.status ?? "none"}>{describeRun(run)}</p>
-        {run?.status === "completed" && run.output && <div className="skill-trial-result">
-          <p>{run.output.brief}</p>
-          {run.output.items.length > 0 && <ul>{run.output.items.map((item, index) => <li key={index}>
-            <strong>{item.headline}</strong>{item.actionNeeded && <em> needs you</em>}
-            <span>{item.why}</span>
-            <small>{item.sources.map(source => `${source.tool}: ${source.reference}`).join(" · ")}</small>
-          </li>)}</ul>}
-          <small>{run.output.coverage}</small>
-        </div>}
-      </section>;
-    })}
+    {skills.map(skill => <Skill key={skill.id} skill={skill} run={latestRun(runs, skill.id)} />)}
     {error && <p className="skill-trial-status" data-status="failed" role="alert">{error}</p>}
+    {usage.length > 0 && <p className="skill-trial-note" aria-label="Observed usage, last 7 days">Observed, last 7 days. {usage.map(entry => describeUsage(entry, engineLabel(entry.engine))).join(". ")}.</p>}
   </div>;
 }

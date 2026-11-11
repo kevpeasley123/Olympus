@@ -48,6 +48,18 @@ database. Nothing here leaves the machine.
 | Codex's own step stream | Not wired. How much it reveals is untested. |
 | Interactive chat turns | Not wired. |
 
+## Observed usage
+
+`agent_usage(days)` totals run outcomes per engine over the last `days` (7 by
+default): runs, failures, seconds, tokens where the engine reported them, and
+`reportedCostUsd`, the cost at API rates that Claude Code itself reports for a
+run. That last figure is the closest reading Olympus has of Claude headless
+credit spent.
+
+It counts only what passed through this stream, so it is a floor and not the
+account's own meter. It does not replace the Usage dock's account readings, and
+no interface shows it yet.
+
 ## Interface
 
 `src/services/agentEvents.ts` holds a bounded feed (the newest 200 events),

@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS agent_runs (
     engine TEXT NOT NULL,
     agent TEXT NOT NULL,
     status TEXT NOT NULL,
+    request TEXT,
     model TEXT,
     output_json TEXT,
     error TEXT,
