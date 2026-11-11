@@ -196,6 +196,11 @@ fn prepare_environment() {
 }
 
 pub fn run() {
+    // The tool server is this same executable in a different role: it must
+    // answer an engine over stdio without opening a window or the app's state.
+    if let Some(code) = commands::tool_server::run_if_requested() {
+        std::process::exit(code);
+    }
     // Before anything else: `.env`, the window and its webview profile, the
     // database, the keyring and the workers all follow from this decision.
     let context = tauri::generate_context!();
@@ -218,6 +223,7 @@ pub fn run() {
             }
             commands::knowledge_audit::recover(&connection)?;
             commands::research_verification::recover(&connection)?;
+            commands::skill_runner::recover(&connection).map_err(|error| error.to_string())?;
             commands::gmail::recover(&connection)?;
             commands::gmail::intelligence::recover(&connection)?;
             let session_id = commands::delegation::run_id();
@@ -275,6 +281,8 @@ pub fn run() {
             commands::acceptance::acceptance_profile,
             commands::knowledge_audit::start_knowledge_audit,
             commands::research_verification::research_agent_catalog,
+            commands::agent_events::agent_events,
+            commands::skill_runner::skill_catalog, commands::skill_runner::list_skill_runs, commands::skill_runner::start_skill_run,
             commands::command_agents::command_agent_catalog,
             commands::capabilities::command_capabilities,
             commands::capabilities::command_missions,

@@ -90,6 +90,9 @@ const graph: VaultGraphPayload = { ...EMPTY_VAULT_GRAPH, nodes: projects.map(p =
 for (let i = 0; i < (params.has("dense-vault") ? 112 : 32); i++) { const id = `note-${i}.md`; graph.nodes.push({ id, title: `Synthetic note ${i}`, folder: "Research", isProject: false, degree: 1, hop: 1 }); graph.edges.push({ from: projects[i % projects.length].notePath!, to: id }); }
 mockIPC(command => {
   invoked.push(command);
+  if (command.startsWith("plugin:event|")) return 1;
+  if (command === "agent_events") return [];
+  if (command === "skill_catalog" || command === "list_skill_runs") return [];
   if (command === "fetch_vault_graph") return graph;
   if (command === "fetch_recent_vault_writes") return [];
   if (command === "fetch_operator_profile") return null;
@@ -376,7 +379,7 @@ async function checks() {
     check(runProjectRingHarness().passed, "Project-ring layout checks still pass (the note field's placement)");
     check(runGlyphStateHarness().passed, "Existing glyph-state checks pass");
     check(runAmbientMotionHarness().passed, "Existing ambient-motion checks pass");
-    const allowed = new Set(["acceptance_profile", "fetch_vault_graph", "fetch_recent_vault_writes", "fetch_operator_profile", "model_routes", "plugin:event|listen", "plugin:event|unlisten"]);
+    const allowed = new Set(["acceptance_profile", "fetch_vault_graph", "fetch_recent_vault_writes", "fetch_operator_profile", "model_routes", "agent_events", "skill_catalog", "list_skill_runs", "plugin:event|listen", "plugin:event|unlisten"]);
     check(invoked.every(command => allowed.has(command)), `Inspection invoked no capability (${[...new Set(invoked)].join(", ")})`);
     check(mutations === 0 && reads > 0, "Catalog selection, refresh, lenses and cross-links perform reads only");
     check(document.documentElement.scrollWidth <= innerWidth + 2, "Desktop composition has no horizontal overflow");

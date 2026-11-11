@@ -26,7 +26,7 @@ const graph:VaultGraphPayload={...EMPTY_VAULT_GRAPH,nodes:projects.map(p=>({id:p
 const semantic=new URLSearchParams(location.search).has("semantic");
 const fixtureFolders=["01 - Projects","02 - Research","03 - Tasks","04 - Decisions","05 - Skills","06 - Agents","07 - Templates","Unclassified"];
 for(let i=0;i<64;i++){const folder=fixtureFolders[i%8];const id=`${semantic?folder+"/":""}note-${String(i).padStart(3,"0")}.md`;graph.nodes.push({id,title:`Note ${i+1}`,folder:semantic?folder:`Folder ${i%4}`,isProject:false,degree:2,hop:1});graph.edges.push({from:projects[i%8].notePath!,to:id});}
-mockIPC(command=>{if(command==="fetch_vault_graph")return graph;if(command==="fetch_recent_vault_writes")return [];if(command==="fetch_operator_profile")return null;throw Error(`Unexpected fixture command: ${command}`);});
+mockIPC(command=>{if(command.startsWith("plugin:event|"))return 1;if(command==="agent_events"||command==="skill_catalog"||command==="list_skill_runs")return [];if(command==="fetch_vault_graph")return graph;if(command==="fetch_recent_vault_writes")return [];if(command==="fetch_operator_profile")return null;throw Error(`Unexpected fixture command: ${command}`);});
 
 function Fixture(){const [environment,setEnvironment]=useState(new URLSearchParams(location.search).has("environment"));const [operation,setOperation]=useState(0);const [previewVoice,setPreviewVoice]=useState(0);const [state,setState]=useState<OlympusVisualState>("idle");const [action,setAction]=useState("Fixture data · no project writes");
 useEffect(()=>{

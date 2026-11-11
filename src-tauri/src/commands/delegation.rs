@@ -25,6 +25,8 @@ use super::approvals::{ApprovalState, Proposal, Subject};
 use super::persistence::Db;
 
 const EVENT_NAME: &str = "delegation-run-updated";
+/// The Armory role credited in the activity stream; matches the roster id for Hephaestus.
+const ACTIVITY_AGENT: &str = "coding-delegate";
 const MAX_TASK_CHARS: usize = 4_000;
 const MAX_DIFF_CHARS: usize = 120_000;
 const MODEL: &str = super::models::CODING_MODEL;
@@ -709,6 +711,7 @@ fn spawn_claude(app: AppHandle, run: DelegationRun, stage: Stage) -> Result<(), 
     let stdout_result = result.clone();
     let stdout_thread = thread::spawn(move || {
         for line in BufReader::new(stdout).lines().map_while(Result::ok) {
+            super::agent_events::record_claude_line(&stdout_app, &stdout_id, ACTIVITY_AGENT, &line);
             inspect_stream_line(&stdout_app, &stdout_id, stage, &line, &stdout_result);
         }
     });

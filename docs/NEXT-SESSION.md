@@ -7,6 +7,47 @@ installed and launched 0.53.0. See
 [installed acceptance](reviews/2026-11-09-installed-memory-workflow-acceptance.md).
 Active checkout: `olympus-skill-backbone`; registered human-edited checkout preserved.
 
+## Direction change - November 11, 2026
+
+Kevin set a new direction: Olympus is an orchestrating harness over Codex, Claude
+Code and local models, with all agent work visible. Briefing and Gmail-analysis
+work is paused while the harness is built. The opening brief is the first workflow
+to move onto it. He approved engines using Olympus's own read-only tools and
+retiring the paid API routes and the ChatGPT plan prototype.
+
+Built on `claude/harness-core` (unreleased, not installed, never run in the app):
+
+- One agent event stream, stored and shown in Command's Agent activity
+  ([AGENT-EVENTS.md](AGENT-EVENTS.md)). Fed by Claude Code delegation, by every
+  background job's start and outcome, and by skill runs. The Pantheon figures
+  move on it.
+- A read-only tool server inside the executable ([OLYMPUS-TOOLS.md](OLYMPUS-TOOLS.md)).
+- A skill runner, a tool mode for the Claude subscription transport, and the
+  opening brief as a trial skill ([SKILL-RUNNER.md](SKILL-RUNNER.md)).
+
+First things to do on the PC, in order:
+
+1. Run the full release gate on `claude/harness-integration` (everything above
+   plus pull requests 35 and 36, already merged together).
+2. In `npm run tauri dev`, open Agent activity and run the opening-brief trial on
+   Claude Code. This is the first real tool run. If it stops with an isolation
+   message, the cause is most likely that `--safe-mode` or `--restricted` does not
+   load the server named by `--mcp-config`; SKILL-RUNNER.md lists what is unproven.
+3. Check what one trial cost against the Claude headless credit.
+
+Not done, deliberately: retiring the paid API routes. They are woven into the main
+chat dispatch in `assistant.rs` (and `voice.rs` separately uses an OpenAI key for
+realtime speech, which is not a reasoning route). Removing them unverified would
+risk the working chat; it needs a session that can run the app. Also not built:
+Codex and local models as skill engines, cancelling a run, live usage telemetry.
+
+`Desktop/Projects/Olympus` is the only checkout; the former active checkout is
+archived under `Documents/New project`. The uncommitted Claude memory acceptance
+notes are on local branch `codex/053-claude-memory-acceptance` there. The
+fresh-turn recall gap seen November 9 is addressed for skills by the
+`recall_memory` tool, which returns learned records with their file paths; chat
+recall itself is unchanged.
+
 ## Delivered architecture
 
 - Explicit subscription/local routes, independent extraction/briefing/memory choices,
