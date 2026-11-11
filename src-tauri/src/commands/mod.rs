@@ -8,6 +8,7 @@ pub mod delegation_review;
 pub mod approvals;
 pub mod assistant;
 pub mod attachments;
+pub mod agent_events;
 pub mod delegation;
 pub mod engines;
 pub mod subscription;

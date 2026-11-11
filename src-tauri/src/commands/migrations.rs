@@ -34,6 +34,7 @@ pub const MIGRATIONS: &[Migration] = &[
     Migration { version: 5, name: "situation changes", sql: include_str!("../../migrations/0005_situation_changes.sql"), after: None },
     Migration { version: 6, name: "memory contributions", sql: include_str!("../../migrations/0006_memory_contributions.sql"), after: None },
     Migration { version: 7, name: "working checkpoints", sql: include_str!("../../migrations/0007_working_checkpoints.sql"), after: None },
+    Migration { version: 8, name: "agent events", sql: include_str!("../../migrations/0008_agent_events.sql"), after: None },
 ];
 
 /// Every migration's SQL in order, for test fixtures that build a fresh
@@ -47,7 +48,8 @@ pub const TEST_SCHEMA: &str = concat!(
     include_str!("../../migrations/0005_situation_changes.sql"),
     include_str!("../../migrations/0006_memory_contributions.sql"),
     include_str!("../../migrations/0007_working_checkpoints.sql"),
-    "PRAGMA user_version = 7;"
+    include_str!("../../migrations/0008_agent_events.sql"),
+    "PRAGMA user_version = 8;"
 );
 
 pub fn latest() -> i64 {

@@ -275,6 +275,7 @@ pub fn run() {
             commands::acceptance::acceptance_profile,
             commands::knowledge_audit::start_knowledge_audit,
             commands::research_verification::research_agent_catalog,
+            commands::agent_events::agent_events,
             commands::command_agents::command_agent_catalog,
             commands::capabilities::command_capabilities,
             commands::capabilities::command_missions,

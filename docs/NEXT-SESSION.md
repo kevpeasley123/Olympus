@@ -7,6 +7,25 @@ installed and launched 0.53.0. See
 [installed acceptance](reviews/2026-11-09-installed-memory-workflow-acceptance.md).
 Active checkout: `olympus-skill-backbone`; registered human-edited checkout preserved.
 
+## Direction change - November 11, 2026
+
+Kevin set a new direction: Olympus is an orchestrating harness over Codex, Claude
+Code and local models, with all agent work visible. Briefing and Gmail-analysis
+work is paused while the harness is built. The opening brief is the first workflow
+to move onto it. He approved engines using Olympus's own read-only tools and
+retiring the paid API routes and the ChatGPT plan prototype (not yet done).
+
+In flight on `claude/agent-events`: one normalized agent event stream, stored
+(migration 8) and shown in Command's Agent activity disclosure, fed by Claude Code
+delegation. See [AGENT-EVENTS.md](AGENT-EVENTS.md). Next: agent mode for the engine
+adapters, then a read-only Olympus tool server, then the brief as a skill.
+
+Open pull requests: 35 (updater line-ending fix) and 36 (repository tidy). Neither
+has run the full release gate on the PC. `Desktop/Projects/Olympus` is now the only
+checkout; the former active checkout is archived under `Documents/New project`.
+The uncommitted Claude memory acceptance notes are on local branch
+`codex/053-claude-memory-acceptance` there.
+
 ## Delivered architecture
 
 - Explicit subscription/local routes, independent extraction/briefing/memory choices,
