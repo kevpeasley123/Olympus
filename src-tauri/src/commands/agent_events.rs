@@ -239,6 +239,74 @@ pub fn record(app: &AppHandle, run_id: &str, engine: &str, agent: &str, events: 
     }
 }
 
+static APP: std::sync::OnceLock<AppHandle> = std::sync::OnceLock::new();
+
+/// Set once at startup, so background jobs that hold no handle can report.
+pub fn init(app: &AppHandle) {
+    let _ = APP.set(app.clone());
+}
+
+fn job_engine(provider: &str) -> &str {
+    match provider {
+        "codex-subscription" => "codex",
+        "claude-subscription" => "claude-code",
+        other => other,
+    }
+}
+
+/// The Armory role credited for a background job, from its recorded purpose.
+fn job_agent(purpose: &str) -> &'static str {
+    if purpose.contains("verif") && !purpose.starts_with("research") {
+        "verification"
+    } else if purpose.starts_with("research") {
+        "research"
+    } else {
+        "olympus"
+    }
+}
+
+fn job_label(purpose: &str) -> String {
+    let words = purpose.replace('_', " ");
+    let mut letters = words.chars();
+    letters.next().map_or_else(String::new, |first| first.to_uppercase().chain(letters).collect())
+}
+
+/// One event describing where a single-request job stands. Jobs are one model
+/// call with no tools, so they report a start and an outcome and nothing between.
+pub fn job_event(record: &super::models::RequestRecord) -> Option<Draft> {
+    let label = job_label(&record.purpose);
+    let seconds = |ms: u64| format!("{:.0} s", (ms as f64 / 1000.0).max(1.0));
+    let mut event = match record.status.as_str() {
+        "completed" => draft(
+            "result",
+            record.latency_ms.map_or(format!("Finished {label}"), |ms| format!("Finished {label} in {}", seconds(ms))),
+            false,
+        ),
+        "failed" => draft("error", format!("Stopped {label}"), false),
+        "blocked" => draft("error", format!("Blocked {label}"), false),
+        "cancelled" => draft("error", format!("Cancelled {label}"), false),
+        _ => {
+            let model = if record.requested_model.is_empty() { "the selected model" } else { &record.requested_model };
+            return Some(draft("run_started", format!("{label} on {model}"), false));
+        }
+    };
+    let measured = serde_json::json!({
+        "model": record.actual_model.as_deref().unwrap_or(&record.requested_model),
+        "latency_ms": record.latency_ms,
+        "usage": record.usage,
+        "reason": record.error_code.as_deref().map(|reason| clip(reason, SUMMARY_LIMIT)),
+    });
+    event.detail = Some(clip(&measured.to_string(), DETAIL_LIMIT));
+    Some(event)
+}
+
+/// Reports a background job's current state. Silent before `init`, as in tests.
+pub fn record_job(record: &super::models::RequestRecord) {
+    if let (Some(app), Some(event)) = (APP.get(), job_event(record)) {
+        self::record(app, &record.id, job_engine(&record.provider), job_agent(&record.purpose), vec![event]);
+    }
+}
+
 pub fn record_claude_line(app: &AppHandle, run_id: &str, agent: &str, line: &str) {
     record(app, run_id, "claude-code", agent, normalize_claude_line(line));
 }
@@ -349,6 +417,36 @@ mod tests {
         assert!(normalize_claude_line(r#"{"type":"stream_event"}"#).is_empty());
         let started = normalize_claude_line(r#"{"type":"system","subtype":"init","model":"claude-opus-5"}"#);
         assert_eq!(started[0].summary, "Session started on claude-opus-5");
+    }
+
+    #[test]
+    fn a_job_reports_its_start_and_outcome_with_measurements_only() {
+        let route = crate::commands::models::resolve(crate::commands::models::Capability::Primary);
+        let mut job = crate::commands::models::RequestRecord::new(&route, "briefing_investigation");
+        job.provider = "codex-subscription".into();
+        job.requested_model = "gpt-test".into();
+        let started = job_event(&job).unwrap();
+        assert_eq!((started.kind, started.summary.as_str()), ("run_started", "Briefing investigation on gpt-test"));
+
+        job.status = "completed".into();
+        job.latency_ms = Some(61_170);
+        job.actual_model = Some("gpt-test-actual".into());
+        let done = job_event(&job).unwrap();
+        assert_eq!((done.kind, done.summary.as_str()), ("result", "Finished Briefing investigation in 61 s"));
+        assert!(done.detail.as_ref().unwrap().contains("gpt-test-actual"));
+
+        job.status = "blocked".into();
+        job.error_code = Some("allowance ceiling".into());
+        let blocked = job_event(&job).unwrap();
+        assert_eq!((blocked.kind, blocked.summary.as_str()), ("error", "Blocked Briefing investigation"));
+        assert!(blocked.detail.as_ref().unwrap().contains("allowance ceiling"));
+
+        assert_eq!(job_engine("codex-subscription"), "codex");
+        assert_eq!(job_engine("claude-subscription"), "claude-code");
+        assert_eq!(job_engine("ollama"), "ollama");
+        assert_eq!(job_agent("research_verification"), "research");
+        assert_eq!(job_agent("claim_verification"), "verification");
+        assert_eq!(job_agent("memory_contribution"), "olympus");
     }
 
     #[test]

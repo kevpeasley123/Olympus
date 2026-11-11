@@ -16,13 +16,16 @@ pub(crate) async fn structured(provider: &str, purpose: &str, instructions: &str
             };
             record.provider="ollama".into();record.requested_model=model.clone();record.actual_model=None;
             record.fallback_from=None;record.escalation_reason=None;
+            super::agent_events::record_job(record);
             let start=std::time::Instant::now();
             let result=super::local_inference::infer_local(&model,instructions,input,schema,purpose).await;
             record.latency_ms=Some(start.elapsed().as_millis() as u64);
-            match result {
+            let outcome=match result {
                 Ok((text,metadata))=>{record.status="completed".into();record.actual_model=Some(model);record.usage=Some(metadata);record.error_code=None;Ok(text)},
                 Err(error)=>{record.status="failed".into();record.error_code=Some(error.clone());Err(error)}
-            }
+            };
+            super::agent_events::record_job(record);
+            outcome
         },
         _ => {let error="Unknown task runtime; no fallback was attempted".to_string();record.status="blocked".into();record.error_code=Some(error.clone());Err(error)}
     }

@@ -23,6 +23,7 @@ pub fn init(app: &tauri::AppHandle) {
     if let Ok(dir) = app.path().app_data_dir() {
         let _ = APP_DATA.set(dir);
     }
+    super::agent_events::init(app);
 }
 
 /// Whether a job could start: generation protection and account confirmation. Isolated UI
@@ -106,8 +107,10 @@ pub async fn run_on(provider: &str, tier: Tier, instructions: &str, input: Value
         // must not leave diagnostics claiming inference is still running.
         record.status = "blocked".into();
         record.error_code = Some(error.clone());
+        super::agent_events::record_job(record);
         return Err(error);
     }
+    super::agent_events::record_job(record);
     let prompt = job_prompt(&input, &schema)?;
     let started = Instant::now();
     record.reasoning_effort = None;
@@ -130,6 +133,7 @@ pub async fn run_on(provider: &str, tier: Tier, instructions: &str, input: Value
             record.error_code = None;
             record.latency_ms = Some(started.elapsed().as_millis() as u64);
             record.usage = Some(serde_json::json!({"billing_status": "included_subscription"}));
+            super::agent_events::record_job(record);
             Ok(json)
         }
         Err(error) => {
@@ -137,6 +141,7 @@ pub async fn run_on(provider: &str, tier: Tier, instructions: &str, input: Value
             record.latency_ms = Some(started.elapsed().as_millis() as u64);
             let error = format!("subscription_job_unavailable: {}: {error}", engine.provider());
             record.error_code = Some(error.chars().take(200).collect());
+            super::agent_events::record_job(record);
             Err(error)
         }
     }
