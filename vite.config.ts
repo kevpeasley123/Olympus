@@ -9,7 +9,7 @@ export default defineConfig({
   // other's dependency optimizer cache while their preview servers run.
   cacheDir: resolve("node_modules", `.vite-${createHash("sha256").update(resolve(".")).digest("hex").slice(0, 12)}`),
   // Generated browser-test bundles under output are not application entries.
-  optimizeDeps: { entries: ["*.html"] },
+  optimizeDeps: { entries: ["*.html", "harness/*.html"] },
   plugins: [react()],
   clearScreen: false,
   server: {

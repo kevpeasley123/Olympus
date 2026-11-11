@@ -34,4 +34,4 @@ Latest communication update contains the Gmail-derived situation interpretation.
 
 ## Verification
 
-`scripts/test-situation-priority.mjs` checks the policy, and the Communications harness runs priority scenarios with `communications-harness.html?navigator&fit&run&priority=clear` (or `tied`, `none`, `many`). The pass's file list, test receipts and manual-review notes are in git history (`cb25daf`, 2026-09-13). Fixtures are synthetic.
+`scripts/test-situation-priority.mjs` checks the policy, and the Communications harness runs priority scenarios with `harness/communications-harness.html?navigator&fit&run&priority=clear` (or `tied`, `none`, `many`). The pass's file list, test receipts and manual-review notes are in git history (`cb25daf`, 2026-09-13). Fixtures are synthetic.

@@ -5,7 +5,7 @@ const browser=await chromium.launch({channel:'msedge',headless:true});
 try {
  const page=await browser.newPage({viewport:{width:1440,height:960}}),errors=[];
  page.on('pageerror',e=>errors.push(e.message));
- await page.goto(integrationBase+'/focused-map-harness.html');
+ await page.goto(integrationBase+'/harness/focused-map-harness.html');
  await page.getByRole('button',{name:'Focus branch: Inspections',exact:true}).click();
  assert.equal(await page.locator('.focused-branch').count(),8);
  for(let i=0;i<4;i++)await page.locator('.focused-pagination').getByRole('button',{name:'More',exact:true}).click();

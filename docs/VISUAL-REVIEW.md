@@ -38,7 +38,7 @@ Browser: Playwright 1.56.1 (a devDependency). On Linux it uses Playwright's Chro
 
 ## Scenarios
 
-Harness scenarios run in `command-agent-harness.html?flagship&scenario=<state>` against `src/services/capabilitiesFixture.json` (generated from a synthetic database by the Rust fixture writer) with a fixed clock (2026-09-29 07:20 UTC). The mail fixture uses `operator@example.invalid`; no real Gmail content is used anywhere.
+Harness scenarios run in `harness/command-agent-harness.html?flagship&scenario=<state>` against `src/services/capabilitiesFixture.json` (generated from a synthetic database by the Rust fixture writer) with a fixed clock (2026-09-29 07:20 UTC). The mail fixture uses `operator@example.invalid`; no real Gmail content is used anywhere.
 
 | Scenario | State |
 | --- | --- |
@@ -71,7 +71,7 @@ No pixel baselines: the 3D scene and fonts vary slightly between machines, and a
 - per-scenario truth: the number of mission planets the scene reports, the Mission brief sentence, the Conversation tab showing messages, the compact console being dormant, Athena's real scope in the Armory, the voice wave following the level;
 - console errors.
 
-After the captures it runs the functional checks on the shipped composition: in the real App, the Armory dialog, a loadout's real scope, a capability contract, Escape and focus return, navigation to the other three modes and Preferences; in the harness, the perspective camera, the galaxy advancing, reduced motion freezing it, and header navigation surviving a lost graphics context. Then the Organizer browser workflow in `organizer-harness.html` (`scripts/organizer-browser.mjs`). `--no-checks` skips both.
+After the captures it runs the functional checks on the shipped composition: in the real App, the Armory dialog, a loadout's real scope, a capability contract, Escape and focus return, navigation to the other three modes and Preferences; in the harness, the perspective camera, the galaxy advancing, reduced motion freezing it, and header navigation surviving a lost graphics context. Then the Organizer browser workflow in `harness/organizer-harness.html` (`scripts/organizer-browser.mjs`). `--no-checks` skips both.
 
 ## The review loop
 

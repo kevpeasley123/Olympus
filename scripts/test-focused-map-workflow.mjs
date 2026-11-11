@@ -5,7 +5,7 @@ const browser=await chromium.launch({channel:'msedge',headless:true});
 try {
  const page=await browser.newPage({viewport:{width:1440,height:960}}),errors=[];
  page.on('pageerror',e=>errors.push(e.message));
- await page.goto(integrationBase+'/communications-harness.html?navigator&fit&observatory');
+ await page.goto(integrationBase+'/harness/communications-harness.html?navigator&fit&observatory');
  await page.locator('.focused-toolbar').getByRole('button',{name:'More',exact:true}).click();
  await page.getByRole('button',{name:'Draft reply',exact:true}).first().click();
  await page.getByRole('textbox',{name:'Draft message',exact:true}).fill('Synthetic unsaved reply for the acceptance test.');

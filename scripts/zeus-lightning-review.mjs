@@ -6,7 +6,7 @@ const output='output/zeus-lightning';
 await mkdir(output,{recursive:true});
 try {
  const page=await browser.newPage({viewport:{width:1440,height:960}});
- await page.goto('http://127.0.0.1:31430/command-agent-harness.html?flagship&scenario=mission-research&missions=2');
+ await page.goto('http://127.0.0.1:31430/harness/command-agent-harness.html?flagship&scenario=mission-research&missions=2');
  await page.waitForSelector('[data-scene-ready="true"]');
  const star=page.locator('.agent-architecture-star[data-agent-id="olympus"]');
  const card=page.locator('.armory-roster-row[data-agent-id="olympus"]');

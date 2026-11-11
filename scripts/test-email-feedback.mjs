@@ -7,7 +7,7 @@ try {
  const page=await browser.newPage({viewport:{width:1280,height:900}});
  await page.goto(process.argv[2]??'http://127.0.0.1:31429/');
  await page.evaluate(async()=>{
-  const {React,createRoot,EmailAttentionBrief}=await import('/src/email-review-harness.ts');
+  const {React,createRoot,EmailAttentionBrief}=await import('/src/harness/email-review-harness.ts');
   document.body.innerHTML='<main style="width:340px;padding:20px;background:#07121a"><div id="fixture"></div></main>';
   const item={threadId:'thread',signature:'sig',timestamp:Date.now(),subject:'Enrollment',suggestion:{title:'Review enrollment',why:'The email asks for review.',action:'Check your selections.',deadline:'',messageId:'msg',quote:'Please review your enrollment.'}};
   window.feedbackRequests=[];window.failFeedback=true;window.switchAccount=false;let hidden=false;

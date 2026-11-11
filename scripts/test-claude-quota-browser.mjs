@@ -9,7 +9,7 @@ try {
  const page=await browser.newPage({viewport:{width:1280,height:960}});
  await page.route('**/*',r=>new URL(r.request().url()).hostname==='127.0.0.1'?r.continue():r.abort());
  await page.clock.install();
- await page.goto(server.resolvedUrls.local[0]+'engine-usage-harness.html?populated&passive');
+ await page.goto(server.resolvedUrls.local[0]+'harness/engine-usage-harness.html?populated&passive');
  await page.getByRole('button',{name:'Expand usage'}).click();
  const card=page.locator('.usage-card').filter({has:page.getByRole('heading',{name:'Claude',exact:true})});
  assert.equal(await card.getByRole('progressbar').getAttribute('aria-valuenow'),'89.875');
@@ -23,7 +23,7 @@ try {
  await page.screenshot({path:'output/claude-quota/after-expiry.png',fullPage:true});
  assert.deepEqual(await page.evaluate(()=>window.telemetryCalls),[],'Expiry makes no account requests');
  console.log('PASS passive window expiry in mounted UI without account requests');
- await page.goto(server.resolvedUrls.local[0]+'engine-usage-harness.html?populated&historical');
+ await page.goto(server.resolvedUrls.local[0]+'harness/engine-usage-harness.html?populated&historical');
  assert((await page.locator('.usage-summary footer').innerText()).includes('Historical snapshot'));
  await page.getByRole('button',{name:'Expand usage'}).click();
  const historical=page.locator('.usage-card').filter({has:page.getByRole('heading',{name:'Claude',exact:true})});

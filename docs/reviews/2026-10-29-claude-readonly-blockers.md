@@ -66,7 +66,7 @@ claim is justified. No further model call was made in this follow-up.
 
 ## What the incomplete settings-browser check meant
 
-This was the local synthetic Olympus `engine-usage-harness.html`, not Claude's
+This was the local synthetic Olympus `harness/engine-usage-harness.html`, not Claude's
 account usage page. First run timed out after 30 seconds in `page.goto`, waiting
 for load at localhost while Vite was optimizing dependencies. The retry logged
 scanning/bundling dependencies and made no completed assertions or new screenshots;

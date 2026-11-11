@@ -202,4 +202,4 @@ Record results per row as pass, fail or observed, with a screenshot for each fai
 npm run dev
 ```
 
-Then open `http://127.0.0.1:31420/hybrid-core-harness.html?run` on your machine. This touches no application data.
+Then open `http://127.0.0.1:31420/harness/hybrid-core-harness.html?run` on your machine. This touches no application data.

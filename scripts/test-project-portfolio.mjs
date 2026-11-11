@@ -6,7 +6,7 @@ await mkdir('output/portfolio-review',{recursive:true});
 const browser=await chromium.launch({channel:'msedge'});let checks=0;const check=(value,label)=>{assert(value,label);checks++};
 try{const page=await browser.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));
 for(const width of [1440,1280,980,600]){
-await page.setViewportSize({width,height:960});await page.goto(base+'/project-board-harness.html');await page.locator('.command-project-row').first().waitFor();if(width===600)await page.locator('#layout').evaluate(e=>{e.style.gridTemplateColumns='1fr';e.lastElementChild.style.display='none'});
+await page.setViewportSize({width,height:960});await page.goto(base+'/harness/project-board-harness.html');await page.locator('.command-project-row').first().waitFor();if(width===600)await page.locator('#layout').evaluate(e=>{e.style.gridTemplateColumns='1fr';e.lastElementChild.style.display='none'});
 check(await page.getByRole('button',{name:'All',exact:true}).getAttribute('aria-pressed')==='true','All initial');
 check(await page.locator('.command-project-row').count()===4 && await page.locator('.ecosystem-node').count()===3,'All includes cards and ecosystem');
 check(await page.locator('.command-board-rows').evaluate(e=>e.getBoundingClientRect().bottom<=document.querySelector('.project-ecosystem').getBoundingClientRect().top),'Cards precede ecosystem');
@@ -70,7 +70,7 @@ await page.screenshot({path:`output/portfolio-review/detail-${width}.png`});
 await page.getByRole('button',{name:'← All projects',exact:true}).click();check(await page.getByRole('button',{name:'Ecosystem',exact:true}).getAttribute('aria-pressed')==='true','View retained across detail');
 }
 await page.emulateMedia({reducedMotion:'reduce'});check(await page.locator('.ecosystem-planet').first().evaluate(e=>getComputedStyle(e).animationName)==='none','Reduced motion respected');
-await page.goto(base+'/project-board-harness.html?ecosystem-metrics');
+await page.goto(base+'/harness/project-board-harness.html?ecosystem-metrics');
 const fixture=page.locator('#metric-fixture');await fixture.locator('.ecosystem-node').first().waitFor();check(await fixture.locator('.ecosystem-node').count()===8,'Large portfolios paginated');
 const sizes=await fixture.locator('.ecosystem-planet').evaluateAll(nodes=>nodes.map(n=>n.getBoundingClientRect().width));check(sizes[0]<sizes[1]&&sizes[1]<sizes[2],'Narrow planet sizing preserves workload order');
 check(await fixture.locator('.is-unmeasured').count()===1,'Unknown distinct from zero');await fixture.getByRole('button',{name:'Next',exact:true}).click();check(await fixture.locator('.ecosystem-node').count()===1,'Remaining projects accessible');

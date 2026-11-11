@@ -5,7 +5,7 @@ const base=process.argv[2]??'http://127.0.0.1:31420';
 await mkdir('output/voice-control-review',{recursive:true});const browser=await chromium.launch({channel:'msedge'});let passed=0;const check=(ok,label)=>{assert(ok,label);passed++;};
 try{
  const page=await browser.newPage({viewport:{width:1440,height:960}});
- await page.goto(base+'/voice-control-harness.html');const toggle=page.getByRole('switch',{name:'Voice conversation'});
+ await page.goto(base+'/harness/voice-control-harness.html');const toggle=page.getByRole('switch',{name:'Voice conversation'});
  check(await toggle.getAttribute('aria-checked')==='false','Off initially');await toggle.focus();await page.keyboard.press('Space');check(await toggle.getAttribute('aria-checked')==='true','Keyboard starts connecting');check(await toggle.innerText().then(s=>s.includes('Connecting')),'No premature listening claim');await page.keyboard.press('Enter');check(await toggle.getAttribute('aria-checked')==='false','Keyboard cancels connecting');
  await page.getByRole('button',{name:'Simulate connected',exact:true}).click();check((await toggle.innerText()).includes('Listening · Mic on'),'Real capture represented');await page.screenshot({path:'output/voice-control-review/simulated-listening.png'});
  await toggle.click();check((await toggle.innerText()).includes('Voice off'),'Click stops');

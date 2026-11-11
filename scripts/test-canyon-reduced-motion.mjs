@@ -9,7 +9,7 @@ try {
  await page.route(/\.(glb|gltf)(\?.*)?$/,async route=>{await models;await route.continue();});
  // Model requests are intentionally held below; waiting for all resources here
  // would deadlock the test before it can release them.
- await page.goto((process.argv[2]??'http://127.0.0.1:31430')+'/command-agent-harness.html?flagship&scenario=reduced-motion',{waitUntil:'domcontentloaded'});
+ await page.goto((process.argv[2]??'http://127.0.0.1:31430')+'/harness/command-agent-harness.html?flagship&scenario=reduced-motion',{waitUntil:'domcontentloaded'});
  await page.waitForSelector('[data-scene-ready="true"]');
  await page.waitForTimeout(1200);
  const canvas=page.locator('.hybrid-core canvas');

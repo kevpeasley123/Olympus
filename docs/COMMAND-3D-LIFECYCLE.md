@@ -6,7 +6,7 @@ Command uses only the 3D core. The old SVG Omega/orbits and renderer preference 
 
 Command stays mounted across Project/Research navigation. Hidden dimensions do not shrink or clear its canvas, and hidden scenes stop rendering. Equivalent polling layouts do not rebuild meshes. Changed layouts retain the completed scene until its replacement paints. Initial loading and graphics errors hide the coordinated scene and labels; graphics failures offer Retry 3D view instead of legacy artwork. *(Superseded 2026-09-28: labels no longer hide; see below.)*
 
-Validation: TypeScript/Vite production build and 28 browser harness checks pass, including context loss, retry, missing WebGL, reduced motion, and hidden-view rendering. Browser Command/Project/Research round trip retained one canvas and its frame counter, then restored the complete apparatus. No installed WebView validation at the time; the fix shipped in 0.11.2 ([release notes](archive/RELEASE-0.11.2.md)).
+Validation: TypeScript/Vite production build and 28 browser harness checks pass, including context loss, retry, missing WebGL, reduced motion, and hidden-view rendering. Browser Command/Project/Research round trip retained one canvas and its frame counter, then restored the complete apparatus. No installed WebView validation at the time; the fix shipped in 0.11.2 (release notes, removed from the tree; see Git history).
 
 ## SVG-first rendering and deferred scene — September 28, 2026
 

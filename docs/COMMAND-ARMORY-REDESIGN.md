@@ -4,7 +4,7 @@ Implemented 2026-09-29 from `c432f48` (0.20.0), committed as `9ad66b7` and relea
 
 **Still current:** the read-only backend projection (`command_capabilities`, `command_missions`), the capability model and the polling cadence below. They feed the Olympus Armory, the Pantheon constellations and mission planets, and the companion's Active missions list.
 
-**Replaced:** the capability ring, its agent lens and the console layout this redesign put on screen. On 2026-10-07 they gave way first to orbital capability cards ([COMMAND-REFERENCE-2026-10-07.md](archive/COMMAND-REFERENCE-2026-10-07.md)) and then to the flagship ([COMMAND-FLAGSHIP.md](COMMAND-FLAGSHIP.md), [COMMAND-MISSION-PANTHEON.md](COMMAND-MISSION-PANTHEON.md)). The app no longer renders them; they survive in `command-agent-harness.html` without `?flagship`, which is the composition `npm run visual:review` captures ([VISUAL-REVIEW.md](VISUAL-REVIEW.md)).
+**Replaced:** the capability ring, its agent lens and the console layout this redesign put on screen. On 2026-10-07 they gave way first to orbital capability cards (COMMAND-REFERENCE-2026-10-07, removed from the tree; see Git history) and then to the flagship ([COMMAND-FLAGSHIP.md](COMMAND-FLAGSHIP.md), [COMMAND-MISSION-PANTHEON.md](COMMAND-MISSION-PANTHEON.md)). The app no longer renders them; they survive in `harness/command-agent-harness.html` without `?flagship`, which is the composition `npm run visual:review` captures ([VISUAL-REVIEW.md](VISUAL-REVIEW.md)).
 
 ## 1. Internal design note (written before implementation)
 

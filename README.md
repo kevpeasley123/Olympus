@@ -12,7 +12,7 @@ described in [`docs/AGENT-DELEGATION.md`](docs/AGENT-DELEGATION.md).
 Current state and next steps are in [`docs/NEXT-SESSION.md`](docs/NEXT-SESSION.md);
 releases, newest first, with what each has not had accepted in the desktop app,
 are in [`docs/RELEASES.md`](docs/RELEASES.md). The
-July 27, 2026 audit ([`docs/archive/AUDIT-2026-07-27.md`](docs/archive/AUDIT-2026-07-27.md)) is a
+July 27, 2026 audit (AUDIT-2026-07-27, removed from the tree; see Git history) is a
 dated baseline, not the current state.
 
 ## V1 Shape
@@ -185,7 +185,7 @@ Conversation is appended when a message is sent rather than rewritten alongside 
 
 ## Command renderer
 
-Since 2026-09-28 a flat layer draws immediately and stays if WebGL is unavailable or fails: in the shipped Pantheon view that is an Ω glyph plus the skill, plugin, agent and Obsidian-memory constellations and mission targets, which are HTML rather than 3D. (The earlier flat project ring and day arc are not drawn in the Pantheon layout, which the app always uses.) The 3D scene starts the first time Command is shown and replaces the flat glyph once it has painted. A graphics failure says "3D view unavailable · showing the flat instrument" and offers Retry 3D view. This supersedes the earlier statement that Command renders only the 3D instrument with no fallback. See [renderer lifecycle](docs/COMMAND-3D-LIFECYCLE.md) and the historical [0.10.0 prototype notes](docs/archive/COMMAND-3D-IMPLEMENTATION.md).
+Since 2026-09-28 a flat layer draws immediately and stays if WebGL is unavailable or fails: in the shipped Pantheon view that is an Ω glyph plus the skill, plugin, agent and Obsidian-memory constellations and mission targets, which are HTML rather than 3D. (The earlier flat project ring and day arc are not drawn in the Pantheon layout, which the app always uses.) The 3D scene starts the first time Command is shown and replaces the flat glyph once it has painted. A graphics failure says "3D view unavailable · showing the flat instrument" and offers Retry 3D view. This supersedes the earlier statement that Command renders only the 3D instrument with no fallback. See [renderer lifecycle](docs/COMMAND-3D-LIFECYCLE.md) and the historical 0.10.0 prototype notes (removed from the tree; see Git history).
 
 ## Keyboard and preferences
 

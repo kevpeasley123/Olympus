@@ -7,7 +7,7 @@ const browser=await chromium.launch({channel:'msedge',headless:true});
 try{
  const page=await browser.newPage({viewport:{width:1280,height:960}});
  await page.route('**/*',r=>new URL(r.request().url()).hostname==='127.0.0.1'?r.continue():r.abort());
- await page.goto(server.resolvedUrls.local[0]+'engine-usage-harness.html',{waitUntil:'domcontentloaded',timeout:90000});
+ await page.goto(server.resolvedUrls.local[0]+'harness/engine-usage-harness.html',{waitUntil:'domcontentloaded',timeout:90000});
  await page.getByRole('button',{name:'Refresh usage',exact:true}).waitFor();
  assert.deepEqual(await page.evaluate(()=>window.telemetryCalls),[],'No account reads on mount');
  await page.getByRole('button',{name:'Refresh usage',exact:true}).click();
