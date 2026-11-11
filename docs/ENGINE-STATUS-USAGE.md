@@ -38,7 +38,7 @@ Add service leads to the existing Armory resource intake and preserves its draft
 
 ## Verification
 
-Run `node scripts/test-engine-usage.mjs` and `node scripts/test-engine-usage-browser.mjs`, `node scripts/test-usage-redesign.mjs`, `node scripts/test-usage-management.mjs` and `node scripts/test-usage-management-handoffs.mjs`, then `npm run build`. Management browser scripts use the isolated loopback Vite preview on port 31426. The browser script starts an isolated Vite server and uses synthetic IPC only; screenshots go under `output/engine-usage/`. The fixture page is `engine-usage-harness.html`; it is not part of the production build. Rust engine tests cover billing refusal, override precedence, desktop discovery and version capability boundaries.
+Run `node scripts/test-engine-usage.mjs` and `node scripts/test-engine-usage-browser.mjs`, `node scripts/test-usage-redesign.mjs`, `node scripts/test-usage-management.mjs` and `node scripts/test-usage-management-handoffs.mjs`, then `npm run build`. Management browser scripts use the isolated loopback Vite preview on port 31426. The browser script starts an isolated Vite server and uses synthetic IPC only; screenshots go under `output/engine-usage/`. The fixture page is `harness/engine-usage-harness.html`; it is not part of the production build. Rust engine tests cover billing refusal, override precedence, desktop discovery and version capability boundaries.
 
 Native UI, live generation, inference cancellation, real limit-hit streams and account-usage adapters require separate acceptance. No model request is needed to run the focused tests.
 

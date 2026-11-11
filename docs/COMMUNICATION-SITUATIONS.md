@@ -74,7 +74,7 @@ the current account's error or backoff. Cadence consults the active account's de
 
 ## Verification
 
-Synthetic harnesses: `situations-harness.html` (`?run` for its checks, `?navigator` and `?documents` for the navigator and document fixtures) and the integrated `communications-harness.html`. All examples are invented. A native development build runs the background worker against the real cached mail with the configured provider, so it is not a synthetic test; the debug-only acceptance profile refuses Gmail access. Interpretation and grouping quality depend on live provider and mailbox use and are not established by synthetic checks.
+Synthetic harnesses: `harness/situations-harness.html` (`?run` for its checks, `?navigator` and `?documents` for the navigator and document fixtures) and the integrated `harness/communications-harness.html`. All examples are invented. A native development build runs the background worker against the real cached mail with the configured provider, so it is not a synthetic test; the debug-only acceptance profile refuses Gmail access. Interpretation and grouping quality depend on live provider and mailbox use and are not established by synthetic checks.
 
 ## Local document foundations
 

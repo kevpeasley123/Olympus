@@ -20,7 +20,7 @@ Add Manage subscriptions and Manage APIs inside expanded Usage. Reuse EngineSett
 - Full visual regression completed with exit 0: 21/21 scenario captures, 14 functional checks and 22 Organizer browser workflow checks passed.
 
 ## Evidence and limits
-Screenshots and logs are under output/usage-redesign and output/usage-management-*. The actual Command composition uses command-agent-harness.html?flagship&usage-fixture=fresh&management-harness. All management calls are synthetic in this harness and external browser requests are aborted by the handoff test. No account links, connection, sync, preview, save, install or generation actions were exercised. Browser verification does not establish native WebView2/Tauri behavior. Account telemetry and subscription billing/tool isolation remain unresolved as previously documented.
+Screenshots and logs are under output/usage-redesign and output/usage-management-*. The actual Command composition uses harness/command-agent-harness.html?flagship&usage-fixture=fresh&management-harness. All management calls are synthetic in this harness and external browser requests are aborted by the handoff test. No account links, connection, sync, preview, save, install or generation actions were exercised. Browser verification does not establish native WebView2/Tauri behavior. Account telemetry and subscription billing/tool isolation remain unresolved as previously documented.
 
 ## Confirmed Library captures
 - Expanded Usage: libfile_0745ef9796488191a748eec03d7fbda0

@@ -73,12 +73,12 @@ CSS uses existing surface/font/color tokens. No dependencies were added. Markdow
 renders without raw HTML; linked images are explicit links rather than automatic loads.
 
 Verification: production TypeScript/Vite build; six service harnesses; the isolated
-`console-harness.html?run` browser fixture checks all modes, opening/latest, stream
+`harness/console-harness.html?run` browser fixture checks all modes, opening/latest, stream
 following and interruption, anchor-preserving history prepend, draft-safe Escape,
 Ctrl+K and completed text. The fixture
 uses no live API or vault writes. Production desktop visual inspection and paid-model
 turns are separate evidence, recorded in the old handoff
-(`docs/archive/HANDOFF-through-2026-09-28.md`).
+(HANDOFF-through-2026-09-28, in Git history).
 
 Later improvements: history search, named sessions, database-backed history pagination,
 and observable activity entries once actual action telemetry is available. Current
@@ -92,9 +92,9 @@ Scrolling/tuning: src/hooks/useConversationScroll.ts, src/services/commandConsol
 Stream/events: src/services/conversationStream.ts, src/hooks/useDashboardData.ts,
 src/services/instrumentEvents.ts, and both CommandInstrument.tsx and
 OmegaInstrument.tsx under src/components/panels.
-Checks: src/services/commandConsole.harness.ts, console-harness.html,
-src/console-harness.tsx. Product docs: OLYMPUS-MANUAL.md, this document, and
-the handoff (now docs/archive/HANDOFF-through-2026-09-28.md). Version metadata: package.json/package-lock.json, Cargo.toml/
+Checks: src/services/commandConsole.harness.ts, harness/console-harness.html,
+src/harness/console-harness.tsx. Product docs: OLYMPUS-MANUAL.md, this document, and
+the handoff (now HANDOFF-through-2026-09-28, in Git history). Version metadata: package.json/package-lock.json, Cargo.toml/
 Cargo.lock, and tauri.conf.json.
 
 ## Design-review changes — September 28, 2026

@@ -18,7 +18,7 @@ try{
 
  for(const width of [1440,1280,420]){
 
- await page.setViewportSize({width,height:width===1280?800:1000}); await page.goto(server.resolvedUrls.local[0]+'engine-usage-harness.html');
+ await page.setViewportSize({width,height:width===1280?800:1000}); await page.goto(server.resolvedUrls.local[0]+'harness/engine-usage-harness.html');
 
  const expand=page.getByRole('button',{name:'Expand usage'}); await expand.waitFor({timeout:5000});
 
@@ -38,7 +38,7 @@ try{
 
  await page.screenshot({path:`output/usage-redesign/unknown-${width}.png`,fullPage:true});
 
- await page.goto(server.resolvedUrls.local[0]+'engine-usage-harness.html?populated');
+ await page.goto(server.resolvedUrls.local[0]+'harness/engine-usage-harness.html?populated');
 
  assert.equal(await page.locator('.usage-summary [aria-valuenow="65"]').count(),1);
 
@@ -72,7 +72,7 @@ try{
 
  for(const status of ['loading','failed','unsupported','disconnected']){
 
- await page.goto(server.resolvedUrls.local[0]+'engine-usage-harness.html?populated&state='+status);
+ await page.goto(server.resolvedUrls.local[0]+'harness/engine-usage-harness.html?populated&state='+status);
 
  await page.getByRole('button',{name:'Expand usage'}).click();
 
@@ -95,7 +95,7 @@ try{
 
  for (const width of [1440, 360]) {
   await page.setViewportSize({width,height:1000});
-  await page.goto(server.resolvedUrls.local[0]+'engine-usage-harness.html?populated&fractional');
+  await page.goto(server.resolvedUrls.local[0]+'harness/engine-usage-harness.html?populated&fractional');
   await page.locator('.usage-row > strong').first().waitFor();
   assert((await page.locator('.usage-row > strong').allTextContents()).includes('95.9%'));
   assert(await page.locator('.usage-row > strong').evaluateAll(nodes=>nodes.every(e=>e.scrollWidth<=e.clientWidth)), 'Compact percentage fits its column');
@@ -109,7 +109,7 @@ try{
  }
 
  for (const value of [0,100]) {
-  await page.goto(server.resolvedUrls.local[0]+`engine-usage-harness.html?populated&fractional&edge=${value}`);
+  await page.goto(server.resolvedUrls.local[0]+`harness/engine-usage-harness.html?populated&fractional&edge=${value}`);
   await page.locator('.usage-row > strong').first().waitFor();
   assert((await page.locator('.usage-row > strong').allTextContents()).every(t=>t===`${value.toFixed(1)}%`));
   assert(await page.locator('.usage-row > strong').evaluateAll(nodes=>nodes.every(e=>e.scrollWidth<=e.clientWidth)));

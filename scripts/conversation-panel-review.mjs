@@ -6,7 +6,7 @@ const browser=await chromium.launch({channel:'msedge'});const checks=[],errors=[
 try{
 const p=await browser.newPage();p.on('pageerror',e=>errors.push(e.message));
 for(const [width,height] of [[1440,960],[1920,1080],[1280,800],[900,900]]){
- await p.setViewportSize({width,height});await p.goto(base+'/command-agent-harness.html?flagship&scenario=mission-research&missions=2&conversation-test');await p.waitForSelector('html[data-visual-ready]');
+ await p.setViewportSize({width,height});await p.goto(base+'/harness/command-agent-harness.html?flagship&scenario=mission-research&missions=2&conversation-test');await p.waitForSelector('html[data-visual-ready]');
  const panel=p.locator('.command-console');const overview=panel.getByRole('button',{name:'Overview',exact:true}),conversation=panel.getByRole('button',{name:'Conversation',exact:true});const input=panel.getByPlaceholder('Ask Olympus anything…');const viewport=panel.locator('.console-viewport');
  check(await overview.getAttribute('aria-pressed')==='true','Overview initially '+width);check(await panel.locator('.active-mission-list').isVisible(),'Mission cards initially '+width);
  await panel.screenshot({path:`${out}/overview-${width}.png`});

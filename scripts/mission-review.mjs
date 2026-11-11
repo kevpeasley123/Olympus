@@ -10,7 +10,7 @@ try{
  for(const [width,height] of [[1672,941],[1440,960],[1280,800],[1920,1080]]){
   await page.setViewportSize({width,height});
   for(const [scenario,count,extra] of [['idle',0,''],['mission-research',1,''],['mission-research',2,'&missions=2'],['mission-complete',0,'']]){
-   await page.goto(`${base}/command-agent-harness.html?flagship&scenario=${scenario}${extra}`);
+   await page.goto(`${base}/harness/command-agent-harness.html?flagship&scenario=${scenario}${extra}`);
    await page.waitForSelector('[data-scene-ready="true"]');await page.evaluate(()=>document.fonts.ready);
    await page.waitForFunction(n=>document.querySelector('.hybrid-core canvas')?.dataset.missionPlanets===String(n),count);
    check(await page.locator('.mission-planet-target').count()===count,`${width} ${scenario} ${count} planets`);
@@ -42,7 +42,7 @@ try{
    check(!fit.overflow&&fit.composer,`${width} layout and composer fit`);
   }
  }
- await page.goto(`${base}/command-agent-harness.html?flagship&scenario=reduced-motion&missions=2`);await page.waitForSelector('[data-scene-ready="true"]');
+ await page.goto(`${base}/harness/command-agent-harness.html?flagship&scenario=reduced-motion&missions=2`);await page.waitForSelector('[data-scene-ready="true"]');
  const time=await page.locator('.hybrid-core canvas').getAttribute('data-galaxy-time');await page.waitForTimeout(1100);
  check(time===await page.locator('.hybrid-core canvas').getAttribute('data-galaxy-time'),'Reduced motion freezes scene');
  await page.evaluate(()=>document.querySelector('.hybrid-core canvas').dispatchEvent(new Event('webglcontextlost',{cancelable:true})));

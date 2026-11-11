@@ -19,7 +19,7 @@ integrations are retained. No dependency was added.
 - `armoryPresentation` derives adapter membership, conservative connection states,
   and live operations. Models/executors are not inflated into plugin counts.
 - `CommandInstrument` uses a flagship presentation variant. Navigation stays in the HTML header, with Preferences in the companion controls; loss of graphics cannot remove navigation. Beneath the Omega, the voice dock (`OlympusVoiceDock`) holds the energy signal, a status word and a compact Spoken replies switch; see "Voice signal" below. The switch controls ElevenLabs spoken replies only and does not open the microphone.
-  The older composition (Agent Catalog, orbital capability cards) is no longer rendered by the app; it survives only in `command-agent-harness.html` without `?flagship`.
+  The older composition (Agent Catalog, orbital capability cards) is no longer rendered by the app; it survives only in `harness/command-agent-harness.html` without `?flagship`.
 - `ChatPanel` runs as the companion: Overview (Mission brief and Active missions)
   and Conversation tabs. Since 2026-10-11 (`ab0b766`) the same console is shared
   by all four modes.
@@ -67,7 +67,7 @@ Redesigned 2026-10-13 from Kevin's reference render; the PANTHEON heading and th
 - **Omega coupling.** While speaking, the scene reads `omegaVoiceEnergy()`: the reply envelope (80 ms rise, 400 ms fall), mapped to 0.08–0.35 of the scene's energy. Glow and canyon light lift slightly with the voice; there is no shared timer.
 - **Controls.** One `role="switch"` named Spoken replies (speaker icon and a 22×12 track) has a tooltip. A microphone mark appears only while the microphone is on (teal while capturing). Voice usage now lives only in the ElevenLabs preferences.
 - **Performance.** The signal costs about 0.5 ms per frame in headless Chromium. It drops its widest glows if it averages over 6 ms per frame for two seconds. It stops with the page, the mode and reduced motion; reduced motion draws one composed still frame.
-- **Tests.** `voice-signal-harness.html` measures the dock without WebGL. Its sources are synthetic: a generated speech-shaped WAV through the real clip path, or an oscillator stream through the real stream path. `scripts/test-voice-signal.mjs` covers the analysis, state mapping, every state, keyboard use, reduced motion and placement in Command.
+- **Tests.** `harness/voice-signal-harness.html` measures the dock without WebGL. Its sources are synthetic: a generated speech-shaped WAV through the real clip path, or an oscillator stream through the real stream path. `scripts/test-voice-signal.mjs` covers the analysis, state mapping, every state, keyboard use, reduced motion and placement in Command.
 
 ## Data truth
 
@@ -92,7 +92,7 @@ authentication claims, empty states and running/waiting membership.
 `node scripts/flagship-review.mjs [preview-url]` drives the actual App composition
 at 1440x960, 1920x1080, 1280x800 and 900x900 (Armory dialog, loadout and contract
 inspection, focus, Escape, geometry, mode navigation, Preferences), then
-`command-agent-harness.html?flagship` for perspective projection, idle planets,
+`harness/command-agent-harness.html?flagship` for perspective projection, idle planets,
 reduced motion, context-loss navigation and the voice wave. It launches Edge
 (`channel: 'msedge'`) and captures the review in `output/flagship-review`.
 Run on 2026-10-12 in Chromium instead of Edge, its App and Armory checks passed
@@ -100,7 +100,7 @@ and it stopped at its assertion of two visible inner rings, which the flagship
 has hidden since 0.25.0; the checks after that did not run.
 
 `npm run visual:review` does not cover this composition. It drives
-`command-agent-harness.html` without `?flagship`, so it captures the older Agent
+`harness/command-agent-harness.html` without `?flagship`, so it captures the older Agent
 Catalog and orbital capability cards ([VISUAL-REVIEW.md](VISUAL-REVIEW.md)). The
 flagship is covered only by `flagship-review.mjs` and the other ad-hoc
 `scripts/*-review.mjs` scripts.

@@ -25,7 +25,7 @@ import { chromium } from "playwright";
 
 const ROOT = resolve(import.meta.dirname, "..");
 const OUTPUT = join(ROOT, "output", "visual-review", "latest");
-const HARNESS = "/command-agent-harness.html";
+const HARNESS = "/harness/command-agent-harness.html";
 
 // Primary: the installed window's configured size (tauri.conf.json 1440×960,
 // confirmed by the native pass's 1456×999 captures including the frame).

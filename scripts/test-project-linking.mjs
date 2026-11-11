@@ -8,7 +8,7 @@ try{
  await server.listen();console.log('Project linking preview ready');
  browser=await chromium.launch(process.platform==='win32'?{channel:'msedge'}:{});
  const page=await browser.newPage({viewport:{width:1440,height:960}});const errors=[];page.on('pageerror',e=>errors.push(e.message));
- await page.goto(server.resolvedUrls.local[0]+'project-linking-harness.html',{waitUntil:'domcontentloaded',timeout:90000});
+ await page.goto(server.resolvedUrls.local[0]+'harness/project-linking-harness.html',{waitUntil:'domcontentloaded',timeout:90000});
  await page.getByRole('button',{name:'+ Add project',exact:true}).click();
  await page.getByRole('dialog',{name:'Add a project',exact:true}).waitFor();
  await page.screenshot({path:'output/project-linking/add-project.png'});

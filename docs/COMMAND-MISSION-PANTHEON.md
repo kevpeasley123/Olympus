@@ -68,7 +68,7 @@ constellation". `flagship-review.mjs` asserts zero idle planets instead of
 decorative bodies; see [COMMAND-FLAGSHIP.md](COMMAND-FLAGSHIP.md) for its state.
 
 `npm run visual:review`, the regression pass AGENTS.md asks for, does not cover
-this composition: it drives `command-agent-harness.html` without `?flagship` and
+this composition: it drives `harness/command-agent-harness.html` without `?flagship` and
 captures the older Agent Catalog and orbital capability cards. The mission
 planets are covered only by the ad-hoc `scripts/*-review.mjs` scripts.
 

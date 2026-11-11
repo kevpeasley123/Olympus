@@ -11,7 +11,7 @@ try {
   const status={saveChats:true,learn:true,useMemory:true,savedChats:4,pendingChats:4,earlierWaiting:0,earlierQueued:2,stoppedChats:0,lastLearnedAt:null,lastError:null,memoryNote:'09 - System/Olympus Memory.md',chatsFolder:'10 - Conversations',analysis:{state:'blocked',code:'generation_protection',canAttempt:false,reason:'Analysis is waiting for spending protection.'}};
   window.memoryStatus=status;
   window.__TAURI_INTERNALS__={invoke:async command=>{if(command==='chat_memory_status')return window.memoryStatus;throw Error('Unexpected command '+command);}};
-  const {React,createRoot}=await import('/src/email-review-harness.ts');
+  const {React,createRoot}=await import('/src/harness/email-review-harness.ts');
   const {MemorySettings}=await import('/src/components/panels/MemorySettings.tsx');
   window.renderMemory=()=>{window.memoryRoot?.unmount();window.memoryRoot=createRoot(document.querySelector('#memory-fixture'));window.memoryRoot.render(React.createElement(MemorySettings));};
   window.renderMemory();

@@ -1,6 +1,6 @@
 # Olympus — First communicating agent pair
 
-Implementation receipt · September 23–24, 2026 · released in 0.19.0 ([RELEASE-0.19.0.md](archive/RELEASE-0.19.0.md)). Statements below that it is not installed describe the pre-release stage. 2026-09-28: Research Verification now skips and names unreadable or malformed notes, counts only tagged notes toward its budget, treats a `running` row past its deadline as stale, and its tables moved into `schema.sql`. 2026-10-11 (0.30.0): Research lost its Library | Questions | Audits control; the workflow is now reached only from Command's Armory (see Agent catalog). The scoped live run described under Next agent is still open; see `docs/NEXT-SESSION.md`.
+Implementation receipt · September 23–24, 2026 · released in 0.19.0 (RELEASE-0.19.0, removed from the tree; see Git history). Statements below that it is not installed describe the pre-release stage. 2026-09-28: Research Verification now skips and names unreadable or malformed notes, counts only tagged notes toward its budget, treats a `running` row past its deadline as stale, and its tables moved into `schema.sql`. 2026-10-11 (0.30.0): Research lost its Library | Questions | Audits control; the workflow is now reached only from Command's Armory (see Agent catalog). The scoped live run described under Next agent is still open; see `docs/NEXT-SESSION.md`.
 
 ## November 8–9, 2026 development update
 
@@ -265,7 +265,7 @@ installed acceptance remain unproven. No provider availability or quality claim 
 made from these fixtures.
 
 Reproduce: `cargo test --lib` in `src-tauri`; `npm run build`; run Vite and open
-`/research-verification-harness.html?check`. To refresh the synthetic fixture, set
+`/harness/research-verification-harness.html?check`. To refresh the synthetic fixture, set
 `OLYMPUS_RESEARCH_FIXTURE` to an output JSON path and run the
 `catalog_reads_do_not_recover_or_mutate_runs_and_can_export_synthetic_ui_fixture`
 test. This export uses synthetic sources only.
@@ -305,4 +305,4 @@ latency and usage. Coding's dormant pilot is not a prerequisite.
   view; shared inspector parts in `src/components/panels/library/InspectorParts.tsx`
   and `library/inspector.css` (2026-09-28).
 - `src/services/researchVerification.ts`: typed IPC contract.
-- `src/research-verification-harness.tsx`: isolated browser acceptance harness.
+- `src/harness/research-verification-harness.tsx`: isolated browser acceptance harness.

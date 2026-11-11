@@ -29,7 +29,7 @@ Zeus has a reserved station above the particle field. Side figures occupy outer 
 | Scene | `src/services/pantheonFigures.ts` | Pedestals, statue skinning, AnimationMixer per god, gaze layer, work effects, signals |
 | Overlay | `src/components/panels/PantheonFigures.tsx` | Hit target, name plate (name and role) and session indicator per god; the skin picker while a skin is being chosen |
 | Statues | `scripts/pantheon/build_figures.py` → `public/pantheon/` | Builds the five glTF statues and the manifest |
-| Harness | `pantheon-harness.html` | The gods close up under Command's lights, for checking models and clips |
+| Harness | `harness/pantheon-harness.html` | The gods close up under Command's lights, for checking models and clips |
 
 - **Rendering.** The figures live in Command's existing Three.js scene
   (`hybridScene.ts`): same perspective camera, depth buffer, bloom and frame
@@ -208,12 +208,12 @@ the gaze layer fights them.
   rule, the clips and hold poses for all five, the shipped statues'
   manifest, bindings and baked occlusion, and that every skin dresses every
   material the statues use.
-- `pantheon-harness.html?god=athena&state=working` frames one god at work
+- `harness/pantheon-harness.html?god=athena&state=working` frames one god at work
   (`state` is `idle`, `working`, `waiting` or `blocked`; `at`, `dist` and
   `turn` move the camera; `skin` picks a skin; `hover=athena` holds the
   pointer over a god). Without `god` it shows all five from Command's
   camera.
-- `command-agent-harness.html?flagship&scenario=mission-coding` shows
+- `harness/command-agent-harness.html?flagship&scenario=mission-coding` shows
   Hephaestus working on a synthetic delegation with Zeus coordinating; add
   `&cycle` to walk assigned, working, waiting, assigned, completed and idle on
   a fixed schedule.

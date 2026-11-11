@@ -8,7 +8,7 @@ const check=(condition,label)=>{assert(condition,label);checks.push(label);};
 try{
  for(const [width,height] of [[1280,800],[1440,960],[1920,1080]]){
   const page=await browser.newPage({viewport:{width,height}});page.on('pageerror',error=>errors.push(error.message));
-  await page.goto(`${base}/command-agent-harness.html?flagship&scenario=chat-expanded&memory-evidence`);
+  await page.goto(`${base}/harness/command-agent-harness.html?flagship&scenario=chat-expanded&memory-evidence`);
   await page.waitForSelector('html[data-visual-ready]');
   const tab=page.getByRole('button',{name:'Conversation',exact:true});if(await tab.count())await tab.click();
   const summary=page.getByText('Answered by actual-fixture',{exact:true});await summary.scrollIntoViewIfNeeded();

@@ -43,7 +43,7 @@ await page.getByRole('button',{name:'Open preferences',exact:true}).click();awai
 await page.getByRole('button',{name:'Agents 5',exact:true}).click();await page.keyboard.press('Escape');
 check(await page.getByRole('button',{name:'Agents 5',exact:true}).evaluate(e=>e===document.activeElement),'Armory returns keyboard focus to its trigger');
 for(const scenario of ['idle','mission-research','mission-active','reduced-motion']){
- await page.goto(`${base}/command-agent-harness.html?flagship&scenario=${scenario}`);
+ await page.goto(`${base}/harness/command-agent-harness.html?flagship&scenario=${scenario}`);
  await page.waitForSelector(`html[data-visual-ready="${scenario}"]`);
  const canvas=page.locator('.hybrid-core canvas');
  check(await canvas.getAttribute('data-projection')==='PerspectiveCamera','Perspective camera '+scenario);
@@ -63,7 +63,7 @@ for(const scenario of ['idle','mission-research','mission-active','reduced-motio
  await page.waitForTimeout(250);await page.screenshot({path:`${out}/${scenario}.png`,fullPage:true});
 }
 for(const [voice,level] of [['speaking',0],['speaking',.8],['listening',.4]]){
- await page.goto(`${base}/command-agent-harness.html?flagship&scenario=idle&voice=${voice}&level=${level}`);
+ await page.goto(`${base}/harness/command-agent-harness.html?flagship&scenario=idle&voice=${voice}&level=${level}`);
  await page.waitForSelector('[data-scene-ready="true"]');
  check(await page.getByRole('img',{name:`Voice ${voice}`}).isVisible(),`Voice state ${voice} ${level}`);
  await page.waitForFunction(()=>document.querySelector('.olympus-signal')?.dataset.signalPeak!==undefined);

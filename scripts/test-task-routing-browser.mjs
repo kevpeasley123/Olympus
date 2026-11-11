@@ -5,7 +5,7 @@ const base=(process.argv[2]??'http://127.0.0.1:31430').replace(/\/$/,'');
 const browser=await chromium.launch({channel:'msedge'});
 try{
  const page=await browser.newPage({viewport:{width:1100,height:1000}});
- await page.goto(`${base}/engine-usage-harness.html?routing`,{waitUntil:'domcontentloaded'});
+ await page.goto(`${base}/harness/engine-usage-harness.html?routing`,{waitUntil:'domcontentloaded'});
  await page.getByText('Subscription engines',{exact:true}).click();
  await page.getByLabel('Reasoning engine',{exact:true}).waitFor();
  assert.equal(await page.getByLabel('Reasoning engine',{exact:true}).inputValue(),'codex');

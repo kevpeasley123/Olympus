@@ -12,7 +12,7 @@ try {
   await page.route('**/*',route=>new URL(route.request().url()).hostname==='127.0.0.1' ? route.continue() : route.abort());
   for(const width of [1280,420]) {
     await page.setViewportSize({width,height:960});
-    await page.goto(`${url}engine-usage-harness.html`);
+    await page.goto(`${url}harness/engine-usage-harness.html`);
     assert.equal(await page.locator('details.usage-summary').count(),0);
     assert.equal(await page.locator('.usage-summary [role=progressbar]').count(),0);
     assert.equal(await page.locator('.usage-summary').getByText('0 credits',{exact:false}).count(),0);
@@ -25,7 +25,7 @@ try {
     await page.getByRole('button',{name:'Check again'}).click();
     await page.getByRole('status').filter({hasText:'Synthetic inspection failure'}).waitFor();
     assert.equal(await page.getByText('C:/Synthetic/Claude/claude.exe',{exact:true}).count(),0,'Failed refresh clears old status');
-    await page.goto(`${url}engine-usage-harness.html?populated`);
+    await page.goto(`${url}harness/engine-usage-harness.html?populated`);
     assert.equal(await page.locator('details.usage-summary').count(),0);
     await page.getByRole('button',{name:'Expand usage'}).click();
     const text=await page.getByRole('dialog').innerText();

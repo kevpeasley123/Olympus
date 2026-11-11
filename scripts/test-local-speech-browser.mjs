@@ -29,7 +29,7 @@ const browser=await chromium.launch({channel:'msedge',args:['--use-fake-device-f
 try{
   const page=await browser.newPage({permissions:['microphone'],viewport:{width:1672,height:941}});
   await page.exposeFunction('localSpeechFixture',worker);
-  await page.goto('http://127.0.0.1:31430/command-agent-harness.html?flagship&scenario=mission-research&missions=2');
+  await page.goto('http://127.0.0.1:31430/harness/command-agent-harness.html?flagship&scenario=mission-research&missions=2');
   await page.waitForSelector('[data-scene-ready="true"]');
   await page.evaluate(()=>{
     const api=window.__TAURI_INTERNALS__, prior=api.invoke;

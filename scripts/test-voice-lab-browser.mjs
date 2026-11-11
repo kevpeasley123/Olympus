@@ -19,7 +19,7 @@ try{
    throw Error('Unexpected native call '+command);
   }};
  });
- await page.goto(base+'/voice-lab-harness.html');
+ await page.goto(base+'/harness/voice-lab-harness.html');
  await page.getByText('Voice Lab · short speech tests',{exact:true}).click();
  const generate=page.getByRole('button',{name:'Generate',exact:true});await generate.waitFor();
  await generate.click();assert.equal(await page.evaluate(()=>window.labRequests.length),1);

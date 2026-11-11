@@ -6,7 +6,7 @@ try {
  const page=await browser.newPage({viewport:{width:1672,height:941}});
  const errors=[];
  page.on('pageerror',e=>errors.push(e.message));
- const fixture='http://127.0.0.1:31430/command-agent-harness.html?flagship&scenario=';
+ const fixture='http://127.0.0.1:31430/harness/command-agent-harness.html?flagship&scenario=';
  await page.goto(fixture+'mission-research&missions=2');
  const canvas=page.locator('.hybrid-core canvas');
  await page.waitForSelector('[data-scene-ready="true"]');

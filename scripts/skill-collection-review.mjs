@@ -6,7 +6,7 @@ const browser=await chromium.launch({channel:'msedge'});
 try{
  for(const width of [1672,1280]){
   const page=await browser.newPage({viewport:{width,height:941},reducedMotion:"reduce"});const errors=[];page.on('pageerror',e=>errors.push(e.message));
-  await page.goto('http://127.0.0.1:31430/command-agent-harness.html?flagship&scenario=mission-research&missions=2');
+  await page.goto('http://127.0.0.1:31430/harness/command-agent-harness.html?flagship&scenario=mission-research&missions=2');
   await page.getByRole('button',{name:'Inspect collection: Superpowers',exact:true}).click();
   const detail=page.getByRole('region',{name:'Superpowers collection',exact:true});await detail.waitFor();
   assert.match(await detail.textContent(),/not assigned/);assert.match(await detail.textContent(),/execution not connected/);
