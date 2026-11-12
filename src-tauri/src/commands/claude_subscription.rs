@@ -1277,14 +1277,16 @@ mod tests {
     #[test]
     fn claude_codes_own_notice_is_reported_in_its_words() {
         let notice = |text: &str| json!({"type":"assistant","session_id":"s","parent_tool_use_id":null,"message":{"model":"<synthetic>","content":[{"type":"text","text":text}],"stop_reason":"stop_sequence"}});
-        for mut p in [Protocol::new(MODEL), Protocol::with_tools(MODEL, allowed())] {
+        let text = || { let mut p = Protocol::new(MODEL); p.accept(init()).unwrap(); p };
+        let tool = || { let mut p = Protocol::with_tools(MODEL, allowed()); p.accept(tool_init(json!(["mcp__olympus__search_mail"]), olympus_server())).unwrap(); p };
+        for mut p in [text(), tool()] {
             let error = p.accept(notice("You've hit your 5-hour limit \u{b7} resets 11:20pm (America/Phoenix)")).unwrap_err();
             assert_eq!(error, "Claude Code stopped the run: You've hit your 5-hour limit \u{b7} resets 11:20pm (America/Phoenix)");
         }
-        assert_eq!(Protocol::new(MODEL).accept(notice("  ")).unwrap_err(), "Claude Code stopped the run without giving a reason");
-        assert!(Protocol::new(MODEL).accept(notice(&"x".repeat(900))).unwrap_err().chars().count() < 240);
+        assert_eq!(text().accept(notice("  ")).unwrap_err(), "Claude Code stopped the run without giving a reason");
+        assert!(text().accept(notice(&"x".repeat(900))).unwrap_err().chars().count() < 240);
         let other = json!({"type":"assistant","session_id":"s","parent_tool_use_id":null,"message":{"model":"claude-other","content":[],"stop_reason":null}});
-        assert_eq!(Protocol::new(MODEL).accept(other).unwrap_err(), "Claude model changed");
+        assert_eq!(text().accept(other).unwrap_err(), "Claude model changed");
     }
     #[test]
     fn a_tool_run_fails_closed_on_any_other_tool_server_or_input() {
