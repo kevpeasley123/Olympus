@@ -34,8 +34,10 @@ Built on `claude/harness-integration`, which also contains pull requests 35 and
 Real runs on November 11 (Kevin's PC, development build): "Answer from my sources"
 completed with nine tool calls for about $0.06 and cited the learned record by
 path. The opening-brief trial made eleven tool calls and was stopped by the Claude
-plan's 5-hour limit before answering. Three briefing tests fail on `master` since
-November 12 UTC (fixed fixture dates around November 4); not yet repaired.
+plan's 5-hour limit before answering. Three briefing tests that failed on `master` from
+November 12 UTC (fixture mail fixed at November 4 against a real-clock window) are
+repaired on this branch by a fixture horizon that tracks the date; that holds until
+late October 2027.
 
 First things to do on the PC, in order:
 

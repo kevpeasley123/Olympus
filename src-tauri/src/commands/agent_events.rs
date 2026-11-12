@@ -116,7 +116,8 @@ fn tool_use(name: &str, input: &Value, subagent: bool) -> Draft {
         },
     };
     event.tool = Some(name.to_string());
-    if matches!(event.kind, "file_read" | "file_edit") {
+    // Which file, exactly: two reads of one name may be two different paths, or a repeat.
+    if matches!(event.kind, "file_read" | "file_edit") || name == super::tool_server::qualified("read_vault_note") {
         event.path = path.map(str::to_string);
     }
     event
@@ -426,6 +427,8 @@ mod tests {
             ("tool_call", "Used WebSearch"),
         ]);
         assert_eq!(events[0].path.as_deref(), Some("C:\\repo\\src\\main.rs"));
+        assert_eq!(events[6].path.as_deref(), Some("01 - Projects/Olympus.md"), "a vault read records which note");
+        assert!(events[5].path.is_none() && events[7].path.is_none());
         assert_eq!(events[3].detail.as_deref(), Some("cargo test --lib\necho done"));
         assert_eq!(events[3].tool.as_deref(), Some("Bash"));
         assert!(events[2].path.is_none());
