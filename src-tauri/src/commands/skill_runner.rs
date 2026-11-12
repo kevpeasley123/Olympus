@@ -55,17 +55,17 @@ fn brief_schema() -> Value {
     json!({
         "type": "object", "additionalProperties": false, "required": ["brief", "items", "coverage"],
         "properties": {
-            "brief": {"type": "string", "maxLength": 1200},
-            "coverage": {"type": "string", "maxLength": 400},
+            "brief": {"type": "string", "maxLength": 2000},
+            "coverage": {"type": "string", "maxLength": 1200},
             "items": {"type": "array", "maxItems": 6, "items": {
                 "type": "object", "additionalProperties": false, "required": ["headline", "why", "actionNeeded", "sources"],
                 "properties": {
-                    "headline": {"type": "string", "maxLength": 160},
-                    "why": {"type": "string", "maxLength": 400},
+                    "headline": {"type": "string", "maxLength": 300},
+                    "why": {"type": "string", "maxLength": 1000},
                     "actionNeeded": {"type": "boolean"},
                     "sources": {"type": "array", "minItems": 1, "maxItems": 4, "items": {
                         "type": "object", "additionalProperties": false, "required": ["tool", "reference"],
-                        "properties": {"tool": {"type": "string", "enum": tool_server::TOOLS}, "reference": {"type": "string", "maxLength": 300}}
+                        "properties": {"tool": {"type": "string", "enum": tool_server::TOOLS}, "reference": {"type": "string", "maxLength": 600}}
                     }}
                 }
             }}
@@ -103,11 +103,11 @@ fn answer_schema() -> Value {
     json!({
         "type": "object", "additionalProperties": false, "required": ["answer", "sources", "unknowns"],
         "properties": {
-            "answer": {"type": "string", "maxLength": 2400},
-            "unknowns": {"type": "array", "maxItems": 5, "items": {"type": "string", "maxLength": 240}},
+            "answer": {"type": "string", "maxLength": 6000},
+            "unknowns": {"type": "array", "maxItems": 8, "items": {"type": "string", "maxLength": 600}},
             "sources": {"type": "array", "maxItems": 8, "items": {
                 "type": "object", "additionalProperties": false, "required": ["tool", "reference"],
-                "properties": {"tool": {"type": "string", "enum": tool_server::TOOLS}, "reference": {"type": "string", "maxLength": 300}}
+                "properties": {"tool": {"type": "string", "enum": tool_server::TOOLS}, "reference": {"type": "string", "maxLength": 600}}
             }}
         }
     })
@@ -212,6 +212,11 @@ pub const SKILLS: &[Skill] = &[Skill {
     accept: accept_verdicts,
 }];
 
+// A note on the length limits in the schemas here: they bound abuse, they are not
+// style limits. Models do not count characters; the first real plan and the first
+// real verification were both sound and both rejected for running slightly long.
+// Brevity that matters is tested in words by the skill's own `accept`.
+
 /// The most hand-offs one request may make. Each is a full engine run.
 pub const MAX_HANDOFFS: usize = 2;
 /// A hand-off task. The first real plan wrote tasks of about 900 characters and was rejected at 800.
@@ -229,11 +234,11 @@ fn plan_schema() -> Value {
     json!({
         "type": "object", "additionalProperties": false, "required": ["approach", "directAnswer", "sources", "handoffs"],
         "properties": {
-            "approach": {"type": "string", "maxLength": 600},
-            "directAnswer": {"type": "string", "maxLength": 2400},
+            "approach": {"type": "string", "maxLength": 1500},
+            "directAnswer": {"type": "string", "maxLength": 6000},
             "sources": {"type": "array", "maxItems": 8, "items": {
                 "type": "object", "additionalProperties": false, "required": ["tool", "reference"],
-                "properties": {"tool": {"type": "string", "enum": tool_server::TOOLS}, "reference": {"type": "string", "maxLength": 300}}
+                "properties": {"tool": {"type": "string", "enum": tool_server::TOOLS}, "reference": {"type": "string", "maxLength": 600}}
             }},
             "handoffs": {"type": "array", "maxItems": MAX_HANDOFFS, "items": {
                 "type": "object", "additionalProperties": false, "required": ["agent", "task"],
@@ -285,16 +290,16 @@ fn verdict_schema() -> Value {
     json!({
         "type": "object", "additionalProperties": false, "required": ["summary", "verdicts"],
         "properties": {
-            "summary": {"type": "string", "maxLength": 600},
-            "verdicts": {"type": "array", "minItems": 1, "maxItems": 6, "items": {
+            "summary": {"type": "string", "maxLength": 2000},
+            "verdicts": {"type": "array", "minItems": 1, "maxItems": 10, "items": {
                 "type": "object", "additionalProperties": false, "required": ["claim", "verdict", "basis", "sources"],
                 "properties": {
-                    "claim": {"type": "string", "maxLength": 400},
+                    "claim": {"type": "string", "maxLength": 1000},
                     "verdict": {"type": "string", "enum": ["holds", "does_not_hold", "cannot_check"]},
-                    "basis": {"type": "string", "maxLength": 500},
+                    "basis": {"type": "string", "maxLength": 2000},
                     "sources": {"type": "array", "maxItems": 4, "items": {
                         "type": "object", "additionalProperties": false, "required": ["tool", "reference"],
-                        "properties": {"tool": {"type": "string", "enum": tool_server::TOOLS}, "reference": {"type": "string", "maxLength": 300}}
+                        "properties": {"tool": {"type": "string", "enum": tool_server::TOOLS}, "reference": {"type": "string", "maxLength": 600}}
                     }}
                 }
             }}
@@ -447,6 +452,8 @@ pub struct Turn {
     pub model: String,
     pub called: BTreeSet<String>,
     pub tool_calls: i64,
+    /// Every vault path and mail thread id the run asked for or was shown, for checking citations.
+    pub seen: BTreeSet<String>,
 }
 
 /// Applies a schema and a test to a turn's text. `called` is every tool the answer may cite.
@@ -503,6 +510,65 @@ fn tools_called(frame: &Value) -> Vec<String> {
         .collect()
 }
 
+fn collect_references(value: &Value, into: &mut Vec<String>) {
+    match value {
+        Value::Object(fields) => {
+            for (key, inner) in fields {
+                let key = key.to_lowercase();
+                match inner {
+                    Value::String(text) if (key.contains("path") || key.contains("thread")) && !text.trim().is_empty() => into.push(text.trim().to_string()),
+                    _ => collect_references(inner, into),
+                }
+            }
+        }
+        Value::Array(items) => items.iter().for_each(|item| collect_references(item, into)),
+        _ => {}
+    }
+}
+
+/// The vault paths and thread ids in one stream frame: what the model asked a
+/// tool for, and what a tool answered with. Held in memory for the run only.
+fn references_seen(frame: &Value) -> Vec<String> {
+    let mut found = Vec::new();
+    for block in frame["message"]["content"].as_array().into_iter().flatten() {
+        match block["type"].as_str() {
+            Some("tool_use") => collect_references(&block["input"], &mut found),
+            Some("tool_result") => {
+                let texts: Vec<&str> = match &block["content"] {
+                    Value::String(text) => vec![text.as_str()],
+                    Value::Array(parts) => parts.iter().filter_map(|part| part["text"].as_str()).collect(),
+                    _ => Vec::new(),
+                };
+                for text in texts {
+                    if let Ok(answer) = serde_json::from_str::<Value>(text) {
+                        collect_references(&answer, &mut found);
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+    found
+}
+
+/// Marks every citation in an answer with whether the run really handled what
+/// it names. A model can mistype a long path; this makes that visible without
+/// discarding an otherwise sound answer.
+pub fn mark_sources(answer: &mut Value, seen: &BTreeSet<String>) {
+    match answer {
+        Value::Object(fields) => {
+            if let (Some(_), Some(reference)) = (fields.get("tool").and_then(Value::as_str), fields.get("reference").and_then(Value::as_str)) {
+                let verified = seen.iter().any(|known| reference.contains(known.as_str()));
+                fields.insert("verified".into(), Value::Bool(verified));
+            } else {
+                fields.values_mut().for_each(|inner| mark_sources(inner, seen));
+            }
+        }
+        Value::Array(items) => items.iter_mut().for_each(|item| mark_sources(item, seen)),
+        _ => {}
+    }
+}
+
 fn note(kind: &'static str, summary: String) -> Draft {
     Draft { kind, summary, detail: None, tool: None, path: None, subagent: false }
 }
@@ -525,17 +591,19 @@ fn run_on_claude(app: &AppHandle, run_id: &str, profile: &Profile, instructions:
         max_turns: max_turns.min(profile.max_turns),
     };
     let mut called = BTreeSet::new();
+    let mut seen = BTreeSet::new();
     let mut tool_calls = 0;
     let mut observe = |frame: &Value| {
         for tool in tools_called(frame) {
             tool_calls += 1;
             called.insert(tool);
         }
+        seen.extend(references_seen(frame));
         agent_events::record(app, run_id, CLAUDE, profile.id, agent_events::normalize_claude_value(frame));
     };
     let system = format!("{}\n\n{instructions}", profile.charter);
     let (text, model) = super::claude_subscription::run_agent(&app_data, None, &system, prompt, limit, Arc::new(AtomicBool::new(false)), &policy, &mut observe)?;
-    Ok(Turn { text, model, called, tool_calls })
+    Ok(Turn { text, model, called, tool_calls, seen })
 }
 
 fn today() -> String {
@@ -549,7 +617,8 @@ fn profile_of(skill: &Skill) -> Result<&'static Profile, String> {
 /// A skill that is one engine run: the brief, an answer, an assignment.
 fn run_direct(app: &AppHandle, run_id: &str, skill: &'static Skill, request: Option<&str>) -> Result<(Value, Turn), String> {
     let turn = run_on_claude(app, run_id, profile_of(skill)?, skill.instructions, skill.prompt(&today(), request), skill.tools, skill.max_turns, skill.limit)?;
-    let answer = judge(&(skill.output_schema)(), skill.accept, &turn.text, &turn.called)?;
+    let mut answer = judge(&(skill.output_schema)(), skill.accept, &turn.text, &turn.called)?;
+    mark_sources(&mut answer, &turn.seen);
     Ok((answer, turn))
 }
 
@@ -588,7 +657,8 @@ fn run_orchestrated(app: &AppHandle, run_id: &str, skill: &'static Skill, reques
     let plan = judge(&plan_schema(), accept_plan, &turn.text, &turn.called)?;
     let planned = plan["handoffs"].as_array().cloned().unwrap_or_default();
     if planned.is_empty() {
-        let answer = json!({"answer": plan["directAnswer"], "unknowns": [], "sources": plan["sources"], "handoffs": []});
+        let mut answer = json!({"answer": plan["directAnswer"], "unknowns": [], "sources": plan["sources"], "handoffs": []});
+        mark_sources(&mut answer, &turn.seen);
         return Ok((answer, turn));
     }
 
@@ -617,6 +687,7 @@ fn run_orchestrated(app: &AppHandle, run_id: &str, skill: &'static Skill, reques
         let report = match &outcome {
             Ok((answer, child)) => {
                 turn.called.extend(child.called.iter().cloned());
+                turn.seen.extend(child.seen.iter().cloned());
                 turn.tool_calls += child.tool_calls;
                 if agent == "research" {
                     research_report = Some(answer.clone());
@@ -640,9 +711,11 @@ fn run_orchestrated(app: &AppHandle, run_id: &str, skill: &'static Skill, reques
 
     let synthesis = run_on_claude(app, run_id, zeus, SYNTHESIS_INSTRUCTIONS, synthesis_prompt(&today(), request, &handoffs), skill.tools, skill.max_turns, skill.limit)?;
     turn.called.extend(synthesis.called.iter().cloned());
+    turn.seen.extend(synthesis.seen.iter().cloned());
     turn.tool_calls += synthesis.tool_calls;
     turn.model = synthesis.model.clone();
     let mut answer = judge(&(skill.output_schema)(), skill.accept, &synthesis.text, &turn.called)?;
+    mark_sources(&mut answer, &turn.seen);
     // What Kevin sees of the hand-offs: who, what and whether it came back. The full reports stay on the child runs.
     answer["handoffs"] = Value::Array(handoffs.iter().map(|h| json!({"agent": h["agent"], "name": h["name"], "task": h["task"], "status": h["status"], "runId": h["runId"]})).collect());
     Ok((answer, turn))
@@ -713,7 +786,7 @@ mod tests {
         tools.iter().map(|tool| tool.to_string()).collect()
     }
     fn turn(answer: Value, tools: &[&str]) -> Result<Turn, String> {
-        Ok(Turn { text: answer.to_string(), model: "claude-test".into(), called: called(tools), tool_calls: tools.len() as i64 })
+        Ok(Turn { text: answer.to_string(), model: "claude-test".into(), called: called(tools), tool_calls: tools.len() as i64, seen: BTreeSet::new() })
     }
     fn good() -> Value {
         json!({"brief": "One order shipped and arrives Friday. Nothing needs you today.", "coverage": "Checked recent mail and projects.",
@@ -873,9 +946,9 @@ mod tests {
         assert!(checked.starts_with("Check the claims.") && checked.contains("<report>") && checked.contains("09 - System/Learned/a.md"));
         assert_eq!(handoff_request("verification", "Check it.", None), "Check it.");
         assert!(handoff_request("verification", &"x".repeat(50_000), None).chars().count() <= HANDOFF_LIMIT);
-        let long_report = json!({"answer": "y".repeat(2400), "unknowns": [], "sources": []});
+        let long_report = json!({"answer": "y".repeat(6000), "unknowns": [], "sources": []});
         assert!(handoff_request("verification", &"x".repeat(TASK_LIMIT), Some(&long_report)).ends_with("</report>"), "a full task and a full report both fit");
-        let long_plan = json!({"approach": "a".repeat(600), "directAnswer": "", "sources": [], "handoffs": [{"agent": "research", "task": "t".repeat(TASK_LIMIT)}]});
+        let long_plan = json!({"approach": "a".repeat(1500), "directAnswer": "", "sources": [], "handoffs": [{"agent": "research", "task": "t".repeat(TASK_LIMIT)}]});
         assert!(judge(&plan_schema(), accept_plan, &long_plan.to_string(), &called(&[])).is_ok(), "a detailed task is a valid plan");
 
         let handoffs = vec![json!({"agent": "research", "name": "Athena", "task": "Find it.", "status": "completed", "report": report})];
@@ -887,8 +960,37 @@ mod tests {
         let answer = json!({"answer": "Concise and conversational.", "unknowns": [], "sources": [{"tool": "recall_memory", "reference": "09 - System/Learned/a.md"}]});
         assert!(judge(&answer_schema(), accept_synthesis, &answer.to_string(), &called(&["recall_memory"])).is_ok());
         assert!(judge(&answer_schema(), accept_synthesis, &answer.to_string(), &called(&["search_vault"])).unwrap_err().contains("no run behind it"));
-        let settled = settle(&connection, "p", Ok((json!({"answer": "a", "handoffs": []}), Turn { text: String::new(), model: "m".into(), called: called(&[]), tool_calls: 7 }))).unwrap();
+        let settled = settle(&connection, "p", Ok((json!({"answer": "a", "handoffs": []}), Turn { text: String::new(), model: "m".into(), called: called(&[]), tool_calls: 7, seen: BTreeSet::new() }))).unwrap();
         assert_eq!((settled.status.as_str(), settled.tool_calls), ("completed", 7));
+    }
+
+    #[test]
+    fn citations_are_marked_against_what_the_run_really_handled() {
+        let good = "09 - System/Learned/81158172abf15c9a.md";
+        let asked = json!({"type": "assistant", "message": {"content": [
+            {"type": "tool_use", "name": "mcp__olympus__read_vault_note", "input": {"path": "09 - System/User Profile.md"}},
+            {"type": "tool_use", "name": "mcp__olympus__read_mail_thread", "input": {"thread_id": "1a1b7cb916bfee72"}},
+            {"type": "tool_use", "name": "mcp__olympus__search_vault", "input": {"query": "briefing style"}}
+        ]}});
+        let answered = json!({"type": "user", "message": {"content": [
+            {"type": "tool_result", "content": [{"type": "text", "text": json!([{"path": good, "matchedWords": 2, "content": "x"}]).to_string()}]},
+            {"type": "tool_result", "content": "not json"},
+            {"type": "tool_result", "content": json!([{"threadId": "t-77", "subject": "Bill"}]).to_string()}
+        ]}});
+        let mut seen: BTreeSet<String> = references_seen(&asked).into_iter().collect();
+        seen.extend(references_seen(&answered));
+        assert_eq!(seen, called(&["09 - System/User Profile.md", "1a1b7cb916bfee72", good, "t-77"]), "a search query is not a reference");
+
+        let mut answer = json!({"answer": "a", "items": [{"sources": [
+            {"tool": "recall_memory", "reference": good},
+            {"tool": "recall_memory", "reference": "09 - System/Learned/81158172acf15c9a.md"},
+            {"tool": "read_mail_thread", "reference": "Thread 1a1b7cb916bfee72: Google security alert"},
+            {"tool": "read_vault_note", "reference": "the profile"}
+        ]}]});
+        mark_sources(&mut answer, &seen);
+        let verified: Vec<bool> = answer["items"][0]["sources"].as_array().unwrap().iter().map(|s| s["verified"].as_bool().unwrap()).collect();
+        assert_eq!(verified, [true, false, true, false], "a mistyped path and a vague reference are both flagged");
+        assert!(answer.get("verified").is_none(), "only citations are marked");
     }
 
     #[test]

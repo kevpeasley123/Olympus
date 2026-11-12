@@ -7,11 +7,14 @@ import { isTauriRuntime } from "./launcher";
 export interface Olympian { id: string; name: string; title: string; tools: string[]; maxTurns: number; canDelegate: boolean; runsOn: string }
 export interface SkillEntry { id: string; title: string; agent: string; olympian: Olympian | null; /** Whether the run may hand parts to other Olympians. */ orchestrates: boolean; engines: string[]; /** Whether a run needs Kevin's own question. */ takesRequest: boolean; contract: { purpose: string; successCriteria: string; allowedCapabilities: string[]; loopBudget: number } }
 
-export interface BriefItem { headline: string; why: string; actionNeeded: boolean; sources: { tool: string; reference: string }[] }
+/** A citation. `verified` is false when the run never asked for or was shown what the reference names. */
+export interface SourceRef { tool: string; reference: string; verified?: boolean }
+export const describeSource = (source: SourceRef) => `${source.tool}: ${source.reference}${source.verified === false ? " (not confirmed against this run)" : ""}`;
+export interface BriefItem { headline: string; why: string; actionNeeded: boolean; sources: SourceRef[] }
 export interface BriefOutput { brief: string; coverage: string; items: BriefItem[] }
 /** A part of a request the orchestrator handed to a specialist, as its own recorded run. */
 export interface Handoff { agent: string; name: string; task: string; status: "completed" | "failed"; runId: string }
-export interface AnswerOutput { answer: string; unknowns: string[]; sources: { tool: string; reference: string }[]; handoffs?: Handoff[] }
+export interface AnswerOutput { answer: string; unknowns: string[]; sources: SourceRef[]; handoffs?: Handoff[] }
 
 /** One line per hand-off: who took what, and whether it came back. */
 export const describeHandoff = (handoff: Handoff) => `${handoff.name}${handoff.status === "failed" ? " did not finish" : " reported"}: ${handoff.task}`;

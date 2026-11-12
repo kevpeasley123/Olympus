@@ -23,6 +23,13 @@ contract grants no execution authority.
 | `work-request` v1, "Ask Olympus" | `olympus` (Zeus) | `list_projects`, `recall_memory`, `search_vault`, `read_vault_note` | 10 turns per phase, plus up to two hand-offs | The final answer matches its schema and cites only tools called by this run or its hand-offs. See [OLYMPIANS.md](OLYMPIANS.md) |
 | `research-assignment` v1 and `verification-assignment` v1 | Athena, Themis | Their profile's tools | 14 and 12 turns | Run only as a hand-off; not offered in the catalog |
 
+Every citation in an accepted answer carries `verified`: true when its
+reference names a vault path or mail thread id the run asked a tool for or was
+shown in a tool result, false otherwise. A false mark does not reject the
+answer; the panel shows "(not confirmed against this run)" beside it. The
+schema's length limits are abuse bounds, not style rules: a sound answer is
+never rejected for being thorough.
+
 Each skill runs under its Olympian's profile ([OLYMPIANS.md](OLYMPIANS.md)): the
 profile's charter opens the system prompt, and the skill's tools and turns must
 fit inside the profile's ceilings.

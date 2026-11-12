@@ -1,9 +1,9 @@
 import { useState, useSyncExternalStore } from "react";
-import { describeHandoff, describeRun, describeUsage, isBrief, latestRun, skillRunsSnapshot, startSkillRun, subscribeSkillRuns, type SkillEntry, type SkillRun } from "../../services/skillRuns";
+import { describeHandoff, describeRun, describeSource, describeUsage, isBrief, latestRun, skillRunsSnapshot, startSkillRun, subscribeSkillRuns, type SkillEntry, type SkillRun, type SourceRef } from "../../services/skillRuns";
 import { engineLabel } from "../../services/agentEvents";
 import "./agentActivityFeed.css";
 
-const cite = (sources: readonly { tool: string; reference: string }[]) => sources.map(source => `${source.tool}: ${source.reference}`).join(" · ");
+const cite = (sources: readonly SourceRef[]) => sources.map(describeSource).join(" · ");
 
 function Result({ run }: { run: SkillRun }) {
   const output = run.output;

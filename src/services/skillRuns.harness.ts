@@ -1,4 +1,4 @@
-import { describeHandoff, describeRun, describeUsage, isBrief, latestRun, mergeSkillRuns, type SkillRun } from "./skillRuns";
+import { describeHandoff, describeRun, describeSource, describeUsage, isBrief, latestRun, mergeSkillRuns, type SkillRun } from "./skillRuns";
 
 export function runSkillRunsHarness() {
   let passed = 0;
@@ -24,5 +24,7 @@ export function runSkillRunsHarness() {
   check(latestRun(withChild, "opening-brief")?.id === "b", "A hand-off is never shown as the latest run of a skill Kevin starts");
   check(describeHandoff({ agent: "research", name: "Athena", task: "Find the briefing style.", status: "completed", runId: "b-h1" }) === "Athena reported: Find the briefing style.", "A hand-off that came back says who reported on what");
   check(describeHandoff({ agent: "verification", name: "Themis", task: "Check it.", status: "failed", runId: "b-h2" }) === "Themis did not finish: Check it.", "A hand-off that failed says so");
+  check(describeSource({ tool: "recall_memory", reference: "a.md", verified: true }) === "recall_memory: a.md" && describeSource({ tool: "recall_memory", reference: "a.md" }) === "recall_memory: a.md", "A confirmed or unmarked citation reads plainly");
+  check(describeSource({ tool: "recall_memory", reference: "b.md", verified: false }).endsWith("(not confirmed against this run)"), "A citation the run never handled is flagged");
   return { passed };
 }
