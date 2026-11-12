@@ -3,11 +3,18 @@ import { listen } from "@tauri-apps/api/event";
 import { isTauriRuntime } from "./launcher";
 
 /** A skill the runner can execute (`commands/skill_runner.rs`). Listing one grants no execution authority. */
-export interface SkillEntry { id: string; title: string; agent: string; engines: string[]; /** Whether a run needs Kevin's own question. */ takesRequest: boolean; contract: { purpose: string; successCriteria: string; allowedCapabilities: string[]; loopBudget: number } }
+/** An Olympian's profile (`commands/agent_profiles.rs`): a role with a charter, a tool ceiling and a turn ceiling. */
+export interface Olympian { id: string; name: string; title: string; tools: string[]; maxTurns: number; canDelegate: boolean; runsOn: string }
+export interface SkillEntry { id: string; title: string; agent: string; olympian: Olympian | null; /** Whether the run may hand parts to other Olympians. */ orchestrates: boolean; engines: string[]; /** Whether a run needs Kevin's own question. */ takesRequest: boolean; contract: { purpose: string; successCriteria: string; allowedCapabilities: string[]; loopBudget: number } }
 
 export interface BriefItem { headline: string; why: string; actionNeeded: boolean; sources: { tool: string; reference: string }[] }
 export interface BriefOutput { brief: string; coverage: string; items: BriefItem[] }
-export interface AnswerOutput { answer: string; unknowns: string[]; sources: { tool: string; reference: string }[] }
+/** A part of a request the orchestrator handed to a specialist, as its own recorded run. */
+export interface Handoff { agent: string; name: string; task: string; status: "completed" | "failed"; runId: string }
+export interface AnswerOutput { answer: string; unknowns: string[]; sources: { tool: string; reference: string }[]; handoffs?: Handoff[] }
+
+/** One line per hand-off: who took what, and whether it came back. */
+export const describeHandoff = (handoff: Handoff) => `${handoff.name}${handoff.status === "failed" ? " did not finish" : " reported"}: ${handoff.task}`;
 export type SkillOutput = BriefOutput | AnswerOutput;
 export const isBrief = (output: SkillOutput): output is BriefOutput => "brief" in output;
 
@@ -25,6 +32,7 @@ export function describeUsage(usage: EngineUsage, label: string): string {
 export interface SkillRun {
   id: string; skillId: string; skillVersion: number; engine: string; agent: string;
   status: "running" | "completed" | "failed";
+  parentRun: string | null;
   request: string | null; model: string | null; output: SkillOutput | null; error: string | null; toolCalls: number;
   startedAt: string; finishedAt: string | null;
 }
@@ -39,7 +47,8 @@ export function mergeSkillRuns(current: readonly SkillRun[], incoming: readonly 
   return [...byId.values()].sort((a, b) => b.startedAt.localeCompare(a.startedAt) || b.id.localeCompare(a.id));
 }
 
-export const latestRun = (runs: readonly SkillRun[], skillId: string) => runs.find(run => run.skillId === skillId) ?? null;
+/** The latest run Kevin started himself; hand-offs belong to their parent. */
+export const latestRun = (runs: readonly SkillRun[], skillId: string) => runs.find(run => run.skillId === skillId && !run.parentRun) ?? null;
 
 /** One line on where a run stands, in Olympus's voice. */
 export function describeRun(run: SkillRun | null): string {

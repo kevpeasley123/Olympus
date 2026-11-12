@@ -1,10 +1,10 @@
-import { describeRun, describeUsage, isBrief, latestRun, mergeSkillRuns, type SkillRun } from "./skillRuns";
+import { describeHandoff, describeRun, describeUsage, isBrief, latestRun, mergeSkillRuns, type SkillRun } from "./skillRuns";
 
 export function runSkillRunsHarness() {
   let passed = 0;
   const check = (condition: boolean, message: string) => { if (!condition) throw Error(message); passed++; };
   const run = (id: string, startedAt: string, extra: Partial<SkillRun> = {}): SkillRun =>
-    ({ id, skillId: "opening-brief", skillVersion: 1, engine: "claude-code", agent: "olympus", status: "running", request: null, model: null, output: null, error: null, toolCalls: 0, startedAt, finishedAt: null, ...extra });
+    ({ id, skillId: "opening-brief", skillVersion: 1, engine: "claude-code", agent: "olympus", status: "running", parentRun: null, request: null, model: null, output: null, error: null, toolCalls: 0, startedAt, finishedAt: null, ...extra });
   const first = run("a", "2026-11-11T08:00:00Z"), second = run("b", "2026-11-11T09:00:00Z");
   const merged = mergeSkillRuns([first], [second]);
   check(merged.map(r => r.id).join() === "b,a", "Runs are listed newest first");
@@ -19,5 +19,10 @@ export function runSkillRunsHarness() {
   const used = { engine: "claude-code", runs: 3, failed: 1, seconds: 180, inputTokens: 0, outputTokens: 0, reportedCostUsd: 0.418 };
   check(describeUsage(used, "Claude Code") === "Claude Code: 3 runs, 1 stopped, $0.42 at API rates as reported", "Observed usage names a cost only as the engine reported it");
   check(describeUsage({ ...used, runs: 1, failed: 0, reportedCostUsd: 0 }, "Codex") === "Codex: 1 run", "No cost is shown when none was reported");
+  const child = run("b-h1", "2026-11-11T09:30:00Z", { skillId: "research-assignment", parentRun: "b" });
+  const withChild = mergeSkillRuns(updated, [child, run("z", "2026-11-11T10:00:00Z", { parentRun: "b" })]);
+  check(latestRun(withChild, "opening-brief")?.id === "b", "A hand-off is never shown as the latest run of a skill Kevin starts");
+  check(describeHandoff({ agent: "research", name: "Athena", task: "Find the briefing style.", status: "completed", runId: "b-h1" }) === "Athena reported: Find the briefing style.", "A hand-off that came back says who reported on what");
+  check(describeHandoff({ agent: "verification", name: "Themis", task: "Check it.", status: "failed", runId: "b-h2" }) === "Themis did not finish: Check it.", "A hand-off that failed says so");
   return { passed };
 }

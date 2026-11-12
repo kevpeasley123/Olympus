@@ -1,5 +1,5 @@
 import { useState, useSyncExternalStore } from "react";
-import { describeRun, describeUsage, isBrief, latestRun, skillRunsSnapshot, startSkillRun, subscribeSkillRuns, type SkillEntry, type SkillRun } from "../../services/skillRuns";
+import { describeHandoff, describeRun, describeUsage, isBrief, latestRun, skillRunsSnapshot, startSkillRun, subscribeSkillRuns, type SkillEntry, type SkillRun } from "../../services/skillRuns";
 import { engineLabel } from "../../services/agentEvents";
 import "./agentActivityFeed.css";
 
@@ -20,6 +20,7 @@ function Result({ run }: { run: SkillRun }) {
   return <div className="skill-trial-result">
     {run.request && <small>{run.request}</small>}
     <p>{output.answer}</p>
+    {output.handoffs && output.handoffs.length > 0 && <ul aria-label="Hand-offs">{output.handoffs.map(handoff => <li key={handoff.runId} data-status={handoff.status}><span>{describeHandoff(handoff)}</span></li>)}</ul>}
     {output.unknowns.length > 0 && <ul>{output.unknowns.map((gap, index) => <li key={index}><span>Not found: {gap}</span></li>)}</ul>}
     {output.sources.length > 0 && <small>{cite(output.sources)}</small>}
   </div>;
@@ -30,8 +31,8 @@ function Skill({ skill, run }: { skill: SkillEntry; run: SkillRun | null }) {
   const engine = skill.engines[0], running = run?.status === "running";
   const blocked = running || (skill.takesRequest && !request.trim());
   return <section>
-    <h4>{skill.title}</h4>
-    <p className="skill-trial-note">{skill.takesRequest ? "Answers from your vault, learned memory, projects and mail, and cites where each part came from." : "Runs beside your current brief. It is not spoken or saved as the brief."}</p>
+    <h4>{skill.title}{skill.olympian && <span> {skill.olympian.name} · {skill.olympian.title}</span>}</h4>
+    <p className="skill-trial-note">{skill.orchestrates ? "Zeus answers a small request himself, or hands parts to Athena and Themis and answers from their reports." : skill.takesRequest ? "Answers from your vault, learned memory, projects and mail, and cites where each part came from." : "Runs beside your current brief. It is not spoken or saved as the brief."}</p>
     {skill.takesRequest && <textarea aria-label={`Question for ${skill.title}`} rows={2} maxLength={2000} value={request} placeholder="Ask a question" onChange={event => setRequest(event.target.value)} />}
     <button type="button" disabled={blocked} onClick={() => void startSkillRun(skill.id, engine, skill.takesRequest ? request : undefined)}>Run on {engineLabel(engine)}</button>
     <p className="skill-trial-status" data-status={run?.status ?? "none"}>{describeRun(run)}</p>

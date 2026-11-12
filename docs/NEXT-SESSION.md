@@ -27,6 +27,15 @@ Built on `claude/harness-integration`, which also contains pull requests 35 and
   skills: the opening brief as a trial, and "Answer from my sources"
   ([SKILL-RUNNER.md](SKILL-RUNNER.md)).
 - Observed usage per engine from run outcomes, shown under the skills.
+- Olympian profiles and hand-offs ([OLYMPIANS.md](OLYMPIANS.md)): each skill runs
+  under a profile with a charter and tool ceiling; "Ask Olympus" lets Zeus hand
+  parts to Athena and Themis as linked runs (migration 10). Not yet run for real.
+
+Real runs on November 11 (Kevin's PC, development build): "Answer from my sources"
+completed with nine tool calls for about $0.06 and cited the learned record by
+path. The opening-brief trial made eleven tool calls and was stopped by the Claude
+plan's 5-hour limit before answering. Three briefing tests fail on `master` since
+November 12 UTC (fixed fixture dates around November 4); not yet repaired.
 
 First things to do on the PC, in order:
 
