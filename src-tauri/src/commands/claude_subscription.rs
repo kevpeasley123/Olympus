@@ -651,6 +651,13 @@ impl Protocol {
                 self.overage_disabled=true;
             }
             Some("assistant") => {
+                // Claude Code speaks for itself with a "<synthetic>" message, for example when a usage
+                // limit is reached. Say what it said; "model changed" would hide the real reason.
+                if v["message"]["model"] == "<synthetic>" {
+                    let notice: String = v["message"]["content"].as_array().into_iter().flatten().filter_map(|block| block["text"].as_str()).collect::<Vec<_>>().join(" ");
+                    let notice: String = notice.chars().filter(|c| !c.is_control()).take(200).collect();
+                    return Err(if notice.trim().is_empty() { "Claude Code stopped the run without giving a reason".to_string() } else { format!("Claude Code stopped the run: {}", notice.trim()) });
+                }
                 if !same_model(&v["message"]["model"], self.model) {
                     return Err("Claude model changed".into());
                 }
@@ -1266,6 +1273,18 @@ mod tests {
         assert!(p.terminal && p.failure.is_none());
         assert_eq!(p.text, "One order shipped.");
         assert_eq!(p.stop_reason.as_deref(), Some("end_turn"));
+    }
+    #[test]
+    fn claude_codes_own_notice_is_reported_in_its_words() {
+        let notice = |text: &str| json!({"type":"assistant","session_id":"s","parent_tool_use_id":null,"message":{"model":"<synthetic>","content":[{"type":"text","text":text}],"stop_reason":"stop_sequence"}});
+        for mut p in [Protocol::new(MODEL), Protocol::with_tools(MODEL, allowed())] {
+            let error = p.accept(notice("You've hit your 5-hour limit \u{b7} resets 11:20pm (America/Phoenix)")).unwrap_err();
+            assert_eq!(error, "Claude Code stopped the run: You've hit your 5-hour limit \u{b7} resets 11:20pm (America/Phoenix)");
+        }
+        assert_eq!(Protocol::new(MODEL).accept(notice("  ")).unwrap_err(), "Claude Code stopped the run without giving a reason");
+        assert!(Protocol::new(MODEL).accept(notice(&"x".repeat(900))).unwrap_err().chars().count() < 240);
+        let other = json!({"type":"assistant","session_id":"s","parent_tool_use_id":null,"message":{"model":"claude-other","content":[],"stop_reason":null}});
+        assert_eq!(Protocol::new(MODEL).accept(other).unwrap_err(), "Claude model changed");
     }
     #[test]
     fn a_tool_run_fails_closed_on_any_other_tool_server_or_input() {
