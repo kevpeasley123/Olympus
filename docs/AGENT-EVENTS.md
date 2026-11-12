@@ -17,7 +17,7 @@ behaves.
 | `runId` | The owning run's id in its own table: a delegation run, a skill run, or a model request |
 | `engine` | `claude-code`, `codex` or `ollama` |
 | `agent` | The Armory role credited, for example `coding-delegate` (Hephaestus) |
-| `kind` | `run_started`, `thinking`, `message`, `file_read`, `file_edit`, `search`, `command`, `subagent_started`, `tool_call`, `tool_failed`, `result`, `error` |
+| `kind` | `run_started`, `thinking`, `message`, `file_read`, `file_edit`, `search`, `command`, `subagent_started`, `tool_call`, `tool_failed`, `result`, `error`, `plan` |
 | `summary` | One short line, at most 160 characters |
 | `detail` | Optional longer text, at most 2,000 characters: a thought, a message, a full command, or a result's measurements |
 | `tool`, `path` | The tool used, and the file for a read or edit |
@@ -65,8 +65,32 @@ no interface shows it yet.
 `src/services/agentEvents.ts` holds a bounded feed (the newest 200 events),
 groups it by run (runs in progress first), and derives which agents are working: a run is in progress
 until it reports its own `result` or `error`; a helper's result does not end its
-parent. `AgentActivityFeed` renders the feed inside Command's **Agent activity**
-disclosure, above the source access history.
+parent.
+
+Command's left column is the **Activity Deck** (`ActivityDeck`, model in
+`src/services/activityDeck.ts`). It is built only from skill runs and this
+feed:
+
+- **Operation**: the newest run in progress, else the most recent finished one.
+  Progress is shown only as counted stages of an accepted plan (the plan, each
+  hand-off, the answer); a run with no such stages shows an unmeasured sweep and
+  no number.
+- **Agent cards**: the lead is Running, or Coordinating while a hand-off is out;
+  a specialist is Running, then Completed or Failed; one planned but not started
+  is Queued. The `plan` event an orchestrated run records (its `detail` is a
+  JSON list of `{agent, name, task}`) is what makes Queued and the stage count
+  knowable. Each card's line is its latest recorded step, reworded by
+  `describeStep`; an unknown step keeps the backend's summary. A card expands to
+  its assignment, last five steps and report or failure.
+- **Idle agents**: everyone else, with the catalog's own readiness. A planned
+  role says Planned.
+- Mission steps recorded outside the skill runner (research, coding delegation)
+  show their agent as Running, or Blocked while waiting on approval.
+
+The mission brief in the console repeats the running operation as a short
+checklist (`deckStages`). The step-by-step feed (`AgentActivityFeed`), the
+source access history and the asset inspector are in the **Diagnostics** dialog,
+opened from the deck. **Deploy Agent** opens the runnable skills.
 
 The Pantheon figures read the same feed. `activityMissions` presents each observed
 run as a single-step mission naming its agent, which the existing figure state
@@ -75,12 +99,12 @@ works while it is in progress, and marks completion when the run reports a resul
 Zeus coordinates while any run is live. Observed runs move the figures only; they
 do not join the orbiting missions.
 
-`SkillTrials`, in the same disclosure, lists the runner's skills with a button to
+`SkillTrials`, in the Deploy Agent dialog, lists the runner's skills with a button to
 run each on a named engine and shows the latest result or the reason it was rejected.
 
 ## Verification
 
 `cargo test --lib agent_events` covers normalization, the two privacy rules
-above, and storage order and paging. `scripts/test-agent-events.mjs` covers
+above, and storage order and paging. `scripts/test-agent-events.mjs` covers the deck model (planning, hand-off, queue, failure, concurrent runs, no invented progress) and
 merging, grouping, the working-agent rule, the figure transitions against the real state machine, and skill run bookkeeping. No delegated run has been
 executed with this in place, so the feed has not been seen with live data.

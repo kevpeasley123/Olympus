@@ -6,12 +6,12 @@ import {onSuperpowersInspection} from "../../services/skillCollections";
 import {publishAgentConstellation,onConstellationAgent,useAgentHighlight,publishWorkingAgents} from "../../services/agentConstellation";
 import { pantheonAgents } from "../../services/pantheonAgents";
 import { AgentEmblem } from "./AgentEmblem";
-import { ZeusLightning } from "./ZeusLightning";
+import { ActivityDeck } from "./ActivityDeck";
 import { GmailSettings } from "./GmailSettings";
 import { ResourceIntake } from "./ResourceIntake";
 import { onArmoryInspection } from "../../services/armoryNavigation";
 import { useEffect, useState, useRef } from "react";
-import { ArrowUpRight, CircleDot, Plug, Sparkles, X, ChevronRight, ShieldCheck, Plus } from "lucide-react";
+import { ArrowUpRight, CircleDot, Plug, Sparkles, X, ChevronRight, ShieldCheck } from "lucide-react";
 import { Modal } from "../Modal";
 import { commandCatalog, type CommandCatalog, type CommandRole } from "../../services/commandAgents";
 import type { CapabilitySnapshot, MissionSnapshot, Mission, Capability } from "../../services/capabilities";
@@ -33,20 +33,9 @@ interface Props {
 }
 export function OlympusArmory({projectNames,capabilities, missions, error, missionsError, preview, selectedAgent, onSelectAgent, onDestination, onInspectResearch}: Props) {
   const highlight=useAgentHighlight();
-  const armoryRef=useRef<HTMLElement>(null);
-  useEffect(()=>{
-    const emblems=armoryRef.current?.querySelectorAll<HTMLElement>('.armory-roster-emblem');
-    if(!emblems)return;
-    const visible=new Set<Element>();
-    const refresh=()=>emblems.forEach(el=>{const paused=String(document.hidden||!visible.has(el));el.dataset.shinePaused=paused;const row=el.closest<HTMLElement>(".armory-roster-row");if(row)row.dataset.motionPaused=paused;});
-    const observer=new IntersectionObserver(entries=>{entries.forEach(e=>{if(e.isIntersecting)visible.add(e.target);else visible.delete(e.target);});refresh();});
-    emblems.forEach(el=>observer.observe(el));document.addEventListener('visibilitychange',refresh);refresh();
-    return()=>{observer.disconnect();document.removeEventListener('visibilitychange',refresh);};
-  });
   const [catalog, setCatalog] = useState<CommandCatalog | null>(preview ? fixture.empty as CommandCatalog : null);
   const [catalogError, setCatalogError] = useState("");
   const [revision, setRevision] = useState(0);
-  const [agentFilter,setAgentFilter]=useState("All");
   const intakeDrawer=useRef<HTMLDetailsElement>(null);
   const [intakeReturn,setIntakeReturn]=useState<(()=>void)|null>(null);
   useEffect(()=>onManagementHandoff(request=>{if(request.target!=="armory")return;setIntakeReturn(()=>request.returnToUsage);if(intakeDrawer.current){intakeDrawer.current.open=true;intakeDrawer.current.scrollIntoView({block:"nearest"});intakeDrawer.current.querySelector<HTMLElement>("summary")?.focus();}}),[]);
@@ -100,28 +89,15 @@ export function OlympusArmory({projectNames,capabilities, missions, error, missi
   const status = (role: CommandRole) => role.kind==="orchestrator" ? "Core" : operations.some(m=>m.status==="waiting" && m.steps.some(s=>s.agent===role.id)) ? "Waiting" : operations.some(m => m.steps.some(s=>s.agent===role.id && s.state==="active")) ? "Working" : role.status === "AVAILABLE" ? "Ready" : role.status.toLowerCase();
   const workingIds=roles.filter(role=>status(role)==="Working").map(role=>role.id).sort().join('|');
   useEffect(()=>{publishWorkingAgents(workingIds?workingIds.split('|'):[]);return ()=>publishWorkingAgents([]);},[workingIds]);
-  const activeAgent=(role:CommandRole)=>["Working","Waiting"].includes(status(role));
-  const filterCounts={All:roles.length,Active:roles.filter(activeAgent).length??0,Idle:roles.filter(role=>status(role)==="Ready").length??0};
-  const visibleAgents=roles.filter(role=>role.kind==="orchestrator"||agentFilter==="All"||(agentFilter==="Active"?activeAgent(role):status(role)==="Ready"));
   const openOperation = (m: Mission) => {leave();onDestination(m.destination);};
-  return <aside ref={armoryRef} className="olympus-armory" aria-label="Olympus Armory">
-    <div className="armory-heading"><h2>Armory</h2><p>Capabilities at your command</p></div>
-    <div className="armory-index">{categories.map((name,i)=>{const Icon=symbols[name];return <button key={name} onClick={()=>show(name)} aria-haspopup="dialog"><Icon size={16}/><span>{name}</span><strong>{numbers[i] ?? "—"}</strong><ChevronRight size={12}/></button>;})}</div>
-
-    {(error||catalogError||missionsError)&&<p className="armory-caution">Some observations are unavailable. <button onClick={()=>{setRevision(n=>n+1);show("Agents")}}>Review</button></p>}
-
-    <div className="armory-presence">
-      <span className="command-eyebrow">AGENTS</span>
-      <nav className="armory-agent-filters" aria-label="Agent state filter">{(["All","Active","Idle"] as const).map(filter=><button key={filter} aria-pressed={agentFilter===filter} onClick={()=>setAgentFilter(filter)}>{filter} <b>{catalog?filterCounts[filter]:"—"}</b></button>)}</nav>
-      <div className="armory-roster">{visibleAgents?.map(role=>{const state=status(role);return <button className="armory-roster-row" {...highlight.bind(role.id)} key={role.id} onClick={()=>{show("Agents");inspectAgent(role);}} aria-label={"Inspect "+role.name+" loadout"} data-selected={selectedAgent===role.id} data-status={state}>
-        {state==="Working"&&<svg className="armory-working-sparks" viewBox="0 0 240 68" preserveAspectRatio="none" aria-hidden="true"><path pathLength="100" d="M12 4 26 3 23 6 40 2 36 5 56 4 66 6 63 2 85 5 102 3 98 6 121 2 117 5 143 4 153 6 150 2 174 5 192 3 187 6 213 4 235 4 232 14 236 11 231 25 235 21 232 36 236 32 232 48 235 58"/><path pathLength="100" d="M229 63 214 65 218 61 195 64 180 62 185 65 162 61 166 64 146 63 136 65 140 61 117 64 97 62 102 65 79 61 83 64 62 63 46 65 51 61 27 64 5 63 8 53 4 56 9 42 5 46 8 31 4 35 8 19 5 9"/><path className="armory-spark-branch" d="M36 5 42 9 47 7 55 10 M153 6 159 9 165 7 M232 36 226 40 228 44"/><path className="armory-spark-branch" d="M180 62 173 58 166 60 160 57 M79 61 73 58 66 60 M8 31 12 35 10 40"/></svg>}
-        <span className="armory-roster-emblem">{role.id==='olympus'&&<ZeusLightning/>}<AgentEmblem id={role.id} size={23}/></span>
-        <span className="armory-roster-copy"><strong>{role.name}</strong><span>{role.description}</span><small>{state==="Ready"?"Ready for assignment":state==="Working"?"Assigned to active work":state==="Waiting"?"Waiting on mission checkpoint":role.kind==="orchestrator"?"Primary · always pinned":role.status==="PLACEHOLDER"?"Planned role · not executable":role.status==="UNPROVEN"?"Execution not yet verified":"Currently unavailable"}</small></span>
-        <span className="armory-roster-status">{state==="Ready"?"Idle":state==="Working"?"Active":state}</span>
-      </button>})}</div>
-      {!catalog?<p>Reading catalog…</p>:!visibleAgents?.length?<p className="armory-filter-empty">No {agentFilter.toLowerCase()} agents in this snapshot.</p>:null}
-    </div>
-    <div className="armory-panel-actions"><button className="armory-deploy" onClick={()=>show("Agents")} title="Choose an agent and review its available workflows"><Plus size={14}/>Deploy agent</button><details ref={intakeDrawer} className="armory-resource-drawer"><summary>Add resources &amp; skills</summary>{intakeReturn&&<button onClick={()=>{const back=intakeReturn;setIntakeReturn(null);if(intakeDrawer.current)intakeDrawer.current.open=false;back();}}>Back to API management</button>}<ResourceIntake/></details></div>
+  return <aside className="olympus-armory activity-deck" aria-label="Activity Deck">
+    <ActivityDeck roster={catalog?roles.map(role=>{const held=operations.find(m=>m.steps.some(s=>s.agent===role.id&&s.state==="active")),waiting=operations.find(m=>m.status==="waiting"&&m.steps.some(s=>s.agent===role.id));const mission=waiting??held;
+      return {id:role.id,name:role.name,description:role.description,readiness:role.kind==="orchestrator"||role.status==="AVAILABLE"?"Idle":role.status==="PLACEHOLDER"?"Planned":role.status==="UNPROVEN"?"Unverified":"Unavailable",
+        mission:mission&&role.kind!=="orchestrator"?{title:mission.title,step:mission.steps.find(s=>s.agent===role.id&&s.state==="active")?.label??mission.title,waiting:!!waiting}:null,bind:highlight.bind(role.id)};}):null}
+      onOpenArmory={()=>show("Agents")} onInspectProfile={id=>{const role=roles.find(r=>r.id===id);if(role){show("Agents");inspectAgent(role);}}}>
+      {(error||catalogError||missionsError)&&<p className="armory-caution">Some observations are unavailable. <button onClick={()=>{setRevision(n=>n+1);show("Agents")}}>Review</button></p>}
+      <details ref={intakeDrawer} className="armory-resource-drawer"><summary>Add resources &amp; skills</summary>{intakeReturn&&<button onClick={()=>{const back=intakeReturn;setIntakeReturn(null);if(intakeDrawer.current)intakeDrawer.current.open=false;back();}}>Back to API management</button>}<ResourceIntake/></details>
+    </ActivityDeck>
 
     <Modal open={open} onClose={leave} title="Olympus Armory" showTitle={false} className="armory-dialog">
       <header className="armory-dialog-header"><div><h2>Olympus Armory</h2></div><button className="armory-close" onClick={leave} aria-label="Close Armory"><X size={20}/></button></header>

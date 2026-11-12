@@ -35,6 +35,8 @@ What a profile enforces:
 1. **Plan.** Zeus looks at the request with a light set of tools and returns a
    plan. A small request he answers himself, and the run ends there with no
    hand-off. Otherwise he names up to two hand-offs, each a task that stands alone.
+   The accepted plan is recorded as one `plan` event, so the Activity Deck can
+   show who is queued and count the run's stages.
 2. **Hand-offs.** Each runs as its own recorded run under the specialist's
    profile and assignment skill, linked to Zeus's run by `parent_run`
    (migration 10). It has its own events, so the specialist's figure works

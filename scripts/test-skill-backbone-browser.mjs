@@ -39,7 +39,7 @@ try {
  assert(await panel.getByRole('button',{name:'Disable daily review of Fixture'}).isVisible());
  await panel.getByRole('button',{name:'Disable daily review of Fixture'}).click();
  await panel.getByRole('button',{name:'Close Armory'}).click();
- await page.locator('.instrument-activity summary').click();
+ await page.getByRole('button',{name:'Diagnostics',exact:true}).click();
  await page.getByRole('list',{name:'Source access history'}).getByText(/Fixture · Git HEAD/).waitFor();
  await mkdir('output/skill-backbone',{recursive:true});
  await page.screenshot({path:'output/skill-backbone/flagship.png'});

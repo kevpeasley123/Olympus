@@ -87,8 +87,10 @@ export async function startSkillRun(skillId: string, engine: string, request?: s
   try {
     const run = await invoke<SkillRun>("start_skill_run", { skillId, engine, request: request?.trim() || null });
     set({ runs: mergeSkillRuns(state.runs, [run]), error: null });
+    return true;
   } catch (error) {
     set({ error: typeof error === "string" ? error : "The run could not be started." });
+    return false;
   }
 }
 /** Browser fixtures only. */

@@ -9,8 +9,8 @@ try {
  await page.goto('http://127.0.0.1:31430/harness/command-agent-harness.html?flagship&scenario=mission-research&missions=2');
  await page.waitForSelector('[data-scene-ready="true"]');
  const star=page.locator('.agent-architecture-star[data-agent-id="olympus"]');
- const card=page.locator('.armory-roster-row[data-agent-id="olympus"]');
- assert.equal(await page.locator('.zeus-lightning').count(),2);
+ const card=page.locator('.deck-idle-row[data-agent-id="olympus"]');
+ assert.equal(await page.locator('.zeus-lightning').count(),1);
  assert.equal(await star.evaluate(e=>getComputedStyle(e,'::before').content),'none');
  assert.equal(await star.evaluate(e=>getComputedStyle(e).boxShadow),'none');
  const channel=star.locator('.zeus-lightning__channel').first();

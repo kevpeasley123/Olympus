@@ -18,7 +18,7 @@ retiring the paid API routes and the ChatGPT plan prototype.
 Built on `claude/harness-integration`, which also contains pull requests 35 and
 36 (unreleased, not installed, never run in the app):
 
-- One agent event stream, stored and shown in Command's Agent activity
+- One agent event stream, stored and shown in Command's Activity Deck
   ([AGENT-EVENTS.md](AGENT-EVENTS.md)). Fed by Claude Code delegation, by every
   background job's start and outcome, and by skill runs. The Pantheon figures
   move on it.
@@ -42,7 +42,7 @@ late October 2027.
 First things to do on the PC, in order:
 
 1. Run the full release gate on `claude/harness-integration`.
-2. In `npm run tauri dev`, open Agent activity and run the opening-brief trial on
+2. In `npm run tauri dev`, press Deploy Agent and run the opening-brief trial on
    Claude Code. This is the first real tool run. If it stops with an isolation
    message, the cause is most likely that `--safe-mode` or `--restricted` does not
    load the server named by `--mcp-config`; SKILL-RUNNER.md lists what is unproven.
@@ -52,8 +52,10 @@ First things to do on the PC, in order:
 4. Check what the runs cost against the Claude headless credit; the observed
    usage line reports what Claude Code said each cost.
 
-Open design question for Kevin: the Agent activity disclosure is a small corner
-panel and now holds the feed, the skills and their results. It needs a proper home.
+The Activity Deck (Kevin's spec and reference image, 2026-11-11) replaced the
+Armory sidebar and the floating Agent activity panel. It has run only against
+synthetic recorded runs in the browser harness, never in the desktop app. The
+Usage dock still reads "Telemetry not connected"; it is untouched.
 
 Not done, deliberately: retiring the paid API routes. They are woven into the main
 chat dispatch in `assistant.rs` (and `voice.rs` separately uses an OpenAI key for

@@ -5,7 +5,7 @@ import "./agentActivityFeed.css";
 
 const MARK: Record<AgentEvent["kind"], string> = {
   run_started: "▸", thinking: "…", message: "”", file_read: "◦", file_edit: "✎", search: "⌕",
-  command: "$", subagent_started: "⑂", tool_call: "⚙", tool_failed: "!", result: "✓", error: "✕",
+  command: "$", subagent_started: "⑂", plan: "≡", tool_call: "⚙", tool_failed: "!", result: "✓", error: "✕",
 };
 const time = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 const agentName = (agent: string) => PANTHEON_FIGURES.find(figure => figure.agent === agent)?.name ?? agent;

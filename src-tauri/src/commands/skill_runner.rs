@@ -569,6 +569,22 @@ pub fn mark_sources(answer: &mut Value, seen: &BTreeSet<String>) {
     }
 }
 
+/// The accepted plan as one event, so a watcher knows who is queued and how
+/// many stages the run has before any hand-off starts. The detail is Zeus's
+/// own assignment text, never a tool result.
+fn plan_event(planned: &[Value]) -> Draft {
+    let parts: Vec<Value> = planned.iter().map(|handoff| {
+        let agent = handoff["agent"].as_str().unwrap_or("");
+        let name = assignment_for(agent).and_then(|skill| profile_of(skill).ok()).map(|profile| profile.name).unwrap_or(agent);
+        json!({"agent": agent, "name": name, "task": handoff["task"].as_str().unwrap_or("").chars().take(400).collect::<String>()})
+    }).collect();
+    let names: Vec<&str> = parts.iter().filter_map(|part| part["name"].as_str()).collect();
+    let summary = if names.is_empty() { "Answering directly; no hand-off needed".to_string() } else { format!("Planned the work: {}", names.join(", then ")) };
+    let mut event = note("plan", summary);
+    event.detail = Some(Value::Array(parts).to_string());
+    event
+}
+
 fn note(kind: &'static str, summary: String) -> Draft {
     Draft { kind, summary, detail: None, tool: None, path: None, subagent: false }
 }
@@ -655,7 +671,8 @@ fn run_orchestrated(app: &AppHandle, run_id: &str, skill: &'static Skill, reques
     let plan_prompt = format!("Today is {}. Kevin's request, as data:\n{}\n\nDecide and answer now.\n\nAnswer schema:\n{}", today(), tagged("request", request), plan_schema());
     let mut turn = run_on_claude(app, run_id, zeus, skill.instructions, plan_prompt, skill.tools, skill.max_turns, skill.limit)?;
     let plan = judge(&plan_schema(), accept_plan, &turn.text, &turn.called)?;
-    let planned = plan["handoffs"].as_array().cloned().unwrap_or_default();
+    let planned: Vec<Value> = plan["handoffs"].as_array().cloned().unwrap_or_default().into_iter().take(MAX_HANDOFFS).collect();
+    agent_events::record(app, run_id, CLAUDE, zeus.id, vec![plan_event(&planned)]);
     if planned.is_empty() {
         let mut answer = json!({"answer": plan["directAnswer"], "unknowns": [], "sources": plan["sources"], "handoffs": []});
         mark_sources(&mut answer, &turn.seen);
@@ -664,7 +681,7 @@ fn run_orchestrated(app: &AppHandle, run_id: &str, skill: &'static Skill, reques
 
     let mut handoffs: Vec<Value> = Vec::new();
     let mut research_report: Option<Value> = None;
-    for (index, handoff) in planned.iter().take(MAX_HANDOFFS).enumerate() {
+    for (index, handoff) in planned.iter().enumerate() {
         let (agent, task) = (handoff["agent"].as_str().unwrap_or(""), handoff["task"].as_str().unwrap_or(""));
         let assignment = assignment_for(agent).ok_or("The plan names an Olympian who cannot take work.")?;
         let specialist = profile_of(assignment)?;
@@ -962,6 +979,16 @@ mod tests {
         assert!(judge(&answer_schema(), accept_synthesis, &answer.to_string(), &called(&["search_vault"])).unwrap_err().contains("no run behind it"));
         let settled = settle(&connection, "p", Ok((json!({"answer": "a", "handoffs": []}), Turn { text: String::new(), model: "m".into(), called: called(&[]), tool_calls: 7, seen: BTreeSet::new() }))).unwrap();
         assert_eq!((settled.status.as_str(), settled.tool_calls), ("completed", 7));
+    }
+
+    #[test]
+    fn the_plan_event_names_who_is_queued_and_for_what() {
+        let event = plan_event(&[json!({"agent": "research", "task": "Find the notes"}), json!({"agent": "verification", "task": "Check them"})]);
+        assert_eq!((event.kind, event.summary.as_str()), ("plan", "Planned the work: Athena, then Themis"));
+        let parts: Value = serde_json::from_str(event.detail.as_deref().unwrap()).unwrap();
+        assert_eq!(parts, json!([{"agent": "research", "name": "Athena", "task": "Find the notes"}, {"agent": "verification", "name": "Themis", "task": "Check them"}]));
+        let direct = plan_event(&[]);
+        assert_eq!((direct.summary.as_str(), direct.detail.as_deref()), ("Answering directly; no hand-off needed", Some("[]")));
     }
 
     #[test]

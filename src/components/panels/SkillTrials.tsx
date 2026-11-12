@@ -5,7 +5,7 @@ import "./agentActivityFeed.css";
 
 const cite = (sources: readonly SourceRef[]) => sources.map(describeSource).join(" · ");
 
-function Result({ run }: { run: SkillRun }) {
+export function SkillRunResult({ run }: { run: SkillRun }) {
   const output = run.output;
   if (run.status !== "completed" || !output) return null;
   if (isBrief(output)) return <div className="skill-trial-result">
@@ -26,7 +26,7 @@ function Result({ run }: { run: SkillRun }) {
   </div>;
 }
 
-function Skill({ skill, run }: { skill: SkillEntry; run: SkillRun | null }) {
+function Skill({ skill, run, onStarted }: { skill: SkillEntry; run: SkillRun | null; onStarted?: () => void }) {
   const [request, setRequest] = useState("");
   const engine = skill.engines[0], running = run?.status === "running";
   const blocked = running || (skill.takesRequest && !request.trim());
@@ -34,18 +34,18 @@ function Skill({ skill, run }: { skill: SkillEntry; run: SkillRun | null }) {
     <h4>{skill.title}{skill.olympian && <span> {skill.olympian.name} · {skill.olympian.title}</span>}</h4>
     <p className="skill-trial-note">{skill.orchestrates ? "Zeus answers a small request himself, or hands parts to Athena and Themis and answers from their reports." : skill.takesRequest ? "Answers from your vault, learned memory, projects and mail, and cites where each part came from." : "Runs beside your current brief. It is not spoken or saved as the brief."}</p>
     {skill.takesRequest && <textarea aria-label={`Question for ${skill.title}`} rows={2} maxLength={2000} value={request} placeholder="Ask a question" onChange={event => setRequest(event.target.value)} />}
-    <button type="button" disabled={blocked} onClick={() => void startSkillRun(skill.id, engine, skill.takesRequest ? request : undefined)}>Run on {engineLabel(engine)}</button>
+    <button type="button" disabled={blocked} onClick={() => void startSkillRun(skill.id, engine, skill.takesRequest ? request : undefined).then(started => { if (started) onStarted?.(); })}>Run on {engineLabel(engine)}</button>
     <p className="skill-trial-status" data-status={run?.status ?? "none"}>{describeRun(run)}</p>
-    {run && <Result run={run} />}
+    {run && <SkillRunResult run={run} />}
   </section>;
 }
 
 /** Skills that run on the harness. A result is shown here and replaces nothing. */
-export function SkillTrials() {
+export function SkillTrials({ onStarted }: { onStarted?: () => void } = {}) {
   const { skills, runs, usage, error } = useSyncExternalStore(subscribeSkillRuns, skillRunsSnapshot);
-  if (!skills.length) return null;
+  if (!skills.length) return <p className="skill-trial-note">Deploying runs in the desktop app. No runnable skills are available here.</p>;
   return <div className="skill-trials" aria-label="Harness skills">
-    {skills.map(skill => <Skill key={skill.id} skill={skill} run={latestRun(runs, skill.id)} />)}
+    {skills.map(skill => <Skill key={skill.id} skill={skill} run={latestRun(runs, skill.id)} onStarted={onStarted} />)}
     {error && <p className="skill-trial-status" data-status="failed" role="alert">{error}</p>}
     {usage.length > 0 && <p className="skill-trial-note" aria-label="Observed usage, last 7 days">Observed, last 7 days. {usage.map(entry => describeUsage(entry, engineLabel(entry.engine))).join(". ")}.</p>}
   </div>;

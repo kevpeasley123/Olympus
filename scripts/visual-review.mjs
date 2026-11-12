@@ -55,7 +55,7 @@ const SCENARIO_SETUP = {
   "chat-compact": { state: "chat-compact" },
   "preferences-memory": { state: "preferences-memory", after: async page => { await page.getByRole("button", { name: "Learn from them" }).waitFor(); } },
   "armory-agents": { state: "idle", after: async page => {
-    await page.getByRole("button", { name: /^Agents\s*5$/ }).first().click();
+    await page.getByRole("button", { name: "Open the Armory" }).click();
     const dialog = page.getByRole("dialog", { name: "Olympus Armory" }); await dialog.waitFor();
     await dialog.getByRole("button", { name: /Athena Research/ }).click(); await page.waitForTimeout(300);
   } },
@@ -200,7 +200,7 @@ async function functionalChecks(browser, base) {
     await page.getByRole("button", { name: "Command", exact: true }).click();
     await page.waitForSelector('[data-flagship][data-scene-ready="true"]', { timeout: 90_000 });
     check(await page.locator(".command-agent-catalog").count() === 0, "The App mounts no Agent Catalog");
-    const agents = page.getByRole("button", { name: /^Agents\s*\d+$/ }).first();
+    const agents = page.getByRole("button", { name: "Open the Armory", exact: true });
     await agents.click();
     const dialog = page.getByRole("dialog", { name: "Olympus Armory" });
     await dialog.waitFor();
@@ -229,6 +229,30 @@ async function functionalChecks(browser, base) {
     const start = Number(await canvas.getAttribute("data-galaxy-time"));
     await page.waitForTimeout(2500);
     check(Number(await canvas.getAttribute("data-galaxy-time")) > start, "The galaxy advances with animation frames");
+
+    // The Activity Deck, on a synthetic recorded hand-off.
+    await page.goto(`${base}${HARNESS}?flagship&scenario=idle&deck=handoff`);
+    await page.waitForSelector(".deck-agent");
+    const deck = page.locator(".activity-deck");
+    check((await deck.locator(".deck-agent .deck-status").allTextContents()).join() === "Coordinating,Running,Queued", "The deck shows Zeus coordinating, Athena running and Themis queued");
+    check(await deck.getByRole("progressbar").getAttribute("aria-valuenow") === "25", "Progress is the counted plan stage, one of four");
+    check(await page.locator(".center-stack .instrument-activity, .center-stack .skill-trials").count() === 0, "No activity panel or trial widget floats over the scene");
+    await deck.locator(".deck-agent-head").nth(1).click();
+    check(await deck.getByText("Reading User Profile").count() >= 1 && await deck.getByText("Assignment", { exact: true }).isVisible(), "An agent card expands to its assignment and recent steps");
+    check(await page.getByRole("list", { name: "Current status" }).locator("li").count() === 4, "The mission brief lists the operation's four stages");
+    check(await deck.evaluate(element => element.getBoundingClientRect().bottom <= innerHeight && document.documentElement.scrollWidth <= innerWidth + 1), "The deck fits the window");
+    await deck.locator("button.deck-operation").click();
+    check(await page.getByRole("dialog", { name: "Operation" }).getByText("Athena").first().isVisible(), "The operation opens for inspection");
+    await page.keyboard.press("Escape");
+    await deck.getByRole("button", { name: "Diagnostics", exact: true }).click();
+    check(await page.getByRole("dialog", { name: "Diagnostics" }).getByLabel("Agent run activity").isVisible(), "The step-by-step record stays reachable from the deck");
+    await page.keyboard.press("Escape");
+    await deck.getByRole("button", { name: "Deploy Agent" }).click();
+    check(await page.getByRole("dialog", { name: "Deploy an agent" }).getByRole("button", { name: /Run on Claude Code/ }).isVisible(), "Deploy Agent offers the runnable skills");
+    await page.keyboard.press("Escape");
+    await page.goto(`${base}${HARNESS}?flagship&scenario=idle`);
+    await page.waitForSelector(".deck-idle-row");
+    check(await page.locator(".deck-agent").count() === 0 && await page.getByText("No active operation").isVisible(), "With nothing recorded the deck is idle, with no invented activity");
 
     await page.emulateMedia({ reducedMotion: "reduce" });
     await page.goto(`${base}${HARNESS}?flagship&scenario=reduced-motion`);

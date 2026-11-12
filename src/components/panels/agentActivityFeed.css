@@ -27,7 +27,5 @@
 .skill-trial-result small {color:#90abc2}
 .skill-trials section + section {margin-top:.55rem;border-top:1px solid #2a3a4c;padding-top:.45rem}
 .skill-trials textarea {height:2.8rem;min-height:2.8rem;width:100%;box-sizing:border-box;margin:.2rem 0;background:#0f1722;color:#dce8f4;border:1px solid #536e86;border-radius:.35rem;padding:.3rem .4rem;font:inherit;resize:vertical}
-/* The disclosure is anchored to the scene's bottom edge; without a ceiling a long feed grows up over the header. */
-.instrument-activity[open] {max-height:min(70vh,38rem);overflow:auto}
 .skill-trials h4 span {font-weight:400;color:#90abc2;margin-left:.3rem}
 .skill-trial-result li[data-status="failed"] {color:#f0a08a}

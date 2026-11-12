@@ -6,7 +6,7 @@ import type { Mission } from "./capabilities";
 /** One step of real agent work, as normalized by `commands/agent_events.rs`. */
 export type AgentEventKind =
   | "run_started" | "thinking" | "message" | "file_read" | "file_edit" | "search"
-  | "command" | "subagent_started" | "tool_call" | "tool_failed" | "result" | "error";
+  | "command" | "subagent_started" | "tool_call" | "tool_failed" | "result" | "error" | "plan";
 
 export interface AgentEvent {
   id: number;

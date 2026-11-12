@@ -1,3 +1,5 @@
+import { seedAgentEvents } from "../services/agentEvents";
+import { seedSkillRuns } from "../services/skillRuns";
 import {AmbientDock} from "../components/panels/AmbientDock";
 import {DEFAULT_VOICE_PREFERENCES} from "../services/voicePreferences";
 import {usageManagementFixture} from "../services/usageManagementFixture";
@@ -88,11 +90,37 @@ const projects: TrackedProject[] = ["Olympus", "Pokedex", "Agentic AI", "AI Lear
 }));
 const graph: VaultGraphPayload = { ...EMPTY_VAULT_GRAPH, nodes: projects.map(p => ({ id: p.notePath!, title: p.name, folder: "Projects", isProject: true, degree: 1, hop: 0 })), edges: [] };
 for (let i = 0; i < (params.has("dense-vault") ? 112 : 32); i++) { const id = `note-${i}.md`; graph.nodes.push({ id, title: `Synthetic note ${i}`, folder: "Research", isProject: false, degree: 1, hop: 1 }); graph.edges.push({ from: projects[i % projects.length].notePath!, to: id }); }
+// `?deck=handoff|done|failed`: a recorded orchestrated run for the Activity Deck. Synthetic, browser only.
+const deckParam = params.get("deck");
+const deckSkills = deckParam ? [{ id: "work-request", title: "Ask Olympus", agent: "olympus", olympian: null, orchestrates: true, engines: ["claude-code"], takesRequest: true, contract: { purpose: "", successCriteria: "", allowedCapabilities: [], loopBudget: 10 } }] : [];
+if (deckParam) {
+  const at = (second: number) => new Date(Date.now() - (deckParam === "handoff" ? 90_000 : 600_000) + second * 1000).toISOString();
+  const request = "What briefing style have I asked for, and is it written in my own notes or only in learned memory? Have it checked.";
+  const ev = (id: number, runId: string, agent: string, kind: string, summary: string, extra: object = {}) => ({ id, runId, engine: "claude-code", agent, kind, summary, detail: null, tool: null, path: null, subagent: false, createdAt: at(id), ...extra });
+  const plan = JSON.stringify([{ agent: "research", name: "Athena", task: "Find every place Kevin's briefing style is written down, in his notes and in learned memory." }, { agent: "verification", name: "Themis", task: "Check each claimed source says what Athena reports." }]);
+  const events = [
+    ev(1, "fx", "olympus", "run_started", "Started Ask Olympus"), ev(2, "fx", "olympus", "tool_call", "Recalled memory", { tool: "mcp__olympus__recall_memory" }),
+    ev(3, "fx", "olympus", "plan", "Planned the work: Athena, then Themis", { detail: plan }), ev(4, "fx", "olympus", "subagent_started", "Handed to Athena: Find every place the briefing style is written"),
+    ev(5, "fx-h1", "research", "run_started", "Took a hand-off from Zeus"), ev(6, "fx-h1", "research", "tool_call", "Searched the vault", { tool: "mcp__olympus__search_vault" }),
+    ev(7, "fx-h1", "research", "tool_call", "Read a vault note", { tool: "mcp__olympus__read_vault_note", path: "09 - System/User Profile.md" }),
+  ];
+  const run = (id: string, agent: string, skillId: string, extra: object = {}) => ({ id, skillId, skillVersion: 1, engine: "claude-code", agent, status: "running", parentRun: null, request: null, model: null, output: null, error: null, toolCalls: 0, startedAt: at(0), finishedAt: null, ...extra });
+  const runs = [run("fx", "olympus", "work-request", { request }), run("fx-h1", "research", "research-assignment", { parentRun: "fx" })];
+  if (deckParam !== "handoff") {
+    events.push(ev(8, "fx-h1", "research", "result", "Finished"), ev(9, "fx", "olympus", "message", "Athena reported back"), ev(10, "fx-h2", "verification", "run_started", "Took a hand-off from Zeus"), ev(11, "fx-h2", "verification", deckParam === "failed" ? "error" : "result", deckParam === "failed" ? "Stopped: usage limit" : "Finished"), ev(12, "fx", "olympus", "result", "Finished"));
+    Object.assign(runs[1], { status: "completed", finishedAt: at(8), output: { answer: "The style is written in the User Profile note and in two learned records.", unknowns: [], sources: [] } });
+    runs.push(run("fx-h2", "verification", "verification-assignment", { parentRun: "fx", status: deckParam === "failed" ? "failed" : "completed", error: deckParam === "failed" ? "Claude Code stopped the run: usage limit reached." : null, finishedAt: at(11), output: deckParam === "failed" ? null : { summary: "The claim holds.", verdicts: [] } }));
+    Object.assign(runs[0], { status: "completed", finishedAt: at(12), toolCalls: 12, model: "claude-test", output: { answer: "Dry and economical: state what happened, offer what is needed, stop. It is written in your User Profile note.", unknowns: [], sources: [{ tool: "read_vault_note", reference: "09 - System/User Profile.md", verified: true }], handoffs: [] } });
+  }
+  seedAgentEvents(events as never);
+  seedSkillRuns({ runs: runs as never, skills: deckSkills as never });
+}
 mockIPC(command => {
   invoked.push(command);
   if (command.startsWith("plugin:event|")) return 1;
   if (command === "agent_events") return [];
-  if (command === "skill_catalog" || command === "list_skill_runs" || command === "agent_usage") return [];
+  if (command === "skill_catalog") return deckSkills;
+  if (command === "list_skill_runs" || command === "agent_usage") return [];
   if (command === "fetch_vault_graph") return graph;
   if (command === "fetch_recent_vault_writes") return [];
   if (command === "fetch_operator_profile") return null;
