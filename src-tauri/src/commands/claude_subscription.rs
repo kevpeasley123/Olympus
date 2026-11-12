@@ -73,9 +73,14 @@ fn check_managed_policy() -> Result<(), String> {
 
 // Claude's SDK control protocol is separate from the later system/init event.
 // Never send a user message until both read-only replies have been validated.
-struct Handshake { stage: u8, model: (&'static str, &'static str), olympus_tools: bool }
+struct Handshake { stage: u8, model: (&'static str, &'static str), olympus_tools: bool, waits: u32 }
+/// How many times a tool run asks again while its server is still starting (about 20 seconds).
+const TOOL_SERVER_WAITS: u32 = 80;
+const TOOL_SERVER_PAUSE: Duration = Duration::from_millis(250);
 impl Handshake {
-    fn new(model: (&'static str, &'static str)) -> Self { Self { stage: 0, model, olympus_tools: false } }
+    fn new(model: (&'static str, &'static str)) -> Self { Self { stage: 0, model, olympus_tools: false, waits: 0 } }
+    /// True while a tool run is waiting for its server to finish connecting.
+    fn waiting(&self) -> bool { self.olympus_tools && self.stage == 1 && self.waits > 0 }
     /// A tool run: the Olympus tool server must be the only MCP server present.
     fn with_olympus_tools(model: (&'static str, &'static str)) -> Self { Self { olympus_tools: true, ..Self::new(model) } }
     fn request(&self) -> Value {
@@ -108,6 +113,16 @@ impl Handshake {
         } else if self.olympus_tools {
             if data["mcpServers"].as_array().is_none_or(|a| a.len() != 1 || a[0]["name"] != super::tool_server::SERVER_NAME) {
                 return Err("Claude pre-prompt tool isolation failed: the Olympus tool server must be the only one; no user message was sent".into());
+            }
+            // The server connects after launch. Ask again until it has, so the prompt is never sent to a session without its tools.
+            match data["mcpServers"][0]["status"].as_str() {
+                Some("connected") => {}
+                Some("pending") if self.waits < TOOL_SERVER_WAITS => {
+                    self.waits += 1;
+                    return Ok(false);
+                }
+                Some("pending") => return Err("The Olympus tool server did not finish starting; no user message was sent".into()),
+                _ => return Err("The Olympus tool server failed to start; no user message was sent".into()),
             }
         } else if data["mcpServers"].as_array().is_none_or(|a| !a.is_empty()) {
             return Err("Claude pre-prompt MCP isolation failed; no user message was sent".into());
@@ -454,7 +469,16 @@ fn command_with(executable: &Path, cwd: &Path, model: &str, policy: Option<&Tool
     c.env("DISABLE_AUTOUPDATER", "1");
     c.args(["--input-format", "stream-json", "--settings", ISOLATED_SETTINGS]);
     super::delegation::hide_console(&mut c);
-    c.current_dir(cwd).args(["-p", "--safe-mode", "--restricted", "--setting-sources", "", "--tools", "", "--strict-mcp-config", "--mcp-config", policy.map_or(r#"{"mcpServers":{}}"#, |policy| policy.mcp_config.as_str()), "--disable-slash-commands", "--no-chrome", "--permission-mode", "dontAsk", "--permission-prompts", "none", "--no-session-persistence", "--output-format", "stream-json", "--verbose", "--include-partial-messages", "--model", model, "--system-prompt-file", SYSTEM_FILE]);
+    c.current_dir(cwd).arg("-p");
+    // Safe mode disables every MCP server, including one named by --mcp-config
+    // (observed on 2.1.322), so a tool run cannot use it. What it guarded is
+    // still enforced for a tool run: no setting sources, an empty working
+    // folder, strict MCP configuration, no slash commands, and the handshake
+    // and init checks that stop on any command, plugin, extra server or tool.
+    if policy.is_none() {
+        c.arg("--safe-mode");
+    }
+    c.args(["--restricted", "--setting-sources", "", "--tools", "", "--strict-mcp-config", "--mcp-config", policy.map_or(r#"{"mcpServers":{}}"#, |policy| policy.mcp_config.as_str()), "--disable-slash-commands", "--no-chrome", "--permission-mode", "dontAsk", "--permission-prompts", "none", "--no-session-persistence", "--output-format", "stream-json", "--verbose", "--include-partial-messages", "--model", model, "--system-prompt-file", SYSTEM_FILE]);
     if let Some(policy) = policy {
         // Pre-approves only these names; anything else is denied by `dontAsk`.
         c.args(["--max-turns", &policy.max_turns.to_string(), "--allowedTools", &policy.allowed.join(",")]);
@@ -782,7 +806,12 @@ fn run_process_with(
                         let ready=handshake.accept(&frame)?;
                         let next=if ready {
                             serde_json::json!({"type":"user","message":{"role":"user","content":prompt},"parent_tool_use_id":null,"session_id":""})
-                        } else { handshake.request() };
+                        } else {
+                            if handshake.waiting() {
+                                std::thread::sleep(TOOL_SERVER_PAUSE);
+                            }
+                            handshake.request()
+                        };
                         write.try_send(next).map_err(|_| "Claude control input failed")?;
                         continue;
                     }
@@ -1270,14 +1299,34 @@ mod tests {
         assert_eq!(after(&tool, "--max-turns"), "12");
         for list in [&text, &tool] {
             assert_eq!(after(list, "--tools"), "", "built-in tools stay off in both modes");
-            assert!(list.iter().any(|a| a == "--strict-mcp-config") && list.iter().any(|a| a == "--restricted"));
+            assert_eq!(after(list, "--setting-sources"), "");
+            assert!(["--strict-mcp-config", "--restricted", "--disable-slash-commands", "--no-session-persistence"].iter().all(|flag| list.iter().any(|a| a == flag)));
         }
+        assert!(text.iter().any(|a| a == "--safe-mode"), "text launches keep safe mode");
+        assert!(!tool.iter().any(|a| a == "--safe-mode"), "safe mode would disable the Olympus tool server");
         let mut handshake = Handshake::with_olympus_tools(TEST_MODEL);
         assert!(!handshake.accept(&initialization_reply()).unwrap());
         assert!(handshake.accept(&mcp_reply()).is_err(), "a tool run without its server does not start");
         let mut handshake = Handshake::with_olympus_tools(TEST_MODEL);
         handshake.accept(&initialization_reply()).unwrap();
-        assert!(handshake.accept(&json!({"type":"control_response","response":{"subtype":"success","request_id":"olympus-mcp","response":{"mcpServers":[{"name":"olympus"}]}}})).unwrap());
+        let status = |servers: Value| json!({"type":"control_response","response":{"subtype":"success","request_id":"olympus-mcp","response":{"mcpServers":servers}}});
+        assert!(!handshake.accept(&status(json!([{"name":"olympus","status":"pending"}]))).unwrap(), "a starting server is waited for");
+        assert!(handshake.waiting() && handshake.stage == 1);
+        assert_eq!(handshake.request()["request"]["subtype"], "mcp_status", "and asked about again");
+        assert!(handshake.accept(&status(json!([{"name":"olympus","status":"connected"}]))).unwrap());
+        assert!(!handshake.waiting());
+
+        let started = || { let mut h = Handshake::with_olympus_tools(TEST_MODEL); h.accept(&initialization_reply()).unwrap(); h };
+        assert!(started().accept(&status(json!([{"name":"olympus","status":"failed"}]))).is_err());
+        assert!(started().accept(&status(json!([{"name":"olympus"}]))).is_err(), "no status is not a connection");
+        assert!(started().accept(&status(json!([{"name":"olympus","status":"connected"},{"name":"other","status":"connected"}]))).is_err());
+        let mut slow = started();
+        for _ in 0..TOOL_SERVER_WAITS { assert!(!slow.accept(&status(json!([{"name":"olympus","status":"pending"}]))).unwrap()); }
+        assert!(slow.accept(&status(json!([{"name":"olympus","status":"pending"}]))).is_err(), "a server that never connects stops the run");
+        // A text launch never waits.
+        let mut text = Handshake::new(TEST_MODEL);
+        text.accept(&initialization_reply()).unwrap();
+        assert!(!text.waiting());
     }
     #[test]
     fn matching_text_completes_without_duplicate_final_text() {

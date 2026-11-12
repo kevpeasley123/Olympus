@@ -51,7 +51,15 @@ credits are off. Tool mode changes only this:
 
 - The MCP configuration names the Olympus tool server instead of none, and
   `--allowedTools` lists the skill's tools. Built-in tools stay off (`--tools ""`).
-- Before the prompt is sent, the Olympus server must be the only MCP server.
+- `--safe-mode` is not passed. Safe mode disables every MCP server, including one
+  named by `--mcp-config` (observed on Claude Code 2.1.322; the first real run on
+  November 11 stopped for this reason). What it guarded is still enforced: no
+  setting sources, an empty working folder, strict MCP configuration, no slash
+  commands, and the checks below. One difference remains: a user-level
+  `CLAUDE.md` may be read into a tool run's context.
+- Before the prompt is sent, the Olympus server must be the only MCP server and
+  must report `connected`. It starts as `pending`; the launch asks again every
+  250 ms for up to about 20 seconds and stops if it never connects.
 - The session must report only tools the skill allows, from that one connected
   server. Any other tool, server, plugin, helper agent or non-tool input stops
   the run.
@@ -73,9 +81,14 @@ Text-only launches are unchanged and still refuse every tool signal.
 `claude_subscription` cover the contract, acceptance and rejection, run
 bookkeeping, the launch arguments and the protocol with synthetic frames.
 
-No skill has been run against Claude Code. Three things are therefore unproven:
-whether `--safe-mode` and `--restricted` still load an MCP server named by
-`--mcp-config`; what status the server reports before the prompt; and what a
+The pre-prompt handshake was exercised against Claude Code 2.1.322 on Linux with
+no user message sent: with safe mode the server list is empty; without it the
+Olympus server appears, moves from `pending` to `connected` within a few seconds,
+and no commands are loaded.
+
+No skill has completed a run against Claude Code. Still unproven: the session's
+init frame in tool mode, a full turn with tool calls, the windowed Windows release
+build serving tools over pipes (development builds have a console), and what a
 real brief costs against the Claude headless credit. Each fails closed: a run
 whose session does not match the expected shape stops before any answer is
 accepted.
