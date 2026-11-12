@@ -324,7 +324,7 @@ fn run_on_claude(app: &AppHandle, run_id: &str, skill: &'static Skill, request: 
     let executable = std::env::current_exe().map_err(|_| "Olympus could not locate its own executable.".to_string())?;
     let vault = super::get_vault_path();
     let policy = super::claude_subscription::ToolPolicy {
-        mcp_config: tool_server::mcp_config(&executable, &database_path(app)?, vault.is_dir().then_some(vault.as_path())).to_string(),
+        mcp_config: tool_server::mcp_config(&executable, &database_path(app)?, vault.is_dir().then_some(vault.as_path()), skill.tools).to_string(),
         allowed: skill.tools.iter().map(|tool| tool_server::qualified(tool)).collect(),
         max_turns: skill.max_turns,
     };

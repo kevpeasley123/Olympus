@@ -164,6 +164,18 @@ fn argument<'a>(arguments: &'a Value, name: &str) -> Result<&'a str, String> {
 }
 
 pub fn call(connection: &Connection, vault: Option<&Path>, tool: &str, arguments: &Value) -> Result<Value, String> {
+    call_within(connection, vault, None, tool, arguments)
+}
+
+/// `allow` narrows the server to one skill's tools: it neither lists nor runs any other.
+fn permitted(allow: Option<&[String]>, tool: &str) -> bool {
+    allow.is_none_or(|allowed| allowed.iter().any(|name| name == tool))
+}
+
+pub fn call_within(connection: &Connection, vault: Option<&Path>, allow: Option<&[String]>, tool: &str, arguments: &Value) -> Result<Value, String> {
+    if !permitted(allow, tool) {
+        return Err(format!("Unknown tool `{tool}`."));
+    }
     let vault_root = || vault.filter(|root| root.is_dir()).ok_or_else(|| "The vault is unavailable.".to_string());
     let answer = match tool {
         "search_mail" => {
@@ -207,6 +219,10 @@ pub fn call(connection: &Connection, vault: Option<&Path>, tool: &str, arguments
 
 /// Answers one JSON-RPC message. Notifications get no answer.
 pub fn handle(connection: &Connection, vault: Option<&Path>, message: &Value) -> Option<Value> {
+    handle_within(connection, vault, None, message)
+}
+
+pub fn handle_within(connection: &Connection, vault: Option<&Path>, allow: Option<&[String]>, message: &Value) -> Option<Value> {
     let id = message.get("id").cloned()?;
     let reply = |result: Value| Some(json!({"jsonrpc": "2.0", "id": id, "result": result}));
     match message.get("method").and_then(Value::as_str).unwrap_or("") {
@@ -216,11 +232,14 @@ pub fn handle(connection: &Connection, vault: Option<&Path>, message: &Value) ->
             "serverInfo": {"name": SERVER_NAME, "version": env!("CARGO_PKG_VERSION")}
         })),
         "ping" => reply(json!({})),
-        "tools/list" => reply(json!({"tools": definitions()})),
+        "tools/list" => {
+            let listed: Vec<Value> = definitions().as_array().into_iter().flatten().filter(|tool| permitted(allow, tool["name"].as_str().unwrap_or(""))).cloned().collect();
+            reply(json!({"tools": listed}))
+        }
         "tools/call" => {
             let tool = message.pointer("/params/name").and_then(Value::as_str).unwrap_or("");
             let arguments = message.pointer("/params/arguments").cloned().unwrap_or(json!({}));
-            let (text, failed) = match call(connection, vault, tool, &arguments) {
+            let (text, failed) = match call_within(connection, vault, allow, tool, &arguments) {
                 Ok(answer) => (answer.to_string(), false),
                 Err(error) => (error, true),
             };
@@ -235,13 +254,13 @@ pub fn open_read_only(database: &Path) -> Result<Connection, String> {
         .map_err(|_| "The Olympus database is unavailable.".to_string())
 }
 
-fn serve(database: &Path, vault: Option<&Path>) -> Result<(), String> {
+fn serve(database: &Path, vault: Option<&Path>, allow: Option<&[String]>) -> Result<(), String> {
     let connection = open_read_only(database)?;
     let mut output = std::io::stdout().lock();
     for line in std::io::stdin().lock().lines() {
         let Ok(line) = line else { break };
         let Ok(message) = serde_json::from_str::<Value>(&line) else { continue };
-        if let Some(answer) = handle(&connection, vault, &message) {
+        if let Some(answer) = handle_within(&connection, vault, allow, &message) {
             writeln!(output, "{answer}").and_then(|_| output.flush()).map_err(|_| "The engine closed the connection.".to_string())?;
         }
     }
@@ -251,16 +270,22 @@ fn serve(database: &Path, vault: Option<&Path>) -> Result<(), String> {
 pub struct Launch {
     pub database: PathBuf,
     pub vault: Option<PathBuf>,
+    /// The only tools to offer, or every tool when absent.
+    pub allow: Option<Vec<String>>,
 }
 
-/// `--olympus-tools --db <file> [--vault <folder>]`, or `None` for a normal start.
+/// `--olympus-tools --db <file> [--vault <folder>] [--allow a,b]`, or `None` for a normal start.
 pub fn parse_arguments(arguments: &[String]) -> Option<Result<Launch, String>> {
     if arguments.first().map(String::as_str) != Some(FLAG) {
         return None;
     }
     let value = |name: &str| arguments.iter().position(|a| a == name).and_then(|index| arguments.get(index + 1)).map(PathBuf::from);
     Some(match value("--db") {
-        Some(database) => Ok(Launch { database, vault: value("--vault") }),
+        Some(database) => Ok(Launch {
+            database,
+            vault: value("--vault"),
+            allow: value("--allow").map(|names| names.to_string_lossy().split(',').map(str::trim).filter(|name| !name.is_empty()).map(str::to_string).collect()),
+        }),
         None => Err("--olympus-tools needs --db <file>.".into()),
     })
 }
@@ -269,7 +294,7 @@ pub fn parse_arguments(arguments: &[String]) -> Option<Result<Launch, String>> {
 pub fn run_if_requested() -> Option<i32> {
     let arguments: Vec<String> = std::env::args().skip(1).collect();
     Some(match parse_arguments(&arguments)? {
-        Ok(launch) => match serve(&launch.database, launch.vault.as_deref()) {
+        Ok(launch) => match serve(&launch.database, launch.vault.as_deref(), launch.allow.as_deref()) {
             Ok(()) => 0,
             Err(error) => {
                 eprintln!("{error}");
@@ -284,8 +309,11 @@ pub fn run_if_requested() -> Option<i32> {
 }
 
 /// The MCP configuration that points an engine at this server.
-pub fn mcp_config(executable: &Path, database: &Path, vault: Option<&Path>) -> Value {
+pub fn mcp_config(executable: &Path, database: &Path, vault: Option<&Path>, allow: &[&str]) -> Value {
     let mut arguments = vec![FLAG.to_string(), "--db".into(), database.to_string_lossy().into_owned()];
+    if !allow.is_empty() {
+        arguments.extend(["--allow".into(), allow.join(",")]);
+    }
     if let Some(vault) = vault {
         arguments.extend(["--vault".into(), vault.to_string_lossy().into_owned()]);
     }
@@ -425,9 +453,27 @@ mod tests {
         assert!(parse_arguments(&args(&["--other"])).is_none());
         assert!(parse_arguments(&args(&[FLAG])).unwrap().is_err());
         let launch = parse_arguments(&args(&[FLAG, "--db", "a.sqlite", "--vault", "v"])).unwrap().unwrap();
-        assert_eq!((launch.database, launch.vault), (PathBuf::from("a.sqlite"), Some(PathBuf::from("v"))));
+        assert_eq!((launch.database, launch.vault, launch.allow), (PathBuf::from("a.sqlite"), Some(PathBuf::from("v")), None));
+        let narrowed = parse_arguments(&args(&[FLAG, "--db", "a.sqlite", "--allow", "search_mail, recall_memory,"])).unwrap().unwrap();
+        assert_eq!(narrowed.allow, Some(vec!["search_mail".to_string(), "recall_memory".to_string()]));
 
-        let config = mcp_config(Path::new("olympus.exe"), Path::new("a.sqlite"), None);
+        let config = mcp_config(Path::new("olympus.exe"), Path::new("a.sqlite"), None, &[]);
         assert_eq!(config.pointer("/mcpServers/olympus/args").unwrap(), &json!([FLAG, "--db", "a.sqlite"]));
+        let config = mcp_config(Path::new("olympus.exe"), Path::new("a.sqlite"), None, &["search_mail", "list_projects"]);
+        assert_eq!(config.pointer("/mcpServers/olympus/args").unwrap(), &json!([FLAG, "--db", "a.sqlite", "--allow", "search_mail,list_projects"]));
+    }
+
+    #[test]
+    fn a_narrowed_server_neither_lists_nor_runs_other_tools() {
+        let connection = memory_db();
+        let allow = vec!["list_projects".to_string(), "search_mail".to_string()];
+        let ask = |method: &str, params: Value| handle_within(&connection, None, Some(&allow), &json!({"jsonrpc": "2.0", "id": 1, "method": method, "params": params})).unwrap();
+        let listed = ask("tools/list", json!({}));
+        let names: Vec<&str> = listed.pointer("/result/tools").unwrap().as_array().unwrap().iter().map(|t| t["name"].as_str().unwrap()).collect();
+        assert_eq!(names, ["search_mail", "list_projects"]);
+        assert_eq!(ask("tools/call", json!({"name": "list_projects", "arguments": {}})).pointer("/result/isError").unwrap(), false);
+        let refused = ask("tools/call", json!({"name": "read_vault_note", "arguments": {"path": "a.md"}}));
+        assert_eq!(refused.pointer("/result/isError").unwrap(), true);
+        assert!(refused.pointer("/result/content/0/text").unwrap().as_str().unwrap().contains("Unknown tool"));
     }
 }

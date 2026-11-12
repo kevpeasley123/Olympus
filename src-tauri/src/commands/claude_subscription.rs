@@ -527,7 +527,11 @@ impl Protocol {
         match v["type"].as_str() {
             Some("text" | "thinking" | "redacted_thinking") => Ok(()),
             Some("tool_use") if v["name"].as_str().is_some_and(|name| self.tools.iter().any(|allowed| allowed == name)) => Ok(()),
-            Some("tool_use") => Err("Claude requested a tool this skill does not allow".into()),
+            Some("tool_use") => {
+                // Name it: a refusal the operator cannot diagnose is no use. Bounded and plain, since the model chose the text.
+                let name: String = v["name"].as_str().unwrap_or("(unnamed)").chars().filter(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '-' | '.' | ':')).take(80).collect();
+                Err(format!("Claude requested `{name}`, a tool this skill does not allow"))
+            }
             _ => Err("Non-text Claude content".into()),
         }
     }
@@ -575,6 +579,12 @@ impl Protocol {
                 || (!self.tools.is_empty() && !self.tools_isolated(&v))
                 || v["plugins"].as_array().is_none_or(|plugins| !plugins.is_empty())
             {
+                if !self.tools.is_empty() && !self.tools_isolated(&v) {
+                    let plain = |text: &str| text.chars().filter(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '-' | '.' | ':')).take(60).collect::<String>();
+                    let unexpected: Vec<String> = v["tools"].as_array().into_iter().flatten().filter_map(Value::as_str).filter(|name| !self.tools.iter().any(|allowed| allowed == name)).take(8).map(plain).collect();
+                    let servers: Vec<String> = v["mcp_servers"].as_array().into_iter().flatten().take(4).map(|server| format!("{}={}", plain(server["name"].as_str().unwrap_or("?")), plain(server["status"].as_str().unwrap_or("?")))).collect();
+                    return Err(format!("Claude tool isolation failed (tools offered: {}, not allowed: [{}], servers: [{}])", v["tools"].as_array().map_or(0, Vec::len), unexpected.join(", "), servers.join(", ")));
+                }
                 return Err(format!("Claude initialization is not isolated text-only execution (system={}, init={}, model_matches={}, tools_count={:?}, mcp_count={:?}, plugins_count={:?})", v["type"] == "system", v["subtype"] == "init", v["model"] == self.model, v["tools"].as_array().map(Vec::len), v["mcp_servers"].as_array().map(Vec::len), v["plugins"].as_array().map(Vec::len)) + &plugin_names(&v["plugins"]));
             }
             let id = v["session_id"]
