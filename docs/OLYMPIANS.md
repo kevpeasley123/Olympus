@@ -14,8 +14,8 @@ profile changes is what that run is told it is and what it is allowed to touch.
 | Olympian | Roster id | Executes | Tool ceiling | May hand off |
 | --- | --- | --- | --- | --- |
 | Zeus, orchestrator | `olympus` | Skill runner, 16 turns | All six Olympus tools | Yes |
-| Athena, research analyst | `research` | Skill runner, 16 turns | All six Olympus tools | No |
-| Themis, verification analyst | `verification` | Skill runner, 12 turns | Mail, vault and memory tools; not the project list | No |
+| Athena, research analyst | `research` | Skill runner, 24 turns | All six Olympus tools | No |
+| Themis, verification analyst | `verification` | Skill runner, 18 turns | Mail, vault and memory tools; not the project list | No |
 | Hephaestus, systems engineer | `coding-delegate` | Coding delegation (`delegation.rs`), not the skill runner | None on the skill runner | No |
 | Dionysus, creative strategist | `dionysus` | Planned; not executable | None | No |
 
@@ -50,6 +50,10 @@ server is read-only by construction and holds none of the subscription checks, s
 an engine launched from inside a tool call would bypass them. The model decides
 who gets what; Olympus starts each run through the same guarded launch as any
 other.
+
+Themis's verdicts are `holds`, `partly_holds`, `does_not_hold` or `cannot_check`.
+`partly_holds` is for a source that supports only part of a claim, or only
+something more general.
 
 A request with two hand-offs is four engine runs. That is why small requests end
 after the plan.

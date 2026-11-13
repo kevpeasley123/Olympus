@@ -17,6 +17,8 @@ pub const SERVER_NAME: &str = "olympus";
 const PROTOCOL: &str = "2024-11-05";
 const TEXT_LIMIT: usize = 4000;
 const NOTE_LIMIT: u64 = 256 * 1024;
+/// One part of a note, under `TEXT_LIMIT` so it is returned whole.
+const NOTE_PART: usize = 3800;
 const LIST_LIMIT: usize = 10;
 const THREAD_LIMIT: usize = 20;
 const VAULT_SCAN_LIMIT: usize = 5000;
@@ -40,8 +42,8 @@ fn definitions() -> Value {
          "inputSchema": text("query", "The topic to recall")},
         {"name": "search_vault", "description": "Find notes in Kevin's Obsidian vault by words in their name or text. Returns paths and a short excerpt. Read-only.",
          "inputSchema": text("query", "Words to look for")},
-        {"name": "read_vault_note", "description": "Read one Markdown note from the vault by its vault-relative path. Read-only.",
-         "inputSchema": text("path", "Vault-relative path ending in .md")},
+        {"name": "read_vault_note", "description": "Read one Markdown note from the vault by its vault-relative path. A long note comes in parts: when the answer's `nextFrom` is a number, call again with that number as `from` to read on; `nextFrom` null means you have reached the end. Read-only.",
+         "inputSchema": {"type": "object", "properties": {"path": {"type": "string", "description": "Vault-relative path ending in .md"}, "from": {"type": "integer", "minimum": 0, "description": "Where to start, in characters. Omit for the beginning; otherwise the `nextFrom` of the previous part."}}, "required": ["path"], "additionalProperties": false}},
         {"name": "list_projects", "description": "List the projects on Kevin's Olympus dashboard with their status, vision and recorded next step. Read-only.",
          "inputSchema": {"type": "object", "properties": {}, "additionalProperties": false}}
     ])
@@ -200,7 +202,13 @@ pub fn call_within(connection: &Connection, vault: Option<&Path>, allow: Option<
             let root = vault_root()?;
             let path = vault_note(root, argument(arguments, "path")?)?;
             let content = std::fs::read_to_string(&path).map_err(|_| "That note could not be read.".to_string())?;
-            json!({"path": relative(&root.canonicalize().unwrap_or_else(|_| root.to_path_buf()), &path), "content": content})
+            // One part per call, short enough that `bounded` never cuts it: a reader told
+            // where the note ends cannot mistake a part for the whole.
+            let total = content.chars().count();
+            let from = arguments.get("from").and_then(Value::as_u64).map_or(0, |from| from as usize).min(total);
+            let part: String = content.chars().skip(from).take(NOTE_PART).collect();
+            let end = from + part.chars().count();
+            json!({"path": relative(&root.canonicalize().unwrap_or_else(|_| root.to_path_buf()), &path), "content": part, "from": from, "totalChars": total, "nextFrom": if end < total { json!(end) } else { Value::Null }})
         }
         "list_projects" => {
             let members = super::project_registry::list(connection).map_err(|error| error.to_string())?;
@@ -414,6 +422,23 @@ mod tests {
         assert!(!failed);
         assert_eq!(note["path"], "01 - Projects/Olympus.md");
         assert!(note["content"].as_str().unwrap().contains("vision"));
+        assert_eq!((&note["from"], &note["nextFrom"]), (&json!(0), &Value::Null), "a short note is whole and says so");
+
+        let long: String = (0..9000).map(|i| char::from(b'a' + (i % 26) as u8)).collect();
+        std::fs::write(vault.join("01 - Projects/Long.md"), &long).unwrap();
+        let mut read = String::new();
+        let mut from = json!(0);
+        let mut parts = 0;
+        while !from.is_null() {
+            let (part, failed) = tool(&connection, Some(&vault), "read_vault_note", json!({"path": "01 - Projects/Long.md", "from": from}));
+            assert!(!failed && part["totalChars"] == 9000 && !part["content"].as_str().unwrap().ends_with('…'), "a part is never silently cut");
+            read.push_str(part["content"].as_str().unwrap());
+            from = part["nextFrom"].clone();
+            parts += 1;
+        }
+        assert_eq!((read, parts), (long, 3), "the parts join into the whole note");
+        let (past, failed) = tool(&connection, Some(&vault), "read_vault_note", json!({"path": "01 - Projects/Long.md", "from": 99999}));
+        assert!(!failed && past["content"] == "" && past["nextFrom"].is_null());
 
         for path in ["../secret.md", "01 - Projects/../../secret.md", ".obsidian/workspace.md", "notes.txt", "missing.md", ""] {
             let (_, failed) = tool(&connection, Some(&vault), "read_vault_note", json!({"path": path}));

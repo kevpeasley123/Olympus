@@ -23,7 +23,7 @@ All six are read-only. An engine sees them as `mcp__olympus__<name>`.
 | `read_mail_thread` | Up to 20 messages of one cached thread |
 | `recall_memory` | Learned records under `09 - System/Learned` that match the query, each with its vault file path and content |
 | `search_vault` | Up to 10 vault notes matching the query, with a short excerpt |
-| `read_vault_note` | One Markdown note by vault-relative path |
+| `read_vault_note` | One Markdown note by vault-relative path, in parts of 3,800 characters: `nextFrom` gives the `from` for the next part and is null at the end |
 | `list_projects` | The dashboard's projects with status, vision and recorded next step |
 
 Every string in an answer is capped at 4,000 characters and every list at 20

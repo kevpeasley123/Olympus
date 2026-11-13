@@ -93,5 +93,40 @@ export async function startSkillRun(skillId: string, engine: string, request?: s
     return false;
   }
 }
+/**
+ * A chat message that hands the request to Zeus as an operation rather than a
+ * conversation turn: `/ask <request>` (or `/zeus`). Explicit on purpose; Kevin
+ * chooses when work is orchestrated, since a hand-off costs several engine runs.
+ */
+export function matchOperationRequest(text: string): string | null {
+  const match = /^\/(?:ask|zeus)\s+([\s\S]+)$/i.exec(text.trim());
+  return match && match[1].trim() ? match[1].trim() : null;
+}
+
+/** Starts "Ask Olympus" and resolves with the run once it has finished or stopped. Rejects if it could not start. */
+export async function runOperation(request: string, engine = "claude-code"): Promise<SkillRun> {
+  const started = await invoke<SkillRun>("start_skill_run", { skillId: "work-request", engine, request });
+  set({ runs: mergeSkillRuns(state.runs, [started]), error: null });
+  return new Promise(resolve => {
+    const settled = () => state.runs.find(run => run.id === started.id && run.status !== "running");
+    // The update event is the normal path; the poll covers one that was missed.
+    const poll = window.setInterval(() => void invoke<SkillRun[]>("list_skill_runs", { limit: 20 }).then(runs => set({ runs: mergeSkillRuns(state.runs, runs) })).catch(() => undefined), 4000);
+    const check = () => { const run = settled(); if (run) { window.clearInterval(poll); unsubscribe(); resolve(run); } };
+    const unsubscribe = subscribeSkillRuns(check);
+    check();
+  });
+}
+
+/** A finished operation as a chat reply: the answer, what stayed open, who checked it, and the sources. */
+export function operationReply(run: SkillRun): string {
+  if (run.status !== "completed" || !run.output || isBrief(run.output)) return `The operation stopped. ${run.error ?? "No reason was recorded."}`;
+  const output = run.output;
+  const parts = [output.answer];
+  if (output.unknowns.length) parts.push(`Not established: ${output.unknowns.join("; ")}`);
+  if (output.handoffs?.length) parts.push(`Worked with: ${output.handoffs.map(handoff => `${handoff.name} (${handoff.status === "failed" ? "did not finish" : "reported"})`).join(", ")}`);
+  if (output.sources.length) parts.push(`Sources: ${output.sources.map(describeSource).join("; ")}`);
+  return parts.join("\n\n");
+}
+
 /** Browser fixtures only. */
 export function seedSkillRuns(next: Partial<SkillRunState>) { set(next); }

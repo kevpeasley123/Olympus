@@ -1,13 +1,18 @@
 # Next session
 
-## Olympus 0.54.0 - merged November 12, 2026, not yet installed
+## Olympus 0.55.0 - merged November 13, 2026, not yet installed
 
-Pull request 38 (`claude/harness-integration`) merged at Kevin's instruction after
-three real runs in the development build. Install with `npm run update` from
-`Desktop/Projects/Olympus`; the "Update Olympus" desktop shortcut needs recreating.
-Until then the installed 0.53 cannot open the database: the development build
-already moved it to schema 10. A copy from before that is beside it,
-`olympus.sqlite.pre-v9-from-v7.bak`.
+0.54.0 (pull request 38) and 0.55.0 (pull request 39) are merged; neither has been
+installed. Install with `npm run update` from `Desktop/Projects/Olympus`; the
+"Update Olympus" desktop shortcut needs recreating. Until then the installed 0.53
+cannot open the database: the development build already moved it to schema 10. A
+copy from before that is beside it, `olympus.sqlite.pre-v9-from-v7.bak`.
+
+Testing without Kevin: while `npm run tauri dev` is running on his PC, a session
+linked to it can pull into the checkout (the dev build rebuilds itself), drop a
+request into `<app data>/dev-inbox` and read the result from `olympus.sqlite`
+(SKILL-RUNNER.md, "Development inbox"). Each run spends his Claude usage. Use it
+instead of asking him to click.
 
 ## Direction
 
@@ -18,7 +23,7 @@ the first workflow to move onto it. He approved engines using Olympus's own
 read-only tools, and retiring the paid API routes and the ChatGPT plan prototype.
 He selects the engine himself; automatic, cost-aware routing comes later.
 
-## What 0.54.0 contains
+## What 0.54.0 and 0.55.0 contain
 
 - One agent event stream ([AGENT-EVENTS.md](AGENT-EVENTS.md)), fed by Claude Code
   delegation, background jobs and skill runs. The Pantheon figures move on it.
@@ -32,6 +37,8 @@ He selects the engine himself; automatic, cost-aware routing comes later.
   opens from its header; the step record is under Diagnostics; skills run from
   Deploy Agent.
 - Observed usage per engine, from what each run reported.
+- 0.55.0: `/ask` in the chat, `partly_holds`, long notes in parts, scoped planning,
+  survival of an invented tool name, and the development inbox.
 
 ## Real runs, Kevin's PC, development build
 
@@ -41,17 +48,17 @@ He selects the engine himself; automatic, cost-aware routing comes later.
 - November 12: "Ask Olympus" completed with Athena and Themis both reporting
   (25 tool calls, 66 seconds, about $0.29 over four engine runs). Kevin confirmed
   the Activity Deck showed the hand-offs and the stage count as they happened.
+- November 13: `/ask` worked from the chat; an inbox-started run completed with
+  Themis reading in parts and returning `partly_holds` (about $0.20, 47 seconds).
 - Failures met and fixed on the way: `--safe-mode` disabling the tool server, a
   usage-limit notice misread as a model change, schema length caps rejecting sound
   answers, and a model calling a nonexistent "submit" tool.
 
 ## Known issues
 
-- A verdict has no "partly": Themis marked claims "holds" while her reasoning said
-  partly supported.
-- `read_vault_note` cuts long notes; Athena and Themis both reported they could
-  not rule out a later passage in the profile notes.
-- The chat box does not start an operation; operations start from Deploy Agent.
+- The chat box starts an operation only with `/ask`. There is no button for it yet,
+  and the ordinary chat still cannot use the tools, so it answers worse.
+- A citation whose reference is a search query, not a path, is marked unverified.
 - Hand-offs run one after another, never in parallel. A run cannot be cancelled.
 - The Usage dock reads "Telemetry not connected". Observed usage is not shown there.
 - The learned record for the briefing preference has empty evidence text.
@@ -62,10 +69,10 @@ He selects the engine himself; automatic, cost-aware routing comes later.
 
 ## Next steps
 
-1. Install 0.54.0 and repeat one "Ask Olympus" run in the installed app.
+1. Install 0.55.0 and repeat one "Ask Olympus" run in the installed app.
 2. Run the browser and visual suites on the PC.
-3. Add a "partly" verdict and let a tool read the rest of a long note.
-4. Let the chat box start an operation.
+3. Give the ordinary chat the read-only tools, or route it through the runner.
+4. Decide whether `/ask` needs a button or an automatic choice.
 5. Move the opening brief itself onto the skill runner, beside the old path first.
 6. Retire the paid API routes. They are woven into the chat dispatch in
    `assistant.rs`; `voice.rs` separately uses an OpenAI key for realtime speech,

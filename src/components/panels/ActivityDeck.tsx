@@ -147,7 +147,7 @@ export function ActivityDeck({ roster, onOpenArmory, onInspectProfile, children 
     </Modal>
 
     <Modal open={deploying} onClose={() => setDeploying(false)} title="Deploy an agent" showTitle={false} className="deck-dialog">
-      <header><div><small>Deploy agent</small><h2>Give an Olympian work</h2><p>Each runs on the engine named on its button. Nothing falls back to a paid API.</p></div><button type="button" className="armory-close" onClick={() => setDeploying(false)} aria-label="Close deploy"><X size={18}/></button></header>
+      <header><div><small>Deploy agent</small><h2>Give an Olympian work</h2><p>Each runs on the engine named on its button. Nothing falls back to a paid API. From the chat, start a message with <code>/ask</code> to hand it to Zeus.</p></div><button type="button" className="armory-close" onClick={() => setDeploying(false)} aria-label="Close deploy"><X size={18}/></button></header>
       <div className="deck-dialog-body">
         <SkillTrials onStarted={() => setDeploying(false)}/>
         <button type="button" className="deck-link" onClick={() => { setDeploying(false); onOpenArmory(); }}>Review every agent's loadout in the Armory</button>

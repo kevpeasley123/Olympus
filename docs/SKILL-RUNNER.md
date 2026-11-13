@@ -18,10 +18,10 @@ contract grants no execution authority.
 | Skill | Credited to | Tools | Budget | Accepted when |
 | --- | --- | --- | --- | --- |
 | `opening-brief` v1, "Opening brief (trial)" | `olympus` (Zeus) | `search_mail`, `read_mail_thread`, `recall_memory`, `list_projects`, `read_vault_note` | 16 turns, 5 minutes | The answer matches its schema, the brief is at most 140 words, and every item cites a tool this run actually called |
-| `answer-from-sources` v1, "Answer from my sources" | `research` (Athena) | `recall_memory`, `search_vault`, `read_vault_note`, `list_projects`, `search_mail`, `read_mail_thread` | 16 turns, 5 minutes | The answer matches its schema, the run called at least one tool, and it cites only tools it called. Saying the sources do not answer the question is a valid result |
+| `answer-from-sources` v1, "Answer from my sources" | `research` (Athena) | `recall_memory`, `search_vault`, `read_vault_note`, `list_projects`, `search_mail`, `read_mail_thread` | 22 turns, 5 minutes | The answer matches its schema, the run called at least one tool, and it cites only tools it called. Saying the sources do not answer the question is a valid result |
 
-| `work-request` v1, "Ask Olympus" | `olympus` (Zeus) | `list_projects`, `recall_memory`, `search_vault`, `read_vault_note` | 10 turns per phase, plus up to two hand-offs | The final answer matches its schema and cites only tools called by this run or its hand-offs. See [OLYMPIANS.md](OLYMPIANS.md) |
-| `research-assignment` v1 and `verification-assignment` v1 | Athena, Themis | Their profile's tools | 14 and 12 turns | Run only as a hand-off; not offered in the catalog |
+| `work-request` v1, "Ask Olympus" | `olympus` (Zeus) | `list_projects`, `recall_memory`, `search_vault`, `read_vault_note` | 12 turns per phase, plus up to two hand-offs | The final answer matches its schema and cites only tools called by this run or its hand-offs. See [OLYMPIANS.md](OLYMPIANS.md) |
+| `research-assignment` v1 and `verification-assignment` v1 | Athena, Themis | Their profile's tools | 22 and 16 turns | Run only as a hand-off; not offered in the catalog |
 
 A call to a name under Olympus's own server that the server does not offer (a
 model sometimes invents a "submit" tool) does not stop the run: the server
@@ -29,6 +29,21 @@ refuses it, the model is told, and it can answer in text. Any tool outside
 that server still stops the run. In an orchestrated run, Zeus's planning notes
 and citations are passed to his final answer, so a failed hand-off does not
 cost what he already read.
+
+A chat message starting `/ask` (or `/zeus`) starts "Ask Olympus" on Claude Code
+with the rest of the message as the request. The request is saved as the user's
+turn, the Activity Deck shows the run, and the answer is appended and saved as
+Olympus's reply with what stayed open, who it worked with and the sources. It
+is explicit because a hand-off costs several engine runs. A Temporary chat
+refuses it: a run records its request.
+
+**Development inbox.** A debug build (`npm run tauri dev`) watches
+`<app data>/dev-inbox`. A `.json` file there of the form
+`{"skill": "work-request", "engine": "claude-code", "request": "..."}` starts
+that run exactly as the interface would, with the same catalog, bounds and
+account checks; the file is consumed and `<name>.result` holds `started <run id>`
+or `refused <reason>`. It exists so a run can be started and its recorded result
+read without someone at the window. Release builds do not contain it.
 
 Every citation in an accepted answer carries `verified`: true when its
 reference names a vault path or mail thread id the run asked a tool for or was
