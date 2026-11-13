@@ -53,8 +53,9 @@ reference names a vault path or mail thread id the run asked a tool for or was
 shown in a tool result, false otherwise. A search cited only by its query names
 no file to check and is left unmarked. A false mark does not reject the
 answer; the panel shows "(not confirmed against this run)" beside it. The
-schema's length limits are abuse bounds, not style rules: a sound answer is
-never rejected for being thorough.
+schema's length and count limits are abuse bounds, not style rules: an answer
+over one is cut to it, never rejected. A rejected answer names the field at
+fault, for example "`answer.unknowns` is missing".
 
 Each skill runs under its Olympian's profile ([OLYMPIANS.md](OLYMPIANS.md)): the
 profile's charter opens the system prompt, and the skill's tools and turns must

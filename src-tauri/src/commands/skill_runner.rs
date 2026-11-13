@@ -201,7 +201,7 @@ pub const SKILLS: &[Skill] = &[Skill {
     agent: "verification",
     purpose: "Check the claims handed over by the orchestrator against Kevin's sources, one verdict per claim.",
     instructions: VERIFY_INSTRUCTIONS,
-    tools: &["recall_memory", "search_vault", "read_vault_note", "search_mail", "read_mail_thread"],
+    tools: &["recall_memory", "search_vault", "read_vault_note", "search_mail", "read_mail_thread", "list_projects"],
     takes_request: true,
     listed: false,
     orchestrates: false,
@@ -456,12 +456,83 @@ pub struct Turn {
     pub seen: BTreeSet<String>,
 }
 
+/// Cuts strings to `maxLength` and lists to `maxItems` wherever the schema sets them.
+fn fit(value: &mut Value, schema: &Value) {
+    match value {
+        Value::String(text) => {
+            if let Some(limit) = schema["maxLength"].as_u64().map(|limit| limit as usize) {
+                if text.chars().count() > limit {
+                    *text = text.chars().take(limit.saturating_sub(1)).chain(std::iter::once('…')).collect();
+                }
+            }
+        }
+        Value::Array(items) => {
+            if let Some(limit) = schema["maxItems"].as_u64() {
+                items.truncate(limit as usize);
+            }
+            items.iter_mut().for_each(|item| fit(item, &schema["items"]));
+        }
+        Value::Object(fields) => fields.iter_mut().for_each(|(name, inner)| fit(inner, &schema["properties"][name.as_str()])),
+        _ => {}
+    }
+}
+
+/// The first place an answer departs from its schema, in plain words. Names fields, never their content.
+fn mismatch(value: &Value, schema: &Value, at: &str) -> Option<String> {
+    let kind = schema["type"].as_str().unwrap_or("");
+    let is = match kind { "object" => value.is_object(), "array" => value.is_array(), "string" => value.is_string(), "boolean" => value.is_boolean(), "integer" | "number" => value.is_number(), _ => true };
+    if !is {
+        return Some(format!("`{at}` should be {} {kind}", if kind.starts_with(['a', 'o', 'i']) { "an" } else { "a" }));
+    }
+    if let Some(allowed) = schema["enum"].as_array() {
+        if !allowed.contains(value) {
+            return Some(format!("`{at}` is not one of the allowed values"));
+        }
+    }
+    match value {
+        Value::Object(fields) => {
+            if let Some(missing) = schema["required"].as_array().into_iter().flatten().filter_map(Value::as_str).find(|name| !fields.contains_key(*name)) {
+                return Some(format!("`{at}.{missing}` is missing"));
+            }
+            for (name, inner) in fields {
+                let property = &schema["properties"][name.as_str()];
+                if property.is_null() {
+                    if schema["additionalProperties"] == false {
+                        return Some(format!("`{at}.{name}` is not a field of this format"));
+                    }
+                } else if let Some(found) = mismatch(inner, property, &format!("{at}.{name}")) {
+                    return Some(found);
+                }
+            }
+            None
+        }
+        Value::Array(items) => {
+            if items.len() < schema["minItems"].as_u64().unwrap_or(0) as usize {
+                return Some(format!("`{at}` has too few entries"));
+            }
+            items.iter().enumerate().find_map(|(index, item)| mismatch(item, &schema["items"], &format!("{at}[{index}]")))
+        }
+        Value::String(text) if text.chars().count() < schema["minLength"].as_u64().unwrap_or(0) as usize => Some(format!("`{at}` is empty")),
+        _ => None,
+    }
+}
+
 /// Applies a schema and a test to a turn's text. `called` is every tool the answer may cite.
 pub fn judge(schema: &Value, accept: fn(&Value, &BTreeSet<String>) -> Result<(), String>, text: &str, called: &BTreeSet<String>) -> Result<Value, String> {
-    // The shared checker reports one opaque code; say what it means where Kevin will read it.
-    let checked = super::structured_output::extract_object(text, schema)
-        .map_err(|_| "The answer did not match the skill's format: a field was missing, too long, or not allowed.".to_string())?;
-    let answer: Value = serde_json::from_str(&checked).map_err(|_| "The answer was not valid JSON.".to_string())?;
+    if text.len() > 262_144 {
+        return Err("The answer was too large to accept.".into());
+    }
+    let candidate = match (text.find('{'), text.rfind('}')) {
+        (Some(start), Some(end)) if start < end => &text[start..=end],
+        _ => return Err("The answer was not a JSON object.".into()),
+    };
+    let mut answer: Value = serde_json::from_str(candidate).map_err(|_| "The answer was not valid JSON.".to_string())?;
+    // Length and count limits are abuse bounds: an answer over one is cut to it, not thrown away.
+    fit(&mut answer, schema);
+    if super::structured_output::validate(&answer, schema).is_err() {
+        // The shared checker reports one opaque code; say where the answer departs, where Kevin will read it.
+        return Err(format!("The answer did not match the skill's format: {}.", mismatch(&answer, schema, "answer").unwrap_or_else(|| "a field was missing or not allowed".into())));
+    }
     accept(&answer, called)?;
     Ok(answer)
 }
@@ -1008,7 +1079,7 @@ mod tests {
         assert!(judged(&plan("", json!([{"agent": "research", "task": "  "}])), &[]).unwrap_err().contains("empty task"));
         assert!(judged(&plan("", json!([{"agent": "coding-delegate", "task": "Edit code"}])), &[]).is_err(), "only Athena and Themis take hand-offs");
         let three = json!([{"agent": "research", "task": "a"}, {"agent": "verification", "task": "b"}, {"agent": "research", "task": "c"}]);
-        assert!(judged(&plan("", three), &[]).is_err(), "at most two hand-offs");
+        assert_eq!(judged(&plan("", three), &[]).unwrap()["handoffs"].as_array().unwrap().len(), 2, "a third hand-off is dropped, not run");
     }
 
     #[test]
@@ -1062,6 +1133,18 @@ mod tests {
         assert!(judge(&answer_schema(), accept_synthesis, &answer.to_string(), &called(&["search_vault"])).unwrap_err().contains("no run behind it"));
         let settled = settle(&connection, "p", Ok((json!({"answer": "a", "handoffs": []}), Turn { text: String::new(), model: "m".into(), called: called(&[]), tool_calls: 7, seen: BTreeSet::new() }))).unwrap();
         assert_eq!((settled.status.as_str(), settled.tool_calls), ("completed", 7));
+    }
+
+    #[test]
+    fn an_overlong_answer_is_cut_and_a_malformed_one_says_where() {
+        let check = |answer: Value| judge(&answer_schema(), |_, _| Ok(()), &answer.to_string(), &called(&[]));
+        let long = check(json!({"answer": "y".repeat(9000), "unknowns": (0..20).map(|i| format!("u{i}")).collect::<Vec<_>>(), "sources": []})).unwrap();
+        assert_eq!(long["answer"].as_str().unwrap().chars().count(), 6000, "cut to the bound");
+        assert!(long["answer"].as_str().unwrap().ends_with('…') && long["unknowns"].as_array().unwrap().len() == 8);
+        assert_eq!(check(json!({"answer": "a", "sources": []})).unwrap_err(), "The answer did not match the skill's format: `answer.unknowns` is missing.");
+        assert_eq!(check(json!({"answer": "a", "unknowns": [], "sources": [], "confidence": "high"})).unwrap_err(), "The answer did not match the skill's format: `answer.confidence` is not a field of this format.");
+        assert_eq!(check(json!({"answer": "a", "unknowns": [], "sources": [{"tool": "x"}]})).unwrap_err(), "The answer did not match the skill's format: `answer.sources[0].reference` is missing.");
+        assert!(judge(&verdict_schema(), |_, _| Ok(()), &json!({"summary": "s", "verdicts": [{"claim": "c", "verdict": "maybe", "basis": "b", "sources": []}]}).to_string(), &called(&[])).unwrap_err().contains("`answer.verdicts[0].verdict` is not one of the allowed values"));
     }
 
     #[test]
