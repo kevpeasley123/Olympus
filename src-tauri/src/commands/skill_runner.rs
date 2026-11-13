@@ -760,8 +760,47 @@ pub fn list_skill_runs(db: State<Db>, limit: Option<i64>) -> Result<Vec<SkillRun
 /// Starts a skill run in the background and returns its row at once. The engine
 /// is always chosen explicitly; nothing here falls back to another one.
 #[tauri::command]
-pub fn start_skill_run(app: AppHandle, db: State<Db>, skill_id: String, engine: String, request: Option<String>) -> Result<SkillRun, String> {
-    let skill = skill(&skill_id).filter(|skill| skill.listed).ok_or("Unknown skill.")?;
+pub fn start_skill_run(app: AppHandle, skill_id: String, engine: String, request: Option<String>) -> Result<SkillRun, String> {
+    start(&app, &skill_id, &engine, request)
+}
+
+/// A file drop that starts a skill run in a development build, so a run can be
+/// started and its recorded result read without anyone at the window. Drop
+/// `{"skill": "...", "engine": "claude-code", "request": "..."}` as a `.json`
+/// file into `<app data>/dev-inbox`; the file is consumed and
+/// `<name>.result` names the run or the refusal. It goes through `start`, so
+/// the catalog, the request bounds, the engine rule and every account and
+/// spending check apply unchanged. Compiled into debug builds only.
+#[cfg(debug_assertions)]
+pub fn watch_dev_inbox(app: AppHandle) {
+    let Ok(inbox) = app.path().app_data_dir().map(|dir| dir.join("dev-inbox")) else { return };
+    if std::fs::create_dir_all(&inbox).is_err() {
+        return;
+    }
+    std::thread::spawn(move || loop {
+        std::thread::sleep(Duration::from_secs(2));
+        let Ok(entries) = std::fs::read_dir(&inbox) else { continue };
+        for path in entries.flatten().map(|entry| entry.path()).filter(|path| path.extension().is_some_and(|extension| extension == "json")) {
+            let asked = std::fs::read_to_string(&path).ok().and_then(|text| serde_json::from_str::<Value>(text.trim_start_matches('\u{feff}')).ok());
+            // Consumed before it runs: a request that cannot be removed would start again every two seconds.
+            if std::fs::remove_file(&path).is_err() {
+                continue;
+            }
+            let outcome = match asked {
+                Some(asked) => start(&app, asked["skill"].as_str().unwrap_or(""), asked["engine"].as_str().unwrap_or(CLAUDE), asked["request"].as_str().map(str::to_string)).map(|run| run.id),
+                None => Err("The request file is not JSON.".to_string()),
+            };
+            let line = match outcome { Ok(run_id) => format!("started {run_id}"), Err(error) => format!("refused {error}") };
+            let _ = std::fs::write(path.with_extension("result"), line);
+        }
+    });
+}
+
+fn start(app: &AppHandle, skill_id: &str, engine: &str, request: Option<String>) -> Result<SkillRun, String> {
+    let app = app.clone();
+    let db = app.state::<Db>();
+    let engine = engine.to_string();
+    let skill = skill(skill_id).filter(|skill| skill.listed).ok_or("Unknown skill.")?;
     let request = skill.request(request.as_deref())?;
     if engine != CLAUDE {
         return Err("Skill runs are available on Claude Code only for now. Nothing was started.".into());

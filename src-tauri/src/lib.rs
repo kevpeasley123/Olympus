@@ -246,6 +246,8 @@ pub fn run() {
                 commands::gmail::situations::start_cadence(app.handle().clone());
             }
             commands::subscription_jobs::init(app.handle());
+            #[cfg(debug_assertions)]
+            commands::skill_runner::watch_dev_inbox(app.handle().clone());
             if !commands::acceptance::active() {
                 commands::chat_memory::start(app.handle().clone());
             }

@@ -37,6 +37,14 @@ Olympus's reply with what stayed open, who it worked with and the sources. It
 is explicit because a hand-off costs several engine runs. A Temporary chat
 refuses it: a run records its request.
 
+**Development inbox.** A debug build (`npm run tauri dev`) watches
+`<app data>/dev-inbox`. A `.json` file there of the form
+`{"skill": "work-request", "engine": "claude-code", "request": "..."}` starts
+that run exactly as the interface would, with the same catalog, bounds and
+account checks; the file is consumed and `<name>.result` holds `started <run id>`
+or `refused <reason>`. It exists so a run can be started and its recorded result
+read without someone at the window. Release builds do not contain it.
+
 Every citation in an accepted answer carries `verified`: true when its
 reference names a vault path or mail thread id the run asked a tool for or was
 shown in a tool result, false otherwise. A false mark does not reject the
