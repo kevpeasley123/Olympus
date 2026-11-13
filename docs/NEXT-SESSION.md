@@ -1,8 +1,8 @@
 # Next session
 
-## Olympus 0.55.0 - merged November 13, 2026, not yet installed
+## Olympus 0.56.0 - merged November 13, 2026, not yet installed
 
-0.54.0 (pull request 38) and 0.55.0 (pull request 39) are merged; neither has been
+0.54.0, 0.55.0 and 0.56.0 (pull requests 38, 39, 40) are merged; none has been
 installed. Install with `npm run update` from `Desktop/Projects/Olympus`; the
 "Update Olympus" desktop shortcut needs recreating. Until then the installed 0.53
 cannot open the database: the development build already moved it to schema 10. A
@@ -10,7 +10,7 @@ copy from before that is beside it, `olympus.sqlite.pre-v9-from-v7.bak`.
 
 Testing without Kevin: while `npm run tauri dev` is running on his PC, a session
 linked to it can pull into the checkout (the dev build rebuilds itself), drop a
-request into `<app data>/dev-inbox` and read the result from `olympus.sqlite`
+skill or chat request into `<app data>/dev-inbox` and read the result from `olympus.sqlite`
 (SKILL-RUNNER.md, "Development inbox"). Each run spends his Claude usage. Use it
 instead of asking him to click.
 
@@ -23,7 +23,7 @@ the first workflow to move onto it. He approved engines using Olympus's own
 read-only tools, and retiring the paid API routes and the ChatGPT plan prototype.
 He selects the engine himself; automatic, cost-aware routing comes later.
 
-## What 0.54.0 and 0.55.0 contain
+## What 0.54.0 to 0.56.0 contain
 
 - One agent event stream ([AGENT-EVENTS.md](AGENT-EVENTS.md)), fed by Claude Code
   delegation, background jobs and skill runs. The Pantheon figures move on it.
@@ -39,6 +39,9 @@ He selects the engine himself; automatic, cost-aware routing comes later.
 - Observed usage per engine, from what each run reported.
 - 0.55.0: `/ask` in the chat, `partly_holds`, long notes in parts, scoped planning,
   survival of an invented tool name, and the development inbox.
+- 0.56.0: read-only tools in the Claude Code chat, answers cut to their bounds
+  rather than rejected, tolerance of unoffered tool names, Themis reading the
+  project list.
 
 ## Real runs, Kevin's PC, development build
 
@@ -50,13 +53,16 @@ He selects the engine himself; automatic, cost-aware routing comes later.
   the Activity Deck showed the hand-offs and the stage count as they happened.
 - November 13: `/ask` worked from the chat; an inbox-started run completed with
   Themis reading in parts and returning `partly_holds` (about $0.20, 47 seconds).
+- November 13, through the inbox: chat turns with and without lookups, and an
+  orchestrated request on a new question with all three Olympians completing
+  (27 tool calls, 64 seconds, about $0.35).
 - Failures met and fixed on the way: `--safe-mode` disabling the tool server, a
   usage-limit notice misread as a model change, schema length caps rejecting sound
   answers, and a model calling a nonexistent "submit" tool.
 
 ## Known issues
 
-- The Claude Code chat has the read-only tools (after 0.55.0); the Codex chat does
+- The Claude Code chat has the read-only tools; the Codex chat does
   not, so it still cannot open notes. `/ask` remains the way to get a checked answer.
 - Hand-offs run one after another, never in parallel. A run cannot be cancelled.
 - The Usage dock reads "Telemetry not connected". Observed usage is not shown there.
@@ -68,7 +74,7 @@ He selects the engine himself; automatic, cost-aware routing comes later.
 
 ## Next steps
 
-1. Install 0.55.0 and repeat one "Ask Olympus" run in the installed app.
+1. Install 0.56.0 and repeat one "Ask Olympus" run in the installed app.
 2. Run the browser and visual suites on the PC.
 3. Give the Codex chat the same tools through its app-server.
 4. Decide whether `/ask` needs a button or an automatic choice.
