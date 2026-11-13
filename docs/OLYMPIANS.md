@@ -51,6 +51,10 @@ an engine launched from inside a tool call would bypass them. The model decides
 who gets what; Olympus starts each run through the same guarded launch as any
 other.
 
+Themis's verdicts are `holds`, `partly_holds`, `does_not_hold` or `cannot_check`.
+`partly_holds` is for a source that supports only part of a claim, or only
+something more general.
+
 A request with two hand-offs is four engine runs. That is why small requests end
 after the plan.
 

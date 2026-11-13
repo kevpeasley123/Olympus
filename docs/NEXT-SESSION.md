@@ -47,10 +47,6 @@ He selects the engine himself; automatic, cost-aware routing comes later.
 
 ## Known issues
 
-- A verdict has no "partly": Themis marked claims "holds" while her reasoning said
-  partly supported.
-- `read_vault_note` cuts long notes; Athena and Themis both reported they could
-  not rule out a later passage in the profile notes.
 - The chat box does not start an operation; operations start from Deploy Agent.
 - Hand-offs run one after another, never in parallel. A run cannot be cancelled.
 - The Usage dock reads "Telemetry not connected". Observed usage is not shown there.
@@ -64,7 +60,8 @@ He selects the engine himself; automatic, cost-aware routing comes later.
 
 1. Install 0.54.0 and repeat one "Ask Olympus" run in the installed app.
 2. Run the browser and visual suites on the PC.
-3. Add a "partly" verdict and let a tool read the rest of a long note.
+3. Rerun "Ask Olympus" to see the `partly_holds` verdict and part-by-part note
+   reading (added after 0.54.0, unreleased, never run for real).
 4. Let the chat box start an operation.
 5. Move the opening brief itself onto the skill runner, beside the old path first.
 6. Retire the paid API routes. They are woven into the chat dispatch in
