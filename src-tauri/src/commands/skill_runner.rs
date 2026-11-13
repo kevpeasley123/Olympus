@@ -632,8 +632,9 @@ pub fn mark_sources(answer: &mut Value, seen: &BTreeSet<String>) {
         Value::Object(fields) => {
             if let (Some(tool), Some(reference)) = (fields.get("tool").and_then(Value::as_str), fields.get("reference").and_then(Value::as_str)) {
                 let verified = seen.iter().any(|known| reference.contains(known.as_str()));
-                // A search cited by its query names no file to check. Leave it unmarked: "not confirmed" would be noise.
-                if verified || !tool.starts_with("search_") || reference.contains(".md") {
+                // Only a citation that names something checkable is marked: a note path, or a read. A search
+                // cited by its query, or the project list, names no file; "not confirmed" there would be noise.
+                if verified || tool.starts_with("read_") || reference.contains(".md") {
                     fields.insert("verified".into(), Value::Bool(verified));
                 }
             } else {
@@ -1180,11 +1181,12 @@ mod tests {
             {"tool": "read_mail_thread", "reference": "Thread 1a1b7cb916bfee72: Google security alert"},
             {"tool": "read_vault_note", "reference": "the profile"},
             {"tool": "search_vault", "reference": "briefing style concise"},
-            {"tool": "search_vault", "reference": "09 - System/Missing.md"}
+            {"tool": "search_vault", "reference": "09 - System/Missing.md"},
+            {"tool": "list_projects", "reference": "Olympus is active"}
         ]}]});
         mark_sources(&mut answer, &seen);
         let verified: Vec<Option<bool>> = answer["items"][0]["sources"].as_array().unwrap().iter().map(|s| s["verified"].as_bool()).collect();
-        assert_eq!(verified, [Some(true), Some(false), Some(true), Some(false), None, Some(false)], "a mistyped path and a vague reference are flagged; a search cited by its query is left unmarked");
+        assert_eq!(verified, [Some(true), Some(false), Some(true), Some(false), None, Some(false), None], "a mistyped path and a vague reference are flagged; a search cited by its query is left unmarked");
         assert!(answer.get("verified").is_none(), "only citations are marked");
     }
 
