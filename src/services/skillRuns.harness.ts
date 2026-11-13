@@ -1,4 +1,4 @@
-import { describeHandoff, describeRun, describeSource, describeUsage, isBrief, latestRun, mergeSkillRuns, type SkillRun } from "./skillRuns";
+import { describeHandoff, describeRun, describeSource, matchOperationRequest, operationReply, describeUsage, isBrief, latestRun, mergeSkillRuns, type SkillRun } from "./skillRuns";
 
 export function runSkillRunsHarness() {
   let passed = 0;
@@ -26,5 +26,11 @@ export function runSkillRunsHarness() {
   check(describeHandoff({ agent: "verification", name: "Themis", task: "Check it.", status: "failed", runId: "b-h2" }) === "Themis did not finish: Check it.", "A hand-off that failed says so");
   check(describeSource({ tool: "recall_memory", reference: "a.md", verified: true }) === "recall_memory: a.md" && describeSource({ tool: "recall_memory", reference: "a.md" }) === "recall_memory: a.md", "A confirmed or unmarked citation reads plainly");
   check(describeSource({ tool: "recall_memory", reference: "b.md", verified: false }).endsWith("(not confirmed against this run)"), "A citation the run never handled is flagged");
+  check(matchOperationRequest("/ask  What changed? ") === "What changed?" && matchOperationRequest("/Zeus check\nthis") === "check\nthis", "A chat message starting /ask or /zeus is an operation request");
+  check(matchOperationRequest("/ask") === null && matchOperationRequest("ask what changed") === null && matchOperationRequest("/asking x") === null, "An ordinary message, or a bare command, is not");
+  const settledRun = (extra: object) => ({ id: "r", skillId: "work-request", skillVersion: 1, engine: "claude-code", agent: "olympus", status: "completed", parentRun: null, request: "q", model: "m", output: null, error: null, toolCalls: 3, startedAt: "", finishedAt: "", ...extra }) as never;
+  const reply = operationReply(settledRun({ output: { answer: "Dry and economical.", unknowns: ["Whether it is in a note"], sources: [{ tool: "read_vault_note", reference: "a.md", verified: true }, { tool: "recall_memory", reference: "b.md", verified: false }], handoffs: [{ agent: "verification", name: "Themis", task: "Check it", status: "completed", runId: "r-h1" }] } }));
+  check(reply.startsWith("Dry and economical.\n\nNot established: Whether it is in a note") && reply.includes("Themis") && reply.endsWith("recall_memory: b.md (not confirmed against this run)"), "An operation's chat reply carries the answer, what stayed open, the hand-offs and the sources");
+  check(operationReply(settledRun({ status: "failed", error: "Claude Code stopped the run: usage limit." })) === "The operation stopped. Claude Code stopped the run: usage limit.", "A stopped operation says why in the chat");
   return { passed };
 }

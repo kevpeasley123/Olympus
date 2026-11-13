@@ -30,6 +30,13 @@ that server still stops the run. In an orchestrated run, Zeus's planning notes
 and citations are passed to his final answer, so a failed hand-off does not
 cost what he already read.
 
+A chat message starting `/ask` (or `/zeus`) starts "Ask Olympus" on Claude Code
+with the rest of the message as the request. The request is saved as the user's
+turn, the Activity Deck shows the run, and the answer is appended and saved as
+Olympus's reply with what stayed open, who it worked with and the sources. It
+is explicit because a hand-off costs several engine runs. A Temporary chat
+refuses it: a run records its request.
+
 Every citation in an accepted answer carries `verified`: true when its
 reference names a vault path or mail thread id the run asked a tool for or was
 shown in a tool result, false otherwise. A false mark does not reject the

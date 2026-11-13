@@ -47,7 +47,8 @@ He selects the engine himself; automatic, cost-aware routing comes later.
 
 ## Known issues
 
-- The chat box does not start an operation; operations start from Deploy Agent.
+- The chat box starts an operation only with `/ask` (added after 0.54.0, never run
+  in the app). There is no button for it yet, and no automatic choice.
 - Hand-offs run one after another, never in parallel. A run cannot be cancelled.
 - The Usage dock reads "Telemetry not connected". Observed usage is not shown there.
 - The learned record for the briefing preference has empty evidence text.
@@ -62,7 +63,7 @@ He selects the engine himself; automatic, cost-aware routing comes later.
 2. Run the browser and visual suites on the PC.
 3. Rerun "Ask Olympus" to see the `partly_holds` verdict and part-by-part note
    reading (added after 0.54.0, unreleased, never run for real).
-4. Let the chat box start an operation.
+4. Try `/ask <request>` in the chat on the PC; then decide whether it needs a button.
 5. Move the opening brief itself onto the skill runner, beside the old path first.
 6. Retire the paid API routes. They are woven into the chat dispatch in
    `assistant.rs`; `voice.rs` separately uses an OpenAI key for realtime speech,
