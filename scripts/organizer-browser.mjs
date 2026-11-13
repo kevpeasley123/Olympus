@@ -11,7 +11,7 @@ export async function checkOrganizer(browser,base,output){
  const button=name=>page.getByRole('button',{name,exact:true});
  const source='02 - Research/2026-10-10 How always-on agents work - Lee Robinson.md';
  try{
-  await page.goto(base+'/organizer-harness.html',{waitUntil:'commit',timeout:60000});
+  await page.goto(base+'/harness/organizer-harness.html',{waitUntil:'commit',timeout:60000});
   await page.getByText('No Organizer tasks yet.',{exact:false}).waitFor();
   await button('New task').click();
   await page.getByLabel('What do you want done?',{exact:true}).fill('Archive-grounded workflow');
@@ -88,7 +88,7 @@ export async function checkOrganizer(browser,base,output){
   await page.evaluate(()=>window.organizerFixture.supersede());
   await page.getByText('This result belongs to an earlier version of the task.',{exact:true}).waitFor();
   check(await button('Accept reviewed result').count()===0,'superseded results cannot offer acceptance');
-  await page.goto(base+'/organizer-harness.html',{waitUntil:'commit'});
+  await page.goto(base+'/harness/organizer-harness.html',{waitUntil:'commit'});
   await button('New task').click();
   await page.getByLabel('What do you want done?',{exact:true}).fill('A simple request');
   await button('Save task').click();

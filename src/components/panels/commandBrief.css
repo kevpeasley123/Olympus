@@ -20,3 +20,21 @@ html .app-shell .olympus-armory .armory-roster-copy{text-shadow:0 1px 3px #000c}
  .command-brief{gap:3px}.command-brief-line{font-size:11px}
  html .app-shell .command-console[data-conversation-panel] .console-idle[data-command-brief]{padding:12px 18px 13px}
 }
+
+.command-brief-operation{margin:2px 0 14px}
+.command-brief-operation strong{display:block;font:600 15px/1.35 var(--font-sans);color:#f3f0e8}
+.command-brief-operation p{margin:6px 0 0;font-size:12.5px;color:#aebdc9}
+.command-brief-progress-label{display:flex;justify-content:space-between;margin:16px 0 0;font:9.5px/1 var(--font-mono);letter-spacing:.16em;text-transform:uppercase;color:#b9c5cf}
+.command-brief-progress-label b{font-weight:500;letter-spacing:.04em;text-transform:none;color:#e8dcc4}
+.command-brief-operation .deck-bar{display:block;height:3px;margin-top:8px;border-radius:2px;background:#2a3947;overflow:hidden}
+.command-brief-operation .deck-bar i{display:block;height:100%;background:linear-gradient(90deg,#b98432,#f0c66f);transition:width 400ms ease}
+.command-brief-operation ol{list-style:none;margin:16px 0 0;padding:0;display:grid;gap:9px;font-size:12.5px;color:#aebdc9}
+.command-brief-operation li{display:grid;grid-template-columns:16px 1fr;gap:10px;align-items:center}
+.command-brief-operation li::before{content:"";width:13px;height:13px;border-radius:50%;border:1.5px solid #6f8394;box-sizing:border-box}
+.command-brief-operation li[data-state="done"]::before{border-color:#d9a94e;background:#d9a94e;box-shadow:inset 0 0 0 2.5px #0a141d}
+.command-brief-operation li[data-state="active"]{color:#f1ede4}
+.command-brief-operation li[data-state="active"]::before{border-color:#d9a94e;border-right-color:transparent;animation:brief-turn 1.4s linear infinite}
+.command-brief-operation li[data-state="failed"]{color:#eda58f}
+.command-brief-operation li[data-state="failed"]::before{border-color:#d98a72}
+@keyframes brief-turn{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){.command-brief-operation li[data-state="active"]::before{animation:none}}

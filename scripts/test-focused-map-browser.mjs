@@ -7,7 +7,7 @@ const browser=await chromium.launch({channel:'msedge',headless:true});
 try{
  const page=await browser.newPage({viewport:{width:1440,height:960}});const errors=[];
  page.on('pageerror',e=>errors.push(e.message));
- await page.goto(base+'/communications-harness.html?navigator&fit&observatory');
+ await page.goto(base+'/harness/communications-harness.html?navigator&fit&observatory');
  await page.locator('.focused-workspace').waitFor();
  assert.equal(await page.locator('.focused-workspace').count(),1,'Communications uses the focused map');
  await page.locator('.focused-node-select').first().waitFor();

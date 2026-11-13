@@ -6,7 +6,7 @@
 //   2. Every repository path or file name a live doc mentions still exists.
 //   3. The ARCHITECTURE.md command table lists exactly the registered commands.
 //   4. Every `npm run <script>` a live doc mentions exists in package.json.
-// History is exempt: docs/archive/, docs/reviews/ and release notes record what
+// History is exempt: docs/reviews/ and release notes record what
 // was true then, and may name files that have since gone.
 import {readFile, readdir} from 'node:fs/promises';
 import {execFileSync} from 'node:child_process';
@@ -46,7 +46,7 @@ const version = JSON.parse(await readFile('package.json', 'utf8')).version;
 const handoff = await readFile(HANDOFF, 'utf8');
 if (!handoff.includes(version)) fail(`${HANDOFF} does not name the current version ${version}; rewrite it for this release`);
 const handoffLines = handoff.split('\n').length;
-if (handoffLines > HANDOFF_MAX_LINES) fail(`${HANDOFF} is ${handoffLines} lines (limit ${HANDOFF_MAX_LINES}); it is a handoff, not a log: move history to docs/archive/`);
+if (handoffLines > HANDOFF_MAX_LINES) fail(`${HANDOFF} is ${handoffLines} lines (limit ${HANDOFF_MAX_LINES}); it is a handoff, not a log: trim it; Git history keeps earlier versions`);
 if (!(await readFile('docs/RELEASES.md', 'utf8')).includes(`**${version}**`)) fail(`docs/RELEASES.md has no line for ${version}`);
 
 // 2. Paths and file names.

@@ -5,11 +5,11 @@ const browser=await chromium.launch({channel:'msedge',headless:true});
 const faults=[];
 try {
  const page=await browser.newPage({viewport:{width:1280,height:800}});
- await page.goto(integrationBase+'/communications-harness.html?navigator&fit&observatory');
+ await page.goto(integrationBase+'/harness/communications-harness.html?navigator&fit&observatory');
  await page.getByRole('searchbox',{name:'Search relationships, conversations and documents'}).fill('inspection');
  const geometry=await page.evaluate(()=>{const r=s=>document.querySelector(s).getBoundingClientRect().toJSON();return {map:r('.focused-map'),results:r('.focused-search-results'),footer:r('.focused-map-footer')}});
  if(geometry.results.bottom>geometry.map.bottom||geometry.footer.bottom>geometry.map.bottom+1)faults.push('Search results/paging escape the visible map');
- await page.goto(integrationBase+'/focused-map-harness.html');
+ await page.goto(integrationBase+'/harness/focused-map-harness.html');
  const expand=page.getByRole('button',{name:'Focus branch: Inspections',exact:true});await expand.focus();await expand.press('Enter');
  if(!await page.evaluate(()=>document.activeElement?.closest('.focused-node.is-root')))faults.push('Branch navigation loses keyboard focus');
  await page.getByRole('button',{name:'Mark correspondence stale',exact:true}).click();

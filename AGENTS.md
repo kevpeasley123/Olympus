@@ -8,7 +8,7 @@ Then read:
 
 1. `ARCHITECTURE.md` for technical boundaries and safety invariants.
 2. `docs/NEXT-SESSION.md` for the current version, open work, decisions
-   waiting on Kevin and known issues. Earlier handoffs are in `docs/archive/`.
+   waiting on Kevin and known issues. Earlier handoffs are in Git history.
 3. `CLAUDE.md` for model/API constraints that apply to any implementation agent,
    despite the filename.
 
@@ -45,8 +45,8 @@ link to it.
 | Agent working rules | this file | No project state. |
 | Current version, open work, decisions waiting on Kevin, known issues, next steps | `docs/NEXT-SESSION.md` | Rewritten, not appended, at the end of each session and at every release. At most 150 lines. |
 | Release history | `docs/RELEASES.md` | One line per release, appended. |
-| How one feature works | `docs/<FEATURE>.md` | Describes what ships. When the feature is replaced or removed, update or move the doc to `docs/archive/` in the same commit. |
-| Dated records: reviews, audits, superseded designs, old handoffs | `docs/reviews/`, `docs/archive/` | Never edited to look current. |
+| How one feature works | `docs/<FEATURE>.md` | Describes what ships. When the feature is replaced or removed, update or delete the doc in the same commit; Git history keeps the old version. |
+| Dated records: reviews and audits | `docs/reviews/` | Never edited to look current. Superseded designs and old handoffs are deleted, not archived; Git history keeps them. |
 
 - A change that adds, removes or alters behaviour a document describes updates
   that document in the same commit. Removing a UI entry point counts, even when
@@ -87,7 +87,7 @@ shared UI:
    visual:review` writes to `output/visual-review/latest/`, but it drives the
    Command harness without `?flagship`, so it shows the pre-October-7
    composition, not the shipped Command. For the shipped Command, capture
-   `command-agent-harness.html?flagship` (as `scripts/flagship-review.mjs`
+   `harness/command-agent-harness.html?flagship` (as `scripts/flagship-review.mjs`
    does) until visual review is pointed at it.
 3. Critique them, fix what is wrong, capture again, and look again.
 4. Finish with the full `npm run visual:review` as a regression pass.

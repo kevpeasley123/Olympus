@@ -11,7 +11,7 @@ const page=await browser.newPage();
 await page.route('**/*',r=>new URL(r.request().url()).hostname==='127.0.0.1'?r.continue():r.abort());
 for(const [width,height] of [[1440,960],[1280,800],[900,900]]) {
 await page.setViewportSize({width,height});
-await page.goto(base+'command-agent-harness.html?flagship&scenario=idle&usage-fixture=historical');
+await page.goto(base+'harness/command-agent-harness.html?flagship&scenario=idle&usage-fixture=historical');
 await page.waitForSelector('html[data-visual-ready="idle"]');
 const geometry=await page.evaluate(()=>{
 const rect=s=>document.querySelector(s).getBoundingClientRect().toJSON();

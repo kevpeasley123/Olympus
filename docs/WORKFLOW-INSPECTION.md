@@ -1,7 +1,7 @@
 # Communication Intelligence inspection — Phase 1 and Phase 2
 
 Implemented September 23, 2026 (Phoenix) in Olympus Memory Worktree, based on
-release 0.18.0 / `cb25daf`; released in 0.19.0 ([RELEASE-0.19.0.md](archive/RELEASE-0.19.0.md)).
+release 0.18.0 / `cb25daf`; released in 0.19.0 (RELEASE-0.19.0, removed from the tree; see Git history).
 
 The approved first slice makes the existing fixed workflow inspectable through
 **Communications → Browse email → Thread triage history → Inspect analysis**
@@ -125,8 +125,8 @@ node scripts/test-workflow-inspection.mjs
 node scripts/test-workflow-inspection.mjs --local-history
 npm.cmd run build -- --outDir "$env:TEMP\olympus-inspection-dist"
 npm.cmd run dev -- --port 31427
-# Browser: /workflow-inspection-harness.html?check
-# Browser regression: /communications-harness.html?run
+# Browser: /harness/workflow-inspection-harness.html?check
+# Browser regression: /harness/communications-harness.html?run
 ```
 
 ## Stop point
@@ -139,5 +139,5 @@ The original authority boundaries, roadmap and defer list remain in force:
 no authoring/DSL, dynamic executor, runtime plugins, marketplace, agent framework,
 capability map, new top-level section, autonomous rewriting or opaque scores.
 
-See [the approved planning report](archive/SKILLS-GRAPHS-INSPECTION-PLAN.md) for the
+See the approved planning report (removed from the tree; see Git history) for the
 unchanged longer-term design.

@@ -39,7 +39,7 @@ try {
  await page.setViewportSize({width:1440,height:960});
  assert.equal(await page.getByRole('tab',{name:/Questions|Audits/}).count(),0);
  assert(await page.getByRole('region',{name:'Research library',exact:true}).isVisible());
- await page.goto((process.argv[2]??'http://127.0.0.1:31420')+'/research-verification-harness.html?check');
+ await page.goto((process.argv[2]??'http://127.0.0.1:31420')+'/harness/research-verification-harness.html?check');
  await page.waitForFunction(()=>/browser checks passed|FAIL/.test(document.querySelector('#result')?.textContent||''),{},{timeout:60000});
  const result=await page.locator('#result').innerText();assert(!result.includes('FAIL'),result);console.log(result);
  console.log('PASS cards, illustrations, list, detail/back, search, intake, draft recovery and viewport bounds');

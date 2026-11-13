@@ -211,7 +211,7 @@ and labels a reply Played only after its output-buffer completion event. Backend
 instructions distinguish preparing a reply from activating or completing playback.
 
 Protocol coverage includes 21 typed-reply checks in addition to the existing 20
-voice and 35 preference checks. The isolated typed-voice-harness.html fixture checks
+voice and 35 preference checks. The isolated harness/typed-voice-harness.html fixture checks
 the actual chat UI, keyboard input identity, microphone-off status, playback receipts,
 Replay and failure fallback with simulated audio. Live speaker playback still needs
 an acceptance check in a desktop build; browser simulation cannot establish audibility.

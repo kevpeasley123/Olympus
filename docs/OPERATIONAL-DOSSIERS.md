@@ -48,4 +48,4 @@ The native status route checks actual file existence. Missing entries say Refere
 
 ## Verification
 
-The pass's file list, test receipts and manual-review notes are in git history (`cb25daf`, 2026-09-13). Coverage: native tests for account/source scoping, nonlocal path rejection and document extension restrictions (`situations/documents.rs`); `scripts/test-dossier-details.mjs` and `scripts/test-relationship-dossier.mjs`; `relationship-dossier-harness.html` (synthetic actors, no real file viewer or model). Real-file shell opening is not automated.
+The pass's file list, test receipts and manual-review notes are in git history (`cb25daf`, 2026-09-13). Coverage: native tests for account/source scoping, nonlocal path rejection and document extension restrictions (`situations/documents.rs`); `scripts/test-dossier-details.mjs` and `scripts/test-relationship-dossier.mjs`; `harness/relationship-dossier-harness.html` (synthetic actors, no real file viewer or model). Real-file shell opening is not automated.

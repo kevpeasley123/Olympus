@@ -1,5 +1,7 @@
 # Olympus — design, usability and functional review
 
+_Note, 2026-11-10: the screenshots this review links to were removed from the tree during repository cleanup. They remain in Git history before that date._
+
 Date: 2026-09-28. Independent review; recommendations only. No production code was changed.
 
 ## Scope, state and limitations

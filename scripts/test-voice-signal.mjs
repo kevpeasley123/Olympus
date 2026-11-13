@@ -21,7 +21,7 @@ try{
  const signal=page.locator('.olympus-signal');
  /** Bar peaks (px) and sources sampled over about three seconds. */
  const observe=async query=>{
-  await page.goto(`${base}/voice-signal-harness.html?${query}`);
+  await page.goto(`${base}/harness/voice-signal-harness.html?${query}`);
   await page.waitForSelector('.olympus-signal[data-signal-state]');
   await page.waitForTimeout(900);
   return signal.evaluate(async canvas=>{const peaks=[],sources=new Set();for(let i=0;i<14;i++){await new Promise(r=>setTimeout(r,220));peaks.push(Number(canvas.dataset.signalPeak));sources.add(canvas.dataset.signalSource);}return {peaks,sources:[...sources],cost:Number(canvas.dataset.signalCost),state:canvas.dataset.signalState};});
@@ -56,7 +56,7 @@ try{
  check(Math.max(...off.peaks)<=8,'Off dims the waveform to a resting line');
 
  // The switch: one spoken-replies control, by keyboard, independent of the microphone.
- await page.goto(`${base}/voice-signal-harness.html?state=idle`);
+ await page.goto(`${base}/harness/voice-signal-harness.html?state=idle`);
  const toggle=page.getByRole('switch',{name:'Spoken replies',exact:true});
  check(await toggle.count()===1&&await toggle.getAttribute('aria-checked')==='true','One spoken replies switch, on');
  check((await toggle.getAttribute('title'))?.includes('microphone'),'Its tooltip separates it from the microphone');
@@ -68,7 +68,7 @@ try{
  check(box&&box.width<=60&&box.height<=32,`The switch is compact (${box?.width}x${box?.height})`);
 
  // Switching away from speech releases the audio source.
- await page.goto(`${base}/voice-signal-harness.html?state=speaking&source=clip`);
+ await page.goto(`${base}/harness/voice-signal-harness.html?state=speaking&source=clip`);
  await page.waitForTimeout(900);
  await page.getByRole('button',{name:'idle',exact:true}).click();
  await page.waitForTimeout(700);
@@ -76,7 +76,7 @@ try{
 
  // Reduced motion: one composed frame, no loop.
  await page.emulateMedia({reducedMotion:'reduce'});
- await page.goto(`${base}/voice-signal-harness.html?state=speaking&source=clip`);
+ await page.goto(`${base}/harness/voice-signal-harness.html?state=speaking&source=clip`);
  await page.waitForSelector('.olympus-signal[data-signal-state]');
  await page.waitForTimeout(400);
  check(await signal.getAttribute('data-animated')===null,'Reduced motion runs no animation loop');
@@ -87,7 +87,7 @@ try{
 
  // In Command: the heading is gone and the dock sits beneath the Omega.
  await page.setViewportSize({width:1448,height:1000});
- await page.goto(`${base}/command-agent-harness.html?flagship&scenario=idle&voice=speaking&level=0.8`);
+ await page.goto(`${base}/harness/command-agent-harness.html?flagship&scenario=idle&voice=speaking&level=0.8`);
  await page.waitForSelector('.olympus-voice-dock');
  check(await page.locator('.command-instrument').getByText('Pantheon',{exact:true}).count()===0,'The Pantheon heading is removed');
  const dial=await page.locator('.command-instrument__dial').boundingBox();

@@ -9,7 +9,7 @@ try {
  const page=await browser.newPage({viewport:{width:1000,height:1000},reducedMotion:'reduce'});
  await page.route('**/*',r=>new URL(r.request().url()).hostname==='127.0.0.1'?r.continue():r.abort());
  await mkdir('output/usage-dock',{recursive:true});
- await page.goto(server.resolvedUrls.local[0]+'engine-usage-harness.html?dock&populated&historical&many');
+ await page.goto(server.resolvedUrls.local[0]+'harness/engine-usage-harness.html?dock&populated&historical&many');
  const rail=page.getByRole('region',{name:'Models & subscriptions',exact:true});
  const items=rail.locator('.usage-rail__items');
  const next=rail.getByRole('button',{name:'Next models & subscriptions'});

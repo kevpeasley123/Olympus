@@ -350,7 +350,7 @@ export function mountHybridScene(host: HTMLDivElement, layout: CommandLayout, cu
     architecture?.update(time);
     const missionCount=missionScene?.update(value.missions??[],value.selectedMission??null,delta)??0;
     // Figure states keep wall-clock time so brief transitions end even when motion is reduced.
-    const figureStates=figures?.update(value.missions??[],agentConstellationSnapshot(),delta,now/1000,moving)??"";
+    const figureStates=figures?.update(value.activity?.length?[...(value.missions??[]),...value.activity]:value.missions??[],agentConstellationSnapshot(),delta,now/1000,moving)??"";
     if(HARNESS_ATTRIBUTES)canvas.dataset.figureStates=figureStates;
     if(HARNESS_ATTRIBUTES&&galaxy){canvas.dataset.galaxyTime=String(time);canvas.dataset.galaxyYaw=String(galaxy.group.rotation.y);canvas.dataset.galaxyBodies=String(missionCount);canvas.dataset.missionPlanets=String(missionCount);canvas.dataset.galaxyDust=String(galaxy.particleCount);canvas.dataset.assetNodes=String(galaxy.count());canvas.dataset.sourcePulses=String(galaxy.activePulses());}
     constellationMotion.yaw=advanceConstellationYaw(constellationMotion.yaw,delta,moving);
@@ -463,7 +463,7 @@ export function mountHybridScene(host: HTMLDivElement, layout: CommandLayout, cu
     });
     if(HARNESS_ATTRIBUTES)canvas.dataset.executionSignals=String(executionSignals.filter(orb=>orb.visible).length);
     if(signal.visible){const e=edges[Math.floor(time/4.5)%edges.length];signal.position.copy(pos(executing?e.to:e.from)).lerp(pos(executing?e.from:e.to),(time%4.5)/2);}
-    const signature = `${value.state}/${moving?value.voiceLevel:0}/${JSON.stringify(light)}/${canvas.width}/${canvas.height}/${value.running}/${moving ? "" : JSON.stringify(value.missions)}/${value.selectedMission}/${figureStates}`;
+    const signature = `${value.state}/${moving?value.voiceLevel:0}/${JSON.stringify(light)}/${canvas.width}/${canvas.height}/${value.running}/${moving ? "" : JSON.stringify(value.missions)}/${JSON.stringify(value.activity??[])}/${value.selectedMission}/${figureStates}`;
     try { if(document.visibilityState==="visible" && host.getBoundingClientRect().width>0 && (moving || signature !== lastSignature)) { renderer.info.reset();composer.render(); renderCount++; lastSignature=signature; } }
     catch { stopped=true; fail("Rendering stopped unexpectedly."); return; }
     if(!announced && renderCount){announced=true;ready();}

@@ -51,6 +51,13 @@ if ($CreateShortcut) {
 $exitCode = 0
 Push-Location $repoRoot
 try {
+    # The installer build rewrites src-tauri/Cargo.toml with other line endings and nothing else, and git
+    # then lists it as modified, which would stop every later update. A tracked file whose content still
+    # equals HEAD is re-staged; any real edit, staged or not, still stops the update below.
+    foreach ($line in @(& git status --porcelain --untracked-files=no)) {
+        $path = $line.Substring(3).Trim('"')
+        if ($path -notmatch ' -> ' -and -not (& git diff HEAD -- $path)) { Invoke-Git add -- $path }
+    }
     if (& git status --porcelain) {
         throw "The Olympus checkout at $repoRoot has uncommitted changes. Nothing was changed. Commit or push that work first (ask Claude to 'bring everything current' from this folder)."
     }

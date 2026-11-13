@@ -4,7 +4,7 @@ Status, 2026-10-12: the reference for the native Gmail source, released from 0.1
 
 Implemented 2026-09-12. This is a read-only source in the native desktop app, not a browser connector.
 
-The 2026-09-12 acceptance pass is recorded in [GMAIL-ACCEPTANCE.md](archive/GMAIL-ACCEPTANCE.md): OAuth connection and a 206-message initial import succeeded. That pass also found the local database unencrypted, with an ACL granting read access to a local CodexSandboxUsers group, and could not verify full-disk encryption.
+The 2026-09-12 acceptance pass is recorded in GMAIL-ACCEPTANCE (removed from the tree; see Git history): OAuth connection and a 206-message initial import succeeded. That pass also found the local database unencrypted, with an ACL granting read access to a local CodexSandboxUsers group, and could not verify full-disk encryption.
 
 ## Operator setup
 
@@ -116,7 +116,7 @@ Not verified with a real account: the error states, the counts, the next-attempt
 
 ## Verification
 
-Native unit tests (`cargo test --lib`) use only synthetic addresses and content. They cover OAuth state/PKCE, MIME/HTML, attachment boundaries, full/history pagination, duplicate events, history expiry, atomic rollback, idempotence, restart, credential-store compensation, failed credential deletion, cache removal, SQLite reopen, domain routing, older thread matches, persisted provenance and quota pacing. `gmail-harness.html?run` tests connection hydration, search/thread text, offline errors, disconnect and confirmed cache removal without native credentials. Desktop acceptance items that remain open for Gmail are listed in [NEXT-SESSION.md](NEXT-SESSION.md).
+Native unit tests (`cargo test --lib`) use only synthetic addresses and content. They cover OAuth state/PKCE, MIME/HTML, attachment boundaries, full/history pagination, duplicate events, history expiry, atomic rollback, idempotence, restart, credential-store compensation, failed credential deletion, cache removal, SQLite reopen, domain routing, older thread matches, persisted provenance and quota pacing. `harness/gmail-harness.html?run` tests connection hydration, search/thread text, offline errors, disconnect and confirmed cache removal without native credentials. Desktop acceptance items that remain open for Gmail are listed in [NEXT-SESSION.md](NEXT-SESSION.md).
 
 ## Deliberately deferred
 

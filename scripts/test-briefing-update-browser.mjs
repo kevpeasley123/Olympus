@@ -5,7 +5,7 @@ const base=process.argv[2]??'http://127.0.0.1:31430';
 const browser=await chromium.launch({channel:'msedge'});
 try {
  const page=await browser.newPage({viewport:{width:1440,height:960}});
- await page.goto(`${base}/command-agent-harness.html?flagship&scenario=chats&brief-update=pending`,{waitUntil:'domcontentloaded'});
+ await page.goto(`${base}/harness/command-agent-harness.html?flagship&scenario=chats&brief-update=pending`,{waitUntil:'domcontentloaded'});
  await page.getByRole('button',{name:'Conversation',exact:true}).click();
  const update=page.getByRole('complementary',{name:'Briefing update'});
  await update.waitFor();
@@ -16,14 +16,14 @@ try {
  await update.getByRole('button',{name:'Cancel briefing'}).click();
  assert.equal(await page.locator('html').getAttribute('data-brief-cancelled'),'true');
  assert.match(await update.innerText(),/previous brief · update unavailable/);
- await page.goto(`${base}/command-agent-harness.html?flagship&scenario=chats&brief-update=empty`,{waitUntil:'domcontentloaded'});
+ await page.goto(`${base}/harness/command-agent-harness.html?flagship&scenario=chats&brief-update=empty`,{waitUntil:'domcontentloaded'});
  await page.getByRole('button',{name:'Conversation',exact:true}).click();
  await update.waitFor();
  assert.match(await update.innerText(),/Nothing new to surface/);
  assert.match(await update.innerText(),/workshop delivery was due Tuesday/);
  await mkdir('output/briefing-update',{recursive:true});
  await page.screenshot({path:'output/briefing-update/empty-with-previous.png',fullPage:true});
- await page.goto(`${base}/command-agent-harness.html?flagship&scenario=chats&brief-update=shadow`,{waitUntil:'domcontentloaded'});
+ await page.goto(`${base}/harness/command-agent-harness.html?flagship&scenario=chats&brief-update=shadow`,{waitUntil:'domcontentloaded'});
  await page.getByRole('button',{name:'Conversation',exact:true}).click();
  await update.waitFor();
  assert.match(await update.innerText(),/Comparison complete/);

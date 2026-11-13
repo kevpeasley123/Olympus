@@ -30,7 +30,7 @@ Authentication, sync failure, unavailable cached reads, analysis backoff, unders
 
 ## Development verification
 
-`scripts/test-focused-map.mjs` checks the pure projection. `scripts/test-focused-map-browser.mjs` exercises the integrated Communications fixture and captures responsive states. `scripts/test-focused-map-sources.mjs` uses `focused-map-harness.html` for account isolation, expansive branches, delayed file availability and source boundaries. These use synthetic data; they do not prove native WebView2, real Gmail or shell opening. The older radial map and viewport studies remain historical fixtures, not acceptance evidence for the focused interface.
+`scripts/test-focused-map.mjs` checks the pure projection. `scripts/test-focused-map-browser.mjs` exercises the integrated Communications fixture and captures responsive states. `scripts/test-focused-map-sources.mjs` uses `harness/focused-map-harness.html` for account isolation, expansive branches, delayed file availability and source boundaries. These use synthetic data; they do not prove native WebView2, real Gmail or shell opening. The older radial map and viewport studies remain historical fixtures, not acceptance evidence for the focused interface.
 
 # Browse email
 
@@ -71,7 +71,7 @@ Source metadata and counts are facts about the local cache. Candidate interpreta
 
 ## Visual harness
 
-`communications-harness.html`, served by `npm run dev` on port 31420, renders synthetic states: populated, empty, syncing, disconnected, network error, safety limit and authentication required, with a narrow-study toggle; `?navigator&fit&observatory` shows the focused map with the fixture console closed. The older `?run` and `communications-viewport-harness.html` studies target the previous layout; use the focused-map browser scripts for this interface. No real Gmail data, credentials or model requests are used.
+`harness/communications-harness.html`, served by `npm run dev` on port 31420, renders synthetic states: populated, empty, syncing, disconnected, network error, safety limit and authentication required, with a narrow-study toggle; `?navigator&fit&observatory` shows the focused map with the fixture console closed. The older `?run` and `harness/communications-viewport-harness.html` studies target the previous layout; use the focused-map browser scripts for this interface. No real Gmail data, credentials or model requests are used.
 
 ## Deferred
 

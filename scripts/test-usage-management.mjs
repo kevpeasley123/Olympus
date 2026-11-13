@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 const b=await chromium.launch({channel:'msedge',headless:true});
 try {const p=await b.newPage();await p.route('**/*',r=>new URL(r.request().url()).hostname==='127.0.0.1'?r.continue():r.abort());
 for(const width of [1440,420]){
-await p.setViewportSize({width,height:960});await p.goto((process.argv[2]??'http://127.0.0.1:31426')+'/engine-usage-harness.html?populated&fresh');
+await p.setViewportSize({width,height:960});await p.goto((process.argv[2]??'http://127.0.0.1:31426')+'/harness/engine-usage-harness.html?populated&fresh');
 await p.getByRole('button',{name:'Expand usage'}).click();
 await p.getByRole('button',{name:'Manage subscriptions',exact:true}).click({timeout:5000});
 await p.getByRole('heading',{name:'Manage subscriptions',exact:true}).waitFor();
@@ -34,7 +34,7 @@ assert(await p.getByRole('button',{name:'Expand usage'}).evaluate(e=>e===documen
 assert(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
 }
 for(const state of ['inspection-fails','inspection-unsupported']){
- await p.goto(`${process.argv[2]??'http://127.0.0.1:31426'}/engine-usage-harness.html?${state}`);await p.getByRole('button',{name:'Expand usage'}).click();await p.getByRole('button',{name:'Manage APIs',exact:true}).click();await p.getByRole('button',{name:'ElevenLabs',exact:true}).click();assert.deepEqual(await p.evaluate(()=>window.__usageManagementCalls),[]);
+ await p.goto(`${process.argv[2]??'http://127.0.0.1:31426'}/harness/engine-usage-harness.html?${state}`);await p.getByRole('button',{name:'Expand usage'}).click();await p.getByRole('button',{name:'Manage APIs',exact:true}).click();await p.getByRole('button',{name:'ElevenLabs',exact:true}).click();assert.deepEqual(await p.evaluate(()=>window.__usageManagementCalls),[]);
  if(state==='inspection-fails'){await p.getByRole('button',{name:'Check local configuration'}).click();await p.getByRole('alert').filter({hasText:'Synthetic inspection unavailable'}).waitFor();await p.getByRole('button',{name:'Back to services'}).click();await p.getByRole('alert').filter({hasText:'Synthetic inspection unavailable'}).waitFor({state:'hidden'});}else assert(await p.getByRole('button',{name:'Check local configuration'}).isDisabled());
 }
 console.log('PASS management destinations, reuse, disclosure, Back/Close/Escape/focus and narrow layout');

@@ -1,79 +1,90 @@
 # Next session
 
-## Olympus 0.53.0 - installed November 9, 2026
+## Olympus 0.54.0 - merged November 12, 2026, not yet installed
 
-PR33 merged at `738a9e8901575c69f9fb44b033b2bfcef7a8e831`; `npm run update`
-installed and launched 0.53.0. See
-[installed acceptance](reviews/2026-11-09-installed-memory-workflow-acceptance.md).
-Active checkout: `olympus-skill-backbone`; registered human-edited checkout preserved.
+Pull request 38 (`claude/harness-integration`) merged at Kevin's instruction after
+three real runs in the development build. Install with `npm run update` from
+`Desktop/Projects/Olympus`; the "Update Olympus" desktop shortcut needs recreating.
+Until then the installed 0.53 cannot open the database: the development build
+already moved it to schema 10. A copy from before that is beside it,
+`olympus.sqlite.pre-v9-from-v7.bak`.
 
-## Delivered architecture
+## Direction
 
-- Explicit subscription/local routes, independent extraction/briefing/memory choices,
-  account-bound preflight, and no paid API or silent provider fallback.
-- Source-backed learned assertions in `09 - System/Learned`, immutable provenance,
-  publication receipts, exact-file vault commits, and rebuildable derived retrieval.
-- Scoped working-context checkpoints before history trimming, preserving operator
-  source identities and separating suggestions from commitments.
-- Researcher/verifier workflow with explicit engine selection, saved evidence,
-  reusable completed stages, and parent-owned provisional memory publication.
-- Existing SQLite/vault stores are reused; no gbrain dependency or service added.
+Set by Kevin on November 11: Olympus is an orchestrating harness over Codex,
+Claude Code and local models, with all agent work visible. Briefing and
+Gmail-analysis work is paused while the harness is built; the opening brief is
+the first workflow to move onto it. He approved engines using Olympus's own
+read-only tools, and retiring the paid API routes and the ChatGPT plan prototype.
+He selects the engine himself; automatic, cost-aware routing comes later.
 
-## Verification - November 9, 2026, America/Phoenix
+## What 0.54.0 contains
 
-- Release gates: 891 Rust tests passed, 41 opt-in tests ignored; additional exact-file
-  Git publication integration passed. All 89 scripts, frontend/MSI builds, 21 visual
-  scenarios and 22 Organizer checks passed. Preview-port/locked-module environment
-  failures were resolved and rerun, not suppressed.
-- Installed executable is 0.53.0; its only difference from the built executable is
-  Tauri's MSI bundle marker. SQLite quick_check passed and migration 7 is present.
-- Installed saved conversation retained Kevin's briefing preference and explicit
-  adoption requirement for decisions. Working checkpoint revision 2 retained sources
-  and contained no invented committed next steps.
-- Two actual installed research runs completed using Codex/gpt-6.1-sol, with two
-  stages each and five supported findings each. First took 61.17 seconds; second
-  72.81 seconds. The second reused five prior findings with original source evidence.
-- Publication receipts, original source fingerprints, manifest contents and exact
-  vault Git tracking passed independent read-only checks. App restart preserved
-  both runs, the conversation, learned files, selected engines and checkpoint.
-- The second run finished before close; interrupted-run/resume and checkpoint
-  compaction have synthetic native coverage, not installed acceptance in this session.
+- One agent event stream ([AGENT-EVENTS.md](AGENT-EVENTS.md)), fed by Claude Code
+  delegation, background jobs and skill runs. The Pantheon figures move on it.
+- A read-only tool server inside the executable ([OLYMPUS-TOOLS.md](OLYMPUS-TOOLS.md)).
+- A skill runner on the Claude Code subscription ([SKILL-RUNNER.md](SKILL-RUNNER.md)):
+  opening brief (trial), "Answer from my sources", "Ask Olympus".
+- Olympian profiles and hand-offs ([OLYMPIANS.md](OLYMPIANS.md)): Zeus plans, hands
+  parts to Athena and Themis as linked runs, and answers from their reports.
+- Citations marked verified only when the run asked for or was shown what they name.
+- The Activity Deck: Command's left column, built from recorded runs. The Armory
+  opens from its header; the step record is under Diagnostics; skills run from
+  Deploy Agent.
+- Observed usage per engine, from what each run reported.
 
-## Immediate remaining check
+## Real runs, Kevin's PC, development build
 
-Codex reached 92% of its included weekly allowance, zero purchased credits;
-Olympus's 90% preflight ceiling blocks new requests. Startup correctly retained
-its dated prior brief rather than claiming a fresh result. This is not Gmail auth.
-Memory is explicitly selected to Codex. At 22:56 the automatic worker archived the
-acceptance conversation after ten quiet minutes, then its learning request hit the
-allowance gate. The failed receipt is retained and memory watermark remains zero;
-live learned-assertion extraction/recall are not yet proven.
-Permission was requested to finish through Claude using this acceptance conversation
-and relevant saved Olympus research/memory context. Do not switch or transmit that
-private context to Claude until answered. Do not bypass the allowance ceiling.
+- November 11: "Answer from my sources" completed (nine tool calls, about $0.06)
+  and cited the learned record by path, closing the November 9 recall check for
+  skills. The opening-brief trial completed (seven tool calls, about $0.10).
+- November 12: "Ask Olympus" completed with Athena and Themis both reporting
+  (25 tool calls, 66 seconds, about $0.29 over four engine runs). Kevin confirmed
+  the Activity Deck showed the hand-offs and the stage count as they happened.
+- Failures met and fixed on the way: `--safe-mode` disabling the tool server, a
+  usage-limit notice misread as a model change, schema length caps rejecting sound
+  answers, and a model calling a nonexistent "submit" tool.
 
-Acceptance conversation: `023d6d61-ffc9-4023-bb8a-7bdfd946f763`.
-Read-only checker/logs are under ignored
-`.superpowers/sdd/2026-11-08-memory-orchestration-borrowing/`.
-Never backdate production conversation rows to accelerate quiet-time testing.
+## Known issues
 
-## Continuing quality boundaries
+- A verdict has no "partly": Themis marked claims "holds" while her reasoning said
+  partly supported.
+- `read_vault_note` cuts long notes; Athena and Themis both reported they could
+  not rule out a later passage in the profile notes.
+- The chat box does not start an operation; operations start from Deploy Agent.
+- Hand-offs run one after another, never in parallel. A run cannot be cancelled.
+- The Usage dock reads "Telemetry not connected". Observed usage is not shown there.
+- The learned record for the briefing preference has empty evidence text.
+- Gmail's refresh grant was rejected on November 11 and needs reconnecting.
+- The browser and visual suites hang on a mode switch in the cloud session, on
+  0.53 as well. They have not been run on the PC for this release.
+- 47 old branches remain on GitHub; a cloud session cannot delete them.
 
+## Next steps
+
+1. Install 0.54.0 and repeat one "Ask Olympus" run in the installed app.
+2. Run the browser and visual suites on the PC.
+3. Add a "partly" verdict and let a tool read the rest of a long note.
+4. Let the chat box start an operation.
+5. Move the opening brief itself onto the skill runner, beside the old path first.
+6. Retire the paid API routes. They are woven into the chat dispatch in
+   `assistant.rs`; `voice.rs` separately uses an OpenAI key for realtime speech,
+   which is not a reasoning route. This needs a session that can run the app.
+7. Codex and local models as skill engines; usage telemetry in the dock.
+
+## Open decisions
+
+- Kevin has not yet reviewed the vision document; the vault's project notes still
+  describe the earlier direction.
+- Whether "Ask Olympus" should hand off less eagerly: Zeus read the same notes
+  himself before handing them to Athena, so the request cost four runs.
+
+## Standing boundaries
+
+`Desktop/Projects/Olympus` is the only checkout; the former one is archived under
+`Documents/New project`. No paid API fallback. Sources and recommendations never
+grant authority. Olympus must be open and the PC awake for background work. Local
+qwen3 extraction and investigation remain unqualified. No mailbox mutation, live
+OAuth revoke, paid API call or private-vault push has occurred in this work.
 Kevin wants concise conversational briefs: relevant changes, implications, whether
-he needs to act, recent actual work and useful suggested next steps. Do not force
-Olympus into every brief or include routine "About this brief" prose. That requested
-copy/composition refinement remains pending; this release focused on memory/workflow.
-
-Earlier 0.52 installed checks verified automatic Gmail sync and Codex extraction/
-investigative briefing, but only a narrow personal baseline. Local qwen3:8b extraction
-and qwen3:14b investigation remain unqualified for semantic reliability. CPU extraction
-also timed out. Do not describe local analysis as repaired or silently fall back.
-
-No mailbox mutation, live OAuth revoke/re-add, paid API or private-vault push occurred.
-Google OAuth publishing mode and multi-day grant durability remain unverified.
-Olympus must be open and the PC awake for background work. Private Claude acceptance
-and coding delegation are separate from the completed research pilot. Sources and
-recommendations never grant authority. Do not collect other chats automatically.
-
-Reference review: `docs/reviews/2026-11-08-gbrain-memory-orchestration.md`.
-Kevin approved borrowing ideas incrementally, not adopting gbrain.
+he needs to act; that copy refinement is still pending.

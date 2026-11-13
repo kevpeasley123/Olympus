@@ -13,7 +13,7 @@ try {
  const page=await browser.newPage({viewport:{width:1440,height:960}});
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
  const base=server.resolvedUrls.local[0];
- await page.goto(base+'project-board-harness.html',{waitUntil:'domcontentloaded',timeout:60000});
+ await page.goto(base+'harness/project-board-harness.html',{waitUntil:'domcontentloaded',timeout:60000});
  console.log('Project fixture loaded');
  const olympus=page.getByRole('article',{name:'Olympus',exact:true});
  await olympus.waitFor();
@@ -34,7 +34,7 @@ try {
  assert.equal(await page.getByText('Error: Organizer requires the Olympus desktop connection.',{exact:true}).count(),0);
  for(const heading of ['Vision','Recent changes','Where it stands','Recommended next step'])assert(await page.getByRole('heading',{name:heading,exact:true}).isVisible());
  await page.screenshot({path:`${output}/project-detail.png`});
- await page.goto(base+'project-board-harness.html?run',{waitUntil:'domcontentloaded',timeout:60000});
+ await page.goto(base+'harness/project-board-harness.html?run',{waitUntil:'domcontentloaded',timeout:60000});
  await page.waitForFunction(()=>/^(PASS|FAIL)/.test(document.querySelector('#results')?.textContent??''),{},{timeout:60000});
  const result=await page.locator('#results').innerText();assert(result.startsWith('PASS'),result);
  await page.setViewportSize({width:1440,height:960});

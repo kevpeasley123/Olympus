@@ -10,7 +10,7 @@ const page=await browser.newPage();page.on('pageerror',e=>errors.push(e.message)
 await page.route('**/*',r=>new URL(r.request().url()).hostname==='127.0.0.1'?r.continue():r.abort());
 for(const [width,height] of [[1440,960],[1280,960],[1280,800],[1280,720],[1920,1080],[1201,960],[1051,900],[1000,900]]){
  await page.setViewportSize({width,height});
- await page.goto(base+'/command-agent-harness.html?flagship&scenario=mission-research&missions=2');
+ await page.goto(base+'/harness/command-agent-harness.html?flagship&scenario=mission-research&missions=2');
  await page.waitForSelector('[data-scene-ready="true"]');await page.evaluate(()=>document.fonts.ready);
  await page.getByRole('button',{name:'Codex',exact:true}).click();
  await page.waitForTimeout(1800);
