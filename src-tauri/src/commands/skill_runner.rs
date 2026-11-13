@@ -201,7 +201,7 @@ pub const SKILLS: &[Skill] = &[Skill {
     agent: "verification",
     purpose: "Check the claims handed over by the orchestrator against Kevin's sources, one verdict per claim.",
     instructions: VERIFY_INSTRUCTIONS,
-    tools: &["recall_memory", "search_vault", "read_vault_note", "search_mail", "read_mail_thread"],
+    tools: &["recall_memory", "search_vault", "read_vault_note", "search_mail", "read_mail_thread", "list_projects"],
     takes_request: true,
     listed: false,
     orchestrates: false,
@@ -456,12 +456,83 @@ pub struct Turn {
     pub seen: BTreeSet<String>,
 }
 
+/// Cuts strings to `maxLength` and lists to `maxItems` wherever the schema sets them.
+fn fit(value: &mut Value, schema: &Value) {
+    match value {
+        Value::String(text) => {
+            if let Some(limit) = schema["maxLength"].as_u64().map(|limit| limit as usize) {
+                if text.chars().count() > limit {
+                    *text = text.chars().take(limit.saturating_sub(1)).chain(std::iter::once('…')).collect();
+                }
+            }
+        }
+        Value::Array(items) => {
+            if let Some(limit) = schema["maxItems"].as_u64() {
+                items.truncate(limit as usize);
+            }
+            items.iter_mut().for_each(|item| fit(item, &schema["items"]));
+        }
+        Value::Object(fields) => fields.iter_mut().for_each(|(name, inner)| fit(inner, &schema["properties"][name.as_str()])),
+        _ => {}
+    }
+}
+
+/// The first place an answer departs from its schema, in plain words. Names fields, never their content.
+fn mismatch(value: &Value, schema: &Value, at: &str) -> Option<String> {
+    let kind = schema["type"].as_str().unwrap_or("");
+    let is = match kind { "object" => value.is_object(), "array" => value.is_array(), "string" => value.is_string(), "boolean" => value.is_boolean(), "integer" | "number" => value.is_number(), _ => true };
+    if !is {
+        return Some(format!("`{at}` should be {} {kind}", if kind.starts_with(['a', 'o', 'i']) { "an" } else { "a" }));
+    }
+    if let Some(allowed) = schema["enum"].as_array() {
+        if !allowed.contains(value) {
+            return Some(format!("`{at}` is not one of the allowed values"));
+        }
+    }
+    match value {
+        Value::Object(fields) => {
+            if let Some(missing) = schema["required"].as_array().into_iter().flatten().filter_map(Value::as_str).find(|name| !fields.contains_key(*name)) {
+                return Some(format!("`{at}.{missing}` is missing"));
+            }
+            for (name, inner) in fields {
+                let property = &schema["properties"][name.as_str()];
+                if property.is_null() {
+                    if schema["additionalProperties"] == false {
+                        return Some(format!("`{at}.{name}` is not a field of this format"));
+                    }
+                } else if let Some(found) = mismatch(inner, property, &format!("{at}.{name}")) {
+                    return Some(found);
+                }
+            }
+            None
+        }
+        Value::Array(items) => {
+            if items.len() < schema["minItems"].as_u64().unwrap_or(0) as usize {
+                return Some(format!("`{at}` has too few entries"));
+            }
+            items.iter().enumerate().find_map(|(index, item)| mismatch(item, &schema["items"], &format!("{at}[{index}]")))
+        }
+        Value::String(text) if text.chars().count() < schema["minLength"].as_u64().unwrap_or(0) as usize => Some(format!("`{at}` is empty")),
+        _ => None,
+    }
+}
+
 /// Applies a schema and a test to a turn's text. `called` is every tool the answer may cite.
 pub fn judge(schema: &Value, accept: fn(&Value, &BTreeSet<String>) -> Result<(), String>, text: &str, called: &BTreeSet<String>) -> Result<Value, String> {
-    // The shared checker reports one opaque code; say what it means where Kevin will read it.
-    let checked = super::structured_output::extract_object(text, schema)
-        .map_err(|_| "The answer did not match the skill's format: a field was missing, too long, or not allowed.".to_string())?;
-    let answer: Value = serde_json::from_str(&checked).map_err(|_| "The answer was not valid JSON.".to_string())?;
+    if text.len() > 262_144 {
+        return Err("The answer was too large to accept.".into());
+    }
+    let candidate = match (text.find('{'), text.rfind('}')) {
+        (Some(start), Some(end)) if start < end => &text[start..=end],
+        _ => return Err("The answer was not a JSON object.".into()),
+    };
+    let mut answer: Value = serde_json::from_str(candidate).map_err(|_| "The answer was not valid JSON.".to_string())?;
+    // Length and count limits are abuse bounds: an answer over one is cut to it, not thrown away.
+    fit(&mut answer, schema);
+    if super::structured_output::validate(&answer, schema).is_err() {
+        // The shared checker reports one opaque code; say where the answer departs, where Kevin will read it.
+        return Err(format!("The answer did not match the skill's format: {}.", mismatch(&answer, schema, "answer").unwrap_or_else(|| "a field was missing or not allowed".into())));
+    }
     accept(&answer, called)?;
     Ok(answer)
 }
@@ -559,9 +630,13 @@ fn references_seen(frame: &Value) -> Vec<String> {
 pub fn mark_sources(answer: &mut Value, seen: &BTreeSet<String>) {
     match answer {
         Value::Object(fields) => {
-            if let (Some(_), Some(reference)) = (fields.get("tool").and_then(Value::as_str), fields.get("reference").and_then(Value::as_str)) {
+            if let (Some(tool), Some(reference)) = (fields.get("tool").and_then(Value::as_str), fields.get("reference").and_then(Value::as_str)) {
                 let verified = seen.iter().any(|known| reference.contains(known.as_str()));
-                fields.insert("verified".into(), Value::Bool(verified));
+                // Only a citation that names something checkable is marked: a note path, or a read. A search
+                // cited by its query, or the project list, names no file; "not confirmed" there would be noise.
+                if verified || tool.starts_with("read_") || reference.contains(".md") {
+                    fields.insert("verified".into(), Value::Bool(verified));
+                }
             } else {
                 fields.values_mut().for_each(|inner| mark_sources(inner, seen));
             }
@@ -593,6 +668,29 @@ fn note(kind: &'static str, summary: String) -> Draft {
 
 fn database_path(app: &AppHandle) -> Result<PathBuf, String> {
     app.path().app_data_dir().map(|folder| folder.join("olympus.sqlite")).map_err(|error| error.to_string())
+}
+
+/// The tools of an ordinary conversation turn on Claude Code: notes, learned
+/// memory and projects, read-only. Mail stays out; the chat reaches mail only
+/// through its own scoped path. Each step is recorded under the request's id,
+/// so the Activity Deck shows a chat lookup like any other work.
+pub(crate) const CHAT_TOOLS: &[&str] = &["recall_memory", "search_vault", "read_vault_note", "list_projects"];
+pub(crate) fn chat_tools(app: &AppHandle, request_id: &str) -> Result<super::claude_subscription::ChatTools, String> {
+    let executable = std::env::current_exe().map_err(|_| "Olympus could not locate its own executable.".to_string())?;
+    let vault = super::get_vault_path();
+    let policy = super::claude_subscription::ToolPolicy {
+        mcp_config: tool_server::mcp_config(&executable, &database_path(app)?, vault.is_dir().then_some(vault.as_path()), CHAT_TOOLS).to_string(),
+        allowed: CHAT_TOOLS.iter().map(|tool| tool_server::qualified(tool)).collect(),
+        max_turns: 12,
+    };
+    let run_id = format!("chat-{request_id}");
+    agent_events::record(app, &run_id, CLAUDE, "olympus", vec![note("run_started", "Answering in chat".into())]);
+    let watcher = app.clone();
+    Ok(super::claude_subscription::ChatTools {
+        policy,
+        observe: Box::new(move |frame| agent_events::record(&watcher, &run_id, CLAUDE, "olympus", agent_events::normalize_claude_value(frame))),
+        progress: |frame| agent_events::normalize_claude_value(frame).into_iter().rev().find(|step| step.kind == "tool_call").map(|step| step.summary),
+    })
 }
 
 /// One engine turn under an Olympian's profile. The system prompt is the profile's
@@ -786,6 +884,16 @@ pub fn watch_dev_inbox(app: AppHandle) {
             if std::fs::remove_file(&path).is_err() {
                 continue;
             }
+            if let Some(question) = asked.as_ref().and_then(|asked| asked["chat"].as_str()).map(str::to_string) {
+                // A conversation turn, through the same command the interface calls. Nothing is saved to a chat.
+                let (app, result) = (app.clone(), path.with_extension("result"));
+                let provider = asked.as_ref().and_then(|asked| asked["engine"].as_str()).unwrap_or(CLAUDE).to_string();
+                tauri::async_runtime::spawn(async move {
+                    let line = match super::assistant::dev_chat(app, question, provider).await { Ok(reply) => format!("answered\n{reply}"), Err(error) => format!("refused {error}") };
+                    let _ = std::fs::write(result, line);
+                });
+                continue;
+            }
             let outcome = match asked {
                 Some(asked) => start(&app, asked["skill"].as_str().unwrap_or(""), asked["engine"].as_str().unwrap_or(CLAUDE), asked["request"].as_str().map(str::to_string)).map(|run| run.id),
                 None => Err("The request file is not JSON.".to_string()),
@@ -972,7 +1080,7 @@ mod tests {
         assert!(judged(&plan("", json!([{"agent": "research", "task": "  "}])), &[]).unwrap_err().contains("empty task"));
         assert!(judged(&plan("", json!([{"agent": "coding-delegate", "task": "Edit code"}])), &[]).is_err(), "only Athena and Themis take hand-offs");
         let three = json!([{"agent": "research", "task": "a"}, {"agent": "verification", "task": "b"}, {"agent": "research", "task": "c"}]);
-        assert!(judged(&plan("", three), &[]).is_err(), "at most two hand-offs");
+        assert_eq!(judged(&plan("", three), &[]).unwrap()["handoffs"].as_array().unwrap().len(), 2, "a third hand-off is dropped, not run");
     }
 
     #[test]
@@ -1029,6 +1137,18 @@ mod tests {
     }
 
     #[test]
+    fn an_overlong_answer_is_cut_and_a_malformed_one_says_where() {
+        let check = |answer: Value| judge(&answer_schema(), |_, _| Ok(()), &answer.to_string(), &called(&[]));
+        let long = check(json!({"answer": "y".repeat(9000), "unknowns": (0..20).map(|i| format!("u{i}")).collect::<Vec<_>>(), "sources": []})).unwrap();
+        assert_eq!(long["answer"].as_str().unwrap().chars().count(), 6000, "cut to the bound");
+        assert!(long["answer"].as_str().unwrap().ends_with('…') && long["unknowns"].as_array().unwrap().len() == 8);
+        assert_eq!(check(json!({"answer": "a", "sources": []})).unwrap_err(), "The answer did not match the skill's format: `answer.unknowns` is missing.");
+        assert_eq!(check(json!({"answer": "a", "unknowns": [], "sources": [], "confidence": "high"})).unwrap_err(), "The answer did not match the skill's format: `answer.confidence` is not a field of this format.");
+        assert_eq!(check(json!({"answer": "a", "unknowns": [], "sources": [{"tool": "x"}]})).unwrap_err(), "The answer did not match the skill's format: `answer.sources[0].reference` is missing.");
+        assert!(judge(&verdict_schema(), |_, _| Ok(()), &json!({"summary": "s", "verdicts": [{"claim": "c", "verdict": "maybe", "basis": "b", "sources": []}]}).to_string(), &called(&[])).unwrap_err().contains("`answer.verdicts[0].verdict` is not one of the allowed values"));
+    }
+
+    #[test]
     fn the_plan_event_names_who_is_queued_and_for_what() {
         let event = plan_event(&[json!({"agent": "research", "task": "Find the notes"}), json!({"agent": "verification", "task": "Check them"})]);
         assert_eq!((event.kind, event.summary.as_str()), ("plan", "Planned the work: Athena, then Themis"));
@@ -1059,11 +1179,14 @@ mod tests {
             {"tool": "recall_memory", "reference": good},
             {"tool": "recall_memory", "reference": "09 - System/Learned/81158172acf15c9a.md"},
             {"tool": "read_mail_thread", "reference": "Thread 1a1b7cb916bfee72: Google security alert"},
-            {"tool": "read_vault_note", "reference": "the profile"}
+            {"tool": "read_vault_note", "reference": "the profile"},
+            {"tool": "search_vault", "reference": "briefing style concise"},
+            {"tool": "search_vault", "reference": "09 - System/Missing.md"},
+            {"tool": "list_projects", "reference": "Olympus is active"}
         ]}]});
         mark_sources(&mut answer, &seen);
-        let verified: Vec<bool> = answer["items"][0]["sources"].as_array().unwrap().iter().map(|s| s["verified"].as_bool().unwrap()).collect();
-        assert_eq!(verified, [true, false, true, false], "a mistyped path and a vague reference are both flagged");
+        let verified: Vec<Option<bool>> = answer["items"][0]["sources"].as_array().unwrap().iter().map(|s| s["verified"].as_bool()).collect();
+        assert_eq!(verified, [Some(true), Some(false), Some(true), Some(false), None, Some(false), None], "a mistyped path and a vague reference are flagged; a search cited by its query is left unmarked");
         assert!(answer.get("verified").is_none(), "only citations are marked");
     }
 

@@ -15,7 +15,7 @@ profile changes is what that run is told it is and what it is allowed to touch.
 | --- | --- | --- | --- | --- |
 | Zeus, orchestrator | `olympus` | Skill runner, 16 turns | All six Olympus tools | Yes |
 | Athena, research analyst | `research` | Skill runner, 24 turns | All six Olympus tools | No |
-| Themis, verification analyst | `verification` | Skill runner, 18 turns | Mail, vault and memory tools; not the project list | No |
+| Themis, verification analyst | `verification` | Skill runner, 18 turns | All six Olympus tools | No |
 | Hephaestus, systems engineer | `coding-delegate` | Coding delegation (`delegation.rs`), not the skill runner | None on the skill runner | No |
 | Dionysus, creative strategist | `dionysus` | Planned; not executable | None | No |
 

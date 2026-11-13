@@ -155,7 +155,9 @@ function fromSkillRun(root: SkillRun, runs: readonly SkillRun[], events: readonl
 export function buildDeck(runs: readonly SkillRun[], events: readonly AgentEvent[], skills: readonly SkillEntry[] = []): Deck {
   const roots = runs.filter(run => !run.parentRun);
   const skillRunIds = new Set(runs.map(run => run.id));
-  const loose = groupAgentRuns(events).filter(group => !skillRunIds.has(group.runId));
+  // A chat turn that looked nothing up is conversation, not an operation.
+  const idleChat = (group: { runId: string; events: readonly AgentEvent[] }) => group.runId.startsWith("chat-") && !group.events.some(event => event.kind === "tool_call");
+  const loose = groupAgentRuns(events).filter(group => !skillRunIds.has(group.runId) && !idleChat(group));
 
   type Candidate = { startedAt: string; active: boolean; build: () => { operation: Omit<DeckOperation, "alsoRunning">; agents: DeckAgent[] } };
   const candidates: Candidate[] = [

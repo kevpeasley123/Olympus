@@ -52,7 +52,7 @@ pub const PROFILES: &[Profile] = &[
         name: "Themis",
         title: "Verification analyst",
         charter: "You are Themis, Olympus's verification analyst. You check claims against their sources, independently of whoever made them. For each claim you say plainly whether it holds, does not hold, or cannot be checked, and on what basis. You do not soften a failed check and you do not accept a claim because it sounds right.",
-        tools: &["recall_memory", "search_vault", "read_vault_note", "search_mail", "read_mail_thread"],
+        tools: &["recall_memory", "search_vault", "read_vault_note", "search_mail", "read_mail_thread", "list_projects"],
         max_turns: 18,
         can_delegate: false,
         runs_on: "skill-runner",
@@ -107,10 +107,11 @@ mod tests {
     }
 
     #[test]
-    fn only_the_orchestrator_may_delegate_and_the_verifier_cannot_list_projects() {
+    fn only_the_orchestrator_may_delegate_and_every_tool_is_read_only() {
         let delegators: Vec<&str> = PROFILES.iter().filter(|profile| profile.can_delegate).map(|profile| profile.name).collect();
         assert_eq!(delegators, ["Zeus"]);
-        assert!(!profile("verification").unwrap().tools.contains(&"list_projects"));
+        // Themis reads the project list too: a claim about the dashboard cannot be checked without it.
+        assert!(PROFILES.iter().all(|profile| profile.tools.iter().all(|tool| super::super::tool_server::TOOLS.contains(tool))));
         assert_eq!(profile("dionysus").unwrap().runs_on, "planned");
         assert!(profile("missing").is_none());
         assert_eq!(agent_profiles().len(), 5);
