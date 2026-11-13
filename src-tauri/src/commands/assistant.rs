@@ -1872,6 +1872,15 @@ pub fn cancel_assistant_message(request_id:String)->Result<bool,String>{
         Ok(sender.send(()).is_ok())
     } else {Ok(false)}
 }
+/// One conversation turn started from the development inbox: the same command,
+/// with a one-message history and no chat to save into. Debug builds only.
+#[cfg(debug_assertions)]
+pub async fn dev_chat(app:tauri::AppHandle,question:String,provider:String)->Result<String,String>{
+    use tauri::Manager;
+    let context:AssistantContext=serde_json::from_value(serde_json::json!({"conversationProvider":provider,"projectsRootPath":""})).map_err(|e|e.to_string())?;
+    let reply=send_assistant_message(app.clone(),app.state(),app.state(),app.state(),vec![ChatTurn{role:"user".into(),content:question}],context,tauri::ipc::Channel::new(|_|Ok(())),None).await?;
+    Ok(format!("model {}\n{}{}",reply.model,reply.content,reply.notice.map(|n|format!("\nNOTICE {}",n.message)).unwrap_or_default()))
+}
 #[tauri::command]
 pub async fn send_assistant_message(app:tauri::AppHandle,db:tauri::State<'_,super::persistence::Db>,memory_service:tauri::State<'_,super::memory::MemoryService>,approval_state:tauri::State<'_,super::approvals::ApprovalState>,history:Vec<ChatTurn>,mut context:AssistantContext,on_event:tauri::ipc::Channel<AssistantStreamEvent>,request_id:Option<String>)->Result<AssistantReply,String>{
     let provider=super::subscription::select_provider(context.conversation_provider.as_deref())?;
@@ -1898,7 +1907,9 @@ pub async fn send_assistant_message(app:tauri::AppHandle,db:tauri::State<'_,supe
             super::subscription::complete(system,evidence,history,voice,on_event,cancel).await?
         } else {
             let app_data=tauri::Manager::path(&app).app_data_dir().map_err(|_|"Olympus data folder unavailable")?;
-            super::claude_subscription::complete(app_data,claude_model.as_deref(),system,evidence,history,voice,on_event,cancel).await?
+            // A saved, typed chat may look things up. A Temporary chat neither uses nor feeds memory, so it gets no tools.
+            let tools=if temporary||voice {None} else {Some(super::skill_runner::chat_tools(&app,&id)?)};
+            super::claude_subscription::complete(app_data,claude_model.as_deref(),system,evidence,history,voice,on_event,cancel,tools).await?
         };
         reply.mail=mail;
         return Ok(reply);

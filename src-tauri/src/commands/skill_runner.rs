@@ -595,6 +595,28 @@ fn database_path(app: &AppHandle) -> Result<PathBuf, String> {
     app.path().app_data_dir().map(|folder| folder.join("olympus.sqlite")).map_err(|error| error.to_string())
 }
 
+/// The tools of an ordinary conversation turn on Claude Code: notes, learned
+/// memory and projects, read-only. Mail stays out; the chat reaches mail only
+/// through its own scoped path. Each step is recorded under the request's id,
+/// so the Activity Deck shows a chat lookup like any other work.
+pub(crate) const CHAT_TOOLS: &[&str] = &["recall_memory", "search_vault", "read_vault_note", "list_projects"];
+pub(crate) fn chat_tools(app: &AppHandle, request_id: &str) -> Result<super::claude_subscription::ChatTools, String> {
+    let executable = std::env::current_exe().map_err(|_| "Olympus could not locate its own executable.".to_string())?;
+    let vault = super::get_vault_path();
+    let policy = super::claude_subscription::ToolPolicy {
+        mcp_config: tool_server::mcp_config(&executable, &database_path(app)?, vault.is_dir().then_some(vault.as_path()), CHAT_TOOLS).to_string(),
+        allowed: CHAT_TOOLS.iter().map(|tool| tool_server::qualified(tool)).collect(),
+        max_turns: 12,
+    };
+    let run_id = format!("chat-{request_id}");
+    agent_events::record(app, &run_id, CLAUDE, "olympus", vec![note("run_started", "Answering in chat".into())]);
+    let watcher = app.clone();
+    Ok(super::claude_subscription::ChatTools {
+        policy,
+        observe: Box::new(move |frame| agent_events::record(&watcher, &run_id, CLAUDE, "olympus", agent_events::normalize_claude_value(frame))),
+    })
+}
+
 /// One engine turn under an Olympian's profile. The system prompt is the profile's
 /// charter followed by the task's instructions; the tools are the task's, which a
 /// test holds to a subset of the profile's.
@@ -784,6 +806,16 @@ pub fn watch_dev_inbox(app: AppHandle) {
             let asked = std::fs::read_to_string(&path).ok().and_then(|text| serde_json::from_str::<Value>(text.trim_start_matches('\u{feff}')).ok());
             // Consumed before it runs: a request that cannot be removed would start again every two seconds.
             if std::fs::remove_file(&path).is_err() {
+                continue;
+            }
+            if let Some(question) = asked.as_ref().and_then(|asked| asked["chat"].as_str()).map(str::to_string) {
+                // A conversation turn, through the same command the interface calls. Nothing is saved to a chat.
+                let (app, result) = (app.clone(), path.with_extension("result"));
+                let provider = asked.as_ref().and_then(|asked| asked["engine"].as_str()).unwrap_or(CLAUDE).to_string();
+                tauri::async_runtime::spawn(async move {
+                    let line = match super::assistant::dev_chat(app, question, provider).await { Ok(reply) => format!("answered\n{reply}"), Err(error) => format!("refused {error}") };
+                    let _ = std::fs::write(result, line);
+                });
                 continue;
             }
             let outcome = match asked {
