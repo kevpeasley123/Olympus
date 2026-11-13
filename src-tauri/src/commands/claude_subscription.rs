@@ -691,9 +691,11 @@ impl Protocol {
                             return Err("Claude final text does not match its stream".into());
                         }
                     }
+                    Some("error_max_turns") => {
+                        self.failure = Some("Claude used every step it was allowed without finishing. No fallback was attempted.".into())
+                    }
                     Some(
                         "error_during_execution"
-                        | "error_max_turns"
                         | "error_max_budget_usd"
                         | "error_max_structured_output_retries",
                     ) => {

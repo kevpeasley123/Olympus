@@ -18,10 +18,10 @@ contract grants no execution authority.
 | Skill | Credited to | Tools | Budget | Accepted when |
 | --- | --- | --- | --- | --- |
 | `opening-brief` v1, "Opening brief (trial)" | `olympus` (Zeus) | `search_mail`, `read_mail_thread`, `recall_memory`, `list_projects`, `read_vault_note` | 16 turns, 5 minutes | The answer matches its schema, the brief is at most 140 words, and every item cites a tool this run actually called |
-| `answer-from-sources` v1, "Answer from my sources" | `research` (Athena) | `recall_memory`, `search_vault`, `read_vault_note`, `list_projects`, `search_mail`, `read_mail_thread` | 16 turns, 5 minutes | The answer matches its schema, the run called at least one tool, and it cites only tools it called. Saying the sources do not answer the question is a valid result |
+| `answer-from-sources` v1, "Answer from my sources" | `research` (Athena) | `recall_memory`, `search_vault`, `read_vault_note`, `list_projects`, `search_mail`, `read_mail_thread` | 22 turns, 5 minutes | The answer matches its schema, the run called at least one tool, and it cites only tools it called. Saying the sources do not answer the question is a valid result |
 
-| `work-request` v1, "Ask Olympus" | `olympus` (Zeus) | `list_projects`, `recall_memory`, `search_vault`, `read_vault_note` | 10 turns per phase, plus up to two hand-offs | The final answer matches its schema and cites only tools called by this run or its hand-offs. See [OLYMPIANS.md](OLYMPIANS.md) |
-| `research-assignment` v1 and `verification-assignment` v1 | Athena, Themis | Their profile's tools | 14 and 12 turns | Run only as a hand-off; not offered in the catalog |
+| `work-request` v1, "Ask Olympus" | `olympus` (Zeus) | `list_projects`, `recall_memory`, `search_vault`, `read_vault_note` | 12 turns per phase, plus up to two hand-offs | The final answer matches its schema and cites only tools called by this run or its hand-offs. See [OLYMPIANS.md](OLYMPIANS.md) |
+| `research-assignment` v1 and `verification-assignment` v1 | Athena, Themis | Their profile's tools | 22 and 16 turns | Run only as a hand-off; not offered in the catalog |
 
 A call to a name under Olympus's own server that the server does not offer (a
 model sometimes invents a "submit" tool) does not stop the run: the server
