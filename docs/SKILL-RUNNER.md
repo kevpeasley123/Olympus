@@ -44,10 +44,14 @@ that run exactly as the interface would, with the same catalog, bounds and
 account checks; the file is consumed and `<name>.result` holds `started <run id>`
 or `refused <reason>`. It exists so a run can be started and its recorded result
 read without someone at the window. Release builds do not contain it.
+A file of the form `{"chat": "question"}` instead runs one conversation turn
+through the same command the chat uses, with a one-message history; nothing is
+saved to a chat, and `<name>.result` holds the model and the reply.
 
 Every citation in an accepted answer carries `verified`: true when its
 reference names a vault path or mail thread id the run asked a tool for or was
-shown in a tool result, false otherwise. A false mark does not reject the
+shown in a tool result, false otherwise. A search cited only by its query names
+no file to check and is left unmarked. A false mark does not reject the
 answer; the panel shows "(not confirmed against this run)" beside it. The
 schema's length limits are abuse bounds, not style rules: a sound answer is
 never rejected for being thorough.

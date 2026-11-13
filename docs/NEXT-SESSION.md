@@ -56,9 +56,8 @@ He selects the engine himself; automatic, cost-aware routing comes later.
 
 ## Known issues
 
-- The chat box starts an operation only with `/ask`. There is no button for it yet,
-  and the ordinary chat still cannot use the tools, so it answers worse.
-- A citation whose reference is a search query, not a path, is marked unverified.
+- The Claude Code chat has the read-only tools (after 0.55.0); the Codex chat does
+  not, so it still cannot open notes. `/ask` remains the way to get a checked answer.
 - Hand-offs run one after another, never in parallel. A run cannot be cancelled.
 - The Usage dock reads "Telemetry not connected". Observed usage is not shown there.
 - The learned record for the briefing preference has empty evidence text.
@@ -71,7 +70,7 @@ He selects the engine himself; automatic, cost-aware routing comes later.
 
 1. Install 0.55.0 and repeat one "Ask Olympus" run in the installed app.
 2. Run the browser and visual suites on the PC.
-3. Give the ordinary chat the read-only tools, or route it through the runner.
+3. Give the Codex chat the same tools through its app-server.
 4. Decide whether `/ask` needs a button or an automatic choice.
 5. Move the opening brief itself onto the skill runner, beside the old path first.
 6. Retire the paid API routes. They are woven into the chat dispatch in

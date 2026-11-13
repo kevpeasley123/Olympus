@@ -559,9 +559,12 @@ fn references_seen(frame: &Value) -> Vec<String> {
 pub fn mark_sources(answer: &mut Value, seen: &BTreeSet<String>) {
     match answer {
         Value::Object(fields) => {
-            if let (Some(_), Some(reference)) = (fields.get("tool").and_then(Value::as_str), fields.get("reference").and_then(Value::as_str)) {
+            if let (Some(tool), Some(reference)) = (fields.get("tool").and_then(Value::as_str), fields.get("reference").and_then(Value::as_str)) {
                 let verified = seen.iter().any(|known| reference.contains(known.as_str()));
-                fields.insert("verified".into(), Value::Bool(verified));
+                // A search cited by its query names no file to check. Leave it unmarked: "not confirmed" would be noise.
+                if verified || !tool.starts_with("search_") || reference.contains(".md") {
+                    fields.insert("verified".into(), Value::Bool(verified));
+                }
             } else {
                 fields.values_mut().for_each(|inner| mark_sources(inner, seen));
             }
@@ -614,6 +617,7 @@ pub(crate) fn chat_tools(app: &AppHandle, request_id: &str) -> Result<super::cla
     Ok(super::claude_subscription::ChatTools {
         policy,
         observe: Box::new(move |frame| agent_events::record(&watcher, &run_id, CLAUDE, "olympus", agent_events::normalize_claude_value(frame))),
+        progress: |frame| agent_events::normalize_claude_value(frame).into_iter().rev().find(|step| step.kind == "tool_call").map(|step| step.summary),
     })
 }
 
@@ -1091,11 +1095,13 @@ mod tests {
             {"tool": "recall_memory", "reference": good},
             {"tool": "recall_memory", "reference": "09 - System/Learned/81158172acf15c9a.md"},
             {"tool": "read_mail_thread", "reference": "Thread 1a1b7cb916bfee72: Google security alert"},
-            {"tool": "read_vault_note", "reference": "the profile"}
+            {"tool": "read_vault_note", "reference": "the profile"},
+            {"tool": "search_vault", "reference": "briefing style concise"},
+            {"tool": "search_vault", "reference": "09 - System/Missing.md"}
         ]}]});
         mark_sources(&mut answer, &seen);
-        let verified: Vec<bool> = answer["items"][0]["sources"].as_array().unwrap().iter().map(|s| s["verified"].as_bool().unwrap()).collect();
-        assert_eq!(verified, [true, false, true, false], "a mistyped path and a vague reference are both flagged");
+        let verified: Vec<Option<bool>> = answer["items"][0]["sources"].as_array().unwrap().iter().map(|s| s["verified"].as_bool()).collect();
+        assert_eq!(verified, [Some(true), Some(false), Some(true), Some(false), None, Some(false)], "a mistyped path and a vague reference are flagged; a search cited by its query is left unmarked");
         assert!(answer.get("verified").is_none(), "only citations are marked");
     }
 

@@ -51,6 +51,10 @@ export function runActivityDeckHarness() {
   const job = [event("job-1", "olympus", "run_started", "Started Briefing investigation", { engine: "codex" })];
   const loose = buildDeck([finished], [...working, ...job]);
   check(loose.operation?.id === "job-1" && loose.operation.run === null && loose.agents[0].status === "running", "Work known only from events is shown, and work in progress outranks finished work");
+  const chat = [event("chat-1", "olympus", "run_started", "Answering in chat"), event("chat-1", "olympus", "message", "A mutex is a lock")];
+  check(buildDeck([], chat).operation === null, "A chat turn that looked nothing up is not an operation");
+  const lookedUp = buildDeck([], [...chat, event("chat-1", "olympus", "tool_call", "Searched the vault", { tool: "mcp__olympus__search_vault" })]);
+  check(lookedUp.operation?.title === "Answering in chat" && lookedUp.agents[0].activity === "Searching the vault", "A chat turn that looks something up shows in the deck");
   const both = buildDeck([root, { ...run("s", "research", { skillId: "answer-from-sources", startedAt: "2026-11-11T09:01:00Z" }) }], started);
   check(both.operation?.id === "s" && both.operation.alsoRunning === 1 && both.agents.some(a => a.agent === "olympus" && a.status === "running"), "Concurrent operations show every working Olympian");
 

@@ -29,6 +29,17 @@ All six are read-only. An engine sees them as `mcp__olympus__<name>`.
 Every string in an answer is capped at 4,000 characters and every list at 20
 entries.
 
+## Who uses them
+
+Skill runs, under each Olympian's profile ([SKILL-RUNNER.md](SKILL-RUNNER.md)), and
+the ordinary chat when its engine is Claude Code: a saved, typed turn may call
+`recall_memory`, `search_vault`, `read_vault_note` and `list_projects` (twelve
+steps at most). Mail tools are not offered to the chat, which reaches mail only
+through its own scoped path. A Temporary chat and a voice turn get no tools. Each
+lookup shows under the composer and is recorded under `chat-<request id>`, so the
+Activity Deck shows a chat turn that looked something up; one that did not is not
+shown there. The Codex chat has no tools yet.
+
 ## Boundaries the server enforces itself
 
 - **The database is opened read-only.** A tool cannot write even by mistake.

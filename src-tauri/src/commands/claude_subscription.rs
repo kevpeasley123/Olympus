@@ -162,8 +162,15 @@ pub async fn complete(
     let worker = tauri::async_runtime::spawn_blocking(move || {
         // A conversation turn that may look things up: the same transport and
         // checks as a skill run, with Olympus's read-only tools and nothing else.
-        if let Some(ChatTools { policy, mut observe }) = tools {
+        if let Some(ChatTools { policy, mut observe, progress }) = tools {
             let (executable, cwd) = launch_checked_as(&authorization, &system, CHAT_TOOL_BOUNDARY)?;
+            let status = on_event.clone();
+            let mut observe = move |frame: &Value| {
+                if let Some(message) = progress(frame) {
+                    let _ = status.send(AssistantStreamEvent::Progress { message });
+                }
+                observe(frame);
+            };
             return run_process_with(
                 model,
                 command_with(&executable, &cwd.0, model.0, Some(&policy)),
@@ -174,7 +181,7 @@ pub async fn complete(
                 },
                 Duration::from_secs(240),
                 policy.allowed.clone(),
-                &mut *observe,
+                &mut observe,
             );
         }
         let (executable, cwd) = launch_checked(&authorization, &system)?;
@@ -261,6 +268,8 @@ const CHAT_TOOL_BOUNDARY: &str = "You have Olympus's read-only tools for Kevin's
 pub(crate) struct ChatTools {
     pub policy: ToolPolicy,
     pub observe: Box<dyn FnMut(&Value) + Send>,
+    /// The line to show under the composer for a frame, when it is a lookup.
+    pub progress: fn(&Value) -> Option<String>,
 }
 
 /// One Claude turn that may call Olympus's own read-only tools. Blocking. Every
