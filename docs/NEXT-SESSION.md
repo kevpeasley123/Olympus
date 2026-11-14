@@ -1,8 +1,8 @@
 # Next session
 
-## Olympus 0.56.0 - merged November 13, 2026, not yet installed
+## Olympus 0.57.0 - merged November 13, 2026, not yet installed
 
-0.54.0, 0.55.0 and 0.56.0 (pull requests 38, 39, 40) are merged; none has been
+0.54.0 to 0.57.0 (pull requests 38 to 41) are merged; none has been
 installed. Install with `npm run update` from `Desktop/Projects/Olympus`; the
 "Update Olympus" desktop shortcut needs recreating. Until then the installed 0.53
 cannot open the database: the development build already moved it to schema 10. A
@@ -12,7 +12,8 @@ Testing without Kevin: while `npm run tauri dev` is running on his PC, a session
 linked to it can pull into the checkout (the dev build rebuilds itself), drop a
 skill or chat request into `<app data>/dev-inbox` and read the result from `olympus.sqlite`
 (SKILL-RUNNER.md, "Development inbox"). Each run spends his Claude usage. Use it
-instead of asking him to click.
+instead of asking him to click. When Kevin tests, he does it by typing in the
+chat window; never ask him to use another control.
 
 ## Direction
 
@@ -34,8 +35,9 @@ He selects the engine himself; automatic, cost-aware routing comes later.
   parts to Athena and Themis as linked runs, and answers from their reports.
 - Citations marked verified only when the run asked for or was shown what they name.
 - The Activity Deck: Command's left column, built from recorded runs. The Armory
-  opens from its header; the step record is under Diagnostics; skills run from
-  Deploy Agent.
+  opens from its header; the step record is under Diagnostics. There is no
+  Deploy Agent button (removed November 13 at Kevin's instruction): work starts
+  from the chat.
 - Observed usage per engine, from what each run reported.
 - 0.55.0: `/ask` in the chat, `partly_holds`, long notes in parts, scoped planning,
   survival of an invented tool name, and the development inbox.
@@ -74,7 +76,7 @@ He selects the engine himself; automatic, cost-aware routing comes later.
 
 ## Next steps
 
-1. Install 0.56.0 and repeat one "Ask Olympus" run in the installed app.
+1. Install 0.57.0 and repeat one "Ask Olympus" run in the installed app.
 2. Run the browser and visual suites on the PC.
 3. Give the Codex chat the same tools through its app-server.
 4. Decide whether `/ask` needs a button or an automatic choice.

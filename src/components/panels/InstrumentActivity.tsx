@@ -5,6 +5,7 @@ import { useSyncExternalStore } from "react";
 import { accessSnapshot, subscribeAccess } from "../../services/sourceActivity";
 import type { Mission } from "../../services/capabilities";
 import { AgentActivityFeed } from "./AgentActivityFeed";
+import { ObservedUsage } from "./SkillRunResult";
 import { Modal } from "../Modal";
 import { X } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -19,6 +20,7 @@ export function InstrumentActivity({missions,assets,onInspect,vaultStatus}:{vaul
   return <Modal open={open} onClose={()=>setOpen(false)} title="Diagnostics" showTitle={false} className="deck-dialog"><header><div><small>Diagnostics</small><h2>Step-by-step record</h2><p>Every recorded step of recent runs, and what each read.{latest && <span className="latest-skill-result"> {latest.project} · {latest.outcome}</span>}</p></div><button type="button" className="armory-close" onClick={()=>setOpen(false)} aria-label="Close diagnostics"><X size={18}/></button></header><div className="deck-dialog-body instrument-activity">
     {latest && <p><button type="button" onClick={()=>window.dispatchEvent(new Event("olympus:open-review"))}>Review #{latest.id} · {latest.detail}</button></p>}
     <AgentActivityFeed />
+    <ObservedUsage />
     <small>{vaultStatus}</small>
     <label>Inspect asset <select defaultValue="" onChange={e=>{const item=assets.find(a=>a.id===e.target.value);if(item)onInspect(item);e.target.value="";}}>
       <option value="">Choose an asset</option>{assets.map(a=><option key={a.id} value={a.id}>{a.label}</option>)}

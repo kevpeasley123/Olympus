@@ -496,7 +496,7 @@ export function useDashboardData() {
         try {
           if(!await userSaved && !session.temporary)throw Error("Your request could not be saved.");
           const message=createAssistantMessage(session.temporary
-            ? "An operation keeps a record of its request and steps, so it cannot start from a Temporary chat. Use a saved chat or Deploy Agent."
+            ? "An operation keeps a record of its request and steps, so it cannot start from a Temporary chat. Use a saved chat."
             : operationReply(await runOperation(operationRequest)));
           if(sessionRef.current.id===session.id){
             dashboardRef.current={...dashboardRef.current,conversation:[...dashboardRef.current.conversation,message]};

@@ -1,8 +1,8 @@
 import { useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
-import { ChevronRight, Crosshair, Layers, Plus, SlidersHorizontal, X } from "lucide-react";
+import { ChevronRight, Crosshair, Layers, SlidersHorizontal, X } from "lucide-react";
 import { Modal } from "../Modal";
 import { AgentEmblem } from "./AgentEmblem";
-import { SkillTrials, SkillRunResult } from "./SkillTrials";
+import { SkillRunResult } from "./SkillRunResult";
 import { agentEventsSnapshot, engineLabel, subscribeAgentEvents } from "../../services/agentEvents";
 import { skillRunsSnapshot, subscribeSkillRuns } from "../../services/skillRuns";
 import { DECK_ROLES, STATUS_LABEL, buildDeck, isLive, type DeckAgent, type DeckStatus } from "../../services/activityDeck";
@@ -21,7 +21,7 @@ interface Props {
   roster: readonly DeckRosterEntry[] | null;
   onOpenArmory: () => void;
   onInspectProfile: (id: string) => void;
-  /** Rendered under Deploy Agent: the resource drawer and any caution the Armory raises. */
+  /** Rendered at the foot of the deck: the resource drawer and any caution the Armory raises. */
   children?: ReactNode;
 }
 
@@ -62,7 +62,6 @@ export function ActivityDeck({ roster, onOpenArmory, onInspectProfile, children 
   const [expanded, setExpanded] = useState<string | null>(null);
   const [profile, setProfile] = useState<string | null>(null);
   const [inspecting, setInspecting] = useState(false);
-  const [deploying, setDeploying] = useState(false);
   // "min ago" is the only thing here that changes without a recorded event.
   const [, tick] = useState(0);
   useEffect(() => { const timer = window.setInterval(() => tick(n => n + 1), 60_000); return () => window.clearInterval(timer); }, []);
@@ -99,7 +98,7 @@ export function ActivityDeck({ roster, onOpenArmory, onInspectProfile, children 
       {live && <span className="deck-bar" data-measured={percent !== null || undefined} role={percent !== null ? "progressbar" : undefined} aria-valuemin={percent !== null ? 0 : undefined} aria-valuemax={percent !== null ? 100 : undefined} aria-valuenow={percent ?? undefined}><i style={percent !== null ? { width: `${percent}%` } : undefined}/></span>}
     </button> : <div className="deck-operation deck-operation--idle">
       <Crosshair className="deck-operation-mark" size={30} strokeWidth={1.1} aria-hidden="true"/>
-      <span className="deck-operation-copy"><small>No active operation</small><span>Olympus is standing by. Deploy an agent to begin.</span></span>
+      <span className="deck-operation-copy"><small>No active operation</small><span>Olympus is standing by. Ask in the chat to begin.</span></span>
     </div>}
 
     {cards.length > 0 && <section className="deck-section" aria-label="Agent activity">
@@ -125,7 +124,6 @@ export function ActivityDeck({ roster, onOpenArmory, onInspectProfile, children 
     </section>
 
     <div className="deck-actions">
-      <button type="button" className="deck-deploy" onClick={() => setDeploying(true)} aria-haspopup="dialog"><Plus size={15}/>Deploy Agent</button>
       {children}
       <button type="button" className="deck-link deck-diagnostics" onClick={() => window.dispatchEvent(new Event("olympus:open-diagnostics"))}>Diagnostics</button>
     </div>
@@ -144,14 +142,6 @@ export function ActivityDeck({ roster, onOpenArmory, onInspectProfile, children 
           <button type="button" className="deck-link" onClick={() => { setInspecting(false); window.dispatchEvent(new Event("olympus:open-diagnostics")); }}>Open the step-by-step record</button>
         </div>
       </>}
-    </Modal>
-
-    <Modal open={deploying} onClose={() => setDeploying(false)} title="Deploy an agent" showTitle={false} className="deck-dialog">
-      <header><div><small>Deploy agent</small><h2>Give an Olympian work</h2><p>Each runs on the engine named on its button. Nothing falls back to a paid API. From the chat, start a message with <code>/ask</code> to hand it to Zeus.</p></div><button type="button" className="armory-close" onClick={() => setDeploying(false)} aria-label="Close deploy"><X size={18}/></button></header>
-      <div className="deck-dialog-body">
-        <SkillTrials onStarted={() => setDeploying(false)}/>
-        <button type="button" className="deck-link" onClick={() => { setDeploying(false); onOpenArmory(); }}>Review every agent's loadout in the Armory</button>
-      </div>
     </Modal>
   </>;
 }
