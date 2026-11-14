@@ -1,3 +1,4 @@
+import { gmailStatus } from "../services/gmail";
 import { isBrief, matchChatHandoff, operationReply, runOperation } from "../services/skillRuns";
 import { invoke } from "@tauri-apps/api/core";
 import {nativeBriefingScopeBarrier} from "../services/briefingScope";
@@ -320,6 +321,15 @@ export function useDashboardData() {
     const routes = await invoke<{settings:Record<string,string>}>("load_persisted_state").catch(()=>null);
     if (routes?.settings["briefing.workflow.v1"] === "harness") {
       try {
+        // A Gmail sync in progress at open (the first one after a reconnect can take minutes)
+        // decides what the brief can see. Wait for it, within a bound, rather than brief on stale mail.
+        for (let waited = 0; waited < 180_000; waited += 5_000) {
+          const mail = await gmailStatus().catch(() => null);
+          if (!active()) return true;
+          if (!mail?.busy && mail?.account?.status !== "syncing") break;
+          setBriefingPending(true);
+          await new Promise(resolve => window.setTimeout(resolve, 5_000));
+        }
         const run = await runOperation(null, "claude-code", "opening-brief");
         if (!active()) return true;
         if (run.status !== "completed" || !run.output || !isBrief(run.output)) { setChatError(`The brief could not finish. ${run.error ?? "No reason was recorded."}`); return true; }
