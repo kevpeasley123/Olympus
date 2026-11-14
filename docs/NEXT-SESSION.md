@@ -1,8 +1,8 @@
 # Next session
 
-## Olympus 0.60.0 - merged November 13, 2026
+## Olympus 0.61.0 - merged November 14, 2026
 
-0.54.0 to 0.60.0 (pull requests 38 to 44) are merged. Kevin installed 0.58.0 on
+0.54.0 to 0.61.0 (pull requests 38 to 45) are merged. Kevin installed 0.58.0 on
 November 13 and it opened almost unstyled: a brace lost from `activityDeck.css`
 in 0.57.0 broke the joined production stylesheet. 0.59.0 fixes it and must be
 installed with `npm run update` from `Desktop/Projects/Olympus`. The installed
@@ -10,8 +10,8 @@ build did open the schema-10 database.
 
 The opening brief now runs on the Olympians workflow (0.60.0,
 BRIEFING-SYNTHESIS.md). The Codex briefing path refuses with a purchased-credits
-notice on Kevin's account and has produced no brief since November 13. The brief
-cannot know his life past November 10 until Gmail is reconnected.
+notice on Kevin's account and has produced no brief since November 13. Kevin
+reconnected Gmail on November 14; mail is current again.
 
 Before any release that touches CSS, render the production bundle
 (`npm run build`, `npx vite preview`), not only the development harness: the
@@ -81,15 +81,14 @@ He selects the engine himself; automatic, cost-aware routing comes later.
 - Hand-offs run one after another, never in parallel. A run cannot be cancelled.
 - The Usage dock reads "Telemetry not connected". Observed usage is not shown there.
 - The learned record for the briefing preference has empty evidence text.
-- Gmail's refresh grant was rejected on November 11 and needs reconnecting.
 - The browser and visual suites hang on a mode switch in the cloud session, on
   0.53 as well. They have not been run on the PC for this release.
 - 47 old branches remain on GitHub; a cloud session cannot delete them.
 
 ## Next steps
 
-1. Kevin reconnects Gmail; then read the first brief with new mail and refine
-   its instructions against it.
+1. Keep refining the brief against real ones: read each new brief in
+   `agent_runs` and compare it with Kevin's mail and notes.
 2. One chat hand-off in the installed app.
 3. Run the browser and visual suites on the PC.
 4. Give the Codex chat the same tools through its app-server.

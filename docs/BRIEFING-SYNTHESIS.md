@@ -15,7 +15,8 @@ November 13 with a purchased-credits refusal.
 
 - The interface starts the `opening-brief` skill (SKILL-RUNNER.md) on Claude Code,
   on app open when Opening Briefing is on and on **New briefing**. A brief already
-  running is joined, not refused. The run shows in the Activity Deck; the spoken
+  running is joined, not refused. If a Gmail sync is in progress (the first one
+  after a reconnect can take minutes) the brief waits for it, up to three minutes. The run shows in the Activity Deck; the spoken
   text is saved to the chat as a briefing message.
 - Zeus gets the previous completed brief, its delivery time and what it said was
   waiting on Kevin, then calls `recent_activity` first (OLYMPUS-TOOLS.md), reads
@@ -24,7 +25,9 @@ November 13 with a purchased-credits refusal.
   what changed, why it matters to Kevin and whether he must act; rank anything
   waiting on him first; exclude promotions, routine notices, Olympus bookkeeping
   and anything the previous brief said that has not changed; and forbid an
-  all-clear while mail is stale. At most 150 spoken words (190 accepted).
+  all-clear while mail is stale. After a stale period it looks back to when mail
+  was last current, and it opens any message about money or an account before
+  calling it routine. At most 150 spoken words (190 accepted).
 - A failure is shown as such. Nothing substitutes a brief from another engine.
 
 The investigative and legacy workflows below remain selectable.
