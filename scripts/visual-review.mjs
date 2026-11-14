@@ -247,9 +247,7 @@ async function functionalChecks(browser, base) {
     await deck.getByRole("button", { name: "Diagnostics", exact: true }).click();
     check(await page.getByRole("dialog", { name: "Diagnostics" }).getByLabel("Agent run activity").isVisible(), "The step-by-step record stays reachable from the deck");
     await page.keyboard.press("Escape");
-    await deck.getByRole("button", { name: "Deploy Agent" }).click();
-    check(await page.getByRole("dialog", { name: "Deploy an agent" }).getByRole("button", { name: /Run on Claude Code/ }).isVisible(), "Deploy Agent offers the runnable skills");
-    await page.keyboard.press("Escape");
+    check(await deck.getByRole("button", { name: /Deploy/ }).count() === 0, "The deck has no deploy control: work starts from the chat");
     await page.goto(`${base}${HARNESS}?flagship&scenario=idle`);
     await page.waitForSelector(".deck-idle-row");
     check(await page.locator(".deck-agent").count() === 0 && await page.getByText("No active operation").isVisible(), "With nothing recorded the deck is idle, with no invented activity");

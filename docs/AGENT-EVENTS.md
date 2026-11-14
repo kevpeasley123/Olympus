@@ -90,7 +90,8 @@ feed:
 The mission brief in the console repeats the running operation as a short
 checklist (`deckStages`). The step-by-step feed (`AgentActivityFeed`), the
 source access history and the asset inspector are in the **Diagnostics** dialog,
-opened from the deck. **Deploy Agent** opens the runnable skills.
+opened from the deck. The deck starts nothing itself: work is asked for in the
+chat (or by voice), and `/ask` hands a request to Zeus.
 
 The Pantheon figures read the same feed. `activityMissions` presents each observed
 run as a single-step mission naming its agent, which the existing figure state
@@ -99,8 +100,10 @@ works while it is in progress, and marks completion when the run reports a resul
 Zeus coordinates while any run is live. Observed runs move the figures only; they
 do not join the orbiting missions.
 
-`SkillTrials`, in the Deploy Agent dialog, lists the runner's skills with a button to
-run each on a named engine and shows the latest result or the reason it was rejected.
+There are no run buttons. Kevin removed Deploy Agent on 2026-11-13: he talks to
+Olympus only through the chat and the microphone. The opening-brief trial and
+"Answer from my sources" remain in the catalog and can be started only through
+the development inbox.
 
 ## Verification
 
