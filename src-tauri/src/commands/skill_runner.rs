@@ -49,7 +49,7 @@ pub struct Skill {
     pub accept: fn(&Value, &BTreeSet<String>) -> Result<(), String>,
 }
 
-const BRIEF_INSTRUCTIONS: &str = "You are Olympus preparing Kevin's opening brief. Use the tools to find what has actually changed for him: search recent mail for things that need him (orders, deliveries, bills, security notices, replies from people), check his projects, and recall what Olympus has learned about how he wants briefs. Read a thread before relying on it.\n\nThen answer with one JSON object and nothing else, matching the schema you are given.\n\nRules for the brief:\n- Conversational and short: what changed, why it matters to Kevin, and whether he needs to act. At most 120 words in `brief`.\n- No subject-line lists, no routine receipts or sign-in notices unless they signal a problem, and nothing about how the brief was made.\n- Every item cites the tool results it rests on. Do not state anything you did not find with a tool.\n- A suggestion is not Kevin's decision. Say what you suggest, never that he has decided it.\n- If the tools show nothing worth his attention, say so plainly with an empty `items` list.\n- `coverage` says in one sentence what you looked at and anything you could not check.";
+const BRIEF_INSTRUCTIONS: &str = "You are Olympus giving Kevin his opening brief: the first thing he hears when he opens his command station.\n\nWhat a brief is for. Kevin is asking three things: what is different since I last looked, what does it mean for me, and do I have to do anything. A good brief proves you know his situation. It ties each change to the project, commitment or ongoing matter it belongs to, and it lets him close the brief knowing what, if anything, is waiting on him. It is not an inbox summary, a list of everything that happened, or a status report on Olympus itself.\n\nHow to find out.\n1. Call `recent_activity` first. It shows what changed in his mail, ongoing mail situations, vault notes, chats and tasks, and whether Gmail is still connected. If you are given a previous brief, look back to when it was delivered; otherwise three days.\n2. Call `list_projects` for where his projects stand.\n3. Read what you intend to mention. A subject line, a note title or a chat summary is a pointer, not a fact: open the thread or the note. Session records under `08 - Daily Briefs/Sessions` say what was actually built, merged or left unproven in his projects.\n4. Use `recall_memory` or `search_vault` when you need to know how something connects to him: a preference, a decision, a commitment.\n\nWhat belongs in it, most important first.\n- Anything waiting on Kevin: a decision, an approval, a reply, a payment, a deadline, something of his that is broken or disconnected.\n- A meaningful change in an active project: what shipped, what failed, what is now unblocked or blocked, and what the recorded next step is.\n- A change in an ongoing matter in his life: a delivery, a bill, an order, an account problem, a person waiting to hear from him.\n\nWhat does not belong.\n- Promotions, newsletters, routine receipts and sign-in notices, unless one signals a problem.\n- Anything the previous brief already told him that has not changed. Do follow up, briefly, on something it said was waiting on him if it still is.\n- Olympus's own bookkeeping (test chats, memory checks, records written about records), and anything about how this brief was made.\n- Urgency you cannot point to. If nothing needs him, say so.\n\nHow to say it.\n- `brief` is spoken aloud. Plain, warm, direct sentences to Kevin as 'you'. No headings, lists, file paths or jargon. At most 150 words.\n- Open with the one thing that matters most, or with 'Nothing needs you right now' when that is true.\n- For each thing: what changed and when, why it matters to him, and whether he needs to act. If he does, say exactly what the action is.\n- Keep what you know apart from what you infer. A suggestion is yours, never his decision.\n- If mail is not current (Gmail disconnected, or the newest cached message is days old), say once how far it goes and that reconnecting Gmail is what fixes it. Do not present old mail as new.\n\n`items` carries the detail behind the spoken brief: one entry for each thing you mention, with `actionNeeded` true only when Kevin himself must do something, and the sources you actually opened. State nothing you did not find with a tool. `coverage` says in one or two sentences what you looked at, how current each source was, and what you could not check.\n\nAnswer with one JSON object and nothing else, matching the schema you are given.";
 
 fn brief_schema() -> Value {
     json!({
@@ -79,7 +79,7 @@ fn accept_brief(answer: &Value, called: &BTreeSet<String>) -> Result<(), String>
     if brief.is_empty() {
         return Err("The brief has no text.".into());
     }
-    if brief.split_whitespace().count() > 140 {
+    if brief.split_whitespace().count() > 190 {
         return Err("The brief is longer than its spoken limit.".into());
     }
     let items = answer["items"].as_array().map(Vec::as_slice).unwrap_or(&[]);
@@ -133,17 +133,17 @@ fn accept_answer(answer: &Value, called: &BTreeSet<String>) -> Result<(), String
 pub const SKILLS: &[Skill] = &[Skill {
     id: "opening-brief",
     version: 1,
-    title: "Opening brief (trial)",
+    title: "Opening brief",
     agent: "olympus",
     purpose: "Tell Kevin what changed, why it matters and whether he needs to act, from his mail, projects and learned memory.",
     instructions: BRIEF_INSTRUCTIONS,
-    tools: &["search_mail", "read_mail_thread", "recall_memory", "list_projects", "read_vault_note"],
+    tools: &["recent_activity", "search_mail", "read_mail_thread", "recall_memory", "search_vault", "list_projects", "read_vault_note"],
     takes_request: false,
     listed: true,
     orchestrates: false,
-    max_turns: 16,
+    max_turns: 24,
     limit: Duration::from_secs(300),
-    success_criteria: "A schema-valid brief of at most 140 words whose every item cites a tool this run actually called.",
+    success_criteria: "A schema-valid brief of at most 190 words whose every item cites a tool this run actually called.",
     output_schema: brief_schema,
     accept: accept_brief,
 }, Skill {
@@ -153,7 +153,7 @@ pub const SKILLS: &[Skill] = &[Skill {
     agent: "research",
     purpose: "Answer one question from Kevin's vault, learned memory, projects and mail, citing where each part came from.",
     instructions: ANSWER_INSTRUCTIONS,
-    tools: &["recall_memory", "search_vault", "read_vault_note", "list_projects", "search_mail", "read_mail_thread"],
+    tools: &["recall_memory", "search_vault", "read_vault_note", "list_projects", "search_mail", "read_mail_thread", "recent_activity"],
     takes_request: true,
     listed: true,
     orchestrates: false,
@@ -169,7 +169,7 @@ pub const SKILLS: &[Skill] = &[Skill {
     agent: "olympus",
     purpose: "Handle one request from Kevin: answer a small one directly, or hand parts to Athena and Themis and give one answer from their reports.",
     instructions: PLAN_INSTRUCTIONS,
-    tools: &["list_projects", "recall_memory", "search_vault", "read_vault_note"],
+    tools: &["list_projects", "recall_memory", "search_vault", "read_vault_note", "recent_activity"],
     takes_request: true,
     listed: true,
     orchestrates: true,
@@ -185,7 +185,7 @@ pub const SKILLS: &[Skill] = &[Skill {
     agent: "research",
     purpose: "Carry out one research task handed over by the orchestrator and report findings with their sources.",
     instructions: ANSWER_INSTRUCTIONS,
-    tools: &["recall_memory", "search_vault", "read_vault_note", "list_projects", "search_mail", "read_mail_thread"],
+    tools: &["recall_memory", "search_vault", "read_vault_note", "list_projects", "search_mail", "read_mail_thread", "recent_activity"],
     takes_request: true,
     listed: false,
     orchestrates: false,
@@ -732,8 +732,31 @@ fn profile_of(skill: &Skill) -> Result<&'static Profile, String> {
 }
 
 /// A skill that is one engine run: the brief, an answer, an assignment.
+/// The last brief Kevin was given, so the next one can say what is new and follow up on what was open.
+pub fn previous_brief(connection: &Connection, before_run: &str) -> Option<String> {
+    let (output, finished): (String, String) = connection
+        .query_row(
+            "SELECT output_json, finished_at FROM agent_runs WHERE skill_id = 'opening-brief' AND status = 'completed' AND id <> ?1 AND output_json IS NOT NULL ORDER BY finished_at DESC LIMIT 1",
+            [before_run],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .ok()?;
+    let output: Value = serde_json::from_str(&output).ok()?;
+    let waiting: Vec<&str> = output["items"].as_array()?.iter().filter(|item| item["actionNeeded"] == true).filter_map(|item| item["headline"].as_str()).collect();
+    Some(format!(
+        "The previous brief, as data. It was delivered at {finished} (UTC).\n{}\n{}",
+        tagged("previous_brief", output["brief"].as_str()?),
+        tagged("was_waiting_on_kevin", &if waiting.is_empty() { "Nothing.".to_string() } else { waiting.join("\n") })
+    ))
+}
+
 fn run_direct(app: &AppHandle, run_id: &str, skill: &'static Skill, request: Option<&str>) -> Result<(Value, Turn), String> {
-    let turn = run_on_claude(app, run_id, profile_of(skill)?, skill.instructions, skill.prompt(&today(), request), skill.tools, skill.max_turns, skill.limit)?;
+    let mut prompt = skill.prompt(&today(), request);
+    if skill.id == "opening-brief" {
+        let earlier = app.state::<Db>().0.lock().ok().and_then(|connection| previous_brief(&connection, run_id));
+        prompt = format!("{}\n\n{prompt}", earlier.unwrap_or_else(|| "There is no previous brief: this is the first.".into()));
+    }
+    let turn = run_on_claude(app, run_id, profile_of(skill)?, skill.instructions, prompt, skill.tools, skill.max_turns, skill.limit)?;
     let mut answer = judge(&(skill.output_schema)(), skill.accept, &turn.text, &turn.called)?;
     mark_sources(&mut answer, &turn.seen);
     Ok((answer, turn))
@@ -997,7 +1020,7 @@ mod tests {
             (turn(good(), &["search_mail"]), "never called"),
             (turn(good(), &[]), "used no tools"),
             (turn(json!({"brief": "  ", "coverage": "x", "items": []}), &[]), "no text"),
-            (turn(json!({"brief": "word ".repeat(150), "coverage": "x", "items": []}), &[]), "spoken limit"),
+            (turn(json!({"brief": "word ".repeat(200), "coverage": "x", "items": []}), &[]), "spoken limit"),
             (turn(json!({"brief": "ok", "items": []}), &[]), ""),
             (turn(json!({"brief": "ok", "coverage": "x", "items": [], "decision": "Kevin approved"}), &[]), ""),
             (turn(json!({"brief": "ok", "coverage": "x", "items": [{"headline": "h", "why": "w", "actionNeeded": true, "sources": []}]}), &["search_mail"]), ""),
