@@ -1,4 +1,4 @@
-import { matchOperationRequest, operationReply, runOperation } from "../services/skillRuns";
+import { matchChatHandoff, operationReply, runOperation } from "../services/skillRuns";
 import { invoke } from "@tauri-apps/api/core";
 import {nativeBriefingScopeBarrier} from "../services/briefingScope";
 import {feedbackForBrief,resolveConversationTurn} from "../services/conversationFeedback";
@@ -486,18 +486,19 @@ export function useDashboardData() {
         finally{requestInFlight.current=false;setChatPending(false);}
         return;
       }
-      // `/ask <request>`: the turn is handed to Zeus as an operation. It follows the
-      // skill path above: the request is saved first, the answer is appended and
-      // saved when the run settles, and the Activity Deck shows the work meanwhile.
-      const operationRequest = matchOperationRequest(trimmed);
+      // A turn that asks for an Olympian (`/ask`, "have Themis check that", "Athena, find…")
+      // runs as an operation instead of a chat reply. It follows the skill path above:
+      // the request is saved first, the answer is appended and saved when the run
+      // settles, and the Activity Deck shows the work meanwhile.
+      const operationRequest = matchChatHandoff(trimmed, history.slice(0, -1).map(turn => ({ role: turn.role, content: turn.content })));
       if (operationRequest) {
         requestInFlight.current=true; setChatPending(true); setChatError(null);
-        setChatProgress("Zeus has it. The Activity Deck shows the work.");
+        setChatProgress(`${operationRequest.lead} has it. The Activity Deck shows the work.`);
         try {
           if(!await userSaved && !session.temporary)throw Error("Your request could not be saved.");
           const message=createAssistantMessage(session.temporary
             ? "An operation keeps a record of its request and steps, so it cannot start from a Temporary chat. Use a saved chat."
-            : operationReply(await runOperation(operationRequest)));
+            : operationReply(await runOperation(operationRequest.request, "claude-code", operationRequest.skillId)));
           if(sessionRef.current.id===session.id){
             dashboardRef.current={...dashboardRef.current,conversation:[...dashboardRef.current.conversation,message]};
             setDashboardState(dashboardRef.current); await remember([message],session);

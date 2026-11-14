@@ -18,7 +18,10 @@ export interface AnswerOutput { answer: string; unknowns: string[]; sources: Sou
 
 /** One line per hand-off: who took what, and whether it came back. */
 export const describeHandoff = (handoff: Handoff) => `${handoff.name}${handoff.status === "failed" ? " did not finish" : " reported"}: ${handoff.task}`;
-export type SkillOutput = BriefOutput | AnswerOutput;
+export interface Verdict { claim: string; verdict: "holds" | "partly_holds" | "does_not_hold" | "cannot_check"; basis: string; sources: SourceRef[] }
+export interface VerdictOutput { summary: string; verdicts: Verdict[] }
+export type SkillOutput = BriefOutput | AnswerOutput | VerdictOutput;
+export const isVerdicts = (output: SkillOutput): output is VerdictOutput => "verdicts" in output;
 export const isBrief = (output: SkillOutput): output is BriefOutput => "brief" in output;
 
 /** What Olympus observed an engine do, from run outcomes (`agent_usage`). A floor, not the account's meter. */
@@ -93,19 +96,52 @@ export async function startSkillRun(skillId: string, engine: string, request?: s
     return false;
   }
 }
-/**
- * A chat message that hands the request to Zeus as an operation rather than a
- * conversation turn: `/ask <request>` (or `/zeus`). Explicit on purpose; Kevin
- * chooses when work is orchestrated, since a hand-off costs several engine runs.
- */
+/** `/ask <request>` (or `/zeus`): the explicit way to hand a request to Zeus. */
 export function matchOperationRequest(text: string): string | null {
   const match = /^\/(?:ask|zeus)\s+([\s\S]+)$/i.exec(text.trim());
   return match && match[1].trim() ? match[1].trim() : null;
 }
 
+export interface ChatHandoff { skillId: "work-request" | "research-assignment" | "verification-assignment"; request: string; lead: string }
+export interface EarlierTurn { role: string; content: string }
+const CONTEXT_MARK = "\n\nEarlier in this conversation, for context:\n";
+/** A run's request without the conversation context appended to it. */
+export const requestHeadline = (request: string) => request.split(CONTEXT_MARK)[0];
+const NAMED = /\b(?:have|ask|get|let|tell|send|bring in|loop in)\s+(athena|themis)\b|\b(?:hand|pass|give)\s+(?:this|that|it)\s+(?:over\s+)?to\s+(athena|themis)\b|^\s*@?(athena|themis)\s*[,:\u2014-]/gi;
+const CHECK = /\b(?:have|get)\s+(?:it|this|that)\s+(?:double[- ]?checked|checked|verified)\b|\b(?:double[- ]?check|fact[- ]?check|verify)\s+(?:it|this|that)\b/i;
+const withContext = (text: string, earlier: readonly EarlierTurn[]) => {
+  const turns = earlier.slice(-2).map(turn => `${turn.role === "user" ? "Kevin" : "Olympus"}: ${turn.content.length > 2000 ? `${turn.content.slice(0, 2000)}…` : turn.content}`);
+  return turns.length ? `${text}${CONTEXT_MARK}${turns.join("\n\n")}`.slice(0, 5900) : text;
+};
+/**
+ * Whether a chat message asks for an Olympian, and which run that means.
+ * Deliberately literal, because a hand-off costs engine runs: it matches a
+ * message that addresses Athena or Themis, tells Olympus to use one, or asks
+ * for something to be checked. Mentioning a name ("what does Themis do?") is
+ * not asking for one. One named Olympian runs alone; both, or a check with
+ * nothing yet to check, go to Zeus to orchestrate.
+ */
+export function matchChatHandoff(text: string, earlier: readonly EarlierTurn[] = []): ChatHandoff | null {
+  const trimmed = text.trim();
+  const explicit = matchOperationRequest(trimmed);
+  if (explicit) return { skillId: "work-request", request: withContext(explicit, earlier), lead: "Zeus" };
+  if (trimmed.startsWith("/")) return null;
+  const named = new Set([...trimmed.matchAll(NAMED)].map(match => (match[1] ?? match[2] ?? match[3]).toLowerCase()));
+  const request = withContext(trimmed, earlier);
+  if (named.size > 1) return { skillId: "work-request", request, lead: "Zeus" };
+  if (named.has("athena")) return { skillId: "research-assignment", request, lead: "Athena" };
+  if (named.has("themis")) return { skillId: "verification-assignment", request, lead: "Themis" };
+  if (!CHECK.test(trimmed)) return null;
+  // "Double-check that" after an answer is a check of that answer. A question that ends
+  // "have it checked" has no answer yet: Zeus gets one, then has it checked.
+  const rest = trimmed.replace(CHECK, " ").split(/[^a-z']+/i).filter(Boolean);
+  const followUp = rest.length <= 4 && earlier.some(turn => turn.role !== "user");
+  return followUp ? { skillId: "verification-assignment", request, lead: "Themis" } : { skillId: "work-request", request, lead: "Zeus" };
+}
+
 /** Starts "Ask Olympus" and resolves with the run once it has finished or stopped. Rejects if it could not start. */
-export async function runOperation(request: string, engine = "claude-code"): Promise<SkillRun> {
-  const started = await invoke<SkillRun>("start_skill_run", { skillId: "work-request", engine, request });
+export async function runOperation(request: string, engine = "claude-code", skillId: ChatHandoff["skillId"] = "work-request"): Promise<SkillRun> {
+  const started = await invoke<SkillRun>("start_skill_run", { skillId, engine, request });
   set({ runs: mergeSkillRuns(state.runs, [started]), error: null });
   return new Promise(resolve => {
     const settled = () => state.runs.find(run => run.id === started.id && run.status !== "running");
@@ -121,6 +157,12 @@ export async function runOperation(request: string, engine = "claude-code"): Pro
 export function operationReply(run: SkillRun): string {
   if (run.status !== "completed" || !run.output || isBrief(run.output)) return `The operation stopped. ${run.error ?? "No reason was recorded."}`;
   const output = run.output;
+  if (isVerdicts(output)) {
+    const word = { holds: "Holds", partly_holds: "Partly holds", does_not_hold: "Does not hold", cannot_check: "Could not check" } as const;
+    const lines = output.verdicts.map(verdict => `- ${word[verdict.verdict]}: ${verdict.claim} ${verdict.basis}`);
+    const cited = output.verdicts.flatMap(verdict => verdict.sources).map(describeSource);
+    return [output.summary, lines.join("\n"), cited.length ? `Sources: ${[...new Set(cited)].join("; ")}` : ""].filter(Boolean).join("\n\n");
+  }
   const parts = [output.answer];
   if (output.unknowns.length) parts.push(`Not established: ${output.unknowns.join("; ")}`);
   if (output.handoffs?.length) parts.push(`Worked with: ${output.handoffs.map(handoff => `${handoff.name} (${handoff.status === "failed" ? "did not finish" : "reported"})`).join(", ")}`);

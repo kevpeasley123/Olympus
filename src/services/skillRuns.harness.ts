@@ -1,4 +1,4 @@
-import { describeHandoff, describeRun, describeSource, matchOperationRequest, operationReply, describeUsage, isBrief, latestRun, mergeSkillRuns, type SkillRun } from "./skillRuns";
+import { describeHandoff, describeRun, describeSource, matchChatHandoff, matchOperationRequest, operationReply, requestHeadline, describeUsage, isBrief, latestRun, mergeSkillRuns, type SkillRun } from "./skillRuns";
 
 export function runSkillRunsHarness() {
   let passed = 0;
@@ -32,5 +32,19 @@ export function runSkillRunsHarness() {
   const reply = operationReply(settledRun({ output: { answer: "Dry and economical.", unknowns: ["Whether it is in a note"], sources: [{ tool: "read_vault_note", reference: "a.md", verified: true }, { tool: "recall_memory", reference: "b.md", verified: false }], handoffs: [{ agent: "verification", name: "Themis", task: "Check it", status: "completed", runId: "r-h1" }] } }));
   check(reply.startsWith("Dry and economical.\n\nNot established: Whether it is in a note") && reply.includes("Themis") && reply.endsWith("recall_memory: b.md (not confirmed against this run)"), "An operation's chat reply carries the answer, what stayed open, the hand-offs and the sources");
   check(operationReply(settledRun({ status: "failed", error: "Claude Code stopped the run: usage limit." })) === "The operation stopped. Claude Code stopped the run: usage limit.", "A stopped operation says why in the chat");
+  const earlier = [{ role: "user", content: "What briefing style did I ask for?" }, { role: "assistant", content: "Concise and conversational." }];
+  const route = (text: string, turns = earlier) => { const match = matchChatHandoff(text, turns); return match ? `${match.lead}:${match.skillId}` : null; };
+  check(route("Have Themis check that") === "Themis:verification-assignment" && route("themis, is that right?") === "Themis:verification-assignment" && route("Can you ask Themis to verify the dates") === "Themis:verification-assignment", "Naming Themis sends the turn to Themis alone");
+  check(route("Athena, find everything I've written about briefings") === "Athena:research-assignment" && route("get Athena on this") === "Athena:research-assignment" && route("hand this to Athena") === "Athena:research-assignment", "Naming Athena sends the turn to Athena alone");
+  check(route("Have Athena research it and have Themis check her work") === "Zeus:work-request", "Naming both goes to Zeus to orchestrate");
+  check(route("double-check that") === "Themis:verification-assignment" && route("Can you verify this?") === "Themis:verification-assignment", "A short request for a check after an answer goes to Themis");
+  check(route("double-check that", []) === "Zeus:work-request" && route("Which project has no next step? Have it checked.") === "Zeus:work-request", "A check with nothing yet to check goes to Zeus");
+  check(route("/ask what changed") === "Zeus:work-request", "/ask still goes to Zeus");
+  check([ "What does Themis do?", "Who are Athena and Themis?", "Tell me about Athena's tools", "I checked that already", "How do I verify a signature in Rust?", "/project-review olympus" ].every(text => route(text) === null), "Mentioning a name, or checking in general, is ordinary chat");
+  const carried = matchChatHandoff("Have Themis check that", earlier)!.request;
+  check(carried.startsWith("Have Themis check that\n\nEarlier in this conversation") && carried.includes("Olympus: Concise and conversational.") && carried.includes("Kevin: What briefing style") && requestHeadline(carried) === "Have Themis check that", "The request carries the last two turns, and its headline is the message alone");
+  check(matchChatHandoff("Athena, look", [{ role: "assistant", content: "x".repeat(9000) }])!.request.length <= 5900, "Carried context stays inside the request bound");
+  const verdictReply = operationReply(settledRun({ agent: "verification", output: { summary: "One claim holds.", verdicts: [{ claim: "It is in the profile.", verdict: "partly_holds", basis: "General style only.", sources: [{ tool: "read_vault_note", reference: "a.md", verified: true }] }, { claim: "It is dated.", verdict: "cannot_check", basis: "No date.", sources: [] }] } }));
+  check(verdictReply === "One claim holds.\n\n- Partly holds: It is in the profile. General style only.\n- Could not check: It is dated. No date.\n\nSources: read_vault_note: a.md", "Themis's verdicts read as a chat reply");
   return { passed };
 }
