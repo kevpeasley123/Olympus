@@ -30,6 +30,22 @@ that server still stops the run. In an orchestrated run, Zeus's planning notes
 and citations are passed to his final answer, so a failed hand-off does not
 cost what he already read.
 
+**Asking for an Olympian in the chat** (`matchChatHandoff` in
+`src/services/skillRuns.ts`). The match is literal on purpose, because a hand-off
+costs engine runs:
+
+| The message | Runs |
+|---|---|
+| Addresses or names one: "Athena, find...", "have Themis check that", "ask Athena to..." | That Olympian alone (one engine run) |
+| Names both | Zeus, who orchestrates |
+| Asks for a check and is little else ("double-check that"), after an answer | Themis alone |
+| Asks a question and for it to be checked ("...? Have it checked.") | Zeus |
+| `/ask ...` | Zeus |
+| Only mentions a name ("what does Themis do?") | Ordinary chat |
+
+The request carries the last two turns of the conversation, so "that" has a
+referent; a request is bounded at 6,000 characters.
+
 A chat message starting `/ask` (or `/zeus`) starts "Ask Olympus" on Claude Code
 with the rest of the message as the request. The request is saved as the user's
 turn, the Activity Deck shows the run, and the answer is appended and saved as

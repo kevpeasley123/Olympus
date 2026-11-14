@@ -55,6 +55,9 @@ Themis's verdicts are `holds`, `partly_holds`, `does_not_hold` or `cannot_check`
 `partly_holds` is for a source that supports only part of a claim, or only
 something more general.
 
+Athena and Themis can also be asked for directly in the chat, which runs one
+of them alone without Zeus (SKILL-RUNNER.md, "Asking for an Olympian in the chat").
+
 A request with two hand-offs is four engine runs. That is why small requests end
 after the plan.
 
