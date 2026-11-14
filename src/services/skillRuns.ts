@@ -141,7 +141,17 @@ export function matchChatHandoff(text: string, earlier: readonly EarlierTurn[] =
 
 /** Starts "Ask Olympus" and resolves with the run once it has finished or stopped. Rejects if it could not start. */
 export async function runOperation(request: string | null, engine = "claude-code", skillId: ChatHandoff["skillId"] | "opening-brief" = "work-request"): Promise<SkillRun> {
-  const started = await invoke<SkillRun>("start_skill_run", { skillId, engine, request });
+  let started: SkillRun;
+  try { started = await invoke<SkillRun>("start_skill_run", { skillId, engine, request }); }
+  catch (error) {
+    // One run per skill at a time. A run of this skill already in progress (started at app
+    // open, or by a second click) is the one to wait for, not a reason to fail.
+    const running = String(error).includes("already running") && skillId === "opening-brief"
+      ? (await invoke<SkillRun[]>("list_skill_runs", { limit: 20 }).catch(() => [])).find(run => run.skillId === skillId && run.status === "running")
+      : undefined;
+    if (!running) throw error;
+    started = running;
+  }
   set({ runs: mergeSkillRuns(state.runs, [started]), error: null });
   return new Promise(resolve => {
     const settled = () => state.runs.find(run => run.id === started.id && run.status !== "running");
