@@ -3332,7 +3332,7 @@ dependencies = [
 
 [[package]]
 name = "project-olympus"
-version = "0.59.0"
+version = "0.60.0"
 dependencies = [
  "base64 0.22.1",
  "chrono",

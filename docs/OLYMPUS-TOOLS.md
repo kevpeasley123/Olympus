@@ -25,6 +25,7 @@ All six are read-only. An engine sees them as `mcp__olympus__<name>`.
 | `search_vault` | Up to 10 vault notes matching the query, with a short excerpt |
 | `read_vault_note` | One Markdown note by vault-relative path, in parts of 3,800 characters: `nextFrom` gives the `from` for the next part and is null at the end |
 | `list_projects` | The dashboard's projects with status, vision and recorded next step |
+| `recent_activity` | What changed in the last 1 to 14 days (default 3): non-promotional mail, open mail situations, vault notes changed (learned records counted, not listed), titled chats, open tasks, the Gmail connection state and newest cached message, and which Olympus is answering (`thisOlympus`). Each entry is a pointer; a missing table reads `unavailable`. |
 
 Every string in an answer is capped at 4,000 characters and every list at 20
 entries.

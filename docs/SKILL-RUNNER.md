@@ -7,7 +7,8 @@ activity stream ([AGENT-EVENTS.md](AGENT-EVENTS.md)), and accepts the answer
 only if it passes the skill's test.
 
 This is how workflows move off hand-built pipelines: the opening brief is the
-first, as a trial that runs beside the existing brief and replaces nothing.
+first. With the Olympians briefing workflow selected it is the brief Kevin hears
+(BRIEFING-SYNTHESIS.md).
 
 ## Skills
 
@@ -17,7 +18,7 @@ contract grants no execution authority.
 
 | Skill | Credited to | Tools | Budget | Accepted when |
 | --- | --- | --- | --- | --- |
-| `opening-brief` v1, "Opening brief (trial)" | `olympus` (Zeus) | `search_mail`, `read_mail_thread`, `recall_memory`, `list_projects`, `read_vault_note` | 16 turns, 5 minutes | The answer matches its schema, the brief is at most 140 words, and every item cites a tool this run actually called |
+| `opening-brief` v1, "Opening brief" | `olympus` (Zeus) | `recent_activity`, `search_mail`, `read_mail_thread`, `recall_memory`, `search_vault`, `list_projects`, `read_vault_note` | 24 turns, 5 minutes | The answer matches its schema, the brief is at most 190 words, and every item cites a tool this run actually called |
 | `answer-from-sources` v1, "Answer from my sources" | `research` (Athena) | `recall_memory`, `search_vault`, `read_vault_note`, `list_projects`, `search_mail`, `read_mail_thread` | 22 turns, 5 minutes | The answer matches its schema, the run called at least one tool, and it cites only tools it called. Saying the sources do not answer the question is a valid result |
 
 | `work-request` v1, "Ask Olympus" | `olympus` (Zeus) | `list_projects`, `recall_memory`, `search_vault`, `read_vault_note` | 12 turns per phase, plus up to two hand-offs | The final answer matches its schema and cites only tools called by this run or its hand-offs. See [OLYMPIANS.md](OLYMPIANS.md) |
@@ -128,9 +129,6 @@ Text-only launches are unchanged and still refuse every tool signal.
 
 - **Codex and local models** as skill engines.
 - **Cancelling** a run. It ends at its turn or time budget.
-- **Using a result.** A completed trial brief is stored and shown for
-  comparison; it is not spoken, not saved as the opening brief, and not learned
-  from.
 
 ## Verification
 
