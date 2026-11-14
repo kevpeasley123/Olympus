@@ -1,7 +1,7 @@
 import type { AgentEvent } from "./agentEvents";
 import { groupAgentRuns } from "./agentEvents";
 import type { AnswerOutput, SkillEntry, SkillRun } from "./skillRuns";
-import { isBrief } from "./skillRuns";
+import { isBrief, isVerdicts, requestHeadline } from "./skillRuns";
 
 /**
  * The Activity Deck's whole model, derived from recorded state and nothing
@@ -86,10 +86,10 @@ function plannedParts(events: readonly AgentEvent[]): PlannedPart[] | null {
 }
 
 const finding = (run: SkillRun): string | null => {
-  const output = run.output as (AnswerOutput & { summary?: string }) | null;
+  const output = run.output;
   if (!output) return null;
   if (isBrief(output)) return output.brief;
-  return output.summary ?? output.answer ?? null;
+  return isVerdicts(output) ? output.summary : (output as AnswerOutput).answer ?? null;
 };
 const steps = (events: readonly AgentEvent[]): DeckStep[] =>
   events.filter(event => event.kind !== "thinking").slice(-5).map(event => ({ id: event.id, text: describeStep(event), at: event.createdAt }));
@@ -97,7 +97,7 @@ const lastStep = (events: readonly AgentEvent[], fallback: string) => events.len
 
 function operationTitle(run: SkillRun, skills: readonly SkillEntry[]): string {
   const title = skills.find(skill => skill.id === run.skillId)?.title ?? run.skillId;
-  return run.request ? clip(run.request.replace(/\s+/g, " "), 90) : title;
+  return run.request ? clip(requestHeadline(run.request).replace(/\s+/g, " "), 90) : title;
 }
 
 function fromSkillRun(root: SkillRun, runs: readonly SkillRun[], events: readonly AgentEvent[], skills: readonly SkillEntry[]): { operation: Omit<DeckOperation, "alsoRunning">; agents: DeckAgent[] } {
@@ -138,7 +138,7 @@ function fromSkillRun(root: SkillRun, runs: readonly SkillRun[], events: readonl
   // Stages are countable only once a plan with hand-offs is accepted: the plan, each hand-off, the answer.
   const total = plan && plan.length ? plan.length + 2 : 0;
   const done = total ? (running ? 1 + settled : total) : 0;
-  const line = running ? (working ? `${deckName(working.agent)} is working` : plan === null ? `${lead} is planning` : plan.length ? (settled >= plan.length ? `${lead} is writing the answer` : `${lead} is coordinating`) : `${lead} is answering`)
+  const line = running ? (working ? `${deckName(working.agent)} is working` : root.skillId !== "work-request" ? `${lead} is working` : plan === null ? `${lead} is planning` : plan.length ? (settled >= plan.length ? `${lead} is writing the answer` : `${lead} is coordinating`) : `${lead} is answering`)
     : root.status === "completed" ? "Completed" : `Stopped. ${clip(root.error ?? "No reason recorded.", 120)}`;
   return {
     operation: { id: root.id, title: operationTitle(root, skills), status: root.status, line, progress: total && root.status !== "failed" ? { done, total } : null, startedAt: root.startedAt, finishedAt: root.finishedAt, run: root },

@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from "react";
-import { describeHandoff, describeSource, describeUsage, isBrief, skillRunsSnapshot, subscribeSkillRuns, type SkillRun, type SourceRef } from "../../services/skillRuns";
+import { describeHandoff, describeSource, describeUsage, isBrief, isVerdicts, requestHeadline, skillRunsSnapshot, subscribeSkillRuns, type SkillRun, type SourceRef } from "../../services/skillRuns";
 import { engineLabel } from "../../services/agentEvents";
 import "./agentActivityFeed.css";
 
@@ -17,8 +17,12 @@ export function SkillRunResult({ run }: { run: SkillRun }) {
     </li>)}</ul>}
     <small>{output.coverage}</small>
   </div>;
+  if (isVerdicts(output)) return <div className="skill-trial-result">
+    <p>{output.summary}</p>
+    <ul>{output.verdicts.map((verdict, index) => <li key={index}><strong>{verdict.verdict.replace(/_/g, " ")}</strong><span>{verdict.claim}</span><span>{verdict.basis}</span><small>{cite(verdict.sources)}</small></li>)}</ul>
+  </div>;
   return <div className="skill-trial-result">
-    {run.request && <small>{run.request}</small>}
+    {run.request && <small>{requestHeadline(run.request)}</small>}
     <p>{output.answer}</p>
     {output.handoffs && output.handoffs.length > 0 && <ul aria-label="Hand-offs">{output.handoffs.map(handoff => <li key={handoff.runId} data-status={handoff.status}><span>{describeHandoff(handoff)}</span></li>)}</ul>}
     {output.unknowns.length > 0 && <ul>{output.unknowns.map((gap, index) => <li key={index}><span>Not found: {gap}</span></li>)}</ul>}

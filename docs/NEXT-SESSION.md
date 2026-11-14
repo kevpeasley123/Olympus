@@ -1,8 +1,8 @@
 # Next session
 
-## Olympus 0.57.0 - merged November 13, 2026, not yet installed
+## Olympus 0.58.0 - merged November 13, 2026, not yet installed
 
-0.54.0 to 0.57.0 (pull requests 38 to 41) are merged; none has been
+0.54.0 to 0.58.0 (pull requests 38 to 42) are merged; none has been
 installed. Install with `npm run update` from `Desktop/Projects/Olympus`; the
 "Update Olympus" desktop shortcut needs recreating. Until then the installed 0.53
 cannot open the database: the development build already moved it to schema 10. A
@@ -64,6 +64,9 @@ He selects the engine himself; automatic, cost-aware routing comes later.
 
 ## Known issues
 
+- Asking for Athena or Themis in the chat routes by fixed phrases
+  (`matchChatHandoff`), not by the model's judgment; a phrasing it does not know
+  stays ordinary chat. Never driven from the interface.
 - The Claude Code chat has the read-only tools; the Codex chat does
   not, so it still cannot open notes. `/ask` remains the way to get a checked answer.
 - Hand-offs run one after another, never in parallel. A run cannot be cancelled.
@@ -76,7 +79,7 @@ He selects the engine himself; automatic, cost-aware routing comes later.
 
 ## Next steps
 
-1. Install 0.57.0 and repeat one "Ask Olympus" run in the installed app.
+1. Install 0.58.0 and repeat one "Ask Olympus" run in the installed app.
 2. Run the browser and visual suites on the PC.
 3. Give the Codex chat the same tools through its app-server.
 4. Decide whether `/ask` needs a button or an automatic choice.
