@@ -1,4 +1,4 @@
-import { matchChatHandoff, operationReply, runOperation } from "../services/skillRuns";
+import { isBrief, matchChatHandoff, operationReply, runOperation } from "../services/skillRuns";
 import { invoke } from "@tauri-apps/api/core";
 import {nativeBriefingScopeBarrier} from "../services/briefingScope";
 import {feedbackForBrief,resolveConversationTurn} from "../services/conversationFeedback";
@@ -314,6 +314,26 @@ export function useDashboardData() {
       .filter(p => p.repoState === "git-active" || p.repoState === "git-pending")
       .sort((a, b) => (Date.parse(b.lastCommitAt ?? "") || 0) - (Date.parse(a.lastCommitAt ?? "") || 0))
       .slice(0, 3).map(p => p.id);
+    // The Olympians workflow: Zeus prepares the brief as a skill run with Olympus's own
+    // read-only tools. The run is in the Activity Deck while it works; the spoken text
+    // is saved to this chat like any brief. A failure says so and substitutes nothing.
+    const routes = await invoke<{settings:Record<string,string>}>("load_persisted_state").catch(()=>null);
+    if (routes?.settings["briefing.workflow.v1"] === "harness") {
+      try {
+        const run = await runOperation(null, "claude-code", "opening-brief");
+        if (!active()) return true;
+        if (run.status !== "completed" || !run.output || !isBrief(run.output)) { setChatError(`The brief could not finish. ${run.error ?? "No reason was recorded."}`); return true; }
+        const brief = createAssistantMessage(run.output.brief);
+        brief.id = `${BRIEFING_ID_PREFIX}${crypto.randomUUID()}`;
+        brief.kind = "briefing";
+        brief.voice = { kind: "output", spokenResponse: brief.content, ...(dashboardRef.current.settings.autoSpeak ? {} : { playback: "skipped" as const }) };
+        dashboardRef.current = { ...dashboardRef.current, conversation: [...dashboardRef.current.conversation, brief] };
+        setDashboardState(dashboardRef.current);
+        setOpeningBriefing({ id: brief.id, text: brief.content });
+        if (!await remember([brief], session)) setChatError("The brief was shown but could not be saved to this chat.");
+      } catch (error) { if (active()) setChatError(`The brief could not start. ${errorMessage(error)}`); }
+      return true;
+    }
     let message: ConversationMessage | null;
     try {
         const previous = await invoke<ConversationMessage|null>("briefing_previous", {conversationId:session.id}).catch(()=>null);

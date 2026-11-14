@@ -140,7 +140,7 @@ export function matchChatHandoff(text: string, earlier: readonly EarlierTurn[] =
 }
 
 /** Starts "Ask Olympus" and resolves with the run once it has finished or stopped. Rejects if it could not start. */
-export async function runOperation(request: string, engine = "claude-code", skillId: ChatHandoff["skillId"] = "work-request"): Promise<SkillRun> {
+export async function runOperation(request: string | null, engine = "claude-code", skillId: ChatHandoff["skillId"] | "opening-brief" = "work-request"): Promise<SkillRun> {
   const started = await invoke<SkillRun>("start_skill_run", { skillId, engine, request });
   set({ runs: mergeSkillRuns(state.runs, [started]), error: null });
   return new Promise(resolve => {

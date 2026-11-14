@@ -45,7 +45,8 @@ pub(crate) fn config(c:&Connection)->Result<Config,String> {
     let setting=|key:&str,default:&str|->Result<String,String>{Ok(c.query_row("SELECT value FROM settings WHERE key=?1",[key],|r|r.get(0)).optional().map_err(error)?.unwrap_or_else(||default.into()))};
     let workflow=setting("briefing.workflow.v1","legacy")?;
     let provider=setting("briefing.provider.v1","ollama")?;
-    if !matches!(workflow.as_str(),"legacy"|"shadow"|"investigative") || !matches!(provider.as_str(),"ollama"|"codex"|"claude-code") { return Err("briefing_configuration_invalid".into()); }
+    // "harness" is run by the skill runner from the interface; it never reaches the native routes below.
+    if !matches!(workflow.as_str(),"legacy"|"shadow"|"investigative"|"harness") || !matches!(provider.as_str(),"ollama"|"codex"|"claude-code") { return Err("briefing_configuration_invalid".into()); }
     Ok(Config{workflow,provider})
 }
 fn plan_schema()->Value { json!({"type":"object","additionalProperties":false,"required":["tool","id","offset"],"properties":{"tool":{"type":"string","enum":["changes","thread","section","memory","projects","done"]},"id":{"type":"string","maxLength":256},"offset":{"type":"integer","minimum":0,"maximum":1000000}}}) }

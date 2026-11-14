@@ -229,6 +229,8 @@ fn recent_activity(connection: &Connection, vault: Option<&Path>, days: i64) -> 
     json!({
         "now": chrono::Utc::now().format("%Y-%m-%dT%H:%M:%SZ").to_string(),
         "lookedBackDays": days,
+        // The copy of Olympus answering this call, so a note that says "not installed yet" can be checked against what is running.
+        "thisOlympus": {"version": env!("CARGO_PKG_VERSION"), "build": if cfg!(debug_assertions) { "development build" } else { "installed release" }},
         "gmailConnection": connection_state,
         "mail": mail,
         "mailSituations": situations,
@@ -584,6 +586,30 @@ mod tests {
         assert_eq!(config.pointer("/mcpServers/olympus/args").unwrap(), &json!([FLAG, "--db", "a.sqlite"]));
         let config = mcp_config(Path::new("olympus.exe"), Path::new("a.sqlite"), None, &["search_mail", "list_projects"]);
         assert_eq!(config.pointer("/mcpServers/olympus/args").unwrap(), &json!([FLAG, "--db", "a.sqlite", "--allow", "search_mail,list_projects"]));
+    }
+
+    #[test]
+    fn recent_activity_points_to_what_changed_and_says_what_it_cannot_read() {
+        let connection = memory_db();
+        let vault = std::env::temp_dir().join(format!("olympus-recent-{}", std::process::id()));
+        std::fs::create_dir_all(vault.join("01 - Projects")).unwrap();
+        std::fs::create_dir_all(vault.join(LEARNED_FOLDER)).unwrap();
+        std::fs::write(vault.join("01 - Projects/Today.md"), "new").unwrap();
+        std::fs::write(vault.join(LEARNED_FOLDER).join("abc.md"), "learned").unwrap();
+        let (found, failed) = tool(&connection, Some(&vault), "recent_activity", json!({"days": 2}));
+        assert!(!failed);
+        assert_eq!(found["lookedBackDays"], 2);
+        assert_eq!(found["thisOlympus"]["version"], env!("CARGO_PKG_VERSION"));
+        let notes = found["vaultNotes"]["changed"].as_array().unwrap();
+        assert!(notes.len() == 1 && notes[0]["path"].as_str().unwrap().ends_with("Today.md"), "learned records are counted, not listed");
+        assert_eq!(found["vaultNotes"]["learnedRecordsChanged"], 1);
+        // Every store section is either rows or an honest marker; a database without a table never fails the call.
+        for part in ["gmailConnection", "mail", "mailSituations", "chatsWithOlympus", "openTasks"] {
+            assert!(found[part].is_array() || found[part]["unavailable"] == true, "{part}");
+        }
+        let (no_vault, failed) = tool(&connection, None, "recent_activity", json!({}));
+        assert!(!failed && no_vault["vaultNotes"]["unavailable"] == true && no_vault["lookedBackDays"] == 3);
+        let _ = std::fs::remove_dir_all(&vault);
     }
 
     #[test]
