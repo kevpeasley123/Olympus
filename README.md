@@ -103,7 +103,9 @@ releases.
 the local checkout to `origin/master` and, when master is newer than the installed
 app, builds and installs it through the same script. It stops on a dirty or
 diverged checkout; a tracked file whose only change is its line endings (the
-build rewrites `src-tauri/Cargo.toml`) is re-staged rather than counted. Running the script with `-CreateShortcut` puts an **Update
+build rewrites `src-tauri/Cargo.toml`) is re-staged rather than counted. It asks a running Olympus to close and, after
+20 seconds, ends any Olympus process still running (an agent's tool server, or a
+window another app has hidden). Running the script with `-CreateShortcut` puts an **Update
 Olympus** icon on the desktop that runs it.
 
 ## Delegate a coding task
