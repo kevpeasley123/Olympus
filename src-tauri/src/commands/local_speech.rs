@@ -14,25 +14,40 @@ pub fn cancel_local_speech() {
     }
 }
 
+/// Where the voice runtime is found, first match wins: the environment
+/// (`OLYMPUS_VOICE_PYTHON`, `OLYMPUS_VOICE_MODELS`), then `local-voice` in the
+/// app data folder, then `.local-voice` in a development checkout. A configured
+/// path that no longer exists falls through rather than failing: moving the
+/// checkout on November 10 left both the environment and the runtime pointing
+/// at a folder that was gone, and speech stopped without saying why.
+fn voice_paths(app_data: Option<PathBuf>) -> Result<(PathBuf, PathBuf), String> {
+    let dev_root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../.local-voice");
+    let roots: Vec<PathBuf> = app_data.map(|dir| dir.join("local-voice")).into_iter().chain(cfg!(debug_assertions).then_some(dev_root)).collect();
+    let find = |key: &str, relative: &str, ok: fn(&PathBuf) -> bool| {
+        std::env::var_os(key)
+            .map(PathBuf::from)
+            .into_iter()
+            .chain(roots.iter().map(|root| root.join(relative)))
+            .find(ok)
+    };
+    let python = find("OLYMPUS_VOICE_PYTHON", "runtime/Scripts/python.exe", |p| p.is_file()).ok_or("Configure the local Olympus voice Python runtime.")?;
+    let models = find("OLYMPUS_VOICE_MODELS", "models", |p| p.is_dir()).ok_or("Configure the local Olympus voice model folder.")?;
+    Ok((python, models))
+}
+
 #[tauri::command]
-pub async fn local_speech(kind: String, value: String) -> Result<String, String> {
+pub async fn local_speech(app: tauri::AppHandle, kind: String, value: String) -> Result<String, String> {
+    use tauri::Manager;
+    let (python, models) = voice_paths(app.path().app_data_dir().ok())?;
+    speak_or_transcribe(python, models, kind, value).await
+}
+
+async fn speak_or_transcribe(python: PathBuf, models: PathBuf, kind: String, value: String) -> Result<String, String> {
     match kind.as_str() {
         "transcribe" if !value.is_empty() && value.len() <= 2_560_000 => {}
         "speak" if !value.trim().is_empty() && value.chars().count() <= 2500 => {}
         _ => return Err("Local speech input is empty or too long.".into()),
     }
-    let dev_root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../.local-voice");
-    let configured = |key, relative: &str| {
-        std::env::var_os(key)
-            .map(PathBuf::from)
-            .or_else(|| cfg!(debug_assertions).then(|| dev_root.join(relative)))
-    };
-    let python = configured("OLYMPUS_VOICE_PYTHON", "runtime/Scripts/python.exe")
-        .filter(|p| p.is_file())
-        .ok_or("Configure the local Olympus voice Python runtime.")?;
-    let models = configured("OLYMPUS_VOICE_MODELS", "models")
-        .filter(|p| p.is_dir())
-        .ok_or("Configure the local Olympus voice model folder.")?;
     let data =
         serde_json::to_vec(&json!({"kind":kind,"value":value})).map_err(|e| e.to_string())?;
     let (sender, cancel) = oneshot::channel();
@@ -92,6 +107,22 @@ pub async fn local_speech(kind: String, value: String) -> Result<String, String>
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_stale_configured_path_falls_through_to_the_app_data_runtime() {
+        let data = std::env::temp_dir().join(format!("olympus-voice-{}", std::process::id()));
+        let root = data.join("local-voice");
+        std::fs::create_dir_all(root.join("runtime/Scripts")).unwrap();
+        std::fs::create_dir_all(root.join("models")).unwrap();
+        std::fs::write(root.join("runtime/Scripts/python.exe"), "").unwrap();
+        std::env::set_var("OLYMPUS_VOICE_PYTHON", data.join("moved-away/python.exe"));
+        std::env::set_var("OLYMPUS_VOICE_MODELS", data.join("moved-away/models"));
+        let (python, models) = voice_paths(Some(data.clone())).unwrap();
+        assert_eq!((python, models), (root.join("runtime/Scripts/python.exe"), root.join("models")));
+        std::env::remove_var("OLYMPUS_VOICE_PYTHON");
+        std::env::remove_var("OLYMPUS_VOICE_MODELS");
+        let _ = std::fs::remove_dir_all(&data);
+    }
     #[test]
     #[ignore = "requires locally provisioned Whisper and Kokoro models"]
     fn offline_worker_round_trip() {
@@ -102,7 +133,8 @@ mod tests {
             .unwrap();
         rt.block_on(async {
             let start = std::time::Instant::now();
-            let result = local_speech("speak".into(), "Olympus project review is ready.".into())
+            let (python, models) = voice_paths(std::env::var_os("APPDATA").map(|dir| PathBuf::from(dir).join("com.projectolympus.commandstation"))).unwrap();
+            let result = speak_or_transcribe(python.clone(), models.clone(), "speak".into(), "Olympus project review is ready.".into())
                 .await
                 .unwrap();
             let wav = STANDARD.decode(result).unwrap();
@@ -117,7 +149,7 @@ mod tests {
                 resampled.extend_from_slice(&samples[i * sample_rate / 16000].to_le_bytes());
             }
             let synthesis = start.elapsed();
-            let transcript = local_speech("transcribe".into(), STANDARD.encode(resampled))
+            let transcript = speak_or_transcribe(python, models, "transcribe".into(), STANDARD.encode(resampled))
                 .await
                 .unwrap();
             println!(

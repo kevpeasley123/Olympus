@@ -1,8 +1,8 @@
 # Next session
 
-## Olympus 0.61.0 - merged November 14, 2026
+## Olympus 0.62.0 - merged November 14, 2026
 
-0.54.0 to 0.61.0 (pull requests 38 to 45) are merged. Kevin installed 0.58.0 on
+0.54.0 to 0.62.0 (pull requests 38 to 47) are merged. Kevin installed 0.58.0 on
 November 13 and it opened almost unstyled: a brace lost from `activityDeck.css`
 in 0.57.0 broke the joined production stylesheet. 0.59.0 fixes it and must be
 installed with `npm run update` from `Desktop/Projects/Olympus`. The installed
@@ -12,6 +12,9 @@ The opening brief now runs on the Olympians workflow (0.60.0,
 BRIEFING-SYNTHESIS.md). The Codex briefing path refuses with a purchased-credits
 notice on Kevin's account and has produced no brief since November 13. Kevin
 reconnected Gmail on November 14; mail is current again.
+
+Local speech (Whisper and Kokoro) runs from `%APPDATA%\com.projectolympus.commandstation\local-voice` since
+0.62.0; it had been silent since the November 10 checkout move.
 
 Before any release that touches CSS, render the production bundle
 (`npm run build`, `npx vite preview`), not only the development harness: the
