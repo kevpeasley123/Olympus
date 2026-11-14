@@ -25,7 +25,7 @@ const VAULT_SCAN_LIMIT: usize = 5000;
 const LEARNED_FOLDER: &str = "09 - System/Learned";
 
 /// The tools an engine may be allowed, as `mcp__olympus__<name>`.
-pub const TOOLS: &[&str] = &["search_mail", "read_mail_thread", "recall_memory", "search_vault", "read_vault_note", "list_projects"];
+pub const TOOLS: &[&str] = &["search_mail", "read_mail_thread", "recall_memory", "search_vault", "read_vault_note", "list_projects", "recent_activity"];
 
 pub fn qualified(tool: &str) -> String {
     format!("mcp__{SERVER_NAME}__{tool}")
@@ -45,7 +45,9 @@ fn definitions() -> Value {
         {"name": "read_vault_note", "description": "Read one Markdown note from the vault by its vault-relative path. A long note comes in parts: when the answer's `nextFrom` is a number, call again with that number as `from` to read on; `nextFrom` null means you have reached the end. Read-only.",
          "inputSchema": {"type": "object", "properties": {"path": {"type": "string", "description": "Vault-relative path ending in .md"}, "from": {"type": "integer", "minimum": 0, "description": "Where to start, in characters. Omit for the beginning; otherwise the `nextFrom` of the previous part."}}, "required": ["path"], "additionalProperties": false}},
         {"name": "list_projects", "description": "List the projects on Kevin's Olympus dashboard with their status, vision and recorded next step. Read-only.",
-         "inputSchema": {"type": "object", "properties": {}, "additionalProperties": false}}
+         "inputSchema": {"type": "object", "properties": {}, "additionalProperties": false}},
+        {"name": "recent_activity", "description": "What has changed lately across Kevin's mail, ongoing mail situations, vault notes, chats with Olympus and open tasks, newest first, with the state of the Gmail connection. The place to start when asked what is new. Each entry is a pointer: read the thread or note before relying on it. Read-only.",
+         "inputSchema": {"type": "object", "properties": {"days": {"type": "integer", "minimum": 1, "maximum": 14, "description": "How far back to look. Default 3."}}, "additionalProperties": false}}
     ])
 }
 
@@ -141,6 +143,103 @@ fn search_notes(root: &Path, folder: &Path, query: &str, whole: bool) -> Result<
     Ok(Value::Array(hits.into_iter().take(LIST_LIMIT).map(|(score, path, text)| json!({"path": path, "matchedWords": score, key: text})).collect()))
 }
 
+/// Rows of one query as JSON objects, or a note that this part could not be read. A missing
+/// table is ordinary here: the server also runs against databases older than a feature.
+fn rows(connection: &Connection, sql: &str, since: &str, fields: &[&str]) -> Value {
+    let read = || -> rusqlite::Result<Vec<Value>> {
+        let mut statement = connection.prepare(sql)?;
+        let found = statement
+            .query_map([since], |row| {
+                let mut entry = serde_json::Map::new();
+                for (index, field) in fields.iter().enumerate() {
+                    let value: Option<String> = row.get::<_, Option<rusqlite::types::Value>>(index)?.map(|value| match value {
+                        rusqlite::types::Value::Text(text) => text,
+                        rusqlite::types::Value::Integer(number) => number.to_string(),
+                        rusqlite::types::Value::Real(number) => number.to_string(),
+                        _ => String::new(),
+                    });
+                    entry.insert((*field).into(), value.map_or(Value::Null, |text| Value::String(text.chars().take(240).collect())));
+                }
+                Ok(Value::Object(entry))
+            })?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
+        Ok(found)
+    };
+    read().map(Value::Array).unwrap_or_else(|_| json!({"unavailable": true}))
+}
+
+/// What changed in the last `days` days, as pointers into the other tools. Counts and
+/// dates come from the stores themselves; nothing here is summarised or judged.
+fn recent_activity(connection: &Connection, vault: Option<&Path>, days: i64) -> Value {
+    let since = format!("-{days} days");
+    let connection_state = rows(
+        connection,
+        "SELECT status, last_success, last_error, (SELECT strftime('%Y-%m-%dT%H:%M:%SZ', max(internal_date) / 1000, 'unixepoch') FROM gmail_messages WHERE available = 1) \
+         FROM gmail_accounts WHERE ?1 IS NOT NULL LIMIT 1",
+        &since,
+        &["status", "lastSuccessfulSync", "lastError", "newestCachedMessage"],
+    );
+    let mail = rows(
+        connection,
+        "SELECT thread_id, json_extract(snapshot_json, '$.sender'), json_extract(snapshot_json, '$.subject'), strftime('%Y-%m-%dT%H:%M:%SZ', internal_date / 1000, 'unixepoch') \
+         FROM gmail_messages WHERE available = 1 AND in_scope = 1 AND internal_date >= CAST(strftime('%s', 'now', ?1) AS INTEGER) * 1000 \
+           AND coalesce(json_extract(snapshot_json, '$.labels'), '') NOT LIKE '%CATEGORY_PROMOTIONS%' \
+         ORDER BY internal_date DESC LIMIT 15",
+        &since,
+        &["threadId", "from", "subject", "receivedAt"],
+    );
+    let situations = rows(
+        connection,
+        "SELECT title, state, updated_at FROM communication_situations WHERE state IN ('active', 'emerging') AND ?1 IS NOT NULL ORDER BY updated_at DESC LIMIT 10",
+        &since,
+        &["title", "state", "updatedAt"],
+    );
+    let chats = rows(
+        connection,
+        "SELECT title, summary, updated_at FROM conversations WHERE title <> '' AND updated_at >= datetime('now', ?1) ORDER BY updated_at DESC LIMIT 8",
+        &since,
+        &["title", "summary", "updatedAt"],
+    );
+    let tasks = rows(
+        connection,
+        "SELECT title, state, priority, intent, due_date, updated_at FROM organizer_tasks WHERE state NOT IN ('done', 'completed', 'cancelled', 'archived') AND ?1 IS NOT NULL ORDER BY updated_at DESC LIMIT 10",
+        &since,
+        &["title", "state", "priority", "intent", "dueDate", "updatedAt"],
+    );
+    let notes = vault.filter(|root| root.is_dir()).map_or(json!({"unavailable": true}), |root| {
+        let cutoff = std::time::SystemTime::now() - std::time::Duration::from_secs(days as u64 * 86_400);
+        let mut changed: Vec<(std::time::SystemTime, String)> = markdown_files(root)
+            .into_iter()
+            .filter_map(|path| {
+                let modified = std::fs::metadata(&path).ok()?.modified().ok()?;
+                (modified >= cutoff).then(|| (modified, relative(root, &path)))
+            })
+            .collect();
+        changed.sort_by(|a, b| b.0.cmp(&a.0));
+        // Learned records are written by a background pass after every chat; listing each would bury the notes Kevin or an agent wrote on purpose.
+        let learned = changed.iter().filter(|(_, path)| path.replace('\\', "/").starts_with(LEARNED_FOLDER)).count();
+        let listed: Vec<Value> = changed
+            .iter()
+            .filter(|(_, path)| !path.replace('\\', "/").starts_with(LEARNED_FOLDER))
+            .take(20)
+            .map(|(modified, path)| json!({"path": path, "modifiedAt": chrono::DateTime::<chrono::Utc>::from(*modified).format("%Y-%m-%dT%H:%M:%SZ").to_string()}))
+            .collect();
+        json!({"changed": listed, "learnedRecordsChanged": learned})
+    });
+    json!({
+        "now": chrono::Utc::now().format("%Y-%m-%dT%H:%M:%SZ").to_string(),
+        "lookedBackDays": days,
+        // The copy of Olympus answering this call, so a note that says "not installed yet" can be checked against what is running.
+        "thisOlympus": {"version": env!("CARGO_PKG_VERSION"), "build": if cfg!(debug_assertions) { "development build" } else { "installed release" }},
+        "gmailConnection": connection_state,
+        "mail": mail,
+        "mailSituations": situations,
+        "vaultNotes": notes,
+        "chatsWithOlympus": chats,
+        "openTasks": tasks,
+    })
+}
+
 /// A Markdown file inside the vault, or a refusal. Symlinks and `..` cannot leave the root.
 fn vault_note(root: &Path, requested: &str) -> Result<PathBuf, String> {
     let requested = requested.trim().trim_start_matches(['/', '\\']);
@@ -220,6 +319,7 @@ pub fn call_within(connection: &Connection, vault: Option<&Path>, allow: Option<
                     .collect(),
             )
         }
+        "recent_activity" => recent_activity(connection, vault, arguments.get("days").and_then(Value::as_i64).unwrap_or(3).clamp(1, 14)),
         _ => return Err(format!("Unknown tool `{tool}`.")),
     };
     Ok(bounded(answer))
@@ -486,6 +586,30 @@ mod tests {
         assert_eq!(config.pointer("/mcpServers/olympus/args").unwrap(), &json!([FLAG, "--db", "a.sqlite"]));
         let config = mcp_config(Path::new("olympus.exe"), Path::new("a.sqlite"), None, &["search_mail", "list_projects"]);
         assert_eq!(config.pointer("/mcpServers/olympus/args").unwrap(), &json!([FLAG, "--db", "a.sqlite", "--allow", "search_mail,list_projects"]));
+    }
+
+    #[test]
+    fn recent_activity_points_to_what_changed_and_says_what_it_cannot_read() {
+        let connection = memory_db();
+        let vault = std::env::temp_dir().join(format!("olympus-recent-{}", std::process::id()));
+        std::fs::create_dir_all(vault.join("01 - Projects")).unwrap();
+        std::fs::create_dir_all(vault.join(LEARNED_FOLDER)).unwrap();
+        std::fs::write(vault.join("01 - Projects/Today.md"), "new").unwrap();
+        std::fs::write(vault.join(LEARNED_FOLDER).join("abc.md"), "learned").unwrap();
+        let (found, failed) = tool(&connection, Some(&vault), "recent_activity", json!({"days": 2}));
+        assert!(!failed);
+        assert_eq!(found["lookedBackDays"], 2);
+        assert_eq!(found["thisOlympus"]["version"], env!("CARGO_PKG_VERSION"));
+        let notes = found["vaultNotes"]["changed"].as_array().unwrap();
+        assert!(notes.len() == 1 && notes[0]["path"].as_str().unwrap().ends_with("Today.md"), "learned records are counted, not listed");
+        assert_eq!(found["vaultNotes"]["learnedRecordsChanged"], 1);
+        // Every store section is either rows or an honest marker; a database without a table never fails the call.
+        for part in ["gmailConnection", "mail", "mailSituations", "chatsWithOlympus", "openTasks"] {
+            assert!(found[part].is_array() || found[part]["unavailable"] == true, "{part}");
+        }
+        let (no_vault, failed) = tool(&connection, None, "recent_activity", json!({}));
+        assert!(!failed && no_vault["vaultNotes"]["unavailable"] == true && no_vault["lookedBackDays"] == 3);
+        let _ = std::fs::remove_dir_all(&vault);
     }
 
     #[test]

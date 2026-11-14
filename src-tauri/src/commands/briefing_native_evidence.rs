@@ -941,6 +941,8 @@ pub(super) async fn local_brief(db:&crate::commands::persistence::Db,session:&su
 }
 pub(super) async fn local_brief_routed(db:&crate::commands::persistence::Db,session:&super::lifecycle::NativeSession,conversation:&str,ticket:&str,project_ids:&[String],reader:Option<crate::commands::memory::MemoryReader>)->Result<(String,Option<crate::commands::persistence::LoadedMessage>),String>{
  let selected={let c=db.0.lock().map_err(|_|"briefing_database_unavailable")?;investigator::config(&c)?};
+ // The skill runner owns this workflow; the interface starts it and never asks this route for it.
+ if selected.workflow=="harness"{return Err("briefing_configuration_invalid".into());}
  if selected.workflow!="legacy"{let workflow=selected.workflow.clone();let message=investigator::run_with_memory(db,session,conversation,ticket,project_ids,selected,reader).await?;return Ok((workflow,message));}
  use crate::commands::local_inference as local;
  let model=local::local_model()?;

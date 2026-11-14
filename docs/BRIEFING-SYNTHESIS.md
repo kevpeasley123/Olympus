@@ -6,6 +6,29 @@ workflow. The legacy `briefing_synthesize` entry point retains bounded evidence 
 native qualification checks. Installing a CLI or signing in alone does not authorize
 generation; see `SUBSCRIPTION-CONVERSATION.md`.
 
+## Olympians workflow (current default)
+
+Selected by `briefing.workflow.v1 = harness` (Preferences > Subscription engines >
+Briefing workflow, "Olympians"). Chosen on 2026-11-13 because the investigative
+workflow ran on the Codex subscription, which had stopped every brief since
+November 13 with a purchased-credits refusal.
+
+- The interface starts the `opening-brief` skill (SKILL-RUNNER.md) on Claude Code,
+  on app open when Opening Briefing is on and on **New briefing**. A brief already
+  running is joined, not refused. The run shows in the Activity Deck; the spoken
+  text is saved to the chat as a briefing message.
+- Zeus gets the previous completed brief, its delivery time and what it said was
+  waiting on Kevin, then calls `recent_activity` first (OLYMPUS-TOOLS.md), reads
+  what he intends to mention, and answers in the brief schema.
+- The instructions (`BRIEF_INSTRUCTIONS` in `skill_runner.rs`) define a brief as
+  what changed, why it matters to Kevin and whether he must act; rank anything
+  waiting on him first; exclude promotions, routine notices, Olympus bookkeeping
+  and anything the previous brief said that has not changed; and forbid an
+  all-clear while mail is stale. At most 150 spoken words (190 accepted).
+- A failure is shown as such. Nothing substitutes a brief from another engine.
+
+The investigative and legacy workflows below remain selectable.
+
 ## Investigative workflow
 
 The saved `briefing.workflow.v1` setting selects `investigative`, `legacy` or

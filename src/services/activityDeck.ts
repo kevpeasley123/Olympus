@@ -64,6 +64,7 @@ export function describeStep(event: AgentEvent): string {
     case "search_vault": return "Searching the vault";
     case "read_vault_note": return event.path ? `Reading ${clip(noteName(event.path), 46)}` : "Reading a vault note";
     case "list_projects": return "Reviewing the project list";
+    case "recent_activity": return "Checking what changed recently";
   }
   switch (event.kind) {
     case "run_started": return event.summary;

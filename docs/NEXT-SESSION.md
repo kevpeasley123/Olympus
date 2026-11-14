@@ -1,12 +1,17 @@
 # Next session
 
-## Olympus 0.59.0 - merged November 13, 2026
+## Olympus 0.60.0 - merged November 13, 2026
 
-0.54.0 to 0.59.0 (pull requests 38 to 43) are merged. Kevin installed 0.58.0 on
+0.54.0 to 0.60.0 (pull requests 38 to 44) are merged. Kevin installed 0.58.0 on
 November 13 and it opened almost unstyled: a brace lost from `activityDeck.css`
 in 0.57.0 broke the joined production stylesheet. 0.59.0 fixes it and must be
 installed with `npm run update` from `Desktop/Projects/Olympus`. The installed
 build did open the schema-10 database.
+
+The opening brief now runs on the Olympians workflow (0.60.0,
+BRIEFING-SYNTHESIS.md). The Codex briefing path refuses with a purchased-credits
+notice on Kevin's account and has produced no brief since November 13. The brief
+cannot know his life past November 10 until Gmail is reconnected.
 
 Before any release that touches CSS, render the production bundle
 (`npm run build`, `npx vite preview`), not only the development harness: the
@@ -34,7 +39,7 @@ He selects the engine himself; automatic, cost-aware routing comes later.
   delegation, background jobs and skill runs. The Pantheon figures move on it.
 - A read-only tool server inside the executable ([OLYMPUS-TOOLS.md](OLYMPUS-TOOLS.md)).
 - A skill runner on the Claude Code subscription ([SKILL-RUNNER.md](SKILL-RUNNER.md)):
-  opening brief (trial), "Answer from my sources", "Ask Olympus".
+  opening brief, "Answer from my sources", "Ask Olympus".
 - Olympian profiles and hand-offs ([OLYMPIANS.md](OLYMPIANS.md)): Zeus plans, hands
   parts to Athena and Themis as linked runs, and answers from their reports.
 - Citations marked verified only when the run asked for or was shown what they name.
@@ -83,11 +88,12 @@ He selects the engine himself; automatic, cost-aware routing comes later.
 
 ## Next steps
 
-1. Install 0.59.0 and confirm it renders; then one chat hand-off in the installed app.
-2. Run the browser and visual suites on the PC.
-3. Give the Codex chat the same tools through its app-server.
-4. Decide whether `/ask` needs a button or an automatic choice.
-5. Move the opening brief itself onto the skill runner, beside the old path first.
+1. Kevin reconnects Gmail; then read the first brief with new mail and refine
+   its instructions against it.
+2. One chat hand-off in the installed app.
+3. Run the browser and visual suites on the PC.
+4. Give the Codex chat the same tools through its app-server.
+5. Decide whether `/ask` needs a button or an automatic choice.
 6. Retire the paid API routes. They are woven into the chat dispatch in
    `assistant.rs`; `voice.rs` separately uses an OpenAI key for realtime speech,
    which is not a reasoning route. This needs a session that can run the app.

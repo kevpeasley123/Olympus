@@ -85,6 +85,7 @@ fn olympus_tool(tool: &str, input: &Value) -> String {
         "search_vault" => about("Searched the vault"),
         "read_vault_note" => format!("Read {}", text_field(input, "path").map(file_name).unwrap_or("a vault note")),
         "list_projects" => "Checked the project list".into(),
+        "recent_activity" => "Checked what changed recently".into(),
         other => format!("Used {other}"),
     }
 }
