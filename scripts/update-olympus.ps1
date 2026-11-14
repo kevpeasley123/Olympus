@@ -92,7 +92,19 @@ try {
         if ($running) {
             Write-Host "Closing the open Olympus window..."
             $running | ForEach-Object { [void]$_.CloseMainWindow() }
-            $running | ForEach-Object { if (-not $_.WaitForExit(20000)) { throw "Olympus did not close within 20 seconds. Close it and run this again." } }
+            $deadline = (Get-Date).AddSeconds(20)
+            while ((Get-Date) -lt $deadline -and (Get-Process -Name "project-olympus" -ErrorAction SilentlyContinue)) { Start-Sleep -Milliseconds 500 }
+            # Not every project-olympus process has a window to close: an agent run's
+            # tool server is the same executable, and a window hidden by another app has
+            # no main window handle. SQLite commits each write, and Olympus marks runs it
+            # finds unfinished at its next start, so ending what remains is safe.
+            $left = Get-Process -Name "project-olympus" -ErrorAction SilentlyContinue
+            if ($left) {
+                Write-Host "Ending $(@($left).Count) Olympus process(es) that did not close on request..."
+                $left | Stop-Process -Force -ErrorAction SilentlyContinue
+                Start-Sleep -Seconds 2
+                if (Get-Process -Name "project-olympus" -ErrorAction SilentlyContinue) { throw "Olympus could not be closed. Close it and run this again." }
+            }
         }
 
         & (Join-Path $PSScriptRoot "install-olympus-local.ps1")
