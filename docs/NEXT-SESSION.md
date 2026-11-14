@@ -1,12 +1,16 @@
 # Next session
 
-## Olympus 0.58.0 - merged November 13, 2026, not yet installed
+## Olympus 0.59.0 - merged November 13, 2026
 
-0.54.0 to 0.58.0 (pull requests 38 to 42) are merged; none has been
-installed. Install with `npm run update` from `Desktop/Projects/Olympus`; the
-"Update Olympus" desktop shortcut needs recreating. Until then the installed 0.53
-cannot open the database: the development build already moved it to schema 10. A
-copy from before that is beside it, `olympus.sqlite.pre-v9-from-v7.bak`.
+0.54.0 to 0.59.0 (pull requests 38 to 43) are merged. Kevin installed 0.58.0 on
+November 13 and it opened almost unstyled: a brace lost from `activityDeck.css`
+in 0.57.0 broke the joined production stylesheet. 0.59.0 fixes it and must be
+installed with `npm run update` from `Desktop/Projects/Olympus`. The installed
+build did open the schema-10 database.
+
+Before any release that touches CSS, render the production bundle
+(`npm run build`, `npx vite preview`), not only the development harness: the
+harness loads each stylesheet alone and hides this class of fault.
 
 Testing without Kevin: while `npm run tauri dev` is running on his PC, a session
 linked to it can pull into the checkout (the dev build rebuilds itself), drop a
@@ -79,7 +83,7 @@ He selects the engine himself; automatic, cost-aware routing comes later.
 
 ## Next steps
 
-1. Install 0.58.0 and repeat one "Ask Olympus" run in the installed app.
+1. Install 0.59.0 and confirm it renders; then one chat hand-off in the installed app.
 2. Run the browser and visual suites on the PC.
 3. Give the Codex chat the same tools through its app-server.
 4. Decide whether `/ask` needs a button or an automatic choice.

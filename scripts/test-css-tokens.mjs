@@ -18,3 +18,14 @@ const dynamicPrefixes=['--ambient-'];
 const missing=uses.filter(([name])=>!defined.has(name)&&!dynamicPrefixes.some(p=>name.startsWith(p)));
 if(missing.length){for(const [name,file] of missing)console.error(`undefined ${name} in ${file}`);process.exit(1)}
 console.log(`PASS ${uses.length} var() references resolve to a definition or a runtime-set prefix`);
+// An unclosed rule is harmless in development, where each sheet loads alone, and
+// fatal in a release build, where the sheets are joined and every rule after the
+// break is swallowed into it (0.57.0 and 0.58.0 shipped that way).
+const unbalanced=[];
+for(const file of files.filter(f=>f.endsWith('.css'))){
+  const css=(await readFile(file,'utf8')).replace(/\/\*[\s\S]*?\*\//g,'').replace(/"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'/g,'');
+  let depth=0,low=0;for(const ch of css){if(ch==='{')depth++;else if(ch==='}'){depth--;low=Math.min(low,depth)}}
+  if(depth!==0||low<0)unbalanced.push(`${file}: ${depth>0?`${depth} unclosed`:'a stray closing'} brace`);
+}
+if(unbalanced.length){for(const line of unbalanced)console.error(`unbalanced ${line}`);process.exit(1)}
+console.log('PASS every stylesheet closes each rule it opens');
