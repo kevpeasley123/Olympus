@@ -1,32 +1,21 @@
 # Next session
 
-## Olympus 0.68.0 - merged November 14, 2026
+## Olympus 0.69.0 - merged November 14, 2026
 
-0.68.0 gives local speech a silent lead-in and a gentler trim so replies stop
-sounding clipped at the start (SKILL-BACKBONE.md). Not yet heard.
+Kevin installed 0.65.0 on November 14; 0.66.0 to 0.69.0 are merged, not yet
+installed, and none has run against real data:
+- 0.69.0: briefs open with a clock-based greeting added by Olympus
+  ("Good evening, sir.", "Welcome back, sir."). BRIEFING-SYNTHESIS.md.
+- 0.68.0: local speech gets a 300 ms lead-in and a gentler trim so replies
+  stop sounding clipped at the start. SKILL-BACKBONE.md.
+- 0.67.0: the brief is written to be heard (50 to 90 words, days not dates,
+  no labels); Kevin found 0.65's too wordy for speech. Read the next one aloud.
+- 0.66.0: Usage tiles show no status line unless a check fails, keep a
+  visible bar, re-read Claude every minute. Codex read 0.0% remaining,
+  consistent with its account refusing requests.
+- 0.65.0: console cleanup and a self-reading Usage dock (ENGINE-STATUS-USAGE.md).
 
-### 0.67.0
-
-0.67.0 rewrites how the opening brief speaks (BRIEFING-SYNTHESIS.md): Kevin
-found 0.65's brief well informed but too wordy and typed-sounding for a spoken
-update. No brief has run on the new instructions; read the next one aloud
-against them.
-
-### 0.66.0
-
-0.66.0 simplifies the Usage tiles: no status lines unless a check fails, a
-minimum visible bar, Claude re-read every minute. Kevin installed 0.65.0 on
-November 14; its run-fed Claude file was written as designed, but the tile read
-it before the first run and waited ten minutes. Codex showed 0.0% remaining,
-consistent with its account refusing requests.
-
-0.65.0 cleans up the console (New briefing button, Local voice panel and
-Temporary chat button removed, no hover flicker) and makes the Usage dock read
-by itself: on open and every ten minutes, with Olympus's own Claude Code runs
-feeding the Claude windows (ENGINE-STATUS-USAGE.md). If the Codex tile shows
-"Check failed", its expanded view now says why; that reason has not been seen yet.
-
-0.54.0 to 0.68.0 (pull requests 38 to 55) are merged. Kevin installed 0.58.0 on
+0.54.0 to 0.69.0 (pull requests 38 to 56) are merged. Kevin installed 0.58.0 on
 November 13 and it opened almost unstyled: a brace lost from `activityDeck.css`
 in 0.57.0 broke the joined production stylesheet. 0.59.0 fixes it and must be
 installed with `npm run update` from `Desktop/Projects/Olympus`. The installed
