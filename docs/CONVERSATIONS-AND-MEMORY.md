@@ -225,6 +225,14 @@ Source identity validation establishes traceability, not semantic truth. Ordinar
 
 The operational database now has an additive working-checkpoint table keyed by conversation and resolved project scope. Short source excerpts are retained without inference. When they no longer fit, the selected subscription engine summarizes objectives, constraints, reported accomplishments, open questions, suggestions and explicit commitments. Each item names original message IDs. Existing constraints must remain or have an operator-sourced retirement. Unclassified operator excerpts must retain their source identity when first classified, so first compaction cannot silently discard an early instruction. Assistant reports are never labeled independently verified accomplishments.
 
+Since 0.75.0 a model-written checkpoint that cites an assistant message for an
+objective, constraint, commitment or operator context, or cites a message that
+does not exist, is repaired before validation: those citations are removed and
+an item left with none is dropped. If a checkpoint still cannot be made, a turn
+whose whole conversation fits proceeds without one; a longer conversation stops
+with a plain explanation instead of an internal code such as
+`working_checkpoint_requires_operator_evidence`, which Kevin saw on 2026-11-15.
+
 Source revisions are rechecked before checkpoint use and persistence. A project switch starts after that conversation's previous checkpoint boundary; it cannot import a different project's working state. Temporary chats do not read or write these checkpoints. Changed source messages invalidate the checkpoint with an explicit error. Checkpoints are lower-authority evidence, never execution permission.
 
 Conversation evidence is assembled by whole sections with a 64 KB evidence budget. Learned-note compatibility reads now select preferences and topic-matching sections within 4 KB; the explicit legacy rollback setting retains the old reader. Current user messages remain outside this evidence packet and outrank checkpoints. Internal budget omissions are not routine user-facing briefing prose.
