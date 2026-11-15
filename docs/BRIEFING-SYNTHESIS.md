@@ -34,6 +34,13 @@ November 13 with a purchased-credits refusal.
   Olympus prefixes a greeting from the PC's clock ("Good morning/afternoon/
   evening, sir.", or "Welcome back, sir." within three hours of the last
   brief); the model does not greet.
+- Since 0.70.0 Kevin's word settles a matter. Zeus gets `<kevin_said>`, his own
+  words in saved chats since the previous brief (14 days and 5000 characters at
+  most; omitted when Preferences > Memory turns chat memory use off), and
+  `<settled_by_kevin>`, the `settled` entries of the briefs of the last 30 days.
+  A settled matter stays out of the brief unless evidence dated after his
+  statement says something new, and then the brief says it is new. New
+  settlements are recorded in the brief's optional `settled` array.
 - A failure is shown as such. Nothing substitutes a brief from another engine.
 
 The investigative and legacy workflows below remain selectable.

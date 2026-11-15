@@ -1,9 +1,11 @@
 # Next session
 
-## Olympus 0.69.0 - merged November 14, 2026
+## Olympus 0.70.0 - merged November 14, 2026
 
-Kevin installed 0.65.0 on November 14; 0.66.0 to 0.69.0 are merged, not yet
+Kevin installed 0.65.0 on November 14; 0.66.0 to 0.70.0 are merged, not yet
 installed, and none has run against real data:
+- 0.70.0: briefs honor matters Kevin settles in chat ("the FedEx came",
+  "that sign-in was me") and carry them forward 30 days. BRIEFING-SYNTHESIS.md.
 - 0.69.0: briefs open with a clock-based greeting added by Olympus
   ("Good evening, sir.", "Welcome back, sir."). BRIEFING-SYNTHESIS.md.
 - 0.68.0: local speech gets a 300 ms lead-in and a gentler trim so replies
@@ -15,7 +17,7 @@ installed, and none has run against real data:
   consistent with its account refusing requests.
 - 0.65.0: console cleanup and a self-reading Usage dock (ENGINE-STATUS-USAGE.md).
 
-0.54.0 to 0.69.0 (pull requests 38 to 56) are merged. Kevin installed 0.58.0 on
+0.54.0 to 0.70.0 (pull requests 38 to 57) are merged. Kevin installed 0.58.0 on
 November 13 and it opened almost unstyled: a brace lost from `activityDeck.css`
 in 0.57.0 broke the joined production stylesheet. 0.59.0 fixes it and must be
 installed with `npm run update` from `Desktop/Projects/Olympus`. The installed
