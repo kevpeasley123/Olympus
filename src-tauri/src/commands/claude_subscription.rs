@@ -690,6 +690,7 @@ impl Protocol {
             // usage credits are on, whatever the operator confirmed.
             Some("rate_limit_event") => {
                 let info = &v["rate_limit_info"];
+                super::claude_quota::record_event(info);
                 if info["isUsingOverage"] != false || info["overageStatus"] == "allowed" {
                     return Err(OVERAGE.into());
                 }

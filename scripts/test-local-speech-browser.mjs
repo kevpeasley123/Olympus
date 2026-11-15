@@ -36,12 +36,12 @@ try{
     api.invoke=(cmd,args,...rest)=>cmd==='local_speech'?window.localSpeechFixture(args.kind,args.value):cmd==='cancel_local_speech'?Promise.resolve():prior(cmd,args,...rest);
   });
   const control=page.locator('.local-speech');
-  await control.locator('summary').click();
-  await control.getByRole('button',{name:'Dictate'}).click();
+  // The microphone button raises this event when Local speech is selected.
+  await page.evaluate(()=>window.dispatchEvent(new Event('olympus:local-mic')));
   await control.getByText('Listening locally',{exact:true}).waitFor();
   await page.waitForTimeout(3000);
-  await control.getByRole('button',{name:'Finish dictation'}).click();
-  await control.getByText('Transcript ready to review',{exact:true}).waitFor({timeout:120000});
+  await control.getByRole('button',{name:'Finish'}).click();
+  await page.waitForFunction(()=>document.querySelector('[aria-label="Command to Olympus"]')?.value?.trim(),null,{timeout:120000});
   const draft=await page.getByLabel('Command to Olympus').inputValue();
   assert.match(draft,/project review/i);
   assert.match(draft,/ready/i);

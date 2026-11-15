@@ -95,7 +95,7 @@ interface ChatPanelProps {
   suggestions?: Suggestion[];
   onOpenMission?: (destination: Mission["destination"]) => void;
   onDismissMission?: (id: string) => void;
-  /** Separate chats: the open one, New chat, Temporary chat and the chat list. */
+  /** Separate chats: the open one, New chat and the chat list. */
   chats?: ChatControls;
 }
 
@@ -279,7 +279,7 @@ export function ChatPanel({ companion = false, onUseLocalVoice, onVoiceConversat
           <span role="status" className="console-status" data-status={status.toLowerCase().replace(/\s+/g, "-")}>{status.replace(/^OLYMPUS /, "")}</span></div>
         {(pending || voice.active || voice.connecting) && <ActivityTrace level={voice.active ? voice.level : 0} busy />}
         <div className="console-header-actions">
-          {onNewBriefing && <button type="button" className="ghost-action" disabled={briefingPending || pending || voice.active || voice.connecting || !voiceSettingsReady || !isTauriRuntime()} title={!isTauriRuntime() ? "Live briefings require the desktop app" : "Refresh project records and give a new situation briefing"} onClick={() => { setConversationOpened(true); showLive(); void onNewBriefing(); }}>{briefingPending ? "Refreshing…" : "New briefing"}</button>}
+          {onNewBriefing && <button type="button" className="console-briefing-action" disabled={briefingPending || pending || voice.active || voice.connecting || !voiceSettingsReady || !isTauriRuntime()} title={!isTauriRuntime() ? "Live briefings require the desktop app" : "Refresh project records and give a new situation briefing"} onClick={() => { setConversationOpened(true); showLive(); void onNewBriefing(); }}>{briefingPending ? "Refreshing…" : "New briefing"}</button>}
           {onLayoutChange && <button type="button" className={expanded ? "ghost-icon-action" : "ghost-action console-restore"} aria-label={expanded ? collapseLabel ?? "Compact console" : "Expand conversation"} title={expanded ? collapseLabel ?? "Compact console" : "Expand conversation"} onClick={() => { onLayoutChange(expanded ? "compact" : "expanded"); if(!collapseLabel)requestAnimationFrame(() => panelRef.current?.querySelector<HTMLButtonElement>(".console-header-actions button:last-child")?.focus()); }}>{expanded ? <><Minimize2 size={14} />{collapseLabel&&<span>{collapseLabel}</span>}</> : <><Maximize2 size={14} /> Expand</>}</button>}
         </div>
       </header>}
@@ -312,7 +312,7 @@ export function ChatPanel({ companion = false, onUseLocalVoice, onVoiceConversat
         {!expanded && <header className="console-header">
           <span>{mode === "transcript" ? "TRANSCRIPT" : "LIVE CONVERSATION"}</span>
           <div className="console-header-actions">
-          {onNewBriefing && <button type="button" className="ghost-action" disabled={briefingPending || pending || voice.active || voice.connecting || !voiceSettingsReady || !isTauriRuntime()} title={!isTauriRuntime() ? "Live briefings require the desktop app" : "Refresh project records and give a new situation briefing"} onClick={() => { setConversationOpened(true); showLive(); void onNewBriefing(); }}>{briefingPending ? "Refreshing…" : "New briefing"}</button>}
+          {onNewBriefing && <button type="button" className="console-briefing-action" disabled={briefingPending || pending || voice.active || voice.connecting || !voiceSettingsReady || !isTauriRuntime()} title={!isTauriRuntime() ? "Live briefings require the desktop app" : "Refresh project records and give a new situation briefing"} onClick={() => { setConversationOpened(true); showLive(); void onNewBriefing(); }}>{briefingPending ? "Refreshing…" : "New briefing"}</button>}
             <button type="button" className="ghost-icon-action" aria-label={mode === "transcript" ? "Return to live conversation" : "Minimize console"}
               onClick={stepBack}><X size={15} /></button>
           </div>
@@ -385,8 +385,7 @@ export function ChatPanel({ companion = false, onUseLocalVoice, onVoiceConversat
         </div>}
 
         {projectContext && <details className="console-project-context"><summary>Attached: {attachmentTitle(projectContext)}</summary><pre>{projectContext.context}</pre><button className="ghost-action" onClick={() => setProjectContext(null)}>Remove context</button></details>}
-        <LocalSpeechControl key={chats?.session.id} onUseLocal={()=>{voicePreview.stop();realtimeVoice.stop();onUseLocalVoice?.();}} onText={text=>setDraft(current=>[current,text].filter(Boolean).join(" "))}
-            reply={[...messages].reverse().find(m=>m.role==="assistant")?.content ?? ""} />
+        <LocalSpeechControl key={chats?.session.id} onUseLocal={()=>{voicePreview.stop();realtimeVoice.stop();onUseLocalVoice?.();}} onText={text=>setDraft(current=>[current,text].filter(Boolean).join(" "))} />
         <div className="console-input-row">
           <textarea ref={inputRef} id="olympus-console-input" aria-label="Command to Olympus" rows={1} placeholder="Ask Olympus anything…" value={draft}
             onFocus={() => { if(conversationPanel)setConversationOpened(true); if (mode === "dormant") showLive(); }} onChange={event => setDraft(event.target.value)}

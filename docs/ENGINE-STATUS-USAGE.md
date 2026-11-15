@@ -22,7 +22,7 @@ observation time; historical data remains explicitly stale. The expanded view na
 
 Unknown allowances render neutral dashes without empty progress tracks or numeric accessibility values. Disconnected, unsupported, loading and failed states are distinct. Failed checks may retain a supplied last-known snapshot, explicitly labelled stale. Readings older than five minutes are marked stale. Source, scope, observation time and any supplied YTD values live in the expanded view. Refresh reads supported sources explicitly; no trends, plan names, unlimited allowances or service quotas are invented.
 
-Production starts with unknown values. Explicit Refresh invokes the native readers below; populated test harnesses use only synthetic data. Existing Voice usage remains a separate current-app-run ledger.
+Production starts with unknown values. Since 0.65.0 the desktop app reads on open and every ten minutes, and Refresh reads at once; no reader starts a model turn. Test harnesses read only on Refresh; populated test harnesses use only synthetic data. Existing Voice usage remains a separate current-app-run ledger.
 
 The native HTML dialog traps keyboard focus, closes with Escape or Close and restores focus to Expand. Its content scrolls on short/narrow windows. The design uses static CSS/SVG with reduced-motion protection. Browser verification does not establish native WebView2 behavior.
 
@@ -137,6 +137,17 @@ a new provider request. The app labels observations over five minutes stale.
 reads that file without contacting Claude. The collector updates during ordinary
 authorized Claude Code activity; the app uses explicit Refresh to load a new
 snapshot. Displayed windows expire at their reset even without another Refresh.
+
+Since 0.65.0 Olympus's own Claude Code runs feed the same reading. Each
+`rate_limit_event` in a run's stream is written to
+`%LOCALAPPDATA%\Olympus\telemetry\claude-runs.json` in the collector's format:
+`unifiedWindows.five_hour` / `seven_day` utilization (0–1) becomes
+`usedPercentage`, and an older CLI that only reports `status: "rejected"` with a
+`rateLimitType` records that window as spent until `resetsAt`. The reader takes,
+per window, the newer of the collector file and the run file. The write is best
+effort and never affects the run. Older CLIs that report only `allowed` add no
+figure.
+
 Absolute token allowances and billing balances stay unknown. No browser reading
 is seeded into automatic telemetry. First real capture and native rendering are
 separate acceptance steps; fixture verification requires no generation.

@@ -1,8 +1,14 @@
 # Next session
 
-## Olympus 0.64.0 - merged November 14, 2026
+## Olympus 0.65.0 - merged November 14, 2026
 
-0.54.0 to 0.64.0 (pull requests 38 to 50) are merged. Kevin installed 0.58.0 on
+0.65.0 cleans up the console (New briefing button, Local voice panel and
+Temporary chat button removed, no hover flicker) and makes the Usage dock read
+by itself: on open and every ten minutes, with Olympus's own Claude Code runs
+feeding the Claude windows (ENGINE-STATUS-USAGE.md). If the Codex tile shows
+"Check failed", its expanded view now says why; that reason has not been seen yet.
+
+0.54.0 to 0.65.0 (pull requests 38 to 51) are merged. Kevin installed 0.58.0 on
 November 13 and it opened almost unstyled: a brace lost from `activityDeck.css`
 in 0.57.0 broke the joined production stylesheet. 0.59.0 fixes it and must be
 installed with `npm run update` from `Desktop/Projects/Olympus`. The installed
@@ -84,7 +90,9 @@ He selects the engine himself; automatic, cost-aware routing comes later.
 - The Claude Code chat has the read-only tools; the Codex chat does
   not, so it still cannot open notes. `/ask` remains the way to get a checked answer.
 - Hand-offs run one after another, never in parallel. A run cannot be cancelled.
-- The Usage dock reads "Telemetry not connected". Observed usage is not shown there.
+- The Claude usage reading from Olympus's runs needs a Claude Code CLI that reports
+  `unifiedWindows` utilization; an older CLI only records a window once it is spent.
+  The Codex reader has not been seen succeeding on Kevin's account.
 - The learned record for the briefing preference has empty evidence text.
 - The browser and visual suites hang on a mode switch in the cloud session, on
   0.53 as well. They have not been run on the PC for this release.

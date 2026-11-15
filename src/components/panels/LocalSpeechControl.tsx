@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { realtimeVoice } from "../../services/realtimeVoice";
 
 async function pcm16(blob: Blob) {
   const context = new AudioContext();
@@ -18,7 +17,7 @@ async function pcm16(blob: Blob) {
   } finally { await context.close(); }
 }
 
-export function LocalSpeechControl({onText,reply,onUseLocal}:{onText:(text:string)=>void;reply:string;onUseLocal?:()=>void}) {
+export function LocalSpeechControl({onText,onUseLocal}:{onText:(text:string)=>void;onUseLocal?:()=>void}) {
   const [status,setStatus]=useState("Ready");
   const [active,setActive]=useState(false);
   const processing=useRef(false);
@@ -34,23 +33,13 @@ export function LocalSpeechControl({onText,reply,onUseLocal}:{onText:(text:strin
     if(clipUrl.current){URL.revokeObjectURL(clipUrl.current);clipUrl.current=null;}
   }
   useEffect(()=>()=>{generation.current++;release();if(processing.current)void invoke("cancel_local_speech").catch(()=>{});},[]);
-  async function start(kind:"transcribe"|"speak") {
+  async function start(kind:"transcribe") {
     onUseLocal?.();
     const token=++generation.current; setActive(true);
     const current=()=>token===generation.current;
     const finish=(message:string)=>{if(current()){processing.current=false;release();setStatus(message);setActive(false);}};
     try {
-      if(kind==="speak") {
-        setStatus("Synthesizing locally");
-        processing.current=true;
-        const wav=await invoke<string>("local_speech",{kind,value:reply,voice:realtimeVoice.localVoice()});
-        if(!current())return;
-        const bytes=Uint8Array.from(atob(wav),char=>char.charCodeAt(0));
-        clipUrl.current=URL.createObjectURL(new Blob([bytes],{type:"audio/wav"}));
-        const audio=new Audio(clipUrl.current); player.current=audio;
-        audio.onended=()=>finish("Ready");audio.onerror=()=>finish("Playback failed");
-        await audio.play();if(current())setStatus("Speaking locally");
-      } else {
+      {
         setStatus("Opening microphone");
         const stream=await navigator.mediaDevices.getUserMedia({audio:true});
         if(!current()){stream.getTracks().forEach(t=>t.stop());return;}
@@ -80,17 +69,17 @@ export function LocalSpeechControl({onText,reply,onUseLocal}:{onText:(text:strin
     if(recorder.current?.state==="recording"){recorder.current.stop();return;}
     if(!active)void start("transcribe");
   };
-  const details=useRef<HTMLDetailsElement>(null);
   useEffect(()=>{
-    const open=()=>{if(details.current)details.current.open=true;toggle.current();};
+    const open=()=>toggle.current();
     window.addEventListener("olympus:local-mic",open);
     return ()=>window.removeEventListener("olympus:local-mic",open);
   },[]);
-  return <details ref={details} className="local-speech"><summary>Local voice</summary>
-    <button type="button" disabled={active} onClick={()=>void start("transcribe")}>Dictate</button>
-    {status==="Listening locally" && <button type="button" onClick={()=>{if(recorder.current?.state==="recording")recorder.current.stop();}}>Finish dictation</button>}
-    <button type="button" disabled={active || !reply.trim()} onClick={()=>void start("speak")}>Speak latest reply</button>
-    {active && <button type="button" onClick={()=>{generation.current++;processing.current=false;release();void invoke("cancel_local_speech").catch(()=>{});setActive(false);setStatus("Stopped");}}>Stop</button>}
+  // The microphone button drives dictation through this component. It shows itself only
+  // while listening or transcribing, so Kevin can finish or stop; otherwise nothing.
+  if(!active) return null;
+  return <div className="local-speech" role="group" aria-label="Local dictation">
     <span role="status">{status}</span>
-  </details>;
+    {status==="Listening locally" && <button type="button" className="ghost-action" onClick={()=>{if(recorder.current?.state==="recording")recorder.current.stop();}}>Finish</button>}
+    <button type="button" className="ghost-action" onClick={()=>{generation.current++;processing.current=false;release();void invoke("cancel_local_speech").catch(()=>{});setActive(false);setStatus("Stopped");}}>Stop</button>
+  </div>;
 }

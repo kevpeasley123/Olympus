@@ -322,7 +322,7 @@ function App() {
 
               </>
             )}
-            {command && <UsageSummary layout="dock"/>}
+            {command && <UsageSummary layout="dock" autoRefresh/>}
           </section>
 
           {/* The console stays anchored while its transcript aperture opens upward. */}

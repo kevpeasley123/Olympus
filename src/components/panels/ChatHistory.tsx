@@ -30,9 +30,6 @@ export function ChatSessionBar({ chats, title, disabled, open, onToggle, onOpene
     <div className="chat-session-actions">
       <button type="button" className="ghost-icon-action" aria-pressed={open} aria-label="Chats" title="Chats · search earlier conversations" onClick={onToggle}><History size={14} /></button>
       <button type="button" className="ghost-icon-action" aria-label="New chat" title="New chat" disabled={disabled} onClick={() => start(false)}><MessageSquarePlus size={14} /></button>
-      <button type="button" className="ghost-icon-action" aria-pressed={temporary} aria-label="Temporary chat"
-        title={temporary ? "Leave temporary chat (it is discarded)" : "Temporary chat · not saved, not written to Obsidian, no memory"}
-        disabled={disabled} onClick={() => start(!temporary)}><EyeOff size={14} /></button>
     </div>
     {notice && <p className="chat-session-notice" role="status">{notice}</p>}
   </div>;

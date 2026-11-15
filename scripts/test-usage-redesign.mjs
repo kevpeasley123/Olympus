@@ -78,10 +78,11 @@ try{
 
  const compact=await page.locator('.usage-summary').innerText();
  assert(!/[\u00e2\u00c2]/.test(compact),'No malformed UTF-8 text');
- assert(compact.toLowerCase().includes({loading:'checking',failed:'failed',unsupported:'not supported',disconnected:'not connected'}[status]));
+ if(status==='disconnected')assert(!/not connected/i.test(compact),'No "not connected" text before a reading');
+ else assert(compact.toLowerCase().includes({loading:'checking',failed:'failed',unsupported:'not supported'}[status]));
  const text=await page.getByRole('dialog').innerText();
 
- assert(text.includes({loading:'Checking',failed:'Check failed',unsupported:'Not supported',disconnected:'Telemetry not connected'}[status]));
+ assert(text.includes({loading:'Checking',failed:'Check failed',unsupported:'Not supported',disconnected:'No reading yet'}[status]));
 
  if(status==='failed') assert(text.includes('showing last known reading')&&text.includes('$2.50'));
 

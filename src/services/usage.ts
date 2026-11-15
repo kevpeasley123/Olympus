@@ -27,7 +27,7 @@ export interface UsageSnapshot {
 
 // No provider account endpoint is wired in this slice. Never seed live balances.
 export const unavailableUsage: UsageSnapshot[] = [{provider:"Codex", capabilityCategory:"models-subscriptions" as const}, {provider:"Claude", capabilityCategory:"models-subscriptions" as const}, {provider:"ElevenLabs", capabilityCategory:"apis-services" as const}].map(({provider, capabilityCategory}) => ({
-  provider, capabilityCategory, scope: "Account", source: "Account telemetry not connected", observedAt: null,
+  provider, capabilityCategory, scope: "Account", source: "Not read yet", observedAt: null,
   windows: [], balance: null, ytdConsumption: null, ytdSpend: null,
 }));
 
