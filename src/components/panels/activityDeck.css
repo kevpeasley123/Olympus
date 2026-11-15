@@ -141,3 +141,25 @@ button.deck-operation:hover{border-color:#d7b77f66}
 .deck-status[data-status="core"]{border-color:#d9a94e80;color:#f0c66f}
 .armory-pane .deck-idle-row strong{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .deck-status[data-status="unverified"],.deck-status[data-status="planned"]{border-color:#8196a655;color:#9fb0be}
+
+/* Phase 2 deck: one rhythm, quieter section labels, legible chips, one card treatment. */
+html .app-shell .olympus-armory.activity-deck{gap:12px}
+.deck-section h3{margin:4px 0 8px;font-size:9px;letter-spacing:.16em;color:#94a7b6;font-weight:400}
+.deck-section h3 span{color:#7d93a4}
+.deck-operation,.deck-agent,.deck-idle li,.deck-delegations{border-color:#9db7c52e;border-radius:8px}
+.deck-operation{background:#0a1620c4}
+.deck-operation[data-status="running"]{border-color:#5aa0d84d}
+.deck-operation[data-status="failed"]{border-color:#d98a7255}
+.deck-operation[data-status="failed"] .deck-outcome{background:#d98a7214}
+.deck-outcome{margin-top:6px}
+.deck-operation-count{font-size:11.5px;color:#d9cfb9}
+.deck-status{height:19px;min-width:64px;font-size:9px;letter-spacing:.08em;color:#b3c2ce;border-color:#8196a666}
+.deck-status[data-status="running"]{background:#5aa0d814}
+.deck-status[data-status="coordinating"]{background:#d9a94e12}
+.deck-agent-copy span,.deck-agent-line{color:#b2c1cc}
+.deck-idle ul{gap:7px}
+.deck-idle-row strong{font-size:13px}
+.deck-tabs button{font-size:12.5px}
+.deck-operation-copy>.deck-operation-state{display:flex;align-items:center;justify-content:space-between;gap:8px;-webkit-line-clamp:unset;overflow:visible}
+.deck-operation-state .deck-outcome{margin:0;min-width:0;height:17px;padding:0 7px;font-size:8.5px}
+.deck-operation-state small{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}

@@ -49,11 +49,12 @@ export function EmailAttentionBrief({client=api}:{client?:Client}){
   catch{if(alive.current)setError('The source may have changed. Wait for a refresh and review again.');}
   finally{mutation.current=false;if(alive.current)setPending(false);}
  }
- return <section className="email-attention" aria-label="Email suggestions"><h4>Needs your attention</h4>
- {blocked&&<p role="status">{state.detail||state.label} Suggestions will appear after a successful sync.</p>}
- {!blocked&&analysisStatus&&<p role="status">{analysisStatus} Any suggestions below come from earlier analysis.</p>}
- {!blocked&&!analysisStatus&&items.length===0&&<p>No suggestions to show from the available records. This does not mean your inbox has been fully reviewed.</p>}
- {error&&<p role="alert">{error}</p>}
+ // Gold only when there is something to act on; a coverage notice alone is information.
+ return <section className="email-attention" aria-label="Email suggestions" data-actionable={items.length>0||undefined}><h4>Needs your attention</h4>
+ {blocked&&<p role="status" className="email-attention-notice">{state.detail||state.label} Suggestions will appear after a successful sync.</p>}
+ {!blocked&&analysisStatus&&<p role="status" className="email-attention-notice">{analysisStatus} Any suggestions below come from earlier analysis.</p>}
+ {!blocked&&!analysisStatus&&items.length===0&&<p className="email-attention-notice">No suggestions to show from the available records. This does not mean your inbox has been fully reviewed.</p>}
+ {error&&<p role="alert" className="email-attention-warning">{error}</p>}
  {items.slice(0,3).map(item=><article key={item.threadId} className="email-attention-card">
  <strong>{item.operatorCorrection?'Your correction':item.suggestion.title}</strong>{item.operatorCorrection?<p className="email-attention-action">{item.operatorCorrection}</p>:<><p>{item.suggestion.why}</p><p className="email-attention-action">{item.suggestion.action}</p></>}
  {!item.operatorCorrection&&item.suggestion.deadline&&<p>Source date: {item.suggestion.deadline}</p>}

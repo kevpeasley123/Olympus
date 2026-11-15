@@ -78,8 +78,8 @@ feed:
   "N active delegations", counting the live agent cards (including mission
   steps recorded outside the skill runner).
 - **Operation**: the newest run in progress, else the most recent finished one.
-  A finished one carries its outcome as a badge (Completed with a green check,
-  Failed in red); its line is dropped when it only repeats the badge.
+  Its state is a chip on the label row (Running, Completed with a green check,
+  Failed in red); a finished card's line is dropped when it only repeats it.
   Progress is shown only as counted stages of an accepted plan (the plan, each
   hand-off, the answer); a run with no such stages shows an unmeasured sweep and
   no number.
