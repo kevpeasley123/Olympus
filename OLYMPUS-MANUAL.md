@@ -124,7 +124,9 @@ not commands to repeat an old choice forever.
 The ambient command surface. The instrument is the mode, not an illustration
 beside another interface.
 
-- **Armory** (left). Agents, Plugins and Skills are separate inspection
+- **Activity Deck and Armory** (left, two tabs since 0.72.0). Activity shows
+  delegations, the last operation and each Olympian's state. In the Armory,
+  Agents, Plugins and Skills are separate inspection
   categories with real counts. Agent loadouts show each role's compiled scope
   and authority, including which roles are unproven or placeholders. Plugins
   count source, connection and local adapters, never model routes or executors.
@@ -132,7 +134,8 @@ beside another interface.
   skills) is a separate, explicit write workflow. Added skills are reusable
   instruction documents with no execution privileges, and AI analysis of a
   resource needs its own explicit authorization; see
-  `docs/RESOURCE-INTAKE.md`.
+  `docs/RESOURCE-INTAKE.md`. Research > Add research > Import from X turns an
+  X article or post into a classified research entry; see `docs/X-IMPORT.md`.
 - **Pantheon** (centre). The Omega glyph in real perspective. Recorded
   missions orbit it as planets, and the Plugins, Skills, Agents and Obsidian
   memory constellations surround it. Hovering or selecting reveals detail and

@@ -11,6 +11,7 @@ import { ResearchVerification } from "./ResearchVerification";
 import "./library/researchDesign.css";
 import { ResearchIntakeMenu } from "./library/ResearchIntakeMenu";
 import { AddEntryDialog } from "./library/AddEntryDialog";
+import { XImportDialog } from "./library/XImportDialog";
 import type { LibraryProject } from "./library/EntryDetail";
 import { LibraryBrowser } from "./library/LibraryBrowser";
 import { findEntryBySourceFile, prepareEntries } from "./library/libraryModel";
@@ -50,6 +51,7 @@ export function LibraryPanel({ inspectionTarget, onReturnToCommand, projects = N
   // closes it without a second piece of state to keep in step.
   const [addEntryOpen, setAddEntryOpen] = useState(false);
   const [intakeMode,setIntakeMode]=useState<"write"|"upload"|"link">("write");
+  const [xImportOpen,setXImportOpen]=useState(false);
   const [status, setStatus] = useState<LibraryStatus | null>(null);
   const [migrating, setMigrating] = useState(false);
   const [openToken, setOpenToken] = useState(0);
@@ -232,6 +234,7 @@ export function LibraryPanel({ inspectionTarget, onReturnToCommand, projects = N
 
   function handleSaved(path: string) {
     setAddEntryOpen(false);
+    setXImportOpen(false);
     setStatus({ tone: "success", message: `Saved to ${path}`, path });
     void refreshPantheon();
   }
@@ -259,6 +262,7 @@ export function LibraryPanel({ inspectionTarget, onReturnToCommand, projects = N
 
   return (
     <>
+      {xImportOpen ? <XImportDialog onClose={() => {setXImportOpen(false);requestAnimationFrame(()=>surfaceRef.current?.querySelector<HTMLButtonElement>(".research-add")?.focus());}} onSaved={handleSaved} /> : null}
       {addEntryOpen ? (
         <AddEntryDialog initialMode={intakeMode} projects={libraryProjects} onClose={() => {setAddEntryOpen(false);requestAnimationFrame(()=>surfaceRef.current?.querySelector<HTMLButtonElement>(".research-add")?.focus());}} onSaved={handleSaved} />
       ) : null}
@@ -298,7 +302,7 @@ export function LibraryPanel({ inspectionTarget, onReturnToCommand, projects = N
                   >
                     <RotateCw size={13} aria-hidden="true" />
                   </button>
-                  <ResearchIntakeMenu onChoose={mode=>{setIntakeMode(mode);setAddEntryOpen(true);}}/>
+                  <ResearchIntakeMenu onChoose={mode=>{if(mode==="x"){setXImportOpen(true);return;}setIntakeMode(mode);setAddEntryOpen(true);}}/>
                 </div>
               </header>
 

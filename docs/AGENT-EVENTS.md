@@ -67,7 +67,10 @@ groups it by run (runs in progress first), and derives which agents are working:
 until it reports its own `result` or `error`; a helper's result does not end its
 parent.
 
-Command's left column is the **Activity Deck** (`ActivityDeck`, model in
+Since 0.72.0 Command's left column has two tabs, **Activity** and **Armory**.
+The Armory tab lists agents, plugins and skills with their state and holds
+"Add resources & skills"; each row, and its corner button, opens the full
+Armory dialog at that item. The Activity tab is the **Activity Deck** (`ActivityDeck`, model in
 `src/services/activityDeck.ts`). It is built only from skill runs and this
 feed:
 

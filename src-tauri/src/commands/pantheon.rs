@@ -631,7 +631,7 @@ fn build_entry_content(
     Ok(full)
 }
 
-fn perform_write_pantheon_entry(req: WritePantheonEntryRequest) -> Result<String, String> {
+pub(crate) fn perform_write_pantheon_entry(req: WritePantheonEntryRequest) -> Result<String, String> {
     let title = req.title.trim().to_string();
     if title.is_empty() {
         return Err("Title is required".to_string());

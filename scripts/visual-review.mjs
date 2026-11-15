@@ -55,7 +55,7 @@ const SCENARIO_SETUP = {
   "chat-compact": { state: "chat-compact" },
   "preferences-memory": { state: "preferences-memory", after: async page => { await page.getByRole("button", { name: "Learn from them" }).waitFor(); } },
   "armory-agents": { state: "idle", after: async page => {
-    await page.getByRole("button", { name: "Open the Armory" }).click();
+    await (await page.getByRole('button',{name:'Armory',exact:true}).click(), page).getByRole("button", { name: "Open the Armory" }).click();
     const dialog = page.getByRole("dialog", { name: "Olympus Armory" }); await dialog.waitFor();
     await dialog.getByRole("button", { name: /Athena Research/ }).click(); await page.waitForTimeout(300);
   } },
@@ -200,7 +200,7 @@ async function functionalChecks(browser, base) {
     await page.getByRole("button", { name: "Command", exact: true }).click();
     await page.waitForSelector('[data-flagship][data-scene-ready="true"]', { timeout: 90_000 });
     check(await page.locator(".command-agent-catalog").count() === 0, "The App mounts no Agent Catalog");
-    const agents = page.getByRole("button", { name: "Open the Armory", exact: true });
+    const agents = (await page.getByRole('button',{name:'Armory',exact:true}).click(), page).getByRole("button", { name: "Open the Armory", exact: true });
     await agents.click();
     const dialog = page.getByRole("dialog", { name: "Olympus Armory" });
     await dialog.waitFor();

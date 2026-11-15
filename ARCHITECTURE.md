@@ -88,6 +88,7 @@ Tauri commands exposed by the desktop shell — every entry in the `generate_han
 | Delegation | `prepare_delegation_run`, `prepare_delegation_resume`, `cancel_delegation_proposal`, `start_delegation_run`, `resume_delegation_run`, `cancel_delegation_run`, `list_delegation_runs`, `fetch_delegation_diff` |
 | Delegation review | `fetch_delegation_review`, `run_delegation_check`, `delegation_review_fingerprint`, `complete_delegation_review` |
 | Knowledge audit | `start_knowledge_audit`, `list_knowledge_audits`, `inspect_knowledge_audit` (no UI entry point; the view is rendered only by its harness) |
+| Import from X | `x_import_preview` (reads api.fxtwitter.com and pbs.twimg.com, Claude classifies; writes nothing), `x_import_save` (images to `02 - Research/_attachments`, then the entry) |
 | Research / Verification agents | `research_agent_catalog`, `start_research_verification`, `inspect_research_verification`, `list_research_verifications`, `cancel_research_verification` |
 | Command Armory | `command_agent_catalog`, `command_capabilities`, `command_missions` (read-only projections; see `docs/COMMAND-FLAGSHIP.md`) |
 | Agent events | `agent_events`, `agent_usage` (read-only; the normalized activity stream, see `docs/AGENT-EVENTS.md`) |
@@ -120,6 +121,7 @@ Four commands and one background worker write to the vault. All of them resolve 
 
 | Command | Operation | Target | Declared intent | Asks first? |
 | --- | --- | --- | --- | --- |
+| `x_import_save` | create | `02 - Research/_attachments/x-<handle>-<id>-<n>.<ext>`, then the entry as `write_pantheon_entry` | `CreateUnique` | No — each image claims a free name with `create_new` |
 | `write_pantheon_entry` | create | `02 - Research/<date> <title>.md` | `CreateUnique` | No — `create_unique` (`pantheon.rs`) claims a free suffixed name with `create_new`, so nothing is destroyed |
 | `save_attachment_to_vault` | create | `02 - Research/_attachments/<file>` | `CreateUnique` | No — `copy_to_unique` (`attachments.rs`) claims a free suffixed name with `create_new`; the source is a file the operator picked, named to the webview only by a one-use token |
 | `migrate_pantheon_schema` | **modify** | frontmatter of `02 - Research/*.md` entries | `ModifyAuthored` | **Always**, one confirmation per file with a diff summary |

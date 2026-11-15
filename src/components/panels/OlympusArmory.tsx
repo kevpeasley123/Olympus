@@ -7,6 +7,7 @@ import {publishAgentConstellation,onConstellationAgent,useAgentHighlight,publish
 import { pantheonAgents } from "../../services/pantheonAgents";
 import { AgentEmblem } from "./AgentEmblem";
 import { ActivityDeck } from "./ActivityDeck";
+import { DECK_ROLES } from "../../services/activityDeck";
 import { GmailSettings } from "./GmailSettings";
 import { ResourceIntake } from "./ResourceIntake";
 import { onArmoryInspection } from "../../services/armoryNavigation";
@@ -21,6 +22,8 @@ import fixture from "../../services/commandAgentsFixture.json";
 import "./olympusCommand.css";
 
 type Category = "Agents" | "Plugins" | "Skills";
+// The Activity Deck's order, so both tabs list the Olympians alike.
+const armoryOrder = (id: string) => { const order = Object.keys(DECK_ROLES); const at = order.indexOf(id); return at < 0 ? order.length : at; };
 const categories = ["Agents", "Plugins", "Skills"] as const;
 const symbols = { Agents: CircleDot, Plugins: Plug, Skills: Sparkles };
 interface Props {
@@ -37,8 +40,10 @@ export function OlympusArmory({projectNames,capabilities, missions, error, missi
   const [catalogError, setCatalogError] = useState("");
   const [revision, setRevision] = useState(0);
   const intakeDrawer=useRef<HTMLDetailsElement>(null);
+  // The left column is either the Activity Deck or the Armory; the full Armory dialog opens from either.
+  const [pane,setPane]=useState<"activity"|"armory">("activity");
   const [intakeReturn,setIntakeReturn]=useState<(()=>void)|null>(null);
-  useEffect(()=>onManagementHandoff(request=>{if(request.target!=="armory")return;setIntakeReturn(()=>request.returnToUsage);if(intakeDrawer.current){intakeDrawer.current.open=true;intakeDrawer.current.scrollIntoView({block:"nearest"});intakeDrawer.current.querySelector<HTMLElement>("summary")?.focus();}}),[]);
+  useEffect(()=>onManagementHandoff(request=>{if(request.target!=="armory")return;setIntakeReturn(()=>request.returnToUsage);setPane("armory");requestAnimationFrame(()=>{if(intakeDrawer.current){intakeDrawer.current.open=true;intakeDrawer.current.scrollIntoView({block:"nearest"});intakeDrawer.current.querySelector<HTMLElement>("summary")?.focus();}});}),[]);
   const [category, setCategory] = useState<Category>("Agents");
   const [open, setOpen] = useState(false);
   const [agentId, setAgentId] = useState<string | null>(null);
@@ -90,15 +95,7 @@ export function OlympusArmory({projectNames,capabilities, missions, error, missi
   const workingIds=roles.filter(role=>status(role)==="Working").map(role=>role.id).sort().join('|');
   useEffect(()=>{publishWorkingAgents(workingIds?workingIds.split('|'):[]);return ()=>publishWorkingAgents([]);},[workingIds]);
   const openOperation = (m: Mission) => {leave();onDestination(m.destination);};
-  return <aside className="olympus-armory activity-deck" aria-label="Activity Deck">
-    <ActivityDeck roster={catalog?roles.map(role=>{const held=operations.find(m=>m.steps.some(s=>s.agent===role.id&&s.state==="active")),waiting=operations.find(m=>m.status==="waiting"&&m.steps.some(s=>s.agent===role.id));const mission=waiting??held;
-      return {id:role.id,name:role.name,description:role.description,readiness:role.kind==="orchestrator"||role.status==="AVAILABLE"?"Idle":role.status==="PLACEHOLDER"?"Planned":role.status==="UNPROVEN"?"Unverified":"Unavailable",
-        mission:mission&&role.kind!=="orchestrator"?{title:mission.title,step:mission.steps.find(s=>s.agent===role.id&&s.state==="active")?.label??mission.title,waiting:!!waiting}:null,bind:highlight.bind(role.id)};}):null}
-      onOpenArmory={()=>show("Agents")} onInspectProfile={id=>{const role=roles.find(r=>r.id===id);if(role){show("Agents");inspectAgent(role);}}}>
-      {(error||catalogError||missionsError)&&<p className="armory-caution">Some observations are unavailable. <button onClick={()=>{setRevision(n=>n+1);show("Agents")}}>Review</button></p>}
-      <details ref={intakeDrawer} className="armory-resource-drawer"><summary>Add resources &amp; skills</summary>{intakeReturn&&<button onClick={()=>{const back=intakeReturn;setIntakeReturn(null);if(intakeDrawer.current)intakeDrawer.current.open=false;back();}}>Back to API management</button>}<ResourceIntake/></details>
-    </ActivityDeck>
-
+  const armoryDialog=<>
     <Modal open={open} onClose={leave} title="Olympus Armory" showTitle={false} className="armory-dialog">
       <header className="armory-dialog-header"><div><h2>Olympus Armory</h2></div><button className="armory-close" onClick={leave} aria-label="Close Armory"><X size={20}/></button></header>
       <nav className="armory-tabs" aria-label="Armory categories">{categories.map((name,i)=>{const Icon=symbols[name];return <button key={name} aria-pressed={category===name} onClick={()=>{setCategory(name);setCollectionOpen(false);setAgentId(null);setItem(null);}}><Icon size={16}/>{name}<small>{numbers[i]??"—"}</small></button>;})}</nav>
@@ -119,5 +116,45 @@ export function OlympusArmory({projectNames,capabilities, missions, error, missi
       {item&&item.id!=="gmail"&&<section ref={detailRef} tabIndex={-1} className="armory-item-detail" aria-label="Capability detail"><button className="armory-close" aria-label="Close capability detail" onClick={()=>setItem(null)}><X size={16}/></button><span className="command-eyebrow">{item.kind==="skill"?"SKILL CONTRACT":"CAPABILITY CONTRACT"}</span><h3>{item.name}</h3>{item.kind==="tool"?<><p>{item.detail}</p><h4>Authority</h4><p>{item.authority}</p><h4>Approval</h4><p>{item.approval==="required"?"Required for every use":item.approval==="writes"?"Required for writes":"No additional approval in this contract"}</p><h4>Supported actions</h4><p>{item.capabilities.join(" / ")}</p></>:<><p>{item.purpose}</p><h4>Input / output</h4><p>{item.inputs}</p><p>{item.output}</p><h4>Effects</h4><p>{item.effects}</p>{item.instructions&&<><h4>Instructions</h4><p className="resource-guidance">{item.instructions}</p></>}</>}</section>}
       </div><footer className="armory-dialog-footer"><span>{preview?"Synthetic preview":"Observed runtime state"}</span></footer>
     </Modal>
+  </>;
+  const tabs=<nav className="deck-tabs" aria-label="Left column views">{(["activity","armory"] as const).map(name=><button key={name} type="button" aria-pressed={pane===name} onClick={()=>setPane(name)}>{name==="activity"?"Activity":"Armory"}</button>)}</nav>;
+  const skillCount=capabilities ? capabilities.skills.length+executableSkills.length : executableSkills.length;
+  if(pane==="armory") return <aside className="olympus-armory activity-deck" aria-label="Armory">
+    <header className="armory-heading deck-heading">
+      <Sparkles className="deck-heading-mark" size={24} strokeWidth={1.4} aria-hidden="true"/>
+      <div><h2>Armory</h2><p>Agents · plugins · skills</p></div>
+      <button type="button" className="deck-manage" onClick={()=>show(category)} aria-haspopup="dialog" aria-label="Open the Armory" title="Open the full Armory"><ArrowUpRight size={14}/></button>
+    </header>
+    {tabs}
+    {(error||catalogError||missionsError)&&<p className="armory-caution">Some observations are unavailable. <button onClick={()=>{setRevision(n=>n+1);show("Agents")}}>Review</button></p>}
+    <section className="deck-section deck-idle armory-pane" aria-label="Agents">
+      <h3>Agents <span>({catalog?roles.length:"—"})</span></h3>
+      {!catalog?<p className="deck-note">Reading the roster…</p>:<ul>{[...roles].sort((a,b)=>armoryOrder(a.id)-armoryOrder(b.id)).map(role=><li key={role.id}><button type="button" className="deck-idle-row" onClick={()=>{show("Agents");inspectAgent(role);}} {...highlight.bind(role.id)}>
+        <span className="deck-emblem deck-emblem--small"><AgentEmblem id={role.id} size={17}/></span><strong>{role.name}</strong><span className="deck-status" data-status={status(role).toLowerCase()}>{({unproven:"Unverified",placeholder:"Planned",unavailable:"Unavailable"} as Record<string,string>)[status(role)]??status(role)}</span><ChevronRight size={13} aria-hidden="true"/></button></li>)}</ul>}
+    </section>
+    <section className="deck-section deck-idle armory-pane" aria-label="Plugins">
+      <h3>Plugins <span>({capabilities?plugins.length:"—"})</span></h3>
+      {!capabilities?<p className="deck-note">Plugins unavailable.</p>:<ul>{plugins.map(t=><li key={t.id}><button type="button" className="deck-idle-row armory-pane-row" onClick={()=>{show("Plugins");setItem(t);}}>
+        <Plug size={15} aria-hidden="true"/><strong>{t.name}</strong><span className="deck-status" data-status={pluginStatus(t).toLowerCase()}>{pluginStatus(t)}</span><ChevronRight size={13} aria-hidden="true"/></button></li>)}</ul>}
+    </section>
+    <section className="deck-section deck-idle armory-pane" aria-label="Skills">
+      <h3>Skills <span>({skillCount})</span></h3>
+      <ul>{executableSkills.map(skill=><li key={skill.command}><button type="button" className="deck-idle-row armory-pane-row" onClick={()=>show("Skills")}><Sparkles size={15} aria-hidden="true"/><strong>{skill.name}</strong><ChevronRight size={13} aria-hidden="true"/></button></li>)}
+        {capabilities?.skills.map(skill=><li key={skill.id}><button type="button" className="deck-idle-row armory-pane-row" onClick={()=>{show("Skills");setItem(skill);}}><Sparkles size={15} aria-hidden="true"/><strong>{skill.name}</strong><ChevronRight size={13} aria-hidden="true"/></button></li>)}</ul>
+    </section>
+    <div className="deck-actions">
+      <details ref={intakeDrawer} className="armory-resource-drawer"><summary>Add resources &amp; skills</summary>{intakeReturn&&<button onClick={()=>{const back=intakeReturn;setIntakeReturn(null);if(intakeDrawer.current)intakeDrawer.current.open=false;back();}}>Back to API management</button>}<ResourceIntake/></details>
+    </div>
+    {armoryDialog}
+  </aside>;
+  return <aside className="olympus-armory activity-deck" aria-label="Activity Deck">
+    <ActivityDeck roster={catalog?roles.map(role=>{const held=operations.find(m=>m.steps.some(s=>s.agent===role.id&&s.state==="active")),waiting=operations.find(m=>m.status==="waiting"&&m.steps.some(s=>s.agent===role.id));const mission=waiting??held;
+      return {id:role.id,name:role.name,description:role.description,readiness:role.kind==="orchestrator"||role.status==="AVAILABLE"?"Idle":role.status==="PLACEHOLDER"?"Planned":role.status==="UNPROVEN"?"Unverified":"Unavailable",
+        mission:mission&&role.kind!=="orchestrator"?{title:mission.title,step:mission.steps.find(s=>s.agent===role.id&&s.state==="active")?.label??mission.title,waiting:!!waiting}:null,bind:highlight.bind(role.id)};}):null}
+      tabs={tabs} onInspectProfile={id=>{const role=roles.find(r=>r.id===id);if(role){show("Agents");inspectAgent(role);}}}>
+      {(error||catalogError||missionsError)&&<p className="armory-caution">Some observations are unavailable. <button onClick={()=>{setRevision(n=>n+1);show("Agents")}}>Review</button></p>}
+    </ActivityDeck>
+
+    {armoryDialog}
   </aside>;
 }
