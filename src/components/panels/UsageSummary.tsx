@@ -16,7 +16,7 @@ function percent(s: UsageSnapshot) { const m = s.windows.find(w => valid(w.remai
 function amount(m: UsageMetric | null) { if (!valid(m))
     return "—"; return m!.unit === "USD" ? new Intl.NumberFormat(undefined, { style: "currency", currency: "USD" }).format(m!.value) : `${m!.value.toLocaleString()} ${m!.unit}`; }
 function state(s: UsageSnapshot) { return s.status ?? (s.observedAt ? "ready" : "disconnected"); }
-const statuses = { disconnected: "Telemetry not connected", unsupported: "Not supported", loading: "Checking", failed: "Check failed", ready: "No reading" };
+const statuses = { disconnected: "No reading yet", unsupported: "Not supported", loading: "Checking", failed: "Check failed", ready: "No reading" };
 function Brand({ name }: {
     name: string;
 }) {
@@ -51,9 +51,10 @@ function UsageRail({label,rows,now}:{label:string;rows:UsageSnapshot[];now:numbe
       </div><span className="usage-rail__count" aria-live="polite">{overflow?`${position.end>=position.total-2?Math.ceil(position.total/Math.max(1,position.end-position.start)):Math.floor(position.start/Math.max(1,position.end-position.start))+1} / ${Math.ceil(position.total/Math.max(1,position.end-position.start))}`:`${rows.length} ${rows.length===1?"service":"services"}`}</span>
     </section>;
 }
-/** Reads happen only on explicit Refresh; credentials stay in Rust. */
-export function UsageSummary({ snapshots: suppliedSnapshots, previewLabel, managementApi, telemetryApi = usageClient, layout = "widget" }: {
+/** With autoRefresh the app reads on open and every ten minutes; otherwise only on Refresh. Credentials stay in Rust. */
+export function UsageSummary({ snapshots: suppliedSnapshots, previewLabel, managementApi, telemetryApi = usageClient, layout = "widget", autoRefresh = false }: {
     layout?: "widget" | "dock";
+    autoRefresh?: boolean;
     snapshots?: UsageSnapshot[];
     telemetryApi?: UsageClient;
     previewLabel?: string;
@@ -81,6 +82,13 @@ export function UsageSummary({ snapshots: suppliedSnapshots, previewLabel, manag
         setLiveSnapshots(rows=>rows.map(previous=>previous.provider===base.provider?mergeUsageReading(previous,next):previous));
       }));} finally {busy.current=false;setRefreshing(false);setNow(Date.now());}
     }
+    // None of the readers starts a model turn: Codex asks its app-server, Claude reads a local file, ElevenLabs reads the subscription.
+    useEffect(()=>{
+      if(!autoRefresh)return;
+      void refresh();const t=window.setInterval(()=>void refresh(),600000);
+      return ()=>window.clearInterval(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    },[autoRefresh]);
     const [management,setManagement]=useState<ManagementView|null>(null);
     const [readings,setReadings]=useState<Partial<Record<ManagedService,string>>>({});
     const [selection,setSelection]=useState<string|null>(null);
@@ -94,7 +102,7 @@ export function UsageSummary({ snapshots: suppliedSnapshots, previewLabel, manag
     useEffect(()=>{if(!open)return;requestAnimationFrame(()=>{if(management)dialog.current?.querySelector<HTMLElement>('.usage-management h2')?.focus();else if(returnManager.current){dialog.current?.querySelector<HTMLButtonElement>(`[data-manage="${returnManager.current}"]`)?.focus();returnManager.current=null;}});},[management,selection,open]);
     function leaveManagement(){returnManager.current=management;setManagement(null);setSelection(null);}
     function handoff(target:ManagementDestination){setOpen(false);window.setTimeout(()=>handoffManagement({target,returnToUsage:()=>setOpen(true)}),0);}
-    return <><section className={`usage-summary${layout==="dock"?" usage-summary--dock":""}`} aria-label="Usage and limits"><header className="usage-summary__heading"><h3><BarChart3 />Usage</h3><button aria-label="Refresh usage" disabled={refreshing||!!suppliedSnapshots||!telemetryApi.available} onClick={()=>void refresh()}>{layout==="dock"?<RefreshCw aria-hidden="true"/>:refreshing?"Checking":"Refresh"}</button><button ref={trigger} onClick={() => setOpen(true)} aria-label="Expand usage"><Maximize2 /></button></header><div className="usage-summary__body">{layout==="dock"?groups.map(g=><UsageRail key={g.id} label={g.label} rows={snapshots.filter(s=>s.capabilityCategory===g.id)} now={now}/>):groups.map(g => <section className="usage-summary__group" key={g.id} aria-label={g.label}><h3>{g.label}</h3>{snapshots.filter(s => s.capabilityCategory === g.id).map(s => <div className={`usage-row usage-color-${colors[s.provider] ?? "teal"}`} key={s.provider}><Brand name={s.provider}/><span className="usage-row__name">{s.provider}</span><Meter s={s}/><strong title={percent(s) !== null ? `${s.windows.find(w => valid(w.remaining) && w.remaining?.unit === "%" && w.remaining.value <= 100)?.label} remaining · ${snapshotFreshness(s, now)}` : statuses[state(s)]}>{percent(s) !== null ? `${formatUsagePercentage(percent(s))}%` : amount(s.balance)}</strong></div>)}</section>)}</div><footer>{snapshots.some(s => state(s) === "failed") ? "Check failed / last known readings are stale" : snapshots.some(s => state(s) === "loading") ? "Checking account telemetry" : snapshots.every(s => state(s) === "unsupported") ? "Account telemetry not supported" : snapshots.every(s => !s.observedAt) ? "Account telemetry not connected" : snapshots.some(s => s.evidence === "historical") ? "Historical snapshot / Stale / Remaining" : snapshots.some(s => snapshotFreshness(s, now) === "Stale") ? "Stale snapshot / Remaining" : "Account snapshots / Remaining"}</footer></section>{open && createPortal(<dialog ref={dialog} className="usage-dialog" aria-modal="true" aria-labelledby="usage-title" onCancel={() => setOpen(false)} onKeyDown={e => { if (e.key === "Tab") {
+    return <><section className={`usage-summary${layout==="dock"?" usage-summary--dock":""}`} aria-label="Usage and limits"><header className="usage-summary__heading"><h3><BarChart3 />Usage</h3><button aria-label="Refresh usage" disabled={refreshing||!!suppliedSnapshots||!telemetryApi.available} onClick={()=>void refresh()}>{layout==="dock"?<RefreshCw aria-hidden="true"/>:refreshing?"Checking":"Refresh"}</button><button ref={trigger} onClick={() => setOpen(true)} aria-label="Expand usage"><Maximize2 /></button></header><div className="usage-summary__body">{layout==="dock"?groups.map(g=><UsageRail key={g.id} label={g.label} rows={snapshots.filter(s=>s.capabilityCategory===g.id)} now={now}/>):groups.map(g => <section className="usage-summary__group" key={g.id} aria-label={g.label}><h3>{g.label}</h3>{snapshots.filter(s => s.capabilityCategory === g.id).map(s => <div className={`usage-row usage-color-${colors[s.provider] ?? "teal"}`} key={s.provider}><Brand name={s.provider}/><span className="usage-row__name">{s.provider}</span><Meter s={s}/><strong title={percent(s) !== null ? `${s.windows.find(w => valid(w.remaining) && w.remaining?.unit === "%" && w.remaining.value <= 100)?.label} remaining · ${snapshotFreshness(s, now)}` : statuses[state(s)]}>{percent(s) !== null ? `${formatUsagePercentage(percent(s))}%` : amount(s.balance)}</strong></div>)}</section>)}</div><footer>{snapshots.some(s => state(s) === "failed") ? "Check failed / last known readings are stale" : snapshots.some(s => state(s) === "loading") ? "Checking account telemetry" : snapshots.every(s => state(s) === "unsupported") ? "Account telemetry not supported" : snapshots.every(s => !s.observedAt) ? "" : snapshots.some(s => s.evidence === "historical") ? "Historical snapshot / Stale / Remaining" : snapshots.some(s => snapshotFreshness(s, now) === "Stale") ? "Stale snapshot / Remaining" : "Account snapshots / Remaining"}</footer></section>{open && createPortal(<dialog ref={dialog} className="usage-dialog" aria-modal="true" aria-labelledby="usage-title" onCancel={() => setOpen(false)} onKeyDown={e => { if (e.key === "Tab") {
         const controls = dialog.current?.querySelectorAll<HTMLElement>('button:not(:disabled), a[href], input, select, textarea, summary, [tabindex="0"]');
         if (!controls?.length)
             return;

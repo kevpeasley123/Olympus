@@ -38,7 +38,10 @@ inference after lease expiry; exactly-once external inference is not promised.
   - **Chats**: earlier chats, newest first, with their summaries, and a search
     over every saved message. Each can be opened, renamed or deleted.
   - **New chat**.
-  - **Temporary chat**.
+
+  The Temporary chat button was removed on 2026-11-14 at Kevin's request; the
+  behaviour below still applies to temporary chats already open and to code
+  paths that start one.
 
   A chat holding only a launch briefing is not listed until Kevin says something
   in it. The browser preview has one local conversation and no chat bar.

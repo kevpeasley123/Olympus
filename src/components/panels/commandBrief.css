@@ -38,3 +38,19 @@ html .app-shell .olympus-armory .armory-roster-copy{text-shadow:0 1px 3px #000c}
 .command-brief-operation li[data-state="failed"]::before{border-color:#d98a72}
 @keyframes brief-turn{to{transform:rotate(360deg)}}
 @media(prefers-reduced-motion:reduce){.command-brief-operation li[data-state="active"]::before{animation:none}}
+/* The console's one surface. Translucent at rest; more opaque while the pointer is
+   over it or Kevin is typing. Only background-color changes, so the change can
+   fade: swapping a gradient for a flat colour on hover cannot be transitioned and
+   flashed the panel nearly transparent before it settled. */
+html body .app-shell .command-console[data-layout="expanded"]{background-color:rgba(4,12,19,.58);background-image:none;transition:background-color 220ms ease,border-color 220ms ease,box-shadow 220ms ease}
+html body .app-shell .command-console[data-layout="expanded"]:is(:hover,:focus-within,:has([aria-expanded="true"])){background-color:rgba(4,12,19,.93);background-image:none}
+@media(hover:none){html body .app-shell .command-console[data-layout="expanded"]{background-color:rgba(4,12,19,.88)}}
+/* New briefing sits with the console's own controls: same height as the expand
+   button beside it, the deck's gold outline, mono small caps. */
+html .app-shell .console-workspace-header .console-header-actions{align-items:center;gap:6px}
+.console-briefing-action{display:inline-flex;align-items:center;height:26px;padding:0 11px;border:1px solid #d9a94e52;border-radius:7px;background:#d9a94e0d;color:#e6c27a;font:500 12px/1 Inter,system-ui,-apple-system,sans-serif;letter-spacing:.01em;white-space:nowrap;cursor:pointer;transition:background-color 160ms ease,border-color 160ms ease}
+.console-briefing-action:hover:not(:disabled){background:#d9a94e24;border-color:#d9a94e}
+.console-briefing-action:focus-visible{outline:2px solid #d7b77f;outline-offset:2px}
+.console-briefing-action:disabled{opacity:.5;cursor:default}
+.local-speech{display:flex;align-items:center;gap:8px;margin:0 0 6px;font-size:11px;color:#b9c7d2}
+.local-speech [role="status"]{margin-right:auto}

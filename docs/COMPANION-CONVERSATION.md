@@ -22,8 +22,8 @@ preserved. The chat memory and observation actions were removed in 0.28.0 and
 0.30.0; see `CURATED-MEMORY.md`.
 
 Since 2026-10-13 the desktop app's Conversation view opens on a bar naming the open chat, with
-Chats (the list of earlier chats and a search over every saved message), New
-chat and Temporary chat. Opening the list replaces the transcript until a chat is
+Chats (the list of earlier chats and a search over every saved message) and New
+chat (the Temporary chat button was removed on 2026-11-14). Opening the list replaces the transcript until a chat is
 chosen or the list is closed (Escape closes it first). The chat cannot change
 while a reply, briefing or voice session is in progress, because the reply
 belongs to the chat it was asked in. Deleting a chat says that its Obsidian note
