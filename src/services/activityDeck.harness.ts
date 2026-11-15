@@ -1,4 +1,4 @@
-import { buildDeck, deckStages, describeStep } from "./activityDeck";
+import { buildDeck, classifyFailure, deckStages, describeStep, operationTimeline } from "./activityDeck";
 import type { AgentEvent } from "./agentEvents";
 import type { SkillRun } from "./skillRuns";
 
@@ -60,5 +60,33 @@ export function runActivityDeckHarness() {
 
   check(describeStep(event("x", "research", "tool_call", "Searched mail", { tool: "mcp__olympus__search_mail" })) === "Searching recent mail", "A tool call is reworded, not invented");
   check(describeStep(event("x", "research", "tool_call", "Used a tool", { tool: "something_else" })) === "Used a tool", "An unknown step keeps the recorded summary");
+
+  // The timeline, next step and failure kinds: all from the same recorded runs and events.
+  const athenaRunning = run("r-h1", "research", { parentRun: "r", skillId: "research-assignment" });
+  let liveDeck = buildDeck([root, athenaRunning], working);
+  check(liveDeck.operation?.lead === "olympus" && liveDeck.operation.next === "Awaiting Athena's research & analysis", "The next step comes from the running hand-off");
+  check(liveDeck.operation?.lastEventAt === working[working.length - 1].createdAt, "Quiet time is measured from the latest recorded event of the operation or its hand-offs");
+  liveDeck = buildDeck([root, athenaDone], [...working, event("r", "olympus", "message", "Athena reported back")]);
+  check(liveDeck.operation?.next === "Themis takes the next hand-off", "With Athena done, the plan names Themis next");
+  check(buildDeck([root], started).operation?.next === null, "Before a plan, nothing is promised next");
+  check(buildDeck([finished, athenaDone, themis], working).operation?.next === null, "A finished operation has no next step");
+
+  const returned = [...working, event("r-h1", "research", "tool_call", "Read a vault note", { tool: "mcp__olympus__read_vault_note", path: "09 - System/User Profile.md" }), event("r-h1", "research", "result", "Finished"), event("r", "olympus", "message", "Athena reported back"), event("r", "olympus", "subagent_started", "Handed to Themis: Check them"), event("r", "olympus", "tool_failed", "Themis's hand-off did not complete")];
+  const timeline = operationTimeline([finished, athenaDone, themis], returned, "r");
+  check(timeline[0].kind === "start" && timeline[0].text === "Started Ask Olympus", "The timeline opens with the recorded start");
+  const handoffs = timeline.filter(entry => entry.kind === "handoff");
+  check(handoffs.length === 2 && handoffs[0].agent === "olympus" && handoffs[0].to === "research" && handoffs[0].text === "Find the notes" && handoffs[1].to === "verification", "Each hand-off names who gave it, who took it and the task");
+  const back = timeline.find(entry => entry.kind === "return");
+  check(back?.agent === "research" && back.to === "olympus" && back.text === "Results returned", "A return is credited to the specialist and addressed to the lead");
+  check(timeline.some(entry => entry.kind === "failed" && entry.agent === "verification" && entry.text === "Hand-off did not complete"), "A failed hand-off is shown as one");
+  check(timeline.filter(entry => entry.text === "Reading User Profile" && entry.agent === "research").length === 1, "A repeated identical step collapses into one line");
+  check(timeline[timeline.length - 1].kind === "done" && timeline[timeline.length - 1].text === "Delivered the answer", "The run record closes the timeline when no event did");
+  check(!timeline.some(entry => entry.text === "Took a hand-off from Zeus"), "A specialist's own start is not a second hand-off line");
+  check(operationTimeline([{ ...root, status: "failed", error: "Claude Code stopped the run: usage limit." }], started, "r").slice(-1)[0].kind === "failed", "A stopped run ends its timeline with the reason");
+  check(operationTimeline([root], started, "nothing").length === 0, "Another operation's events never appear");
+
+  check(classifyFailure("Claude Code stopped the run: usage limit.").kind === "user" && classifyFailure("Sign in to Claude Code first").kind === "user", "Limits and sign-ins need Kevin");
+  check(classifyFailure("Claude response timed out. No fallback was attempted.").kind === "external", "A timeout is an outside service");
+  check(classifyFailure("The answer did not match the skill's format.").kind === "system" && classifyFailure(null).kind === "system", "Anything else is Olympus's own issue");
   return { passed };
 }

@@ -163,3 +163,22 @@ html .app-shell .olympus-armory.activity-deck{gap:12px}
 .deck-operation-copy>.deck-operation-state{display:flex;align-items:center;justify-content:space-between;gap:8px;-webkit-line-clamp:unset;overflow:visible}
 .deck-operation-state .deck-outcome{margin:0;min-width:0;height:17px;padding:0 7px;font-size:8.5px}
 .deck-operation-state small{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* Operation detail: who leads, how long, what is next, and the recorded timeline. */
+.deck-operation-meta{font-size:10.5px;color:#9fb1c0;font-variant-numeric:tabular-nums}
+.deck-operation-next,.deck-operation-quiet,.deck-operation-blocker{grid-column:1/-1;font-size:11px;line-height:1.4}
+.deck-operation-next{color:#d9cfb9}
+.deck-operation-quiet{color:#e0b97f}
+.deck-operation-blocker{justify-self:start;padding:2px 8px;border-radius:999px;border:1px solid #8196a666;font:500 9px/1.4 var(--font-mono);letter-spacing:.08em;text-transform:uppercase;color:#b3c2ce}
+.deck-operation-blocker[data-kind="user"]{border-color:#d9a94e99;color:#f0c66f}
+.deck-operation-blocker[data-kind="external"]{border-color:#5aa0d880;color:#8cc4f2}
+.deck-operation-blocker[data-kind="system"]{border-color:#d98a7280;color:#eda58f}
+.deck-timeline ol{display:grid;gap:5px;margin:0;padding:0 0 0 2px;list-style:none}
+.deck-timeline li{display:grid;grid-template-columns:auto 1fr;gap:8px;font-size:11px;line-height:1.4;color:#b2c1cc}
+.deck-timeline time{font:10px/1.5 var(--font-mono);color:#7d93a4;font-variant-numeric:tabular-nums}
+.deck-timeline li span{min-width:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.deck-timeline b{font-weight:600;color:#e6e3db}
+.deck-timeline li[data-kind="handoff"] b,.deck-timeline li[data-kind="return"] b{color:#f0c66f}
+.deck-timeline li[data-kind="failed"] span{color:#eda58f}
+.deck-timeline li[data-kind="done"] span{color:#9fd3ae}
+.deck-timeline .deck-link{margin-top:6px}

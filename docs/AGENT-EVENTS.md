@@ -97,8 +97,44 @@ feed:
 - Mission steps recorded outside the skill runner (research, coding delegation)
   show their agent as Running, or Blocked while waiting on approval.
 
+### Operation detail (0.74.0)
+
+All of this is derived in `activityDeck.ts` from the same skill runs and events;
+nothing new is recorded and nothing is estimated.
+
+- **Lead and time.** The card names the accountable Olympian (the root run's
+  agent) and the elapsed time from the run's recorded start (ticking in its own
+  component), or its duration once finished.
+- **Next.** Only from the accepted plan and the runs' states: "Awaiting
+  Athena's research & analysis" while a hand-off runs, "Themis takes the next
+  hand-off" when the plan names one not yet started, "Zeus writes the final
+  answer" once every hand-off has settled. Before a plan, and after the end,
+  there is none.
+- **Quiet.** A running operation whose latest event (its own or a hand-off's)
+  is more than three minutes old says "No activity recorded since …". It is
+  not called stalled or failed; restart recovery already closes runs that a
+  restart interrupted.
+- **Failure kind.** A stopped operation's recorded reason is read as *Needs
+  you* (sign-in, authorization, approval, usage limit), *Outside service*
+  (timeout, unreachable, rate limit) or *Olympus issue* (anything else)
+  (`classifyFailure`). Only *Needs you* reaches the Overview, for 30 minutes.
+- **Timeline** (`operationTimeline`), under the card: the recorded start, the
+  plan, each hand-off (`subagent_started`: Zeus → Athena, with the task), each
+  specialist's steps, each return ("Athena reported back": Athena → Zeus,
+  results returned) or failed hand-off, and the end. The run record closes it
+  when no event did. Identical consecutive steps collapse; a specialist's own
+  "Took a hand-off" start is not repeated. Three entries show by default.
+- **Stage.** A fresh hand-off or return (under 15 seconds old) lights the
+  receiving Olympian for 1.6 seconds through the existing agent highlight; old
+  history never replays as motion.
+
+Genuine hand-offs exist only in Ask Olympus (`work-request`): Zeus plans, hands
+to Athena and Themis as child skill runs, and writes the answer. Other work
+(briefs, single-agent skills, background jobs, coding delegation) shows as one
+Olympian's operation with its steps.
+
 The mission brief in the console repeats the running operation as a short
-checklist (`deckStages`). The step-by-step feed (`AgentActivityFeed`), the
+checklist (`deckStages`) and its next step. The step-by-step feed (`AgentActivityFeed`), the
 source access history and the asset inspector are in the **Diagnostics** dialog,
 opened from the deck. The deck starts nothing itself: work is asked for in the
 chat (or by voice), and `/ask` hands a request to Zeus.

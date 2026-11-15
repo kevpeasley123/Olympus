@@ -4,8 +4,9 @@ import { Modal } from "../Modal";
 import { AgentEmblem } from "./AgentEmblem";
 import { SkillRunResult } from "./SkillRunResult";
 import { agentEventsSnapshot, engineLabel, subscribeAgentEvents } from "../../services/agentEvents";
+import { setAgentHighlight } from "../../services/agentConstellation";
 import { skillRunsSnapshot, subscribeSkillRuns } from "../../services/skillRuns";
-import { DECK_ROLES, STATUS_LABEL, buildDeck, isLive, type DeckAgent, type DeckStatus } from "../../services/activityDeck";
+import { DECK_ROLES, STATUS_LABEL, buildDeck, classifyFailure, deckName, isLive, operationTimeline, type DeckAgent, type DeckStatus, type TimelineEntry } from "../../services/activityDeck";
 import "./activityDeck.css";
 
 /** What the Armory already knows about an Olympian: its catalog entry and any recorded mission step it holds. */
@@ -30,6 +31,28 @@ const since = (iso: string) => {
   const minutes = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
   return minutes < 1 ? "just now" : minutes < 60 ? `${minutes} min ago` : minutes < 1440 ? `${Math.round(minutes / 60)} h ago` : new Date(iso).toLocaleDateString([], { month: "short", day: "numeric" });
 };
+
+const clock = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: "numeric", minute: "2-digit", second: "2-digit" });
+const span = (ms: number) => { const s = Math.max(0, Math.round(ms / 1000)); return s < 60 ? `${s}s` : s < 3600 ? `${Math.floor(s / 60)}m ${s % 60}s` : `${Math.floor(s / 3600)}h ${Math.floor(s % 3600 / 60)}m`; };
+/** Elapsed time from a recorded start. Ticks every second on its own, so nothing else re-renders. */
+function Elapsed({ from, to }: { from: string; to: string | null }) {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => { if (to) return; const timer = window.setInterval(() => setNow(Date.now()), 1000); return () => window.clearInterval(timer); }, [to]);
+  return <>{span((to ? new Date(to).getTime() : now) - new Date(from).getTime())}</>;
+}
+const QUIET_MS = 3 * 60_000;
+
+function Timeline({ entries }: { entries: TimelineEntry[] }) {
+  const [all, setAll] = useState(false);
+  if (!entries.length) return null;
+  const shown = all ? entries : entries.slice(-3);
+  const who = (entry: TimelineEntry) => entry.to ? `${deckName(entry.agent)} → ${deckName(entry.to)}` : deckName(entry.agent);
+  return <section className="deck-section deck-timeline" aria-label="Operation timeline">
+    <h3>Timeline <span>({entries.length})</span></h3>
+    <ol>{shown.map(entry => <li key={entry.key} data-kind={entry.kind}><time dateTime={entry.at}>{clock(entry.at)}</time><span><b>{who(entry)}</b> {entry.text}</span></li>)}</ol>
+    {entries.length > 3 && <button type="button" className="deck-link" aria-expanded={all} onClick={() => setAll(!all)}>{all ? "Show the latest" : `Show all ${entries.length}`}</button>}
+  </section>;
+}
 
 function AgentCard({ agent, open, onToggle, bind }: { agent: DeckAgent; open: boolean; onToggle: () => void; bind?: Record<string, unknown> }) {
   const role = DECK_ROLES[agent.agent];
@@ -68,6 +91,20 @@ export function ActivityDeck({ roster, tabs, onInspectProfile, children }: Props
   useEffect(() => { const timer = window.setInterval(() => tick(n => n + 1), 60_000); return () => window.clearInterval(timer); }, []);
 
   const operation = deck.operation;
+  const timeline = operation ? operationTimeline(runs, events, operation.id) : [];
+  // A recorded hand-off or return briefly lights its receiving Olympian through the existing
+  // highlight, once, and only when it just happened: history never replays as motion.
+  const lastHandoff = [...timeline].reverse().find(entry => entry.kind === "handoff" || entry.kind === "return");
+  const handoffKey = lastHandoff && Date.now() - new Date(lastHandoff.at).getTime() < 15_000 ? lastHandoff.key : null;
+  useEffect(() => {
+    const target = handoffKey && lastHandoff?.to;
+    if (!target) return;
+    const token = {};
+    setAgentHighlight(token, target);
+    const timer = window.setTimeout(() => setAgentHighlight(token, null), 1600);
+    return () => { window.clearTimeout(timer); setAgentHighlight(token, null); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [handoffKey]);
   const live = operation?.status === "running";
   // Mission steps recorded outside the skill runner keep their place: an Olympian holding one is working.
   const missionAgents: DeckAgent[] = (roster ?? []).filter(entry => entry.mission && !deck.agents.some(agent => agent.agent === entry.id && isLive(agent.status)))
@@ -100,14 +137,20 @@ export function ActivityDeck({ roster, tabs, onInspectProfile, children }: Props
         <span className="deck-operation-state"><small>{live ? "Active operation" : `Last operation · ${since(operation.finishedAt ?? operation.startedAt)}`}</small><em className="deck-status deck-outcome" data-status={operation.status}>{STATUS_LABEL[operation.status]}</em></span>
         <strong>{operation.title}</strong>
         {/* A settled card's badge already names its outcome; keep the line only when it says more. */}
-        {(live || operation.line.trim().toLowerCase() !== STATUS_LABEL[operation.status].toLowerCase() || operation.alsoRunning) && <span>{operation.line}{operation.alsoRunning ? ` · ${operation.alsoRunning} more running` : ""}</span>}
+        <span className="deck-operation-meta">{deckName(operation.lead)} · <Elapsed from={operation.startedAt} to={live ? null : operation.finishedAt}/>{live ? " elapsed" : ""}</span>
+        {(live || operation.line.trim().toLowerCase() !== STATUS_LABEL[operation.status].toLowerCase() || operation.alsoRunning > 0) && <span>{operation.line}{operation.alsoRunning ? ` · ${operation.alsoRunning} more running` : ""}</span>}
       </span>
       {operation.progress && live && <span className="deck-operation-count" aria-label={`Stage ${operation.progress.done} of ${operation.progress.total}`}>{operation.progress.done}/{operation.progress.total}</span>}
+      {live && operation.next && <span className="deck-operation-next">Next: {operation.next}</span>}
+      {live && operation.lastEventAt && Date.now() - new Date(operation.lastEventAt).getTime() > QUIET_MS && <span className="deck-operation-quiet" role="status">No activity recorded since {clock(operation.lastEventAt)}</span>}
+      {operation.status === "failed" && (() => { const failure = classifyFailure(operation.run?.error ?? operation.line); return <span className="deck-operation-blocker" data-kind={failure.kind}>{failure.label}</span>; })()}
       {live && <span className="deck-bar" data-measured={percent !== null || undefined} role={percent !== null ? "progressbar" : undefined} aria-valuemin={percent !== null ? 0 : undefined} aria-valuemax={percent !== null ? 100 : undefined} aria-valuenow={percent ?? undefined}><i style={percent !== null ? { width: `${percent}%` } : undefined}/></span>}
     </button> : <div className="deck-operation deck-operation--idle">
       <Crosshair className="deck-operation-mark" size={30} strokeWidth={1.1} aria-hidden="true"/>
       <span className="deck-operation-copy"><small>No active operation</small><span>Olympus is standing by. Ask in the chat to begin.</span></span>
     </div>}
+
+    {operation && <Timeline key={operation.id} entries={timeline}/>}
 
     {cards.length > 0 && <section className="deck-section" aria-label="Agent activity">
       <h3>Agent activity <span>({working} active)</span></h3>

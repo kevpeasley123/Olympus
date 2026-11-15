@@ -64,3 +64,7 @@ html .app-shell .console-workspace-header .console-header-actions{align-items:ce
 .command-brief-operation ol{font-size:13px;color:#b7c5d0}
 html .app-shell .active-mission-list h3{font-size:13.5px;letter-spacing:.14em;color:#e4dfd2}
 html .app-shell .mission-data-note{font-size:12px;color:#a3b5c3}
+.command-brief-operation>p.command-brief-next{margin-top:4px;font-size:12px;color:#d9cfb9}
+.command-brief-operation>p.command-brief-next::before{display:none}
+.command-brief-needs{margin:0 0 10px;padding:8px 10px;border-left:2px solid #d9a94e;background:#d9a94e10;font-size:12.5px;line-height:1.45;color:#ece3cf}
+.command-brief-needs b{display:block;margin-bottom:2px;font:500 9.5px/1.3 var(--font-mono);letter-spacing:.14em;text-transform:uppercase;color:#f0c66f}

@@ -4,7 +4,7 @@ import {missionTelemetry} from '../../services/pantheonMissions';
 import {useSyncExternalStore} from 'react';
 import {agentEventsSnapshot,subscribeAgentEvents} from '../../services/agentEvents';
 import {skillRunsSnapshot,subscribeSkillRuns} from '../../services/skillRuns';
-import {buildDeck,deckStages} from '../../services/activityDeck';
+import {buildDeck,classifyFailure,deckStages} from '../../services/activityDeck';
 import './commandBrief.css';
 
 /** Compact read-only orientation; mission cards own inspection and actions. */
@@ -14,13 +14,18 @@ export function CommandBrief({missions,error,loading}:{missions:Mission[];error?
  const {runs,skills}=useSyncExternalStore(subscribeSkillRuns,skillRunsSnapshot);
  const deck=buildDeck(runs,useSyncExternalStore(subscribeAgentEvents,agentEventsSnapshot),skills);
  const operation=deck.operation?.status==='running'?deck.operation:null,stages=deckStages(deck);
+ // A stop only Kevin can clear (a sign-in, an approval, a limit) is worth his attention for a while after it happens.
+ const stopped=deck.operation?.status==='failed'&&deck.operation.finishedAt&&Date.now()-new Date(deck.operation.finishedAt).getTime()<30*60_000?deck.operation:null;
+ const needsYou=stopped&&classifyFailure(stopped.run?.error??stopped.line).kind==='user'?stopped:null;
  return <section className="command-brief" aria-label="Mission brief">
   <h3>Mission brief</h3>
   {operation&&<div className="command-brief-operation">
    <strong>{operation.title}</strong><p>{operation.line}</p>
+   {operation.next&&<p className="command-brief-next">Next: {operation.next}</p>}
    {operation.progress&&<><span className="command-brief-progress-label">Progress<b>{operation.progress.done} of {operation.progress.total} stages</b></span><span className="deck-bar" data-measured role="progressbar" aria-valuemin={0} aria-valuemax={operation.progress.total} aria-valuenow={operation.progress.done}><i style={{width:`${operation.progress.done/operation.progress.total*100}%`}}/></span></>}
    {stages.length>0&&<ol aria-label="Current status">{stages.map(stage=><li key={stage.label} data-state={stage.state}>{stage.label}</li>)}</ol>}
   </div>}
+  {needsYou&&<p className="command-brief-needs" role="status"><b>Needs you</b>{needsYou.title} stopped: {needsYou.run?.error??needsYou.line}</p>}
   {!(operation&&!missions.length&&!loading&&!error)&&<p className="command-brief-summary">{loading?'Reading mission activity…':error?'Mission observations are unavailable.':missions.length?`${missions.length} active ${missions.length===1?'mission':'missions'}.${approvals.length?` ${approvals.length} awaiting approval.`:''}`:'No active missions reported.'}</p>}
   {!loading&&!error&&missions.slice(0,2).map(m=><p className="command-brief-line" key={m.id}>{m.title} <span>{missionTelemetry(m).state==='Working'?'is in progress.':`is ${missionTelemetry(m).state.toLowerCase()}.`}</span></p>)}
   <EmailAttentionBrief/>
