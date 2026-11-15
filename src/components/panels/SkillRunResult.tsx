@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from "react";
-import { describeHandoff, describeSource, describeUsage, isBrief, isVerdicts, requestHeadline, skillRunsSnapshot, subscribeSkillRuns, type SkillRun, type SourceRef } from "../../services/skillRuns";
+import { describeHandoff, describeSource, describeUsage, isBrief, isVerdicts, requestHeadline, skillRunsSnapshot, subscribeSkillRuns, type SkillRun, type SourceRef, isVisionReview } from "../../services/skillRuns";
 import { engineLabel } from "../../services/agentEvents";
 import "./agentActivityFeed.css";
 
@@ -20,6 +20,10 @@ export function SkillRunResult({ run }: { run: SkillRun }) {
   if (isVerdicts(output)) return <div className="skill-trial-result">
     <p>{output.summary}</p>
     <ul>{output.verdicts.map((verdict, index) => <li key={index}><strong>{verdict.verdict.replace(/_/g, " ")}</strong><span>{verdict.claim}</span><span>{verdict.basis}</span><small>{cite(verdict.sources)}</small></li>)}</ul>
+  </div>;
+  if (isVisionReview(output)) return <div className="skill-trial-result">
+    <p>{output.summary}</p>
+    <small>{output.slipped.length} slipped · {output.held.length} held · {output.proposals.length} proposed. The full review is in Diagnostics.</small>
   </div>;
   return <div className="skill-trial-result">
     {run.request && <small>{requestHeadline(run.request)}</small>}

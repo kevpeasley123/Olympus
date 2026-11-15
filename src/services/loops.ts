@@ -16,7 +16,7 @@ export async function readScorecard(days = 7): Promise<LoopCard[]> {
 /** The loop an operation belongs to, from its skill; work known only from events is a background job. Mirrors `loop_for_skill`. */
 export function loopName(skillId: string | null | undefined): string {
   if (!skillId) return "Background job";
-  return skillId === "work-request" ? "Ask Olympus" : skillId === "opening-brief" ? "Opening brief" : "One Olympian";
+  return skillId === "work-request" ? "Ask Olympus" : skillId === "opening-brief" ? "Opening brief" : skillId === "vision-review" ? "Vision review" : "One Olympian";
 }
 
 const percent = (part: number, whole: number) => whole ? `${Math.round(part / whole * 100)}%` : "—";

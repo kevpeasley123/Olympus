@@ -72,6 +72,22 @@ pub fn seed(connection: &Connection) -> rusqlite::Result<()> {
     Ok(())
 }
 
+/// A new expectation from Kevin's own words, found by the weekly review, as a
+/// proposal he decides on. The same quote twice is one proposal.
+pub fn propose(connection: &Connection, statement: &str, kevin_said: &str, said_on: &str, source: &str) -> rusqlite::Result<()> {
+    if statement.trim().is_empty() || kevin_said.trim().is_empty() {
+        return Ok(());
+    }
+    use std::hash::{Hash, Hasher};
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    kevin_said.trim().to_lowercase().hash(&mut hasher);
+    connection.execute(
+        "INSERT OR IGNORE INTO expectations (id, statement, kevin_said, said_on, source, checks_json, status) VALUES (?1, ?2, ?3, ?4, ?5, '[]', 'proposed')",
+        params![format!("said-{:x}", hasher.finish()), statement.trim(), kevin_said.trim(), said_on.trim(), source],
+    )?;
+    Ok(())
+}
+
 #[derive(Debug, Clone, Serialize, PartialEq)]
 pub struct CheckResult {
     pub id: &'static str,
@@ -314,6 +330,9 @@ mod tests {
         seed(&c).unwrap();
         assert_eq!(report(&c, 7).unwrap().expectations.iter().find(|e| e.id == "chat-or-voice").unwrap().status, "retired", "seeding never undoes Kevin's decision");
 
+        propose(&c, "Weather in the brief", "I want the brief to mention the weather", "2026-11-15", "Olympus chat").unwrap();
+        propose(&c, "Weather, again", "I want the brief to mention the weather", "2026-11-16", "Olympus chat").unwrap();
+        assert_eq!(report(&c, 7).unwrap().expectations.iter().filter(|e| e.kevin_said.contains("weather")).count(), 1, "one quote, one proposal");
         record(&c, "b2", &[CheckResult { id: "brief.no-exclamation", passed: false, detail: "x".into() }]).unwrap();
         assert_eq!(report(&c, 7).unwrap().passed, 10, "a rewrite replaces the run's earlier result");
     }

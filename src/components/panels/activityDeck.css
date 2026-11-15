@@ -203,3 +203,15 @@ html .app-shell .olympus-armory.activity-deck{gap:12px}
 .vision-actions{display:flex;gap:6px;padding:0 11px 9px}
 .vision-actions button{height:24px;padding:0 10px;border:1px solid #d9a94e80;border-radius:5px;background:#d9a94e14;color:#f0c66f;font:500 11px/1 var(--font-sans);cursor:pointer}
 .vision-actions button.quiet,.vision-actions button+button{border-color:#8196a666;background:none;color:#b3c2ce}
+.vision-weekly{margin:0 0 10px;padding:9px 11px;border:1px solid #9db7c52b;border-radius:7px;background:#0a162099}
+.vision-weekly-bar{display:flex;align-items:center;gap:6px;font-size:11.5px;color:#b9c7d2}
+.vision-weekly-bar span{margin-right:auto}
+.vision-weekly-bar button{height:24px;padding:0 10px;border:1px solid #d9a94e80;border-radius:5px;background:#d9a94e14;color:#f0c66f;font:500 11px/1 var(--font-sans);cursor:pointer}
+.vision-weekly-bar button.quiet{border-color:#8196a666;background:none;color:#b3c2ce}
+.vision-weekly-bar button:disabled{opacity:.5;cursor:default}
+.vision-latest{margin-top:8px;font-size:12px;line-height:1.5;color:#d6dee4}
+.vision-latest p{margin:0 0 8px}
+.vision-latest h4{margin:10px 0 4px;font:9.5px/1 var(--font-mono);letter-spacing:.14em;text-transform:uppercase;color:#8196a6;font-weight:500}
+.vision-latest ul,.vision-latest ol{margin:0;padding-left:18px;display:grid;gap:4px}
+.vision-latest b{color:#efe6d2;font-weight:600}
+.vision-latest small{display:block;color:#8fa2b1}

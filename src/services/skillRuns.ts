@@ -20,7 +20,15 @@ export interface AnswerOutput { answer: string; unknowns: string[]; sources: Sou
 export const describeHandoff = (handoff: Handoff) => `${handoff.name}${handoff.status === "failed" ? " did not finish" : " reported"}: ${handoff.task}`;
 export interface Verdict { claim: string; verdict: "holds" | "partly_holds" | "does_not_hold" | "cannot_check"; basis: string; sources: SourceRef[] }
 export interface VerdictOutput { summary: string; verdicts: Verdict[] }
-export type SkillOutput = BriefOutput | AnswerOutput | VerdictOutput;
+export interface VisionReviewOutput {
+  summary: string;
+  held: { expectation: string; evidence: string }[];
+  slipped: { expectation: string; evidence: string }[];
+  proposals: { kind: "instruction" | "setting" | "check" | "build"; title: string; detail: string; expectation: string }[];
+  newExpectations: { statement: string; kevinSaid: string; saidOn: string }[];
+}
+export type SkillOutput = BriefOutput | AnswerOutput | VerdictOutput | VisionReviewOutput;
+export const isVisionReview = (output: SkillOutput): output is VisionReviewOutput => "slipped" in output && "proposals" in output;
 export const isVerdicts = (output: SkillOutput): output is VerdictOutput => "verdicts" in output;
 export const isBrief = (output: SkillOutput): output is BriefOutput => "brief" in output;
 
@@ -70,6 +78,7 @@ const USAGE_DAYS = 7;
 const loadUsage = () => void invoke<EngineUsage[]>("agent_usage", { days: USAGE_DAYS }).then(usage => set({ usage })).catch(() => undefined);
 const listeners = new Set<() => void>();
 let started = false;
+const VISION_REVIEW_DELAY_MS = 4 * 60_000;
 const set = (next: Partial<SkillRunState>) => { state = { ...state, ...next }; listeners.forEach(listener => listener()); };
 
 function start() {
@@ -77,6 +86,9 @@ function start() {
   started = true;
   void listen<SkillRun>("agent-run-updated", event => { set({ runs: mergeSkillRuns(state.runs, [event.payload]) }); loadUsage(); }).catch(() => undefined);
   loadUsage();
+  // The weekly vision review, once a session, after the opening brief has had its turn. The backend
+  // decides whether it is due and refuses it when switched off or when Claude usage is low.
+  window.setTimeout(() => void invoke<string | null>("start_due_vision_review").catch(() => undefined), VISION_REVIEW_DELAY_MS);
   void Promise.all([invoke<SkillEntry[]>("skill_catalog"), invoke<SkillRun[]>("list_skill_runs", { limit: 20 })])
     .then(([skills, runs]) => set({ skills, runs: mergeSkillRuns(state.runs, runs), error: null }))
     .catch(() => { started = false; });
@@ -140,7 +152,7 @@ export function matchChatHandoff(text: string, earlier: readonly EarlierTurn[] =
 }
 
 /** Starts "Ask Olympus" and resolves with the run once it has finished or stopped. Rejects if it could not start. */
-export async function runOperation(request: string | null, engine = "claude-code", skillId: ChatHandoff["skillId"] | "opening-brief" = "work-request"): Promise<SkillRun> {
+export async function runOperation(request: string | null, engine = "claude-code", skillId: ChatHandoff["skillId"] | "opening-brief" | "vision-review" = "work-request"): Promise<SkillRun> {
   let started: SkillRun;
   try { started = await invoke<SkillRun>("start_skill_run", { skillId, engine, request }); }
   catch (error) {
@@ -173,6 +185,7 @@ export function operationReply(run: SkillRun): string {
     const cited = output.verdicts.flatMap(verdict => verdict.sources).map(describeSource);
     return [output.summary, lines.join("\n"), cited.length ? `Sources: ${[...new Set(cited)].join("; ")}` : ""].filter(Boolean).join("\n\n");
   }
+  if (isVisionReview(output)) return output.summary;
   const parts = [output.answer];
   if (output.unknowns.length) parts.push(`Not established: ${output.unknowns.join("; ")}`);
   if (output.handoffs?.length) parts.push(`Worked with: ${output.handoffs.map(handoff => `${handoff.name} (${handoff.status === "failed" ? "did not finish" : "reported"})`).join(", ")}`);

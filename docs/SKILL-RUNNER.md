@@ -22,6 +22,7 @@ contract grants no execution authority.
 | `answer-from-sources` v1, "Answer from my sources" | `research` (Athena) | `recall_memory`, `search_vault`, `read_vault_note`, `list_projects`, `search_mail`, `read_mail_thread` | 22 turns, 5 minutes | The answer matches its schema, the run called at least one tool, and it cites only tools it called. Saying the sources do not answer the question is a valid result |
 
 | `work-request` v1, "Ask Olympus" | `olympus` (Zeus) | `list_projects`, `recall_memory`, `search_vault`, `read_vault_note` | 12 turns per phase, plus up to two hand-offs and at most one revision round | The final answer matches its schema and cites only tools called by this run or its hand-offs. See [OLYMPIANS.md](OLYMPIANS.md) |
+| `vision-review` v1, "Vision review" | `olympus` (Zeus) | `recent_activity`, `recall_memory`, `search_vault`, `read_vault_note` | 10 turns | A summary, with judged expectations that exist and new expectations quoting Kevin verbatim. See [VISION-REVIEW.md](VISION-REVIEW.md) |
 | `research-assignment` v1 and `verification-assignment` v1 | Athena, Themis | Their profile's tools | 22 and 16 turns | Run only as a hand-off; not offered in the catalog |
 
 A call to a name under Olympus's own server that the server does not offer (a
