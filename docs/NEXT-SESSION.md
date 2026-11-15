@@ -1,10 +1,10 @@
 # Next session
 
-## Olympus 0.77.0 - merged November 15, 2026
+## Olympus 0.78.0 - merged November 15, 2026
 
-Kevin installed 0.65.0 on November 14 and has since run at least 0.70.0
-(a "Welcome back, sir." brief); none of 0.66.0 to 0.77.0 is otherwise
-confirmed against real data:
+Kevin installed 0.77.0 on November 15; its 9:01 brief failed on an uncalled
+`search_mail` citation, fixed in 0.78.0. Unconfirmed against real data:
+- 0.78.0: brief citation repair and one rewrite (BRIEFING-SYNTHESIS.md).
 - 0.77.0: loop contracts and the weekly loop scorecard (docs/LOOPS.md). Next in
   the loop plan: the vision review loop (expectations from Kevin's words).
 - 0.76.0: one-round verify-and-revise loop in Ask Olympus (SKILL-RUNNER.md).
@@ -17,7 +17,7 @@ confirmed against real data:
   classified with 8 images) and the Armory tab. See RELEASES.md.
 - 0.65.0: console cleanup and a self-reading Usage dock (ENGINE-STATUS-USAGE.md).
 
-0.54.0 to 0.77.0 (pull requests 38 to 65) are merged. Kevin installed 0.58.0 on
+0.54.0 to 0.78.0 (pull requests 38 to 66) are merged. Kevin installed 0.58.0 on
 November 13 and it opened almost unstyled: a brace lost from `activityDeck.css`
 in 0.57.0 broke the joined production stylesheet. 0.59.0 fixes it and must be
 installed with `npm run update` from `Desktop/Projects/Olympus`. The installed

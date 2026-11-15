@@ -15,7 +15,7 @@ test fails if any part is blank. Loops today:
 | Loop | Verifier | Weakest part |
 | --- | --- | --- |
 | Ask Olympus (`work-request`) | Code (schema, citations) and Themis | The content check is a model, not a rule |
-| Opening brief | Code (schema, length, citations) | No check against Kevin's stated preferences; no retry |
+| Opening brief | Code (schema, length, citations); one rewrite when rejected | No check against Kevin's stated preferences |
 | One Olympian from chat | Code | No independent check |
 | Coding delegation | Real checks on request | A failed check is never retried; no memory of attempts |
 | Background jobs | Code (schema, provenance) | Outside-service failures are not retried |
@@ -29,8 +29,9 @@ names the loop an operation belongs to (`loopName` in `src/services/loops.ts`).
 
 - **Skill loops** (Ask Olympus, opening brief, one Olympian): one finished root
   run in `agent_runs` is one pass. A run is *right first time* when it
-  completed without a revision round (a `Retry:` event). A revision is
-  *resolved* when the last verification after it refuted nothing. *Out of
+  completed without a revision round (a `Retry:` event). An Ask Olympus
+  revision is *resolved* when the last verification after it refuted nothing;
+  a brief's rewrite, when the brief then completed. *Out of
   steps* counts runs stopped for using every allowed turn. Time and reported
   cost include the run's hand-offs.
 - **Background jobs**: one outcome event of a labelled job (`<label> on
