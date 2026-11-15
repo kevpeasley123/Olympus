@@ -13,8 +13,10 @@ BRIEFING-SYNTHESIS.md). The Codex briefing path refuses with a purchased-credits
 notice on Kevin's account and has produced no brief since November 13. Kevin
 reconnected Gmail on November 14; mail is current again.
 
-Local speech (Whisper and Kokoro) runs from `%APPDATA%\com.projectolympus.commandstation\local-voice` since
-0.62.0; it had been silent since the November 10 checkout move.
+Local speech (Whisper and Kokoro) runs from `%APPDATA%\com.projectolympus.commandstation\local-voice` and
+spoke again on November 14 (0.63.0 plus a runtime repair, SKILL-BACKBONE.md); it had
+been silent since the November 10 checkout move. Installing needs Kevin to approve
+the Windows administrator prompt; remote control cannot.
 
 Before any release that touches CSS, render the production bundle
 (`npm run build`, `npx vite preview`), not only the development harness: the
