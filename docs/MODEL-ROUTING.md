@@ -14,7 +14,9 @@ switching providers. Subscription conversation selection is explicit and remembe
 each turn still rechecks eligibility, and paid API selection is never restored.
 Investigative brief settings persist independently: `briefing.provider.v1` chooses
 the engine; `briefing.workflow.v1` selects investigative, legacy or shadow behavior.
-Email extraction uses `OLYMPUS_EMAIL_ANALYSIS_PROVIDER`. Local briefing can use
+Email extraction uses the Preferences choice `email.analysis.provider.v1`
+(Claude subscription, Codex subscription or local model; since 0.82.0), and
+`OLYMPUS_EMAIL_ANALYSIS_PROVIDER` only until a choice is made. Local briefing can use
 `OLYMPUS_BRIEF_MODEL` independently of the email provider; local extraction requires
 an eligible local email configuration. Local models must already be installed and
 must not be cloud-backed tags. The following catalog describes retained model IDs,

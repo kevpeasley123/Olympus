@@ -55,6 +55,7 @@ fn open_database(app: &tauri::AppHandle) -> Result<Connection, String> {
         eprintln!("[Olympus::Db] adopted {adopted} messages written without a chat by an older build");
     }
 
+    commands::gmail::situations::analysis_provider::load(&connection);
     eprintln!(
         "[Olympus::Db] opened {} (schema {})",
         db_path.display(),

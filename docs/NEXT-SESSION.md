@@ -1,9 +1,11 @@
 # Next session
 
-## Olympus 0.81.0 - merged November 15, 2026
+## Olympus 0.82.0 - merged November 15, 2026
 
 Kevin installed 0.77.0 on November 15; its 9:01 brief failed on an uncalled
 `search_mail` citation, fixed in 0.78.0. Unconfirmed against real data:
+- 0.82.0: email analysis route in Preferences. Email analysis has waited for
+  a local model since November 10; Kevin picks a route to restart it.
 - 0.81.0: proposals Kevin accepts become standing guidance or coding work;
   one retry per run for outside failures. Migration 12. VISION-REVIEW.md.
 - 0.80.0: the weekly vision review (VISION-REVIEW.md). First run is due four
@@ -22,7 +24,7 @@ Kevin installed 0.77.0 on November 15; its 9:01 brief failed on an uncalled
   classified with 8 images) and the Armory tab. See RELEASES.md.
 - 0.65.0: console cleanup and a self-reading Usage dock (ENGINE-STATUS-USAGE.md).
 
-0.54.0 to 0.81.0 (pull requests 38 to 69) are merged. Kevin installed 0.58.0 on
+0.54.0 to 0.82.0 (pull requests 38 to 70) are merged. Kevin installed 0.58.0 on
 November 13 and it opened almost unstyled: a brace lost from `activityDeck.css`
 in 0.57.0 broke the joined production stylesheet. 0.59.0 fixes it and must be
 installed with `npm run update` from `Desktop/Projects/Olympus`. The installed

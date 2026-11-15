@@ -431,6 +431,9 @@ pub fn save_settings(db: State<Db>, settings: HashMap<String, String>) -> Result
     let transaction = connection.transaction().map_err(|e| e.to_string())?;
 
     for (key, value) in settings {
+        if key == super::gmail::situations::analysis_provider::SETTING {
+            super::gmail::situations::analysis_provider::choose(Some(&value));
+        }
         transaction
             .execute(
                 "INSERT INTO settings (key, value, updated_at) \
