@@ -1035,6 +1035,22 @@ fn report_vault_recall(memory:&VaultMemory, temporary:bool, channel:&tauri::ipc:
 
 /// Shared command boundary. Provider selection never changes project authority.
 /// What a subscription turn knows: the same Olympus system prompt, vault
+/// The working checkpoint is a summary the turn can do without while the whole
+/// conversation still fits: a failed update then costs nothing but the summary.
+/// Past that point the turn stops, in words rather than an internal code.
+fn working_context_or_fallback(result: Result<String, String>, history: &[ChatTurn]) -> Result<String, String> {
+    match result {
+        Ok(context) => Ok(context),
+        Err(error) => {
+            let fits = history.len() <= MAX_HISTORY_MESSAGES && history.iter().map(|m| m.content.chars().count()).sum::<usize>() <= MAX_HISTORY_CHARS;
+            if fits { return Ok(String::new()); }
+            Err(if error.starts_with("working_") {
+                format!("Olympus could not update this long conversation's working summary ({error}), so it did not send your message. Try again, or start a new chat for a new topic.")
+            } else { error })
+        }
+    }
+}
+
 /// memory, learned memory, earlier-chat recall, mail and project evidence the
 /// API route assembles, plus `/inspect` repository evidence, whose file-picking
 /// steps also run on the subscriptions.
@@ -1069,7 +1085,7 @@ async fn subscription_context(
     let mut memory=tauri::async_runtime::spawn_blocking(move||super::memory::load_for_turn(&reader,&query)).await.map_err(|_|"Memory retrieval task failed")?;
     super::memory::validate_learned(db,&mut memory,context.temporary);
     let scope=memory.recall.as_ref().map(|p|p.scope.join("|")).unwrap_or_default();
-    context.working_context=super::working_context::prepare(db,context.conversation_id.as_deref(),&scope,context.conversation_provider.as_deref().unwrap_or(""),context.temporary).await?;
+    context.working_context=working_context_or_fallback(super::working_context::prepare(db,context.conversation_id.as_deref(),&scope,context.conversation_provider.as_deref().unwrap_or(""),context.temporary).await,&history)?;
     report_vault_recall(&memory,context.temporary,on_event);
     if !context.temporary && context.working_context.is_empty() && (history.len()>MAX_HISTORY_MESSAGES || history.iter().map(|m|m.content.chars().count()).sum::<usize>()>MAX_HISTORY_CHARS){
         return Err("This conversation needs a saved working checkpoint before older turns can be trimmed. Save the conversation and enable memory, or start a shorter conversation.".into());
@@ -1118,7 +1134,7 @@ async fn send_assistant_message_inner(
     let mut memory=tauri::async_runtime::spawn_blocking(move||super::memory::load_for_turn(&reader,&query)).await.map_err(|_|"Memory retrieval task failed")?;
     super::memory::validate_learned(&db,&mut memory,context.temporary);
     let scope=memory.recall.as_ref().map(|p|p.scope.join("|")).unwrap_or_default();
-    context.working_context=super::working_context::prepare(db.inner(),context.conversation_id.as_deref(),&scope,context.conversation_provider.as_deref().unwrap_or(""),context.temporary).await?;
+    context.working_context=working_context_or_fallback(super::working_context::prepare(db.inner(),context.conversation_id.as_deref(),&scope,context.conversation_provider.as_deref().unwrap_or(""),context.temporary).await,&history)?;
     report_vault_recall(&memory,context.temporary,&on_event);
     if let Some(packet)=&memory.recall{super::memory::save_packet(db.inner(),&record.id,packet)?;}
     let start=std::time::Instant::now();
