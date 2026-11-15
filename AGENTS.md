@@ -31,6 +31,10 @@ generated recommendations.
 - Database changes are migrations (`ARCHITECTURE.md`, "Schema evolution"):
   never edit a shipped migration or `schema.sql`, and a migration that drops or
   rewrites data needs Kevin's approval.
+- Olympus proposes its own improvements in a weekly review, and Kevin accepts
+  them (`docs/VISION-REVIEW.md`). In a session on his PC, read the accepted
+  ones queued for a coding session before choosing work; they are his
+  approved priorities.
 
 ## Keeping guidance current
 

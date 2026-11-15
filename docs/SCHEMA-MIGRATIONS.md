@@ -9,6 +9,8 @@ so.
 
 ## Build notes
 
+- Migration 12 adds the weekly review's proposals and Kevin's decision on each (`docs/VISION-REVIEW.md`). New table only.
+
 - Migration 11 adds Kevin's expectations and their per-run check results (`docs/VISION-REVIEW.md`). New tables only; no existing data is rewritten. Expectations are seeded as proposals when first read.
 
 - Migration 6 adds memory contribution claims, prepared outputs and applied receipts, keyed to exact conversation source revisions. It supports recovery across a crash between a vault write and database acknowledgment. Conversation deletion cascades to its receipts; no existing data is rewritten.

@@ -274,6 +274,72 @@ pub fn set_expectation_status(db: State<Db>, id: String, status: String) -> Resu
     Ok(())
 }
 
+/// Skills a proposal may name; `none` is for work that is not about one skill.
+pub const PROPOSAL_SKILLS: &[&str] = &["opening-brief", "work-request", "answer-from-sources", "research-assignment", "verification-assignment", "vision-review", "none"];
+
+/// Stores a review's proposals for Kevin to decide on. Running the same review twice changes nothing.
+pub fn store_proposals(connection: &Connection, run_id: &str, proposals: &[Value]) -> rusqlite::Result<()> {
+    for (position, p) in proposals.iter().enumerate() {
+        let skill = p["skill"].as_str().filter(|s| PROPOSAL_SKILLS.contains(s)).unwrap_or("none");
+        connection.execute(
+            "INSERT OR IGNORE INTO vision_proposals (run_id, position, kind, skill, title, detail, expectation) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+            params![run_id, position as i64, p["kind"].as_str().unwrap_or("build"), skill, p["title"].as_str().unwrap_or(""), p["detail"].as_str().unwrap_or(""), p["expectation"].as_str().unwrap_or("new")],
+        )?;
+    }
+    Ok(())
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Proposal {
+    pub id: i64,
+    pub run_id: String,
+    pub kind: String,
+    pub skill: String,
+    pub title: String,
+    pub detail: String,
+    pub expectation: String,
+    pub status: String,
+    pub created_at: String,
+    pub decided_at: Option<String>,
+}
+
+pub fn proposals(connection: &Connection) -> rusqlite::Result<Vec<Proposal>> {
+    let mut statement = connection.prepare(
+        "SELECT id, run_id, kind, skill, title, detail, expectation, status, created_at, decided_at FROM vision_proposals \
+         WHERE status IN ('proposed', 'accepted') OR decided_at >= strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-30 days') ORDER BY status <> 'proposed', id DESC LIMIT 60",
+    )?;
+    let rows = statement.query_map([], |r| Ok(Proposal { id: r.get(0)?, run_id: r.get(1)?, kind: r.get(2)?, skill: r.get(3)?, title: r.get(4)?, detail: r.get(5)?, expectation: r.get(6)?, status: r.get(7)?, created_at: r.get(8)?, decided_at: r.get(9)? }))?;
+    rows.collect()
+}
+
+/// Kevin's approved instructions for one skill, oldest first: what Olympus has
+/// learned to do differently, by his decision. Bounded so guidance never crowds out the task.
+pub fn standing_guidance(connection: &Connection, skill: &str) -> Vec<String> {
+    let Ok(mut statement) = connection.prepare("SELECT title, detail FROM vision_proposals WHERE kind = 'instruction' AND skill = ?1 AND status = 'accepted' ORDER BY decided_at, id LIMIT 12") else { return Vec::new() };
+    statement.query_map([skill], |r| Ok(format!("{}: {}", r.get::<_, String>(0)?, r.get::<_, String>(1)?)))
+        .map(|rows| rows.filter_map(Result::ok).map(|line| line.chars().take(1000).collect()).collect()).unwrap_or_default()
+}
+
+#[tauri::command]
+pub fn vision_proposals(db: State<Db>) -> Result<Vec<Proposal>, String> {
+    let connection = db.0.lock().map_err(|_| "Database unavailable".to_string())?;
+    proposals(&connection).map_err(|e| e.to_string())
+}
+
+/// Kevin's decision on a proposal. Accepting an instruction puts it into effect for its skill;
+/// dismissing an accepted one takes it out. `done` marks built work.
+#[tauri::command]
+pub fn decide_proposal(db: State<Db>, id: i64, status: String) -> Result<(), String> {
+    if !["accepted", "dismissed", "done", "proposed"].contains(&status.as_str()) {
+        return Err("A proposal is proposed, accepted, dismissed or done.".into());
+    }
+    let connection = db.0.lock().map_err(|_| "Database unavailable".to_string())?;
+    let changed = connection.execute("UPDATE vision_proposals SET status = ?2, decided_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?1", params![id, status]).map_err(|e| e.to_string())?;
+    if changed == 0 { return Err("No such proposal.".into()); }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -334,6 +400,20 @@ mod tests {
         propose(&c, "Weather, again", "I want the brief to mention the weather", "2026-11-16", "Olympus chat").unwrap();
         assert_eq!(report(&c, 7).unwrap().expectations.iter().filter(|e| e.kevin_said.contains("weather")).count(), 1, "one quote, one proposal");
         record(&c, "b2", &[CheckResult { id: "brief.no-exclamation", passed: false, detail: "x".into() }]).unwrap();
+
+        let proposed = vec![
+            serde_json::json!({"kind": "instruction", "skill": "opening-brief", "title": "Skip tracking numbers", "detail": "Say the carrier and day only.", "expectation": "brief-spoken"}),
+            serde_json::json!({"kind": "build", "skill": "made-up", "title": "Retry timeouts", "detail": "d", "expectation": "new"})];
+        store_proposals(&c, "v1", &proposed).unwrap();
+        store_proposals(&c, "v1", &proposed).unwrap();
+        let listed = proposals(&c).unwrap();
+        assert_eq!(listed.len(), 2, "the same review stored twice is stored once");
+        assert_eq!(listed.iter().find(|p| p.kind == "build").unwrap().skill, "none", "an unknown skill is not trusted");
+        assert!(standing_guidance(&c, "opening-brief").is_empty(), "nothing is in effect before Kevin accepts it");
+        let id = listed.iter().find(|p| p.kind == "instruction").unwrap().id;
+        c.execute("UPDATE vision_proposals SET status = 'accepted', decided_at = 'x' WHERE id = ?1", [id]).unwrap();
+        assert_eq!(standing_guidance(&c, "opening-brief"), vec!["Skip tracking numbers: Say the carrier and day only.".to_string()]);
+        assert!(standing_guidance(&c, "work-request").is_empty());
         assert_eq!(report(&c, 7).unwrap().passed, 10, "a rewrite replaces the run's earlier result");
     }
 }
