@@ -71,7 +71,12 @@ Command's left column is the **Activity Deck** (`ActivityDeck`, model in
 `src/services/activityDeck.ts`). It is built only from skill runs and this
 feed:
 
+- **Delegations**: one line under the heading, "No active delegations" or
+  "N active delegations", counting the live agent cards (including mission
+  steps recorded outside the skill runner).
 - **Operation**: the newest run in progress, else the most recent finished one.
+  A finished one carries its outcome as a badge (Completed with a green check,
+  Failed in red); its line is dropped when it only repeats the badge.
   Progress is shown only as counted stages of an accepted plan (the plan, each
   hand-off, the answer); a run with no such stages shows an unmeasured sweep and
   no number.
@@ -82,8 +87,10 @@ feed:
   knowable. Each card's line is its latest recorded step, reworded by
   `describeStep`; an unknown step keeps the backend's summary. A card expands to
   its assignment, last five steps and report or failure.
-- **Idle agents**: everyone else, with the catalog's own readiness. A planned
-  role says Planned.
+- **Idle agents**: everyone else, with the catalog's own readiness (Idle,
+  Unverified, Planned). Since 0.71.0 the row shows the agent's current state,
+  not the outcome of its last run: that outcome is on the operation card and in
+  the row's expanded detail.
 - Mission steps recorded outside the skill runner (research, coding delegation)
   show their agent as Running, or Blocked while waiting on approval.
 

@@ -46,3 +46,18 @@ html .app-shell .command-console[data-conversation-panel] .console-input-row tex
 html .app-shell .command-console[data-conversation-panel] .console-status-line{margin-top:9px;margin-bottom:0}
 
 .console-restore{display:inline-flex;align-items:center;gap:6px;min-height:30px;white-space:nowrap;color:#edc577}
+
+/* Mockup 2 readability: larger, airier message text, brighter labels and times. */
+html .app-shell .command-console[data-conversation-panel] .conversation-bubble .console-markdown,
+html .app-shell .command-console[data-conversation-panel] .conversation-bubble .console-markdown p,
+html .app-shell .command-console[data-conversation-panel] .conversation-bubble .console-markdown li,
+html .app-shell .command-console[data-conversation-panel] .conversation-bubble .console-command-text{font:400 13px/1.52 var(--font-sans);color:#e8eef2}
+html .app-shell .command-console[data-conversation-panel] .console-markdown p{margin:0 0 9px}
+html .app-shell .command-console[data-conversation-panel] .console-markdown p:last-child{margin-bottom:0}
+html .app-shell .command-console[data-conversation-panel] .conversation-bubble .console-message-label{font-size:10px;color:#b3c3cf}
+html .app-shell .command-console[data-conversation-panel] .conversation-bubble.assistant .console-message-label{color:#d29a4f}
+html .app-shell .command-console[data-conversation-panel] .console-briefing-label{font-size:11.5px;color:#e0b97f}
+html .app-shell .command-console[data-conversation-panel] .conversation-bubble .console-message-meta{font-size:10px;color:#a3b5c3}
+html .app-shell .command-console[data-conversation-panel] .console-day-separator{font-size:9.5px;color:#a9b9c7}
+html .app-shell .command-console[data-conversation-panel] .console-playback,html .app-shell .command-console[data-conversation-panel] .model-attribution{color:#a3b5c3}
+html .app-shell .command-console[data-conversation-panel] .conversation-bubble.assistant{padding:8px 8px}

@@ -1,5 +1,5 @@
 import { useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
-import { ChevronRight, Crosshair, Layers, SlidersHorizontal, X } from "lucide-react";
+import { CheckCircle2, ChevronRight, Crosshair, Layers, SlidersHorizontal, X } from "lucide-react";
 import { Modal } from "../Modal";
 import { AgentEmblem } from "./AgentEmblem";
 import { SkillRunResult } from "./SkillRunResult";
@@ -87,12 +87,20 @@ export function ActivityDeck({ roster, onOpenArmory, onInspectProfile, children 
       <button type="button" className="deck-manage" onClick={onOpenArmory} aria-haspopup="dialog" aria-label="Open the Armory" title="Armory: agents, plugins and skills"><SlidersHorizontal size={14}/></button>
     </header>
 
+    {/* Delegations are Olympians holding live work right now: skill-runner agents and recorded mission steps. */}
+    <p className="deck-delegations" data-active={working > 0 || undefined} role="status">
+      <span className="deck-delegations-dot" aria-hidden="true"/>
+      {working === 0 ? "No active delegations" : `${working} active delegation${working === 1 ? "" : "s"}`}
+    </p>
+
     {operation ? <button type="button" className="deck-operation" data-status={operation.status} onClick={() => setInspecting(true)} aria-haspopup="dialog" aria-label={`Inspect operation: ${operation.title}`}>
-      <Crosshair className="deck-operation-mark" size={30} strokeWidth={1.1} aria-hidden="true"/>
+      {operation.status === "completed" ? <CheckCircle2 className="deck-operation-mark" size={26} strokeWidth={1.4} aria-hidden="true"/> : <Crosshair className="deck-operation-mark" size={30} strokeWidth={1.1} aria-hidden="true"/>}
       <span className="deck-operation-copy">
         <small>{live ? "Active operation" : `Last operation · ${since(operation.finishedAt ?? operation.startedAt)}`}</small>
         <strong>{operation.title}</strong>
-        <span>{operation.line}{operation.alsoRunning ? ` · ${operation.alsoRunning} more running` : ""}</span>
+        {/* A settled card's badge already names its outcome; keep the line only when it says more. */}
+        {(live || operation.line.trim().toLowerCase() !== STATUS_LABEL[operation.status].toLowerCase() || operation.alsoRunning) && <span>{operation.line}{operation.alsoRunning ? ` · ${operation.alsoRunning} more running` : ""}</span>}
+        {!live && <em className="deck-status deck-outcome" data-status={operation.status}>{STATUS_LABEL[operation.status]}</em>}
       </span>
       {operation.progress && live && <span className="deck-operation-count" aria-label={`Stage ${operation.progress.done} of ${operation.progress.total}`}>{operation.progress.done}/{operation.progress.total}</span>}
       {live && <span className="deck-bar" data-measured={percent !== null || undefined} role={percent !== null ? "progressbar" : undefined} aria-valuemin={percent !== null ? 0 : undefined} aria-valuemax={percent !== null ? 100 : undefined} aria-valuenow={percent ?? undefined}><i style={percent !== null ? { width: `${percent}%` } : undefined}/></span>}
@@ -112,7 +120,7 @@ export function ActivityDeck({ roster, onOpenArmory, onInspectProfile, children 
         <button type="button" className="deck-idle-row" aria-expanded={open} onClick={() => setProfile(open ? null : entry.id)} {...entry.bind}>
           <span className="deck-emblem deck-emblem--small"><AgentEmblem id={entry.id} size={17}/></span>
           <strong>{entry.name}</strong>
-          <span className="deck-status" data-status={last?.status ?? "idle"}>{last ? STATUS_LABEL[last.status] : entry.readiness}</span>
+          <span className="deck-status" data-status={entry.readiness.toLowerCase()}>{entry.readiness}</span>
           <ChevronRight size={13} aria-hidden="true"/>
         </button>
         {open && <div className="deck-agent-detail">

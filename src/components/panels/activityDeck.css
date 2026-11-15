@@ -111,3 +111,20 @@ button.deck-operation:hover{border-color:#d7b77f66}
 .deck-heading h2{white-space:nowrap}
 .deck-heading>div{min-width:0}
 @media(max-width:1350px){.deck-heading{gap:9px}.deck-heading h2{font-size:17px}.deck-heading p{letter-spacing:.1em}.deck-agent-head{gap:2px 9px}.deck-status{padding:2px 5px;letter-spacing:.06em}.deck-idle-row{gap:8px}}
+
+/* Mockup 2: a quiet delegation line, a clearer last-operation card, one chip size. */
+.deck-delegations{display:flex;align-items:center;gap:9px;margin:0;padding:8px 11px;border:1px solid #9db7c526;border-radius:7px;background:#0a162080;font-size:11.5px;color:#b9c7d2}
+.deck-delegations-dot{flex:none;width:7px;height:7px;border-radius:50%;border:1px solid #8196a6;background:transparent}
+.deck-delegations[data-active] .deck-delegations-dot{border-color:#d9a94e;background:#d9a94e;box-shadow:0 0 0 3px #d9a94e22}
+.deck-delegations[data-active]{color:#ece3cf}
+.deck-operation{gap:3px 12px;padding:13px 13px 14px}
+.deck-operation-copy{gap:3px}
+.deck-operation-copy small{font-size:10.5px}
+.deck-operation[data-status="completed"]{border-color:#6fae833d}
+.deck-operation[data-status="completed"] .deck-operation-mark{color:#7fc493;opacity:1}
+.deck-operation[data-status="completed"] .deck-operation-copy small{color:#c7a35f}
+.deck-outcome{justify-self:start;margin-top:5px;font-style:normal}
+.deck-status{display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;min-width:62px;height:18px;padding:0 8px;font:500 8.5px/1 var(--font-mono);letter-spacing:.1em}
+.deck-status[data-status="completed"]{background:#6fae8314}
+.deck-idle-row{padding:8px 10px}
+@media(max-width:1350px){.deck-status{min-width:54px;padding:0 6px}}
