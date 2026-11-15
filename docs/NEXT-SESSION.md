@@ -1,8 +1,8 @@
 # Next session
 
-## Olympus 0.62.0 - merged November 14, 2026
+## Olympus 0.63.0 - merged November 14, 2026
 
-0.54.0 to 0.62.0 (pull requests 38 to 47) are merged. Kevin installed 0.58.0 on
+0.54.0 to 0.63.0 (pull requests 38 to 48) are merged. Kevin installed 0.58.0 on
 November 13 and it opened almost unstyled: a brace lost from `activityDeck.css`
 in 0.57.0 broke the joined production stylesheet. 0.59.0 fixes it and must be
 installed with `npm run update` from `Desktop/Projects/Olympus`. The installed

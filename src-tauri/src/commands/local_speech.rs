@@ -64,7 +64,7 @@ async fn speak_or_transcribe(python: PathBuf, models: PathBuf, kind: String, val
         .env("HF_HUB_OFFLINE", "1")
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
-        .stderr(Stdio::null())
+        .stderr(Stdio::piped())
         .kill_on_drop(true);
     #[cfg(windows)]
     command.creation_flags(0x08000000);
@@ -89,8 +89,7 @@ async fn speak_or_transcribe(python: PathBuf, models: PathBuf, kind: String, val
             .wait_with_output()
             .await
             .map_err(|_| "Speech worker failed")?;
-        let parsed: Value =
-            serde_json::from_slice(&output.stdout).map_err(|_| "Invalid local speech response")?;
+        let parsed = worker_answer(&output.stdout).ok_or_else(|| worker_failure(output.status.code(), &output.stderr))?;
         parsed["value"].as_str().map(String::from).ok_or_else(|| {
             parsed["error"]
                 .as_str()
@@ -104,9 +103,38 @@ async fn speak_or_transcribe(python: PathBuf, models: PathBuf, kind: String, val
     }
 }
 
+/// The worker's answer: the last stdout line that is a JSON object. A model library
+/// may print its own lines first; they are not the answer.
+fn worker_answer(stdout: &[u8]) -> Option<Value> {
+    String::from_utf8_lossy(stdout).lines().rev().map(str::trim).filter(|line| line.starts_with('{')).find_map(|line| serde_json::from_str::<Value>(line).ok().filter(Value::is_object))
+}
+
+/// Why a worker gave no answer, from its exit code and the last lines it wrote to
+/// stderr (a Python traceback ends with the exception). Bounded; never the input text.
+fn worker_failure(code: Option<i32>, stderr: &[u8]) -> String {
+    let text = String::from_utf8_lossy(stderr);
+    let tail: Vec<&str> = text.lines().map(str::trim).filter(|line| !line.is_empty()).collect();
+    let tail = tail[tail.len().saturating_sub(2)..].join(" | ");
+    let tail: String = tail.chars().take(300).collect();
+    match (code, tail.is_empty()) {
+        (Some(code), true) => format!("Local speech worker exited with code {code} and no answer."),
+        (None, true) => "Local speech worker stopped without an answer.".into(),
+        (_, false) => format!("Local speech worker failed: {tail}"),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_answer_is_the_last_json_line_and_a_failure_says_why() {
+        assert_eq!(worker_answer(b"espeak: loaded\r\n{\"value\":\"UklGRg\"}\r\n").unwrap()["value"], "UklGRg");
+        assert!(worker_answer(b"").is_none() && worker_answer(b"[1,2]\nnot json").is_none());
+        assert_eq!(worker_failure(Some(1), b"Traceback (most recent call last):\n  File x\nModuleNotFoundError: No module named 'kokoro_onnx'\n"), "Local speech worker failed: File x | ModuleNotFoundError: No module named 'kokoro_onnx'");
+        assert_eq!(worker_failure(Some(3), b""), "Local speech worker exited with code 3 and no answer.");
+        assert!(worker_failure(None, "x".repeat(900).as_bytes()).chars().count() < 340);
+    }
 
     #[test]
     fn a_stale_configured_path_falls_through_to_the_app_data_runtime() {
