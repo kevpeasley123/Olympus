@@ -96,7 +96,7 @@ const finding = (run: SkillRun): string | null => {
   const output = run.output;
   if (!output) return null;
   if (isBrief(output)) return output.brief;
-  return isVerdicts(output) ? output.summary : (output as AnswerOutput).answer ?? null;
+  return isVerdicts(output) || "slipped" in output ? output.summary : (output as AnswerOutput).answer ?? null;
 };
 const steps = (events: readonly AgentEvent[]): DeckStep[] =>
   events.filter(event => event.kind !== "thinking").slice(-5).map(event => ({ id: event.id, text: describeStep(event), at: event.createdAt }));

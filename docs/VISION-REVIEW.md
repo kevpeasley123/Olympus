@@ -4,8 +4,8 @@ Kevin's goal for Olympus, in his words: "I generally don't want to have to
 babysit an idea if I feel like i've communicated the vision to olympus. I want
 it to be able to improve itself over time because it knows my workflows and
 preferences." This document describes how Olympus measures itself against that
-vision. It builds on the loop contracts and scorecard (docs/LOOPS.md). Added in
-0.79.0; the weekly review run is not built yet.
+vision. It builds on the loop contracts and scorecard (docs/LOOPS.md).
+Expectations and checks were added in 0.79.0, the weekly review in 0.80.0.
 
 ## Expectations
 
@@ -55,11 +55,29 @@ The vision score is passed over total, for approved expectations' checks, over
 the last seven days. There is none until something approved has been checked.
 Expectations without checks show "Judged at the weekly review".
 
-## Next: the weekly review
+## The weekly review (0.80.0)
 
-Planned, not built: one capped run a week that reads the week's checks, loop
-scores, failures and Kevin's corrections in chat, reports which expectations
-held and which slipped, and proposes changes (instructions, settings, new
-checks, new expectations from his words, tasks for a coding session). Proposals
-wait for Kevin. It will run within a weekly budget he sets, skip a week when
-Claude usage is low, and have one switch to pause it.
+The `vision-review` skill (Zeus, read-only tools, 10 turns).
+
+- **Given, as data:** the expectations that are not retired with their week of
+  checks, the loop scorecard, the week's failed runs, and Kevin's own messages
+  in saved chats over the week (`kevin_said`, 5000 characters at most).
+- **Answers:** a short summary; which expectations held and which slipped,
+  each with specific evidence; up to six proposals, each an `instruction`,
+  `setting`, `check` or `build` change tied to an expectation; and new
+  expectations Kevin asked for this week.
+- **Grounding in code** (`ground_review`): a judgment of an unknown expectation
+  is dropped, a proposal for one is re-tied to `new`, and a new expectation
+  survives only if its quote appears in Kevin's messages (whitespace, case and
+  curly quotes aside). Survivors become `proposed` expectations
+  (`expectations::propose`, one per quote).
+- **Nothing changes by itself.** Proposals are shown in Diagnostics for Kevin;
+  acting on them is his decision, or work for a coding session.
+
+**When it runs** (`start_due_vision_review`, called once a session four
+minutes after Olympus opens): only if Kevin has not switched it off
+(`vision.review.enabled`), no review completed or is running in the last seven
+days, none was attempted in the last day, and no Claude window has less than a
+fifth left. So it costs at most one capped run a week, plus one attempt a day
+after a failure. Diagnostics > Your expectations has its On/Off switch, Run
+now, and the latest review: summary, slipped, held and proposed improvements.

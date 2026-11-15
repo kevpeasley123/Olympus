@@ -81,6 +81,18 @@ pub const CONTRACTS: &[LoopContract] = &[
         gap: "A failed check is reported, never retried; no memory of attempts",
     },
     LoopContract {
+        id: "vision-review", name: "Vision review",
+        trigger: "Weekly, once a session after the brief, when due; or Run now in Diagnostics",
+        goal: "Which of Kevin's expectations held and slipped this week, with evidence, and improvements for him to approve",
+        verifier: "Code: only known expectations are judged, and a new expectation must quote Kevin verbatim",
+        verifier_kind: &["code"],
+        actions: "Read-only: the week's checks, scores, failures and Kevin's own messages; vault and memory",
+        memory: "The expectation ledger and its week of check results",
+        cap: "10 turns, one run a week, one attempt a day after a failure, none while a Claude window is under a fifth",
+        gate: "Every proposal and new expectation waits for Kevin",
+        gap: "Proposals are not yet turned into changes; Kevin or a coding session acts on them",
+    },
+    LoopContract {
         id: "background-jobs", name: "Background jobs",
         trigger: "A chat goes quiet; timers while Olympus is open",
         goal: "Learned memory, mail analysis and situations kept current",
@@ -99,6 +111,7 @@ pub fn loop_for_skill(skill_id: &str) -> &'static str {
     match skill_id {
         "work-request" => "ask",
         "opening-brief" => "opening-brief",
+        "vision-review" => "vision-review",
         _ => "single-olympian",
     }
 }
