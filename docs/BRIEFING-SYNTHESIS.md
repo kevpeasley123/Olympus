@@ -30,7 +30,10 @@ November 13 with a purchased-credits refusal.
   calling it routine. Since 0.67.0 the brief is written to be heard: about 50 to
   90 words (110 asked, 140 accepted), short sentences, days instead of dates,
   no version numbers or labels, no narration of sources unless one is broken,
-  and any action last. Exact dates and amounts stay in `items`.
+  and any action last. Exact dates and amounts stay in `items`. Since 0.69.0
+  Olympus prefixes a greeting from the PC's clock ("Good morning/afternoon/
+  evening, sir.", or "Welcome back, sir." within three hours of the last
+  brief); the model does not greet.
 - A failure is shown as such. Nothing substitutes a brief from another engine.
 
 The investigative and legacy workflows below remain selectable.
