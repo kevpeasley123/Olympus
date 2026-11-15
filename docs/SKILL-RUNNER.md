@@ -21,7 +21,7 @@ contract grants no execution authority.
 | `opening-brief` v1, "Opening brief" | `olympus` (Zeus) | `recent_activity`, `search_mail`, `read_mail_thread`, `recall_memory`, `search_vault`, `list_projects`, `read_vault_note` | 24 turns, 5 minutes | The answer matches its schema, the brief is at most 190 words, and every item cites a tool this run actually called |
 | `answer-from-sources` v1, "Answer from my sources" | `research` (Athena) | `recall_memory`, `search_vault`, `read_vault_note`, `list_projects`, `search_mail`, `read_mail_thread` | 22 turns, 5 minutes | The answer matches its schema, the run called at least one tool, and it cites only tools it called. Saying the sources do not answer the question is a valid result |
 
-| `work-request` v1, "Ask Olympus" | `olympus` (Zeus) | `list_projects`, `recall_memory`, `search_vault`, `read_vault_note` | 12 turns per phase, plus up to two hand-offs | The final answer matches its schema and cites only tools called by this run or its hand-offs. See [OLYMPIANS.md](OLYMPIANS.md) |
+| `work-request` v1, "Ask Olympus" | `olympus` (Zeus) | `list_projects`, `recall_memory`, `search_vault`, `read_vault_note` | 12 turns per phase, plus up to two hand-offs and at most one revision round | The final answer matches its schema and cites only tools called by this run or its hand-offs. See [OLYMPIANS.md](OLYMPIANS.md) |
 | `research-assignment` v1 and `verification-assignment` v1 | Athena, Themis | Their profile's tools | 22 and 16 turns | Run only as a hand-off; not offered in the catalog |
 
 A call to a name under Olympus's own server that the server does not offer (a
@@ -86,6 +86,19 @@ that takes no request ignores one.
 This second skill is also the direct check on learned-memory recall: asked what
 Olympus has learned, it can only answer by calling `recall_memory`, which
 returns each record with its vault file path.
+
+## The revision loop (0.76.0)
+
+When Athena's report is followed by Themis's check and any verdict is
+`does_not_hold`, Zeus sends Athena back once (`retry_request`): her original
+task, her first report and Themis's objections, as data, with the instruction
+to correct or drop each refuted claim and cite what she reads now. Themis then
+checks the revised report with the same task. Partial or uncheckable verdicts
+do not trigger it, and there is never a second round. Every attempt reaches the
+synthesis, so Zeus answers knowing what was refuted and what was revised. The
+timeline shows "Themis found claims that do not hold; Athena revises once" and
+the extra hand-offs; plan progress stops short of the last stage until the
+answer. A revision round costs two more engine runs on Kevin's subscription.
 
 ## A run
 

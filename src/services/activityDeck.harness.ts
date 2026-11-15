@@ -88,5 +88,11 @@ export function runActivityDeckHarness() {
   check(classifyFailure("Claude Code stopped the run: usage limit.").kind === "user" && classifyFailure("Sign in to Claude Code first").kind === "user", "Limits and sign-ins need Kevin");
   check(classifyFailure("Claude response timed out. No fallback was attempted.").kind === "external", "A timeout is an outside service");
   check(classifyFailure("The answer did not match the skill's format.").kind === "system" && classifyFailure(null).kind === "system", "Anything else is Olympus's own issue");
+
+  const retried = [...returned, event("r", "olympus", "message", "Retry: Themis found claims that do not hold; Athena revises once")];
+  check(operationTimeline([finished, athenaDone, themis], retried, "r").some(entry => entry.kind === "plan" && entry.text === "Themis found claims that do not hold; Athena revises once"), "A revision round shows on the timeline");
+  const extra = [run("r-h3", "research", { parentRun: "r", skillId: "research-assignment", status: "completed" }), run("r-h4", "verification", { parentRun: "r", skillId: "verification-assignment" })];
+  const revising = buildDeck([root, athenaDone, { ...themis, status: "completed" as const, error: null }, ...extra], working);
+  check((revising.operation?.progress?.done ?? 9) <= 3 && revising.operation?.progress?.total === 4, "Revision hand-offs never push progress past the last stage");
   return { passed };
 }
