@@ -1,9 +1,12 @@
 # Next session
 
-## Olympus 0.70.0 - merged November 14, 2026
+## Olympus 0.71.0 - merged November 14, 2026
 
-Kevin installed 0.65.0 on November 14; 0.66.0 to 0.70.0 are merged, not yet
-installed, and none has run against real data:
+Kevin installed 0.65.0 on November 14 and has since run at least 0.70.0
+(a "Welcome back, sir." brief); none of 0.66.0 to 0.71.0 is otherwise
+confirmed against real data:
+- 0.71.0: Mockup 2 polish of the conversation panel, Activity Deck and usage
+  tiles (AGENT-EVENTS.md for the deck).
 - 0.70.0: briefs honor matters Kevin settles in chat ("the FedEx came",
   "that sign-in was me") and carry them forward 30 days. BRIEFING-SYNTHESIS.md.
 - 0.69.0: briefs open with a clock-based greeting added by Olympus
@@ -17,7 +20,7 @@ installed, and none has run against real data:
   consistent with its account refusing requests.
 - 0.65.0: console cleanup and a self-reading Usage dock (ENGINE-STATUS-USAGE.md).
 
-0.54.0 to 0.70.0 (pull requests 38 to 57) are merged. Kevin installed 0.58.0 on
+0.54.0 to 0.71.0 (pull requests 38 to 58) are merged. Kevin installed 0.58.0 on
 November 13 and it opened almost unstyled: a brace lost from `activityDeck.css`
 in 0.57.0 broke the joined production stylesheet. 0.59.0 fixes it and must be
 installed with `npm run update` from `Desktop/Projects/Olympus`. The installed

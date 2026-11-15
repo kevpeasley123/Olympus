@@ -44,7 +44,7 @@ function UsageRail({label,rows,now}:{label:string;rows:UsageSnapshot[];now:numbe
       <div ref={track} className="usage-rail__items" tabIndex={0} aria-label={`${label} service tiles`}>
       {rows.map(s=><article className={`usage-tile usage-color-${colors[s.provider]??"teal"}`} key={s.provider} title={`${s.provider} · ${s.evidence==="historical"?"Historical snapshot · ":""}${snapshotFreshness(s,now)} · ${s.source} · ${s.observedAt??statuses[state(s)]}`}>
         <Brand name={s.provider}/><span className="usage-row__name">{s.provider}</span>
-        <div className="usage-tile__reading"><Meter s={s}/><strong>{s.capabilityCategory==="apis-services"&&valid(s.balance)?amount(s.balance):percent(s)!==null?`${formatUsagePercentage(percent(s))}%`:amount(s.balance)}</strong></div>
+        <div className="usage-tile__reading"><Meter s={s}/><strong>{s.capabilityCategory==="apis-services"&&valid(s.balance)?amount(s.balance):percent(s)!==null?`${formatUsagePercentage(percent(s))}%`:amount(s.balance)}</strong>{(percent(s)!==null||valid(s.balance))&&<span className="usage-tile__unit">left</span>}</div>
         {state(s)==="failed"&&<small>Check failed · last known</small>}
       </article>)}
       </div><button aria-label={`Next ${label.toLowerCase()}`} disabled={position.end>=position.total-2} onClick={()=>move(1)}><ChevronRight/></button>

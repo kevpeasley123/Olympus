@@ -172,3 +172,13 @@
 
 /* A reading always shows: even 0% remaining keeps a sliver so a working meter never looks empty. */
 .usage-summary__track>span{min-width:4px}
+
+/* Mockup 2: one rhythm for the three dock tiles. Same padding, one meter height, one number style. */
+.usage-summary--dock .usage-tile{padding:10px 12px 10px;gap:8px 8px;align-content:center}
+.usage-summary--dock .usage-tile .usage-row__name{font:500 12px/1.2 var(--font-sans);color:#e8edf1}
+.usage-summary--dock .usage-tile__reading{gap:9px}
+.usage-summary--dock .usage-tile__reading .usage-summary__track,.usage-summary--dock .usage-tile__reading .usage-unknown{height:6px;min-height:6px;border-radius:6px}
+.usage-summary--dock .usage-summary__track>span{border-radius:6px}
+.usage-summary--dock .usage-tile__reading>strong{font:600 12px/1 var(--font-sans);font-variant-numeric:tabular-nums;color:#eef2f5;letter-spacing:0}
+.usage-summary--dock .usage-tile__unit{flex:none;margin-left:-5px;font:400 10px/1 var(--font-sans);color:#93a6b5}
+.usage-summary--dock .usage-tile>small{font-size:9px;color:#e0a08c}
