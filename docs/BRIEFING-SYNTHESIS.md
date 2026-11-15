@@ -27,7 +27,10 @@ November 13 with a purchased-credits refusal.
   and anything the previous brief said that has not changed; and forbid an
   all-clear while mail is stale. After a stale period it looks back to when mail
   was last current, and it opens any message about money or an account before
-  calling it routine. At most 150 spoken words (190 accepted).
+  calling it routine. Since 0.67.0 the brief is written to be heard: about 50 to
+  90 words (110 asked, 140 accepted), short sentences, days instead of dates,
+  no version numbers or labels, no narration of sources unless one is broken,
+  and any action last. Exact dates and amounts stay in `items`.
 - A failure is shown as such. Nothing substitutes a brief from another engine.
 
 The investigative and legacy workflows below remain selectable.
