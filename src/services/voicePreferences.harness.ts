@@ -1,5 +1,5 @@
 import { RealtimeVoice, type VoiceDependencies } from "./realtimeVoice";
-import { DEFAULT_VOICE_PREFERENCES as defaults, OLYMPUS_VOICES, normalizeVoicePreferences, preferredDepth, readVoicePreferences, VOICE_PREVIEW_PHRASE } from "./voicePreferences";
+import { DEFAULT_VOICE_PREFERENCES as defaults, LOCAL_VOICES, OLYMPUS_VOICES, localVoiceName, normalizeVoicePreferences, preferredDepth, readVoicePreferences, VOICE_PREVIEW_PHRASE } from "./voicePreferences";
 export async function runVoicePreferencesHarness() {
   let passed=0;const check=(value:unknown,label:string)=>{if(!value)throw Error(label);passed++;};
   const tick=()=>new Promise(resolve=>setTimeout(resolve,0));
@@ -60,6 +60,8 @@ export async function runVoicePreferencesHarness() {
   const custom={...defaults,selectedVoice:"verse",speechStyle:"concise" as const,responseDepth:"detailed" as const,autoSpeak:false,captionsEnabled:false,bargeInEnabled:false};
   check(JSON.stringify(readVoicePreferences(JSON.stringify(custom)))===JSON.stringify(custom),"All six preferences survive serialization");
   check(normalizeVoicePreferences({selectedVoice:"invalid"}).selectedVoice===defaults.selectedVoice,"Unknown voice falls back safely");
+  check(defaults.localVoice==="af_sarah" && normalizeVoicePreferences({localVoice:"am_michael"}).localVoice==="am_michael" && normalizeVoicePreferences({localVoice:"zf_xiaobei"}).localVoice==="af_sarah","A local voice must be one of the offered English voices");
+  check(LOCAL_VOICES.length===28 && new Set(LOCAL_VOICES).size===28 && localVoiceName("bm_george")==="George","Twenty-eight English Kokoro voices, named for people");
   check(OLYMPUS_VOICES.length===10 && new Set(OLYMPUS_VOICES).size===10,"Catalog contains current ten unique voices");
   check(preferredDepth("status",{...defaults,responseDepth:"brief"})==="SHORT" && preferredDepth("status",defaults)==="ANSWER" && preferredDepth("status",custom)==="DEEP_DIVE","Depth settings preserve bounded voice contract");
   return {passed};

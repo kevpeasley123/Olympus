@@ -35,21 +35,34 @@ fn voice_paths(app_data: Option<PathBuf>) -> Result<(PathBuf, PathBuf), String> 
     Ok((python, models))
 }
 
+/// The English Kokoro voices, by accent and gender prefix (`af` American female,
+/// `bm` British male). The voices file holds others; these are the ones offered.
+pub const VOICES: &[&str] = &[
+    "af_heart", "af_bella", "af_nicole", "af_sarah", "af_sky", "af_nova", "af_alloy", "af_aoede", "af_jessica", "af_kore", "af_river",
+    "am_adam", "am_michael", "am_eric", "am_liam", "am_onyx", "am_echo", "am_fenrir", "am_puck", "am_santa",
+    "bf_emma", "bf_isabella", "bf_alice", "bf_lily", "bm_george", "bm_lewis", "bm_daniel", "bm_fable",
+];
+pub const DEFAULT_VOICE: &str = "af_sarah";
+
 #[tauri::command]
-pub async fn local_speech(app: tauri::AppHandle, kind: String, value: String) -> Result<String, String> {
+pub async fn local_speech(app: tauri::AppHandle, kind: String, value: String, voice: Option<String>) -> Result<String, String> {
     use tauri::Manager;
+    let voice = voice.unwrap_or_else(|| DEFAULT_VOICE.into());
+    if !VOICES.contains(&voice.as_str()) {
+        return Err("That local voice is not available.".into());
+    }
     let (python, models) = voice_paths(app.path().app_data_dir().ok())?;
-    speak_or_transcribe(python, models, kind, value).await
+    speak_or_transcribe(python, models, kind, value, voice).await
 }
 
-async fn speak_or_transcribe(python: PathBuf, models: PathBuf, kind: String, value: String) -> Result<String, String> {
+async fn speak_or_transcribe(python: PathBuf, models: PathBuf, kind: String, value: String, voice: String) -> Result<String, String> {
     match kind.as_str() {
         "transcribe" if !value.is_empty() && value.len() <= 2_560_000 => {}
         "speak" if !value.trim().is_empty() && value.chars().count() <= 2500 => {}
         _ => return Err("Local speech input is empty or too long.".into()),
     }
     let data =
-        serde_json::to_vec(&json!({"kind":kind,"value":value})).map_err(|e| e.to_string())?;
+        serde_json::to_vec(&json!({"kind":kind,"value":value,"voice":voice})).map_err(|e| e.to_string())?;
     let (sender, cancel) = oneshot::channel();
     let mut command = Command::new(python);
     command
@@ -137,6 +150,15 @@ mod tests {
     }
 
     #[test]
+    fn only_offered_voices_are_accepted() {
+        assert!(VOICES.contains(&DEFAULT_VOICE) && VOICES.len() == 28);
+        assert!(VOICES.iter().all(|voice| voice.len() > 3 && voice.as_bytes()[2] == b'_' && matches!(&voice[..2], "af" | "am" | "bf" | "bm")));
+        // The voice lab's list must be exactly this one.
+        let offered = include_str!("../../../src/services/voicePreferences.ts");
+        assert!(VOICES.iter().all(|voice| offered.contains(&format!("\"{voice}\""))));
+    }
+
+    #[test]
     fn a_stale_configured_path_falls_through_to_the_app_data_runtime() {
         let data = std::env::temp_dir().join(format!("olympus-voice-{}", std::process::id()));
         let root = data.join("local-voice");
@@ -162,7 +184,7 @@ mod tests {
         rt.block_on(async {
             let start = std::time::Instant::now();
             let (python, models) = voice_paths(std::env::var_os("APPDATA").map(|dir| PathBuf::from(dir).join("com.projectolympus.commandstation"))).unwrap();
-            let result = speak_or_transcribe(python.clone(), models.clone(), "speak".into(), "Olympus project review is ready.".into())
+            let result = speak_or_transcribe(python.clone(), models.clone(), "speak".into(), "Olympus project review is ready.".into(), DEFAULT_VOICE.into())
                 .await
                 .unwrap();
             let wav = STANDARD.decode(result).unwrap();
@@ -177,7 +199,7 @@ mod tests {
                 resampled.extend_from_slice(&samples[i * sample_rate / 16000].to_le_bytes());
             }
             let synthesis = start.elapsed();
-            let transcript = speak_or_transcribe(python, models, "transcribe".into(), STANDARD.encode(resampled))
+            let transcript = speak_or_transcribe(python, models, "transcribe".into(), STANDARD.encode(resampled), DEFAULT_VOICE.into())
                 .await
                 .unwrap();
             println!(
