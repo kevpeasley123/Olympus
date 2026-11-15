@@ -9,6 +9,8 @@ so.
 
 ## Build notes
 
+- Migration 11 adds Kevin's expectations and their per-run check results (`docs/VISION-REVIEW.md`). New tables only; no existing data is rewritten. Expectations are seeded as proposals when first read.
+
 - Migration 6 adds memory contribution claims, prepared outputs and applied receipts, keyed to exact conversation source revisions. It supports recovery across a crash between a vault write and database acknowledgment. Conversation deletion cascades to its receipts; no existing data is rewritten.
 
 - Migration 5 adds the immutable situation-change journal with source and feedback references, previous-revision links and retry identity. It does not rewrite existing data or invent past transitions. The existing pre-migration backup gate applies.

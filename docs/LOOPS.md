@@ -2,8 +2,8 @@
 
 Olympus's loops, each written down with its five parts, and a scorecard of how
 each did. Step 1 and 2 of the loop engineering game plan (the "Olympus loop
-engineering game plan" doc), added in 0.77.0. The vision review loop is built
-on these.
+engineering game plan" doc), added in 0.77.0. The vision review
+(docs/VISION-REVIEW.md) is built on these.
 
 ## Contracts
 

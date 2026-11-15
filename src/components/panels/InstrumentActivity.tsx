@@ -7,6 +7,7 @@ import type { Mission } from "../../services/capabilities";
 import { AgentActivityFeed } from "./AgentActivityFeed";
 import { ObservedUsage } from "./SkillRunResult";
 import { LoopScorecard } from "./LoopScorecard";
+import { VisionReview } from "./VisionReview";
 import { Modal } from "../Modal";
 import { X } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -22,6 +23,7 @@ export function InstrumentActivity({missions,assets,onInspect,vaultStatus}:{vaul
     {latest && <p><button type="button" onClick={()=>window.dispatchEvent(new Event("olympus:open-review"))}>Review #{latest.id} · {latest.detail}</button></p>}
     <AgentActivityFeed />
     <ObservedUsage />
+    {open && <VisionReview />}
     {open && <LoopScorecard />}
     <small>{vaultStatus}</small>
     <label>Inspect asset <select defaultValue="" onChange={e=>{const item=assets.find(a=>a.id===e.target.value);if(item)onInspect(item);e.target.value="";}}>
