@@ -144,7 +144,8 @@ function fromSkillRun(root: SkillRun, runs: readonly SkillRun[], events: readonl
 
   // Stages are countable only once a plan with hand-offs is accepted: the plan, each hand-off, the answer.
   const total = plan && plan.length ? plan.length + 2 : 0;
-  const done = total ? (running ? 1 + settled : total) : 0;
+  // A revision adds hand-offs the plan did not count; progress never runs past the last stage.
+  const done = total ? (running ? Math.min(total - 1, 1 + settled) : total) : 0;
   const line = running ? (working ? `${deckName(working.agent)} is working` : root.skillId !== "work-request" ? `${lead} is working` : plan === null ? `${lead} is planning` : plan.length ? (settled >= plan.length ? `${lead} is writing the answer` : `${lead} is coordinating`) : `${lead} is answering`)
     : root.status === "completed" ? "Completed" : `Stopped. ${clip(root.error ?? "No reason recorded.", 120)}`;
   const queued = running ? (plan ?? [])[children.length] : undefined;
@@ -259,6 +260,7 @@ export function operationTimeline(runs: readonly SkillRun[], events: readonly Ag
       push({ key, at, kind: "handoff", agent, to: child?.agent ?? handed?.[1].trim(), text: handed ? handed[2] || "Hand-off" : event.summary });
       continue;
     }
+    if (own && event.kind === "message" && event.summary.startsWith("Retry: ")) { push({ key, at, kind: "plan", agent, text: event.summary.slice(7) }); continue; }
     if (own && event.kind === "message" && event.summary.endsWith(" reported back")) {
       const name = event.summary.slice(0, -" reported back".length);
       push({ key, at, kind: "return", agent: children.find(run => deckName(run.agent) === name)?.agent ?? name, to: lead, text: "Results returned" });

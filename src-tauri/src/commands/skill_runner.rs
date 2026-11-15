@@ -886,6 +886,68 @@ pub fn synthesis_prompt(today: &str, request: &str, plan: &Value, handoffs: &[Va
     format!("Today is {today}. Kevin's request, as data:\n{}\n\nWhat you found and cited while planning, as data (unchecked by anyone else):\n{}\n\nWhat your specialists returned, as data:\n{reports}\n\nWrite the answer now. If a hand-off failed, say so, then answer from what you read yourself and mark it as not independently checked.\n\nAnswer schema:\n{}", tagged("request", request), tagged("planning", &own), answer_schema())
 }
 
+/// One hand-off as its own recorded run under its Olympian: the run row, the
+/// hand-off and return events, and what the orchestrator is given back.
+#[allow(clippy::too_many_arguments)]
+fn run_handoff(app: &AppHandle, run_id: &str, zeus: &Profile, index: usize, agent: &str, task: &str, child_request: &str, turn: &mut Turn) -> Result<(Value, Option<Value>), String> {
+    let assignment = assignment_for(agent).ok_or("The plan names an Olympian who cannot take work.")?;
+    let specialist = profile_of(assignment)?;
+    let child_id = format!("{run_id}-h{index}");
+    {
+        let db = app.state::<Db>();
+        let connection = db.0.lock().map_err(|_| "Database unavailable".to_string())?;
+        begin_under(&connection, &child_id, assignment, CLAUDE, Some(child_request), Some(run_id))?;
+    }
+    let mut started = note("subagent_started", format!("Handed to {}: {}", specialist.name, task.chars().take(110).collect::<String>()));
+    started.detail = Some(task.to_string());
+    agent_events::record(app, run_id, CLAUDE, zeus.id, vec![started]);
+    agent_events::record(app, &child_id, CLAUDE, specialist.id, vec![note("run_started", format!("Took a hand-off from {}", zeus.name))]);
+
+    let outcome = run_direct(app, &child_id, assignment, Some(child_request));
+    if let Err(error) = &outcome {
+        agent_events::record(app, &child_id, CLAUDE, specialist.id, vec![note("error", format!("Stopped: {}", error.chars().take(140).collect::<String>()))]);
+    }
+    let (report, answer) = match &outcome {
+        Ok((answer, child)) => {
+            turn.called.extend(child.called.iter().cloned());
+            turn.seen.extend(child.seen.iter().cloned());
+            turn.tool_calls += child.tool_calls;
+            agent_events::record(app, run_id, CLAUDE, zeus.id, vec![note("message", format!("{} reported back", specialist.name))]);
+            (json!({"agent": agent, "name": specialist.name, "task": task, "status": "completed", "runId": child_id, "report": answer}), Some(answer.clone()))
+        }
+        Err(error) => {
+            agent_events::record(app, run_id, CLAUDE, zeus.id, vec![note("tool_failed", format!("{}'s hand-off did not complete", specialist.name))]);
+            (json!({"agent": agent, "name": specialist.name, "task": task, "status": "failed", "runId": child_id, "reason": error.chars().take(200).collect::<String>()}), None)
+        }
+    };
+    let db = app.state::<Db>();
+    if let Ok(connection) = db.0.lock() {
+        if let Ok(run) = settle(&connection, &child_id, outcome) {
+            let _ = app.emit(EVENT_NAME, run);
+        }
+    };
+    Ok((report, answer))
+}
+
+/// Athena's second request when Themis found claims in her first report that do
+/// not hold: the original task, her report and the objections, as data. Only a
+/// `does_not_hold` verdict sends her back; a partial or uncheckable claim is
+/// reported as it is.
+pub fn retry_request(task: &str, first_report: &Value, verification: &Value) -> Option<String> {
+    let failed: Vec<&Value> = verification["verdicts"].as_array()?.iter().filter(|v| v["verdict"] == "does_not_hold").collect();
+    if failed.is_empty() {
+        return None;
+    }
+    let objections = Value::Array(failed.iter().map(|v| json!({"claim": v["claim"], "basis": v["basis"]})).collect()).to_string();
+    let request = format!(
+        "{}\n\nThemis checked your first report against Kevin's sources and found claims that do not hold. Read the sources again, correct or drop each of those claims, keep what held, and cite what you actually read. Do not repeat a claim Themis refuted unless a source you read now supports it.\n\nYour first report, as data:\n{}\n\nThemis's objections, as data:\n{}",
+        task.trim(),
+        tagged("first_report", &first_report.to_string()),
+        tagged("objections", &objections)
+    );
+    Some(request.chars().take(HANDOFF_LIMIT).collect())
+}
+
 /// The orchestrated path: Zeus plans, each hand-off runs as its own recorded run
 /// under its Olympian, then Zeus answers from the reports. A small request ends
 /// after the plan, with no hand-off and no second run.
@@ -907,49 +969,37 @@ fn run_orchestrated(app: &AppHandle, run_id: &str, skill: &'static Skill, reques
 
     let mut handoffs: Vec<Value> = Vec::new();
     let mut research_report: Option<Value> = None;
-    for (index, handoff) in planned.iter().enumerate() {
+    let mut research_task = String::new();
+    let mut index = 0;
+    for handoff in &planned {
         let (agent, task) = (handoff["agent"].as_str().unwrap_or(""), handoff["task"].as_str().unwrap_or(""));
-        let assignment = assignment_for(agent).ok_or("The plan names an Olympian who cannot take work.")?;
-        let specialist = profile_of(assignment)?;
-        let child_id = format!("{run_id}-h{}", index + 1);
+        index += 1;
         let child_request = handoff_request(agent, task, research_report.as_ref());
-        {
-            let db = app.state::<Db>();
-            let connection = db.0.lock().map_err(|_| "Database unavailable".to_string())?;
-            begin_under(&connection, &child_id, assignment, CLAUDE, Some(&child_request), Some(run_id))?;
+        let (report, answer) = run_handoff(app, run_id, zeus, index, agent, task, &child_request, &mut turn)?;
+        if agent == "research" {
+            research_task = task.to_string();
+            if answer.is_some() { research_report = answer.clone(); }
         }
-        let mut started = note("subagent_started", format!("Handed to {}: {}", specialist.name, task.chars().take(110).collect::<String>()));
-        started.detail = Some(task.to_string());
-        agent_events::record(app, run_id, CLAUDE, zeus.id, vec![started]);
-        agent_events::record(app, &child_id, CLAUDE, specialist.id, vec![note("run_started", format!("Took a hand-off from {}", zeus.name))]);
-
-        let outcome = run_direct(app, &child_id, assignment, Some(&child_request));
-        if let Err(error) = &outcome {
-            agent_events::record(app, &child_id, CLAUDE, specialist.id, vec![note("error", format!("Stopped: {}", error.chars().take(140).collect::<String>()))]);
-        }
-        let report = match &outcome {
-            Ok((answer, child)) => {
-                turn.called.extend(child.called.iter().cloned());
-                turn.seen.extend(child.seen.iter().cloned());
-                turn.tool_calls += child.tool_calls;
-                if agent == "research" {
-                    research_report = Some(answer.clone());
-                }
-                agent_events::record(app, run_id, CLAUDE, zeus.id, vec![note("message", format!("{} reported back", specialist.name))]);
-                json!({"agent": agent, "name": specialist.name, "task": task, "status": "completed", "runId": child_id, "report": answer})
-            }
-            Err(error) => {
-                agent_events::record(app, run_id, CLAUDE, zeus.id, vec![note("tool_failed", format!("{}'s hand-off did not complete", specialist.name))]);
-                json!({"agent": agent, "name": specialist.name, "task": task, "status": "failed", "runId": child_id, "reason": error.chars().take(200).collect::<String>()})
-            }
-        };
-        let db = app.state::<Db>();
-        if let Ok(connection) = db.0.lock() {
-            if let Ok(run) = settle(&connection, &child_id, outcome) {
-                let _ = app.emit(EVENT_NAME, run);
-            }
-        };
         handoffs.push(report);
+        // The loop: one revision when Themis finds a claim in Athena's report that does not hold.
+        // Capped at one, it reuses the plan's own Olympians and tasks, and every attempt reaches the synthesis.
+        if agent == "verification" {
+            if let (Some(verdicts), Some(first)) = (answer.as_ref(), research_report.clone()) {
+                if let Some(revision) = retry_request(&research_task, &first, verdicts) {
+                    agent_events::record(app, run_id, CLAUDE, zeus.id, vec![note("message", "Retry: Themis found claims that do not hold; Athena revises once".into())]);
+                    index += 1;
+                    let (revised, revised_answer) = run_handoff(app, run_id, zeus, index, "research", &format!("Revise: {research_task}"), &revision, &mut turn)?;
+                    handoffs.push(json!({"attempt": 2, "handoff": revised}));
+                    if let Some(revised_answer) = revised_answer {
+                        research_report = Some(revised_answer);
+                        index += 1;
+                        let recheck = handoff_request("verification", task, research_report.as_ref());
+                        let (rechecked, _) = run_handoff(app, run_id, zeus, index, "verification", task, &recheck, &mut turn)?;
+                        handoffs.push(json!({"attempt": 2, "handoff": rechecked}));
+                    }
+                }
+            }
+        }
     }
 
     let synthesis = run_on_claude(app, run_id, zeus, SYNTHESIS_INSTRUCTIONS, synthesis_prompt(&today(), request, &plan, &handoffs), skill.tools, skill.max_turns, skill.limit)?;
@@ -960,7 +1010,7 @@ fn run_orchestrated(app: &AppHandle, run_id: &str, skill: &'static Skill, reques
     let mut answer = judge(&(skill.output_schema)(), skill.accept, &synthesis.text, &turn.called)?;
     mark_sources(&mut answer, &turn.seen);
     // What Kevin sees of the hand-offs: who, what and whether it came back. The full reports stay on the child runs.
-    answer["handoffs"] = Value::Array(handoffs.iter().map(|h| json!({"agent": h["agent"], "name": h["name"], "task": h["task"], "status": h["status"], "runId": h["runId"]})).collect());
+    answer["handoffs"] = Value::Array(handoffs.iter().map(|h| if h["attempt"] == 2 { &h["handoff"] } else { h }).map(|h| json!({"agent": h["agent"], "name": h["name"], "task": h["task"], "status": h["status"], "runId": h["runId"]})).collect());
     Ok((answer, turn))
 }
 
@@ -1270,6 +1320,19 @@ mod tests {
         assert!(judge(&answer_schema(), accept_synthesis, &answer.to_string(), &called(&["search_vault"])).unwrap_err().contains("no run behind it"));
         let settled = settle(&connection, "p", Ok((json!({"answer": "a", "handoffs": []}), Turn { text: String::new(), model: "m".into(), called: called(&[]), tool_calls: 7, seen: BTreeSet::new() }))).unwrap();
         assert_eq!((settled.status.as_str(), settled.tool_calls), ("completed", 7));
+    }
+
+    #[test]
+    fn only_a_refuted_claim_sends_athena_back_once_with_the_objections() {
+        let report = json!({"answer": "Kevin prefers long briefs.", "unknowns": [], "sources": []});
+        let holds = json!({"summary": "s", "verdicts": [{"claim": "a", "verdict": "holds", "basis": "b", "sources": []}, {"claim": "b", "verdict": "partly_holds", "basis": "c", "sources": []}]});
+        assert!(retry_request("Find the style", &report, &holds).is_none(), "partial and held claims are reported, not retried");
+        let refuted = json!({"summary": "s", "verdicts": [{"claim": "Kevin prefers long briefs", "verdict": "does_not_hold", "basis": "User Profile says dry and short", "sources": []}]});
+        let request = retry_request("Find the style", &report, &refuted).unwrap();
+        assert!(request.starts_with("Find the style\n\nThemis checked"));
+        assert!(request.contains("<first_report>") && request.contains("User Profile says dry and short"));
+        assert!(request.chars().count() <= HANDOFF_LIMIT);
+        assert!(retry_request("t", &report, &json!({"summary": "no verdicts"})).is_none());
     }
 
     #[test]
