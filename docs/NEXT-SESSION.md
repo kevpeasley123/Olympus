@@ -1,10 +1,12 @@
 # Next session
 
-## Olympus 0.73.0 - merged November 14, 2026
+## Olympus 0.74.0 - merged November 15, 2026
 
 Kevin installed 0.65.0 on November 14 and has since run at least 0.70.0
-(a "Welcome back, sir." brief); none of 0.66.0 to 0.73.0 is otherwise
+(a "Welcome back, sir." brief); none of 0.66.0 to 0.74.0 is otherwise
 confirmed against real data:
+- 0.74.0: operation timeline, hand-offs, next step and failure kinds in the
+  Activity Deck (AGENT-EVENTS.md). Verify with one real /ask that hands off.
 - 0.73.0: visual polish phase 2 (frontend only).
 - 0.72.0: Import from X into Research (docs/X-IMPORT.md) and Activity /
   Armory tabs in Command's left column. First real import is the test.
@@ -23,7 +25,7 @@ confirmed against real data:
   consistent with its account refusing requests.
 - 0.65.0: console cleanup and a self-reading Usage dock (ENGINE-STATUS-USAGE.md).
 
-0.54.0 to 0.73.0 (pull requests 38 to 61) are merged. Kevin installed 0.58.0 on
+0.54.0 to 0.74.0 (pull requests 38 to 62) are merged. Kevin installed 0.58.0 on
 November 13 and it opened almost unstyled: a brace lost from `activityDeck.css`
 in 0.57.0 broke the joined production stylesheet. 0.59.0 fixes it and must be
 installed with `npm run update` from `Desktop/Projects/Olympus`. The installed

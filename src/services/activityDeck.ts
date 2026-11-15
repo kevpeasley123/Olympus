@@ -37,6 +37,12 @@ export interface DeckOperation {
   run: SkillRun | null;
   /** Other operations in progress at the same time. */
   alsoRunning: number;
+  /** The Olympian accountable for the operation. */
+  lead: string;
+  /** What comes next, only when the accepted plan or the run's own state says so. */
+  next: string | null;
+  /** The latest recorded event of the operation or its hand-offs, for "quiet since". */
+  lastEventAt: string | null;
 }
 export interface Deck { operation: DeckOperation | null; agents: DeckAgent[] }
 
@@ -141,8 +147,16 @@ function fromSkillRun(root: SkillRun, runs: readonly SkillRun[], events: readonl
   const done = total ? (running ? 1 + settled : total) : 0;
   const line = running ? (working ? `${deckName(working.agent)} is working` : root.skillId !== "work-request" ? `${lead} is working` : plan === null ? `${lead} is planning` : plan.length ? (settled >= plan.length ? `${lead} is writing the answer` : `${lead} is coordinating`) : `${lead} is answering`)
     : root.status === "completed" ? "Completed" : `Stopped. ${clip(root.error ?? "No reason recorded.", 120)}`;
+  const queued = running ? (plan ?? [])[children.length] : undefined;
+  const next = !running ? null
+    : working ? `Awaiting ${deckName(working.agent)}'s ${DECK_ROLES[working.agent]?.role.toLowerCase() ?? "report"}`
+    : queued ? `${queued.name || deckName(queued.agent)} takes the next hand-off`
+    : plan && plan.length && settled >= plan.length ? `${lead} writes the final answer`
+    : null;
+  const family = events.filter(event => event.runId === root.id || children.some(child => child.id === event.runId));
   return {
-    operation: { id: root.id, title: operationTitle(root, skills), status: root.status, line, progress: total && root.status !== "failed" ? { done, total } : null, startedAt: root.startedAt, finishedAt: root.finishedAt, run: root },
+    operation: { id: root.id, title: operationTitle(root, skills), status: root.status, line, progress: total && root.status !== "failed" ? { done, total } : null, startedAt: root.startedAt, finishedAt: root.finishedAt, run: root,
+      lead: root.agent, next, lastEventAt: family.length ? family[family.length - 1].createdAt : null },
     agents,
   };
 }
@@ -168,7 +182,7 @@ export function buildDeck(runs: readonly SkillRun[], events: readonly AgentEvent
       const failed = !group.active && last.kind === "error";
       const status = group.active ? "running" as const : failed ? "failed" as const : "completed" as const;
       return { startedAt: first.createdAt, active: group.active, build: () => ({
-        operation: { id: group.runId, title: clip(first.summary, 90), status, line: group.active ? `${deckName(group.agent)} is working` : failed ? clip(last.summary, 120) : "Completed", progress: null, startedAt: first.createdAt, finishedAt: group.active ? null : last.createdAt, run: null },
+        operation: { lead: group.agent, next: null, lastEventAt: last.createdAt, id: group.runId, title: clip(first.summary, 90), status, line: group.active ? `${deckName(group.agent)} is working` : failed ? clip(last.summary, 120) : "Completed", progress: null, startedAt: first.createdAt, finishedAt: group.active ? null : last.createdAt, run: null },
         agents: [{ agent: group.agent, runId: group.runId, assignment: first.summary, status, activity: group.active ? lastStep(group.events, "Working") : failed ? "Did not finish" : "Finished", recent: steps(group.events), finding: null, error: failed ? last.summary : null }],
       }) };
     }),
@@ -207,4 +221,75 @@ export function deckStages(deck: Deck): DeckStage[] {
     ...others.map(agent => ({ label: `${deckName(agent.agent)}: ${DECK_ROLES[agent.agent]?.role.toLowerCase() ?? "assignment"}`, state: stage(agent.status) })),
     { label: `${deckName(lead.agent)} writes the answer`, state: over ? (operation.status === "completed" ? "done" as const : "failed" as const) : settled ? "active" as const : "pending" as const },
   ];
+}
+
+export type TimelineKind = "start" | "plan" | "handoff" | "return" | "step" | "done" | "failed";
+export interface TimelineEntry { key: string; at: string; kind: TimelineKind; agent: string; to?: string; text: string }
+
+const handedTo = (summary: string) => /^Handed to ([^:]+):\s*(.*)$/.exec(summary);
+const STEP_KINDS = new Set(["tool_call", "file_read", "file_edit", "search", "command", "tool_failed"]);
+
+/**
+ * What happened in one operation, oldest first, from recorded events and the
+ * runs' own outcomes only: who started it, each hand-off and its return, the
+ * steps each Olympian took, and how it ended. Repeated identical steps by the
+ * same Olympian collapse into one line.
+ */
+export function operationTimeline(runs: readonly SkillRun[], events: readonly AgentEvent[], operationId: string): TimelineEntry[] {
+  const root = runs.find(run => run.id === operationId);
+  const children = runs.filter(run => run.parentRun === operationId);
+  const ids = new Set([operationId, ...children.map(child => child.id)]);
+  const lead = root?.agent ?? events.find(event => event.runId === operationId)?.agent ?? "olympus";
+  const entries: TimelineEntry[] = [];
+  const push = (entry: TimelineEntry) => {
+    const previous = entries[entries.length - 1];
+    if (previous && previous.kind === entry.kind && previous.agent === entry.agent && previous.text === entry.text) return;
+    entries.push(entry);
+  };
+  let ended = false;
+  for (const event of events) {
+    if (!ids.has(event.runId)) continue;
+    const own = event.runId === operationId;
+    const key = `e${event.id}`, at = event.createdAt, agent = event.agent;
+    if (event.kind === "run_started") { if (own) push({ key, at, kind: "start", agent, text: event.summary }); continue; }
+    if (event.kind === "plan") { push({ key, at, kind: "plan", agent, text: event.summary }); continue; }
+    if (event.kind === "subagent_started") {
+      const handed = handedTo(event.summary);
+      const child = handed && children.find(run => deckName(run.agent) === handed[1].trim());
+      push({ key, at, kind: "handoff", agent, to: child?.agent ?? handed?.[1].trim(), text: handed ? handed[2] || "Hand-off" : event.summary });
+      continue;
+    }
+    if (own && event.kind === "message" && event.summary.endsWith(" reported back")) {
+      const name = event.summary.slice(0, -" reported back".length);
+      push({ key, at, kind: "return", agent: children.find(run => deckName(run.agent) === name)?.agent ?? name, to: lead, text: "Results returned" });
+      continue;
+    }
+    if (own && event.kind === "tool_failed" && event.summary.endsWith("hand-off did not complete")) {
+      const name = event.summary.split("'s hand-off")[0];
+      push({ key, at, kind: "failed", agent: children.find(run => deckName(run.agent) === name)?.agent ?? name, to: lead, text: "Hand-off did not complete" });
+      continue;
+    }
+    if (event.kind === "result") { if (own) ended = true; push({ key, at, kind: "done", agent, text: own ? "Finished" : "Finished its assignment" }); continue; }
+    if (event.kind === "error") { if (own) ended = true; push({ key, at, kind: "failed", agent, text: event.summary }); continue; }
+    if (STEP_KINDS.has(event.kind) && !event.subagent) push({ key, at, kind: "step", agent, text: describeStep(event) });
+  }
+  // The run record is authoritative for how it ended, even when no event said so.
+  if (root && root.status !== "running" && !ended) {
+    const at = root.finishedAt ?? entries[entries.length - 1]?.at ?? root.startedAt;
+    push(root.status === "completed" ? { key: `${root.id}:end`, at, kind: "done", agent: lead, text: "Delivered the answer" } : { key: `${root.id}:end`, at, kind: "failed", agent: lead, text: clip(root.error ?? "Stopped. No reason recorded.", 140) });
+  }
+  return entries.slice(-60);
+}
+
+export type FailureKind = "user" | "external" | "system";
+/**
+ * Who has to act on a failure: Kevin (a sign-in, an authorization, an
+ * approval, a limit only he can lift), an outside service, or Olympus itself.
+ * Read from the recorded reason; an unrecognised reason is a system issue.
+ */
+export function classifyFailure(reason: string | null): { kind: FailureKind; label: string } {
+  const text = (reason ?? "").toLowerCase();
+  if (/sign in|signed in|log ?in|authoriz|authenticat|approv|confirm|reconnect|permission|usage limit|credits|subscription|not enabled|turn on|choose a model/.test(text)) return { kind: "user", label: "Needs you" };
+  if (/timed out|timeout|could not reach|unreachable|unavailable|network|rate limit|overloaded|503|502|429|connection|offline/.test(text)) return { kind: "external", label: "Outside service" };
+  return { kind: "system", label: "Olympus issue" };
 }
