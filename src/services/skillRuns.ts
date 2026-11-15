@@ -24,7 +24,7 @@ export interface VisionReviewOutput {
   summary: string;
   held: { expectation: string; evidence: string }[];
   slipped: { expectation: string; evidence: string }[];
-  proposals: { kind: "instruction" | "setting" | "check" | "build"; title: string; detail: string; expectation: string }[];
+  proposals: { kind: "instruction" | "setting" | "check" | "build"; skill: string; title: string; detail: string; expectation: string }[];
   newExpectations: { statement: string; kevinSaid: string; saidOn: string }[];
 }
 export type SkillOutput = BriefOutput | AnswerOutput | VerdictOutput | VisionReviewOutput;

@@ -215,3 +215,4 @@ html .app-shell .olympus-armory.activity-deck{gap:12px}
 .vision-latest ul,.vision-latest ol{margin:0;padding-left:18px;display:grid;gap:4px}
 .vision-latest b{color:#efe6d2;font-weight:600}
 .vision-latest small{display:block;color:#8fa2b1}
+.vision-actions.inline{display:flex;padding:4px 0 2px}

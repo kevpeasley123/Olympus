@@ -1,10 +1,35 @@
 import { invoke } from "@tauri-apps/api/core";
 import { Fragment, useEffect, useState, useSyncExternalStore } from "react";
-import { decideExpectation, describeExpectation, readVision, type Expectation, type VisionReport } from "../../services/loops";
+import { decideExpectation, decideProposal, describeExpectation, proposalEffect, readProposals, readVision, type Expectation, type Proposal, type VisionReport } from "../../services/loops";
 import { isVisionReview, runOperation, skillRunsSnapshot, subscribeSkillRuns, type SkillRun } from "../../services/skillRuns";
 import { isTauriRuntime } from "../../services/launcher";
 
 const PROPOSAL_KIND: Record<string, string> = { instruction: "Instruction", setting: "Setting", check: "New check", build: "Build task" };
+const SKILL_NAME: Record<string, string> = { "opening-brief": "the brief", "work-request": "Ask Olympus", "answer-from-sources": "answers from your sources", "research-assignment": "Athena", "verification-assignment": "Themis", "vision-review": "the weekly review" };
+
+/**
+ * The review's proposals and Kevin's decisions. Accepting an instruction puts it into effect for
+ * its skill at once; other kinds go to the next coding session. Each button is his decision.
+ */
+function Proposals({ name }: { name: (id: string) => string }) {
+  const [items, setItems] = useState<Proposal[]>([]);
+  const [error, setError] = useState("");
+  const load = () => readProposals().then(setItems).catch(e => setError(String(e)));
+  useEffect(() => { void load(); }, []);
+  const decide = async (p: Proposal, status: Proposal["status"]) => { try { await decideProposal(p.id, status); await load(); } catch (e) { setError(String(e)); } };
+  const waiting = items.filter(p => p.status === "proposed");
+  const inEffect = items.filter(p => p.status === "accepted" && proposalEffect(p) === "in-effect");
+  const queued = items.filter(p => p.status === "accepted" && proposalEffect(p) === "coding-session");
+  const line = (p: Proposal) => <><b>{PROPOSAL_KIND[p.kind] ?? p.kind}{p.skill !== "none" ? ` for ${SKILL_NAME[p.skill] ?? p.skill}` : ""}: {p.title}</b> {p.detail} <small>For: {name(p.expectation)}</small></>;
+  if (error) return <p className="vision-score">Proposals are unavailable: {error}</p>;
+  if (!items.length) return null;
+  return <>
+    {waiting.length > 0 && <><h4>Proposed improvements</h4><ol>{waiting.map(p => <li key={p.id}>{line(p)}
+      <span className="vision-actions inline"><button type="button" onClick={() => void decide(p, "accepted")}>{proposalEffect(p) === "in-effect" ? "Accept and apply" : "Accept"}</button><button type="button" onClick={() => void decide(p, "dismissed")}>Dismiss</button></span></li>)}</ol></>}
+    {inEffect.length > 0 && <><h4>In effect</h4><ul>{inEffect.map(p => <li key={p.id}>{line(p)}<span className="vision-actions inline"><button type="button" className="quiet" onClick={() => void decide(p, "dismissed")}>Remove</button></span></li>)}</ul></>}
+    {queued.length > 0 && <><h4>For the next coding session</h4><ul>{queued.map(p => <li key={p.id}>{line(p)}<span className="vision-actions inline"><button type="button" className="quiet" onClick={() => void decide(p, "done")}>Mark done</button></span></li>)}</ul></>}
+  </>;
+}
 
 /** The latest weekly review, its switch and a way to run it now. Running it is Kevin's choice; it spends one capped run. */
 function WeeklyReview({ statements }: { statements: Map<string, string> }) {
@@ -34,7 +59,7 @@ function WeeklyReview({ statements }: { statements: Map<string, string> }) {
       <p>{review.summary}</p>
       {review.slipped.length > 0 && <><h4>Slipped</h4><ul>{review.slipped.map((entry, i) => <li key={i}><b>{name(entry.expectation)}</b> {entry.evidence}</li>)}</ul></>}
       {review.held.length > 0 && <><h4>Held</h4><ul>{review.held.map((entry, i) => <li key={i}><b>{name(entry.expectation)}</b> {entry.evidence}</li>)}</ul></>}
-      {review.proposals.length > 0 && <><h4>Proposed improvements</h4><ol>{review.proposals.map((proposal, i) => <li key={i}><b>{PROPOSAL_KIND[proposal.kind] ?? proposal.kind}: {proposal.title}</b> {proposal.detail} <small>For: {name(proposal.expectation)}</small></li>)}</ol></>}
+      <Proposals key={latest?.id} name={name}/>
       {review.newExpectations.length > 0 && <p className="vision-score">{review.newExpectations.length} new expectation{review.newExpectations.length === 1 ? "" : "s"} from your own words added to the list for your approval.</p>}
     </div>}
   </div>;

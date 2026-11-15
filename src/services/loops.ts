@@ -52,3 +52,14 @@ export function describeExpectation(expectation: Expectation): string {
   const broken = expectation.checks.filter(c => c.lastFailure).map(c => c.lastFailure);
   return `${passed} of ${total} checks passed${broken.length ? `. Last miss: ${broken[0]}` : ""}.`;
 }
+
+export interface Proposal { id: number; runId: string; kind: "instruction" | "setting" | "check" | "build"; skill: string; title: string; detail: string; expectation: string; status: "proposed" | "accepted" | "dismissed" | "done"; createdAt: string; decidedAt: string | null }
+export async function readProposals(): Promise<Proposal[]> {
+  if (!isTauriRuntime()) return [];
+  return invoke<Proposal[]>("vision_proposals");
+}
+export async function decideProposal(id: number, status: Proposal["status"]): Promise<void> {
+  await invoke("decide_proposal", { id, status });
+}
+/** Where an accepted proposal goes: an instruction takes effect in its skill; anything else waits for a coding session. */
+export const proposalEffect = (p: Pick<Proposal, "kind" | "skill">) => p.kind === "instruction" && p.skill !== "none" ? "in-effect" : "coding-session";

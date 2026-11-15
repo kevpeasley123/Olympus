@@ -81,3 +81,25 @@ days, none was attempted in the last day, and no Claude window has less than a
 fifth left. So it costs at most one capped run a week, plus one attempt a day
 after a failure. Diagnostics > Your expectations has its On/Off switch, Run
 now, and the latest review: summary, slipped, held and proposed improvements.
+
+## Proposals and standing guidance (0.81.0)
+
+Each review's proposals are stored in `vision_proposals` (migration 12), with a
+`skill` each names (or `none`). In Diagnostics Kevin accepts or dismisses each.
+
+- An accepted **instruction** for a skill is in effect at once: every run of
+  that skill is given it, word for word, as "Kevin's standing guidance"
+  (`standing_guidance`, twelve at most, oldest first), below its own
+  instructions. Removing it takes it out. This is how Olympus changes its own
+  behaviour without new code, by Kevin's decision.
+- Accepted **build**, **check** and **setting** proposals are listed "For the
+  next coding session". A coding session on Kevin's PC reads them with
+  `SELECT id, kind, skill, title, detail FROM vision_proposals WHERE status = 'accepted' AND NOT (kind = 'instruction' AND skill <> 'none')`
+  on `olympus.sqlite`, builds what it takes on, and Kevin marks each done.
+
+## Retries, all told
+
+A run retries once at most, whatever the cause: an outside-service failure
+(timeout, unreachable, overloaded; never a limit or sign-in) after a 20-second
+pause (`is_transient`), or for the brief a rejected answer or a broken
+expectation. `loops.capped` checks the cap held.

@@ -285,6 +285,8 @@ pub fn run() {
             commands::research_verification::research_agent_catalog,
             commands::loops::loop_scorecard,
             commands::expectations::vision_report,
+            commands::expectations::vision_proposals,
+            commands::expectations::decide_proposal,
             commands::skill_runner::start_due_vision_review,
             commands::expectations::set_expectation_status,
             commands::x_import::x_import_preview,
