@@ -192,3 +192,14 @@ html .app-shell .olympus-armory.activity-deck{gap:12px}
 .loop-scorecard summary span{font-size:11.5px;color:#aebdc9}
 .loop-scorecard dl{display:grid;grid-template-columns:max-content 1fr;gap:4px 12px;margin:0;padding:2px 11px 10px;font-size:11.5px}
 .loop-scorecard dt{color:#8196a6}.loop-scorecard dd{margin:0;color:#c9d5de}
+
+/* Your expectations (Diagnostics) */
+.vision-score{margin:0 0 8px;font-size:12px;line-height:1.45;color:#d9cfb9}
+.vision-review li{display:grid}
+.vision-review li[data-status="retired"]{opacity:.55}
+.vision-review li[data-status="proposed"]{border-color:#d9a94e55}
+.vision-review blockquote{margin:2px 11px 8px;padding:6px 10px;border-left:2px solid #d9a94e88;font-size:12px;line-height:1.45;color:#e2dccd}
+.vision-review blockquote footer{margin-top:4px;font-size:10.5px;color:#8fa2b1}
+.vision-actions{display:flex;gap:6px;padding:0 11px 9px}
+.vision-actions button{height:24px;padding:0 10px;border:1px solid #d9a94e80;border-radius:5px;background:#d9a94e14;color:#f0c66f;font:500 11px/1 var(--font-sans);cursor:pointer}
+.vision-actions button.quiet,.vision-actions button+button{border-color:#8196a666;background:none;color:#b3c2ce}

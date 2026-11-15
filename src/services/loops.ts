@@ -31,3 +31,24 @@ export function describeScore(card: LoopCard): string {
   if (s.reportedCostUsd > 0) parts.push(`$${s.reportedCostUsd.toFixed(2)} at API rates`);
   return `${parts.join(" · ")}.`;
 }
+
+export interface CheckStat { id: string; passed: number; total: number; lastFailure: string | null }
+export interface Expectation { id: string; statement: string; kevinSaid: string; saidOn: string; source: string; status: "proposed" | "approved" | "retired"; checks: CheckStat[] }
+export interface VisionReport { score: number | null; passed: number; total: number; expectations: Expectation[] }
+
+export async function readVision(days = 7): Promise<VisionReport | null> {
+  if (!isTauriRuntime()) return null;
+  return invoke<VisionReport>("vision_report", { days });
+}
+export async function decideExpectation(id: string, status: Expectation["status"]): Promise<void> {
+  await invoke("set_expectation_status", { id, status });
+}
+
+/** One expectation's week in words: what its rules recorded, or that only the weekly review can judge it. */
+export function describeExpectation(expectation: Expectation): string {
+  if (!expectation.checks.length) return "Judged at the weekly review.";
+  const passed = expectation.checks.reduce((n, c) => n + c.passed, 0), total = expectation.checks.reduce((n, c) => n + c.total, 0);
+  if (!total) return "Not checked yet this week.";
+  const broken = expectation.checks.filter(c => c.lastFailure).map(c => c.lastFailure);
+  return `${passed} of ${total} checks passed${broken.length ? `. Last miss: ${broken[0]}` : ""}.`;
+}
