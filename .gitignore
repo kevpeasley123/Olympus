@@ -30,3 +30,4 @@ __pycache__/
 
 # Private local agent session ledgers.
 /.superpowers/
+*.tmp.mjs
