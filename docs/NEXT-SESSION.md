@@ -1,6 +1,12 @@
 # Next session
 
-## Olympus 0.65.0 - merged November 14, 2026
+## Olympus 0.66.0 - merged November 14, 2026
+
+0.66.0 simplifies the Usage tiles: no status lines unless a check fails, a
+minimum visible bar, Claude re-read every minute. Kevin installed 0.65.0 on
+November 14; its run-fed Claude file was written as designed, but the tile read
+it before the first run and waited ten minutes. Codex showed 0.0% remaining,
+consistent with its account refusing requests.
 
 0.65.0 cleans up the console (New briefing button, Local voice panel and
 Temporary chat button removed, no hover flicker) and makes the Usage dock read
@@ -8,7 +14,7 @@ by itself: on open and every ten minutes, with Olympus's own Claude Code runs
 feeding the Claude windows (ENGINE-STATUS-USAGE.md). If the Codex tile shows
 "Check failed", its expanded view now says why; that reason has not been seen yet.
 
-0.54.0 to 0.65.0 (pull requests 38 to 51) are merged. Kevin installed 0.58.0 on
+0.54.0 to 0.66.0 (pull requests 38 to 52) are merged. Kevin installed 0.58.0 on
 November 13 and it opened almost unstyled: a brace lost from `activityDeck.css`
 in 0.57.0 broke the joined production stylesheet. 0.59.0 fixes it and must be
 installed with `npm run update` from `Desktop/Projects/Olympus`. The installed

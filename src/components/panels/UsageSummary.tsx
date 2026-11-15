@@ -45,7 +45,7 @@ function UsageRail({label,rows,now}:{label:string;rows:UsageSnapshot[];now:numbe
       {rows.map(s=><article className={`usage-tile usage-color-${colors[s.provider]??"teal"}`} key={s.provider} title={`${s.provider} · ${s.evidence==="historical"?"Historical snapshot · ":""}${snapshotFreshness(s,now)} · ${s.source} · ${s.observedAt??statuses[state(s)]}`}>
         <Brand name={s.provider}/><span className="usage-row__name">{s.provider}</span>
         <div className="usage-tile__reading"><Meter s={s}/><strong>{s.capabilityCategory==="apis-services"&&valid(s.balance)?amount(s.balance):percent(s)!==null?`${formatUsagePercentage(percent(s))}%`:amount(s.balance)}</strong></div>
-        <small>{state(s)==="failed"?"Check failed · last known":state(s)==="loading"?"Checking":s.evidence==="historical"?"Historical · stale":s.observedAt?`${snapshotFreshness(s,now)} · remaining`:statuses[state(s)]}</small>
+        {state(s)==="failed"&&<small>Check failed · last known</small>}
       </article>)}
       </div><button aria-label={`Next ${label.toLowerCase()}`} disabled={position.end>=position.total-2} onClick={()=>move(1)}><ChevronRight/></button>
       </div><span className="usage-rail__count" aria-live="polite">{overflow?`${position.end>=position.total-2?Math.ceil(position.total/Math.max(1,position.end-position.start)):Math.floor(position.start/Math.max(1,position.end-position.start))+1} / ${Math.ceil(position.total/Math.max(1,position.end-position.start))}`:`${rows.length} ${rows.length===1?"service":"services"}`}</span>
@@ -71,22 +71,26 @@ export function UsageSummary({ snapshots: suppliedSnapshots, previewLabel, manag
     },[suppliedSnapshots,liveSnapshots,now]);
     const [refreshing,setRefreshing]=useState(false);
     const busy=useRef(false);
-    async function refresh(){
+    async function refresh(only?:string){
       if(busy.current || suppliedSnapshots || !telemetryApi.available)return;
-      busy.current=true;setRefreshing(true);
-      setLiveSnapshots(rows=>rows.map(s=>({...s,status:"loading"})));
-      try {await Promise.all(unavailableUsage.map(async base=>{
+      // A single-provider read is the quiet background one: no spinner, no "Checking".
+      busy.current=true;if(!only)setRefreshing(true);
+      const targets=unavailableUsage.filter(s=>!only||s.provider===only);
+      if(!only)setLiveSnapshots(rows=>rows.map(s=>({...s,status:"loading"})));
+      try {await Promise.all(targets.map(async base=>{
         let next:UsageSnapshot;
         try {next=await telemetryApi.read(base.provider);}
         catch {next={...base,status:"failed",detail:"Account check failed. Try Refresh again."};}
         setLiveSnapshots(rows=>rows.map(previous=>previous.provider===base.provider?mergeUsageReading(previous,next):previous));
-      }));} finally {busy.current=false;setRefreshing(false);setNow(Date.now());}
+      }));} finally {busy.current=false;if(!only)setRefreshing(false);setNow(Date.now());}
     }
     // None of the readers starts a model turn: Codex asks its app-server, Claude reads a local file, ElevenLabs reads the subscription.
     useEffect(()=>{
       if(!autoRefresh)return;
+      // Claude's reading is a local file that Olympus's own runs update, so it is re-read every minute.
       void refresh();const t=window.setInterval(()=>void refresh(),600000);
-      return ()=>window.clearInterval(t);
+      const claude=window.setInterval(()=>void refresh("Claude"),60000);
+      return ()=>{window.clearInterval(t);window.clearInterval(claude);};
     // eslint-disable-next-line react-hooks/exhaustive-deps
     },[autoRefresh]);
     const [management,setManagement]=useState<ManagementView|null>(null);

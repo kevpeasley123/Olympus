@@ -169,3 +169,6 @@
 .usage-summary--dock .usage-summary__track>span{box-shadow:none}
 .usage-summary--dock>footer{margin:0;font-size:8px;color:#8196a8}
 @media(max-width:600px){.usage-summary--dock .usage-summary__body{grid-template-columns:1fr}.usage-summary--dock .usage-rail__items{gap:8px}}
+
+/* A reading always shows: even 0% remaining keeps a sliver so a working meter never looks empty. */
+.usage-summary__track>span{min-width:4px}
