@@ -22,7 +22,8 @@ def run(payload):
     from kokoro_onnx import Kokoro
     import numpy as np
     voice = Kokoro(str(root / "kokoro-v1.0.onnx"), str(root / "voices-v1.0.bin"))
-    samples, rate = voice.create(payload["value"], voice="af_sarah", lang="en-us")
+    name = payload.get("voice") or "af_sarah"
+    samples, rate = voice.create(payload["value"], voice=name, lang="en-gb" if name[0] == "b" else "en-us")
     output = io.BytesIO()
     with wave.open(output, "wb") as wav:
         wav.setnchannels(1)

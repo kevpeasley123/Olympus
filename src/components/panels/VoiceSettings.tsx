@@ -1,5 +1,6 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
-import { CURATED_VOICES, OLYMPUS_VOICES, VOICE_PREVIEW_PHRASE, type VoicePreferences } from "../../services/voicePreferences";
+import { CURATED_VOICES, LOCAL_VOICE_GROUPS, OLYMPUS_VOICES, VOICE_PREVIEW_PHRASE, localVoiceName, type VoicePreferences } from "../../services/voicePreferences";
+import { LocalVoiceLab } from "./LocalVoiceLab";
 import { realtimeVoice, voicePreview } from "../../services/realtimeVoice";
 import {ElevenVoiceSettings} from "./ElevenVoiceSettings";
 import "./ElevenVoiceSettings.css";
@@ -25,7 +26,7 @@ export function VoiceSettings({preferences,onChange,ready=true,replyControls=tru
   return <fieldset className="voice-settings" disabled={!ready}>
     <legend>VOICE</legend>
     <label className="voice-setting-row">Speech provider<select aria-label="Speech provider" value={preferences.speechProvider} onChange={e=>change({speechProvider:e.target.value as VoicePreferences["speechProvider"]})}><option value="local">Local · Whisper and Kokoro</option><option value="openai">OpenAI</option><option value="elevenlabs">ElevenLabs</option></select></label>
-    {preferences.speechProvider==="local"?<p>Dictation uses local Whisper. Spoken replies use Kokoro. Review your transcript before sending it to the selected engine.</p>:preferences.speechProvider==="elevenlabs"?<ElevenVoiceSettings preferences={preferences} onChange={change} busy={busy} onStop={()=>voicePreview.stop()} onPreview={()=>{setPreviewing("ElevenLabs");void voicePreview.startPreview(preferences);}}/>:<>
+    {preferences.speechProvider==="local"?<><p>Dictation uses local Whisper. Spoken replies use Kokoro. Review your transcript before sending it to the selected engine.</p><LocalVoiceLab selected={preferences.localVoice} groups={LOCAL_VOICE_GROUPS} name={localVoiceName} phrase={VOICE_PREVIEW_PHRASE} onUse={voice=>change({localVoice:voice})}/></>:preferences.speechProvider==="elevenlabs"?<ElevenVoiceSettings preferences={preferences} onChange={change} busy={busy} onStop={()=>voicePreview.stop()} onPreview={()=>{setPreviewing("ElevenLabs");void voicePreview.startPreview(preferences);}}/>:<>
     <details className="voice-lab"><summary className="voice-lab-title">Voice lab · preview and choose a voice</summary>
     <div className="voice-catalog">{OLYMPUS_VOICES.map(voice=><div key={voice} data-selected={preferences.selectedVoice===voice}>
       <div className="voice-lab-identity"><strong>{voice.toUpperCase()}</strong>

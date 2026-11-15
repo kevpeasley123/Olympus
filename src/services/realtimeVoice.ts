@@ -121,6 +121,8 @@ export class RealtimeVoice {
     void this.applyPreferences(next);
     return next;
   }
+  /** The local Kokoro voice in use, for clips spoken outside a voice turn. */
+  localVoice() { return this.preferences.localVoice; }
   async applyPreferences(value:VoicePreferences) {
     const next=normalizeVoicePreferences(value);
     const reconnect=next.speechProvider!==this.preferences.speechProvider || next.elevenVoiceId!==this.preferences.elevenVoiceId || next.elevenModelId!==this.preferences.elevenModelId || next.selectedVoice!==this.preferences.selectedVoice || next.speechStyle!==this.preferences.speechStyle || next.bargeInEnabled!==this.preferences.bargeInEnabled;
@@ -346,7 +348,7 @@ export class RealtimeVoice {
     this.elevenRequest=id;
     const current=()=>this.elevenRequest===id&&this.speechSerial===serial&&this.output===answer;
     try{
-      const result=local ? {audioBase64:await invoke<string>("local_speech",{kind:"speak",value:answer.spokenResponse})} : await (this.deps.elevenSynthesize??synthesizeEleven)({requestId:id,voiceId:this.preferences.elevenVoiceId,modelId:this.preferences.elevenModelId,text:answer.spokenResponse,preview:this.previewMode});
+      const result=local ? {audioBase64:await invoke<string>("local_speech",{kind:"speak",value:answer.spokenResponse,voice:this.preferences.localVoice})} : await (this.deps.elevenSynthesize??synthesizeEleven)({requestId:id,voiceId:this.preferences.elevenVoiceId,modelId:this.preferences.elevenModelId,text:answer.spokenResponse,preview:this.previewMode});
       if(!current())return;
       const audio=this.deps.audio();this.elevenAudio=audio;
       this.elevenUrl=local?URL.createObjectURL(new Blob([speechBytes(result)],{type:"audio/wav"})):speechUrl(result);audio.src=this.elevenUrl;audio.muted=this.snapshot.muted;

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { realtimeVoice } from "../../services/realtimeVoice";
 
 async function pcm16(blob: Blob) {
   const context = new AudioContext();
@@ -42,7 +43,7 @@ export function LocalSpeechControl({onText,reply,onUseLocal}:{onText:(text:strin
       if(kind==="speak") {
         setStatus("Synthesizing locally");
         processing.current=true;
-        const wav=await invoke<string>("local_speech",{kind,value:reply});
+        const wav=await invoke<string>("local_speech",{kind,value:reply,voice:realtimeVoice.localVoice()});
         if(!current())return;
         const bytes=Uint8Array.from(atob(wav),char=>char.charCodeAt(0));
         clipUrl.current=URL.createObjectURL(new Blob([bytes],{type:"audio/wav"}));

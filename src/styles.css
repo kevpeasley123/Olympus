@@ -3786,6 +3786,7 @@ small {
 .voice-settings-hint, .voice-preview-sample { color:#94a6b9; font-size:10px; line-height:1.6; }
 .voice-preview-status { font-size:11px; color:#d8b588; }
 .voice-catalog { margin:10px 0; border:1px solid #2d4253; padding:6px 10px; }
+.voice-lab-group { margin:12px 0 0; font:600 10px/1 var(--font-mono); letter-spacing:.14em; text-transform:uppercase; color:#8ea1b1; }
 .voice-catalog > div { display:flex; justify-content:space-between; border-bottom:1px solid #26333e; }
 .voice-catalog [aria-pressed="true"] { color:#efb56b; }
 

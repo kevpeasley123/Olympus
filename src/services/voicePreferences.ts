@@ -15,8 +15,19 @@ export interface VoicePreferences {
   bargeInEnabled:boolean;
   /** Speak a short project briefing once each time Olympus opens. */
   briefOnOpen:boolean;
+  /** The Kokoro voice for local speech. Mirrors `VOICES` in `local_speech.rs`. */
+  localVoice:string;
 }
-export const DEFAULT_VOICE_PREFERENCES:VoicePreferences = {...config.defaults as Omit<VoicePreferences,"speechProvider"|"elevenVoiceId"|"elevenModelId">,speechProvider:"openai",elevenVoiceId:"NOpBlnGInO9m6vDvFkFC",elevenModelId:"eleven_v4"};
+/** English Kokoro voices, grouped for the voice lab. Kept in step with `local_speech.rs`. */
+export const LOCAL_VOICE_GROUPS:{label:string;voices:string[]}[] = [
+  {label:"American female",voices:["af_heart","af_bella","af_nicole","af_sarah","af_sky","af_nova","af_alloy","af_aoede","af_jessica","af_kore","af_river"]},
+  {label:"American male",voices:["am_adam","am_michael","am_eric","am_liam","am_onyx","am_echo","am_fenrir","am_puck","am_santa"]},
+  {label:"British female",voices:["bf_emma","bf_isabella","bf_alice","bf_lily"]},
+  {label:"British male",voices:["bm_george","bm_lewis","bm_daniel","bm_fable"]},
+];
+export const LOCAL_VOICES = LOCAL_VOICE_GROUPS.flatMap(group => group.voices);
+export const localVoiceName = (voice:string) => voice.slice(3).replace(/^./, letter => letter.toUpperCase());
+export const DEFAULT_VOICE_PREFERENCES:VoicePreferences = {...config.defaults as Omit<VoicePreferences,"speechProvider"|"elevenVoiceId"|"elevenModelId"|"localVoice">,localVoice:"af_sarah",speechProvider:"openai",elevenVoiceId:"NOpBlnGInO9m6vDvFkFC",elevenModelId:"eleven_v4"};
 export function normalizeVoicePreferences(value:unknown):VoicePreferences {
   const raw = value && typeof value === "object" ? value as Partial<VoicePreferences> : {};
   return {
@@ -27,6 +38,7 @@ export function normalizeVoicePreferences(value:unknown):VoicePreferences {
     captionsEnabled:typeof raw.captionsEnabled === "boolean" ? raw.captionsEnabled : DEFAULT_VOICE_PREFERENCES.captionsEnabled,
     bargeInEnabled:typeof raw.bargeInEnabled === "boolean" ? raw.bargeInEnabled : DEFAULT_VOICE_PREFERENCES.bargeInEnabled,
     briefOnOpen:typeof raw.briefOnOpen === "boolean" ? raw.briefOnOpen : DEFAULT_VOICE_PREFERENCES.briefOnOpen,
+    localVoice:LOCAL_VOICES.includes(raw.localVoice ?? "") ? raw.localVoice! : DEFAULT_VOICE_PREFERENCES.localVoice,
     speechProvider:raw.speechProvider==="local"?"local":raw.speechProvider==="elevenlabs"?"elevenlabs":"openai",
     elevenVoiceId:typeof raw.elevenVoiceId==="string"&&/^[\w-]{1,128}$/.test(raw.elevenVoiceId)?raw.elevenVoiceId:DEFAULT_VOICE_PREFERENCES.elevenVoiceId,
     elevenModelId:typeof raw.elevenModelId==="string"&&/^[\w-]{1,128}$/.test(raw.elevenModelId)?raw.elevenModelId:DEFAULT_VOICE_PREFERENCES.elevenModelId,
