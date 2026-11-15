@@ -54,3 +54,13 @@ html .app-shell .console-workspace-header .console-header-actions{align-items:ce
 .console-briefing-action:disabled{opacity:.5;cursor:default}
 .local-speech{display:flex;align-items:center;gap:8px;margin:0 0 6px;font-size:11px;color:#b9c7d2}
 .local-speech [role="status"]{margin-right:auto}
+
+/* Phase 2 overview: a clear title, a status line that says its state, readable empty states. */
+.command-brief h3{font-size:12.5px;letter-spacing:.16em;color:#e2c992}
+.command-brief-operation strong{font-size:15px;line-height:1.38}
+.command-brief-operation>p{display:flex;align-items:center;gap:8px;font-size:13px;color:#c6d3dc}
+.command-brief-operation>p::before{content:"";flex:none;width:7px;height:7px;border-radius:50%;background:#5aa0d8;box-shadow:0 0 0 3px #5aa0d826}
+.command-brief-summary{font-size:13.5px}
+.command-brief-operation ol{font-size:13px;color:#b7c5d0}
+html .app-shell .active-mission-list h3{font-size:13.5px;letter-spacing:.14em;color:#e4dfd2}
+html .app-shell .mission-data-note{font-size:12px;color:#a3b5c3}

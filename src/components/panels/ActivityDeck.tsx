@@ -97,11 +97,10 @@ export function ActivityDeck({ roster, tabs, onInspectProfile, children }: Props
     {operation ? <button type="button" className="deck-operation" data-status={operation.status} onClick={() => setInspecting(true)} aria-haspopup="dialog" aria-label={`Inspect operation: ${operation.title}`}>
       {operation.status === "completed" ? <CheckCircle2 className="deck-operation-mark" size={26} strokeWidth={1.4} aria-hidden="true"/> : <Crosshair className="deck-operation-mark" size={30} strokeWidth={1.1} aria-hidden="true"/>}
       <span className="deck-operation-copy">
-        <small>{live ? "Active operation" : `Last operation · ${since(operation.finishedAt ?? operation.startedAt)}`}</small>
+        <span className="deck-operation-state"><small>{live ? "Active operation" : `Last operation · ${since(operation.finishedAt ?? operation.startedAt)}`}</small><em className="deck-status deck-outcome" data-status={operation.status}>{STATUS_LABEL[operation.status]}</em></span>
         <strong>{operation.title}</strong>
         {/* A settled card's badge already names its outcome; keep the line only when it says more. */}
         {(live || operation.line.trim().toLowerCase() !== STATUS_LABEL[operation.status].toLowerCase() || operation.alsoRunning) && <span>{operation.line}{operation.alsoRunning ? ` · ${operation.alsoRunning} more running` : ""}</span>}
-        {!live && <em className="deck-status deck-outcome" data-status={operation.status}>{STATUS_LABEL[operation.status]}</em>}
       </span>
       {operation.progress && live && <span className="deck-operation-count" aria-label={`Stage ${operation.progress.done} of ${operation.progress.total}`}>{operation.progress.done}/{operation.progress.total}</span>}
       {live && <span className="deck-bar" data-measured={percent !== null || undefined} role={percent !== null ? "progressbar" : undefined} aria-valuemin={percent !== null ? 0 : undefined} aria-valuemax={percent !== null ? 100 : undefined} aria-valuenow={percent ?? undefined}><i style={percent !== null ? { width: `${percent}%` } : undefined}/></span>}

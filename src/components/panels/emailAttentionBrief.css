@@ -9,3 +9,10 @@
 .email-attention-actions button:first-child{color:#e7c67e;border-color:#856c41}.email-attention-actions button:disabled{opacity:.5;cursor:wait}
 .email-attention-source{border-top:1px solid #354b58;margin-top:10px;padding-top:10px;font-size:11px;overflow-wrap:anywhere}
 .email-attention-source blockquote{margin:7px 0;padding-left:8px;border-left:2px solid #c6a567;color:#c5d2dc}
+
+/* Phase 2: a coverage notice reads as information; only actionable suggestions and failures carry colour. */
+.email-attention:not([data-actionable]) h4{color:#a9b9c6}
+.email-attention .email-attention-notice{position:relative;padding-left:14px;font-size:12px;line-height:1.5;color:#b9c7d2}
+.email-attention .email-attention-notice::before{content:"";position:absolute;left:0;top:.5em;width:6px;height:6px;border-radius:50%;border:1px solid #7f95a6}
+.email-attention .email-attention-warning{padding:7px 9px;border-left:2px solid #d98a72;background:#d98a7212;font-size:12px;color:#eec0b0}
+.email-attention h4{font-size:10.5px;letter-spacing:.12em}
