@@ -5,6 +5,7 @@ import { AgentEmblem } from "./AgentEmblem";
 import { SkillRunResult } from "./SkillRunResult";
 import { agentEventsSnapshot, engineLabel, subscribeAgentEvents } from "../../services/agentEvents";
 import { setAgentHighlight } from "../../services/agentConstellation";
+import { loopName } from "../../services/loops";
 import { skillRunsSnapshot, subscribeSkillRuns } from "../../services/skillRuns";
 import { DECK_ROLES, STATUS_LABEL, buildDeck, classifyFailure, deckName, isLive, operationTimeline, type DeckAgent, type DeckStatus, type TimelineEntry } from "../../services/activityDeck";
 import "./activityDeck.css";
@@ -137,7 +138,7 @@ export function ActivityDeck({ roster, tabs, onInspectProfile, children }: Props
         <span className="deck-operation-state"><small>{live ? "Active operation" : `Last operation · ${since(operation.finishedAt ?? operation.startedAt)}`}</small><em className="deck-status deck-outcome" data-status={operation.status}>{STATUS_LABEL[operation.status]}</em></span>
         <strong>{operation.title}</strong>
         {/* A settled card's badge already names its outcome; keep the line only when it says more. */}
-        <span className="deck-operation-meta">{deckName(operation.lead)} · <Elapsed from={operation.startedAt} to={live ? null : operation.finishedAt}/>{live ? " elapsed" : ""}</span>
+        <span className="deck-operation-meta">{loopName(operation.run?.skillId)} · {deckName(operation.lead)} · <Elapsed from={operation.startedAt} to={live ? null : operation.finishedAt}/>{live ? " elapsed" : ""}</span>
         {(live || operation.line.trim().toLowerCase() !== STATUS_LABEL[operation.status].toLowerCase() || operation.alsoRunning > 0) && <span>{operation.line}{operation.alsoRunning ? ` · ${operation.alsoRunning} more running` : ""}</span>}
       </span>
       {operation.progress && live && <span className="deck-operation-count" aria-label={`Stage ${operation.progress.done} of ${operation.progress.total}`}>{operation.progress.done}/{operation.progress.total}</span>}

@@ -88,6 +88,7 @@ Tauri commands exposed by the desktop shell — every entry in the `generate_han
 | Delegation | `prepare_delegation_run`, `prepare_delegation_resume`, `cancel_delegation_proposal`, `start_delegation_run`, `resume_delegation_run`, `cancel_delegation_run`, `list_delegation_runs`, `fetch_delegation_diff` |
 | Delegation review | `fetch_delegation_review`, `run_delegation_check`, `delegation_review_fingerprint`, `complete_delegation_review` |
 | Knowledge audit | `start_knowledge_audit`, `list_knowledge_audits`, `inspect_knowledge_audit` (no UI entry point; the view is rendered only by its harness) |
+| Loops | `loop_scorecard` (contracts and last-week scores; reads only) |
 | Import from X | `x_import_preview` (reads api.fxtwitter.com and pbs.twimg.com, Claude classifies; writes nothing), `x_import_save` (images to `02 - Research/_attachments`, then the entry) |
 | Research / Verification agents | `research_agent_catalog`, `start_research_verification`, `inspect_research_verification`, `list_research_verifications`, `cancel_research_verification` |
 | Command Armory | `command_agent_catalog`, `command_capabilities`, `command_missions` (read-only projections; see `docs/COMMAND-FLAGSHIP.md`) |

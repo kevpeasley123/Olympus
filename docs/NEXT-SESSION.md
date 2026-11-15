@@ -1,34 +1,23 @@
 # Next session
 
-## Olympus 0.76.0 - merged November 15, 2026
+## Olympus 0.77.0 - merged November 15, 2026
 
 Kevin installed 0.65.0 on November 14 and has since run at least 0.70.0
-(a "Welcome back, sir." brief); none of 0.66.0 to 0.76.0 is otherwise
+(a "Welcome back, sir." brief); none of 0.66.0 to 0.77.0 is otherwise
 confirmed against real data:
+- 0.77.0: loop contracts and the weekly loop scorecard (docs/LOOPS.md). Next in
+  the loop plan: the vision review loop (expectations from Kevin's words).
 - 0.76.0: one-round verify-and-revise loop in Ask Olympus (SKILL-RUNNER.md).
 - 0.75.0: chat checkpoint repair after Kevin hit
   `working_checkpoint_requires_operator_evidence` (CONVERSATIONS-AND-MEMORY.md).
 - 0.74.0: operation timeline, hand-offs, next step and failure kinds in the
   Activity Deck (AGENT-EVENTS.md). Verify with one real /ask that hands off.
-- 0.73.0: visual polish phase 2 (frontend only).
-- 0.72.0: Import from X into Research (docs/X-IMPORT.md) and Activity /
-  Armory tabs in Command's left column. First real import is the test.
-- 0.71.0: Mockup 2 polish of the conversation panel, Activity Deck and usage
-  tiles (AGENT-EVENTS.md for the deck).
-- 0.70.0: briefs honor matters Kevin settles in chat ("the FedEx came",
-  "that sign-in was me") and carry them forward 30 days. BRIEFING-SYNTHESIS.md.
-- 0.69.0: briefs open with a clock-based greeting added by Olympus
-  ("Good evening, sir.", "Welcome back, sir."). BRIEFING-SYNTHESIS.md.
-- 0.68.0: local speech gets a 300 ms lead-in and a gentler trim so replies
-  stop sounding clipped at the start. SKILL-BACKBONE.md.
-- 0.67.0: the brief is written to be heard (50 to 90 words, days not dates,
-  no labels); Kevin found 0.65's too wordy for speech. Read the next one aloud.
-- 0.66.0: Usage tiles show no status line unless a check fails, keep a
-  visible bar, re-read Claude every minute. Codex read 0.0% remaining,
-  consistent with its account refusing requests.
+- 0.66.0 to 0.73.0: usage tiles, spoken brief, greeting, settled matters,
+  voice lead-in, two visual passes, Import from X (proven: an article came in
+  classified with 8 images) and the Armory tab. See RELEASES.md.
 - 0.65.0: console cleanup and a self-reading Usage dock (ENGINE-STATUS-USAGE.md).
 
-0.54.0 to 0.76.0 (pull requests 38 to 64) are merged. Kevin installed 0.58.0 on
+0.54.0 to 0.77.0 (pull requests 38 to 65) are merged. Kevin installed 0.58.0 on
 November 13 and it opened almost unstyled: a brace lost from `activityDeck.css`
 in 0.57.0 broke the joined production stylesheet. 0.59.0 fixes it and must be
 installed with `npm run update` from `Desktop/Projects/Olympus`. The installed

@@ -1,5 +1,6 @@
 import { buildDeck, classifyFailure, deckStages, describeStep, operationTimeline } from "./activityDeck";
 import type { AgentEvent } from "./agentEvents";
+import { describeScore, loopName, type LoopCard } from "./loops";
 import type { SkillRun } from "./skillRuns";
 
 export function runActivityDeckHarness() {
@@ -94,5 +95,11 @@ export function runActivityDeckHarness() {
   const extra = [run("r-h3", "research", { parentRun: "r", skillId: "research-assignment", status: "completed" }), run("r-h4", "verification", { parentRun: "r", skillId: "verification-assignment" })];
   const revising = buildDeck([root, athenaDone, { ...themis, status: "completed" as const, error: null }, ...extra], working);
   check((revising.operation?.progress?.done ?? 9) <= 3 && revising.operation?.progress?.total === 4, "Revision hand-offs never push progress past the last stage");
+
+  const card = (score: Partial<LoopCard["score"]>): LoopCard => ({ id: "ask", name: "Ask Olympus", trigger: "", goal: "", verifier: "", verifierKind: [], actions: "", memory: "", cap: "", gate: "", gap: "",
+    score: { runs: 0, completed: 0, failed: 0, firstPass: 0, revisions: 0, revisionsResolved: 0, capHits: 0, awaitingReview: 0, seconds: 0, reportedCostUsd: 0, ...score } });
+  check(describeScore(card({})) === "No runs this week.", "A loop with no runs claims nothing");
+  check(describeScore(card({ runs: 4, completed: 3, failed: 1, firstPass: 2, revisions: 1, revisionsResolved: 1, capHits: 1, reportedCostUsd: 1.5 })) === "4 runs · 50% right first time · 1 stopped (1 out of steps) · 1 revised, 1 resolved · $1.50 at API rates.", "A score says only what was recorded");
+  check(loopName("work-request") === "Ask Olympus" && loopName(null) === "Background job" && loopName("research-assignment") === "One Olympian", "Each operation names its loop");
   return { passed };
 }
