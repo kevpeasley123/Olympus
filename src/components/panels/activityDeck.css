@@ -128,3 +128,16 @@ button.deck-operation:hover{border-color:#d7b77f66}
 .deck-status[data-status="completed"]{background:#6fae8314}
 .deck-idle-row{padding:8px 10px}
 @media(max-width:1350px){.deck-status{min-width:54px;padding:0 6px}}
+
+/* Activity / Armory: the column's two views, drawn like the console's Overview / Conversation tabs. */
+.deck-tabs{display:grid;grid-template-columns:1fr 1fr;margin:-4px -14px 0;border-bottom:1px solid #9db7c526}
+.deck-tabs button{height:34px;border:0;border-bottom:2px solid transparent;background:none;font:500 12px/1 var(--font-sans);color:#a9b8c4}
+.deck-tabs button:hover{color:#e6e3db}
+.deck-tabs button[aria-pressed="true"]{color:#f0c66f;border-bottom-color:#d9a94e}
+.armory-pane-row>svg:first-child{color:#c79a4a;margin:0 4px 0 7px}
+.deck-status[data-status="ready"],.deck-status[data-status="available"],.deck-status[data-status="connected"]{border-color:#6fae8366;color:#9fd3ae}
+.deck-status[data-status="working"]{border-color:#5aa0d880;color:#8cc4f2}
+.deck-status[data-status="waiting"],.deck-status[data-status="unavailable"]{border-color:#d98a7280;color:#eda58f}
+.deck-status[data-status="core"]{border-color:#d9a94e80;color:#f0c66f}
+.armory-pane .deck-idle-row strong{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.deck-status[data-status="unverified"],.deck-status[data-status="planned"]{border-color:#8196a655;color:#9fb0be}

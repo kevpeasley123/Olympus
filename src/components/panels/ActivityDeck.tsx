@@ -1,5 +1,5 @@
 import { useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
-import { CheckCircle2, ChevronRight, Crosshair, Layers, SlidersHorizontal, X } from "lucide-react";
+import { CheckCircle2, ChevronRight, Crosshair, Layers, X } from "lucide-react";
 import { Modal } from "../Modal";
 import { AgentEmblem } from "./AgentEmblem";
 import { SkillRunResult } from "./SkillRunResult";
@@ -19,7 +19,8 @@ export interface DeckRosterEntry {
 }
 interface Props {
   roster: readonly DeckRosterEntry[] | null;
-  onOpenArmory: () => void;
+  /** The column's Activity / Armory switch, drawn under the heading. */
+  tabs?: ReactNode;
   onInspectProfile: (id: string) => void;
   /** Rendered at the foot of the deck: the resource drawer and any caution the Armory raises. */
   children?: ReactNode;
@@ -55,7 +56,7 @@ function AgentCard({ agent, open, onToggle, bind }: { agent: DeckAgent; open: bo
  * Everything shown is recorded state (`services/activityDeck.ts`); when
  * nothing is running the deck is quiet rather than filled.
  */
-export function ActivityDeck({ roster, onOpenArmory, onInspectProfile, children }: Props) {
+export function ActivityDeck({ roster, tabs, onInspectProfile, children }: Props) {
   const { runs, skills } = useSyncExternalStore(subscribeSkillRuns, skillRunsSnapshot);
   const events = useSyncExternalStore(subscribeAgentEvents, agentEventsSnapshot);
   const deck = buildDeck(runs, events, skills);
@@ -84,8 +85,8 @@ export function ActivityDeck({ roster, onOpenArmory, onInspectProfile, children 
     <header className="armory-heading deck-heading">
       <Layers className="deck-heading-mark" size={26} strokeWidth={1.4} aria-hidden="true"/>
       <div><h2>Activity Deck</h2><p>Agent operations · {live || missionAgents.length ? "Live" : "Idle"}</p></div>
-      <button type="button" className="deck-manage" onClick={onOpenArmory} aria-haspopup="dialog" aria-label="Open the Armory" title="Armory: agents, plugins and skills"><SlidersHorizontal size={14}/></button>
     </header>
+    {tabs}
 
     {/* Delegations are Olympians holding live work right now: skill-runner agents and recorded mission steps. */}
     <p className="deck-delegations" data-active={working > 0 || undefined} role="status">

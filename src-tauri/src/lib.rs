@@ -283,6 +283,8 @@ pub fn run() {
             commands::acceptance::acceptance_profile,
             commands::knowledge_audit::start_knowledge_audit,
             commands::research_verification::research_agent_catalog,
+            commands::x_import::x_import_preview,
+            commands::x_import::x_import_save,
             commands::agent_events::agent_events, commands::agent_events::agent_usage,
             commands::agent_profiles::agent_profiles,
             commands::skill_runner::skill_catalog, commands::skill_runner::list_skill_runs, commands::skill_runner::start_skill_run,

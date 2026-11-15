@@ -236,6 +236,28 @@ fn launch_checked_as(authorization: &Account, system: &str, boundary: &str) -> R
 
 /// One text-only, non-streaming Claude turn for a background job. Blocking.
 /// Fails rather than returning a truncated, refused or overage-flagged answer.
+/// Marks a prompt that carries images ahead of its text. Only `with_images`
+/// writes it; any other prompt is sent as plain text.
+const CONTENT_MARK: &str = "\u{0}olympus-content\u{0}";
+
+/// A prompt with images (media type, base64 data) shown before the text.
+pub(crate) fn with_images(text: &str, images: &[(String, String)]) -> String {
+    if images.is_empty() {
+        return text.to_string();
+    }
+    let mut blocks: Vec<Value> = images.iter().map(|(media, data)| serde_json::json!({"type": "image", "source": {"type": "base64", "media_type": media, "data": data}})).collect();
+    blocks.push(serde_json::json!({"type": "text", "text": text}));
+    format!("{CONTENT_MARK}{}", Value::Array(blocks))
+}
+
+fn user_content(prompt: &str) -> Value {
+    prompt
+        .strip_prefix(CONTENT_MARK)
+        .and_then(|rest| serde_json::from_str::<Value>(rest).ok())
+        .filter(Value::is_array)
+        .unwrap_or_else(|| Value::String(prompt.to_string()))
+}
+
 pub(crate) fn run_job(app_data: &Path, requested_model: Option<&str>, system: &str, prompt: String, limit: Duration) -> Result<(String, String), String> {
     run_job_cancellable(app_data, requested_model, system, prompt, limit, Arc::new(AtomicBool::new(false)))
 }
@@ -797,7 +819,8 @@ fn run_process_with(
     tools: Vec<String>,
     observe: &mut dyn FnMut(&Value),
 ) -> Result<AssistantReply, String> {
-    if prompt.len() > 600_000 {
+    // Images ride in the same message and are bounded by their caller.
+    if prompt.len() > if prompt.starts_with(CONTENT_MARK) { 12_000_000 } else { 600_000 } {
         return Err("Claude input limit exceeded".into());
     }
     if cancel.load(Ordering::Acquire) {
@@ -873,7 +896,7 @@ fn run_process_with(
                     if handshake.stage < 2 {
                         let ready=handshake.accept(&frame)?;
                         let next=if ready {
-                            serde_json::json!({"type":"user","message":{"role":"user","content":prompt},"parent_tool_use_id":null,"session_id":""})
+                            serde_json::json!({"type":"user","message":{"role":"user","content":user_content(&prompt)},"parent_tool_use_id":null,"session_id":""})
                         } else {
                             if handshake.waiting() {
                                 std::thread::sleep(TOOL_SERVER_PAUSE);
@@ -944,6 +967,20 @@ fn run_process_with(
         notice,
         fell_back_from: None,
     })
+}
+
+#[cfg(test)]
+mod content_tests {
+    use super::*;
+    #[test]
+    fn images_ride_ahead_of_the_text_and_plain_prompts_stay_text() {
+        assert_eq!(user_content("hello"), Value::String("hello".into()));
+        let both = user_content(&with_images("look", &[("image/jpeg".into(), "QUJD".into())]));
+        assert_eq!(both[0]["source"]["data"], "QUJD");
+        assert_eq!(both[1], serde_json::json!({"type": "text", "text": "look"}));
+        assert_eq!(with_images("x", &[]), "x");
+        assert_eq!(user_content("\u{0}olympus-content\u{0}not json"), Value::String("\u{0}olympus-content\u{0}not json".into()));
+    }
 }
 
 #[cfg(test)]

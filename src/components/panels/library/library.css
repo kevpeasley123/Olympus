@@ -605,3 +605,19 @@
 .pantheon-resident { --text-xs: 12px; --label: #a4b3c8; --muted: #a4b3c8; }
 .library-row .pantheon-entry-row-top strong { white-space: normal; overflow-wrap: anywhere; }
 .library-detail .library-reading { max-width: 80ch; }
+
+/* Import from X */
+.x-import-link>div{display:flex;gap:8px}
+.x-import-link>div .form-input{flex:1;min-width:0}
+.x-import-preview{display:grid;gap:10px;margin-top:14px;padding-top:14px;border-top:1px solid #9db7c526}
+.x-import-preview h3{margin:0;font:600 16px/1.35 var(--font-sans);color:#f1ede4}
+.x-import-byline{margin:0;font-size:12px;color:#d7b77f}.x-import-byline span{color:#9fb1c0}
+.x-import-evaluation{display:grid;gap:7px;padding:11px 12px;border:1px solid #9db7c533;border-radius:7px;background:#0a1620b8}
+.x-import-evaluation p{margin:0;font-size:13px;line-height:1.5;color:#dfe7ec}
+.x-import-evaluation small{font-size:11px;color:#9fb1c0}
+.x-import-kind{justify-self:start;padding:3px 9px;border:1px solid #d9a94e80;border-radius:999px;font:500 10px/1.2 var(--font-mono);letter-spacing:.08em;text-transform:uppercase;color:#f0c66f}
+.x-import-evaluation ul{display:flex;flex-wrap:wrap;gap:6px;margin:0;padding:0;list-style:none}
+.x-import-evaluation li{padding:2px 8px;border-radius:4px;background:#ffffff0d;font-size:11px;color:#c3d0da}
+.x-import-unclassified{margin:0;font-size:12px;color:#e0a08c}
+.x-import-body summary{cursor:pointer;font-size:12px;color:#c9b38a}
+.x-import-body pre{max-height:260px;overflow:auto;margin:8px 0 0;padding:10px;border-radius:6px;background:#07111a;font:12px/1.5 var(--font-mono);color:#c3d0da;white-space:pre-wrap}
