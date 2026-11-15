@@ -22,7 +22,7 @@ observation time; historical data remains explicitly stale. The expanded view na
 
 Unknown allowances render neutral dashes without empty progress tracks or numeric accessibility values. Disconnected, unsupported, loading and failed states are distinct. Failed checks may retain a supplied last-known snapshot, explicitly labelled stale. Readings older than five minutes are marked stale. Source, scope, observation time and any supplied YTD values live in the expanded view. Refresh reads supported sources explicitly; no trends, plan names, unlimited allowances or service quotas are invented.
 
-Production starts with unknown values. Since 0.65.0 the desktop app reads on open and every ten minutes, and Refresh reads at once; no reader starts a model turn. Test harnesses read only on Refresh; populated test harnesses use only synthetic data. Existing Voice usage remains a separate current-app-run ledger.
+Production starts with unknown values. Since 0.65.0 the desktop app reads on open and every ten minutes (Claude's local file every minute, without a spinner), and Refresh reads at once. Since 0.66.0 tiles carry no status line unless a check failed, and a reading's bar keeps a visible sliver even at 0%; no reader starts a model turn. Test harnesses read only on Refresh; populated test harnesses use only synthetic data. Existing Voice usage remains a separate current-app-run ledger.
 
 The native HTML dialog traps keyboard focus, closes with Escape or Close and restores focus to Expand. Its content scrolls on short/narrow windows. The design uses static CSS/SVG with reduced-motion protection. Browser verification does not establish native WebView2 behavior.
 

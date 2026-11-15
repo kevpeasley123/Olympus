@@ -36,7 +36,10 @@ fn normalize(provider: &str, value: &Value) -> Result<Value, String> {
     } else {
         let buckets: Vec<(&str, &Value)> =
             if let Some(map) = value["rateLimitsByLimitId"].as_object() {
-                map.iter().take(16).map(|(k, v)| (k.as_str(), v)).collect()
+                // The account's own "codex" limit first: the dock shows the first window.
+                let mut all: Vec<(&str, &Value)> = map.iter().take(16).map(|(k, v)| (k.as_str(), v)).collect();
+                all.sort_by_key(|(k, _)| *k != "codex");
+                all
             } else {
                 vec![("Codex", &value["rateLimits"])]
             };
