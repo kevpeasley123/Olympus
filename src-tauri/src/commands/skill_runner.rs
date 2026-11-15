@@ -542,8 +542,26 @@ pub fn judge(schema: &Value, accept: fn(&Value, &BTreeSet<String>) -> Result<(),
         // The shared checker reports one opaque code; say where the answer departs, where Kevin will read it.
         return Err(format!("The answer did not match the skill's format: {}.", mismatch(&answer, schema, "answer").unwrap_or_else(|| "a field was missing or not allowed".into())));
     }
+    // A run that looked at nothing has nothing to repair from: it fails as it is.
+    if answer.get("brief").is_some() && !called.is_empty() {
+        drop_uncalled(&mut answer, called);
+    }
     accept(&answer, called)?;
     Ok(answer)
+}
+
+/// In a brief, a citation to a tool the run never called is removed rather
+/// than failing the brief: the model sometimes names the search it meant
+/// instead of the read it made. An item left with no source is dropped, since
+/// nothing backs it. Answers and verdicts stay strict.
+pub fn drop_uncalled(answer: &mut Value, called: &BTreeSet<String>) {
+    let Some(items) = answer.get_mut("items").and_then(Value::as_array_mut) else { return };
+    items.retain_mut(|item| {
+        let Some(sources) = item.get_mut("sources").and_then(Value::as_array_mut) else { return true };
+        let had = !sources.is_empty();
+        sources.retain(|source| source["tool"].as_str().is_none_or(|tool| called.contains(tool)));
+        !(had && sources.is_empty())
+    });
 }
 
 /// Applies the schema and the skill's test, and settles the run row either way.
@@ -849,8 +867,20 @@ fn run_direct(app: &AppHandle, run_id: &str, skill: &'static Skill, request: Opt
         }
         prompt = format!("{}\n\n{prompt}", context.join("\n\n"));
     }
-    let turn = run_on_claude(app, run_id, profile_of(skill)?, skill.instructions, prompt, skill.tools, skill.max_turns, skill.limit)?;
-    let mut answer = judge(&(skill.output_schema)(), skill.accept, &turn.text, &turn.called)?;
+    let profile = profile_of(skill)?;
+    let mut turn = run_on_claude(app, run_id, profile, skill.instructions, prompt.clone(), skill.tools, skill.max_turns, skill.limit)?;
+    let mut answer = match judge(&(skill.output_schema)(), skill.accept, &turn.text, &turn.called) {
+        Ok(answer) => answer,
+        // The brief is the one answer Kevin waits for each day: a rejected one is written again once,
+        // told exactly why, and the second verdict stands.
+        Err(reason) if skill.id == "opening-brief" => {
+            agent_events::record(app, run_id, CLAUDE, profile.id, vec![note("message", format!("Retry: the brief was rejected ({}); writing it again once", reason.trim_end_matches('.')))]);
+            let again = format!("{prompt}\n\nYour previous brief was rejected by Olympus's checks: {reason} Write it again, fixing exactly that.");
+            turn = run_on_claude(app, run_id, profile, skill.instructions, again, skill.tools, skill.max_turns, skill.limit)?;
+            judge(&(skill.output_schema)(), skill.accept, &turn.text, &turn.called)?
+        }
+        Err(reason) => return Err(reason),
+    };
     mark_sources(&mut answer, &turn.seen);
     if skill.id == "opening-brief" {
         use chrono::Timelike;
@@ -1177,7 +1207,6 @@ mod tests {
     fn an_answer_that_fails_the_skills_test_is_rejected_not_stored() {
         let connection = db();
         let cases: Vec<(Result<Turn, String>, &str)> = vec![
-            (turn(good(), &["search_mail"]), "never called"),
             (turn(good(), &[]), "used no tools"),
             (turn(json!({"brief": "  ", "coverage": "x", "items": []}), &[]), "no text"),
             (turn(json!({"brief": "word ".repeat(200), "coverage": "x", "items": []}), &[]), "spoken limit"),
@@ -1320,6 +1349,20 @@ mod tests {
         assert!(judge(&answer_schema(), accept_synthesis, &answer.to_string(), &called(&["search_vault"])).unwrap_err().contains("no run behind it"));
         let settled = settle(&connection, "p", Ok((json!({"answer": "a", "handoffs": []}), Turn { text: String::new(), model: "m".into(), called: called(&[]), tool_calls: 7, seen: BTreeSet::new() }))).unwrap();
         assert_eq!((settled.status.as_str(), settled.tool_calls), ("completed", 7));
+    }
+
+    #[test]
+    fn citations_to_tools_never_called_are_removed_not_fatal() {
+        let called: BTreeSet<String> = ["read_mail_thread".to_string(), "recent_activity".to_string()].into();
+        let mut brief = json!({"brief": "b", "coverage": "c", "items": [
+            {"headline": "kept", "sources": [{"tool": "search_mail", "reference": "q"}, {"tool": "read_mail_thread", "reference": "t1"}]},
+            {"headline": "dropped", "sources": [{"tool": "search_mail", "reference": "q"}]},
+            {"headline": "never sourced", "sources": []}]});
+        drop_uncalled(&mut brief, &called);
+        let headlines: Vec<&str> = brief["items"].as_array().unwrap().iter().map(|i| i["headline"].as_str().unwrap()).collect();
+        assert_eq!(headlines, vec!["kept", "never sourced"]);
+        assert_eq!(brief["items"][0]["sources"].as_array().unwrap().len(), 1);
+        assert!(accept_brief(&brief, &called).is_ok());
     }
 
     #[test]

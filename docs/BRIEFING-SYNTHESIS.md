@@ -201,3 +201,13 @@ reject benign credential warnings, including negations, and rejects the whole
 mixed brief; it is not general prompt-injection detection or semantic proof.
 An investigative failure retains the dated previous brief and reports the failure;
 it does not publish a replacement operational summary.
+
+## Rejected briefs (0.78.0)
+
+A brief item that cites a tool the run never called loses that citation
+instead of failing the brief (Kevin's 2026-11-15 brief failed on a `search_mail`
+citation after a `read_mail_thread` read); an item left with no source is
+dropped. A run that called no tools is not repaired. Any brief Olympus's checks
+still reject is written again once, with the exact reason, and the second
+verdict stands. The retry shows on the timeline and counts on the loop
+scorecard (docs/LOOPS.md). Answers and verdicts keep the strict rule.

@@ -52,9 +52,9 @@ pub const CONTRACTS: &[LoopContract] = &[
         verifier_kind: &["code"],
         actions: "Read-only: recent activity, mail, vault, projects, memory",
         memory: "The previous brief, matters Kevin settled, his recent chat words",
-        cap: "24 turns, no retry",
+        cap: "24 turns; a rejected brief is written again once",
         gate: "None: read-only",
-        gap: "Nothing checks the content against Kevin's stated preferences, and a failed brief is not retried",
+        gap: "Nothing checks the content against Kevin's stated preferences",
     },
     LoopContract {
         id: "single-olympian", name: "One Olympian from chat",
@@ -172,13 +172,14 @@ pub fn scorecard(connection: &Connection, days: i64) -> rusqlite::Result<Vec<Loo
         }
         if retried {
             s.revisions += 1;
-            // Resolved when the last check after the revision refuted nothing.
+            // Ask Olympus: resolved when the last check after the revision refuted nothing.
+            // Any other loop's retry is resolved when the run then completed.
             let last_check: Option<String> = connection.query_row(
                 "SELECT output_json FROM agent_runs WHERE parent_run = ?1 AND skill_id = 'verification-assignment' AND status = 'completed' ORDER BY id DESC LIMIT 1",
                 [&id], |r| r.get(0)).ok().flatten();
             let refuted = last_check.as_deref().and_then(|o| serde_json::from_str::<Value>(o).ok())
                 .is_some_and(|o| o["verdicts"].as_array().is_some_and(|v| v.iter().any(|v| v["verdict"] == "does_not_hold")));
-            if last_check.is_some() && !refuted { s.revisions_resolved += 1; }
+            if (last_check.is_some() && !refuted) || (skill != "work-request" && status == "completed") { s.revisions_resolved += 1; }
         }
     }
 
