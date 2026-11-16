@@ -828,6 +828,27 @@ fn profile_of(skill: &Skill) -> Result<&'static Profile, String> {
 
 /// A skill that is one engine run: the brief, an answer, an assignment.
 /// The last brief Kevin was given, so the next one can say what is new and follow up on what was open.
+/// When Claude's usage limit stopped a run, a plain sentence saying so and,
+/// when the recorded reading knows it, the local time the spent window resets.
+/// Any other failure is left as it was.
+pub fn limit_notice(reason: &str, claude: &Value, now: &chrono::DateTime<chrono::Local>) -> Option<String> {
+    let text = reason.to_lowercase();
+    if !(text.contains("usage limit") || text.contains("limit reached") || text.contains("hit your limit") || text.contains("rate limit")) {
+        return None;
+    }
+    let reset = claude["windows"].as_array().into_iter().flatten()
+        .filter(|w| w["remaining"]["value"].as_f64().is_some_and(|left| left < 1.0))
+        .filter_map(|w| w["resetsAt"].as_str().and_then(|t| chrono::DateTime::parse_from_rfc3339(t).ok()))
+        .map(|t| t.with_timezone(&chrono::Local))
+        .filter(|t| t > now)
+        .min();
+    Some(match reset {
+        Some(at) if at.date_naive() == now.date_naive() => format!("Claude's usage limit is reached until {}, so this has to wait. Try again after that.", at.format("%-I:%M %p")),
+        Some(at) => format!("Claude's usage limit is reached until {}, so this has to wait. Try again after that.", at.format("%A at %-I:%M %p")),
+        None => "Claude's usage limit is reached, so this has to wait until it resets. Olympus does not know the reset time yet.".to_string(),
+    })
+}
+
 /// A failure an outside service caused and a short wait may clear. Mirrors the
 /// Activity Deck's "Outside service" kind; anything Kevin must act on is excluded first.
 pub fn is_transient(reason: &str) -> bool {
@@ -994,12 +1015,11 @@ fn run_direct(app: &AppHandle, run_id: &str, skill: &'static Skill, request: Opt
     };
     let mut answer = match judge(&(skill.output_schema)(), skill.accept, &turn.text, &turn.called) {
         Ok(answer) => answer,
-        // The brief is the one answer Kevin waits for each day: a rejected one is written again once,
-        // told exactly why, and the second verdict stands.
-        // One retry per run in all: a run that already retried an outside failure takes this verdict.
-        Err(reason) if skill.id == "opening-brief" && !agent_events_retry_used(app, run_id) => {
-            agent_events::record(app, run_id, CLAUDE, profile.id, vec![note("message", format!("Retry: the brief was rejected ({}); writing it again once", reason.trim_end_matches('.')))]);
-            let again = format!("{prompt}\n\nYour previous brief was rejected by Olympus's checks: {reason} Write it again, fixing exactly that.");
+        // Every skill checks its own answer before it is returned: a rejected answer is written again
+        // once, told exactly why. One retry per run in all, so a run that already retried takes this verdict.
+        Err(reason) if !agent_events_retry_used(app, run_id) => {
+            agent_events::record(app, run_id, CLAUDE, profile.id, vec![note("message", format!("Retry: the answer was rejected ({}); writing it again once", reason.trim_end_matches('.')))]);
+            let again = format!("{prompt}\n\nYour previous answer was rejected by Olympus's checks: {reason} Write it again, fixing exactly that. Use only the tools you were offered, and answer with one JSON object matching the schema.");
             turn = run_on_claude(app, run_id, profile, skill.instructions, again, skill.tools, skill.max_turns, skill.limit)?;
             judge(&(skill.output_schema)(), skill.accept, &turn.text, &turn.called)?
         }
@@ -1341,6 +1361,8 @@ fn start(app: &AppHandle, skill_id: &str, engine: &str, request: Option<String>)
             (true, Some(request)) => run_orchestrated(&worker, &run_id, skill, request),
             _ => run_direct(&worker, &run_id, skill, request.as_deref()),
         };
+        // A run stopped by Claude's usage limit says, in words Kevin can hear, when it can try again.
+        let outcome = outcome.map_err(|error| limit_notice(&error, &super::claude_quota::read().unwrap_or(Value::Null), &chrono::Local::now()).unwrap_or(error));
         // The stream reports a normal end itself; a refusal by Olympus's own checks or a rejected answer is only known here.
         if let Err(error) = &outcome {
             agent_events::record(&worker, &run_id, CLAUDE, skill.agent, vec![note("error", format!("Stopped: {}", error.chars().take(140).collect::<String>()))]);
@@ -1549,6 +1571,17 @@ mod tests {
         assert!(judge(&answer_schema(), accept_synthesis, &answer.to_string(), &called(&["search_vault"])).unwrap_err().contains("no run behind it"));
         let settled = settle(&connection, "p", Ok((json!({"answer": "a", "handoffs": []}), Turn { text: String::new(), model: "m".into(), called: called(&[]), tool_calls: 7, seen: BTreeSet::new() }))).unwrap();
         assert_eq!((settled.status.as_str(), settled.tool_calls), ("completed", 7));
+    }
+
+    #[test]
+    fn a_limit_stop_says_when_it_can_try_again() {
+        use chrono::TimeZone;
+        let now = chrono::Local.with_ymd_and_hms(2026, 11, 15, 17, 0, 0).unwrap();
+        let later = now + chrono::Duration::minutes(90);
+        let windows = json!({"windows": [{"remaining": {"value": 0.0}, "resetsAt": later.to_rfc3339()}, {"remaining": {"value": 40.0}, "resetsAt": (now + chrono::Duration::days(3)).to_rfc3339()}]});
+        assert_eq!(limit_notice("Claude Code stopped the run: Claude usage limit reached", &windows, &now).unwrap(), "Claude's usage limit is reached until 6:30 PM, so this has to wait. Try again after that.");
+        assert!(limit_notice("You've hit your limit", &Value::Null, &now).unwrap().contains("does not know the reset time"));
+        assert_eq!(limit_notice("Claude response timed out.", &windows, &now), None);
     }
 
     #[test]

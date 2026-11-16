@@ -101,5 +101,11 @@ Each review's proposals are stored in `vision_proposals` (migration 12), with a
 
 A run retries once at most, whatever the cause: an outside-service failure
 (timeout, unreachable, overloaded; never a limit or sign-in) after a 20-second
-pause (`is_transient`), or for the brief a rejected answer or a broken
+pause (`is_transient`), a rejected answer (any skill, since 0.83.0: told the
+exact reason, the offered tools and the schema), or for the brief a broken
 expectation. `loops.capped` checks the cap held.
+
+The first review (November 15) proposed two build tasks Kevin accepted; both
+shipped in 0.83.0: a run stopped by Claude's usage limit now says when the
+window resets (`limit_notice`), and the brief speaks that notice instead of
+failing silently; every skill checks its answer and rewrites it once.

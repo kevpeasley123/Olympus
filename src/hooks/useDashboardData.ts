@@ -332,8 +332,10 @@ export function useDashboardData() {
         }
         const run = await runOperation(null, "claude-code", "opening-brief");
         if (!active()) return true;
-        if (run.status !== "completed" || !run.output || !isBrief(run.output)) { setChatError(`The brief could not finish. ${run.error ?? "No reason was recorded."}`); return true; }
-        const brief = createAssistantMessage(run.output.brief);
+        // A brief stopped by Claude's usage limit is still spoken to: the notice says when it can try again.
+        const limited = run.status === "failed" && run.error?.startsWith("Claude's usage limit") ? run.error : null;
+        if (!limited && (run.status !== "completed" || !run.output || !isBrief(run.output))) { setChatError(`The brief could not finish. ${run.error ?? "No reason was recorded."}`); return true; }
+        const brief = createAssistantMessage(limited ?? (run.output && isBrief(run.output) ? run.output.brief : ""));
         brief.id = `${BRIEFING_ID_PREFIX}${crypto.randomUUID()}`;
         brief.kind = "briefing";
         brief.voice = { kind: "output", spokenResponse: brief.content, ...(dashboardRef.current.settings.autoSpeak ? {} : { playback: "skipped" as const }) };
