@@ -211,3 +211,9 @@ dropped. A run that called no tools is not repaired. Any brief Olympus's checks
 still reject is written again once, with the exact reason, and the second
 verdict stands. The retry shows on the timeline and counts on the loop
 scorecard (docs/LOOPS.md). Answers and verdicts keep the strict rule.
+
+Since 0.83.0 a brief stopped by Claude's usage limit is replaced in the chat by
+a spoken notice from the run itself: "Claude's usage limit is reached until
+6:30 PM, so this has to wait. Try again after that." The reset time comes from
+the recorded Claude reading; without one the notice says it is unknown. It is
+not a brief and the run stays failed.
