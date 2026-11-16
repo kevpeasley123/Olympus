@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { gmailRemoveCache, gmailAction, gmailCacheCounts, gmailError, gmailHorizon, gmailNative, gmailSearch, gmailHealth, gmailStateLabel, gmailStatus, gmailThread, gmailSettingsRequestPending, clearGmailSettingsRequest, countOf, type GmailCacheCounts, type GmailStatus, type MailExcerpt, type MailMessage } from "../../services/gmail";
 import { formatWhen } from "../../services/time";
 import { useAcceptanceProfile } from "../../services/acceptanceProfile";
+import { EmailAnalysisRoute } from "./EmailAnalysisRoute";
 import { forgetCommsAccount } from "../../state/viewState";
 import "./communications.css";
 import "./GmailSettings.css";
@@ -53,6 +54,7 @@ export function GmailSettings({api=client,pluginRow=false}:{api?:GmailClient;plu
  <p className="gmail-access">Read-only access. Olympus cannot send or change email.</p>
  <p className="section-copy">Synchronization and email understanding have separate status.</p>
  <p role="status" aria-label="Email analysis status">{state?.analysis ? `Analysis ${state.analysis.state}: ${state.analysis.reason}` : "Analysis availability has not been checked by this build."}</p>
+ <EmailAnalysisRoute onChange={()=>void api.status().then(setState).catch(()=>{})} />
  <details className="gmail-secondary"><summary>How your email is used</summary><p>Connecting opens Google’s consent screen in your browser to request read-only access to message bodies. Cached excerpts are sent to your reasoning provider when answering communication questions. Background analysis requires an available, permitted subscription route or a separately configured local model. A connected Gmail account does not establish that analysis is working. There is no automatic paid fallback. It reviews changed correspondence, situation updates and matching Research context. Local analysis does not change the provider used for chat answers. You can pause background analysis in Communications.</p></details>
  {state&&!state.configured&&<p>Save a Google <strong>Desktop app</strong> OAuth client JSON as <code className="gmail-config-path">{state.configPath}</code>. Setup: <code>docs/GMAIL.md</code>. Do not paste credentials into chat.</p>}
  <div className="gmail-controls">

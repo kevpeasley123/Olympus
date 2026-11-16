@@ -25,23 +25,17 @@ export function EngineSettings({autoInspect=true,inspection}:{autoInspect?:boole
   const [briefRoute,setBriefRoute] = useState("ollama");
   const [briefWorkflow,setBriefWorkflow] = useState("legacy");
   const [memoryRoute,setMemoryRoute] = useState("claude-code");
-  const [emailRoute,setEmailRoute] = useState("");
   const [routesLoaded,setRoutesLoaded] = useState(false);
   useEffect(()=>{if(desktop&&!inspection){
     void loadCodexAuthorization().then(setCodex,()=>setCodex(null));
     void invoke<{settings:Record<string,string>}>("load_persisted_state").then(({settings})=>{
       setBriefRoute(settings["briefing.provider.v1"]??"ollama");setBriefWorkflow(settings["briefing.workflow.v1"]??"legacy");setRoutesLoaded(true);
       setMemoryRoute(settings["chatMemory.provider.v1"]??"claude-code");
-      setEmailRoute(settings["email.analysis.provider.v1"]??"");
     },()=>setRoutesLoaded(false));
   }},[desktop,inspection]);
   async function changeCodex(action:()=>Promise<CodexSubscriptionAuthorization>){setCodexBusy(true);try{setCodex(await action());setError(null)}catch(e){setError(String(e))}finally{setCodexBusy(false)}}
   async function saveBriefRoute(provider:string,workflow:string){
     try{await invoke("save_settings",{settings:{"briefing.provider.v1":provider,"briefing.workflow.v1":workflow}});setBriefRoute(provider);setBriefWorkflow(workflow);setError(null)}catch(e){setError(String(e))}
-  }
-  // Email analysis read its route only from .env; this choice wins over it once made.
-  async function saveEmailRoute(provider:string){
-    try{await invoke("save_settings",{settings:{"email.analysis.provider.v1":provider}});setEmailRoute(provider);setError(null)}catch(e){setError(String(e))}
   }
   async function saveMemoryRoute(provider:string){
     try{await invoke("save_settings",{settings:{"chatMemory.provider.v1":provider}});setMemoryRoute(provider);setError(null)}catch(e){setError(String(e))}
@@ -91,7 +85,6 @@ export function EngineSettings({autoInspect=true,inspection}:{autoInspect?:boole
         <label>Briefing workflow <select aria-label="Briefing workflow" value={briefWorkflow} onChange={e=>void saveBriefRoute(briefRoute,e.target.value)}><option value="harness">Olympians: Zeus with Olympus tools (Claude subscription)</option><option value="investigative">Investigate changes and context</option><option value="legacy">Previous briefing workflow</option><option value="shadow">Compare without publishing; keep previous brief</option></select></label>
         <p>Applies to the next brief. An unavailable engine reports the problem without switching providers.</p>
         <label>Memory updates <select aria-label="Memory updates" value={memoryRoute} onChange={e=>void saveMemoryRoute(e.target.value)}><option value="codex">Codex subscription</option><option value="claude-code">Claude subscription</option><option value="ollama">Local model</option></select></label>
-        <label>Email analysis <select aria-label="Email analysis" value={emailRoute} onChange={e=>void saveEmailRoute(e.target.value)}><option value="" disabled>From .env (not chosen here)</option><option value="claude-code">Claude subscription</option><option value="codex">Codex subscription</option><option value="ollama">Local model</option></select></label>
         <p>When conversation memory is enabled, this engine prepares durable notes from eligible conversations.</p>
       </fieldset>:null}
       {desktop && claude ? (
