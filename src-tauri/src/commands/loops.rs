@@ -72,13 +72,13 @@ pub const CONTRACTS: &[LoopContract] = &[
         id: "coding-delegation", name: "Coding delegation (Hephaestus)",
         trigger: "Kevin approves a scoped task",
         goal: "A change in an isolated worktree that passes the recorded checks",
-        verifier: "Real checks (tests, build) run on request",
+        verifier: "Real checks (tests, build), run by Olympus as soon as the work stops when it was started from chat",
         verifier_kind: &["tests"],
         actions: "Edits inside the approved worktree only",
-        memory: "None across attempts",
-        cap: "One attempt, then review",
-        gate: "Approval before, review after",
-        gap: "A failed check is reported, never retried; no memory of attempts",
+        memory: "The failed check's output goes back into the same agent session",
+        cap: "One attempt, then at most one revision when a recorded check fails",
+        gate: "Approval for the plan, for the build and for the revision; review after",
+        gap: "Never run against a real project; a second failure is reported, not retried",
     },
     LoopContract {
         id: "vision-review", name: "Vision review",
@@ -217,7 +217,7 @@ pub fn scorecard(connection: &Connection, days: i64) -> rusqlite::Result<Vec<Loo
     // Coding delegation: its own table, by where each run ended up.
     let has_delegation: bool = connection.query_row("SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'delegation_runs')", [], |r| r.get(0))?;
     if has_delegation {
-        let mut delegations = connection.prepare("SELECT phase, COALESCE(outcome, '') FROM delegation_runs WHERE started_at >= strftime('%Y-%m-%dT%H:%M:%fZ', 'now', ?1)")?;
+        let mut delegations = connection.prepare("SELECT phase, CASE WHEN EXISTS (SELECT 1 FROM delegation_events e WHERE e.run_id = delegation_runs.id AND e.phase = 'revision_requested') THEN 'retried' ELSE '' END FROM delegation_runs WHERE started_at >= strftime('%Y-%m-%dT%H:%M:%fZ', 'now', ?1)")?;
         let phases: Vec<(String, String)> = delegations.query_map([&since], |r| Ok((r.get(0)?, r.get(1)?)))?.collect::<Result<_, _>>()?;
         let i = score(&mut scores, "coding-delegation");
         for (phase, outcome) in phases {

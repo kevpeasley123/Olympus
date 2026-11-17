@@ -17,7 +17,7 @@ test fails if any part is blank. Loops today:
 | Ask Olympus (`work-request`) | Code (schema, citations) and Themis | The content check is a model, not a rule |
 | Opening brief | Code (schema, length, citations); one rewrite when rejected | No check against Kevin's stated preferences |
 | One Olympian from chat | Code | No independent check |
-| Coding delegation | Real checks on request | A failed check is never retried; no memory of attempts |
+| Coding delegation | Real checks, run by Olympus when a chat-started run stops | One approved revision on a failed check (0.86.0); never run against a real project |
 | Background jobs | Code (schema, provenance) | Outside-service failures are not retried |
 
 A chat turn is not a loop and is not scored. The Activity Deck's operation card

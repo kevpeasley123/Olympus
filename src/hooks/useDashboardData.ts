@@ -1,10 +1,11 @@
 import { gmailStatus } from "../services/gmail";
-import { isBrief, matchChatHandoff, operationReply, runOperation } from "../services/skillRuns";
+import { isBrief, matchChatHandoff, operationReply, reusableBrief, runOperation, type SkillRun } from "../services/skillRuns";
 import { invoke } from "@tauri-apps/api/core";
 import {nativeBriefingScopeBarrier} from "../services/briefingScope";
 import {feedbackForBrief,resolveConversationTurn} from "../services/conversationFeedback";
 import { briefSaved } from "../services/displayedBrief";
 import { applyChatDecision, matchChatDecision } from "../services/chatDecisions";
+import { answerCoding, codingPending, matchCodingAnswer, matchCodingRequest, proposeCoding } from "../services/chatCoding";
 import { matchSkillRequest } from "../services/executableSkills";
 import { recordSourceAccess } from "../services/sourceActivity";
 import { prepareSituationBriefing } from "../services/situationBriefing";
@@ -308,7 +309,7 @@ export function useDashboardData() {
   useEffect(() => { briefingMounted.current = true; return () => { briefingMounted.current = false; }; }, []);
   // Native synthesis saves the exact source-bound text before returning it.
   // Display it unchanged; acknowledgement happens only through the visible brief.
-  const showLocalBrief = useCallback(async (session: ChatSession, active: () => boolean): Promise<boolean> => {
+  const showLocalBrief = useCallback(async (session: ChatSession, active: () => boolean, fresh = false): Promise<boolean> => {
     setBriefingNoUpdate(false);
     setBriefingCompared(false);
     if (session.temporary || !isTauriRuntime()) return false;
@@ -331,7 +332,9 @@ export function useDashboardData() {
           setBriefingPending(true);
           await new Promise(resolve => window.setTimeout(resolve, 5_000));
         }
-        const run = await runOperation(null, "claude-code", "opening-brief");
+        // Reopening within minutes shows the brief already prepared; "New briefing" always prepares one.
+        const reused = fresh ? null : reusableBrief(await invoke<SkillRun[]>("list_skill_runs", { limit: 20 }).catch(() => []), Date.now());
+        const run = reused ?? await runOperation(null, "claude-code", "opening-brief");
         if (!active()) return true;
         // A brief stopped by Claude's usage limit is still spoken to: the notice says when it can try again.
         const limited = run.status === "failed" && run.error?.startsWith("Claude's usage limit") ? run.error : null;
@@ -339,7 +342,7 @@ export function useDashboardData() {
         const brief = createAssistantMessage(limited ?? (run.output && isBrief(run.output) ? run.output.brief : ""));
         brief.id = `${BRIEFING_ID_PREFIX}${crypto.randomUUID()}`;
         brief.kind = "briefing";
-        brief.voice = { kind: "output", spokenResponse: brief.content, ...(dashboardRef.current.settings.autoSpeak ? {} : { playback: "skipped" as const }) };
+        brief.voice = { kind: "output", spokenResponse: brief.content, ...(dashboardRef.current.settings.autoSpeak && !reused ? {} : { playback: "skipped" as const }) };
         dashboardRef.current = { ...dashboardRef.current, conversation: [...dashboardRef.current.conversation, brief] };
         setDashboardState(dashboardRef.current);
         setOpeningBriefing({ id: brief.id, text: brief.content });
@@ -439,7 +442,7 @@ export function useDashboardData() {
       const scopeCurrent = briefingScope.current.capture();
       const active = () => scopeCurrent() && briefingMounted.current && sessionRef.current.id === session.id && dashboardRef.current.settings.projectsRootPath === root;
       if(!await briefingScope.current.settled() || !active()) throw Error("Briefing scope revocation was not acknowledged.");
-      if (await showLocalBrief(session, active)) return;
+      if (await showLocalBrief(session, active, true)) return;
       const prepared = await prepareStableBrief(() => prepareSituationBriefing(root, sessionBoundary, {temporary:session.temporary,conversationId:session.id}), active);
       if (!active()) return;
       const text = prepared.text;
@@ -515,6 +518,32 @@ export function useDashboardData() {
             setDashboardState(dashboardRef.current); await remember([message],session);
             if(voiceDepth)return {messageId:message.id,spokenResponse:message.content,visualResponse:message.content,proposedActions:[],requiresConfirmation:false,conversationState:"answered"};
           }
+        } catch(error){setChatError(errorMessage(error));}
+        finally{requestInFlight.current=false;setChatPending(false);}
+        return;
+      }
+      // Coding work for Hephaestus, asked for and approved in Kevin's own words. Each stage is
+      // still a prepared proposal he approves; the run's result arrives later as its own message.
+      const codingAnswer = codingPending() ? matchCodingAnswer(trimmed) : null;
+      const codingRequest = codingAnswer ? null : matchCodingRequest(trimmed, dashboardRef.current.projects.map(project => ({ id: project.id, name: project.name })));
+      if (codingAnswer || codingRequest) {
+        requestInFlight.current=true; setChatPending(true); setChatError(null);
+        const say = async (text: string) => {
+          const message=createAssistantMessage(text);
+          if(sessionRef.current.id===session.id){
+            dashboardRef.current={...dashboardRef.current,conversation:[...dashboardRef.current.conversation,message]};
+            setDashboardState(dashboardRef.current);
+          }
+          await remember([message],session);
+          return message;
+        };
+        try {
+          if(!await userSaved && !session.temporary)throw Error("Your request could not be saved.");
+          const text = session.temporary ? "Coding work keeps a record of its request and approvals, so it cannot start from a Temporary chat. Use a saved chat."
+            : codingAnswer ? await answerCoding(codingAnswer, later => void say(later))
+            : "ask" in codingRequest! ? codingRequest.ask : await proposeCoding(codingRequest!);
+          const message = await say(text);
+          if(voiceDepth)return {messageId:message.id,spokenResponse:message.content,visualResponse:message.content,proposedActions:[],requiresConfirmation:false,conversationState:"answered"};
         } catch(error){setChatError(errorMessage(error));}
         finally{requestInFlight.current=false;setChatPending(false);}
         return;
