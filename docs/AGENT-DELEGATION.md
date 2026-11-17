@@ -314,3 +314,34 @@ Verification: Rust tests for `permitted` and the read-only plan read; build;
 invalidation, completion checklist); mock checks. Not verified: `permitted` and
 `baseBranch` text against real runs, and approve and stop against the real backend
 in the desktop app.
+
+## From chat or voice, with the checks run for him (0.86.0)
+
+Kevin talks to Olympus only through the chat window and the microphone, and no
+delegated run had ever been started from the Project tab. A run can now be
+asked for and approved in his own words (`src/services/chatCoding.ts`):
+
+1. "Have Hephaestus <task> in <project>" prepares the planning proposal and
+   says what approving it starts. Acceptance criteria default to the task
+   itself and "the project still builds and its existing tests pass".
+2. "Approve" starts planning. When the plan is ready Olympus posts it and
+   prepares the implementation proposal; "approve" again lets him build.
+3. When the work stops, Olympus runs every check the project supports without
+   being asked and says what passed and failed.
+4. If a recorded check failed, Olympus offers one revision. "Approve" sends the
+   end of that check's output back into the same agent session with an
+   instruction to fix that failure and nothing wider.
+
+Nothing about the boundary moved. Each stage is a prepared proposal consumed by
+one approval; the worktree is isolated; nothing is committed, pushed or merged;
+review and merge stay in the Project tab. "Approve" and "cancel" are matched
+only as a whole short message while a proposal is waiting, and only Kevin's own
+text reaches the matcher. A lapsed proposal is prepared again and asked again.
+
+The revision is the loop's one retry (`revision_due` in `delegation.rs`): it
+exists only for a run in `awaiting_review` whose newest result for some check
+is a failure, and only until a `revision_requested` event is recorded, which
+happens before the pass launches. The approval subject's scope names the check
+and the cap. A second failure is reported, never retried.
+
+Unproven: all of it against a real project. The first real run is the test.

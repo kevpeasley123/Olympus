@@ -1,4 +1,4 @@
-import { describeHandoff, describeRun, describeSource, matchChatHandoff, matchOperationRequest, operationReply, requestHeadline, describeUsage, isBrief, latestRun, mergeSkillRuns, type SkillRun } from "./skillRuns";
+import { reusableBrief, staleBrief, describeHandoff, describeRun, describeSource, matchChatHandoff, matchOperationRequest, operationReply, requestHeadline, describeUsage, isBrief, latestRun, mergeSkillRuns, type SkillRun } from "./skillRuns";
 
 export function runSkillRunsHarness() {
   let passed = 0;
@@ -7,6 +7,14 @@ export function runSkillRunsHarness() {
     ({ id, skillId: "opening-brief", skillVersion: 1, engine: "claude-code", agent: "olympus", status: "running", parentRun: null, request: null, model: null, output: null, error: null, toolCalls: 0, startedAt, finishedAt: null, ...extra });
   const first = run("a", "2026-11-11T08:00:00Z"), second = run("b", "2026-11-11T09:00:00Z");
   const merged = mergeSkillRuns([first], [second]);
+  // A reopen within twenty minutes shows the same brief; an older, failed or running one does not count.
+  const spoken = { brief: "Quiet one.", items: [], coverage: "c", settled: [] } as unknown as SkillRun["output"];
+  const done = run("d", "2026-11-11T10:00:00Z", { status: "completed", finishedAt: "2026-11-11T10:01:00Z", output: spoken });
+  const at = (clock: string) => Date.parse(`2026-11-11T${clock}Z`);
+  check(reusableBrief([first, done], at("10:15:00"))?.id === "d", "A brief finished minutes ago is shown again");
+  check(!staleBrief([done], at("17:59:00")) && staleBrief([done], at("18:01:00")) && !staleBrief([], at("18:01:00")), "Eight hours without a brief earns one on return; a failed attempt counts as an attempt");
+  check(reusableBrief([first, done], at("10:25:00")) === null, "A brief older than twenty minutes is prepared again");
+  check(reusableBrief([done, run("e", "2026-11-11T10:05:00Z", { status: "failed", finishedAt: "2026-11-11T10:06:00Z" })], at("10:10:00")) === null, "A failed brief after it means try again");
   check(merged.map(r => r.id).join() === "b,a", "Runs are listed newest first");
   const updated = mergeSkillRuns(merged, [run("b", "2026-11-11T09:00:00Z", { status: "completed", toolCalls: 3, model: "claude-test" })]);
   check(updated.length === 2 && updated[0].status === "completed", "An update replaces its own row");

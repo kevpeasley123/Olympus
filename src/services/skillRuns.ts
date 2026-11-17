@@ -51,6 +51,28 @@ export interface SkillRun {
   startedAt: string; finishedAt: string | null;
 }
 
+/** How long a finished brief still counts as the brief for a reopen. */
+export const BRIEF_REUSE_MS = 20 * 60_000;
+/**
+ * The brief to show again instead of preparing a new one. On 2026-11-15 Olympus
+ * was reopened seventeen times and prepared seventeen briefs, each a full engine
+ * run, most of them minutes apart with nothing new to say.
+ */
+export function reusableBrief(runs: readonly SkillRun[], now: number): SkillRun | null {
+  const latest = runs.filter(run => run.skillId === "opening-brief" && run.status !== "running").sort((a, b) => b.startedAt.localeCompare(a.startedAt))[0];
+  if (!latest || latest.status !== "completed" || !latest.finishedAt || !latest.output || !isBrief(latest.output)) return null;
+  const age = now - Date.parse(latest.finishedAt);
+  return age >= 0 && age < BRIEF_REUSE_MS ? latest : null;
+}
+
+/** How long after the last brief a return to the window earns a new one. */
+export const BRIEF_STALE_MS = 8 * 60 * 60_000;
+/** True when briefs have run before and the newest attempt, whatever came of it, started more than eight hours ago. */
+export function staleBrief(runs: readonly SkillRun[], now: number): boolean {
+  const latest = runs.filter(run => run.skillId === "opening-brief").sort((a, b) => b.startedAt.localeCompare(a.startedAt))[0];
+  return !!latest && latest.status !== "running" && now - Date.parse(latest.startedAt) > BRIEF_STALE_MS;
+}
+
 export interface SkillRunState { skills: SkillEntry[]; runs: SkillRun[]; usage: EngineUsage[]; error: string | null }
 
 /** Newest first, one row per run id; an update replaces the row it describes. */
