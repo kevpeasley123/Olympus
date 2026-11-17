@@ -1,12 +1,15 @@
 # Next session
 
-## Olympus 0.84.0 - merged November 15, 2026
+## Olympus 0.85.0 - merged November 16, 2026
 
 Kevin installed 0.82.0 on November 15: the brief passed all eight checks and
 the first weekly review ran, proposing three brief instructions and two build
 tasks, built in 0.83.0. Kevin set Email analysis on November 15 after
 finding it under Subscription engines. Unconfirmed against real data:
-- 0.84.0: the Email analysis choice moved into the Gmail connection panel.
+- 0.85.0: "accept the proposals" / "approve the expectations" by chat or
+  voice; brief sees the email analysis route and says each thing once.
+- 0.84.0: Email analysis choice in the Gmail panel (installed; analysis ran
+  November 16, 20 situations).
 - 0.83.0: usage-limit notice; every skill rewrites a rejected answer once.
 - 0.82.0: email analysis route in Preferences. Email analysis has waited for
   a local model since November 10; Kevin picks a route to restart it.
@@ -23,12 +26,10 @@ finding it under Subscription engines. Unconfirmed against real data:
   `working_checkpoint_requires_operator_evidence` (CONVERSATIONS-AND-MEMORY.md).
 - 0.74.0: operation timeline, hand-offs, next step and failure kinds in the
   Activity Deck (AGENT-EVENTS.md). Verify with one real /ask that hands off.
-- 0.66.0 to 0.73.0: usage tiles, spoken brief, greeting, settled matters,
-  voice lead-in, two visual passes, Import from X (proven: an article came in
-  classified with 8 images) and the Armory tab. See RELEASES.md.
-- 0.65.0: console cleanup and a self-reading Usage dock (ENGINE-STATUS-USAGE.md).
+- 0.65.0 to 0.73.0: usage, spoken brief, greeting, settled matters, voice
+  lead-in, visual passes, Import from X, Armory tab. See RELEASES.md.
 
-0.54.0 to 0.84.0 (pull requests 38 to 72) are merged. Kevin installed 0.58.0 on
+0.54.0 to 0.85.0 (pull requests 38 to 73) are merged. Kevin installed 0.58.0 on
 November 13 and it opened almost unstyled: a brace lost from `activityDeck.css`
 in 0.57.0 broke the joined production stylesheet. 0.59.0 fixes it and must be
 installed with `npm run update` from `Desktop/Projects/Olympus`. The installed
@@ -145,5 +146,3 @@ He selects the engine himself; automatic, cost-aware routing comes later.
 grant authority. Olympus must be open and the PC awake for background work. Local
 qwen3 extraction and investigation remain unqualified. No mailbox mutation, live
 OAuth revoke, paid API call or private-vault push has occurred in this work.
-Kevin wants concise conversational briefs: relevant changes, implications, whether
-he needs to act; that copy refinement is still pending.

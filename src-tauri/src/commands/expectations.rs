@@ -33,7 +33,7 @@ pub const SEEDS: &[Seed] = &[
     Seed { id: "brief-spoken", statement: "The opening brief sounds like a spoken update, not a typed report: short, plain, no labels or bookkeeping.",
         kevin_said: "It sounds too much like a typed response I would see. I want to make it seem conversational. It can touch on all of these same points but this is too wordy for a verbal update.",
         said_on: "2026-11-14", source: "Claude Code session",
-        checks: &["brief.spoken-length", "brief.no-written-dates", "brief.no-version-numbers", "brief.no-labels", "brief.no-source-narration", "brief.no-exclamation"] },
+        checks: &["brief.spoken-length", "brief.no-written-dates", "brief.no-version-numbers", "brief.no-labels", "brief.no-source-narration", "brief.no-exclamation", "brief.says-it-once", "brief.no-build-notes"] },
     Seed { id: "brief-greeting", statement: "Each opening brief starts with a greeting suited to the time of day.",
         kevin_said: "For these opening briefs, can you have olympus start with \"Good evening, sir.\" Or \"Good morning, sir\" or \"Welcome back\".",
         said_on: "2026-11-14", source: "Claude Code session", checks: &["brief.greeting"] },
@@ -68,6 +68,8 @@ pub fn seed(connection: &Connection) -> rusqlite::Result<()> {
             "INSERT OR IGNORE INTO expectations (id, statement, kevin_said, said_on, source, checks_json, status) VALUES (?1, ?2, ?3, ?4, ?5, ?6, 'proposed')",
             params![s.id, s.statement, s.kevin_said, s.said_on, s.source, serde_json::to_string(s.checks).unwrap_or_else(|_| "[]".into())],
         )?;
+        // Which checks measure a seeded expectation is code's to say; Kevin's status on it stands.
+        connection.execute("UPDATE expectations SET checks_json = ?2 WHERE id = ?1 AND checks_json <> ?2", params![s.id, serde_json::to_string(s.checks).unwrap_or_else(|_| "[]".into())])?;
     }
     Ok(())
 }
@@ -101,6 +103,11 @@ fn result(id: &'static str, failures: Vec<String>) -> CheckResult {
 const MONTHS: &[&str] = &["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "sept", "oct", "nov", "dec", "january", "february", "march", "april", "june", "july", "august", "september", "october", "november", "december"];
 const NARRATION: &[&str] = &["gmail is connected", "mail is current", "since your last brief", "since the last brief", "no new mail has come in", "i checked", "i looked at", "according to my sources"];
 const STOP: &[&str] = &["that", "this", "with", "from", "your", "have", "still", "about", "kevin", "there", "their", "which", "would", "been", "were", "they", "what", "when", "will"];
+
+/// How a commit or a release is described, which is never how a change is said to Kevin.
+const BUILD_NOTES: &[&str] = &["pull request", " commit", "merged", " branch", "has an update that", "new release"];
+/// "analysis" and "analyze", "shipped" and "shipping": close enough to count as the same word heard twice.
+fn stem(word: &str) -> String { word.chars().take(5).collect() }
 
 /// Kevin's expectations of the spoken brief, as rules. `brief` is the spoken
 /// text without Olympus's greeting; `settled` the matters he has closed.
@@ -158,6 +165,21 @@ pub fn check_brief(brief: &str, settled: &[String]) -> Vec<CheckResult> {
         }
     }
     checks.push(result("brief.settled-stays-out", reopened));
+
+    // The brief of 2026-11-16 told Kevin the same thing to do twice. A sentence made
+    // almost wholly of words already spoken is a repeat, whatever order they come in.
+    let mut heard: Vec<String> = Vec::new();
+    let mut repeats = Vec::new();
+    for sentence in brief.split_inclusive(['.', '?']).map(str::trim).filter(|s| !s.is_empty()) {
+        let mut keys: Vec<String> = sentence.to_lowercase().split(|c: char| !c.is_alphanumeric()).filter(|w| w.len() >= 4 && !STOP.contains(w)).map(stem).collect();
+        keys.dedup();
+        if keys.len() >= 4 && keys.iter().filter(|k| heard.contains(k)).count() * 5 >= keys.len() * 4 {
+            repeats.push(format!("\"{sentence}\" repeats what was already said"));
+        }
+        heard.extend(keys);
+    }
+    checks.push(result("brief.says-it-once", repeats));
+    checks.push(result("brief.no-build-notes", BUILD_NOTES.iter().filter(|p| lower.contains(*p)).map(|p| format!("\"{}\"", p.trim())).collect()));
     checks
 }
 
@@ -304,7 +326,14 @@ pub struct Proposal {
     pub decided_at: Option<String>,
 }
 
+/// Build proposals a release has since delivered, by the title the review gave them.
+/// Kevin accepted both on 2026-11-15; 0.83.0 built them.
+const BUILT: &[&str] = &["Fall back when the usage limit stops a brief", "Stop specialist skills from calling disallowed tools"];
+
 pub fn proposals(connection: &Connection) -> rusqlite::Result<Vec<Proposal>> {
+    for title in BUILT {
+        connection.execute("UPDATE vision_proposals SET status = 'done', decided_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE kind = 'build' AND title = ?1 AND status IN ('proposed', 'accepted')", [title])?;
+    }
     let mut statement = connection.prepare(
         "SELECT id, run_id, kind, skill, title, detail, expectation, status, created_at, decided_at FROM vision_proposals \
          WHERE status IN ('proposed', 'accepted') OR decided_at >= strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-30 days') ORDER BY status <> 'proposed', id DESC LIMIT 60",
@@ -390,7 +419,7 @@ mod tests {
         c.execute("UPDATE expectations SET status = 'approved' WHERE id = 'brief-spoken'", []).unwrap();
         c.execute("UPDATE expectations SET status = 'retired' WHERE id = 'chat-or-voice'", []).unwrap();
         let later = report(&c, 7).unwrap();
-        assert_eq!((later.passed, later.total), (11, 12), "six rules on two briefs, one broken");
+        assert_eq!((later.passed, later.total), (15, 16), "eight rules on two briefs, one broken");
         let version = later.expectations[0].checks.iter().find(|s| s.id == "brief.no-version-numbers").unwrap();
         assert_eq!((version.passed, version.total, version.last_failure.as_deref()), (1, 2, Some("\"0.65.0\"")));
         seed(&c).unwrap();
@@ -414,6 +443,37 @@ mod tests {
         c.execute("UPDATE vision_proposals SET status = 'accepted', decided_at = 'x' WHERE id = ?1", [id]).unwrap();
         assert_eq!(standing_guidance(&c, "opening-brief"), vec!["Skip tracking numbers: Say the carrier and day only.".to_string()]);
         assert!(standing_guidance(&c, "work-request").is_empty());
-        assert_eq!(report(&c, 7).unwrap().passed, 10, "a rewrite replaces the run's earlier result");
+        assert_eq!(report(&c, 7).unwrap().passed, 14, "a rewrite replaces the run's earlier result");
+    }
+
+    #[test]
+    fn a_brief_says_each_thing_once_and_leaves_out_how_it_was_built() {
+        // Heard by Kevin on 2026-11-16.
+        let heard = "The email analysis choice has moved. Olympus now has an update that puts it in the Gmail connection panel instead of Preferences. I still can't see which route you picked. So check it there, then run Analyze by hand in Communications. Also, your HexClad pots and pans and the deep saute pan are due Wednesday. Hugmoom hasn't answered your order status question. Your Hue order has shipped. Check the email analysis choice in the Gmail panel, then run Analyze.";
+        let results = check_brief(heard, &[]);
+        assert_eq!(failed(&results), vec!["brief.says-it-once", "brief.no-build-notes"]);
+        assert!(results.iter().find(|r| r.id == "brief.says-it-once").unwrap().detail.contains("then run Analyze."));
+        let fine = "Your HexClad pots and pans are due Wednesday. Hugmoom still hasn't answered about your order. Your Hue order has shipped. Email analysis is running again, so Communications is current. Nothing needs you tonight.";
+        assert!(failed(&check_brief(fine, &[])).is_empty());
+    }
+
+    #[test]
+    fn seeding_again_adds_new_checks_and_keeps_kevins_decision() {
+        let c = db();
+        seed(&c).unwrap();
+        c.execute("UPDATE expectations SET status = 'approved', checks_json = '[\"brief.spoken-length\"]' WHERE id = 'brief-spoken'", []).unwrap();
+        seed(&c).unwrap();
+        let (status, checks): (String, String) = c.query_row("SELECT status, checks_json FROM expectations WHERE id = 'brief-spoken'", [], |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
+        assert!(status == "approved" && checks.contains("brief.says-it-once"));
+    }
+
+    #[test]
+    fn a_build_proposal_a_release_delivered_reads_as_done() {
+        let c = db();
+        store_proposals(&c, "r1", &[serde_json::json!({"kind": "build", "skill": "none", "title": BUILT[0], "detail": "d", "expectation": "e"}),
+            serde_json::json!({"kind": "build", "skill": "none", "title": "Something not built", "detail": "d", "expectation": "e"})]).unwrap();
+        let found = proposals(&c).unwrap();
+        assert_eq!(found.iter().find(|p| p.title == BUILT[0]).unwrap().status, "done");
+        assert_eq!(found.iter().find(|p| p.title == "Something not built").unwrap().status, "proposed");
     }
 }

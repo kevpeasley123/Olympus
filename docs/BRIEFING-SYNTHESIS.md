@@ -217,3 +217,18 @@ a spoken notice from the run itself: "Claude's usage limit is reached until
 6:30 PM, so this has to wait. Try again after that." The reset time comes from
 the recorded Claude reading; without one the notice says it is unknown. It is
 not a brief and the run stays failed.
+
+## Says it once, and can see its own settings (0.85.0)
+
+The brief of 2026-11-16 led with an Olympus change, said it could not see which
+email analysis route Kevin had picked (he had picked one), and told him the
+same thing to do twice. Three changes:
+
+- `recent_activity` reports `thisOlympus.emailAnalysis`: the chosen route and
+  when a situation was last updated. The instructions say never to ask Kevin to
+  check a setting, and that a working thing needs nothing from him.
+- A change to Olympus ranks after matters in his own life.
+- Two checks join the spoken-brief expectation and the one rewrite:
+  `brief.says-it-once` (a sentence made almost wholly of words already spoken)
+  and `brief.no-build-notes` (commit, merged, pull request and the like). On 29
+  of Kevin's recorded briefs they flag five, all real.

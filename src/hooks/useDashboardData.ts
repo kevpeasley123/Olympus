@@ -4,6 +4,7 @@ import { invoke } from "@tauri-apps/api/core";
 import {nativeBriefingScopeBarrier} from "../services/briefingScope";
 import {feedbackForBrief,resolveConversationTurn} from "../services/conversationFeedback";
 import { briefSaved } from "../services/displayedBrief";
+import { applyChatDecision, matchChatDecision } from "../services/chatDecisions";
 import { matchSkillRequest } from "../services/executableSkills";
 import { recordSourceAccess } from "../services/sourceActivity";
 import { prepareSituationBriefing } from "../services/situationBriefing";
@@ -509,6 +510,23 @@ export function useDashboardData() {
           const message=createAssistantMessage(record
             ? "Project Change Review #"+record.id+" · "+record.project+" · "+record.outcome+". "+record.detail+(record.revision?" · Git "+record.revision:"")
             : "Project reviews keep a durable source record. Run this skill from a saved conversation or the Armory.");
+          if(sessionRef.current.id===session.id){
+            dashboardRef.current={...dashboardRef.current,conversation:[...dashboardRef.current.conversation,message]};
+            setDashboardState(dashboardRef.current); await remember([message],session);
+            if(voiceDepth)return {messageId:message.id,spokenResponse:message.content,visualResponse:message.content,proposedActions:[],requiresConfirmation:false,conversationState:"answered"};
+          }
+        } catch(error){setChatError(errorMessage(error));}
+        finally{requestInFlight.current=false;setChatPending(false);}
+        return;
+      }
+      // "Accept the proposals", typed or spoken: Kevin's decision on the weekly review,
+      // carried out here without an engine run. The reply says exactly what changed.
+      const decision = matchChatDecision(trimmed);
+      if (decision) {
+        requestInFlight.current=true; setChatPending(true); setChatError(null);
+        try {
+          await userSaved;
+          const message=createAssistantMessage(await applyChatDecision(decision));
           if(sessionRef.current.id===session.id){
             dashboardRef.current={...dashboardRef.current,conversation:[...dashboardRef.current.conversation,message]};
             setDashboardState(dashboardRef.current); await remember([message],session);
