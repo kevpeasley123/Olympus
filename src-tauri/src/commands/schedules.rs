@@ -148,7 +148,7 @@ pub fn run_self_check(connection: &Connection) -> rusqlite::Result<Vec<Finding>>
     let found = self_check(connection);
     let message = match found.len() {
         0 => "Nothing wrong and nothing waiting.".to_string(),
-        n => format!("{n} finding{}, {} for Kevin.", if n == 1 { "" } else { "s" }, found.iter().filter(|f| f.needs_kevin).count()),
+        n => format!("{n} finding{}, {} needing you.", if n == 1 { "" } else { "s" }, found.iter().filter(|f| f.needs_kevin).count()),
     };
     record(connection, "self-check", &message, &json!({ "findings": found }))?;
     Ok(found)
