@@ -109,3 +109,20 @@ The first review (November 15) proposed two build tasks Kevin accepted; both
 shipped in 0.83.0: a run stopped by Claude's usage limit now says when the
 window resets (`limit_notice`), and the brief speaks that notice instead of
 failing silently; every skill checks its answer and rewrites it once.
+
+## Deciding by chat or voice (0.85.0)
+
+Kevin talks to Olympus only through the chat window or the microphone, so the
+decisions live there too. A short message that names the thing and the verb is
+carried out without an engine run (`src/services/chatDecisions.ts`):
+
+- "accept the proposals" / "dismiss the proposals" / "what are the proposals"
+- "approve the expectations" / "what are the expectations"
+
+Only what is still `proposed` is touched, and the reply says exactly what
+changed. A question, a negation, or a message over twelve words goes to the
+model as conversation; the system prompt tells it to point Kevin at these
+phrases and that it cannot decide for him. The Diagnostics buttons still work.
+
+A build proposal a release has since delivered is marked `done` when proposals
+are read (`BUILT` in `expectations.rs`), so finished work never waits on Kevin.

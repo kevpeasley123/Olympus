@@ -168,6 +168,17 @@ fn rows(connection: &Connection, sql: &str, since: &str, fields: &[&str]) -> Val
     read().map(Value::Array).unwrap_or_else(|_| json!({"unavailable": true}))
 }
 
+/// What Kevin chose for email analysis and when it last produced anything, so a
+/// brief never asks him to go and look at a setting Olympus can see itself.
+fn email_analysis(connection: &Connection) -> Value {
+    let route: Option<String> = connection.query_row("SELECT value FROM settings WHERE key = 'email.analysis.provider.v1'", [], |r| r.get(0)).ok();
+    let last: Option<String> = connection.query_row("SELECT max(updated_at) FROM communication_situations", [], |r| r.get(0)).ok().flatten();
+    json!({
+        "chosenRoute": match route.as_deref() { Some("claude-code") => "Claude subscription", Some("codex") => "Codex subscription", Some("ollama") => "local model", _ => "not chosen in the app" },
+        "lastSituationUpdate": last.map(Value::String).unwrap_or_else(|| json!("never")),
+    })
+}
+
 /// What changed in the last `days` days, as pointers into the other tools. Counts and
 /// dates come from the stores themselves; nothing here is summarised or judged.
 fn recent_activity(connection: &Connection, vault: Option<&Path>, days: i64) -> Value {
@@ -230,7 +241,7 @@ fn recent_activity(connection: &Connection, vault: Option<&Path>, days: i64) -> 
         "now": chrono::Utc::now().format("%Y-%m-%dT%H:%M:%SZ").to_string(),
         "lookedBackDays": days,
         // The copy of Olympus answering this call, so a note that says "not installed yet" can be checked against what is running.
-        "thisOlympus": {"version": env!("CARGO_PKG_VERSION"), "build": if cfg!(debug_assertions) { "development build" } else { "installed release" }},
+        "thisOlympus": {"version": env!("CARGO_PKG_VERSION"), "build": if cfg!(debug_assertions) { "development build" } else { "installed release" }, "emailAnalysis": email_analysis(connection)},
         "gmailConnection": connection_state,
         "mail": mail,
         "mailSituations": situations,
@@ -600,6 +611,8 @@ mod tests {
         assert!(!failed);
         assert_eq!(found["lookedBackDays"], 2);
         assert_eq!(found["thisOlympus"]["version"], env!("CARGO_PKG_VERSION"));
+        assert_eq!(found["thisOlympus"]["emailAnalysis"]["chosenRoute"], "not chosen in the app");
+        assert_eq!(found["thisOlympus"]["emailAnalysis"]["lastSituationUpdate"], "never");
         let notes = found["vaultNotes"]["changed"].as_array().unwrap();
         assert!(notes.len() == 1 && notes[0]["path"].as_str().unwrap().ends_with("Today.md"), "learned records are counted, not listed");
         assert_eq!(found["vaultNotes"]["learnedRecordsChanged"], 1);
