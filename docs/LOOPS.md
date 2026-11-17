@@ -44,3 +44,36 @@ which is the closest reading of subscription use, not a bill.
 
 Diagnostics shows the scorecard when it is opened: each loop's line, and its
 contract on expanding. It is read once per opening, never polled.
+
+## Scheduled loops (0.86.0)
+
+Work Olympus does on a rhythm while it is open, without being asked
+(`src-tauri/src/commands/schedules.rs`). A schedule is a fixed entry in
+`SCHEDULES`; nothing a model, a note or an email says can add one. A ticker
+checks six minutes after start and every quarter hour. Each schedule runs at
+most once per period, can be switched off, and records each run in
+`processing_logs` under `schedule.<id>` (kept 60 days). Diagnostics lists them
+with when each last ran and what it found (`schedule_status`), and a Check now
+button for the self-check (`run_self_check_now`).
+
+| Schedule | Every | Costs | Off switch |
+| --- | --- | --- | --- |
+| Self-check | 6 hours | No engine usage | `schedule.self-check.enabled` |
+| Weekly review | 7 days | One Claude run, under the review's own guards | `vision.review.enabled` |
+
+**Self-check.** Rules over Olympus's own records, no model: the last brief
+failed; three or more runs failed in a day; a brief rule broken twice or more
+in a day; Gmail needs reconnecting; email analysis failed three times running;
+review proposals a day old with no decision; no expectation approved; coding
+work a day old awaiting review. Findings marked `needsKevin` are ones only he
+can clear. The next brief receives them as `thisOlympus.selfCheck` in
+`recent_activity` and says one that needs him in a sentence, with the words
+that settle it. This is the "constantly" half of evaluating against the
+vision; the weekly review is the "periodically" half.
+
+**Weekly review.** The ticker now starts it when due, so an Olympus left open
+for days still reviews its week. The once-a-session start after the brief
+remains; the review's guards make a second start a refusal.
+
+Not built: a schedule that acts (anything beyond reading and proposing), and
+anything that runs while Olympus is closed.

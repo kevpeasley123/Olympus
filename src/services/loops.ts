@@ -63,3 +63,19 @@ export async function decideProposal(id: number, status: Proposal["status"]): Pr
 }
 /** Where an accepted proposal goes: an instruction takes effect in its skill; anything else waits for a coding session. */
 export const proposalEffect = (p: Pick<Proposal, "kind" | "skill">) => p.kind === "instruction" && p.skill !== "none" ? "in-effect" : "coding-session";
+
+export interface SelfFinding { id: string; needsKevin: boolean; text: string }
+export interface ScheduleCard { id: string; name: string; cadence: string; does: string; cost: string; enabled: boolean; lastRan: string | null; lastResult: string | null; nextDue: string | null; findings: SelfFinding[] }
+export async function readSchedules(): Promise<ScheduleCard[]> {
+  if (!isTauriRuntime()) return [];
+  return invoke<ScheduleCard[]>("schedule_status");
+}
+export const runSelfCheck = () => invoke<ScheduleCard[]>("run_self_check_now");
+/** "Every 6 hours · ran 2 h ago · Nothing wrong and nothing waiting." */
+export function describeSchedule(card: ScheduleCard, now: number): string {
+  if (!card.enabled) return `${card.cadence} · switched off`;
+  if (!card.lastRan) return `${card.cadence} · not run yet`;
+  const minutes = Math.max(0, Math.round((now - Date.parse(card.lastRan)) / 60_000));
+  const ago = minutes < 60 ? `${minutes} min ago` : minutes < 48 * 60 ? `${Math.round(minutes / 60)} h ago` : `${Math.round(minutes / 1440)} days ago`;
+  return `${card.cadence} · ran ${ago}${card.lastResult ? ` · ${card.lastResult}` : ""}`;
+}

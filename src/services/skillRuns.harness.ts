@@ -1,4 +1,4 @@
-import { reusableBrief, describeHandoff, describeRun, describeSource, matchChatHandoff, matchOperationRequest, operationReply, requestHeadline, describeUsage, isBrief, latestRun, mergeSkillRuns, type SkillRun } from "./skillRuns";
+import { reusableBrief, staleBrief, describeHandoff, describeRun, describeSource, matchChatHandoff, matchOperationRequest, operationReply, requestHeadline, describeUsage, isBrief, latestRun, mergeSkillRuns, type SkillRun } from "./skillRuns";
 
 export function runSkillRunsHarness() {
   let passed = 0;
@@ -12,6 +12,7 @@ export function runSkillRunsHarness() {
   const done = run("d", "2026-11-11T10:00:00Z", { status: "completed", finishedAt: "2026-11-11T10:01:00Z", output: spoken });
   const at = (clock: string) => Date.parse(`2026-11-11T${clock}Z`);
   check(reusableBrief([first, done], at("10:15:00"))?.id === "d", "A brief finished minutes ago is shown again");
+  check(!staleBrief([done], at("17:59:00")) && staleBrief([done], at("18:01:00")) && !staleBrief([], at("18:01:00")), "Eight hours without a brief earns one on return; a failed attempt counts as an attempt");
   check(reusableBrief([first, done], at("10:25:00")) === null, "A brief older than twenty minutes is prepared again");
   check(reusableBrief([done, run("e", "2026-11-11T10:05:00Z", { status: "failed", finishedAt: "2026-11-11T10:06:00Z" })], at("10:10:00")) === null, "A failed brief after it means try again");
   check(merged.map(r => r.id).join() === "b,a", "Runs are listed newest first");

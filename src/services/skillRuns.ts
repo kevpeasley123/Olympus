@@ -65,6 +65,14 @@ export function reusableBrief(runs: readonly SkillRun[], now: number): SkillRun 
   return age >= 0 && age < BRIEF_REUSE_MS ? latest : null;
 }
 
+/** How long after the last brief a return to the window earns a new one. */
+export const BRIEF_STALE_MS = 8 * 60 * 60_000;
+/** True when briefs have run before and the newest attempt, whatever came of it, started more than eight hours ago. */
+export function staleBrief(runs: readonly SkillRun[], now: number): boolean {
+  const latest = runs.filter(run => run.skillId === "opening-brief").sort((a, b) => b.startedAt.localeCompare(a.startedAt))[0];
+  return !!latest && latest.status !== "running" && now - Date.parse(latest.startedAt) > BRIEF_STALE_MS;
+}
+
 export interface SkillRunState { skills: SkillEntry[]; runs: SkillRun[]; usage: EngineUsage[]; error: string | null }
 
 /** Newest first, one row per run id; an update replaces the row it describes. */

@@ -232,3 +232,15 @@ same thing to do twice. Three changes:
   `brief.says-it-once` (a sentence made almost wholly of words already spoken)
   and `brief.no-build-notes` (commit, merged, pull request and the like). On 29
   of Kevin's recorded briefs they flag five, all real.
+
+## When a brief is prepared (0.86.0)
+
+- **Reopening within twenty minutes shows the brief already prepared**, silently,
+  instead of preparing another (`reusableBrief`). On 2026-11-15 seventeen
+  reopenings prepared seventeen briefs. New briefing always prepares one.
+- **Returning to an Olympus left open** asks for a brief when the last attempt
+  started more than eight hours ago (`staleBrief`), on window focus, and only
+  while Opening Briefing is on. Without it an Olympus left open overnight said
+  nothing the next morning. Added on Claude's judgment on 2026-11-16; Kevin has
+  not yet confirmed it.
+- The brief hears the self-check's findings (docs/LOOPS.md, "Scheduled loops").

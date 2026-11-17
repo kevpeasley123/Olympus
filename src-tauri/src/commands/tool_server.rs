@@ -241,7 +241,7 @@ fn recent_activity(connection: &Connection, vault: Option<&Path>, days: i64) -> 
         "now": chrono::Utc::now().format("%Y-%m-%dT%H:%M:%SZ").to_string(),
         "lookedBackDays": days,
         // The copy of Olympus answering this call, so a note that says "not installed yet" can be checked against what is running.
-        "thisOlympus": {"version": env!("CARGO_PKG_VERSION"), "build": if cfg!(debug_assertions) { "development build" } else { "installed release" }, "emailAnalysis": email_analysis(connection)},
+        "thisOlympus": {"version": env!("CARGO_PKG_VERSION"), "build": if cfg!(debug_assertions) { "development build" } else { "installed release" }, "emailAnalysis": email_analysis(connection), "selfCheck": super::schedules::findings_for_brief(connection)},
         "gmailConnection": connection_state,
         "mail": mail,
         "mailSituations": situations,

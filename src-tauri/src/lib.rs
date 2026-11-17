@@ -251,6 +251,7 @@ pub fn run() {
             commands::skill_runner::watch_dev_inbox(app.handle().clone());
             if !commands::acceptance::active() {
                 commands::chat_memory::start(app.handle().clone());
+                commands::schedules::start_ticker(app.handle().clone());
             }
             Ok(())
         })
@@ -290,6 +291,8 @@ pub fn run() {
             commands::expectations::decide_proposal,
             commands::skill_runner::start_due_vision_review,
             commands::expectations::set_expectation_status,
+            commands::schedules::schedule_status,
+            commands::schedules::run_self_check_now,
             commands::x_import::x_import_preview,
             commands::x_import::x_import_save,
             commands::agent_events::agent_events, commands::agent_events::agent_usage,

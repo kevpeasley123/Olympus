@@ -1,5 +1,5 @@
 import { gmailStatus } from "../services/gmail";
-import { isBrief, matchChatHandoff, operationReply, reusableBrief, runOperation, type SkillRun } from "../services/skillRuns";
+import { isBrief, matchChatHandoff, operationReply, reusableBrief, runOperation, staleBrief, type SkillRun } from "../services/skillRuns";
 import { invoke } from "@tauri-apps/api/core";
 import {nativeBriefingScopeBarrier} from "../services/briefingScope";
 import {feedbackForBrief,resolveConversationTurn} from "../services/conversationFeedback";
@@ -463,6 +463,21 @@ export function useDashboardData() {
     } catch (error) { if(briefingMounted.current) setChatError(errorMessage(error)); }
     finally { briefingLock.current = false; if(briefingMounted.current) setBriefingPending(false); }
   }, [sessionBoundary, remember, showLocalBrief]);
+
+  // Olympus left open overnight never "opens", so it never briefed the next morning. Coming
+  // back to the window after eight hours without a brief asks for one, at most once per return.
+  useEffect(() => {
+    if (!isTauriRuntime()) return;
+    const returned = () => {
+      if (document.visibilityState !== "visible" || !dashboardRef.current.settings.briefOnOpen || !openingBriefed.current || briefingLock.current || requestInFlight.current) return;
+      void invoke<SkillRun[]>("list_skill_runs", { limit: 20 }).then(runs => {
+        if (staleBrief(runs, Date.now()) && !briefingLock.current && !requestInFlight.current) void requestBriefing();
+      }).catch(() => undefined);
+    };
+    window.addEventListener("focus", returned);
+    document.addEventListener("visibilitychange", returned);
+    return () => { window.removeEventListener("focus", returned); document.removeEventListener("visibilitychange", returned); };
+  }, [requestBriefing]);
 
   const sendChatMessage = useCallback(
     async (text: string, voiceDepth?: VoiceDepth, voiceMessageId?: string, turn?: TurnContext): Promise<VoiceAnswer | undefined> => {

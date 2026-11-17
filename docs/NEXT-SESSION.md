@@ -1,35 +1,29 @@
 # Next session
 
-## Olympus 0.85.0 - merged November 16, 2026
+## Olympus 0.86.0 - merged November 16, 2026
 
 Kevin installed 0.82.0 on November 15: the brief passed all eight checks and
 the first weekly review ran, proposing three brief instructions and two build
 tasks, built in 0.83.0. Kevin set Email analysis on November 15 after
 finding it under Subscription engines. Unconfirmed against real data:
+- 0.86.0: Hephaestus from chat ("have Hephaestus ...", "approve"), checks run
+  for Kevin, one approved revision (AGENT-DELEGATION.md); scheduled loops and
+  the self-check (LOOPS.md); brief reuse on reopen and on return after 8 hours.
+  No delegated run has ever happened: the first one is the test of all of it.
 - 0.85.0: "accept the proposals" / "approve the expectations" by chat or
   voice; brief sees the email analysis route and says each thing once.
 - 0.84.0: Email analysis choice in the Gmail panel (installed; analysis ran
   November 16, 20 situations).
 - 0.83.0: usage-limit notice; every skill rewrites a rejected answer once.
-- 0.82.0: email analysis route in Preferences. Email analysis has waited for
-  a local model since November 10; Kevin picks a route to restart it.
-- 0.81.0: proposals Kevin accepts become standing guidance or coding work;
-  one retry per run for outside failures. Migration 12. VISION-REVIEW.md.
-- 0.80.0: the weekly vision review (VISION-REVIEW.md). First run is due four
-  minutes after Olympus next opens.
-- 0.79.0: expectations, brief checks and the vision score; migration 11.
-- 0.78.0: brief citation repair and one rewrite (BRIEFING-SYNTHESIS.md).
-- 0.77.0: loop contracts and the weekly loop scorecard (docs/LOOPS.md). Next in
-  the loop plan: the vision review loop (expectations from Kevin's words).
-- 0.76.0: one-round verify-and-revise loop in Ask Olympus (SKILL-RUNNER.md).
-- 0.75.0: chat checkpoint repair after Kevin hit
-  `working_checkpoint_requires_operator_evidence` (CONVERSATIONS-AND-MEMORY.md).
-- 0.74.0: operation timeline, hand-offs, next step and failure kinds in the
-  Activity Deck (AGENT-EVENTS.md). Verify with one real /ask that hands off.
+- 0.79.0 to 0.82.0: expectations and brief checks, the weekly review, accepted
+  proposals as standing guidance, the email analysis route. Kevin accepted all
+  five proposals on November 16; the twelve expectations are still proposed.
+- 0.74.0 to 0.78.0: Activity Deck timeline and hand-offs, chat checkpoint
+  repair, the Ask Olympus revise loop, loop contracts, brief citation repair.
 - 0.65.0 to 0.73.0: usage, spoken brief, greeting, settled matters, voice
   lead-in, visual passes, Import from X, Armory tab. See RELEASES.md.
 
-0.54.0 to 0.85.0 (pull requests 38 to 73) are merged. Kevin installed 0.58.0 on
+0.54.0 to 0.86.0 (pull requests 38 to 74) are merged. Kevin installed 0.58.0 on
 November 13 and it opened almost unstyled: a brace lost from `activityDeck.css`
 in 0.57.0 broke the joined production stylesheet. 0.59.0 fixes it and must be
 installed with `npm run update` from `Desktop/Projects/Olympus`. The installed
